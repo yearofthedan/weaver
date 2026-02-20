@@ -2,7 +2,7 @@
 
 ## What they are
 
-Engines are the language-specific layer that execute refactoring and lookup operations against the project. passed-on delegates all code intelligence to the engines — it does not own or manage the AST directly.
+Engines are the language-specific layer that execute refactoring and lookup operations against the project. light-bridge delegates all code intelligence to the engines — it does not own or manage the AST directly.
 
 ## Current engines
 
@@ -12,10 +12,12 @@ Engines are the language-specific layer that execute refactoring and lookup oper
 ## Operations
 
 ### Refactoring (mutating)
+
 - `rename` — rename a symbol at a given position and update all references project-wide
 - `move` — move a file and update all import paths that reference it
 
 ### Lookup (read-only)
+
 - Planned for a later tier — e.g. find references, go to definition, list symbols
 - These give the agent information without consuming file content in its context window
 
@@ -28,6 +30,3 @@ The operation surface is intentionally small to start. Rename and move are the m
 - Operations beyond rename and move
 - Lookup tools
 
-## Known bugs
-
-- **Router dispatches on file extension, not project type** — renaming a symbol in a `.ts` file that is imported by `.vue` files is incorrectly routed to the TypeScript engine, which is blind to Vue SFCs. Vue usages are silently missed. Fix: detect project type at startup and route all operations through VueEngine when `.vue` files are present.

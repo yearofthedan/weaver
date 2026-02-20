@@ -2,14 +2,16 @@
 
 ## What it does
 
-Exposes passed-on's refactoring tools via the Model Context Protocol over stdio, keeping the engine alive for the duration of an agent session.
+Exposes light-bridge's refactoring tools via the Model Context Protocol over stdio, keeping the engine alive for the duration of an agent session.
 
 ## How it works
 
-- Server process is launched with the workspace root as a CLI argument
-- Project is parsed into memory on startup
-- Agent calls tools over stdio for the session lifetime
-- Server shuts down when the session ends
+- `light-bridge serve --workspace <path>` is launched by the agent host (e.g. Claude, Cursor) at session start
+- `serve` locates the running daemon for the workspace, or auto-spawns one if none exists
+- The daemon owns the project graph and the file watcher — `serve` does not load the project itself
+- Agent tool calls arrive over stdio, are forwarded to the daemon via a local socket, and responses are returned
+- If the daemon is still initialising, `serve` rejects the tool call with `DAEMON_STARTING` — the agent retries; there is no buffering
+- Server shuts down when the session ends; the daemon continues running
 
 ## Tool interface
 
@@ -23,6 +25,7 @@ Tools use position-based parameters, consistent with the LSP standard:
 Every tool call returns a JSON object. The agent should be able to act on the response without reading any modified files.
 
 Success:
+
 ```json
 {
   "ok": true,
@@ -32,6 +35,7 @@ Success:
 ```
 
 Failure:
+
 ```json
 {
   "ok": false,
@@ -44,9 +48,10 @@ The agent receives confirmation of what changed and where. It does not need to i
 
 ## Assumptions
 
-- One server instance per agent session
+- One `serve` process per agent session
+- One daemon process per workspace
 - Workspace root is known at startup
-- Agent session lifetime equals server process lifetime
+- Agent session lifetime equals `serve` process lifetime; daemon lifetime is independent
 
 ## Out of scope
 
