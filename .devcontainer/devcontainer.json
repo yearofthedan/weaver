@@ -49,6 +49,7 @@
   ],
   "onCreateCommand": "bash .devcontainer/onCreate.sh",
   "postCreateCommand": "pnpm install",
+  "postStartCommand": "npm install -g @anthropic-ai/claude-code@latest",
   "containerEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "GIT_CONFIG_COUNT": "1",
