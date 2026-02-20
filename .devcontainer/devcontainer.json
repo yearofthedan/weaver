@@ -1,0 +1,58 @@
+{
+  "name": "light-bridge Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "workspaceMount": "source=${localWorkspaceFolderBasename}-workspace,target=/workspaces/${localWorkspaceFolderBasename},type=volume",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "latest",
+      "ppa": true
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers-extra/features/pnpm:2": {
+      "version": "10.0.0"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Vue.volar",
+        "biomejs.biome",
+        "anthropic.claude-code"
+      ],
+      "settings": {
+        "editor.defaultFormatter": "biomejs.biome",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.biome": "explicit"
+        },
+        "files.watcherExclude": {
+          "**/node_modules/**": true,
+          "**/.git/objects/**": true,
+          "**/.git/subtree-cache/**": true,
+          "**/dist/**": true,
+          "**/coverage/**": true,
+          "**/.pnpm-store/**": true
+        }
+      }
+    }
+  },
+  "remoteUser": "node",
+  "mounts": [
+    "source=${localWorkspaceFolderBasename}-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
+    "source=${localWorkspaceFolderBasename}-extensions,target=/home/node/.vscode-server/extensions,type=volume",
+    "source=${localWorkspaceFolderBasename}-global-storage,target=/home/node/.vscode-server/data/User/globalStorage,type=volume"
+  ],
+  "onCreateCommand": "bash .devcontainer/onCreate.sh",
+  "postCreateCommand": "pnpm install",
+  "containerEnv": {
+    "NODE_OPTIONS": "--max-old-space-size=4096",
+    "GIT_CONFIG_COUNT": "1",
+    "GIT_CONFIG_KEY_0": "safe.directory",
+    "GIT_CONFIG_VALUE_0": "${containerWorkspaceFolder}"
+  }
+}
