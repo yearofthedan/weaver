@@ -19,11 +19,7 @@
   },
   "customizations": {
     "vscode": {
-      "extensions": [
-        "Vue.volar",
-        "biomejs.biome",
-        "anthropic.claude-code"
-      ],
+      "extensions": ["Vue.volar", "biomejs.biome", "anthropic.claude-code"],
       "settings": {
         "editor.defaultFormatter": "biomejs.biome",
         "editor.formatOnSave": true,
@@ -49,7 +45,7 @@
   ],
   "onCreateCommand": "bash .devcontainer/onCreate.sh",
   "postCreateCommand": "pnpm install",
-  "postStartCommand": "npm install -g @anthropic-ai/claude-code@latest",
+  "postStartCommand": "pnpm install -g @anthropic-ai/claude-code@latest",
   "containerEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "GIT_CONFIG_COUNT": "1",
