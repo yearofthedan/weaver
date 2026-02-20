@@ -1,9 +1,12 @@
 import { Command, type CommanderError } from "commander";
 import { runMove } from "./commands/move.js";
 import { runRename } from "./commands/rename.js";
+import { runServe } from "./commands/serve.js";
 
 function jsonError(message: string): void {
-  process.stdout.write(`${JSON.stringify({ ok: false, error: "VALIDATION_ERROR", message })}\n`);
+  process.stdout.write(
+    `${JSON.stringify({ ok: false, error: "VALIDATION_ERROR", message })}\n`,
+  );
   process.exit(1);
 }
 
@@ -15,7 +18,7 @@ function commanderExitOverride(err: CommanderError): never {
 const program = new Command();
 
 program
-  .name("passed-on")
+  .name("light-bridge")
   .description("Headless CLI refactoring engine for AI agents")
   .version("0.1.0")
   .configureOutput({ writeErr: () => {} }) // suppress Commander's own stderr text
@@ -43,8 +46,22 @@ program
     await runMove(opts);
   });
 
+program
+  .command("serve")
+  .description("Start a server for refactoring operations")
+  .requiredOption(
+    "--workspace <path>",
+    "Root directory of the project to serve",
+  )
+  .exitOverride(commanderExitOverride)
+  .action(async (opts) => {
+    await runServe(opts);
+  });
+
 program.parseAsync(process.argv).catch((err: unknown) => {
   const message = err instanceof Error ? err.message : String(err);
-  process.stdout.write(`${JSON.stringify({ ok: false, error: "ENGINE_ERROR", message })}\n`);
+  process.stdout.write(
+    `${JSON.stringify({ ok: false, error: "ENGINE_ERROR", message })}\n`,
+  );
   process.exit(1);
 });
