@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { isDaemonAlive } from "../src/daemon/paths.js";
+import { isDaemonAlive, lockfilePath, socketPath } from "../src/daemon/paths.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
@@ -135,24 +135,47 @@ export function spawnAndWaitForReady(
 }
 
 /**
- * Poll until the daemon socket is live for the given workspace directory,
- * or reject after timeoutMs. Use this after spawnAndWaitForReady("serve")
- * when the test needs the daemon to be fully up before making tool calls.
+ * Poll until the daemon socket file exists for the given workspace directory,
+ * or reject after timeoutMs. Polls the socket file (created at server.listen)
+ * rather than the lockfile PID to avoid a race where the PID is written but
+ * the socket is not yet listening.
  */
 export function waitForDaemon(dir: string, timeoutMs = 30_000): Promise<void> {
   return new Promise((resolve, reject) => {
     const deadline = Date.now() + timeoutMs;
+    const sockPath = socketPath(dir);
     const poll = () => {
-      if (isDaemonAlive(dir)) {
+      if (fs.existsSync(sockPath)) {
         resolve();
       } else if (Date.now() >= deadline) {
-        reject(new Error(`Timed out waiting for daemon to become alive after ${timeoutMs}ms`));
+        reject(new Error(`Timed out waiting for daemon socket after ${timeoutMs}ms`));
       } else {
         setTimeout(poll, 100);
       }
     };
     poll();
   });
+}
+
+/**
+ * Kill the daemon process for the given workspace directory, if it is running.
+ * Reads the PID from the lockfile and sends SIGTERM. Call this in afterEach
+ * before removeDaemonFiles so the daemon process is cleaned up.
+ */
+export function killDaemon(dir: string): void {
+  const pidPath = lockfilePath(dir);
+  try {
+    const pid = parseInt(fs.readFileSync(pidPath, "utf8").trim(), 10);
+    if (!Number.isNaN(pid)) {
+      try {
+        process.kill(pid, "SIGTERM");
+      } catch {
+        // already gone
+      }
+    }
+  } catch {
+    // lockfile missing — nothing to kill
+  }
 }
 
 /**

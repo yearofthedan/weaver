@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { removeDaemonFiles } from "../../src/daemon/paths";
-import { McpTestClient, cleanup, copyFixture, readFile, spawnAndWaitForReady, waitForDaemon } from "../helpers";
+import { McpTestClient, cleanup, copyFixture, killDaemon, readFile, spawnAndWaitForReady, waitForDaemon } from "../helpers";
 
 describe("MCP transport — rename tool", () => {
   const dirs: string[] = [];
@@ -12,6 +12,7 @@ describe("MCP transport — rename tool", () => {
       if (!proc.killed) proc.kill();
     }
     for (const dir of dirs.splice(0)) {
+      killDaemon(dir);
       removeDaemonFiles(dir);
       cleanup(dir);
     }

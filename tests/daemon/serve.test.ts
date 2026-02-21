@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { isDaemonAlive, lockfilePath, removeDaemonFiles, socketPath } from "../../src/daemon/paths";
-import { cleanup, copyFixture, spawnAndWaitForReady, waitForDaemon } from "../helpers";
+import { cleanup, copyFixture, killDaemon, spawnAndWaitForReady, waitForDaemon } from "../helpers";
 
 describe("serve command — daemon integration", () => {
   const dirs: string[] = [];
@@ -12,6 +12,7 @@ describe("serve command — daemon integration", () => {
       if (!proc.killed) proc.kill();
     }
     for (const dir of dirs.splice(0)) {
+      killDaemon(dir);
       removeDaemonFiles(dir);
       cleanup(dir);
     }
