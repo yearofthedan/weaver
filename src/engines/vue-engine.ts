@@ -249,6 +249,11 @@ export class VueEngine implements RefactorEngine {
     return cached;
   }
 
+  private invalidateService(filePath: string): void {
+    const tsConfigPath = findTsConfigForFile(filePath);
+    this.services.delete(tsConfigPath ?? `__no_tsconfig__:${path.dirname(filePath)}`);
+  }
+
   async rename(
     filePath: string,
     line: number,
@@ -409,6 +414,10 @@ export class VueEngine implements RefactorEngine {
       fs.mkdirSync(destDir, { recursive: true });
     }
     fs.renameSync(absOld, absNew);
+
+    // Invalidate the cached service: scriptFileNames was built from the pre-move
+    // filesystem state. The next call rebuilds from current disk state.
+    this.invalidateService(absOld);
 
     if (!modifiedFiles.includes(absNew)) {
       modifiedFiles.push(absNew);

@@ -94,6 +94,30 @@ describe("VueEngine (unit tests)", () => {
       expect(result.filesModified).toContain(`${dir}/src/App.vue`);
     });
 
+    it("updates imports on move-back with the same engine instance", async () => {
+      const dir = setup(); // vue-project — App.vue and main.ts both import the composable
+      const engine = new VueEngine();
+
+      // Move 1: src/composables/useCounter.ts → src/utils/useCounter.ts
+      await engine.moveFile(
+        `${dir}/src/composables/useCounter.ts`,
+        `${dir}/src/utils/useCounter.ts`,
+      );
+      expect(readFile(dir, "src/main.ts")).toContain("utils/useCounter");
+
+      // Move 2 (back): src/utils/useCounter.ts → src/composables/useCounter.ts
+      await engine.moveFile(
+        `${dir}/src/utils/useCounter.ts`,
+        `${dir}/src/composables/useCounter.ts`,
+      );
+
+      expect(fileExists(dir, "src/composables/useCounter.ts")).toBe(true);
+      expect(fileExists(dir, "src/utils/useCounter.ts")).toBe(false);
+      const mainContent = readFile(dir, "src/main.ts");
+      expect(mainContent).toContain("composables/useCounter");
+      expect(mainContent).not.toContain("utils/useCounter");
+    });
+
     it("throws FILE_NOT_FOUND for non-existent source", async () => {
       const dir = setup();
       const engine = new VueEngine();

@@ -120,6 +120,11 @@ export class TsEngine implements RefactorEngine {
     };
   }
 
+  private invalidateProject(filePath: string): void {
+    const tsConfigPath = findTsConfigForFile(filePath);
+    this.projects.delete(tsConfigPath ?? "__no_tsconfig__");
+  }
+
   async moveFile(oldPath: string, newPath: string): Promise<MoveResult> {
     const absOld = path.resolve(oldPath);
     const absNew = path.resolve(newPath);
@@ -152,6 +157,10 @@ export class TsEngine implements RefactorEngine {
       .map((sf) => sf.getFilePath() as string);
 
     await project.save();
+
+    // Invalidate the cached project: after a file move the TypeScript program is stale.
+    // The next call will rebuild from the current disk state.
+    this.invalidateProject(absOld);
 
     // ts-morph doesn't know about .vue files; scan and rewrite their imports manually
     const tsConfigForScan = findTsConfigForFile(absOld);

@@ -124,6 +124,24 @@ describe("TsEngine (unit tests)", () => {
       expect(result.filesModified).toContain(newPath);
     });
 
+    it("updates imports on move-back with the same engine instance", async () => {
+      const dir = setup();
+      const engine = new TsEngine();
+
+      // Move 1: src/utils.ts → lib/utils.ts
+      await engine.moveFile(`${dir}/src/utils.ts`, `${dir}/lib/utils.ts`);
+      expect(readFile(dir, "src/main.ts")).toContain("../lib/utils");
+
+      // Move 2 (back): lib/utils.ts → src/utils.ts
+      await engine.moveFile(`${dir}/lib/utils.ts`, `${dir}/src/utils.ts`);
+
+      expect(fileExists(dir, "src/utils.ts")).toBe(true);
+      expect(fileExists(dir, "lib/utils.ts")).toBe(false);
+      const mainContent = readFile(dir, "src/main.ts");
+      expect(mainContent).toContain("./utils");
+      expect(mainContent).not.toContain("../lib/utils");
+    });
+
     it("throws FILE_NOT_FOUND for non-existent source", async () => {
       const dir = setup();
       const engine = new TsEngine();

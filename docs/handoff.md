@@ -23,9 +23,13 @@ Read the docs in this order:
 - TsEngine: safe — ts-morph is initialized from `tsconfig.json` which excludes `dist/`
 - VueEngine: gap — `ts.sys.readDirectory()` bypasses tsconfig excludes when discovering `.vue` files; dist/ Vue files would be included in the language service. `vue-scan.ts` correctly excludes dist/ in the post-move import rewrite step, but the language service phase is exposed.
 
+**Move-back bug fixed:** after a `moveFile`, both `TsEngine` and `VueEngine` now invalidate their cached project/service (`invalidateProject` / `invalidateService`). The next call rebuilds from current disk state, so a move-back correctly resolves import paths. Two new regression tests cover this (`updates imports on move-back with the same engine instance` in both engine test files). A `src/main.ts` was added to the `vue-project` fixture to provide a `.ts` importer (required to expose the VueEngine bug — `.vue` importers are handled by regex scan and would have masked it).
+
+**Daemon leak found and documented:** tests that spawn `serve` leave detached daemon processes running, which can OOM the container over a long session. See `docs/tech/tech-debt.md` for the fix approach.
+
 **Next things to build, in order:**
 
-1. **Bug** investigate the bug when dogfooding where the move works and updates imports but the move back didn't update imports (maybe the state is out of date after the first run)
+1. **Bug (test cleanup)** — leaked daemon processes from serve/MCP tests fill memory; add `killDaemon(dir)` helper and fix `waitForDaemon` race (see tech-debt.md)
 2. **Bug (VueEngine)** filter dist/ (and other build dirs) from `ts.sys.readDirectory()` results in `buildService()` — use the same skip-list as `vue-scan.ts`
 3. **Audit code** — check for unrequired code that may have lingered, unneeded features, consider removing CLI commands, identify tech debt
 4. **Hardening** - Renovate, pinned packages
