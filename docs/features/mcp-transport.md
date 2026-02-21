@@ -59,6 +59,20 @@ The agent receives confirmation of what changed and where. It does not need to i
 - Multi-workspace — requires multiple project instances and a routing layer; revisit once single-workspace is proven
 - Non-stdio transports (HTTP, SSE) — no current consumer; revisit if the use case emerges
 
+## Implementation notes
+
+### MCP layer (`serve`)
+
+Use `@modelcontextprotocol/sdk` (not yet installed) for the stdio-facing side. It handles the Content-Length framing, JSON-RPC lifecycle, and tool registration with JSON schema. Do not implement the MCP wire format manually.
+
+### Daemon socket protocol
+
+The internal `serve`↔`daemon` socket uses plain newline-delimited JSON — one JSON object per line, no framing library needed. Each request includes a `method` (`rename` or `move`) and params. The daemon writes a single JSON response line per request.
+
+### Testing approach
+
+Each operation is tested as a vertical slice through all layers: spawn `serve`, write a valid MCP tool call to its stdin, assert the MCP response on stdout and that the files changed on disk. Daemon parsing is covered implicitly.
+
 ## TBD
 
 - Startup UX: whether the slow initial parse needs a progress signal back to the agent

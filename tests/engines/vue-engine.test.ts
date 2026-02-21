@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { VueEngine } from "../../src/engines/vue-engine";
-import { cleanup, copyFixture, readFile, fileExists } from "../helpers";
+import { cleanup, copyFixture, fileExists, readFile } from "../helpers";
 
 describe("VueEngine (unit tests)", () => {
   const dirs: string[] = [];

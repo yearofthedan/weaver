@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { TsEngine } from "../../src/engines/ts-engine";
-import { cleanup, copyFixture, readFile, fileExists } from "../helpers";
+import { cleanup, copyFixture, fileExists, readFile } from "../helpers";
 
 describe("TsEngine (unit tests)", () => {
   const dirs: string[] = [];

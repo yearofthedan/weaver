@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -85,4 +85,45 @@ export function fileExists(dir: string, relative: string): boolean {
 /** Delete a temp dir produced by copyFixture. */
 export function cleanup(dir: string): void {
   fs.rmSync(dir, { recursive: true, force: true });
+}
+
+/**
+ * Spawn the CLI and wait for a `{ status: "ready" }` line on stderr.
+ * Returns the ChildProcess so the caller can kill it in afterEach.
+ * Rejects if the ready signal is not received within `timeoutMs`.
+ */
+export function spawnAndWaitForReady(args: string[], timeoutMs = 30_000): Promise<ChildProcess> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(TSX_BIN, [CLI_ENTRY, ...args], {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" },
+    });
+
+    let stderrBuf = "";
+
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`Timed out waiting for ready signal after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderrBuf += chunk.toString();
+      for (const line of stderrBuf.split("\n")) {
+        try {
+          const msg = JSON.parse(line.trim());
+          if (msg.status === "ready") {
+            clearTimeout(timer);
+            resolve(child);
+          }
+        } catch {
+          // not JSON, ignore
+        }
+      }
+    });
+
+    child.on("exit", (code) => {
+      clearTimeout(timer);
+      reject(new Error(`Process exited early with code ${code}`));
+    });
+  });
 }

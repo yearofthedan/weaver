@@ -1,12 +1,11 @@
 import { Command, type CommanderError } from "commander";
+import { runDaemon } from "./commands/daemon.js";
 import { runMove } from "./commands/move.js";
 import { runRename } from "./commands/rename.js";
 import { runServe } from "./commands/serve.js";
 
 function jsonError(message: string): void {
-  process.stdout.write(
-    `${JSON.stringify({ ok: false, error: "VALIDATION_ERROR", message })}\n`,
-  );
+  process.stdout.write(`${JSON.stringify({ ok: false, error: "VALIDATION_ERROR", message })}\n`);
   process.exit(1);
 }
 
@@ -47,12 +46,18 @@ program
   });
 
 program
+  .command("daemon")
+  .description("Start a long-lived daemon process for a workspace")
+  .requiredOption("--workspace <path>", "Root directory of the project to serve")
+  .exitOverride(commanderExitOverride)
+  .action(async (opts) => {
+    await runDaemon(opts);
+  });
+
+program
   .command("serve")
   .description("Start a server for refactoring operations")
-  .requiredOption(
-    "--workspace <path>",
-    "Root directory of the project to serve",
-  )
+  .requiredOption("--workspace <path>", "Root directory of the project to serve")
   .exitOverride(commanderExitOverride)
   .action(async (opts) => {
     await runServe(opts);
@@ -60,8 +65,6 @@ program
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   const message = err instanceof Error ? err.message : String(err);
-  process.stdout.write(
-    `${JSON.stringify({ ok: false, error: "ENGINE_ERROR", message })}\n`,
-  );
+  process.stdout.write(`${JSON.stringify({ ok: false, error: "ENGINE_ERROR", message })}\n`);
   process.exit(1);
 });

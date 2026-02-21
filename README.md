@@ -133,7 +133,7 @@ Tests include:
 
 - **Unit tests** — engine operations in isolation (`tests/engines/`)
 - **Integration tests** — CLI operations via subprocess (`tests/rename.test.ts`, `tests/move.test.ts`, `tests/vue.test.ts`)
-- **33 total tests** covering rename, move, and cross-boundary Vue scenarios
+- **Daemon tests** — lifecycle, socket, and serve integration (`tests/daemon/`)
 
 ## Project structure
 
@@ -158,6 +158,10 @@ tests/
 ├── engines/
 │   ├── ts-engine.test.ts  # TsEngine unit tests
 │   └── vue-engine.test.ts # VueEngine unit tests
+├── daemon/
+│   ├── paths.test.ts      # Socket/lockfile path utilities
+│   ├── daemon.test.ts     # Daemon lifecycle integration tests
+│   └── serve.test.ts      # serve↔daemon integration tests
 ├── rename.test.ts         # CLI integration tests (rename)
 ├── move.test.ts           # CLI integration tests (move)
 ├── vue.test.ts            # CLI integration tests (Vue cross-boundary)
