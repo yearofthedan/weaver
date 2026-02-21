@@ -1,10 +1,10 @@
 import * as path from "node:path";
 import * as ts from "typescript";
-import type { RefactorEngine } from "./engines/types.js";
-import { findTsConfigForFile } from "./project.js";
+import type { RefactorEngine } from "../engines/types.js";
+import { findTsConfigForFile } from "../engines/project.js";
 
-let tsEngine: import("./engines/ts-engine.js").TsEngine | undefined;
-let vueEngine: import("./engines/vue-engine.js").VueEngine | undefined;
+let tsEngine: import("../engines/ts-engine.js").TsEngine | undefined;
+let vueEngine: import("../engines/vue-engine.js").VueEngine | undefined;
 
 /**
  * Returns true if the project directory (rooted at the tsconfig location)
@@ -32,14 +32,14 @@ export async function getEngine(filePath: string): Promise<RefactorEngine> {
 
   if (tsConfigPath && isVueProject(tsConfigPath)) {
     if (!vueEngine) {
-      const { VueEngine } = await import("./engines/vue-engine.js");
+      const { VueEngine } = await import("../engines/vue-engine.js");
       vueEngine = new VueEngine();
     }
     return vueEngine;
   }
 
   if (!tsEngine) {
-    const { TsEngine } = await import("./engines/ts-engine.js");
+    const { TsEngine } = await import("../engines/ts-engine.js");
     tsEngine = new TsEngine();
   }
   return tsEngine;

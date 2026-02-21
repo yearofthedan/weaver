@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { findTsConfigForFile } from "../project.js";
-import { SKIP_DIRS, updateVueImportsAfterMove } from "../vue-scan.js";
+import { findTsConfigForFile } from "./project.js";
+import { SKIP_DIRS, updateVueImportsAfterMove } from "./vue-scan.js";
 import type { MoveResult, RefactorEngine, RenameResult } from "./types.js";
 
 interface VolarLanguageService {

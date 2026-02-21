@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
-import { ensureCacheDir, lockfilePath, removeDaemonFiles, socketPath } from "../daemon/paths.js";
-import { getEngine } from "../router.js";
+import { ensureCacheDir, lockfilePath, removeDaemonFiles, socketPath } from "./paths.js";
+import { getEngine } from "./router.js";
 
 export async function runDaemon(opts: { workspace: string }): Promise<void> {
   const absWorkspace = path.resolve(opts.workspace);

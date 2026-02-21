@@ -1,8 +1,8 @@
 import { Command, type CommanderError } from "commander";
-import { runDaemon } from "./commands/daemon.js";
+import { runDaemon } from "./daemon/daemon.js";
 import { runMove } from "./commands/move.js";
 import { runRename } from "./commands/rename.js";
-import { runServe } from "./commands/serve.js";
+import { runServe } from "./mcp/serve.js";
 
 function jsonError(message: string): void {
   process.stdout.write(`${JSON.stringify({ ok: false, error: "VALIDATION_ERROR", message })}\n`);

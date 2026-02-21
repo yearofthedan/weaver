@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { outputError, outputSuccess } from "../output.js";
-import { getEngine } from "../router.js";
+import { getEngine } from "../daemon/router.js";
 import { MoveArgsSchema } from "../schema.js";
 
 export async function runMove(rawArgs: { oldPath: string; newPath: string }): Promise<void> {

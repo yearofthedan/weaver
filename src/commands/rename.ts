@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { outputError, outputSuccess } from "../output.js";
-import { getEngine } from "../router.js";
+import { getEngine } from "../daemon/router.js";
 import { RenameArgsSchema } from "../schema.js";
 
 export async function runRename(rawArgs: {

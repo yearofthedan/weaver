@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Node, Project } from "ts-morph";
-import { findTsConfigForFile } from "../project.js";
-import { updateVueImportsAfterMove } from "../vue-scan.js";
+import { findTsConfigForFile } from "./project.js";
+import { updateVueImportsAfterMove } from "./vue-scan.js";
 import type { MoveResult, RefactorEngine, RenameResult } from "./types.js";
 
 export class TsEngine implements RefactorEngine {
