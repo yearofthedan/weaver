@@ -17,7 +17,8 @@ pnpm build        # compile TypeScript
 pnpm test         # run all tests
 pnpm check        # biome check + build + test
 pnpm lint         # lint only
-pnpm format       # format in place
+pnpm format       # format in place (whitespace/style only — does NOT fix import ordering)
+pnpm exec biome check --write .  # fix everything: format + lint assists (organizeImports etc.)
 ```
 
 ## Agent rules

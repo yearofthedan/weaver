@@ -18,6 +18,12 @@ In `serve`, bring the MCP server up before triggering daemon auto-spawn. If the 
 **Test race: daemon socket not yet open when test connects.**
 After spawning the daemon process, the socket file may not exist yet. Use `waitForDaemon` (or equivalent retry logic) before sending the first socket request in tests.
 
+**`@volar/language-core` version skew requires a pnpm override.**
+`@vue/language-core` and `@volar/typescript` can depend on different patch versions of `@volar/language-core`, making `Language<string>` a different nominal type in each. Fix with a `pnpm.overrides` entry in `package.json` pinning to the same version. Also add `@volar/language-core` as a direct `devDependency` so TypeScript can resolve the `import type { Language }` in `vue-engine.ts`.
+
+**`pnpm format` does not fix import ordering.**
+`pnpm format` runs `biome format --write`, which fixes whitespace/style but not `organizeImports` assists. To fix everything in one pass, run `pnpm exec biome check --write .`.
+
 **`dist/` and other build dirs must be excluded from `readDirectory`.**
 The Vue engine calls `ts.sys.readDirectory()` to find `.vue` files. Without filtering, it picks up files under `dist/`, `node_modules/`, etc., which breaks type resolution. `SKIP_DIRS` is exported from `vue-scan.ts` and applied in `buildService()`.
 
@@ -50,8 +56,8 @@ Always read fixture files before the operation to confirm original state, then a
 | File | Purpose |
 |------|---------|
 | `src/daemon/paths.ts` | Socket and lockfile path utilities |
-| `src/commands/daemon.ts` | Daemon process |
-| `src/commands/serve.ts` | MCP server (connects to daemon) |
+| `src/daemon/daemon.ts` | Daemon process |
+| `src/mcp/serve.ts` | MCP server (connects to daemon) |
 | `tests/helpers.ts` | `spawnAndWaitForReady`, `McpTestClient`, `killDaemon` |
 | `docs/tech/volar-v3.md` | How the Vue engine works — read before touching `vue-engine.ts` |
 | `docs/tech/tech-debt.md` | Known structural issues in the engine layer |

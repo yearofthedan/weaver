@@ -15,7 +15,7 @@ Read the docs in this order:
 
 ## Current state
 
-**35/35 tests passing.** Source restructure is complete. CLI `rename`/`move` commands removed; MCP via `serve` is the only agent interface. The file layout now reflects domain boundaries:
+**35/35 tests passing.** Source restructure and hardening complete. CLI `rename`/`move` commands removed; MCP via `serve` is the only agent interface. The file layout now reflects domain boundaries:
 
 ```
 src/
@@ -37,11 +37,10 @@ src/
 
 **Next things to build, in order:**
 
-1. **Missing operations** — brainstorm and implement what's next (see below)
-2. **Hardening** — Renovate, pinned packages
-3. **Security controls** — restrict editing to the workspace
-4. **Engine refactor** — see `docs/tech/tech-debt.md`
-
+1. **Security controls** — restrict editing to the workspace, assess other missing controls
+2. **Engine refactor** — see `docs/tech/tech-debt.md`
+3. **Dogfooding** — update guidance to ensure we dogfood
+4. **Missing operations** — brainstorm and implement what's next (see below)
 ---
 
 ## Missing operations (next task)
@@ -63,6 +62,7 @@ For each candidate, consider: does the daemon's stateful engine make it meaningf
 
 - **`docs/tech/volar-v3.md`** — how the Vue engine works around TypeScript's refusal to process `.vue` files. Read this before touching `src/engines/vue-engine.ts`.
 - **`docs/tech/tech-debt.md`** — known structural issues in the engine layer. Includes the `ensureDaemon` one-shot bug discovered during this session.
+- **`@volar/language-core` version skew** — `@vue/language-core` and `@volar/typescript` previously depended on different patch versions (2.4.27 vs 2.4.28) of `@volar/language-core`, causing type mismatches that required `any` casts. Fixed via a `pnpm.overrides` entry in `package.json` pinning to 2.4.28. `@volar/language-core` is also a direct `devDependency` so TypeScript can resolve the `Language<string>` type import in `vue-engine.ts`.
 
 ---
 
