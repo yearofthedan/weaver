@@ -81,12 +81,19 @@ async function handleSocketRequest(socket: net.Socket, line: string): Promise<vo
     const req = JSON.parse(line) as { method: string; params: Record<string, unknown> };
     response = await dispatchRequest(req);
   } catch (err) {
-    response = { ok: false, error: "PARSE_ERROR", message: err instanceof Error ? err.message : String(err) };
+    response = {
+      ok: false,
+      error: "PARSE_ERROR",
+      message: err instanceof Error ? err.message : String(err),
+    };
   }
   socket.write(`${JSON.stringify(response)}\n`);
 }
 
-async function dispatchRequest(req: { method: string; params: Record<string, unknown> }): Promise<object> {
+async function dispatchRequest(req: {
+  method: string;
+  params: Record<string, unknown>;
+}): Promise<object> {
   if (req.method === "rename") {
     const { file, line, col, newName } = req.params as {
       file: string;

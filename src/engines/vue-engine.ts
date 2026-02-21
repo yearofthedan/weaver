@@ -1,8 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { Language } from "@volar/language-core";
 import { findTsConfigForFile } from "./project.js";
-import { SKIP_DIRS, updateVueImportsAfterMove } from "./vue-scan.js";
 import type { MoveResult, RefactorEngine, RenameResult } from "./types.js";
+import { SKIP_DIRS, updateVueImportsAfterMove } from "./vue-scan.js";
 
 interface VolarLanguageService {
   findRenameLocations(
@@ -26,8 +27,7 @@ interface VolarLanguageService {
 interface CachedService {
   languageService: VolarLanguageService;
   fileContents: Map<string, string>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  language: any;
+  language: Language<string>;
   /** Maps virtual App.vue.ts filenames → real App.vue filenames */
   vueVirtualToReal: Map<string, string>;
 }
@@ -111,8 +111,7 @@ export class VueEngine implements RefactorEngine {
 
     // languageRef is assigned synchronously after createLanguage returns.
     // The sync callback is only invoked lazily — never during construction.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let languageRef: any;
+    let languageRef: Language<string>;
 
     const language = createLanguage<string>(
       [vuePlugin],
@@ -221,16 +220,11 @@ export class VueEngine implements RefactorEngine {
       getDirectories: ts.sys.getDirectories,
     };
 
-    // @vue/language-core and @volar/typescript ship slightly different patch
-    // versions of @volar/language-core (2.4.27 vs 2.4.28). The structures are
-    // compatible at runtime; the cast avoids the TypeScript type mismatch.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    decorateLanguageServiceHost(ts, language as any, host);
+    decorateLanguageServiceHost(ts, language, host);
 
     const baseService = ts.createLanguageService(host);
     const { proxy, initialize } = createProxyLanguageService(baseService);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    initialize(language as any);
+    initialize(language);
 
     return {
       languageService: proxy as unknown as VolarLanguageService,

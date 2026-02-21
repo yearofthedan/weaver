@@ -6,8 +6,12 @@ export function Counter() {
   return (
     <div>
       <p>Count: {count}</p>
-      <button onClick={increment}>Increment</button>
-      <button onClick={decrement}>Decrement</button>
+      <button type="button" onClick={increment}>
+        Increment
+      </button>
+      <button type="button" onClick={decrement}>
+        Decrement
+      </button>
     </div>
   );
 }

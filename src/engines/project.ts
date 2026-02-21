@@ -12,6 +12,7 @@ export function findTsConfig(startDir: string): string | null {
   const normalised = path.resolve(startDir);
 
   if (cache.has(normalised)) {
+    // biome-ignore lint/style/noNonNullAssertion: guarded by .has() above
     return cache.get(normalised)!;
   }
 

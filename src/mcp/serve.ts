@@ -49,7 +49,9 @@ export async function runServe(opts: { workspace: string }): Promise<void> {
   // 4. Ensure daemon in the background — tool calls that arrive before it is
   //    ready return DAEMON_STARTING, which the caller can retry.
   ensureDaemon(absWorkspace).catch((err) => {
-    process.stderr.write(`daemon spawn failed: ${err instanceof Error ? err.message : String(err)}\n`);
+    process.stderr.write(
+      `daemon spawn failed: ${err instanceof Error ? err.message : String(err)}\n`,
+    );
   });
 
   // 5. Write readiness signal to stderr
@@ -102,12 +104,20 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
     },
     async ({ file, line, col, newName }) => {
       try {
-        const response = await callDaemon(sockPath, { method: "rename", params: { file, line, col, newName } });
+        const response = await callDaemon(sockPath, {
+          method: "rename",
+          params: { file, line, col, newName },
+        });
         return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }) }],
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }),
+            },
+          ],
           isError: true,
         };
       }
@@ -125,12 +135,20 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
     },
     async ({ oldPath, newPath }) => {
       try {
-        const response = await callDaemon(sockPath, { method: "move", params: { oldPath, newPath } });
+        const response = await callDaemon(sockPath, {
+          method: "move",
+          params: { oldPath, newPath },
+        });
         return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }) }],
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }),
+            },
+          ],
           isError: true,
         };
       }

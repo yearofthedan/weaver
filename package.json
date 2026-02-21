@@ -20,19 +20,25 @@
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.26.0",
-    "@volar/typescript": "^2",
-    "@vue/language-core": "^3.2.4",
-    "commander": "^12",
-    "ts-morph": "^23",
-    "typescript": "^5",
-    "zod": "^3"
+    "@modelcontextprotocol/sdk": "1.26.0",
+    "@volar/typescript": "2.4.28",
+    "@vue/language-core": "3.2.4",
+    "commander": "12.1.0",
+    "ts-morph": "23.0.0",
+    "typescript": "5.9.3",
+    "zod": "3.25.76"
+  },
+  "pnpm": {
+    "overrides": {
+      "@volar/language-core": "2.4.28"
+    }
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.3",
-    "@types/node": "^22",
-    "@vitest/coverage-v8": "^4.0.18",
-    "tsx": "^4",
-    "vitest": "^4.0.18"
+    "@biomejs/biome": "2.4.3",
+    "@volar/language-core": "2.4.28",
+    "@types/node": "22.19.11",
+    "@vitest/coverage-v8": "4.0.18",
+    "tsx": "4.21.0",
+    "vitest": "4.0.18"
   }
 }

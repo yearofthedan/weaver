@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import * as ts from "typescript";
-import type { RefactorEngine } from "../engines/types.js";
 import { findTsConfigForFile } from "../engines/project.js";
+import type { RefactorEngine } from "../engines/types.js";
 
 let tsEngine: import("../engines/ts-engine.js").TsEngine | undefined;
 let vueEngine: import("../engines/vue-engine.js").VueEngine | undefined;
@@ -18,6 +18,7 @@ function isVueProject(tsConfigPath: string): boolean {
   const projectRoot = path.dirname(tsConfigPath);
 
   if (vueProjectCache.has(projectRoot)) {
+    // biome-ignore lint/style/noNonNullAssertion: guarded by .has() above
     return vueProjectCache.get(projectRoot)!;
   }
 

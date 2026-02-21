@@ -1,7 +1,15 @@
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { removeDaemonFiles } from "../../src/daemon/paths";
-import { McpTestClient, cleanup, copyFixture, killDaemon, readFile, spawnAndWaitForReady, waitForDaemon } from "../helpers";
+import {
+  cleanup,
+  copyFixture,
+  killDaemon,
+  McpTestClient,
+  readFile,
+  spawnAndWaitForReady,
+  waitForDaemon,
+} from "../helpers";
 
 describe("MCP transport — move tool", () => {
   const dirs: string[] = [];

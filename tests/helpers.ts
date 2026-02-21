@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { isDaemonAlive, lockfilePath, socketPath } from "../src/daemon/paths.js";
+import { lockfilePath, socketPath } from "../src/daemon/paths.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
@@ -67,7 +67,6 @@ export function spawnAndWaitForReady(
       child.kill();
       reject(new Error(`Timed out waiting for ready signal after ${timeoutMs}ms`));
     }, timeoutMs);
-
 
     child.stderr.on("data", (chunk: Buffer) => {
       stderrBuf += chunk.toString();
@@ -145,6 +144,7 @@ export class McpTestClient {
   private pending: Array<(msg: Record<string, unknown>) => void> = [];
 
   constructor(private proc: ChildProcess) {
+    // biome-ignore lint/style/noNonNullAssertion: stdout is always piped (spawnAndWaitForReady uses stdio: ['pipe','pipe','pipe'])
     proc.stdout!.on("data", (chunk: Buffer) => {
       this.buf += chunk.toString();
       this.flush();
@@ -152,8 +152,9 @@ export class McpTestClient {
   }
 
   private flush(): void {
-    let nl: number;
-    while ((nl = this.buf.indexOf("\n")) !== -1) {
+    for (;;) {
+      const nl = this.buf.indexOf("\n");
+      if (nl === -1) break;
       const line = this.buf.slice(0, nl).replace(/\r$/, "");
       this.buf = this.buf.slice(nl + 1);
       if (!line) continue;
@@ -171,6 +172,7 @@ export class McpTestClient {
   }
 
   send(message: object): void {
+    // biome-ignore lint/style/noNonNullAssertion: stdin is always piped when pipeStdin:true is passed to spawnAndWaitForReady
     this.proc.stdin!.write(`${JSON.stringify(message)}\n`);
   }
 
