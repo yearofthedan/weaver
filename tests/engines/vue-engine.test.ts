@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { VueEngine } from "../../src/engines/vue-engine";
 import { cleanup, copyFixture, fileExists, readFile } from "../helpers";
@@ -50,6 +51,26 @@ describe("VueEngine (unit tests)", () => {
       // Verify .vue file updated
       expect(readFile(dir, "src/App.vue")).toContain("welcomeUser");
       expect(readFile(dir, "src/App.vue")).not.toContain("greetUser");
+    });
+
+    it("does not rename symbols in dist/ .vue files", async () => {
+      const dir = setup();
+      const engine = new VueEngine();
+
+      // Simulate a built dist/ with a .vue file referencing the composable
+      fs.mkdirSync(`${dir}/dist`, { recursive: true });
+      fs.writeFileSync(
+        `${dir}/dist/App.vue`,
+        `<script setup>\nimport { useCounter } from '../src/composables/useCounter';\n</script>\n`,
+      );
+
+      const filePath = `${dir}/src/composables/useCounter.ts`;
+      const result = await engine.rename(filePath, 1, 17, "useCount");
+
+      // dist/App.vue must not be touched
+      expect(result.filesModified).not.toContain(`${dir}/dist/App.vue`);
+      const distContent = fs.readFileSync(`${dir}/dist/App.vue`, "utf8");
+      expect(distContent).toContain("useCounter");
     });
 
     it("throws FILE_NOT_FOUND for non-existent file", async () => {

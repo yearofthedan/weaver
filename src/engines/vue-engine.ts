@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { findTsConfigForFile } from "../project.js";
-import { updateVueImportsAfterMove } from "../vue-scan.js";
+import { SKIP_DIRS, updateVueImportsAfterMove } from "../vue-scan.js";
 import type { MoveResult, RefactorEngine, RenameResult } from "./types.js";
 
 interface VolarLanguageService {
@@ -99,7 +99,10 @@ export class VueEngine implements RefactorEngine {
 
     // Always include .vue files from the project directory, even when the
     // tsconfig does not list them (e.g. bundler-only Vue setups).
-    const vueFilesOnDisk = ts.sys.readDirectory(projectRoot, [".vue"], [], [], 1000);
+    // Filter out build/tool directories (same skip list as vue-scan.ts).
+    const vueFilesOnDisk = ts.sys
+      .readDirectory(projectRoot, [".vue"], [], [], 1000)
+      .filter((f) => !f.split("/").some((seg) => SKIP_DIRS.has(seg)));
     for (const f of vueFilesOnDisk) {
       if (!projectFiles.includes(f)) projectFiles.push(f);
     }
