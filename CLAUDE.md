@@ -39,6 +39,9 @@ Explicitly state the version and instruct the subagent to confirm it from `packa
 **Rule 5: Write tests as you implement, not after.**
 Finish the test for a unit before moving to the next. The test is part of the implementation.
 
+**Rule 6: Store session notes in `docs/`, not in `~/.claude/`.**
+This project runs in a dev container — the home directory is ephemeral. Keep durable notes in `docs/agent-memory.md`.
+
 ---
 
 ## Commits
