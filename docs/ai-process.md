@@ -29,3 +29,9 @@ Both failures above involved an agent making an assumption rather than surfacing
 ## Rule 4: Tell research subagents which version to use and ask them to verify it
 
 A subagent reading the wrong package version produces confident, plausible, wrong answers. When delegating API research, explicitly state the version and instruct the subagent to confirm it from `package.json` inside the package directory before reading any source.
+
+---
+
+## Rule 5: Write tests as you implement, not after
+
+An agent implemented `paths.ts` and `daemon.ts` before writing any tests, and had to be corrected. Tests belong alongside the code they cover — finish the test for a unit before moving to the next. The test is part of the implementation, not a follow-up step.
