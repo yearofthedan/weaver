@@ -92,10 +92,14 @@ export function cleanup(dir: string): void {
  * Returns the ChildProcess so the caller can kill it in afterEach.
  * Rejects if the ready signal is not received within `timeoutMs`.
  */
-export function spawnAndWaitForReady(args: string[], timeoutMs = 30_000): Promise<ChildProcess> {
+export function spawnAndWaitForReady(
+  args: string[],
+  opts: { timeoutMs?: number; pipeStdin?: boolean } = {},
+): Promise<ChildProcess> {
+  const { timeoutMs = 30_000, pipeStdin = false } = opts;
   return new Promise((resolve, reject) => {
     const child = spawn(TSX_BIN, [CLI_ENTRY, ...args], {
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: [pipeStdin ? "pipe" : "ignore", "pipe", "pipe"],
       env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" },
     });
 
@@ -105,6 +109,7 @@ export function spawnAndWaitForReady(args: string[], timeoutMs = 30_000): Promis
       child.kill();
       reject(new Error(`Timed out waiting for ready signal after ${timeoutMs}ms`));
     }, timeoutMs);
+
 
     child.stderr.on("data", (chunk: Buffer) => {
       stderrBuf += chunk.toString();
@@ -126,4 +131,65 @@ export function spawnAndWaitForReady(args: string[], timeoutMs = 30_000): Promis
       reject(new Error(`Process exited early with code ${code}`));
     });
   });
+}
+
+/**
+ * Minimal MCP client for testing. Handles Content-Length framing and the
+ * initialize handshake. Use with a process spawned via spawnAndWaitForReady
+ * with pipeStdin: true.
+ */
+export class McpTestClient {
+  private buf = "";
+  private pending: Array<(msg: Record<string, unknown>) => void> = [];
+
+  constructor(private proc: ChildProcess) {
+    proc.stdout!.on("data", (chunk: Buffer) => {
+      this.buf += chunk.toString();
+      this.flush();
+    });
+  }
+
+  private flush(): void {
+    let nl: number;
+    while ((nl = this.buf.indexOf("\n")) !== -1) {
+      const line = this.buf.slice(0, nl).replace(/\r$/, "");
+      this.buf = this.buf.slice(nl + 1);
+      if (!line) continue;
+      try {
+        const msg = JSON.parse(line) as Record<string, unknown>;
+        // Skip notifications (no id field)
+        if ("id" in msg) {
+          const resolve = this.pending.shift();
+          if (resolve) resolve(msg);
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+  }
+
+  send(message: object): void {
+    this.proc.stdin!.write(`${JSON.stringify(message)}\n`);
+  }
+
+  receive(): Promise<Record<string, unknown>> {
+    return new Promise((resolve) => {
+      this.pending.push(resolve);
+      this.flush();
+    });
+  }
+
+  async request(id: number, method: string, params?: unknown): Promise<Record<string, unknown>> {
+    this.send({ jsonrpc: "2.0", id, method, params });
+    return this.receive();
+  }
+
+  async initialize(): Promise<void> {
+    await this.request(0, "initialize", {
+      protocolVersion: "2024-11-05",
+      capabilities: {},
+      clientInfo: { name: "test-client", version: "1.0.0" },
+    });
+    this.send({ jsonrpc: "2.0", method: "notifications/initialized", params: {} });
+  }
 }

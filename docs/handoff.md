@@ -15,12 +15,20 @@ Read the docs in this order:
 
 ## Current state
 
-**50/50 tests passing.** `rename` and `move` are fully implemented and tested. The daemon is implemented and tested. `serve` auto-discovers and auto-spawns the daemon. The MCP message loop is not yet implemented — no messages flow between `serve` and `daemon` yet.
+**51/51 tests passing.** Slice 1 (rename via MCP) is complete. The daemon handles socket requests, `serve` runs a live McpServer, and the rename tool works end-to-end.
 
 **Next things to build, in order:**
 
-1. **MCP transport** — see `docs/features/mcp-transport.md`
+1. **MCP transport slice 2** — `move` tool (see below)
 2. **Engine refactor** — see `docs/tech/tech-debt.md`
+
+### MCP transport — remaining slice
+
+**Slice 2: move via MCP** (`tests/mcp/move.test.ts`)
+- Daemon: add `move` branch to `dispatchRequest` in `src/commands/daemon.ts`
+- Serve: add `move` tool registration in `startMcpServer` in `src/commands/serve.ts`
+- Test: copy fixture, assert original import exists, spawn serve, initialize, call `move` tool, assert `ok: true` and import path updated on disk
+- Reuse `McpTestClient`, `spawnAndWaitForReady({ pipeStdin: true })` from `tests/helpers.ts` — no helper changes needed
 
 ---
 
@@ -33,5 +41,12 @@ Read the docs in this order:
 
 ## Architecture decisions
 
-- **MCP transport uses `@modelcontextprotocol/sdk`** — the agent-facing stdio layer uses the official SDK (not yet installed). It handles the Content-Length framing and JSON-RPC lifecycle. The internal daemon↔serve socket uses plain newline-delimited JSON, no library needed.
-- **Vertical slice testing** — each MCP operation (move, rename) is tested end-to-end through all layers: write a valid MCP message to `serve` stdin, assert the stdout response and that files changed on disk. Daemon message parsing is covered implicitly by these tests, not in isolation.
+- **MCP transport uses `@modelcontextprotocol/sdk`** — the agent-facing stdio layer uses the official SDK (`@modelcontextprotocol/sdk@^1.26.0`, now installed). The internal daemon↔serve socket uses plain newline-delimited JSON, no library needed.
+- **SDK wire format is newline-delimited JSON — NOT Content-Length framed** — `StdioServerTransport` sends/reads `JSON.stringify(msg) + '\n'`. There is no `Content-Length` header. `McpTestClient` must match this format. (Common docs describe the LSP-style Content-Length framing, but this SDK version 1.26.0 uses newlines.)
+- **SDK is Zod v3/v4 agnostic** — the SDK ships `zod-compat` and accepts both Zod v3 and v4 schemas. Pass Zod v3 schemas from `src/schema.ts` directly to `registerTool`. No version conflict.
+- **Daemon socket: one connection per call** — `serve` opens a fresh Unix socket connection per tool call, writes one JSON line, reads one JSON line, closes. Simple; Unix sockets are fast.
+- **`callDaemon` error → `DAEMON_STARTING`** — if the socket connection fails (e.g. daemon not yet ready), return `{ ok: false, error: "DAEMON_STARTING", message: "..." }` to the agent.
+- **Test helper: `McpTestClient`** — a small class in `tests/helpers.ts` that handles newline-delimited framing and the initialize handshake. Keeps test bodies clean.
+- **`spawnAndWaitForReady` takes `{ pipeStdin: true }`** — required for MCP tests that need to write to the process's stdin.
+- **Vertical slice tests assert before and after** — always read the fixture files before the operation to confirm the original state, then assert both the old string is gone and the new string is present. Avoids false-positive tests.
+- **Vertical slice testing** — each MCP operation (rename, move) is tested end-to-end through all layers: spawn `serve`, write a valid MCP message to its stdin, assert the stdout response and that files changed on disk. Daemon message parsing is covered implicitly by these tests, not in isolation.

@@ -45,8 +45,17 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
   fs.writeFileSync(pidPath, String(process.pid));
 
   // 6. Open Unix socket and wait for connections
-  const server = net.createServer((_socket) => {
-    // MCP message loop — to be implemented in mcp-transport feature
+  const server = net.createServer((socket) => {
+    let buf = "";
+    socket.on("data", (chunk: Buffer) => {
+      buf += chunk.toString();
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.trim()) void handleSocketRequest(socket, line.trim());
+      }
+    });
+    socket.on("error", () => {});
   });
 
   server.listen(sockPath);
@@ -64,4 +73,37 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
 
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
+}
+
+async function handleSocketRequest(socket: net.Socket, line: string): Promise<void> {
+  let response: object;
+  try {
+    const req = JSON.parse(line) as { method: string; params: Record<string, unknown> };
+    response = await dispatchRequest(req);
+  } catch (err) {
+    response = { ok: false, error: "PARSE_ERROR", message: err instanceof Error ? err.message : String(err) };
+  }
+  socket.write(`${JSON.stringify(response)}\n`);
+}
+
+async function dispatchRequest(req: { method: string; params: Record<string, unknown> }): Promise<object> {
+  if (req.method === "rename") {
+    const { file, line, col, newName } = req.params as {
+      file: string;
+      line: number;
+      col: number;
+      newName: string;
+    };
+    const engine = await getEngine(file);
+    const result = await engine.rename(file, line, col, newName);
+    const plural = result.locationCount === 1 ? "location" : "locations";
+    const fileCount = result.filesModified.length;
+    return {
+      ok: true,
+      filesModified: result.filesModified,
+      message: `Renamed '${result.symbolName}' to '${result.newName}' in ${result.locationCount} ${plural} across ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
+    };
+  }
+
+  return { ok: false, error: "UNKNOWN_METHOD", message: `Unknown method: ${req.method}` };
 }

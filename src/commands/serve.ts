@@ -1,7 +1,11 @@
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
+import * as net from "node:net";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
 import { isDaemonAlive, removeDaemonFiles, socketPath } from "../daemon/paths.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -49,8 +53,8 @@ export async function runServe(opts: { workspace: string }): Promise<void> {
   const readySignal = { status: "ready", workspace: absWorkspace };
   process.stderr.write(`${JSON.stringify(readySignal)}\n`);
 
-  // 6. Keep stdin open for the MCP message loop (to be added in mcp-transport)
-  process.stdin.resume();
+  // 6. Start MCP server — takes over stdin/stdout for the JSON-RPC message loop
+  await startMcpServer(absWorkspace);
 }
 
 /**
@@ -73,6 +77,66 @@ async function ensureDaemon(absWorkspace: string): Promise<void> {
 
   // Auto-spawn the daemon as a detached child so it outlives this process
   await spawnDaemon(absWorkspace);
+}
+
+async function startMcpServer(absWorkspace: string): Promise<void> {
+  const sockPath = socketPath(absWorkspace);
+  const server = new McpServer({ name: "light-bridge", version: "0.1.0" });
+
+  server.registerTool(
+    "rename",
+    {
+      description:
+        "Rename a symbol at a specific position in a file, updating all references project-wide",
+      inputSchema: {
+        file: z.string().describe("Absolute path to the file"),
+        line: z.number().int().positive().describe("Line number (1-based)"),
+        col: z.number().int().positive().describe("Column number (1-based)"),
+        newName: z.string().describe("New name for the symbol"),
+      },
+    },
+    async ({ file, line, col, newName }) => {
+      try {
+        const response = await callDaemon(sockPath, { method: "rename", params: { file, line, col, newName } });
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }) }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+function callDaemon(sockPath: string, req: object): Promise<object> {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection(sockPath);
+    let buf = "";
+
+    socket.on("connect", () => {
+      socket.write(`${JSON.stringify(req)}\n`);
+    });
+
+    socket.on("data", (chunk: Buffer) => {
+      buf += chunk.toString();
+      const nl = buf.indexOf("\n");
+      if (nl !== -1) {
+        try {
+          resolve(JSON.parse(buf.slice(0, nl)));
+        } catch (e) {
+          reject(e);
+        }
+        socket.destroy();
+      }
+    });
+
+    socket.on("error", reject);
+  });
 }
 
 function spawnDaemon(absWorkspace: string): Promise<void> {
