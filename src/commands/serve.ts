@@ -109,6 +109,29 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
     },
   );
 
+  server.registerTool(
+    "move",
+    {
+      description: "Move a file to a new path and update all import references project-wide",
+      inputSchema: {
+        oldPath: z.string().describe("Absolute path to the file to move"),
+        newPath: z.string().describe("Absolute destination path"),
+      },
+    },
+    async ({ oldPath, newPath }) => {
+      try {
+        const response = await callDaemon(sockPath, { method: "move", params: { oldPath, newPath } });
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }) }],
+          isError: true,
+        };
+      }
+    },
+  );
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

@@ -105,5 +105,17 @@ async function dispatchRequest(req: { method: string; params: Record<string, unk
     };
   }
 
+  if (req.method === "move") {
+    const { oldPath, newPath } = req.params as { oldPath: string; newPath: string };
+    const engine = await getEngine(oldPath);
+    const result = await engine.moveFile(oldPath, newPath);
+    const fileCount = result.filesModified.length;
+    return {
+      ok: true,
+      filesModified: result.filesModified,
+      message: `Moved '${oldPath}' to '${newPath}', updated imports in ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
+    };
+  }
+
   return { ok: false, error: "UNKNOWN_METHOD", message: `Unknown method: ${req.method}` };
 }

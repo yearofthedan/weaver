@@ -15,20 +15,12 @@ Read the docs in this order:
 
 ## Current state
 
-**51/51 tests passing.** Slice 1 (rename via MCP) is complete. The daemon handles socket requests, `serve` runs a live McpServer, and the rename tool works end-to-end.
+**52/52 tests passing.** MCP transport is complete. The daemon handles `rename` and `move` socket requests, `serve` exposes both as MCP tools, and both are tested end-to-end.
 
 **Next things to build, in order:**
 
-1. **MCP transport slice 2** — `move` tool (see below)
+1. **Demo support** — how to demo, and guidance for use with agent
 2. **Engine refactor** — see `docs/tech/tech-debt.md`
-
-### MCP transport — remaining slice
-
-**Slice 2: move via MCP** (`tests/mcp/move.test.ts`)
-- Daemon: add `move` branch to `dispatchRequest` in `src/commands/daemon.ts`
-- Serve: add `move` tool registration in `startMcpServer` in `src/commands/serve.ts`
-- Test: copy fixture, assert original import exists, spawn serve, initialize, call `move` tool, assert `ok: true` and import path updated on disk
-- Reuse `McpTestClient`, `spawnAndWaitForReady({ pipeStdin: true })` from `tests/helpers.ts` — no helper changes needed
 
 ---
 
