@@ -16,6 +16,21 @@ The underlying language intelligence comes from ts-morph (pure TypeScript projec
 
 The agent calls tools. light-bridge applies changes. The context window stays clean.
 
+```mermaid
+flowchart TD
+    A["Agent host\n(Claude Code / Roo / Cursor)"]
+    B["light-bridge serve\n(MCP server, stdio)"]
+    C["light-bridge daemon\n(project graph + watcher)"]
+    D[ts-morph]
+    E[Volar]
+    F["Project files\n(.ts · .tsx · .vue)"]
+
+    A -- "MCP tool call" --> B
+    B -- "Unix socket" --> C
+    C --> D & E
+    D & E --> F
+```
+
 ## CLI Commands
 
 ### `light-bridge daemon`
@@ -104,6 +119,55 @@ On failure:
 - `ENGINE_ERROR` — unexpected error during refactoring
 - `DAEMON_STARTING` — daemon is still initialising; retry the tool call
 
+## Agent integration
+
+`light-bridge serve` is a stdio MCP server. Configure your agent host to launch it for the workspace you want to refactor.
+
+### Claude Code
+
+Add to `.mcp.json` in your project root (checked into version control, shared with your team):
+
+```json
+{
+  "mcpServers": {
+    "light-bridge": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/absolute/path/to/light-bridge/dist/cli.js", "serve", "--workspace", "/absolute/path/to/your/project"]
+    }
+  }
+}
+```
+
+Or use the CLI to add it to your local scope:
+
+```bash
+claude mcp add light-bridge -- node /absolute/path/to/light-bridge/dist/cli.js serve --workspace /absolute/path/to/your/project
+```
+
+### Roo
+
+Open the Roo MCP settings (gear icon → MCP Servers) and add:
+
+```json
+{
+  "mcpServers": {
+    "light-bridge": {
+      "command": "node",
+      "args": ["/absolute/path/to/light-bridge/dist/cli.js", "serve", "--workspace", "/absolute/path/to/your/project"],
+      "disabled": false,
+      "alwaysAllow": ["rename", "move"]
+    }
+  }
+}
+```
+
+### Notes
+
+- Replace paths with absolute paths — relative paths are not supported in MCP configs.
+- The daemon auto-spawns on first tool call if not already running. For faster first-call response, start it manually: `light-bridge daemon --workspace /path/to/project`.
+- One `serve` instance per agent session; one daemon per workspace. The daemon keeps running between sessions.
+
 ## Development
 
 ### Prerequisites
@@ -134,6 +198,16 @@ Tests include:
 - **Unit tests** — engine operations in isolation (`tests/engines/`)
 - **Integration tests** — CLI operations via subprocess (`tests/rename.test.ts`, `tests/move.test.ts`, `tests/vue.test.ts`)
 - **Daemon tests** — lifecycle, socket, and serve integration (`tests/daemon/`)
+
+### Smoke test
+
+Verify the CLI is working end-to-end without running the full test suite:
+
+```bash
+pnpm smoke-test
+```
+
+This runs `rename` and `move` against copies of the test fixtures and reports pass/fail for each check.
 
 ## Project structure
 

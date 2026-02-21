@@ -17,9 +17,11 @@ Read the docs in this order:
 
 **52/52 tests passing.** MCP transport is complete. The daemon handles `rename` and `move` socket requests, `serve` exposes both as MCP tools, and both are tested end-to-end.
 
+**Demo support is done:** `pnpm smoke-test` runs a CLI smoke test (11 checks, rename + move). The README has a Mermaid architecture diagram and a new "Agent integration" section with Claude Code and Roo config snippets.
+
 **Next things to build, in order:**
 
-1. **Demo support** — how to demo, and guidance for use with agent
+1. **Audit code** — check for unrequired code that may have lingered, unneeded features, consider removing CLI commands
 2. **Engine refactor** — see `docs/tech/tech-debt.md`
 
 ---
