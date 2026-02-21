@@ -15,6 +15,7 @@
     "lint": "biome lint .",
     "format": "biome format . --write",
     "smoke-test": "bash scripts/smoke-test.sh",
+    "coverage": "vitest run --coverage",
     "check": "biome check . && pnpm build && pnpm test",
     "prepublishOnly": "pnpm run build"
   },
@@ -30,6 +31,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.3",
     "@types/node": "^22",
+    "@vitest/coverage-v8": "^4.0.18",
     "tsx": "^4",
     "vitest": "^4.0.18"
   }
