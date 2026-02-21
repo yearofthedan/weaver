@@ -49,8 +49,6 @@ After making code changes, create a commit. Use conventional commits with impera
 type(scope): short description
 ```
 
-Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
-
 Examples:
 - `feat(cli): add daemon mode support`
 - `fix(ts-engine): handle missing tsconfig gracefully`

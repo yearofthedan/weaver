@@ -19,10 +19,18 @@ Read the docs in this order:
 
 **Demo support is done:** `pnpm smoke-test` runs a CLI smoke test (11 checks, rename + move). The README has a Mermaid architecture diagram and a new "Agent integration" section with Claude Code and Roo config snippets.
 
+**dist/ exclusion status:**
+- TsEngine: safe — ts-morph is initialized from `tsconfig.json` which excludes `dist/`
+- VueEngine: gap — `ts.sys.readDirectory()` bypasses tsconfig excludes when discovering `.vue` files; dist/ Vue files would be included in the language service. `vue-scan.ts` correctly excludes dist/ in the post-move import rewrite step, but the language service phase is exposed.
+
 **Next things to build, in order:**
 
-1. **Audit code** — check for unrequired code that may have lingered, unneeded features, consider removing CLI commands
-2. **Engine refactor** — see `docs/tech/tech-debt.md`
+1. **Bug** investigate the bug when dogfooding where the move works and updates imports but the move back didn't update imports (maybe the state is out of date after the first run)
+2. **Bug (VueEngine)** filter dist/ (and other build dirs) from `ts.sys.readDirectory()` results in `buildService()` — use the same skip-list as `vue-scan.ts`
+3. **Audit code** — check for unrequired code that may have lingered, unneeded features, consider removing CLI commands, identify tech debt
+4. **Hardening** - Renovate, pinned packages
+5. **Security controls** - eg. restrict editing to the workspace
+6. **Engine refactor** — see `docs/tech/tech-debt.md`
 
 ---
 
