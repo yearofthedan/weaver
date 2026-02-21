@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -9,20 +9,6 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const TSX_BIN = path.join(PROJECT_ROOT, "node_modules", ".bin", "tsx");
 const CLI_ENTRY = path.join(PROJECT_ROOT, "src", "cli.ts");
-
-export interface SuccessOutput {
-  ok: true;
-  filesModified: string[];
-  summary: string;
-}
-
-export interface ErrorOutput {
-  ok: false;
-  error: string;
-  message: string;
-}
-
-export type CliOutput = SuccessOutput | ErrorOutput;
 
 /**
  * Copy a named fixture to a fresh temp directory and return its path.
@@ -41,35 +27,6 @@ function copyDirSync(src: string, dest: string): void {
     const s = path.join(src, entry.name);
     const d = path.join(dest, entry.name);
     entry.isDirectory() ? copyDirSync(s, d) : fs.copyFileSync(s, d);
-  }
-}
-
-/**
- * Run the CLI with the given args. Any arg whose value ends in a known file
- * extension is resolved as a path relative to `dir`.
- *
- * Returns the parsed JSON output.
- */
-export function runCli(dir: string, args: string[]): CliOutput {
-  const resolvedArgs = args.map((arg) =>
-    /\.(ts|tsx|js|jsx|vue)$/.test(arg) ? path.join(dir, arg) : arg,
-  );
-
-  const result = spawnSync(TSX_BIN, [CLI_ENTRY, ...resolvedArgs], {
-    encoding: "utf8",
-    env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" },
-  });
-
-  const stdout = result.stdout?.trim();
-
-  if (!stdout) {
-    throw new Error(`CLI produced no output.\nstderr: ${result.stderr}\nstatus: ${result.status}`);
-  }
-
-  try {
-    return JSON.parse(stdout) as CliOutput;
-  } catch {
-    throw new Error(`CLI produced non-JSON output:\n${stdout}\nstderr: ${result.stderr}`);
   }
 }
 
