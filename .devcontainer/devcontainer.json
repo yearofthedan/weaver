@@ -6,10 +6,6 @@
   "workspaceMount": "source=${localWorkspaceFolderBasename}-workspace,target=/workspaces/${localWorkspaceFolderBasename},type=volume",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "features": {
-    "ghcr.io/devcontainers/features/git:1": {
-      "version": "latest",
-      "ppa": true
-    },
     "ghcr.io/devcontainers/features/github-cli:1": {
       "version": "latest"
     },
@@ -21,6 +17,8 @@
     "vscode": {
       "extensions": ["Vue.volar", "biomejs.biome", "anthropic.claude-code"],
       "settings": {
+        "dev.containers.copyGitConfig": false,
+        "dev.containers.gitCredentialHelperConfigLocation": "none",
         "editor.defaultFormatter": "biomejs.biome",
         "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
@@ -43,9 +41,9 @@
     "source=${localWorkspaceFolderBasename}-extensions,target=/home/node/.vscode-server/extensions,type=volume",
     "source=${localWorkspaceFolderBasename}-global-storage,target=/home/node/.vscode-server/data/User/globalStorage,type=volume"
   ],
-  "onCreateCommand": "bash .devcontainer/onCreate.sh",
+  "onCreateCommand": "/usr/local/bin/onCreate.sh https://github.com/yearofthedan/light-bridge.git",
   "postCreateCommand": "pnpm install",
-  "postStartCommand": "pnpm install -g @anthropic-ai/claude-code@latest",
+  "postStartCommand": "npm install -g @anthropic-ai/claude-code@latest",
   "containerEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "GIT_CONFIG_COUNT": "1",

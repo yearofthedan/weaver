@@ -5,4 +5,8 @@ RUN mkdir -p /home/node/.vscode-server/extensions \
     && mkdir -p /home/node/.vscode-server/data/User/globalStorage \
     && chown -R node:node /home/node/.vscode-server
 
+COPY ./onCreate.sh /usr/local/bin/onCreate.sh
+
+RUN chmod +x /usr/local/bin/onCreate.sh
+
 USER node
