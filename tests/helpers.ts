@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDaemonAlive } from "../src/daemon/paths.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
@@ -130,6 +131,27 @@ export function spawnAndWaitForReady(
       clearTimeout(timer);
       reject(new Error(`Process exited early with code ${code}`));
     });
+  });
+}
+
+/**
+ * Poll until the daemon socket is live for the given workspace directory,
+ * or reject after timeoutMs. Use this after spawnAndWaitForReady("serve")
+ * when the test needs the daemon to be fully up before making tool calls.
+ */
+export function waitForDaemon(dir: string, timeoutMs = 30_000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + timeoutMs;
+    const poll = () => {
+      if (isDaemonAlive(dir)) {
+        resolve();
+      } else if (Date.now() >= deadline) {
+        reject(new Error(`Timed out waiting for daemon to become alive after ${timeoutMs}ms`));
+      } else {
+        setTimeout(poll, 100);
+      }
+    };
+    poll();
   });
 }
 

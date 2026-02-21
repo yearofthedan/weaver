@@ -37,10 +37,7 @@ export async function runServe(opts: { workspace: string }): Promise<void> {
     process.exit(1);
   }
 
-  // 3. Ensure a live daemon is running for this workspace
-  await ensureDaemon(absWorkspace);
-
-  // 4. Register signal handlers for clean shutdown
+  // 3. Register signal handlers for clean shutdown
   process.on("SIGTERM", () => {
     process.exit(0);
   });
@@ -49,11 +46,19 @@ export async function runServe(opts: { workspace: string }): Promise<void> {
     process.exit(0);
   });
 
+  // 4. Ensure daemon in the background — tool calls that arrive before it is
+  //    ready return DAEMON_STARTING, which the caller can retry.
+  ensureDaemon(absWorkspace).catch((err) => {
+    process.stderr.write(`daemon spawn failed: ${err instanceof Error ? err.message : String(err)}\n`);
+  });
+
   // 5. Write readiness signal to stderr
   const readySignal = { status: "ready", workspace: absWorkspace };
   process.stderr.write(`${JSON.stringify(readySignal)}\n`);
 
-  // 6. Start MCP server — takes over stdin/stdout for the JSON-RPC message loop
+  // 6. Start MCP server immediately — takes over stdin/stdout for the JSON-RPC
+  //    message loop. Must happen before daemon startup so the MCP initialize
+  //    handshake completes within the host's connection timeout.
   await startMcpServer(absWorkspace);
 }
 

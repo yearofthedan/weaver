@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { removeDaemonFiles } from "../../src/daemon/paths";
-import { McpTestClient, cleanup, copyFixture, readFile, spawnAndWaitForReady } from "../helpers";
+import { McpTestClient, cleanup, copyFixture, readFile, spawnAndWaitForReady, waitForDaemon } from "../helpers";
 
 describe("MCP transport — rename tool", () => {
   const dirs: string[] = [];
@@ -27,6 +27,7 @@ describe("MCP transport — rename tool", () => {
 
     const proc = await spawnAndWaitForReady(["serve", "--workspace", dir], { pipeStdin: true });
     procs.push(proc);
+    await waitForDaemon(dir);
 
     const client = new McpTestClient(proc);
     await client.initialize();
