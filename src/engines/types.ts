@@ -15,6 +15,15 @@ export interface MoveResult {
   newPath: string;
 }
 
+export interface MoveSymbolResult {
+  filesModified: string[];
+  /** Impacted files outside workspace that were not written. */
+  filesSkipped: string[];
+  symbolName: string;
+  sourceFile: string;
+  destFile: string;
+}
+
 export interface RefactorEngine {
   /**
    * Rename the symbol at (line, col) in filePath to newName.
@@ -34,4 +43,16 @@ export interface RefactorEngine {
    * workspace is the absolute workspace root; impacted files outside it are skipped.
    */
   moveFile(oldPath: string, newPath: string, workspace: string): Promise<MoveResult>;
+
+  /**
+   * Move a named export from sourceFile to destFile, updating all import references.
+   * destFile is created if it does not exist.
+   * workspace is the absolute workspace root; impacted files outside it are skipped.
+   */
+  moveSymbol(
+    sourceFile: string,
+    symbolName: string,
+    destFile: string,
+    workspace: string,
+  ): Promise<MoveSymbolResult>;
 }

@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { TsEngine } from "../../src/engines/ts-engine";
 import { cleanup, copyFixture, fileExists, readFile } from "../helpers";
@@ -154,6 +156,124 @@ describe("TsEngine (unit tests)", () => {
         expect.fail("Should have thrown");
       } catch (err: unknown) {
         const error = err as { code?: string; message: string };
+        expect(error.code).toBe("FILE_NOT_FOUND");
+      }
+    });
+  });
+
+  describe("moveSymbol", () => {
+    it("moves a function to a new file", async () => {
+      const dir = setup();
+      const engine = new TsEngine();
+
+      const srcPath = `${dir}/src/utils.ts`;
+      const dstPath = `${dir}/src/helpers.ts`;
+
+      const result = await engine.moveSymbol(srcPath, "greetUser", dstPath, dir);
+
+      expect(result.symbolName).toBe("greetUser");
+      expect(result.sourceFile).toBe(srcPath);
+      expect(result.destFile).toBe(dstPath);
+
+      // Symbol moved to dest
+      expect(readFile(dir, "src/helpers.ts")).toContain("greetUser");
+      // Symbol removed from source
+      expect(readFile(dir, "src/utils.ts")).not.toContain("greetUser");
+    });
+
+    it("moves a function to an existing file", async () => {
+      const dir = setup();
+      // Create dest file with an existing export
+      fs.writeFileSync(
+        path.join(dir, "src/helpers.ts"),
+        'export function helper(): string { return "hi"; }\n',
+      );
+      const engine = new TsEngine();
+
+      await engine.moveSymbol(`${dir}/src/utils.ts`, "greetUser", `${dir}/src/helpers.ts`, dir);
+
+      const destContent = readFile(dir, "src/helpers.ts");
+      expect(destContent).toContain("helper");
+      expect(destContent).toContain("greetUser");
+    });
+
+    it("updates the import in the importing file", async () => {
+      const dir = setup();
+      const engine = new TsEngine();
+
+      await engine.moveSymbol(`${dir}/src/utils.ts`, "greetUser", `${dir}/src/helpers.ts`, dir);
+
+      const mainContent = readFile(dir, "src/main.ts");
+      // Import should now point to helpers, not utils
+      expect(mainContent).toContain("./helpers");
+      expect(mainContent).not.toContain("./utils");
+    });
+
+    it("merges with an existing dest import when the importer already imports from dest", async () => {
+      const dir = setup("multi-importer");
+      // Create a dest file
+      const dstPath = `${dir}/src/shared.ts`;
+      fs.writeFileSync(dstPath, "export const PI = 3.14;\n");
+      // Make featureA also import from shared.ts
+      const featureAPath = path.join(dir, "src/featureA.ts");
+      const originalA = fs.readFileSync(featureAPath, "utf8");
+      fs.writeFileSync(featureAPath, `import { PI } from "./shared";\n${originalA}`);
+
+      const engine = new TsEngine();
+      // Move `add` from utils.ts to shared.ts
+      await engine.moveSymbol(`${dir}/src/utils.ts`, "add", dstPath, dir);
+
+      const featureAContent = readFile(dir, "src/featureA.ts");
+      // Should have a single import from shared that includes both PI and add
+      const importMatches = featureAContent.match(
+        /import\s*\{[^}]+\}\s*from\s*["']\.\/shared["']/g,
+      );
+      expect(importMatches).toHaveLength(1);
+      expect(importMatches?.[0]).toContain("PI");
+      expect(importMatches?.[0]).toContain("add");
+    });
+
+    it("symbol is absent from source file after move", async () => {
+      const dir = setup();
+      const engine = new TsEngine();
+
+      await engine.moveSymbol(`${dir}/src/utils.ts`, "greetUser", `${dir}/src/helpers.ts`, dir);
+
+      expect(readFile(dir, "src/utils.ts")).not.toContain("greetUser");
+    });
+
+    it("throws SYMBOL_NOT_FOUND for an unknown symbol", async () => {
+      const dir = setup();
+      const engine = new TsEngine();
+
+      try {
+        await engine.moveSymbol(
+          `${dir}/src/utils.ts`,
+          "doesNotExist",
+          `${dir}/src/helpers.ts`,
+          dir,
+        );
+        expect.fail("Should have thrown");
+      } catch (err: unknown) {
+        const error = err as { code?: string };
+        expect(error.code).toBe("SYMBOL_NOT_FOUND");
+      }
+    });
+
+    it("throws FILE_NOT_FOUND for a missing source file", async () => {
+      const dir = setup();
+      const engine = new TsEngine();
+
+      try {
+        await engine.moveSymbol(
+          `${dir}/src/doesNotExist.ts`,
+          "greetUser",
+          `${dir}/src/helpers.ts`,
+          dir,
+        );
+        expect.fail("Should have thrown");
+      } catch (err: unknown) {
+        const error = err as { code?: string };
         expect(error.code).toBe("FILE_NOT_FOUND");
       }
     });

@@ -76,7 +76,6 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
   process.on("SIGINT", shutdown);
 }
 
-
 async function handleSocketRequest(
   socket: net.Socket,
   line: string,
@@ -150,6 +149,37 @@ async function dispatchRequest(
       filesModified: result.filesModified,
       filesSkipped: result.filesSkipped,
       message: `Moved '${oldPath}' to '${newPath}', updated imports in ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
+    };
+  }
+
+  if (req.method === "moveSymbol") {
+    const { sourceFile, symbolName, destFile } = req.params as {
+      sourceFile: string;
+      symbolName: string;
+      destFile: string;
+    };
+    if (!isWithinWorkspace(sourceFile, workspace)) {
+      return {
+        ok: false,
+        error: "WORKSPACE_VIOLATION",
+        message: `sourceFile is outside the workspace: ${sourceFile}`,
+      };
+    }
+    if (!isWithinWorkspace(destFile, workspace)) {
+      return {
+        ok: false,
+        error: "WORKSPACE_VIOLATION",
+        message: `destFile is outside the workspace: ${destFile}`,
+      };
+    }
+    const engine = await getEngine(sourceFile);
+    const result = await engine.moveSymbol(sourceFile, symbolName, destFile, workspace);
+    const fileCount = result.filesModified.length;
+    return {
+      ok: true,
+      filesModified: result.filesModified,
+      filesSkipped: result.filesSkipped,
+      message: `Moved '${symbolName}' from '${result.sourceFile}' to '${result.destFile}', updated imports in ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
     };
   }
 

@@ -15,5 +15,15 @@ export const MoveArgsSchema = z.object({
   newPath: z.string().min(1, "newPath is required"),
 });
 
+export const MoveSymbolArgsSchema = z.object({
+  sourceFile: z.string().min(1, "sourceFile is required"),
+  symbolName: z
+    .string()
+    .min(1, "symbolName is required")
+    .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/, "symbolName must be a valid identifier"),
+  destFile: z.string().min(1, "destFile is required"),
+});
+
 export type RenameArgs = z.infer<typeof RenameArgsSchema>;
 export type MoveArgs = z.infer<typeof MoveArgsSchema>;
+export type MoveSymbolArgs = z.infer<typeof MoveSymbolArgsSchema>;

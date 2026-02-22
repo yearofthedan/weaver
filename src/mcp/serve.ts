@@ -158,6 +158,44 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
     },
   );
 
+  server.registerTool(
+    "moveSymbol",
+    {
+      description:
+        "Move a named export from one file to another, updating all import references project-wide",
+      inputSchema: {
+        sourceFile: z.string().describe("Absolute path to the file containing the symbol"),
+        symbolName: z
+          .string()
+          .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/, "symbolName must be a valid identifier")
+          .describe("Name of the exported symbol to move"),
+        destFile: z
+          .string()
+          .describe("Absolute path of the destination file (created if it does not exist)"),
+      },
+    },
+    async ({ sourceFile, symbolName, destFile }) => {
+      try {
+        const response = await callDaemon(sockPath, {
+          method: "moveSymbol",
+          params: { sourceFile, symbolName, destFile },
+        });
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }),
+            },
+          ],
+          isError: true,
+        };
+      }
+    },
+  );
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

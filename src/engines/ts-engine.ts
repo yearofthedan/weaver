@@ -1,11 +1,23 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Node, Project } from "ts-morph";
+import {
+  type ImportDeclaration,
+  type ImportSpecifier,
+  Node,
+  Project,
+  type SourceFile,
+} from "ts-morph";
 import { isWithinWorkspace } from "../daemon/workspace.js";
 import { findTsConfigForFile } from "./project.js";
 import { applyTextEdits } from "./text-utils.js";
-import type { MoveResult, RefactorEngine, RenameResult } from "./types.js";
+import type { MoveResult, MoveSymbolResult, RefactorEngine, RenameResult } from "./types.js";
 import { updateVueImportsAfterMove } from "./vue-scan.js";
+
+function computeRelativeSpecifier(fromFile: string, toFile: string): string {
+  let rel = path.relative(path.dirname(fromFile), toFile).replace(/\.(ts|tsx)$/, "");
+  if (!rel.startsWith(".")) rel = `./${rel}`;
+  return rel;
+}
 
 export class TsEngine implements RefactorEngine {
   private projects = new Map<string, Project>();
@@ -133,6 +145,178 @@ export class TsEngine implements RefactorEngine {
   private invalidateProject(filePath: string): void {
     const tsConfigPath = findTsConfigForFile(filePath);
     this.projects.delete(tsConfigPath ?? "__no_tsconfig__");
+  }
+
+  async moveSymbol(
+    sourceFile: string,
+    symbolName: string,
+    destFile: string,
+    workspace: string,
+  ): Promise<MoveSymbolResult> {
+    const absSource = path.resolve(sourceFile);
+    const absDest = path.resolve(destFile);
+
+    if (!fs.existsSync(absSource)) {
+      throw Object.assign(new Error(`File not found: ${sourceFile}`), {
+        code: "FILE_NOT_FOUND" as const,
+      });
+    }
+
+    const project = this.getProject(absSource);
+
+    let srcSF = project.getSourceFile(absSource);
+    if (!srcSF) {
+      srcSF = project.addSourceFileAtPath(absSource);
+    }
+
+    // Find the exported declaration for the symbol
+    const exportedDecls = srcSF.getExportedDeclarations().get(symbolName);
+    if (!exportedDecls || exportedDecls.length === 0) {
+      throw Object.assign(
+        new Error(`Symbol '${symbolName}' not found as an export in ${sourceFile}`),
+        { code: "SYMBOL_NOT_FOUND" as const },
+      );
+    }
+
+    const decl = exportedDecls[0];
+
+    // Resolve to the containing statement
+    // VariableDeclaration lives inside VariableDeclarationList → VariableStatement
+    type Removable = { getText(): string; remove(): void };
+    let stmt: Removable;
+    if (Node.isVariableDeclaration(decl)) {
+      stmt = decl.getParent().getParent() as unknown as Removable;
+    } else {
+      stmt = decl as unknown as Removable;
+    }
+
+    const declarationText = stmt.getText();
+
+    // Reject re-exports via `export { foo }` (these are ExportSpecifiers, not direct declarations)
+    if (!declarationText.trimStart().startsWith("export")) {
+      throw Object.assign(
+        new Error(
+          `Symbol '${symbolName}' in ${sourceFile} is not a direct export. Re-exports via 'export { }' are not supported.`,
+        ),
+        { code: "NOT_SUPPORTED" as const },
+      );
+    }
+
+    // Snapshot importers before any mutations
+    type ImporterEntry = {
+      sf: SourceFile;
+      importDecl: ImportDeclaration;
+      specifiers: ImportSpecifier[];
+      totalNamedImports: number;
+    };
+    const importers: ImporterEntry[] = [];
+
+    for (const sf of project.getSourceFiles()) {
+      if (sf.getFilePath() === absSource) continue;
+      for (const importDecl of sf.getImportDeclarations()) {
+        if (importDecl.getModuleSpecifierSourceFile()?.getFilePath() === absSource) {
+          const specifiers = importDecl.getNamedImports().filter((s) => s.getName() === symbolName);
+          if (specifiers.length > 0) {
+            importers.push({
+              sf,
+              importDecl,
+              specifiers,
+              totalNamedImports: importDecl.getNamedImports().length,
+            });
+          }
+        }
+      }
+    }
+
+    // Remove the declaration from the source file
+    stmt.remove();
+
+    // Create or load the destination source file
+    const destDir = path.dirname(absDest);
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
+
+    let dstSF: SourceFile;
+    if (fs.existsSync(absDest)) {
+      dstSF = project.getSourceFile(absDest) ?? project.addSourceFileAtPath(absDest);
+    } else {
+      dstSF = project.createSourceFile(absDest, "");
+    }
+
+    // Append the declaration to the destination file
+    const existingText = dstSF.getText();
+    const separator = existingText.trimEnd().length === 0 ? "" : "\n\n";
+    dstSF.replaceWithText(`${existingText.trimEnd()}${separator}${declarationText}\n`);
+
+    // Update import declarations in each importer
+    const filesModified: string[] = [];
+    const filesSkipped: string[] = [];
+
+    for (const { sf, importDecl, specifiers, totalNamedImports } of importers) {
+      const filePath = sf.getFilePath() as string;
+      if (!isWithinWorkspace(filePath, workspace)) {
+        if (!filesSkipped.includes(filePath)) filesSkipped.push(filePath);
+        continue;
+      }
+
+      const destSpecifier = computeRelativeSpecifier(filePath, absDest);
+
+      // Find any existing import from destFile in this source file
+      const existingDestImport = sf
+        .getImportDeclarations()
+        .find((id) => id.getModuleSpecifierSourceFile()?.getFilePath() === absDest);
+
+      if (totalNamedImports === specifiers.length) {
+        // This import declaration only contained our symbol
+        if (existingDestImport) {
+          existingDestImport.addNamedImport(symbolName);
+          importDecl.remove();
+        } else {
+          importDecl.setModuleSpecifier(destSpecifier);
+        }
+      } else {
+        // Multiple symbols; remove only the ones being moved
+        for (const spec of specifiers) {
+          spec.remove();
+        }
+        if (existingDestImport) {
+          existingDestImport.addNamedImport(symbolName);
+        } else {
+          sf.addImportDeclaration({ namedImports: [symbolName], moduleSpecifier: destSpecifier });
+        }
+      }
+
+      if (!filesModified.includes(filePath)) filesModified.push(filePath);
+    }
+
+    // Collect any other dirty files (srcSF, dstSF) that weren't covered above
+    for (const sf of project.getSourceFiles()) {
+      if (sf.isSaved()) continue;
+      const fp = sf.getFilePath() as string;
+      if (isWithinWorkspace(fp, workspace)) {
+        if (!filesModified.includes(fp)) filesModified.push(fp);
+      } else {
+        if (!filesSkipped.includes(fp)) filesSkipped.push(fp);
+      }
+    }
+
+    // Save all dirty files within the workspace
+    for (const sf of project.getSourceFiles()) {
+      if (!sf.isSaved() && isWithinWorkspace(sf.getFilePath() as string, workspace)) {
+        await sf.save();
+      }
+    }
+
+    this.invalidateProject(absSource);
+
+    return {
+      filesModified,
+      filesSkipped,
+      symbolName,
+      sourceFile: absSource,
+      destFile: absDest,
+    };
   }
 
   async moveFile(oldPath: string, newPath: string, workspace: string): Promise<MoveResult> {

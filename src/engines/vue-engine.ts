@@ -2,9 +2,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Language } from "@volar/language-core";
 import { isWithinWorkspace } from "../daemon/workspace.js";
-import { applyTextEdits } from "./text-utils.js";
 import { findTsConfigForFile } from "./project.js";
-import type { MoveResult, RefactorEngine, RenameResult } from "./types.js";
+import { applyTextEdits } from "./text-utils.js";
+import type { MoveResult, MoveSymbolResult, RefactorEngine, RenameResult } from "./types.js";
 import { SKIP_DIRS, updateVueImportsAfterMove } from "./vue-scan.js";
 
 interface VolarLanguageService {
@@ -384,6 +384,18 @@ export class VueEngine implements RefactorEngine {
     };
   }
 
+  async moveSymbol(
+    _sourceFile: string,
+    symbolName: string,
+    _destFile: string,
+    _workspace: string,
+  ): Promise<MoveSymbolResult> {
+    throw Object.assign(
+      new Error(`moveSymbol is not supported for Vue projects (symbol: '${symbolName}')`),
+      { code: "NOT_SUPPORTED" as const },
+    );
+  }
+
   async moveFile(oldPath: string, newPath: string, workspace: string): Promise<MoveResult> {
     const absOld = path.resolve(oldPath);
     const absNew = path.resolve(newPath);
@@ -446,4 +458,3 @@ export class VueEngine implements RefactorEngine {
     return { filesModified, filesSkipped, oldPath: absOld, newPath: absNew };
   }
 }
-
