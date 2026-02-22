@@ -12,6 +12,26 @@ import { applyTextEdits } from "../text-utils.js";
 import type { MoveResult, MoveSymbolResult, RefactorEngine, RenameResult } from "../types.js";
 import { findTsConfigForFile } from "./project.js";
 
+/**
+ * Recursively collect all .ts/.tsx files under `dir`, skipping directories
+ * that are never part of a TypeScript project (node_modules, dist, .git).
+ * Used by the moveFile post-scan to reach files outside tsconfig `include`.
+ */
+function collectTsFiles(dir: string): string[] {
+  const SKIP = new Set(["node_modules", "dist", ".git"]);
+  const results: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (SKIP.has(entry.name)) continue;
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...collectTsFiles(fullPath));
+    } else if (/\.(ts|tsx)$/.test(entry.name)) {
+      results.push(fullPath);
+    }
+  }
+  return results;
+}
+
 function computeRelativeSpecifier(fromFile: string, toFile: string): string {
   let rel = path.relative(path.dirname(fromFile), toFile).replace(/\.(ts|tsx)$/, "");
   if (!rel.startsWith(".")) rel = `./${rel}`;
@@ -365,6 +385,43 @@ export class TsEngine implements RefactorEngine {
     }
     fs.renameSync(absOld, absNew);
     if (!filesModified.includes(absNew)) filesModified.push(absNew);
+
+    // Post-scan: fix imports in files not tracked by the ts-morph project.
+    // The TypeScript language service only sees files listed in tsconfig `include`.
+    // Files outside (e.g. tests/) are invisible to getEditsForFileRename.
+    // We do a text-level search-replace here; we deliberately do NOT add these
+    // files to the Project — that would widen the type-checking scope beyond
+    // what tsconfig intends.
+    const projectFilePaths = new Set(
+      project.getSourceFiles().map((sf) => sf.getFilePath() as string),
+    );
+    const workspaceRoot = path.resolve(workspace);
+    for (const filePath of collectTsFiles(workspaceRoot)) {
+      if (projectFilePaths.has(filePath)) continue; // already handled above
+      if (!isWithinWorkspace(filePath, workspace)) {
+        if (!filesSkipped.includes(filePath)) filesSkipped.push(filePath);
+        continue;
+      }
+      const fromDir = path.dirname(filePath);
+      const relOldBase = (() => {
+        const r = path.relative(fromDir, absOld.replace(/\.(ts|tsx)$/, ""));
+        return r.startsWith(".") ? r : `./${r}`;
+      })();
+      const relNewBase = (() => {
+        const r = path.relative(fromDir, absNew.replace(/\.(ts|tsx)$/, ""));
+        return r.startsWith(".") ? r : `./${r}`;
+      })();
+      // Try all specifier variants (bare, .js, .ts, .tsx) to handle any
+      // module-resolution convention the out-of-project file may use.
+      const raw = fs.readFileSync(filePath, "utf8");
+      let updated = raw;
+      for (const ext of ["", ".js", ".ts", ".tsx"]) {
+        updated = updated.replaceAll(relOldBase + ext, relNewBase + ext);
+      }
+      if (updated === raw) continue;
+      fs.writeFileSync(filePath, updated, "utf8");
+      if (!filesModified.includes(filePath)) filesModified.push(filePath);
+    }
 
     // Invalidate the cached project: the TypeScript program is now stale.
     this.invalidateProject(absOld);

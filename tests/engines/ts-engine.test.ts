@@ -144,6 +144,20 @@ describe("TsEngine (unit tests)", () => {
       expect(mainContent).not.toContain("../lib/utils");
     });
 
+    it("updates imports in out-of-project files (e.g. tests/)", async () => {
+      // tests/utils.test.ts imports from ../src/utils but is excluded from
+      // the fixture tsconfig `include: ["src/**/*.ts"]`. The post-scan must
+      // still rewrite its import without widening the ts-morph Project scope.
+      const dir = setup();
+      const engine = new TsEngine();
+
+      await engine.moveFile(`${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, dir);
+
+      const testContent = readFile(dir, "tests/utils.test.ts");
+      expect(testContent).toContain("../lib/utils");
+      expect(testContent).not.toContain("../src/utils");
+    });
+
     it("throws FILE_NOT_FOUND for non-existent source", async () => {
       const dir = setup();
       const engine = new TsEngine();
