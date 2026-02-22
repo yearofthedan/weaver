@@ -15,7 +15,7 @@ Read the docs in this order:
 
 ## Current state
 
-**97/97 tests passing.** Security controls, project restructure, all four initial operations, and architecture slices A1/A2/A4 complete. The file layout reflects domain boundaries:
+**110/110 tests passing.** Security controls, project restructure, all four initial operations, and architecture slices A1/A2/A3/A4 complete. The file layout reflects domain boundaries:
 
 ```
 src/
@@ -31,6 +31,7 @@ src/
     errors.ts     ← EngineError class + ErrorCode union
     types.ts
     text-utils.ts ← applyTextEdits(), offsetToLineCol() — shared by both engines
+    file-walk.ts  ← walkFiles(dir, extensions) + SKIP_DIRS — git-aware, shared by both engines
     ts/
       engine.ts   ← TypeScript refactoring via ts-morph
       project.ts  ← findTsConfig, findTsConfigForFile, isVueProject
@@ -65,14 +66,6 @@ Evaluate each candidate: does the daemon's stateful engine make it meaningfully 
 ## Architecture slices
 
 Structural improvements, prioritised by impact-to-effort ratio. Each is a self-contained slice. Do them in order — later slices are cheaper once earlier ones land.
-
-### Slice A3: Unified file walker with gitignore support
-
-Replace `collectTsFiles` (ts/engine.ts) and `findVueFiles` (vue/scan.ts) with a shared `walkFiles(dir, extensions)` in a new `src/engines/file-walk.ts`. Use `git ls-files --cached --others --exclude-standard` when inside a git repo — this respects `.gitignore`, nested `.gitignore`, and `.git/info/exclude` by construction, with zero parsing. Fall back to the current recursive walk for non-git workspaces (rare) with a single shared skip-dir set.
-
-**Why:** the current skip-dir sets are ad hoc and diverge between engines (`scan.ts` skips `.nuxt`, `.output`, `.vite`; `ts/engine.ts` doesn't). Using gitignore is correct by construction — if a directory is gitignored, agents don't care about it. `git ls-files` is fast, adds no dependencies, and eliminates the maintenance burden of keeping a skip list in sync with every framework's output directory.
-
-**Files:** new `src/engines/file-walk.ts`, edits to `ts/engine.ts` and `vue/scan.ts` to call it.
 
 ### Slice A5: Provider/engine separation
 

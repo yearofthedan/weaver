@@ -25,7 +25,10 @@ After spawning the daemon process, the socket file may not exist yet. Use `waitF
 `pnpm format` runs `biome format --write`, which fixes whitespace/style but not `organizeImports` assists. To fix everything in one pass, run `pnpm exec biome check --write .`.
 
 **`dist/` and other build dirs must be excluded from `readDirectory`.**
-The Vue engine calls `ts.sys.readDirectory()` to find `.vue` files. Without filtering, it picks up files under `dist/`, `node_modules/`, etc., which breaks type resolution. `SKIP_DIRS` is exported from `vue/scan.ts` and applied in `buildService()`.
+The Vue engine calls `ts.sys.readDirectory()` to find `.vue` files. Without filtering, it picks up files under `dist/`, `node_modules/`, etc., which breaks type resolution. `SKIP_DIRS` is exported from `src/engines/file-walk.ts` and applied in `buildService()`.
+
+**`walkFiles` is the single file-collection entry point.**
+`src/engines/file-walk.ts` exports `walkFiles(dir, extensions)` and `SKIP_DIRS`. In git workspaces it shells out to `git ls-files --cached --others --exclude-standard` — respects gitignore by construction, no skip-list to maintain. Falls back to a recursive readdir walk using `SKIP_DIRS` for non-git workspaces. Both `ts/engine.ts` (post-scan in `moveFile`) and `vue/scan.ts` (`updateVueImportsAfterMove`) call `walkFiles`.
 
 **`ts-engine.moveFile` uses the language service directly, not `sourceFile.move()`.**
 `sourceFile.move()` + `project.save()` is an atomic API — it writes all dirty files with no per-file whitelist. Use `ls.getEditsForFileRename()` instead to get per-file control before any disk write, then apply edits manually and call `fs.renameSync`. This is the same pattern vue-engine already used. After the operation, call `invalidateProject()` to discard stale in-memory state.
