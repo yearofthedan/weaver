@@ -70,6 +70,9 @@ If the socket connection fails (daemon not yet ready), return `{ ok: false, erro
 **Vertical slice tests assert before and after.**
 Always read fixture files before the operation to confirm original state, then assert both that the old string is gone and the new string is present. This catches false positives.
 
+**A5: Provider/engine separation — design decisions.**
+`LanguageProvider` is in `src/engines/types.ts`. `BaseEngine` (`src/engines/engine.ts`) implements the 4 shared operations (rename, findReferences, getDefinition, moveFile) against the provider interface. `TsEngine` and `VueEngine` extend `BaseEngine` and only implement `moveSymbol`. Provider methods are `async` throughout — VolarProvider needs async lazy init; TsProvider wraps sync ts-morph calls in async. `TsProvider.afterFileRename` owns the out-of-project walkFiles scan (previously inline in TsEngine.moveFile). `VolarProvider.afterFileRename` owns the Vue SFC regex scan. `TsProvider.getProjectForFile()` is a public method that exposes the ts-morph `Project` to `TsEngine.moveSymbol` for direct AST access. TsEngine.rename now uses `ls.findRenameLocations` (text-span) instead of `target.rename()` (AST mutation) — same output, required to share the text-edit apply loop in BaseEngine.
+
 **Do not introduce a `FileProvider` abstraction yet.**
 The DIP argument (program to abstractions, not concretions) is valid in principle, but one implementation is just indirection. The signal to add it: a concrete second implementation (e.g. in-memory FS for unit tests) or real maintenance pain from scattered `fs` calls. The `RefactorEngine` interface is already the adapter pattern for the refactoring concern; that's sufficient for now. `rewriteImports` in `vue/scan.ts` is pure (string → string) and never needed FS anyway; `findVueFiles` is the only candidate and it has a natural home in `vue/scan.ts`.
 
@@ -100,11 +103,15 @@ Code diffs show what changed. The body should explain decisions and tradeoffs. D
 | `src/daemon/paths.ts` | Socket and lockfile path utilities |
 | `src/daemon/daemon.ts` | Socket server; `isDaemonAlive` + `removeDaemonFiles` lifecycle fns |
 | `src/daemon/dispatcher.ts` | `dispatchRequest`; engine singletons; vue scan post-step |
-| `src/engines/text-utils.ts` | `applyTextEdits()` — shared by both engines |
-| `src/engines/ts/engine.ts` | TypeScript refactoring via ts-morph |
+| `src/engines/engine.ts` | `BaseEngine`: shared rename/findReferences/getDefinition/moveFile |
+| `src/engines/text-utils.ts` | `applyTextEdits()`, `offsetToLineCol()` — shared utilities |
+| `src/engines/providers/ts.ts` | `TsProvider`: compiler calls via ts-morph Project |
+| `src/engines/providers/volar.ts` | `VolarProvider`: compiler calls via Volar proxy; virtual↔real translation |
+| `src/engines/ts/engine.ts` | `TsEngine extends BaseEngine`; adds `moveSymbol` (ts-morph AST) |
 | `src/engines/ts/project.ts` | `findTsConfig`, `findTsConfigForFile`, `isVueProject` |
-| `src/engines/vue/engine.ts` | Vue/Volar refactoring |
+| `src/engines/vue/engine.ts` | `VueEngine extends BaseEngine`; `moveSymbol` throws NOT_SUPPORTED |
 | `src/engines/vue/scan.ts` | `updateVueImportsAfterMove` (regex scan for .vue SFC imports) |
+| `src/engines/vue/service-builder.ts` | `buildVolarService()` — Volar service factory |
 | `tests/helpers.ts` | `spawnAndWaitForReady`, `McpTestClient`, `killDaemon` |
 | `tests/fixtures/cross-boundary/` | Fixture for testing cross-workspace boundary enforcement |
 | `docs/security.md` | Threat model, controls, known limitations |

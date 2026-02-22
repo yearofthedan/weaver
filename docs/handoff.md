@@ -15,7 +15,7 @@ Read the docs in this order:
 
 ## Current state
 
-**117/117 tests passing.** Security controls, project restructure, all four initial operations plus `getDefinition`, and architecture slices A1/A2/A3/A4 complete. The file layout reflects domain boundaries:
+**125/125 tests passing.** Security controls, project restructure, all five operations plus `getDefinition`, and architecture slices A1–A5 complete. The file layout reflects domain boundaries:
 
 ```
 src/
@@ -29,15 +29,20 @@ src/
     dispatcher.ts ← dispatchRequest; engine singletons; vue scan post-step
   engines/
     errors.ts     ← EngineError class + ErrorCode union
-    types.ts
+    types.ts      ← result types + LanguageProvider interface
+    engine.ts     ← BaseEngine: shared rename/findReferences/getDefinition/moveFile
     text-utils.ts ← applyTextEdits(), offsetToLineCol() — shared by both engines
     file-walk.ts  ← walkFiles(dir, extensions) + SKIP_DIRS — git-aware, shared by both engines
+    providers/
+      ts.ts       ← TsProvider: compiler calls via ts-morph Project
+      volar.ts    ← VolarProvider: compiler calls via Volar proxy + virtual↔real translation
     ts/
-      engine.ts   ← TypeScript refactoring via ts-morph
+      engine.ts   ← TsEngine extends BaseEngine; moveSymbol (ts-morph AST)
       project.ts  ← findTsConfig, findTsConfigForFile, isVueProject
     vue/
-      engine.ts   ← Vue/Volar refactoring
+      engine.ts   ← VueEngine extends BaseEngine; moveSymbol stub (NOT_SUPPORTED)
       scan.ts     ← updateVueImportsAfterMove (regex scan for .vue SFC imports)
+      service-builder.ts ← buildVolarService() — extracted from VueEngine
 ```
 
 **Known remaining gap** — `updateVueImportsAfterMove` (vue/scan) does not enforce workspace boundary on its regex scan. Low risk in practice (search root is clamped to tsconfig directory), tracked in tech-debt.md.
@@ -66,27 +71,6 @@ Evaluate each candidate: does the daemon's stateful engine make it meaningfully 
 ## Architecture slices
 
 Structural improvements, prioritised by impact-to-effort ratio. Each is a self-contained slice. Do them in order — later slices are cheaper once earlier ones land.
-
-### Slice A5: Provider/engine separation
-
-The big structural refactor. Extract a `LanguageProvider` interface with pure methods (no file I/O):
-
-```ts
-interface LanguageProvider {
-  getRenameLocations(file: string, offset: number): RenameLocation[];
-  getFileRenameEdits(oldPath: string, newPath: string): FileTextEdits[];
-  getReferencesAtPosition(file: string, offset: number): ReferenceLocation[];
-  resolveOffset(file: string, line: number, col: number): number;
-}
-```
-
-`TsProvider` and `VolarProvider` implement only the compiler-specific calls. A shared engine layer (functions or a `BaseEngine`) handles: file existence checks, offset resolution, workspace boundary filtering, disk I/O, result shaping. Each new operation drops from ~80 lines per engine to ~20 lines in one place.
-
-**Includes:** extract `VueEngine.buildService` (200 lines) into `src/engines/vue/service-builder.ts` as part of this slice.
-
-**Files:** new `src/engines/providers/ts.ts`, `src/engines/providers/volar.ts`, `src/engines/vue/service-builder.ts`, major edits to `ts/engine.ts`, `vue/engine.ts`, `types.ts`.
-**Depends on:** A1 (typed errors) for clean error paths in the shared layer.
-**See also:** tech-debt.md "Missing provider/engine separation" and "Dispatcher: operation-centric architecture".
 
 ### Slice A6: Data-driven MCP registration and dispatcher
 

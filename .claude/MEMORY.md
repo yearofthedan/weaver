@@ -9,12 +9,12 @@ See `docs/agent-memory.md` for technical gotchas useful to humans too.
 
 ## Current state
 
-- 117/117 tests passing
+- 125/125 tests passing
 - Security controls complete — see `docs/security.md`
 - Operations complete: `rename` (TS+Vue), `move` (TS+Vue), `moveSymbol` (TS only), `findReferences` (TS+Vue, read-only), `getDefinition` (TS+Vue, read-only)
 - Deps pinned; pnpm override deduplicates `@volar/language-core` to 2.4.28
 - CI: `.github/workflows/ci.yml` runs `pnpm check` on push/PR to main
-- Architecture slices: see `docs/handoff.md` for status (A1/A2/A3/A4 ✅, A5/A6 pending)
+- Architecture slices: A1–A5 ✅, A6 pending (see `docs/handoff.md`)
 
 ## Source layout
 
@@ -29,15 +29,20 @@ src/
     paths.ts      ← socketPath, lockfilePath, ensureCacheDir
     dispatcher.ts ← dispatchRequest; engine singletons; vue scan post-step
   engines/
-    errors.ts     ← EngineError class + ErrorCode union (A1)
-    types.ts
+    errors.ts     ← EngineError class + ErrorCode union
+    types.ts      ← result types + LanguageProvider interface
+    engine.ts     ← BaseEngine: shared rename/findReferences/getDefinition/moveFile
     text-utils.ts ← applyTextEdits(), offsetToLineCol() shared utilities
+    providers/
+      ts.ts       ← TsProvider: compiler calls via ts-morph Project
+      volar.ts    ← VolarProvider: compiler calls via Volar proxy; virtual↔real translation
     ts/
-      engine.ts   ← TsEngine (ts-morph)
+      engine.ts   ← TsEngine extends BaseEngine; moveSymbol (ts-morph AST)
       project.ts  ← findTsConfig, findTsConfigForFile, isVueProject
     vue/
-      engine.ts   ← VueEngine (Volar)
+      engine.ts   ← VueEngine extends BaseEngine; moveSymbol stub (NOT_SUPPORTED)
       scan.ts     ← updateVueImportsAfterMove (regex scan for .vue SFCs)
+      service-builder.ts ← buildVolarService() — Volar service factory
 ```
 
 ## Next up
