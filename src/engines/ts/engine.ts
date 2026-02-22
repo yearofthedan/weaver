@@ -8,8 +8,14 @@ import {
   type SourceFile,
 } from "ts-morph";
 import { isWithinWorkspace } from "../../workspace.js";
-import { applyTextEdits } from "../text-utils.js";
-import type { MoveResult, MoveSymbolResult, RefactorEngine, RenameResult } from "../types.js";
+import { applyTextEdits, offsetToLineCol } from "../text-utils.js";
+import type {
+  FindReferencesResult,
+  MoveResult,
+  MoveSymbolResult,
+  RefactorEngine,
+  RenameResult,
+} from "../types.js";
 import { findTsConfigForFile } from "./project.js";
 
 /**
@@ -159,6 +165,73 @@ export class TsEngine implements RefactorEngine {
       newName,
       locationCount: dirtySources.length, // approximate; ts-morph doesn't expose count directly
     };
+  }
+
+  async findReferences(
+    filePath: string,
+    line: number,
+    col: number,
+  ): Promise<FindReferencesResult> {
+    const absPath = path.resolve(filePath);
+
+    if (!fs.existsSync(absPath)) {
+      throw Object.assign(new Error(`File not found: ${filePath}`), {
+        code: "FILE_NOT_FOUND" as const,
+      });
+    }
+
+    const project = this.getProject(absPath);
+    let sourceFile = project.getSourceFile(absPath);
+    if (!sourceFile) {
+      sourceFile = project.addSourceFileAtPath(absPath);
+    }
+
+    const lineCount = sourceFile.getEndLineNumber();
+    if (line - 1 > lineCount) {
+      throw Object.assign(new Error(`Line ${line} out of range in ${filePath}`), {
+        code: "SYMBOL_NOT_FOUND" as const,
+      });
+    }
+
+    let pos: number;
+    try {
+      pos = sourceFile.compilerNode.getPositionOfLineAndCharacter(line - 1, col - 1);
+    } catch {
+      throw Object.assign(
+        new Error(`No symbol at line ${line}, col ${col} in ${filePath}`),
+        { code: "SYMBOL_NOT_FOUND" as const },
+      );
+    }
+
+    const ls = project.getLanguageService().compilerObject;
+    const refs = ls.getReferencesAtPosition(absPath, pos);
+
+    if (!refs || refs.length === 0) {
+      throw Object.assign(
+        new Error(`No symbol at line ${line}, col ${col} in ${filePath}`),
+        { code: "SYMBOL_NOT_FOUND" as const },
+      );
+    }
+
+    // Extract symbol name from the definition reference, falling back to the first.
+    const defRef = refs.find((r) => r.isDefinition) ?? refs[0];
+    const contentCache = new Map<string, string>();
+    const getContent = (fp: string) => {
+      if (!contentCache.has(fp)) contentCache.set(fp, fs.readFileSync(fp, "utf8"));
+      return contentCache.get(fp) as string;
+    };
+    const symbolName = getContent(defRef.fileName).slice(
+      defRef.textSpan.start,
+      defRef.textSpan.start + defRef.textSpan.length,
+    );
+
+    const references = refs.map((ref) => {
+      const content = getContent(ref.fileName);
+      const lc = offsetToLineCol(content, ref.textSpan.start);
+      return { file: ref.fileName, line: lc.line, col: lc.col, length: ref.textSpan.length };
+    });
+
+    return { symbolName, references };
   }
 
   private invalidateProject(filePath: string): void {

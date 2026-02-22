@@ -2,9 +2,15 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Language } from "@volar/language-core";
 import { isWithinWorkspace } from "../../workspace.js";
-import { applyTextEdits } from "../text-utils.js";
+import { applyTextEdits, offsetToLineCol } from "../text-utils.js";
 import { findTsConfigForFile } from "../ts/project.js";
-import type { MoveResult, MoveSymbolResult, RefactorEngine, RenameResult } from "../types.js";
+import type {
+  FindReferencesResult,
+  MoveResult,
+  MoveSymbolResult,
+  RefactorEngine,
+  RenameResult,
+} from "../types.js";
 import { SKIP_DIRS, updateVueImportsAfterMove } from "./scan.js";
 
 interface VolarLanguageService {
@@ -14,6 +20,10 @@ interface VolarLanguageService {
     findInStrings: boolean,
     findInComments: boolean,
     preferences?: object,
+  ): readonly { fileName: string; textSpan: { start: number; length: number } }[] | undefined;
+  getReferencesAtPosition(
+    fileName: string,
+    position: number,
   ): readonly { fileName: string; textSpan: { start: number; length: number } }[] | undefined;
   getEditsForFileRename(
     oldFilePath: string,
@@ -253,6 +263,53 @@ export class VueEngine implements RefactorEngine {
     this.services.delete(tsConfigPath ?? `__no_tsconfig__:${path.dirname(filePath)}`);
   }
 
+  /**
+   * Translate virtual `.vue.ts` locations back to real `.vue` source positions
+   * using Volar's source maps. Plain `.ts` locations pass through unchanged.
+   * Locations with no source mapping (Volar glue code) are dropped.
+   */
+  private translateLocations(
+    rawLocations: readonly { fileName: string; textSpan: { start: number; length: number } }[],
+    language: import("@volar/language-core").Language<string>,
+    vueVirtualToReal: Map<string, string>,
+  ): { fileName: string; textSpan: { start: number; length: number } }[] {
+    const locations: { fileName: string; textSpan: { start: number; length: number } }[] = [];
+    for (const loc of rawLocations) {
+      const realVuePath = vueVirtualToReal.get(loc.fileName);
+      if (realVuePath === undefined) {
+        locations.push(loc);
+        continue;
+      }
+
+      const sourceScript = language.scripts.get(realVuePath);
+      if (!sourceScript?.generated) {
+        locations.push({ fileName: realVuePath, textSpan: loc.textSpan });
+        continue;
+      }
+
+      const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(
+        sourceScript.generated.root,
+      );
+      if (!serviceScript) {
+        locations.push({ fileName: realVuePath, textSpan: loc.textSpan });
+        continue;
+      }
+
+      const mapper = language.maps.get(serviceScript.code, sourceScript);
+      const iter = mapper.toSourceLocation(loc.textSpan.start);
+      const next = iter.next() as IteratorResult<readonly [number, unknown]>;
+      if (!next.done) {
+        const [sourceOffset] = next.value;
+        locations.push({
+          fileName: realVuePath,
+          textSpan: { start: sourceOffset, length: loc.textSpan.length },
+        });
+      }
+      // Locations with no source mapping are Volar glue code — skip them.
+    }
+    return locations;
+  }
+
   async rename(
     filePath: string,
     line: number,
@@ -295,49 +352,7 @@ export class VueEngine implements RefactorEngine {
       );
     }
 
-    // Translate virtual .vue.ts locations back to real .vue file positions.
-    //
-    // TypeScript analyses App.vue.ts (the virtual alias) and returns offsets
-    // inside the Volar-generated TypeScript for that file. We use Volar's
-    // source maps (language.maps) to map each generated offset back to its
-    // original position in the .vue source file.
-    const locations: { fileName: string; textSpan: { start: number; length: number } }[] = [];
-    for (const loc of rawLocations) {
-      const realVuePath = vueVirtualToReal.get(loc.fileName);
-      if (realVuePath === undefined) {
-        // Regular .ts/.tsx file — no translation needed.
-        locations.push(loc);
-        continue;
-      }
-
-      const sourceScript = language.scripts.get(realVuePath);
-      if (!sourceScript?.generated) {
-        // No generated code; fall back to the real path with the original offset.
-        locations.push({ fileName: realVuePath, textSpan: loc.textSpan });
-        continue;
-      }
-
-      const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(
-        sourceScript.generated.root,
-      );
-      if (!serviceScript) {
-        locations.push({ fileName: realVuePath, textSpan: loc.textSpan });
-        continue;
-      }
-
-      // Map the generated-code offset to the original .vue source offset.
-      const mapper = language.maps.get(serviceScript.code, sourceScript);
-      const iter = mapper.toSourceLocation(loc.textSpan.start);
-      const next = iter.next() as IteratorResult<readonly [number, unknown]>;
-      if (!next.done) {
-        const [sourceOffset] = next.value;
-        locations.push({
-          fileName: realVuePath,
-          textSpan: { start: sourceOffset, length: loc.textSpan.length },
-        });
-      }
-      // If the offset has no source mapping it is in Volar glue code — skip it.
-    }
+    const locations = this.translateLocations(rawLocations, language, vueVirtualToReal);
 
     // Determine the original symbol name from the first translated location.
     const firstLoc = locations[0];
@@ -382,6 +397,66 @@ export class VueEngine implements RefactorEngine {
       newName,
       locationCount: locations.length,
     };
+  }
+
+  async findReferences(
+    filePath: string,
+    line: number,
+    col: number,
+  ): Promise<FindReferencesResult> {
+    const absPath = path.resolve(filePath);
+
+    if (!fs.existsSync(absPath)) {
+      throw Object.assign(new Error(`File not found: ${filePath}`), {
+        code: "FILE_NOT_FOUND" as const,
+      });
+    }
+
+    const { languageService, fileContents, language, vueVirtualToReal } =
+      await this.getService(absPath);
+
+    const content = fs.readFileSync(absPath, "utf8");
+    fileContents.set(absPath, content);
+
+    const lines = content.split("\n");
+    if (line - 1 >= lines.length) {
+      throw Object.assign(new Error(`Line ${line} out of range in ${filePath}`), {
+        code: "SYMBOL_NOT_FOUND" as const,
+      });
+    }
+    let pos = 0;
+    for (let i = 0; i < line - 1; i++) {
+      pos += lines[i].length + 1; // +1 for \n
+    }
+    pos += col - 1;
+
+    const rawRefs = languageService.getReferencesAtPosition(absPath, pos);
+    if (!rawRefs || rawRefs.length === 0) {
+      throw Object.assign(
+        new Error(`No symbol at line ${line}, col ${col} in ${filePath}`),
+        { code: "SYMBOL_NOT_FOUND" as const },
+      );
+    }
+
+    const refs = this.translateLocations(rawRefs, language, vueVirtualToReal);
+
+    // Extract symbol name from the first translated location.
+    const firstRef = refs[0];
+    const firstContent =
+      fileContents.get(firstRef.fileName) ?? fs.readFileSync(firstRef.fileName, "utf8");
+    const symbolName = firstContent.slice(
+      firstRef.textSpan.start,
+      firstRef.textSpan.start + firstRef.textSpan.length,
+    );
+
+    const references = refs.map((ref) => {
+      const refContent =
+        fileContents.get(ref.fileName) ?? fs.readFileSync(ref.fileName, "utf8");
+      const lc = offsetToLineCol(refContent, ref.textSpan.start);
+      return { file: ref.fileName, line: lc.line, col: lc.col, length: ref.textSpan.length };
+    });
+
+    return { symbolName, references };
   }
 
   async moveSymbol(

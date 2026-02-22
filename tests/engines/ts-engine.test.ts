@@ -4,6 +4,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { TsEngine } from "../../src/engines/ts/engine";
 import { cleanup, copyFixture, fileExists, readFile } from "../helpers";
 
+// simple-ts fixture layout (1-based coords):
+// src/utils.ts  line 1: export function greetUser(...  → col 17
+// src/main.ts   line 1: import { greetUser } from ...  → col 10
+//               line 3: console.log(greetUser(...      → col 13
+
 describe("TsEngine (unit tests)", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
@@ -171,6 +176,64 @@ describe("TsEngine (unit tests)", () => {
       } catch (err: unknown) {
         const error = err as { code?: string; message: string };
         expect(error.code).toBe("FILE_NOT_FOUND");
+      }
+    });
+  });
+
+  describe("findReferences", () => {
+    it("finds all references to a symbol from the declaration site", async () => {
+      const dir = setup();
+      const engine = new TsEngine();
+
+      const result = await engine.findReferences(`${dir}/src/utils.ts`, 1, 17);
+
+      expect(result.symbolName).toBe("greetUser");
+      expect(result.references.length).toBeGreaterThanOrEqual(2);
+
+      const files = result.references.map((r) => r.file);
+      expect(files.some((f) => f.endsWith("utils.ts"))).toBe(true);
+      expect(files.some((f) => f.endsWith("main.ts"))).toBe(true);
+
+      for (const ref of result.references) {
+        expect(ref.line).toBeGreaterThan(0);
+        expect(ref.col).toBeGreaterThan(0);
+        expect(ref.length).toBeGreaterThan(0);
+      }
+    });
+
+    it("finds the same references from a call site", async () => {
+      const dir = setup();
+      const engine = new TsEngine();
+
+      const result = await engine.findReferences(`${dir}/src/main.ts`, 3, 13);
+
+      expect(result.symbolName).toBe("greetUser");
+      const files = result.references.map((r) => r.file);
+      expect(files.some((f) => f.endsWith("utils.ts"))).toBe(true);
+      expect(files.some((f) => f.endsWith("main.ts"))).toBe(true);
+    });
+
+    it("throws FILE_NOT_FOUND for a non-existent file", async () => {
+      const dir = setup();
+      const engine = new TsEngine();
+
+      try {
+        await engine.findReferences(`${dir}/src/doesNotExist.ts`, 1, 1);
+        expect.fail("Should have thrown");
+      } catch (err: unknown) {
+        expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
+      }
+    });
+
+    it("throws SYMBOL_NOT_FOUND for an out-of-range line", async () => {
+      const dir = setup();
+      const engine = new TsEngine();
+
+      try {
+        await engine.findReferences(`${dir}/src/utils.ts`, 999, 1);
+        expect.fail("Should have thrown");
+      } catch (err: unknown) {
+        expect((err as { code?: string }).code).toBe("SYMBOL_NOT_FOUND");
       }
     });
   });

@@ -113,5 +113,25 @@ export async function dispatchRequest(
     };
   }
 
+  if (req.method === "findReferences") {
+    const { file, line, col } = req.params as { file: string; line: number; col: number };
+    if (!isWithinWorkspace(file, workspace)) {
+      return {
+        ok: false,
+        error: "WORKSPACE_VIOLATION",
+        message: `File path is outside the workspace: ${file}`,
+      };
+    }
+    const engine = await getEngine(file);
+    const result = await engine.findReferences(file, line, col);
+    const count = result.references.length;
+    return {
+      ok: true,
+      symbolName: result.symbolName,
+      references: result.references,
+      message: `Found ${count} ${count === 1 ? "reference" : "references"} to '${result.symbolName}'`,
+    };
+  }
+
   return { ok: false, error: "UNKNOWN_METHOD", message: `Unknown method: ${req.method}` };
 }

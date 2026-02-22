@@ -197,6 +197,39 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
     },
   );
 
+  server.registerTool(
+    "findReferences",
+    {
+      description:
+        "Find all references to the symbol at a specific position in a file",
+      inputSchema: {
+        file: z.string().describe("Absolute path to the file"),
+        line: z.number().int().positive().describe("Line number (1-based)"),
+        col: z.number().int().positive().describe("Column number (1-based)"),
+      },
+    },
+    async ({ file, line, col }) => {
+      try {
+        const response = await callDaemon(sockPath, {
+          method: "findReferences",
+          params: { file, line, col },
+        });
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }),
+            },
+          ],
+          isError: true,
+        };
+      }
+    },
+  );
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

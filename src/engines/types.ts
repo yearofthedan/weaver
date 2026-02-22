@@ -24,6 +24,18 @@ export interface MoveSymbolResult {
   destFile: string;
 }
 
+export interface Reference {
+  file: string;
+  line: number;
+  col: number;
+  length: number;
+}
+
+export interface FindReferencesResult {
+  symbolName: string;
+  references: Reference[];
+}
+
 export interface RefactorEngine {
   /**
    * Rename the symbol at (line, col) in filePath to newName.
@@ -55,4 +67,10 @@ export interface RefactorEngine {
     destFile: string,
     workspace: string,
   ): Promise<MoveSymbolResult>;
+
+  /**
+   * Find all references to the symbol at (line, col) in filePath.
+   * line and col are 1-based. Read-only — does not modify any files.
+   */
+  findReferences(filePath: string, line: number, col: number): Promise<FindReferencesResult>;
 }

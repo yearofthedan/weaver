@@ -92,6 +92,41 @@ describe("VueEngine (unit tests)", () => {
     });
   });
 
+  describe("findReferences", () => {
+    it("finds references to a composable across .ts and .vue files", async () => {
+      const dir = setup();
+      const engine = new VueEngine();
+
+      // useCounter.ts line 1: export function useCounter(  → col 17
+      const result = await engine.findReferences(`${dir}/src/composables/useCounter.ts`, 1, 17);
+
+      expect(result.symbolName).toBe("useCounter");
+      expect(result.references.length).toBeGreaterThanOrEqual(2);
+
+      const files = result.references.map((r) => r.file);
+      expect(files.some((f) => f.endsWith("useCounter.ts"))).toBe(true);
+      expect(files.some((f) => f.endsWith(".vue"))).toBe(true);
+
+      for (const ref of result.references) {
+        expect(ref.line).toBeGreaterThan(0);
+        expect(ref.col).toBeGreaterThan(0);
+        expect(ref.length).toBeGreaterThan(0);
+      }
+    });
+
+    it("throws FILE_NOT_FOUND for a non-existent file", async () => {
+      const dir = setup();
+      const engine = new VueEngine();
+
+      try {
+        await engine.findReferences(`${dir}/src/doesNotExist.ts`, 1, 1);
+        expect.fail("Should have thrown");
+      } catch (err: unknown) {
+        expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
+      }
+    });
+  });
+
   describe("moveFile", () => {
     it("moves a composable file and updates .vue imports", async () => {
       const dir = setup();
