@@ -15,7 +15,7 @@ Read the docs in this order:
 
 ## Current state
 
-**59/59 tests passing.** Security controls, project restructure, and all four initial operations complete. The file layout reflects domain boundaries:
+**97/97 tests passing.** Security controls, project restructure, all four initial operations, and architecture slices A1/A2/A4 complete. The file layout reflects domain boundaries:
 
 ```
 src/
@@ -24,10 +24,11 @@ src/
   workspace.ts    ← isWithinWorkspace() — shared boundary utility
   mcp.ts          ← MCP server (connects to daemon)
   daemon/
-    daemon.ts     ← socket server; isDaemonAlive + removeDaemonFiles lifecycle fns
+    daemon.ts     ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns
     paths.ts      ← socketPath, lockfilePath, ensureCacheDir only
     dispatcher.ts ← dispatchRequest; engine singletons; vue scan post-step
   engines/
+    errors.ts     ← EngineError class + ErrorCode union
     types.ts
     text-utils.ts ← applyTextEdits(), offsetToLineCol() — shared by both engines
     ts/
@@ -65,20 +66,6 @@ Evaluate each candidate: does the daemon's stateful engine make it meaningfully 
 
 Structural improvements, prioritised by impact-to-effort ratio. Each is a self-contained slice. Do them in order — later slices are cheaper once earlier ones land.
 
-### Slice A1: Typed error system
-
-Replace the `Object.assign(new Error(...), { code: "..." })` pattern (15+ sites) with an `EngineError` class and a `ErrorCode` union type. Update dispatcher catch blocks to use `instanceof` narrowing.
-
-**Files:** new `src/engines/errors.ts`, edits to `ts/engine.ts`, `vue/engine.ts`, `dispatcher.ts`.
-**Why first:** smallest slice, zero dependencies, makes every later refactor easier to review because error paths are legible.
-
-### Slice A2: Unit tests for pure functions
-
-Add targeted unit tests for: `offsetToLineCol`, `applyTextEdits`, `computeRelativeSpecifier`, `rewriteImports`, `isWithinWorkspace`. These are the helpers most likely to have subtle edge-case bugs (off-by-one in offset conversion, regex boundary in rewriteImports, symlink edge in isWithinWorkspace). Integration tests catch failures but don't localise them — these unit tests do.
-
-**Files:** new `tests/engines/text-utils.test.ts`, `tests/engines/scan.test.ts`, `tests/workspace.test.ts`.
-**Scope:** test edge cases only (empty files, multi-byte characters, Windows-style separators, relative paths that resolve to the boundary). Don't duplicate what vertical-slice tests already cover.
-
 ### Slice A3: Unified file walker with gitignore support
 
 Replace `collectTsFiles` (ts/engine.ts) and `findVueFiles` (vue/scan.ts) with a shared `walkFiles(dir, extensions)` in a new `src/engines/file-walk.ts`. Use `git ls-files --cached --others --exclude-standard` when inside a git repo — this respects `.gitignore`, nested `.gitignore`, and `.git/info/exclude` by construction, with zero parsing. Fall back to the current recursive walk for non-git workspaces (rare) with a single shared skip-dir set.
@@ -86,13 +73,6 @@ Replace `collectTsFiles` (ts/engine.ts) and `findVueFiles` (vue/scan.ts) with a 
 **Why:** the current skip-dir sets are ad hoc and diverge between engines (`scan.ts` skips `.nuxt`, `.output`, `.vite`; `ts/engine.ts` doesn't). Using gitignore is correct by construction — if a directory is gitignored, agents don't care about it. `git ls-files` is fast, adds no dependencies, and eliminates the maintenance burden of keeping a skip list in sync with every framework's output directory.
 
 **Files:** new `src/engines/file-walk.ts`, edits to `ts/engine.ts` and `vue/scan.ts` to call it.
-
-### Slice A4: Request serialisation in daemon
-
-Add a Promise-chain mutex around `dispatchRequest` in `daemon.ts`. ~10 lines. Prevents interleaved writes if two requests arrive concurrently (e.g. MCP host retries on timeout while the first request is still in flight).
-
-**Files:** `src/daemon/daemon.ts`.
-**See also:** tech-debt.md "Daemon: no request serialisation" for full context.
 
 ### Slice A5: Provider/engine separation
 

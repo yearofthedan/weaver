@@ -14,7 +14,7 @@ See `docs/agent-memory.md` for technical gotchas useful to humans too.
 - Operations complete: `rename` (TS+Vue), `move` (TS+Vue), `moveSymbol` (TS only), `findReferences` (TS+Vue, read-only)
 - Deps pinned; pnpm override deduplicates `@volar/language-core` to 2.4.28
 - CI: `.github/workflows/ci.yml` runs `pnpm check` on push/PR to main
-- Architecture slices A1, A2, A4 complete (see handoff.md for A3, A5, A6)
+- Architecture slices: see `docs/handoff.md` for status (A1/A2/A4 ✅, A3/A5/A6 pending)
 
 ## Source layout
 
@@ -42,9 +42,7 @@ src/
 
 ## Next up
 
-1. **A3** — unified file walker with gitignore support (`src/engines/file-walk.ts`)
-2. **A5** — provider/engine separation (depends on A1, now complete)
-3. **New operations** — `getDefinition` is next highest agent value; see `docs/handoff.md`
+See `docs/handoff.md` — it is the single source of truth for what's left to build.
 
 ## Parallel agent lesson
 

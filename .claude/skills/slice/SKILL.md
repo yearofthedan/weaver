@@ -12,6 +12,6 @@ description: Execute the next vertical slice from handoff.md — confirms the ta
 5. Run `pnpm test` — all tests must pass before continuing
 6. Run `pnpm lint`
 7. Commit with a conventional commit message
-8. Mark the task complete in docs/handoff.md
-9. Update .claude/MEMORY.md and docs/agent-memory.md with any architectural decisions made
+8. Remove the completed slice from docs/handoff.md and update the "Current state" section (test count, layout changes)
+9. Update docs/agent-memory.md with any architectural decisions made
 10. Do NOT proceed to the next slice without explicit user approval
