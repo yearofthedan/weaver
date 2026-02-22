@@ -1,7 +1,5 @@
-import * as path from "node:path";
 import { findTsConfigForFile, isVueProject } from "../engines/ts/project.js";
 import type { RefactorEngine } from "../engines/types.js";
-import { updateVueImportsAfterMove } from "../engines/vue/scan.js";
 import { isWithinWorkspace } from "../workspace.js";
 
 let tsEngine: import("../engines/ts/engine.js").TsEngine | undefined;
@@ -75,13 +73,6 @@ export async function dispatchRequest(
     }
     const engine = await getEngine(oldPath);
     const result = await engine.moveFile(oldPath, newPath, workspace);
-    // Post-step: scan .vue files for import rewrites the language service may have missed.
-    const tsConfig = findTsConfigForFile(oldPath);
-    const searchRoot = tsConfig ? path.dirname(tsConfig) : path.dirname(oldPath);
-    const vueModified = updateVueImportsAfterMove(oldPath, newPath, searchRoot);
-    for (const f of vueModified) {
-      if (!result.filesModified.includes(f)) result.filesModified.push(f);
-    }
     const fileCount = result.filesModified.length;
     return {
       ok: true,

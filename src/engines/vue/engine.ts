@@ -5,7 +5,7 @@ import { isWithinWorkspace } from "../../workspace.js";
 import { applyTextEdits } from "../text-utils.js";
 import { findTsConfigForFile } from "../ts/project.js";
 import type { MoveResult, MoveSymbolResult, RefactorEngine, RenameResult } from "../types.js";
-import { SKIP_DIRS } from "./scan.js";
+import { SKIP_DIRS, updateVueImportsAfterMove } from "./scan.js";
 
 interface VolarLanguageService {
   findRenameLocations(
@@ -415,8 +415,8 @@ export class VueEngine implements RefactorEngine {
     const filesSkipped: string[] = [];
     for (const edit of edits) {
       if (edit.textChanges.length === 0) continue;
-      // Virtual .vue.ts filenames have no disk representation. The
-      // updateVueImportsAfterMove scan below handles .vue file rewrites.
+      // Virtual .vue.ts filenames have no disk representation. The regex scan
+      // further below handles .vue SFC import rewrites directly.
       if (vueVirtualToReal.has(edit.fileName)) continue;
       if (!isWithinWorkspace(edit.fileName, workspace)) {
         if (!filesSkipped.includes(edit.fileName)) filesSkipped.push(edit.fileName);
@@ -441,6 +441,16 @@ export class VueEngine implements RefactorEngine {
     // Invalidate the cached service: scriptFileNames was built from the pre-move
     // filesystem state. The next call rebuilds from current disk state.
     this.invalidateService(absOld);
+
+    // Scan .vue SFCs for import rewrites the language service missed.
+    // getEditsForFileRename skips virtual .vue.ts → real .vue translation for
+    // move operations, so we handle those imports via a regex scan.
+    const tsConfig = findTsConfigForFile(absOld);
+    const searchRoot = tsConfig ? path.dirname(tsConfig) : path.dirname(absOld);
+    const vueModified = updateVueImportsAfterMove(absOld, absNew, searchRoot);
+    for (const f of vueModified) {
+      if (!filesModified.includes(f)) filesModified.push(f);
+    }
 
     if (!filesModified.includes(absNew)) {
       filesModified.push(absNew);
