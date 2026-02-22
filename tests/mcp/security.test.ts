@@ -1,7 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { removeDaemonFiles } from "../../src/daemon/paths";
+import { removeDaemonFiles } from "../../src/daemon/daemon";
 import {
   cleanup,
   copyFixture,
@@ -138,7 +138,7 @@ describe("MCP transport — workspace security", () => {
     const resp = await client.request(6, "tools/call", {
       name: "rename",
       arguments: {
-        file: path.join(dir, "src/utils.ts") + "\n" + '{"method":"ping"}',
+        file: `${path.join(dir, "src/utils.ts")}\n{"method":"ping"}`,
         line: 1,
         col: 1,
         newName: "safe",

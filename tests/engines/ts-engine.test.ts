@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { TsEngine } from "../../src/engines/ts-engine";
+import { TsEngine } from "../../src/engines/ts/engine";
 import { cleanup, copyFixture, fileExists, readFile } from "../helpers";
 
 describe("TsEngine (unit tests)", () => {

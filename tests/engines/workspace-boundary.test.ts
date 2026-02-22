@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { TsEngine } from "../../src/engines/ts-engine";
+import { TsEngine } from "../../src/engines/ts/engine";
 import { cleanup, copyFixture, readFile } from "../helpers";
 
 describe("TsEngine — workspace boundary enforcement", () => {
@@ -17,7 +17,7 @@ describe("TsEngine — workspace boundary enforcement", () => {
 
     const workspace = path.join(root, "workspace");
     const utilsFile = path.join(workspace, "src/utils.ts");
-    const consumerFile = path.join(root, "consumer/main.ts");
+    const _consumerFile = path.join(root, "consumer/main.ts");
 
     const before = {
       utils: readFile(root, "workspace/src/utils.ts"),
@@ -49,7 +49,7 @@ describe("TsEngine — workspace boundary enforcement", () => {
     const workspace = path.join(root, "workspace");
     const oldFilePath = path.join(workspace, "src/utils.ts");
     const newFilePath = path.join(workspace, "src/helpers.ts");
-    const consumerFile = path.join(root, "consumer/main.ts");
+    const _consumerFile = path.join(root, "consumer/main.ts");
 
     expect(fs.existsSync(oldFilePath)).toBe(true);
     expect(readFile(root, "consumer/main.ts")).toContain("utils");

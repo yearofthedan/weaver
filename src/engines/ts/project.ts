@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as ts from "typescript";
 
 const cache = new Map<string, string | null>();
 
@@ -38,4 +39,24 @@ export function findTsConfig(startDir: string): string | null {
  */
 export function findTsConfigForFile(filePath: string): string | null {
   return findTsConfig(path.dirname(path.resolve(filePath)));
+}
+
+/**
+ * Returns true if the project directory (rooted at the tsconfig location)
+ * contains any .vue files. This is the signal that VueEngine should be used
+ * for all operations, regardless of starting file extension.
+ * Cached per project root for the process lifetime.
+ */
+const vueProjectCache = new Map<string, boolean>();
+
+export function isVueProject(tsConfigPath: string): boolean {
+  const projectRoot = path.dirname(tsConfigPath);
+  if (vueProjectCache.has(projectRoot)) {
+    // biome-ignore lint/style/noNonNullAssertion: guarded by .has() above
+    return vueProjectCache.get(projectRoot)!;
+  }
+  const vueFiles = ts.sys.readDirectory(projectRoot, [".vue"], [], [], 1000);
+  const hasVue = vueFiles.length > 0;
+  vueProjectCache.set(projectRoot, hasVue);
+  return hasVue;
 }

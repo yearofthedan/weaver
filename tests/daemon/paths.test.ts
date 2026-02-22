@@ -2,7 +2,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { isDaemonAlive, lockfilePath, removeDaemonFiles, socketPath } from "../../src/daemon/paths";
+import { isDaemonAlive, removeDaemonFiles } from "../../src/daemon/daemon";
+import { lockfilePath, socketPath } from "../../src/daemon/paths";
 
 const WORKSPACE_A = "/tmp/test-workspace-alpha";
 const WORKSPACE_B = "/tmp/test-workspace-beta";

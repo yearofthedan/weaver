@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { removeDaemonFiles } from "../../src/daemon/paths";
+import { removeDaemonFiles } from "../../src/daemon/daemon";
 import {
   cleanup,
   copyFixture,

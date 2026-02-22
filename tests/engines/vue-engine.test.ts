@@ -1,6 +1,9 @@
 import * as fs from "node:fs";
+import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { VueEngine } from "../../src/engines/vue-engine";
+import { findTsConfigForFile } from "../../src/engines/ts/project";
+import { VueEngine } from "../../src/engines/vue/engine";
+import { updateVueImportsAfterMove } from "../../src/engines/vue/scan";
 import { cleanup, copyFixture, fileExists, readFile } from "../helpers";
 
 describe("VueEngine (unit tests)", () => {
@@ -106,12 +109,22 @@ describe("VueEngine (unit tests)", () => {
       expect(fileExists(dir, "src/composables/useCounter.ts")).toBe(false);
       expect(fileExists(dir, "src/utils/useCounter.ts")).toBe(true);
 
-      // App.vue import is rewritten
+      // Dispatcher post-step: scan .vue files for import rewrites.
+      // VueEngine.moveFile() handles .ts imports via Volar; .vue SFC imports
+      // are updated by updateVueImportsAfterMove(), run by the dispatcher after moveFile.
+      const tsConfig = findTsConfigForFile(oldPath);
+      const searchRoot = tsConfig ? path.dirname(tsConfig) : path.dirname(oldPath);
+      const vueModified = updateVueImportsAfterMove(oldPath, newPath, searchRoot);
+      for (const f of vueModified) {
+        if (!result.filesModified.includes(f)) result.filesModified.push(f);
+      }
+
+      // App.vue import is rewritten by the scan post-step
       const vueContent = readFile(dir, "src/App.vue");
       expect(vueContent).toContain("utils/useCounter");
       expect(vueContent).not.toContain("composables/useCounter");
 
-      // App.vue should be in filesModified
+      // App.vue should be in filesModified (added by scan post-step)
       expect(result.filesModified).toContain(`${dir}/src/App.vue`);
     });
 

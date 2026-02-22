@@ -102,6 +102,20 @@ Code diffs show what changed. The body should explain decisions and tradeoffs. D
 
 ---
 
+## Reference documentation
+
+Always check `package.json` for the installed version before reading docs — web docs may not match what's installed.
+
+| Package | Docs | Notes |
+|---------|------|-------|
+| `ts-morph` | https://ts-morph.com/ | Generally tracks the release well |
+| TypeScript compiler API | https://github.com/microsoft/TypeScript/wiki/Using-the-Compiler-API | Raw TS API (used in vue-engine); wiki is thin — source in `node_modules/typescript/lib/typescript.d.ts` is more reliable |
+| `@vue/language-core` / `@volar/typescript` | (no stable docs site) | Published docs lag releases significantly — read source in `node_modules/` directly |
+| `@modelcontextprotocol/sdk` | https://modelcontextprotocol.io/ | Covers the protocol; for SDK-specific API read the package source |
+| Biome | https://biomejs.dev/ | Covers CLI flags, config schema, rule list |
+
+---
+
 ## Memory storage
 
 - `.claude/MEMORY.md` — project state and agent behaviour notes

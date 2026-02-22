@@ -6,11 +6,12 @@ import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { isDaemonAlive, removeDaemonFiles, socketPath } from "../daemon/paths.js";
+import { isDaemonAlive, removeDaemonFiles } from "./daemon/daemon.js";
+import { socketPath } from "./daemon/paths.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const CLI_ENTRY = path.resolve(__dirname, "..", "..", "src", "cli.ts");
-const TSX_BIN = path.resolve(__dirname, "..", "..", "node_modules", ".bin", "tsx");
+const CLI_ENTRY = path.resolve(__dirname, "..", "src", "cli.ts");
+const TSX_BIN = path.resolve(__dirname, "..", "node_modules", ".bin", "tsx");
 
 export async function runServe(opts: { workspace: string }): Promise<void> {
   // 1. Resolve workspace to absolute path

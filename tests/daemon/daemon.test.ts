@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
-import { lockfilePath, removeDaemonFiles, socketPath } from "../../src/daemon/paths";
+import { removeDaemonFiles } from "../../src/daemon/daemon";
+import { lockfilePath, socketPath } from "../../src/daemon/paths";
 import { cleanup, copyFixture, spawnAndWaitForReady } from "../helpers";
 
 const WORKSPACE_FIXTURE = "simple-ts";

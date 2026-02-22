@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
-import { isDaemonAlive, lockfilePath, removeDaemonFiles, socketPath } from "../../src/daemon/paths";
+import { isDaemonAlive, removeDaemonFiles } from "../../src/daemon/daemon";
+import { lockfilePath, socketPath } from "../../src/daemon/paths";
 import { cleanup, copyFixture, killDaemon, spawnAndWaitForReady, waitForDaemon } from "../helpers";
 
 describe("serve command — daemon integration", () => {

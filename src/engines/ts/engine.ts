@@ -7,11 +7,10 @@ import {
   Project,
   type SourceFile,
 } from "ts-morph";
-import { isWithinWorkspace } from "../daemon/workspace.js";
+import { isWithinWorkspace } from "../../workspace.js";
+import { applyTextEdits } from "../text-utils.js";
+import type { MoveResult, MoveSymbolResult, RefactorEngine, RenameResult } from "../types.js";
 import { findTsConfigForFile } from "./project.js";
-import { applyTextEdits } from "./text-utils.js";
-import type { MoveResult, MoveSymbolResult, RefactorEngine, RenameResult } from "./types.js";
-import { updateVueImportsAfterMove } from "./vue-scan.js";
 
 function computeRelativeSpecifier(fromFile: string, toFile: string): string {
   let rel = path.relative(path.dirname(fromFile), toFile).replace(/\.(ts|tsx)$/, "");
@@ -255,6 +254,7 @@ export class TsEngine implements RefactorEngine {
 
     for (const { sf, importDecl, specifiers, totalNamedImports } of importers) {
       const filePath = sf.getFilePath() as string;
+      if (filePath === absDest) continue; // skip dest file: it defines the symbol, not imports it
       if (!isWithinWorkspace(filePath, workspace)) {
         if (!filesSkipped.includes(filePath)) filesSkipped.push(filePath);
         continue;
@@ -368,14 +368,6 @@ export class TsEngine implements RefactorEngine {
 
     // Invalidate the cached project: the TypeScript program is now stale.
     this.invalidateProject(absOld);
-
-    // ts-morph doesn't know about .vue files; scan and rewrite their imports manually.
-    const tsConfigForScan = findTsConfigForFile(absOld);
-    const searchRoot = tsConfigForScan ? path.dirname(tsConfigForScan) : path.dirname(absOld);
-    const vueModified = updateVueImportsAfterMove(absOld, absNew, searchRoot);
-    for (const f of vueModified) {
-      if (!filesModified.includes(f)) filesModified.push(f);
-    }
 
     return { filesModified, filesSkipped, oldPath: absOld, newPath: absNew };
   }

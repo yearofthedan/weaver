@@ -1,11 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Language } from "@volar/language-core";
-import { isWithinWorkspace } from "../daemon/workspace.js";
-import { findTsConfigForFile } from "./project.js";
-import { applyTextEdits } from "./text-utils.js";
-import type { MoveResult, MoveSymbolResult, RefactorEngine, RenameResult } from "./types.js";
-import { SKIP_DIRS, updateVueImportsAfterMove } from "./vue-scan.js";
+import { isWithinWorkspace } from "../../workspace.js";
+import { applyTextEdits } from "../text-utils.js";
+import { findTsConfigForFile } from "../ts/project.js";
+import type { MoveResult, MoveSymbolResult, RefactorEngine, RenameResult } from "../types.js";
+import { SKIP_DIRS } from "./scan.js";
 
 interface VolarLanguageService {
   findRenameLocations(
@@ -444,15 +444,6 @@ export class VueEngine implements RefactorEngine {
 
     if (!filesModified.includes(absNew)) {
       filesModified.push(absNew);
-    }
-
-    // Volar's getEditsForFileRename doesn't rewrite imports inside .vue SFCs;
-    // do a targeted regex scan to cover what the language service misses.
-    const tsConfigPath = findTsConfigForFile(absOld);
-    const searchRoot = tsConfigPath ? path.dirname(tsConfigPath) : path.dirname(absOld);
-    const vueModified = updateVueImportsAfterMove(absOld, absNew, searchRoot);
-    for (const f of vueModified) {
-      if (!filesModified.includes(f)) filesModified.push(f);
     }
 
     return { filesModified, filesSkipped, oldPath: absOld, newPath: absNew };

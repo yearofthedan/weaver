@@ -1,9 +1,30 @@
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
-import { ensureCacheDir, lockfilePath, removeDaemonFiles, socketPath } from "./paths.js";
-import { getEngine } from "./router.js";
-import { isWithinWorkspace } from "./workspace.js";
+import { dispatchRequest, warmupEngine } from "./dispatcher.js";
+import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
+
+export function isDaemonAlive(workspaceRoot: string): boolean {
+  const lockfile = lockfilePath(workspaceRoot);
+  try {
+    const pid = parseInt(fs.readFileSync(lockfile, "utf8").trim(), 10);
+    if (Number.isNaN(pid)) return false;
+    process.kill(pid, 0); // throws if process doesn't exist
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function removeDaemonFiles(workspaceRoot: string): void {
+  for (const p of [socketPath(workspaceRoot), lockfilePath(workspaceRoot)]) {
+    try {
+      fs.unlinkSync(p);
+    } catch {
+      // already gone
+    }
+  }
+}
 
 export async function runDaemon(opts: { workspace: string }): Promise<void> {
   const absWorkspace = path.resolve(opts.workspace);
@@ -38,9 +59,9 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
   // 3. Remove any leftover socket/lockfile from a previous run
   removeDaemonFiles(absWorkspace);
 
-  // 4. Load project graph into memory
+  // 4. Load project graph into memory — warm up the engine for this workspace
   const sentinelPath = path.join(absWorkspace, "__sentinel__");
-  await getEngine(sentinelPath);
+  await warmupEngine(sentinelPath);
 
   // 5. Write PID lockfile
   fs.writeFileSync(pidPath, String(process.pid));
@@ -93,95 +114,4 @@ async function handleSocketRequest(
     };
   }
   socket.write(`${JSON.stringify(response)}\n`);
-}
-
-async function dispatchRequest(
-  req: { method: string; params: Record<string, unknown> },
-  workspace: string,
-): Promise<object> {
-  if (req.method === "rename") {
-    const { file, line, col, newName } = req.params as {
-      file: string;
-      line: number;
-      col: number;
-      newName: string;
-    };
-    if (!isWithinWorkspace(file, workspace)) {
-      return {
-        ok: false,
-        error: "WORKSPACE_VIOLATION",
-        message: `File path is outside the workspace: ${file}`,
-      };
-    }
-    const engine = await getEngine(file);
-    const result = await engine.rename(file, line, col, newName, workspace);
-    const plural = result.locationCount === 1 ? "location" : "locations";
-    const fileCount = result.filesModified.length;
-    return {
-      ok: true,
-      filesModified: result.filesModified,
-      filesSkipped: result.filesSkipped,
-      message: `Renamed '${result.symbolName}' to '${result.newName}' in ${result.locationCount} ${plural} across ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
-    };
-  }
-
-  if (req.method === "move") {
-    const { oldPath, newPath } = req.params as { oldPath: string; newPath: string };
-    if (!isWithinWorkspace(oldPath, workspace)) {
-      return {
-        ok: false,
-        error: "WORKSPACE_VIOLATION",
-        message: `oldPath is outside the workspace: ${oldPath}`,
-      };
-    }
-    if (!isWithinWorkspace(newPath, workspace)) {
-      return {
-        ok: false,
-        error: "WORKSPACE_VIOLATION",
-        message: `newPath is outside the workspace: ${newPath}`,
-      };
-    }
-    const engine = await getEngine(oldPath);
-    const result = await engine.moveFile(oldPath, newPath, workspace);
-    const fileCount = result.filesModified.length;
-    return {
-      ok: true,
-      filesModified: result.filesModified,
-      filesSkipped: result.filesSkipped,
-      message: `Moved '${oldPath}' to '${newPath}', updated imports in ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
-    };
-  }
-
-  if (req.method === "moveSymbol") {
-    const { sourceFile, symbolName, destFile } = req.params as {
-      sourceFile: string;
-      symbolName: string;
-      destFile: string;
-    };
-    if (!isWithinWorkspace(sourceFile, workspace)) {
-      return {
-        ok: false,
-        error: "WORKSPACE_VIOLATION",
-        message: `sourceFile is outside the workspace: ${sourceFile}`,
-      };
-    }
-    if (!isWithinWorkspace(destFile, workspace)) {
-      return {
-        ok: false,
-        error: "WORKSPACE_VIOLATION",
-        message: `destFile is outside the workspace: ${destFile}`,
-      };
-    }
-    const engine = await getEngine(sourceFile);
-    const result = await engine.moveSymbol(sourceFile, symbolName, destFile, workspace);
-    const fileCount = result.filesModified.length;
-    return {
-      ok: true,
-      filesModified: result.filesModified,
-      filesSkipped: result.filesSkipped,
-      message: `Moved '${symbolName}' from '${result.sourceFile}' to '${result.destFile}', updated imports in ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
-    };
-  }
-
-  return { ok: false, error: "UNKNOWN_METHOD", message: `Unknown method: ${req.method}` };
 }

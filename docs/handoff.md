@@ -92,7 +92,13 @@ src/
 
 The current tool surface is just `rename` and `move`. Before adding anything, brainstorm what an AI coding agent actually needs most. Some candidates to evaluate:
 
-- `findReferences` — locate all usages of a symbol without modifying anything; useful for impact analysis before a refactor
+- `findReferences` — locate all usages of a symbol without modifying anything; useful for impact analysis before a refactor. **High priority.** The clearest signal: when an agent plans to reorganize files, it currently spawns an explore subagent to grep for imports of each file. Grep is brittle (misses re-exports, dynamic imports, type-only imports, aliased paths). `ls.findReferences()` / `ls.getReferencesAtPosition()` gives a compiler-verified answer. Light-bridge already handles the *write* side (move + rewrite imports); this closes the *read* side so agents can ask "who uses this symbol?" before acting.
+
+  **Vue compatibility:** works for Vue projects with the same virtual-file translation already used by `rename`. The `VolarLanguageService` interface just needs `findReferences` declared — the underlying Volar proxy already supports it. The translation block in `vue-engine.ts` (virtual `.vue.ts` → real `.vue` source-map mapping) should be extracted into a shared helper before implementing this, since `findReferences` would need the same logic.
+
+  **Two entry points to consider — keep them separate:**
+  - *By symbol position* (like `rename`): clean, compiler-verified, works for both TS and Vue. Implement this first.
+  - *By file path* ("who imports this file?"): a different question. `findReferences` operates on a symbol position, not a file path. Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — do not conflate with the symbol-position variant.
 - `getDefinition` — jump-to-definition; lets an agent navigate to source before editing
 - `extractFunction` — pull a selection into a named function, updating the call site
 - `inlineVariable` / `inlineFunction` — collapse a trivially-used binding
