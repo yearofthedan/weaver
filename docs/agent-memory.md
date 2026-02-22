@@ -27,6 +27,9 @@ After spawning the daemon process, the socket file may not exist yet. Use `waitF
 **`dist/` and other build dirs must be excluded from `readDirectory`.**
 The Vue engine calls `ts.sys.readDirectory()` to find `.vue` files. Without filtering, it picks up files under `dist/`, `node_modules/`, etc., which breaks type resolution. `SKIP_DIRS` is exported from `src/engines/file-walk.ts` and applied in `buildService()`.
 
+**`VueEngine.getDefinitionAtPosition` requires explicit `.vue` → `.vue.ts` translation.**
+Unlike `findRenameLocations` and `getReferencesAtPosition`, Volar's proxy for `getDefinitionAtPosition` does NOT auto-translate real `.vue` paths to their virtual `.vue.ts` equivalents before calling TypeScript's internal implementation. Calling with a `.vue` path throws `Could not find source file: App.vue`. Fix: call `toVirtualLocation(absPath, pos, language, vueVirtualToReal)` first to map the path and position into the virtual coordinate space, then call `getDefinitionAtPosition` with the translated values. Results still go through `translateLocations` for the `.vue.ts` → `.vue` reverse mapping. Any future read-only operation that hits the same error needs this treatment.
+
 **`walkFiles` is the single file-collection entry point.**
 `src/engines/file-walk.ts` exports `walkFiles(dir, extensions)` and `SKIP_DIRS`. In git workspaces it shells out to `git ls-files --cached --others --exclude-standard` — respects gitignore by construction, no skip-list to maintain. Falls back to a recursive readdir walk using `SKIP_DIRS` for non-git workspaces. Both `ts/engine.ts` (post-scan in `moveFile`) and `vue/scan.ts` (`updateVueImportsAfterMove`) call `walkFiles`.
 

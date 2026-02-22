@@ -9,12 +9,12 @@ See `docs/agent-memory.md` for technical gotchas useful to humans too.
 
 ## Current state
 
-- 97/97 tests passing
+- 117/117 tests passing
 - Security controls complete — see `docs/security.md`
-- Operations complete: `rename` (TS+Vue), `move` (TS+Vue), `moveSymbol` (TS only), `findReferences` (TS+Vue, read-only)
+- Operations complete: `rename` (TS+Vue), `move` (TS+Vue), `moveSymbol` (TS only), `findReferences` (TS+Vue, read-only), `getDefinition` (TS+Vue, read-only)
 - Deps pinned; pnpm override deduplicates `@volar/language-core` to 2.4.28
 - CI: `.github/workflows/ci.yml` runs `pnpm check` on push/PR to main
-- Architecture slices: see `docs/handoff.md` for status (A1/A2/A4 ✅, A3/A5/A6 pending)
+- Architecture slices: see `docs/handoff.md` for status (A1/A2/A3/A4 ✅, A5/A6 pending)
 
 ## Source layout
 

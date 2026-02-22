@@ -15,7 +15,7 @@ Read the docs in this order:
 
 ## Current state
 
-**110/110 tests passing.** Security controls, project restructure, all four initial operations, and architecture slices A1/A2/A3/A4 complete. The file layout reflects domain boundaries:
+**117/117 tests passing.** Security controls, project restructure, all four initial operations plus `getDefinition`, and architecture slices A1/A2/A3/A4 complete. The file layout reflects domain boundaries:
 
 ```
 src/
@@ -47,6 +47,7 @@ src/
 - `move` — TS + Vue
 - `moveSymbol` — TS only; Vue throws `NOT_SUPPORTED` (dispatcher constraint, not Volar)
 - `findReferences` — TS + Vue; read-only, returns all references to a symbol by position
+- `getDefinition` — TS + Vue; read-only, returns definition location(s) for a symbol by position
 
 ---
 
@@ -55,7 +56,6 @@ src/
 Evaluate each candidate: does the daemon's stateful engine make it meaningfully better than the agent editing directly? `rename`, `move`, and `findReferences` benefit strongly because they require project-wide reference tracking.
 
 - **`findReferences` by file path** — "who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
-- **`getDefinition`** — jump-to-definition; lets an agent navigate to source before editing. Compiler-verified, avoids grep. Clean signal: agents currently fall back to text search to locate where a symbol is defined.
 - **`extractFunction`** — pull a selection into a named function, updating the call site
 - **`inlineVariable` / `inlineFunction`** — collapse a trivially-used binding
 - **`deleteFile`** — remove a file and clean up its imports in other files
@@ -116,7 +116,9 @@ After the provider/engine split makes the shapes uniform:
 
 - **Read-only operations do not take a `workspace` parameter in the engine interface** — `findReferences` returns all references including those outside the workspace; it is up to the dispatcher to validate the input file is within the workspace. Write operations (`rename`, `moveFile`, `moveSymbol`) take `workspace` because they need to know which collateral writes to skip.
 
-- **`VueEngine.translateLocations` is the shared virtual→real mapping helper** — extracted from the inline loop in `rename`; reused by `findReferences`. Any future operation that reads positions from a Vue project should call this method rather than duplicating the source-map traversal.
+- **`VueEngine.translateLocations` is the shared virtual→real mapping helper** — extracted from the inline loop in `rename`; reused by `findReferences` and `getDefinition`. Any future operation that reads positions from a Vue project should call this method rather than duplicating the source-map traversal.
+
+- **`VueEngine.toVirtualLocation` for operations that don't auto-translate** — `findRenameLocations` and `getReferencesAtPosition` in Volar's proxy translate real `.vue` paths → `.vue.ts` automatically. `getDefinitionAtPosition` does NOT — it calls TypeScript's internal implementation directly and throws `Could not find source file: App.vue`. Fix: call `toVirtualLocation(absPath, pos)` first to map to the virtual `.vue.ts` coordinate space, then pass those to `getDefinitionAtPosition`. Results still go through `translateLocations` for the reverse mapping. Any future operation that hits the same error pattern needs this treatment.
 
 - **MCP transport uses `@modelcontextprotocol/sdk`** — the agent-facing stdio layer uses the official SDK (`@modelcontextprotocol/sdk@^1.26.0`). The internal daemon↔serve socket uses plain newline-delimited JSON, no library needed.
 - **SDK wire format is newline-delimited JSON — NOT Content-Length framed** — `StdioServerTransport` sends/reads `JSON.stringify(msg) + '\n'`. `McpTestClient` must match this format.
