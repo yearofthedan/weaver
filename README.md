@@ -31,6 +31,16 @@ flowchart TD
     D & E --> F
 ```
 
+## Installation
+
+Install from GitHub (builds automatically on install):
+
+```bash
+pnpm add -D github:yearofthedan/light-bridge
+# or
+npm install -D github:yearofthedan/light-bridge
+```
+
 ## CLI Commands
 
 ### `light-bridge daemon`
@@ -87,6 +97,17 @@ light-bridge move \
   --newPath src/lib/helpers.ts
 ```
 
+### `light-bridge moveSymbol`
+
+Move a named export from one file to another, updating all importers project-wide.
+
+```bash
+light-bridge moveSymbol \
+  --sourceFile src/utils/math.ts \
+  --symbolName calculateTotal \
+  --destFile src/lib/math.ts
+```
+
 ## Response format
 
 All operations return a JSON summary:
@@ -132,8 +153,8 @@ Add to `.mcp.json` in your project root (checked into version control, shared wi
   "mcpServers": {
     "light-bridge": {
       "type": "stdio",
-      "command": "node",
-      "args": ["/absolute/path/to/light-bridge/dist/cli.js", "serve", "--workspace", "/absolute/path/to/your/project"]
+      "command": "light-bridge",
+      "args": ["serve", "--workspace", "/absolute/path/to/your/project"]
     }
   }
 }
@@ -142,7 +163,7 @@ Add to `.mcp.json` in your project root (checked into version control, shared wi
 Or use the CLI to add it to your local scope:
 
 ```bash
-claude mcp add light-bridge -- node /absolute/path/to/light-bridge/dist/cli.js serve --workspace /absolute/path/to/your/project
+claude mcp add light-bridge -- light-bridge serve --workspace /absolute/path/to/your/project
 ```
 
 ### Roo
@@ -153,10 +174,10 @@ Open the Roo MCP settings (gear icon → MCP Servers) and add:
 {
   "mcpServers": {
     "light-bridge": {
-      "command": "node",
-      "args": ["/absolute/path/to/light-bridge/dist/cli.js", "serve", "--workspace", "/absolute/path/to/your/project"],
+      "command": "light-bridge",
+      "args": ["serve", "--workspace", "/absolute/path/to/your/project"],
       "disabled": false,
-      "alwaysAllow": ["rename", "move"]
+      "alwaysAllow": ["rename", "move", "moveSymbol"]
     }
   }
 }
@@ -213,32 +234,30 @@ This runs `rename` and `move` against copies of the test fixtures and reports pa
 
 ```
 src/
-├── cli.ts                 # CLI entry point and command dispatcher
-├── commands/
-│   ├── rename.ts          # Rename command
-│   ├── move.ts            # Move command
-│   ├── daemon.ts          # Daemon process
-│   └── serve.ts           # MCP server (thin client to daemon)
-├── engines/
-│   ├── ts-engine.ts       # TypeScript engine (ts-morph)
-│   ├── vue-engine.ts      # Vue engine (Volar)
-│   └── types.ts           # Shared types
-├── router.ts              # Routes operations to the correct engine
-├── project.ts             # Project utilities
+├── cli.ts                 # CLI entry point (registers daemon, serve)
 ├── schema.ts              # Zod input validation
-└── output.ts              # JSON output formatting
+├── workspace.ts           # Workspace boundary enforcement
+├── mcp.ts                 # MCP server (connects to daemon)
+├── daemon/
+│   ├── daemon.ts          # Socket server; daemon lifecycle
+│   ├── paths.ts           # Socket/lockfile path utilities
+│   └── dispatcher.ts      # Dispatches requests to engines
+└── engines/
+    ├── types.ts           # Shared engine types
+    ├── text-utils.ts      # Shared text edit utilities
+    ├── ts/
+    │   ├── engine.ts      # TypeScript engine (ts-morph)
+    │   └── project.ts     # tsconfig discovery utilities
+    └── vue/
+        ├── engine.ts      # Vue engine (Volar)
+        └── scan.ts        # Post-move Vue import scan
 
 tests/
-├── engines/
-│   ├── ts-engine.test.ts  # TsEngine unit tests
-│   └── vue-engine.test.ts # VueEngine unit tests
-├── daemon/
-│   ├── paths.test.ts      # Socket/lockfile path utilities
-│   ├── daemon.test.ts     # Daemon lifecycle integration tests
-│   └── serve.test.ts      # serve↔daemon integration tests
+├── engines/               # Engine unit tests
+├── daemon/                # Daemon lifecycle + serve integration tests
 ├── rename.test.ts         # CLI integration tests (rename)
 ├── move.test.ts           # CLI integration tests (move)
-├── vue.test.ts            # CLI integration tests (Vue cross-boundary)
+├── move-symbol.test.ts    # CLI integration tests (moveSymbol)
 ├── helpers.ts             # Test utilities
 └── fixtures/              # Test fixture projects
 ```

@@ -17,6 +17,7 @@
     "smoke-test": "bash scripts/smoke-test.sh",
     "coverage": "vitest run --coverage",
     "check": "biome check . && pnpm build && pnpm test",
+    "prepare": "tsc",
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
