@@ -61,6 +61,72 @@ Evaluate each candidate: does the daemon's stateful engine make it meaningfully 
 
 ---
 
+## Architecture slices
+
+Structural improvements, prioritised by impact-to-effort ratio. Each is a self-contained slice. Do them in order — later slices are cheaper once earlier ones land.
+
+### Slice A1: Typed error system
+
+Replace the `Object.assign(new Error(...), { code: "..." })` pattern (15+ sites) with an `EngineError` class and a `ErrorCode` union type. Update dispatcher catch blocks to use `instanceof` narrowing.
+
+**Files:** new `src/engines/errors.ts`, edits to `ts/engine.ts`, `vue/engine.ts`, `dispatcher.ts`.
+**Why first:** smallest slice, zero dependencies, makes every later refactor easier to review because error paths are legible.
+
+### Slice A2: Unit tests for pure functions
+
+Add targeted unit tests for: `offsetToLineCol`, `applyTextEdits`, `computeRelativeSpecifier`, `rewriteImports`, `isWithinWorkspace`. These are the helpers most likely to have subtle edge-case bugs (off-by-one in offset conversion, regex boundary in rewriteImports, symlink edge in isWithinWorkspace). Integration tests catch failures but don't localise them — these unit tests do.
+
+**Files:** new `tests/engines/text-utils.test.ts`, `tests/engines/scan.test.ts`, `tests/workspace.test.ts`.
+**Scope:** test edge cases only (empty files, multi-byte characters, Windows-style separators, relative paths that resolve to the boundary). Don't duplicate what vertical-slice tests already cover.
+
+### Slice A3: Unified file walker with gitignore support
+
+Replace `collectTsFiles` (ts/engine.ts) and `findVueFiles` (vue/scan.ts) with a shared `walkFiles(dir, extensions)` in a new `src/engines/file-walk.ts`. Use `git ls-files --cached --others --exclude-standard` when inside a git repo — this respects `.gitignore`, nested `.gitignore`, and `.git/info/exclude` by construction, with zero parsing. Fall back to the current recursive walk for non-git workspaces (rare) with a single shared skip-dir set.
+
+**Why:** the current skip-dir sets are ad hoc and diverge between engines (`scan.ts` skips `.nuxt`, `.output`, `.vite`; `ts/engine.ts` doesn't). Using gitignore is correct by construction — if a directory is gitignored, agents don't care about it. `git ls-files` is fast, adds no dependencies, and eliminates the maintenance burden of keeping a skip list in sync with every framework's output directory.
+
+**Files:** new `src/engines/file-walk.ts`, edits to `ts/engine.ts` and `vue/scan.ts` to call it.
+
+### Slice A4: Request serialisation in daemon
+
+Add a Promise-chain mutex around `dispatchRequest` in `daemon.ts`. ~10 lines. Prevents interleaved writes if two requests arrive concurrently (e.g. MCP host retries on timeout while the first request is still in flight).
+
+**Files:** `src/daemon/daemon.ts`.
+**See also:** tech-debt.md "Daemon: no request serialisation" for full context.
+
+### Slice A5: Provider/engine separation
+
+The big structural refactor. Extract a `LanguageProvider` interface with pure methods (no file I/O):
+
+```ts
+interface LanguageProvider {
+  getRenameLocations(file: string, offset: number): RenameLocation[];
+  getFileRenameEdits(oldPath: string, newPath: string): FileTextEdits[];
+  getReferencesAtPosition(file: string, offset: number): ReferenceLocation[];
+  resolveOffset(file: string, line: number, col: number): number;
+}
+```
+
+`TsProvider` and `VolarProvider` implement only the compiler-specific calls. A shared engine layer (functions or a `BaseEngine`) handles: file existence checks, offset resolution, workspace boundary filtering, disk I/O, result shaping. Each new operation drops from ~80 lines per engine to ~20 lines in one place.
+
+**Includes:** extract `VueEngine.buildService` (200 lines) into `src/engines/vue/service-builder.ts` as part of this slice.
+
+**Files:** new `src/engines/providers/ts.ts`, `src/engines/providers/volar.ts`, `src/engines/vue/service-builder.ts`, major edits to `ts/engine.ts`, `vue/engine.ts`, `types.ts`.
+**Depends on:** A1 (typed errors) for clean error paths in the shared layer.
+**See also:** tech-debt.md "Missing provider/engine separation" and "Dispatcher: operation-centric architecture".
+
+### Slice A6: Data-driven MCP registration and dispatcher
+
+After the provider/engine split makes the shapes uniform:
+
+- **mcp.ts:** replace 4 identical tool handlers with a tool definition table and a single registration loop. Cuts ~230 lines of copy-paste. Adding an operation becomes a one-liner table entry.
+- **dispatcher.ts:** replace if-chain with an operation descriptor table. Each entry specifies which params are paths (for workspace validation), the engine method, and the response formatter.
+
+**Files:** `src/mcp.ts`, `src/daemon/dispatcher.ts`.
+**Depends on:** A5 (provider/engine separation) for uniform operation shapes.
+
+---
+
 ## Technical context
 
 - **`docs/tech/volar-v3.md`** — how the Vue engine works around TypeScript's refusal to process `.vue` files. Read this before touching `src/engines/vue-engine.ts`.

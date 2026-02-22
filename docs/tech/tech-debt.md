@@ -26,42 +26,49 @@ There is also a related race in `waitForDaemon`: it resolves when the lockfile a
 
 ## Daemon: no request serialisation
 
-`src/daemon/daemon.ts` dispatches requests with `void handleSocketRequest(...)` — concurrent socket connections run as interleaved async tasks with no queueing. Two simultaneous `moveFile` calls could interleave at `await` points and corrupt each other's in-memory project state.
+**Promoted to architecture slice A4 in `docs/handoff.md`.** See there for the fix plan.
 
-Two options:
-- **Queue** — a single FIFO async queue in the daemon; each request waits for the previous to complete before starting. Simple, no rejected calls.
-- **Reject-while-busy** — return an error (similar to `DAEMON_STARTING`) if a request arrives while another is in flight. The caller retries. Lower latency for the common case but requires retry logic in `serve.ts`.
-
-**Current exposure:** low. AI agents make sequential tool calls. The race requires two simultaneous `move` calls from the same client. The cache invalidation added for the move-back fix (see `TsEngine.invalidateProject`, `VueEngine.invalidateService`) slightly widens the window between cache miss and cache fill, but correctness is preserved because Node.js is single-threaded — only wasted parallel rebuilds, no data corruption.
-
-**Fix:** implement the queue approach in `src/commands/daemon.ts`. A per-workspace mutex (a `Promise` chain) is sufficient.
+Context preserved here for reference: `src/daemon/daemon.ts` dispatches requests with `void handleSocketRequest(...)` — concurrent socket connections run as interleaved async tasks with no queueing. Current exposure is low (agents make sequential tool calls), but MCP hosts can retry on timeout, creating overlapping requests.
 
 ---
 
 
 ## Dispatcher: operation-centric architecture
 
-The dispatcher currently routes by engine first (`getEngine(filePath)` → call the operation on it). This is engine-centric: the `RefactorEngine` interface groups all operations under a single capability provider.
+**Promoted to architecture slices A5 + A6 in `docs/handoff.md`.** The provider/engine separation (A5) addresses the engine-side duplication; data-driven dispatch (A6) addresses the dispatcher-side boilerplate. Together they replace the current engine-centric routing with a model where operations and providers are independently composable.
 
-The alternative is operation-centric: each operation (rename, moveFile, moveSymbol) is its own action type that knows which engine(s) it needs and how to orchestrate them. The dispatcher finds the right action for the request method and executes it, without knowing anything about engine selection or post-steps.
-
-**Why it matters:** the operation set is growing faster than the engine set. Adding a new operation today requires adding a method to `RefactorEngine` and implementing it in every engine. An action-per-operation model would contain each operation's full strategy in one place and scale more naturally with new operations. The vue scan leak was an early signal — the `moveFile` operation needed two-part orchestration that didn't fit the engine interface and bled into the dispatcher.
-
-**Tradeoff:** adding a new tech stack (engine) would require touching every action rather than implementing one interface. Acceptable if new engines are rare, which for a TS/Vue bridge they are.
-
-**Note:** do this as a dedicated refactor, not incrementally. It changes the primary abstraction boundary across the whole codebase.
+Original analysis preserved here: the operation set is growing faster than the engine set. Adding a new operation today requires a method on `RefactorEngine` and an implementation in every engine. The vue-scan post-step for `moveFile` was an early signal that operations need their own orchestration strategy.
 
 ---
 
 ## Missing provider/engine separation
 
-Both `TsEngine` and `VueEngine` collapse two distinct responsibilities into one class:
+**Promoted to architecture slice A5 in `docs/handoff.md`.** See there for the full plan including `LanguageProvider` interface and extraction of `VueEngine.buildService`.
 
-- **Provider** — assembles and owns the language service (`ts-morph` Project, Volar `buildService`). Computes rename locations and file move edits. No file I/O.
-- **Engine** — calls the provider, applies edits to disk, returns structured results.
+---
 
-The provider work is the hard, language-specific part. The engine work (apply edits, collect modified files, return JSON-shaped results) is mechanical and largely identical between the two engines.
+## Wire protocol types (daemon ↔ serve)
 
-Separating these would reduce duplication, make each layer independently testable, and make it easier to add new language providers without re-implementing the dispatch logic.
+The daemon socket speaks `{ method, params }` → `{ ok, ... }` but these shapes are typed inline with `as` casts at every usage (`dispatcher.ts`, `mcp.ts`, `daemon.ts`). If param names change, nothing catches it at compile time.
 
-**Note:** this is a meaningful structural change. Do it as a dedicated refactor session after the daemon and MCP transport are stable — not incrementally alongside feature work.
+**Fix:** shared request/response types in `src/protocol.ts` or extend `src/schema.ts`. Reuse the Zod schemas already defined for MCP input validation.
+
+**Priority:** low. The protocol is simple and stable. The cost of drift is a runtime error caught by the first test run, not a silent bug. Worth doing when the protocol surface grows (e.g. adding operation metadata or streaming responses).
+
+---
+
+## Use `Set<string>` for filesModified / filesSkipped
+
+Both engines build `filesModified` and `filesSkipped` as arrays guarded by `if (!arr.includes(path))` — O(n) on every insert. `Set` expresses the dedup intent directly and is O(1).
+
+**Priority:** low. Will happen naturally during the provider/engine separation (slice A5) since the shared engine layer should use Sets internally and convert to arrays at the return boundary.
+
+---
+
+## VolarLanguageService interface is hand-typed
+
+Lines 16–37 of `src/engines/vue/engine.ts` manually define the TypeScript LanguageService methods used by the Vue engine. If an upstream API changes signature, this compiles fine but fails at runtime.
+
+**Fix:** `Pick<ts.LanguageService, 'findRenameLocations' | 'getReferencesAtPosition' | 'getEditsForFileRename'>`. Compile-time safety against upstream changes.
+
+**Priority:** low. Will be resolved as part of the provider separation (slice A5) since `VolarProvider` will type its dependency on the real `ts.LanguageService`.
