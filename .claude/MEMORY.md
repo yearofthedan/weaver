@@ -9,10 +9,9 @@ See `docs/agent-memory.md` for technical gotchas useful to humans too.
 
 ## Current state
 
-- 51/51 tests passing
+- 59/59 tests passing
 - Security controls complete — see `docs/security.md`
-- Project restructure complete (this session) — new layout below
-- `moveSymbol` shipped: `TsEngine` full implementation; `VueEngine` stub throws `NOT_SUPPORTED`
+- Operations complete: `rename` (TS+Vue), `move` (TS+Vue), `moveSymbol` (TS only), `findReferences` (TS+Vue, read-only)
 - Deps pinned; pnpm override deduplicates `@volar/language-core` to 2.4.28
 - CI: `.github/workflows/ci.yml` runs `pnpm check` on push/PR to main
 
@@ -41,8 +40,8 @@ src/
 
 ## Next up
 
-1. Missing operations — candidates in `docs/handoff.md` (findReferences is highest priority)
-2. **`moveSymbol` for Vue projects** — currently NOT_SUPPORTED. Buildable: delegate to TsEngine for `.ts`→`.ts` moves + `updateVueImportsAfterMove`; use `@vue/compiler-sfc` for `.vue` source. See architecture note in `docs/handoff.md`.
+1. **`moveSymbol` for Vue projects** — currently NOT_SUPPORTED. Buildable: delegate to TsEngine for `.ts`→`.ts` moves + `updateVueImportsAfterMove`; use `@vue/compiler-sfc` for `.vue` source. See architecture note in `docs/handoff.md`.
+2. Missing operations — candidates in `docs/handoff.md` (e.g., `getDefinition` is next highest agent value)
 
 ## Architecture watch: per-workspace vs per-operation engine selection
 
@@ -54,7 +53,7 @@ The dispatcher picks one engine per workspace. Correct for `rename`/`moveFile` (
 
 ## MCP tool dogfooding note
 
-`mcp__light-bridge__move` updates imports in files tracked by the TypeScript project (via tsconfig). Test files are excluded from tsconfig (`include: ["src/**/*"]`), so test imports are NOT automatically updated when moving source files. Fix them manually after each batch of moves.
+`mcp__light-bridge__move` updates both project files (via `getEditsForFileRename`) and out-of-project files (via post-scan in `collectTsFiles`). Test files in `tests/` are handled automatically. `vitest.config.ts` excludes `tests/fixtures/**` so fixture files aren't picked up as test suites.
 
 ## Agent behaviour
 
