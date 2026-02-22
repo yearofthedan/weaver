@@ -1,0 +1,23 @@
+export type ErrorCode =
+  | "FILE_NOT_FOUND"
+  | "SYMBOL_NOT_FOUND"
+  | "RENAME_NOT_ALLOWED"
+  | "NOT_SUPPORTED"
+  | "WORKSPACE_VIOLATION"
+  | "UNKNOWN_METHOD"
+  | "PARSE_ERROR"
+  | "VALIDATION_ERROR";
+
+export class EngineError extends Error {
+  readonly code: ErrorCode;
+
+  constructor(message: string, code: ErrorCode) {
+    super(message);
+    this.name = "EngineError";
+    this.code = code;
+  }
+
+  static is(e: unknown, code?: ErrorCode): e is EngineError {
+    return e instanceof EngineError && (code === undefined || e.code === code);
+  }
+}

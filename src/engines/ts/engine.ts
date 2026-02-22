@@ -8,6 +8,7 @@ import {
   type SourceFile,
 } from "ts-morph";
 import { isWithinWorkspace } from "../../workspace.js";
+import { EngineError } from "../errors.js";
 import { applyTextEdits, offsetToLineCol } from "../text-utils.js";
 import type {
   FindReferencesResult,
@@ -76,9 +77,7 @@ export class TsEngine implements RefactorEngine {
     const absPath = path.resolve(filePath);
 
     if (!fs.existsSync(absPath)) {
-      throw Object.assign(new Error(`File not found: ${filePath}`), {
-        code: "FILE_NOT_FOUND" as const,
-      });
+      throw new EngineError(`File not found: ${filePath}`, "FILE_NOT_FOUND");
     }
 
     const project = this.getProject(absPath);
@@ -92,25 +91,18 @@ export class TsEngine implements RefactorEngine {
     // Convert 1-based to 0-based
     const lineCount = sourceFile.getEndLineNumber(); // 0-based last line index
     if (line - 1 > lineCount) {
-      throw Object.assign(new Error(`Line ${line} out of range in ${filePath}`), {
-        code: "SYMBOL_NOT_FOUND" as const,
-      });
+      throw new EngineError(`Line ${line} out of range in ${filePath}`, "SYMBOL_NOT_FOUND");
     }
     let pos: number;
     try {
       pos = sourceFile.compilerNode.getPositionOfLineAndCharacter(line - 1, col - 1);
     } catch {
-      throw Object.assign(
-        new Error(`No renameable symbol at line ${line}, col ${col} in ${filePath}`),
-        { code: "SYMBOL_NOT_FOUND" as const },
-      );
+      throw new EngineError(`No renameable symbol at line ${line}, col ${col} in ${filePath}`, "SYMBOL_NOT_FOUND");
     }
 
     const node = sourceFile.getDescendantAtPos(pos);
     if (!node) {
-      throw Object.assign(new Error(`No symbol at line ${line}, col ${col} in ${filePath}`), {
-        code: "SYMBOL_NOT_FOUND" as const,
-      });
+      throw new EngineError(`No symbol at line ${line}, col ${col} in ${filePath}`, "SYMBOL_NOT_FOUND");
     }
 
     // Walk up to find the nearest renameable identifier
@@ -120,10 +112,7 @@ export class TsEngine implements RefactorEngine {
     }
 
     if (!target || (!Node.isIdentifier(target) && !Node.isPrivateIdentifier(target))) {
-      throw Object.assign(
-        new Error(`No renameable symbol at line ${line}, col ${col} in ${filePath}`),
-        { code: "SYMBOL_NOT_FOUND" as const },
-      );
+      throw new EngineError(`No renameable symbol at line ${line}, col ${col} in ${filePath}`, "SYMBOL_NOT_FOUND");
     }
 
     const oldName = target.getText();
@@ -135,10 +124,7 @@ export class TsEngine implements RefactorEngine {
     });
 
     if (!renameInfo.canRename) {
-      throw Object.assign(
-        new Error(renameInfo.localizedErrorMessage ?? "Symbol cannot be renamed"),
-        { code: "RENAME_NOT_ALLOWED" as const },
-      );
+      throw new EngineError(renameInfo.localizedErrorMessage ?? "Symbol cannot be renamed", "RENAME_NOT_ALLOWED");
     }
 
     // Perform the rename — ts-morph propagates across all project files
@@ -175,9 +161,7 @@ export class TsEngine implements RefactorEngine {
     const absPath = path.resolve(filePath);
 
     if (!fs.existsSync(absPath)) {
-      throw Object.assign(new Error(`File not found: ${filePath}`), {
-        code: "FILE_NOT_FOUND" as const,
-      });
+      throw new EngineError(`File not found: ${filePath}`, "FILE_NOT_FOUND");
     }
 
     const project = this.getProject(absPath);
@@ -188,29 +172,21 @@ export class TsEngine implements RefactorEngine {
 
     const lineCount = sourceFile.getEndLineNumber();
     if (line - 1 > lineCount) {
-      throw Object.assign(new Error(`Line ${line} out of range in ${filePath}`), {
-        code: "SYMBOL_NOT_FOUND" as const,
-      });
+      throw new EngineError(`Line ${line} out of range in ${filePath}`, "SYMBOL_NOT_FOUND");
     }
 
     let pos: number;
     try {
       pos = sourceFile.compilerNode.getPositionOfLineAndCharacter(line - 1, col - 1);
     } catch {
-      throw Object.assign(
-        new Error(`No symbol at line ${line}, col ${col} in ${filePath}`),
-        { code: "SYMBOL_NOT_FOUND" as const },
-      );
+      throw new EngineError(`No symbol at line ${line}, col ${col} in ${filePath}`, "SYMBOL_NOT_FOUND");
     }
 
     const ls = project.getLanguageService().compilerObject;
     const refs = ls.getReferencesAtPosition(absPath, pos);
 
     if (!refs || refs.length === 0) {
-      throw Object.assign(
-        new Error(`No symbol at line ${line}, col ${col} in ${filePath}`),
-        { code: "SYMBOL_NOT_FOUND" as const },
-      );
+      throw new EngineError(`No symbol at line ${line}, col ${col} in ${filePath}`, "SYMBOL_NOT_FOUND");
     }
 
     // Extract symbol name from the definition reference, falling back to the first.
@@ -249,9 +225,7 @@ export class TsEngine implements RefactorEngine {
     const absDest = path.resolve(destFile);
 
     if (!fs.existsSync(absSource)) {
-      throw Object.assign(new Error(`File not found: ${sourceFile}`), {
-        code: "FILE_NOT_FOUND" as const,
-      });
+      throw new EngineError(`File not found: ${sourceFile}`, "FILE_NOT_FOUND");
     }
 
     const project = this.getProject(absSource);
@@ -264,10 +238,7 @@ export class TsEngine implements RefactorEngine {
     // Find the exported declaration for the symbol
     const exportedDecls = srcSF.getExportedDeclarations().get(symbolName);
     if (!exportedDecls || exportedDecls.length === 0) {
-      throw Object.assign(
-        new Error(`Symbol '${symbolName}' not found as an export in ${sourceFile}`),
-        { code: "SYMBOL_NOT_FOUND" as const },
-      );
+      throw new EngineError(`Symbol '${symbolName}' not found as an export in ${sourceFile}`, "SYMBOL_NOT_FOUND");
     }
 
     const decl = exportedDecls[0];
@@ -286,11 +257,9 @@ export class TsEngine implements RefactorEngine {
 
     // Reject re-exports via `export { foo }` (these are ExportSpecifiers, not direct declarations)
     if (!declarationText.trimStart().startsWith("export")) {
-      throw Object.assign(
-        new Error(
-          `Symbol '${symbolName}' in ${sourceFile} is not a direct export. Re-exports via 'export { }' are not supported.`,
-        ),
-        { code: "NOT_SUPPORTED" as const },
+      throw new EngineError(
+        `Symbol '${symbolName}' in ${sourceFile} is not a direct export. Re-exports via 'export { }' are not supported.`,
+        "NOT_SUPPORTED",
       );
     }
 
@@ -417,9 +386,7 @@ export class TsEngine implements RefactorEngine {
     const absNew = path.resolve(newPath);
 
     if (!fs.existsSync(absOld)) {
-      throw Object.assign(new Error(`File not found: ${oldPath}`), {
-        code: "FILE_NOT_FOUND" as const,
-      });
+      throw new EngineError(`File not found: ${oldPath}`, "FILE_NOT_FOUND");
     }
 
     const project = this.getProject(absOld);

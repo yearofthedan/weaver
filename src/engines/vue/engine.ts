@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Language } from "@volar/language-core";
 import { isWithinWorkspace } from "../../workspace.js";
+import { EngineError } from "../errors.js";
 import { applyTextEdits, offsetToLineCol } from "../text-utils.js";
 import { findTsConfigForFile } from "../ts/project.js";
 import type {
@@ -320,9 +321,7 @@ export class VueEngine implements RefactorEngine {
     const absPath = path.resolve(filePath);
 
     if (!fs.existsSync(absPath)) {
-      throw Object.assign(new Error(`File not found: ${filePath}`), {
-        code: "FILE_NOT_FOUND" as const,
-      });
+      throw new EngineError(`File not found: ${filePath}`, "FILE_NOT_FOUND");
     }
 
     const { languageService, fileContents, language, vueVirtualToReal } =
@@ -334,9 +333,7 @@ export class VueEngine implements RefactorEngine {
     // Convert 1-based line/col to 0-based offset
     const lines = content.split("\n");
     if (line - 1 >= lines.length) {
-      throw Object.assign(new Error(`Line ${line} out of range in ${filePath}`), {
-        code: "SYMBOL_NOT_FOUND" as const,
-      });
+      throw new EngineError(`Line ${line} out of range in ${filePath}`, "SYMBOL_NOT_FOUND");
     }
     let pos = 0;
     for (let i = 0; i < line - 1; i++) {
@@ -346,10 +343,7 @@ export class VueEngine implements RefactorEngine {
 
     const rawLocations = languageService.findRenameLocations(absPath, pos, false, false, {});
     if (!rawLocations || rawLocations.length === 0) {
-      throw Object.assign(
-        new Error(`No renameable symbol at line ${line}, col ${col} in ${filePath}`),
-        { code: "SYMBOL_NOT_FOUND" as const },
-      );
+      throw new EngineError(`No renameable symbol at line ${line}, col ${col} in ${filePath}`, "SYMBOL_NOT_FOUND");
     }
 
     const locations = this.translateLocations(rawLocations, language, vueVirtualToReal);
@@ -407,9 +401,7 @@ export class VueEngine implements RefactorEngine {
     const absPath = path.resolve(filePath);
 
     if (!fs.existsSync(absPath)) {
-      throw Object.assign(new Error(`File not found: ${filePath}`), {
-        code: "FILE_NOT_FOUND" as const,
-      });
+      throw new EngineError(`File not found: ${filePath}`, "FILE_NOT_FOUND");
     }
 
     const { languageService, fileContents, language, vueVirtualToReal } =
@@ -420,9 +412,7 @@ export class VueEngine implements RefactorEngine {
 
     const lines = content.split("\n");
     if (line - 1 >= lines.length) {
-      throw Object.assign(new Error(`Line ${line} out of range in ${filePath}`), {
-        code: "SYMBOL_NOT_FOUND" as const,
-      });
+      throw new EngineError(`Line ${line} out of range in ${filePath}`, "SYMBOL_NOT_FOUND");
     }
     let pos = 0;
     for (let i = 0; i < line - 1; i++) {
@@ -432,10 +422,7 @@ export class VueEngine implements RefactorEngine {
 
     const rawRefs = languageService.getReferencesAtPosition(absPath, pos);
     if (!rawRefs || rawRefs.length === 0) {
-      throw Object.assign(
-        new Error(`No symbol at line ${line}, col ${col} in ${filePath}`),
-        { code: "SYMBOL_NOT_FOUND" as const },
-      );
+      throw new EngineError(`No symbol at line ${line}, col ${col} in ${filePath}`, "SYMBOL_NOT_FOUND");
     }
 
     const refs = this.translateLocations(rawRefs, language, vueVirtualToReal);
@@ -465,10 +452,7 @@ export class VueEngine implements RefactorEngine {
     _destFile: string,
     _workspace: string,
   ): Promise<MoveSymbolResult> {
-    throw Object.assign(
-      new Error(`moveSymbol is not supported for Vue projects (symbol: '${symbolName}')`),
-      { code: "NOT_SUPPORTED" as const },
-    );
+    throw new EngineError(`moveSymbol is not supported for Vue projects (symbol: '${symbolName}')`, "NOT_SUPPORTED");
   }
 
   async moveFile(oldPath: string, newPath: string, workspace: string): Promise<MoveResult> {
@@ -476,9 +460,7 @@ export class VueEngine implements RefactorEngine {
     const absNew = path.resolve(newPath);
 
     if (!fs.existsSync(absOld)) {
-      throw Object.assign(new Error(`File not found: ${oldPath}`), {
-        code: "FILE_NOT_FOUND" as const,
-      });
+      throw new EngineError(`File not found: ${oldPath}`, "FILE_NOT_FOUND");
     }
 
     const { languageService, fileContents, vueVirtualToReal } = await this.getService(absOld);

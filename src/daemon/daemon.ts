@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
+import { EngineError } from "../engines/errors.js";
 import { dispatchRequest, warmupEngine } from "./dispatcher.js";
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
 
@@ -109,7 +110,7 @@ async function handleSocketRequest(
   } catch (err) {
     response = {
       ok: false,
-      error: "PARSE_ERROR",
+      error: EngineError.is(err) ? err.code : "PARSE_ERROR",
       message: err instanceof Error ? err.message : String(err),
     };
   }
