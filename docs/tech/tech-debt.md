@@ -38,13 +38,9 @@ Two options:
 
 ---
 
-## Engine layer: Vue awareness leaking into TsEngine
+## Engine layer: Vue awareness leaking into TsEngine ✅ resolved
 
-`src/engines/ts-engine.ts` imports and calls `updateVueImportsAfterMove` from `vue-scan.js`. A TypeScript engine should have no knowledge of Vue.
-
-The same function is also called by `VueEngine.moveFile`. It is a shared post-processing concern — a regex scan that patches `.vue` import paths after any file move — and belongs at the router level, not inside individual engines.
-
-**Fix:** remove the `updateVueImportsAfterMove` call from both engines. Call it in the router after any `moveFile` operation. Engines become pure: each knows only about its own language.
+`updateVueImportsAfterMove` was removed from both `TsEngine.moveFile` and `VueEngine.moveFile`. It now runs as a post-step in `dispatcher.ts` after any `moveFile` operation. Engines are pure language-service wrappers; cross-cutting scan logic belongs in the dispatch layer.
 
 ---
 

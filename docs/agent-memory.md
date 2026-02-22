@@ -25,7 +25,7 @@ After spawning the daemon process, the socket file may not exist yet. Use `waitF
 `pnpm format` runs `biome format --write`, which fixes whitespace/style but not `organizeImports` assists. To fix everything in one pass, run `pnpm exec biome check --write .`.
 
 **`dist/` and other build dirs must be excluded from `readDirectory`.**
-The Vue engine calls `ts.sys.readDirectory()` to find `.vue` files. Without filtering, it picks up files under `dist/`, `node_modules/`, etc., which breaks type resolution. `SKIP_DIRS` is exported from `vue-scan.ts` and applied in `buildService()`.
+The Vue engine calls `ts.sys.readDirectory()` to find `.vue` files. Without filtering, it picks up files under `dist/`, `node_modules/`, etc., which breaks type resolution. `SKIP_DIRS` is exported from `vue/scan.ts` and applied in `buildService()`.
 
 **`ts-engine.moveFile` uses the language service directly, not `sourceFile.move()`.**
 `sourceFile.move()` + `project.save()` is an atomic API — it writes all dirty files with no per-file whitelist. Use `ls.getEditsForFileRename()` instead to get per-file control before any disk write, then apply edits manually and call `fs.renameSync`. This is the same pattern vue-engine already used. After the operation, call `invalidateProject()` to discard stale in-memory state.
@@ -33,14 +33,14 @@ The Vue engine calls `ts.sys.readDirectory()` to find `.vue` files. Without filt
 **Engine output (collateral writes) must also be boundary-checked.**
 The TS language service computes impacted files from the project graph (via tsconfig `include`). These may extend outside the workspace. Check each file against the workspace boundary before writing. Skip out-of-workspace files and return them in `filesSkipped` — do not throw, because the caller cannot know the impacted set in advance and a throw mid-write leaves partial state.
 
-**`isWithinWorkspace` is in `src/daemon/workspace.ts`.**
+**`isWithinWorkspace` is in `src/workspace.ts`.**
 Used at both the daemon dispatcher (input validation) and the engine layer (output filtering). Resolves symlinks via `fs.realpathSync` for existing paths to prevent symlink escape. Returns `false` if `path.relative(workspace, abs)` starts with `..`.
 
 **`newName` regex must be enforced at the MCP layer too.**
 `schema.ts` had the identifier regex but `serve.ts` only had `z.string()`. MCP input validation and schema.ts must stay consistent — check both when changing validation rules.
 
 **`applyTextEdits` is in `src/engines/text-utils.ts`.**
-Shared by both ts-engine and vue-engine. Takes a source string and `readonly { span: { start, length }, newText }[]`, applies edits in descending offset order.
+Shared by both engines (`ts/engine.ts` and `vue/engine.ts`). Takes a source string and `readonly { span: { start, length }, newText }[]`, applies edits in descending offset order.
 
 ---
 
@@ -71,7 +71,7 @@ The DIP argument (program to abstractions, not concretions) is valid in principl
 `VueEngine.moveSymbol` throws `NOT_SUPPORTED` because the router routes all Vue-project files to `VueEngine`, and Volar has no "extract declaration" API. But `moveSymbol` doesn't need Volar — it is pure AST surgery (find statement, splice text, patch imports). The path to Vue support: (a) for `.ts`→`.ts` in a Vue project, delegate to `TsEngine` then call `updateVueImportsAfterMove` to catch `.vue` import strings; (b) for `.vue` source, use `@vue/compiler-sfc`'s `parse()` to locate and splice the `<script>` block — `@vue/compiler-sfc` is already a transitive dep. Moving *into* a `.vue` destination is not worth supporting.
 
 **Per-workspace engine selection breaks down for `moveSymbol`.**
-`router.ts` picks one engine for the whole workspace (VueEngine if any `.vue` files are present). This is correct for `rename` and `moveFile`, which need Volar's project graph. It is wrong for `moveSymbol`, which needs AST manipulation that VueEngine can't do. Future fix: per-operation engine selection, or a fallback path inside `VueEngine.moveSymbol` that delegates to `TsEngine`. Current approach is kept for simplicity; track in tech-debt.md when it matters.
+`dispatcher.ts` picks one engine for the whole workspace (VueEngine if any `.vue` files are present). This is correct for `rename` and `moveFile`, which need Volar's project graph. It is wrong for `moveSymbol`, which needs AST manipulation that VueEngine can't do. Future fix: per-operation engine selection, or a fallback path inside `VueEngine.moveSymbol` that delegates to `TsEngine`. Current approach is kept for simplicity; track in tech-debt.md when it matters.
 
 **Dispatcher is engine-agnostic; use a command map, not per-engine dispatchers.**
 `RefactorEngine` already abstracts over engine type — the dispatcher calls `engine.rename(...)` or `engine.moveFile(...)` without knowing which engine it has. Per-engine dispatchers (`VueDispatcher`, `TsDispatcher`) would leak engine knowledge into the dispatch layer. Instead, use a command map:
@@ -89,15 +89,20 @@ Code diffs show what changed. The body should explain decisions and tradeoffs. D
 
 | File | Purpose |
 |------|---------|
+| `src/workspace.ts` | `isWithinWorkspace()` — shared boundary utility |
+| `src/mcp.ts` | MCP server (connects to daemon) |
 | `src/daemon/paths.ts` | Socket and lockfile path utilities |
-| `src/daemon/daemon.ts` | Daemon process; dispatches to engines with workspace param |
-| `src/daemon/workspace.ts` | `isWithinWorkspace()` — shared boundary utility |
-| `src/engines/text-utils.ts` | `applyTextEdits()` — shared by ts-engine and vue-engine |
-| `src/mcp/serve.ts` | MCP server (connects to daemon) |
+| `src/daemon/daemon.ts` | Socket server; `isDaemonAlive` + `removeDaemonFiles` lifecycle fns |
+| `src/daemon/dispatcher.ts` | `dispatchRequest`; engine singletons; vue scan post-step |
+| `src/engines/text-utils.ts` | `applyTextEdits()` — shared by both engines |
+| `src/engines/ts/engine.ts` | TypeScript refactoring via ts-morph |
+| `src/engines/ts/project.ts` | `findTsConfig`, `findTsConfigForFile`, `isVueProject` |
+| `src/engines/vue/engine.ts` | Vue/Volar refactoring |
+| `src/engines/vue/scan.ts` | `updateVueImportsAfterMove` (regex scan for .vue SFC imports) |
 | `tests/helpers.ts` | `spawnAndWaitForReady`, `McpTestClient`, `killDaemon` |
 | `tests/fixtures/cross-boundary/` | Fixture for testing cross-workspace boundary enforcement |
 | `docs/security.md` | Threat model, controls, known limitations |
-| `docs/tech/volar-v3.md` | How the Vue engine works — read before touching `vue-engine.ts` |
+| `docs/tech/volar-v3.md` | How the Vue engine works — read before touching `vue/engine.ts` |
 | `docs/tech/tech-debt.md` | Known structural issues in the engine layer |
 
 ---

@@ -15,75 +15,44 @@ Read the docs in this order:
 
 ## Current state
 
-**Tests passing.** Security controls implemented. The file layout now reflects domain boundaries:
+**51/51 tests passing.** Security controls and project restructure complete. The file layout now reflects domain boundaries:
 
 ```
 src/
   cli.ts          ← registers only: daemon, serve
   schema.ts
+  workspace.ts    ← isWithinWorkspace() — shared boundary utility
+  mcp.ts          ← MCP server (connects to daemon)
   daemon/
-    daemon.ts
-    paths.ts
-    router.ts
-    workspace.ts  ← isWithinWorkspace() — shared boundary utility
+    daemon.ts     ← socket server; isDaemonAlive + removeDaemonFiles lifecycle fns
+    paths.ts      ← socketPath, lockfilePath, ensureCacheDir only
+    dispatcher.ts ← dispatchRequest; engine singletons; vue scan post-step
   engines/
-    project.ts
-    text-utils.ts ← applyTextEdits() — shared by ts-engine and vue-engine
-    ts-engine.ts
     types.ts
-    vue-engine.ts
-    vue-scan.ts
-  mcp/
-    serve.ts
+    text-utils.ts ← applyTextEdits() — shared by both engines
+    ts/
+      engine.ts   ← TypeScript refactoring via ts-morph
+      project.ts  ← findTsConfig, findTsConfigForFile, isVueProject
+    vue/
+      engine.ts   ← Vue/Volar refactoring
+      scan.ts     ← updateVueImportsAfterMove (regex scan for .vue SFC imports)
 ```
 
-**Security controls shipped** — see `docs/security.md` for the full threat model and control inventory. Summary:
-- Input paths validated at daemon dispatcher (workspace boundary + symlink resolution)
-- Output paths (collateral writes) enforced at engine layer; skipped files returned in `filesSkipped`
-- `newName` identifier regex now enforced at MCP layer (was missing from `serve.ts`)
-- JSON framing regression tests added
-- `ts-engine.moveFile` rewritten to use language service directly (no `sourceFile.move()`) — gives per-file control before any disk write, same approach as vue-engine
+**Completed this session:**
+- File restructure via `mcp__light-bridge__move` (dogfooding)
+- Vue awareness leak fixed: `updateVueImportsAfterMove` moved from engines to the dispatcher post-step
+- `isVueProject` moved to `engines/ts/project.ts` alongside the other project utilities
+- `isDaemonAlive` + `removeDaemonFiles` moved from `paths.ts` to `daemon.ts` (lifecycle vs. path derivation)
+- `router.ts` deleted; engine singletons now live in `dispatcher.ts`
+- `moveSymbol` self-import edge case fixed (skip dest file in importer loop)
 
-**Known remaining gap** — `updateVueImportsAfterMove` (vue-scan) does not enforce workspace boundary on its regex scan. Low risk in practice (search root is clamped to tsconfig directory), tracked in tech-debt.md.
+**Known remaining gap** — `updateVueImportsAfterMove` (vue/scan) does not enforce workspace boundary on its regex scan. Low risk in practice (search root is clamped to tsconfig directory), tracked in tech-debt.md.
 
 **Next things to build, in order:**
 
 1. **`moveSymbol` operation** ✅ — shipped. Moves a named export from one file to another, updating all import references. Implemented in `TsEngine`; `VueEngine` throws `NOT_SUPPORTED`. See architecture note below on extending this to Vue projects.
 
-2. **Project restructure (dogfood with `move` + `moveSymbol`)** — agreed layout, implemented by running light-bridge's own tools against itself:
-
-   ```
-   src/
-     cli.ts
-     schema.ts
-     workspace.ts          ← lifted from daemon/workspace.ts (used by daemon + both engines)
-     mcp.ts                ← was mcp/serve.ts
-     daemon/
-       daemon.ts           ← Daemon class; owns engine singletons + server lifecycle
-       paths.ts            ← socketPath, lockfilePath, ensureCacheDir only
-       dispatcher.ts       ← dispatchRequest extracted from daemon.ts
-     engines/
-       types.ts
-       text-utils.ts
-       ts/
-         engine.ts         ← was ts-engine.ts
-         project.ts        ← findTsConfigForFile + isVueProject (moved from router.ts)
-       vue/
-         engine.ts         ← was vue-engine.ts
-         scan.ts           ← was vue-scan.ts
-   ```
-
-   Key moves:
-   - `daemon/workspace.ts` → `src/workspace.ts` (lift cross-cutting concern)
-   - `mcp/serve.ts` → `src/mcp.ts` (single-file module, no folder needed)
-   - `engines/ts-engine.ts` → `engines/ts/engine.ts`
-   - `engines/vue-engine.ts` → `engines/vue/engine.ts`
-   - `engines/vue-scan.ts` → `engines/vue/scan.ts`
-   - `engines/project.ts` → `engines/ts/project.ts`
-   - `router.ts` dissolved: `isVueProject` → `engines/ts/project.ts`; engine singletons → `Daemon` class
-   - `isDaemonAlive` + `removeDaemonFiles` → `daemon.ts` (lifecycle ops, not path derivations)
-   - `daemon.ts` becomes a `Daemon` class with private engine singletons
-   - `dispatchRequest` extracted to `dispatcher.ts` as a command map
+2. **Project restructure** ✅ — complete (this session).
 
 3. **Missing operations** — brainstorm and implement what's next (see below)
 ---
