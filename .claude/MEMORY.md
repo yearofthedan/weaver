@@ -9,11 +9,12 @@ See `docs/agent-memory.md` for technical gotchas useful to humans too.
 
 ## Current state
 
-- 59/59 tests passing
+- 97/97 tests passing
 - Security controls complete — see `docs/security.md`
 - Operations complete: `rename` (TS+Vue), `move` (TS+Vue), `moveSymbol` (TS only), `findReferences` (TS+Vue, read-only)
 - Deps pinned; pnpm override deduplicates `@volar/language-core` to 2.4.28
 - CI: `.github/workflows/ci.yml` runs `pnpm check` on push/PR to main
+- Architecture slices A1, A2, A4 complete (see handoff.md for A3, A5, A6)
 
 ## Source layout
 
@@ -24,12 +25,13 @@ src/
   workspace.ts    ← isWithinWorkspace() — shared boundary utility
   mcp.ts          ← MCP server (connects to daemon)
   daemon/
-    daemon.ts     ← socket server; isDaemonAlive + removeDaemonFiles
+    daemon.ts     ← socket server; request-serialisation mutex; isDaemonAlive + removeDaemonFiles
     paths.ts      ← socketPath, lockfilePath, ensureCacheDir
     dispatcher.ts ← dispatchRequest; engine singletons; vue scan post-step
   engines/
+    errors.ts     ← EngineError class + ErrorCode union (A1)
     types.ts
-    text-utils.ts ← applyTextEdits() shared utility
+    text-utils.ts ← applyTextEdits(), offsetToLineCol() shared utilities
     ts/
       engine.ts   ← TsEngine (ts-morph)
       project.ts  ← findTsConfig, findTsConfigForFile, isVueProject
@@ -40,8 +42,17 @@ src/
 
 ## Next up
 
-1. **`moveSymbol` for Vue projects** — currently NOT_SUPPORTED. Buildable: delegate to TsEngine for `.ts`→`.ts` moves + `updateVueImportsAfterMove`; use `@vue/compiler-sfc` for `.vue` source. See architecture note in `docs/handoff.md`.
-2. Missing operations — candidates in `docs/handoff.md` (e.g., `getDefinition` is next highest agent value)
+1. **A3** — unified file walker with gitignore support (`src/engines/file-walk.ts`)
+2. **A5** — provider/engine separation (depends on A1, now complete)
+3. **New operations** — `getDefinition` is next highest agent value; see `docs/handoff.md`
+
+## Parallel agent lesson
+
+Background agents launched with `isolation: "worktree"` cannot create new files
+or run Bash without interactive approval. They only work reliably on tasks that
+exclusively edit existing files. For slices that create new files, implement
+directly in the main session. Always use `subagent_type: "general-purpose"` (not
+`"Bash"`) when file writes are needed.
 
 ## Architecture watch: per-workspace vs per-operation engine selection
 
