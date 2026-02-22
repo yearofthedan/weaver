@@ -15,7 +15,7 @@ Read the docs in this order:
 
 ## Current state
 
-**35/35 tests passing.** Source restructure and hardening complete. CLI `rename`/`move` commands removed; MCP via `serve` is the only agent interface. The file layout now reflects domain boundaries:
+**Tests passing.** Security controls implemented. The file layout now reflects domain boundaries:
 
 ```
 src/
@@ -25,8 +25,10 @@ src/
     daemon.ts
     paths.ts
     router.ts
+    workspace.ts  ← isWithinWorkspace() — shared boundary utility
   engines/
     project.ts
+    text-utils.ts ← applyTextEdits() — shared by ts-engine and vue-engine
     ts-engine.ts
     types.ts
     vue-engine.ts
@@ -35,15 +37,23 @@ src/
     serve.ts
 ```
 
+**Security controls shipped** — see `docs/security.md` for the full threat model and control inventory. Summary:
+- Input paths validated at daemon dispatcher (workspace boundary + symlink resolution)
+- Output paths (collateral writes) enforced at engine layer; skipped files returned in `filesSkipped`
+- `newName` identifier regex now enforced at MCP layer (was missing from `serve.ts`)
+- JSON framing regression tests added
+- `ts-engine.moveFile` rewritten to use language service directly (no `sourceFile.move()`) — gives per-file control before any disk write, same approach as vue-engine
+
+**Known remaining gap** — `updateVueImportsAfterMove` (vue-scan) does not enforce workspace boundary on its regex scan. Low risk in practice (search root is clamped to tsconfig directory), tracked in tech-debt.md.
+
 **Next things to build, in order:**
 
-1. **Security controls** — restrict editing to the workspace, assess other missing controls
-2. **Engine refactor** — see `docs/tech/tech-debt.md`
-3. **Dogfooding** — update guidance to ensure we dogfood
-4. **Missing operations** — brainstorm and implement what's next (see below)
+1. **Engine refactor** — see `docs/tech/tech-debt.md`. Note this may be out of date since the last refactor
+2. **Dogfooding** — update guidance to ensure we dogfood
+3. **Missing operations** — brainstorm and implement what's next (see below)
 ---
 
-## Missing operations (next task)
+## Missing operations
 
 The current tool surface is just `rename` and `move`. Before adding anything, brainstorm what an AI coding agent actually needs most. Some candidates to evaluate:
 
@@ -77,3 +87,5 @@ For each candidate, consider: does the daemon's stateful engine make it meaningf
 - **Test helper: `McpTestClient`** — a small class in `tests/helpers.ts` that handles newline-delimited framing and the initialize handshake. Keeps test bodies clean.
 - **`spawnAndWaitForReady` takes `{ pipeStdin: true }`** — required for MCP tests that need to write to the process's stdin.
 - **Vertical slice tests assert before and after** — always read the fixture files before the operation to confirm the original state, then assert both the old string is gone and the new string is present. Avoids false-positive tests.
+- **`filesSkipped` in engine results** — when a collateral write would land outside the workspace, engines skip it and list the path in `filesSkipped`. The daemon includes this in the response. Agents should surface it to the user.
+- **`ts-engine.moveFile` uses language service directly** — `sourceFile.move()` + `project.save()` has no per-file whitelist API; it would write all dirty files atomically. Instead we call `ls.getEditsForFileRename()` and apply edits file-by-file, then `fs.renameSync`. This matches what vue-engine already did. The tradeoff: ts-morph's in-memory project is stale after the operation, but we immediately call `invalidateProject()` so it's rebuilt on the next call.
