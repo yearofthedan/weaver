@@ -5,6 +5,7 @@ coverage/
 .env.local
 .DS_Store
 *.log
-.claude/
+.claude/*
+!.claude/MEMORY.md
 .pnpm-store/
 .mcp.json

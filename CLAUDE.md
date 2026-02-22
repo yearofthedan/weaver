@@ -40,8 +40,12 @@ Explicitly state the version and instruct the subagent to confirm it from `packa
 **Rule 5: Write tests as you implement, not after.**
 Finish the test for a unit before moving to the next. The test is part of the implementation.
 
-**Rule 6: Store session notes in `docs/`, not in `~/.claude/`.**
-This project runs in a dev container — the home directory is ephemeral. Keep durable notes in `docs/agent-memory.md`.
+**Rule 6: Write durable memory to `.claude/MEMORY.md` and `docs/agent-memory.md` — never to `~/.claude/`.**
+This project runs in a dev container. The home directory is deleted on every rebuild, taking `~/.claude/projects/` with it. Do NOT use the auto-memory system there. Instead:
+- `.claude/MEMORY.md` — project state and agent behaviour notes (git-tracked)
+- `docs/agent-memory.md` — technical gotchas and decisions useful to humans too (git-tracked)
+
+Update both at the end of every session.
 
 ---
 
