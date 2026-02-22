@@ -238,6 +238,62 @@ describe("TsEngine (unit tests)", () => {
     });
   });
 
+  describe("getDefinition", () => {
+    it("returns the definition location from a call site", async () => {
+      const dir = setup();
+      const engine = new TsEngine();
+
+      // main.ts line 3: console.log(greetUser("World")); → col 13
+      const result = await engine.getDefinition(`${dir}/src/main.ts`, 3, 13);
+
+      expect(result.symbolName).toBe("greetUser");
+      expect(result.definitions.length).toBeGreaterThanOrEqual(1);
+
+      // Definition must point back to utils.ts
+      expect(result.definitions.some((d) => d.file.endsWith("utils.ts"))).toBe(true);
+      for (const def of result.definitions) {
+        expect(def.line).toBeGreaterThan(0);
+        expect(def.col).toBeGreaterThan(0);
+        expect(def.length).toBeGreaterThan(0);
+      }
+    });
+
+    it("returns the definition location from the declaration site itself", async () => {
+      const dir = setup();
+      const engine = new TsEngine();
+
+      // utils.ts line 1, col 17: greetUser declaration
+      const result = await engine.getDefinition(`${dir}/src/utils.ts`, 1, 17);
+
+      expect(result.symbolName).toBe("greetUser");
+      expect(result.definitions.some((d) => d.file.endsWith("utils.ts"))).toBe(true);
+    });
+
+    it("throws FILE_NOT_FOUND for a non-existent file", async () => {
+      const dir = setup();
+      const engine = new TsEngine();
+
+      try {
+        await engine.getDefinition(`${dir}/src/doesNotExist.ts`, 1, 1);
+        expect.fail("Should have thrown");
+      } catch (err: unknown) {
+        expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
+      }
+    });
+
+    it("throws SYMBOL_NOT_FOUND for an out-of-range line", async () => {
+      const dir = setup();
+      const engine = new TsEngine();
+
+      try {
+        await engine.getDefinition(`${dir}/src/utils.ts`, 999, 1);
+        expect.fail("Should have thrown");
+      } catch (err: unknown) {
+        expect((err as { code?: string }).code).toBe("SYMBOL_NOT_FOUND");
+      }
+    });
+  });
+
   describe("moveSymbol", () => {
     it("moves a function to a new file", async () => {
       const dir = setup();

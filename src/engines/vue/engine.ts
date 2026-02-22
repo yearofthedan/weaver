@@ -7,6 +7,7 @@ import { applyTextEdits, offsetToLineCol } from "../text-utils.js";
 import { findTsConfigForFile } from "../ts/project.js";
 import type {
   FindReferencesResult,
+  GetDefinitionResult,
   MoveResult,
   MoveSymbolResult,
   RefactorEngine,
@@ -27,6 +28,10 @@ interface VolarLanguageService {
     fileName: string,
     position: number,
   ): readonly { fileName: string; textSpan: { start: number; length: number } }[] | undefined;
+  getDefinitionAtPosition(
+    fileName: string,
+    position: number,
+  ): readonly { fileName: string; textSpan: { start: number; length: number }; name: string }[] | undefined;
   getEditsForFileRename(
     oldFilePath: string,
     newFilePath: string,
@@ -266,6 +271,50 @@ export class VueEngine implements RefactorEngine {
   }
 
   /**
+   * Translate a real `.vue` file path + offset to the virtual `.vue.ts` path + offset
+   * that Volar's TypeScript program understands. Plain `.ts` paths pass through unchanged.
+   * Used before operations where the Volar proxy does NOT perform this translation itself
+   * (e.g. `getDefinitionAtPosition`).
+   */
+  private toVirtualLocation(
+    realPath: string,
+    pos: number,
+    language: import("@volar/language-core").Language<string>,
+    vueVirtualToReal: Map<string, string>,
+  ): { fileName: string; pos: number } {
+    if (!realPath.endsWith(".vue")) {
+      return { fileName: realPath, pos };
+    }
+
+    const virtualPath = `${realPath}.ts`;
+    if (!vueVirtualToReal.has(virtualPath)) {
+      return { fileName: realPath, pos };
+    }
+
+    const sourceScript = language.scripts.get(realPath);
+    if (!sourceScript?.generated) {
+      return { fileName: virtualPath, pos };
+    }
+
+    const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(
+      sourceScript.generated.root,
+    );
+    if (!serviceScript) {
+      return { fileName: virtualPath, pos };
+    }
+
+    const mapper = language.maps.get(serviceScript.code, sourceScript);
+    const iter = mapper.toGeneratedLocation(pos);
+    const next = iter.next() as IteratorResult<readonly [number, unknown]>;
+    if (!next.done) {
+      return { fileName: virtualPath, pos: next.value[0] };
+    }
+
+    // Position not mappable — fall back to the virtual path with original offset.
+    return { fileName: virtualPath, pos };
+  }
+
+  /**
    * Translate virtual `.vue.ts` locations back to real `.vue` source positions
    * using Volar's source maps. Plain `.ts` locations pass through unchanged.
    * Locations with no source mapping (Volar glue code) are dropped.
@@ -445,6 +494,59 @@ export class VueEngine implements RefactorEngine {
     });
 
     return { symbolName, references };
+  }
+
+  async getDefinition(
+    filePath: string,
+    line: number,
+    col: number,
+  ): Promise<GetDefinitionResult> {
+    const absPath = path.resolve(filePath);
+
+    if (!fs.existsSync(absPath)) {
+      throw new EngineError(`File not found: ${filePath}`, "FILE_NOT_FOUND");
+    }
+
+    const { languageService, fileContents, language, vueVirtualToReal } =
+      await this.getService(absPath);
+
+    const content = fs.readFileSync(absPath, "utf8");
+    fileContents.set(absPath, content);
+
+    const lines = content.split("\n");
+    if (line - 1 >= lines.length) {
+      throw new EngineError(`Line ${line} out of range in ${filePath}`, "SYMBOL_NOT_FOUND");
+    }
+    let pos = 0;
+    for (let i = 0; i < line - 1; i++) {
+      pos += lines[i].length + 1; // +1 for \n
+    }
+    pos += col - 1;
+
+    // getDefinitionAtPosition does not auto-translate .vue → .vue.ts the way
+    // findRenameLocations / getReferencesAtPosition do, so we translate first.
+    const { fileName: queryFile, pos: queryPos } = this.toVirtualLocation(
+      absPath,
+      pos,
+      language,
+      vueVirtualToReal,
+    );
+
+    const rawDefs = languageService.getDefinitionAtPosition(queryFile, queryPos);
+    if (!rawDefs || rawDefs.length === 0) {
+      throw new EngineError(`No symbol at line ${line}, col ${col} in ${filePath}`, "SYMBOL_NOT_FOUND");
+    }
+
+    const symbolName = rawDefs[0].name;
+    const defs = this.translateLocations(rawDefs, language, vueVirtualToReal);
+
+    const definitions = defs.map((def) => {
+      const defContent = fileContents.get(def.fileName) ?? fs.readFileSync(def.fileName, "utf8");
+      const lc = offsetToLineCol(defContent, def.textSpan.start);
+      return { file: def.fileName, line: lc.line, col: lc.col, length: def.textSpan.length };
+    });
+
+    return { symbolName, definitions };
   }
 
   async moveSymbol(

@@ -127,6 +127,40 @@ describe("VueEngine (unit tests)", () => {
     });
   });
 
+  describe("getDefinition", () => {
+    it("resolves a composable definition from a .vue call site", async () => {
+      const dir = setup("vue-ts-boundary");
+      const engine = new VueEngine();
+
+      // App.vue imports and calls greetUser from utils.ts.
+      // Point at App.vue's usage of greetUser — definition should resolve to utils.ts.
+      const appVue = `${dir}/src/App.vue`;
+      const content = fs.readFileSync(appVue, "utf8");
+      const lineIdx = content.split("\n").findIndex((l) => l.includes("greetUser"));
+      expect(lineIdx).toBeGreaterThanOrEqual(0);
+      const line = lineIdx + 1;
+      const col = content.split("\n")[lineIdx].indexOf("greetUser") + 1;
+
+      const result = await engine.getDefinition(appVue, line, col);
+
+      expect(result.symbolName).toBe("greetUser");
+      expect(result.definitions.length).toBeGreaterThanOrEqual(1);
+      expect(result.definitions.some((d) => d.file.endsWith("utils.ts"))).toBe(true);
+    });
+
+    it("throws FILE_NOT_FOUND for a non-existent file", async () => {
+      const dir = setup();
+      const engine = new VueEngine();
+
+      try {
+        await engine.getDefinition(`${dir}/src/doesNotExist.ts`, 1, 1);
+        expect.fail("Should have thrown");
+      } catch (err: unknown) {
+        expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
+      }
+    });
+  });
+
   describe("moveFile", () => {
     it("moves a composable file and updates .vue imports", async () => {
       const dir = setup();

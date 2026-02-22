@@ -243,6 +243,42 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
     },
   );
 
+  server.registerTool(
+    "getDefinition",
+    {
+      description:
+        "Jump to the definition of a symbol at a specific position. " +
+        "Use this to navigate to where a symbol is declared before reading or editing it. " +
+        "Compiler-verified — avoids grep and works across re-exports, barrel files, and declaration files. " +
+        "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+      inputSchema: {
+        file: z.string().describe("Absolute path to the file"),
+        line: z.number().int().positive().describe("Line number (1-based)"),
+        col: z.number().int().positive().describe("Column number (1-based)"),
+      },
+    },
+    async ({ file, line, col }) => {
+      try {
+        const response = await callDaemon(sockPath, {
+          method: "getDefinition",
+          params: { file, line, col },
+        });
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }),
+            },
+          ],
+          isError: true,
+        };
+      }
+    },
+  );
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

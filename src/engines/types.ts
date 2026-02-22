@@ -36,6 +36,18 @@ export interface FindReferencesResult {
   references: Reference[];
 }
 
+export interface Definition {
+  file: string;
+  line: number;
+  col: number;
+  length: number;
+}
+
+export interface GetDefinitionResult {
+  symbolName: string;
+  definitions: Definition[];
+}
+
 export interface RefactorEngine {
   /**
    * Rename the symbol at (line, col) in filePath to newName.
@@ -73,4 +85,10 @@ export interface RefactorEngine {
    * line and col are 1-based. Read-only — does not modify any files.
    */
   findReferences(filePath: string, line: number, col: number): Promise<FindReferencesResult>;
+
+  /**
+   * Return the definition location(s) for the symbol at (line, col) in filePath.
+   * line and col are 1-based. Read-only — does not modify any files.
+   */
+  getDefinition(filePath: string, line: number, col: number): Promise<GetDefinitionResult>;
 }

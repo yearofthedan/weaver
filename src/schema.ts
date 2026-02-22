@@ -30,7 +30,14 @@ export const FindReferencesArgsSchema = z.object({
   col: z.coerce.number().int().positive("col must be a positive integer (1-based)"),
 });
 
+export const GetDefinitionArgsSchema = z.object({
+  file: z.string().min(1, "file path is required"),
+  line: z.coerce.number().int().positive("line must be a positive integer (1-based)"),
+  col: z.coerce.number().int().positive("col must be a positive integer (1-based)"),
+});
+
 export type RenameArgs = z.infer<typeof RenameArgsSchema>;
 export type MoveArgs = z.infer<typeof MoveArgsSchema>;
 export type MoveSymbolArgs = z.infer<typeof MoveSymbolArgsSchema>;
 export type FindReferencesArgs = z.infer<typeof FindReferencesArgsSchema>;
+export type GetDefinitionArgs = z.infer<typeof GetDefinitionArgsSchema>;

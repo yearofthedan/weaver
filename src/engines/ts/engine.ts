@@ -13,6 +13,7 @@ import { walkFiles } from "../file-walk.js";
 import { applyTextEdits, offsetToLineCol } from "../text-utils.js";
 import type {
   FindReferencesResult,
+  GetDefinitionResult,
   MoveResult,
   MoveSymbolResult,
   RefactorEngine,
@@ -190,6 +191,58 @@ export class TsEngine implements RefactorEngine {
     });
 
     return { symbolName, references };
+  }
+
+  async getDefinition(
+    filePath: string,
+    line: number,
+    col: number,
+  ): Promise<GetDefinitionResult> {
+    const absPath = path.resolve(filePath);
+
+    if (!fs.existsSync(absPath)) {
+      throw new EngineError(`File not found: ${filePath}`, "FILE_NOT_FOUND");
+    }
+
+    const project = this.getProject(absPath);
+    let sourceFile = project.getSourceFile(absPath);
+    if (!sourceFile) {
+      sourceFile = project.addSourceFileAtPath(absPath);
+    }
+
+    const lineCount = sourceFile.getEndLineNumber();
+    if (line - 1 > lineCount) {
+      throw new EngineError(`Line ${line} out of range in ${filePath}`, "SYMBOL_NOT_FOUND");
+    }
+
+    let pos: number;
+    try {
+      pos = sourceFile.compilerNode.getPositionOfLineAndCharacter(line - 1, col - 1);
+    } catch {
+      throw new EngineError(`No symbol at line ${line}, col ${col} in ${filePath}`, "SYMBOL_NOT_FOUND");
+    }
+
+    const ls = project.getLanguageService().compilerObject;
+    const defs = ls.getDefinitionAtPosition(absPath, pos);
+
+    if (!defs || defs.length === 0) {
+      throw new EngineError(`No symbol at line ${line}, col ${col} in ${filePath}`, "SYMBOL_NOT_FOUND");
+    }
+
+    const symbolName = defs[0].name;
+    const contentCache = new Map<string, string>();
+    const getContent = (fp: string) => {
+      if (!contentCache.has(fp)) contentCache.set(fp, fs.readFileSync(fp, "utf8"));
+      return contentCache.get(fp) as string;
+    };
+
+    const definitions = defs.map((def) => {
+      const content = getContent(def.fileName);
+      const lc = offsetToLineCol(content, def.textSpan.start);
+      return { file: def.fileName, line: lc.line, col: lc.col, length: def.textSpan.length };
+    });
+
+    return { symbolName, definitions };
   }
 
   private invalidateProject(filePath: string): void {
