@@ -7,5 +7,8 @@ coverage/
 *.log
 .claude/*
 !.claude/MEMORY.md
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/*/
 .pnpm-store/
 .mcp.json
