@@ -87,197 +87,122 @@ async function ensureDaemon(absWorkspace: string): Promise<void> {
   await spawnDaemon(absWorkspace);
 }
 
+// ─── Tool definition table ─────────────────────────────────────────────────
+
+interface ToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: z.ZodRawShape;
+}
+
+const TOOLS: ToolDefinition[] = [
+  {
+    name: "rename",
+    description:
+      "Rename a symbol at a specific position and update every reference project-wide. " +
+      "Use this instead of search-and-replace — it understands scope and won't touch unrelated identifiers with the same name. " +
+      "The response lists every file modified; no need to read them to verify. " +
+      "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+    inputSchema: {
+      file: z.string().describe("Absolute path to the file"),
+      line: z.number().int().positive().describe("Line number (1-based)"),
+      col: z.number().int().positive().describe("Column number (1-based)"),
+      newName: z
+        .string()
+        .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/, "newName must be a valid identifier")
+        .describe("New name for the symbol"),
+    },
+  },
+  {
+    name: "move",
+    description:
+      "Move a file to a new path and rewrite every import that references it, project-wide. " +
+      "Use this instead of a shell mv followed by manual import fixes. " +
+      "The response lists every file modified; no need to read them to verify. " +
+      "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+    inputSchema: {
+      oldPath: z.string().describe("Absolute path to the file to move"),
+      newPath: z.string().describe("Absolute destination path"),
+    },
+  },
+  {
+    name: "moveSymbol",
+    description:
+      "Move a named export from one file to another and update every importer project-wide. " +
+      "Use this when reorganising modules — it keeps the symbol's identity intact and rewrites all import paths. " +
+      "The destination file is created if it does not already exist. " +
+      "The response lists every file modified; no need to read them to verify. " +
+      "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+    inputSchema: {
+      sourceFile: z.string().describe("Absolute path to the file containing the symbol"),
+      symbolName: z
+        .string()
+        .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/, "symbolName must be a valid identifier")
+        .describe("Name of the exported symbol to move"),
+      destFile: z
+        .string()
+        .describe("Absolute path of the destination file (created if it does not exist)"),
+    },
+  },
+  {
+    name: "findReferences",
+    description:
+      "Find all references to a symbol across the project. " +
+      "Use this before a rename or move to understand the blast radius, or to navigate to usages without reading files manually. " +
+      "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+    inputSchema: {
+      file: z.string().describe("Absolute path to the file"),
+      line: z.number().int().positive().describe("Line number (1-based)"),
+      col: z.number().int().positive().describe("Column number (1-based)"),
+    },
+  },
+  {
+    name: "getDefinition",
+    description:
+      "Jump to the definition of a symbol at a specific position. " +
+      "Use this to navigate to where a symbol is declared before reading or editing it. " +
+      "Compiler-verified — avoids grep and works across re-exports, barrel files, and declaration files. " +
+      "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+    inputSchema: {
+      file: z.string().describe("Absolute path to the file"),
+      line: z.number().int().positive().describe("Line number (1-based)"),
+      col: z.number().int().positive().describe("Column number (1-based)"),
+    },
+  },
+];
+
+// ─── MCP server ────────────────────────────────────────────────────────────
+
 async function startMcpServer(absWorkspace: string): Promise<void> {
   const sockPath = socketPath(absWorkspace);
   const server = new McpServer({ name: "light-bridge", version: "0.1.0" });
 
-  server.registerTool(
-    "rename",
-    {
-      description:
-        "Rename a symbol at a specific position and update every reference project-wide. " +
-        "Use this instead of search-and-replace — it understands scope and won't touch unrelated identifiers with the same name. " +
-        "The response lists every file modified; no need to read them to verify. " +
-        "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
-      inputSchema: {
-        file: z.string().describe("Absolute path to the file"),
-        line: z.number().int().positive().describe("Line number (1-based)"),
-        col: z.number().int().positive().describe("Column number (1-based)"),
-        newName: z
-          .string()
-          .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/, "newName must be a valid identifier")
-          .describe("New name for the symbol"),
+  for (const tool of TOOLS) {
+    server.registerTool(
+      tool.name,
+      { description: tool.description, inputSchema: tool.inputSchema },
+      async (params) => {
+        try {
+          const response = await callDaemon(sockPath, {
+            method: tool.name,
+            params: params as Record<string, unknown>,
+          });
+          return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }),
+              },
+            ],
+            isError: true,
+          };
+        }
       },
-    },
-    async ({ file, line, col, newName }) => {
-      try {
-        const response = await callDaemon(sockPath, {
-          method: "rename",
-          params: { file, line, col, newName },
-        });
-        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }),
-            },
-          ],
-          isError: true,
-        };
-      }
-    },
-  );
-
-  server.registerTool(
-    "move",
-    {
-      description:
-        "Move a file to a new path and rewrite every import that references it, project-wide. " +
-        "Use this instead of a shell mv followed by manual import fixes. " +
-        "The response lists every file modified; no need to read them to verify. " +
-        "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
-      inputSchema: {
-        oldPath: z.string().describe("Absolute path to the file to move"),
-        newPath: z.string().describe("Absolute destination path"),
-      },
-    },
-    async ({ oldPath, newPath }) => {
-      try {
-        const response = await callDaemon(sockPath, {
-          method: "move",
-          params: { oldPath, newPath },
-        });
-        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }),
-            },
-          ],
-          isError: true,
-        };
-      }
-    },
-  );
-
-  server.registerTool(
-    "moveSymbol",
-    {
-      description:
-        "Move a named export from one file to another and update every importer project-wide. " +
-        "Use this when reorganising modules — it keeps the symbol's identity intact and rewrites all import paths. " +
-        "The destination file is created if it does not already exist. " +
-        "The response lists every file modified; no need to read them to verify. " +
-        "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
-      inputSchema: {
-        sourceFile: z.string().describe("Absolute path to the file containing the symbol"),
-        symbolName: z
-          .string()
-          .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/, "symbolName must be a valid identifier")
-          .describe("Name of the exported symbol to move"),
-        destFile: z
-          .string()
-          .describe("Absolute path of the destination file (created if it does not exist)"),
-      },
-    },
-    async ({ sourceFile, symbolName, destFile }) => {
-      try {
-        const response = await callDaemon(sockPath, {
-          method: "moveSymbol",
-          params: { sourceFile, symbolName, destFile },
-        });
-        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }),
-            },
-          ],
-          isError: true,
-        };
-      }
-    },
-  );
-
-  server.registerTool(
-    "findReferences",
-    {
-      description:
-        "Find all references to a symbol across the project. " +
-        "Use this before a rename or move to understand the blast radius, or to navigate to usages without reading files manually. " +
-        "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
-      inputSchema: {
-        file: z.string().describe("Absolute path to the file"),
-        line: z.number().int().positive().describe("Line number (1-based)"),
-        col: z.number().int().positive().describe("Column number (1-based)"),
-      },
-    },
-    async ({ file, line, col }) => {
-      try {
-        const response = await callDaemon(sockPath, {
-          method: "findReferences",
-          params: { file, line, col },
-        });
-        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }),
-            },
-          ],
-          isError: true,
-        };
-      }
-    },
-  );
-
-  server.registerTool(
-    "getDefinition",
-    {
-      description:
-        "Jump to the definition of a symbol at a specific position. " +
-        "Use this to navigate to where a symbol is declared before reading or editing it. " +
-        "Compiler-verified — avoids grep and works across re-exports, barrel files, and declaration files. " +
-        "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
-      inputSchema: {
-        file: z.string().describe("Absolute path to the file"),
-        line: z.number().int().positive().describe("Line number (1-based)"),
-        col: z.number().int().positive().describe("Column number (1-based)"),
-      },
-    },
-    async ({ file, line, col }) => {
-      try {
-        const response = await callDaemon(sockPath, {
-          method: "getDefinition",
-          params: { file, line, col },
-        });
-        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }),
-            },
-          ],
-          isError: true,
-        };
-      }
-    },
-  );
+    );
+  }
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

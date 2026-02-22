@@ -1,5 +1,12 @@
 import { findTsConfigForFile, isVueProject } from "../engines/ts/project.js";
-import type { RefactorEngine } from "../engines/types.js";
+import type {
+  FindReferencesResult,
+  GetDefinitionResult,
+  MoveResult,
+  MoveSymbolResult,
+  RefactorEngine,
+  RenameResult,
+} from "../engines/types.js";
 import { isWithinWorkspace } from "../workspace.js";
 
 let tsEngine: import("../engines/ts/engine.js").TsEngine | undefined;
@@ -25,133 +32,149 @@ export async function warmupEngine(filePath: string): Promise<void> {
   await getEngine(filePath);
 }
 
+// ─── Operation descriptor table ───────────────────────────────────────────
+
+interface OperationDescriptor {
+  /** Param keys that hold file paths requiring workspace validation. */
+  pathParams: string[];
+  /** Call the appropriate engine method and return the raw result. */
+  invoke(
+    engine: RefactorEngine,
+    params: Record<string, unknown>,
+    workspace: string,
+  ): Promise<unknown>;
+  /** Format the raw result into the final response object. */
+  format(result: unknown): object;
+}
+
+const OPERATIONS: Record<string, OperationDescriptor> = {
+  rename: {
+    pathParams: ["file"],
+    invoke(engine, params, workspace) {
+      const { file, line, col, newName } = params as {
+        file: string;
+        line: number;
+        col: number;
+        newName: string;
+      };
+      return engine.rename(file, line, col, newName, workspace);
+    },
+    format(result) {
+      const r = result as RenameResult;
+      const plural = r.locationCount === 1 ? "location" : "locations";
+      const fileCount = r.filesModified.length;
+      return {
+        ok: true,
+        filesModified: r.filesModified,
+        filesSkipped: r.filesSkipped,
+        message: `Renamed '${r.symbolName}' to '${r.newName}' in ${r.locationCount} ${plural} across ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
+      };
+    },
+  },
+
+  move: {
+    pathParams: ["oldPath", "newPath"],
+    invoke(engine, params, workspace) {
+      const { oldPath, newPath } = params as { oldPath: string; newPath: string };
+      return engine.moveFile(oldPath, newPath, workspace);
+    },
+    format(result) {
+      const r = result as MoveResult;
+      const fileCount = r.filesModified.length;
+      return {
+        ok: true,
+        filesModified: r.filesModified,
+        filesSkipped: r.filesSkipped,
+        message: `Moved '${r.oldPath}' to '${r.newPath}', updated imports in ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
+      };
+    },
+  },
+
+  moveSymbol: {
+    pathParams: ["sourceFile", "destFile"],
+    invoke(engine, params, workspace) {
+      const { sourceFile, symbolName, destFile } = params as {
+        sourceFile: string;
+        symbolName: string;
+        destFile: string;
+      };
+      return engine.moveSymbol(sourceFile, symbolName, destFile, workspace);
+    },
+    format(result) {
+      const r = result as MoveSymbolResult;
+      const fileCount = r.filesModified.length;
+      return {
+        ok: true,
+        filesModified: r.filesModified,
+        filesSkipped: r.filesSkipped,
+        message: `Moved '${r.symbolName}' from '${r.sourceFile}' to '${r.destFile}', updated imports in ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
+      };
+    },
+  },
+
+  findReferences: {
+    pathParams: ["file"],
+    invoke(engine, params) {
+      const { file, line, col } = params as { file: string; line: number; col: number };
+      return engine.findReferences(file, line, col);
+    },
+    format(result) {
+      const r = result as FindReferencesResult;
+      const count = r.references.length;
+      return {
+        ok: true,
+        symbolName: r.symbolName,
+        references: r.references,
+        message: `Found ${count} ${count === 1 ? "reference" : "references"} to '${r.symbolName}'`,
+      };
+    },
+  },
+
+  getDefinition: {
+    pathParams: ["file"],
+    invoke(engine, params) {
+      const { file, line, col } = params as { file: string; line: number; col: number };
+      return engine.getDefinition(file, line, col);
+    },
+    format(result) {
+      const r = result as GetDefinitionResult;
+      const count = r.definitions.length;
+      return {
+        ok: true,
+        symbolName: r.symbolName,
+        definitions: r.definitions,
+        message: `Found ${count} ${count === 1 ? "definition" : "definitions"} for '${r.symbolName}'`,
+      };
+    },
+  },
+};
+
+// ─── Dispatcher ────────────────────────────────────────────────────────────
+
 export async function dispatchRequest(
   req: { method: string; params: Record<string, unknown> },
   workspace: string,
 ): Promise<object> {
-  if (req.method === "rename") {
-    const { file, line, col, newName } = req.params as {
-      file: string;
-      line: number;
-      col: number;
-      newName: string;
-    };
-    if (!isWithinWorkspace(file, workspace)) {
-      return {
-        ok: false,
-        error: "WORKSPACE_VIOLATION",
-        message: `File path is outside the workspace: ${file}`,
-      };
-    }
-    const engine = await getEngine(file);
-    const result = await engine.rename(file, line, col, newName, workspace);
-    const plural = result.locationCount === 1 ? "location" : "locations";
-    const fileCount = result.filesModified.length;
-    return {
-      ok: true,
-      filesModified: result.filesModified,
-      filesSkipped: result.filesSkipped,
-      message: `Renamed '${result.symbolName}' to '${result.newName}' in ${result.locationCount} ${plural} across ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
-    };
+  const descriptor = OPERATIONS[req.method];
+  if (!descriptor) {
+    return { ok: false, error: "UNKNOWN_METHOD", message: `Unknown method: ${req.method}` };
   }
 
-  if (req.method === "move") {
-    const { oldPath, newPath } = req.params as { oldPath: string; newPath: string };
-    if (!isWithinWorkspace(oldPath, workspace)) {
+  // Validate all path params are within the workspace
+  for (const paramKey of descriptor.pathParams) {
+    const value = req.params[paramKey] as string;
+    if (!isWithinWorkspace(value, workspace)) {
       return {
         ok: false,
         error: "WORKSPACE_VIOLATION",
-        message: `oldPath is outside the workspace: ${oldPath}`,
+        message: `${paramKey} is outside the workspace: ${value}`,
       };
     }
-    if (!isWithinWorkspace(newPath, workspace)) {
-      return {
-        ok: false,
-        error: "WORKSPACE_VIOLATION",
-        message: `newPath is outside the workspace: ${newPath}`,
-      };
-    }
-    const engine = await getEngine(oldPath);
-    const result = await engine.moveFile(oldPath, newPath, workspace);
-    const fileCount = result.filesModified.length;
-    return {
-      ok: true,
-      filesModified: result.filesModified,
-      filesSkipped: result.filesSkipped,
-      message: `Moved '${oldPath}' to '${newPath}', updated imports in ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
-    };
   }
 
-  if (req.method === "moveSymbol") {
-    const { sourceFile, symbolName, destFile } = req.params as {
-      sourceFile: string;
-      symbolName: string;
-      destFile: string;
-    };
-    if (!isWithinWorkspace(sourceFile, workspace)) {
-      return {
-        ok: false,
-        error: "WORKSPACE_VIOLATION",
-        message: `sourceFile is outside the workspace: ${sourceFile}`,
-      };
-    }
-    if (!isWithinWorkspace(destFile, workspace)) {
-      return {
-        ok: false,
-        error: "WORKSPACE_VIOLATION",
-        message: `destFile is outside the workspace: ${destFile}`,
-      };
-    }
-    const engine = await getEngine(sourceFile);
-    const result = await engine.moveSymbol(sourceFile, symbolName, destFile, workspace);
-    const fileCount = result.filesModified.length;
-    return {
-      ok: true,
-      filesModified: result.filesModified,
-      filesSkipped: result.filesSkipped,
-      message: `Moved '${symbolName}' from '${result.sourceFile}' to '${result.destFile}', updated imports in ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
-    };
-  }
-
-  if (req.method === "findReferences") {
-    const { file, line, col } = req.params as { file: string; line: number; col: number };
-    if (!isWithinWorkspace(file, workspace)) {
-      return {
-        ok: false,
-        error: "WORKSPACE_VIOLATION",
-        message: `File path is outside the workspace: ${file}`,
-      };
-    }
-    const engine = await getEngine(file);
-    const result = await engine.findReferences(file, line, col);
-    const count = result.references.length;
-    return {
-      ok: true,
-      symbolName: result.symbolName,
-      references: result.references,
-      message: `Found ${count} ${count === 1 ? "reference" : "references"} to '${result.symbolName}'`,
-    };
-  }
-
-  if (req.method === "getDefinition") {
-    const { file, line, col } = req.params as { file: string; line: number; col: number };
-    if (!isWithinWorkspace(file, workspace)) {
-      return {
-        ok: false,
-        error: "WORKSPACE_VIOLATION",
-        message: `File path is outside the workspace: ${file}`,
-      };
-    }
-    const engine = await getEngine(file);
-    const result = await engine.getDefinition(file, line, col);
-    const count = result.definitions.length;
-    return {
-      ok: true,
-      symbolName: result.symbolName,
-      definitions: result.definitions,
-      message: `Found ${count} ${count === 1 ? "definition" : "definitions"} for '${result.symbolName}'`,
-    };
-  }
-
-  return { ok: false, error: "UNKNOWN_METHOD", message: `Unknown method: ${req.method}` };
+  // The first path param determines which engine to use
+  const enginePath = req.params[descriptor.pathParams[0]] as string;
+  const engine = await getEngine(enginePath);
+  const result = await descriptor.invoke(engine, req.params, workspace);
+  return descriptor.format(result);
 }
