@@ -83,11 +83,10 @@ The DIP argument (program to abstractions, not concretions) is valid in principl
 `dispatcher.ts` picks one engine for the whole workspace (VueEngine if any `.vue` files are present). This is correct for `rename` and `moveFile`, which need Volar's project graph. It is wrong for `moveSymbol`, which needs AST manipulation that VueEngine can't do. Future fix: per-operation engine selection, or a fallback path inside `VueEngine.moveSymbol` that delegates to `TsEngine`. Current approach is kept for simplicity; track in tech-debt.md when it matters.
 
 **Dispatcher is engine-agnostic; use a command map, not per-engine dispatchers.**
-`RefactorEngine` already abstracts over engine type — the dispatcher calls `engine.rename(...)` or `engine.moveFile(...)` without knowing which engine it has. Per-engine dispatchers (`VueDispatcher`, `TsDispatcher`) would leak engine knowledge into the dispatch layer. Instead, use a command map:
-```typescript
-const commands = { rename: handleRename, move: handleMove } satisfies Record<string, CommandHandler>
-```
-Each handler receives `(params, workspace, engine)`. The dispatcher resolves the engine once, then delegates.
+`RefactorEngine` already abstracts over engine type — the dispatcher calls `engine.rename(...)` or `engine.moveFile(...)` without knowing which engine it has. Per-engine dispatchers (`VueDispatcher`, `TsDispatcher`) would leak engine knowledge into the dispatch layer. In A6 this was realised as an `OPERATIONS` descriptor table in `dispatcher.ts`: each entry owns `pathParams` (for workspace validation), `invoke`, and `format`. The first `pathParams` entry determines the engine.
+
+**A6: Data-driven MCP registration and dispatcher.**
+`TOOLS` table in `mcp.ts` drives all `registerTool` calls. Each entry has `name`, `description`, and `inputSchema: ZodRawShape`. The loop handler passes `params as Record<string, unknown>` directly to `callDaemon` — no per-operation destructuring needed. `OPERATIONS` table in `dispatcher.ts` drives all dispatch: `pathParams` (first = engine selector) → workspace validation loop → `invoke` → `format`. Adding a new operation is now a single table entry in each file.
 
 **Commit body explains WHY, not WHAT.**
 Code diffs show what changed. The body should explain decisions and tradeoffs. Don't enumerate changed files or re-describe the diff. Split commits at logical boundaries; don't force a split when a single file spans two concerns.

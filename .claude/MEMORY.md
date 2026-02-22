@@ -14,7 +14,7 @@ See `docs/agent-memory.md` for technical gotchas useful to humans too.
 - Operations complete: `rename` (TS+Vue), `move` (TS+Vue), `moveSymbol` (TS only), `findReferences` (TS+Vue, read-only), `getDefinition` (TS+Vue, read-only)
 - Deps pinned; pnpm override deduplicates `@volar/language-core` to 2.4.28
 - CI: `.github/workflows/ci.yml` runs `pnpm check` on push/PR to main
-- Architecture slices: A1–A5 ✅, A6 pending (see `docs/handoff.md`)
+- Architecture slices: A1–A6 ✅ (all done)
 
 ## Source layout
 

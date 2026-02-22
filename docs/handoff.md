@@ -15,7 +15,7 @@ Read the docs in this order:
 
 ## Current state
 
-**125/125 tests passing.** Security controls, project restructure, all five operations plus `getDefinition`, and architecture slices A1–A5 complete. The file layout reflects domain boundaries:
+**125/125 tests passing.** Security controls, project restructure, all five operations plus `getDefinition`, and architecture slices A1–A6 complete. The file layout reflects domain boundaries:
 
 ```
 src/
@@ -68,21 +68,6 @@ Evaluate each candidate: does the daemon's stateful engine make it meaningfully 
 
 ---
 
-## Architecture slices
-
-Structural improvements, prioritised by impact-to-effort ratio. Each is a self-contained slice. Do them in order — later slices are cheaper once earlier ones land.
-
-### Slice A6: Data-driven MCP registration and dispatcher
-
-After the provider/engine split makes the shapes uniform:
-
-- **mcp.ts:** replace 4 identical tool handlers with a tool definition table and a single registration loop. Cuts ~230 lines of copy-paste. Adding an operation becomes a one-liner table entry.
-- **dispatcher.ts:** replace if-chain with an operation descriptor table. Each entry specifies which params are paths (for workspace validation), the engine method, and the response formatter.
-
-**Files:** `src/mcp.ts`, `src/daemon/dispatcher.ts`.
-**Depends on:** A5 (provider/engine separation) for uniform operation shapes.
-
----
 
 ## Technical context
 
