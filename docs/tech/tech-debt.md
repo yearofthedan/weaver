@@ -38,17 +38,18 @@ Two options:
 
 ---
 
-## Engine layer: Vue awareness leaking into TsEngine ✅ resolved
 
-`updateVueImportsAfterMove` was removed from both `TsEngine.moveFile` and `VueEngine.moveFile`. It now runs as a post-step in `dispatcher.ts` after any `moveFile` operation. Engines are pure language-service wrappers; cross-cutting scan logic belongs in the dispatch layer.
+## Dispatcher: operation-centric architecture
 
----
+The dispatcher currently routes by engine first (`getEngine(filePath)` → call the operation on it). This is engine-centric: the `RefactorEngine` interface groups all operations under a single capability provider.
 
-## Engine layer: `applyTextEdits` is private to VueEngine
+The alternative is operation-centric: each operation (rename, moveFile, moveSymbol) is its own action type that knows which engine(s) it needs and how to orchestrate them. The dispatcher finds the right action for the request method and executes it, without knowing anything about engine selection or post-steps.
 
-`applyTextEdits` (bottom of `src/engines/vue-engine.ts`) is a pure text utility with no Vue-specific logic. It is only accessible to `VueEngine` today but is likely needed by any engine that applies raw text edits.
+**Why it matters:** the operation set is growing faster than the engine set. Adding a new operation today requires adding a method to `RefactorEngine` and implementing it in every engine. An action-per-operation model would contain each operation's full strategy in one place and scale more naturally with new operations. The vue scan leak was an early signal — the `moveFile` operation needed two-part orchestration that didn't fit the engine interface and bled into the dispatcher.
 
-**Fix:** move to a shared `src/utils.ts` or similar.
+**Tradeoff:** adding a new tech stack (engine) would require touching every action rather than implementing one interface. Acceptable if new engines are rare, which for a TS/Vue bridge they are.
+
+**Note:** do this as a dedicated refactor, not incrementally. It changes the primary abstraction boundary across the whole codebase.
 
 ---
 
