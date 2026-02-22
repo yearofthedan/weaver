@@ -1,3 +1,8 @@
+---
+name: slice
+description: Execute the next vertical slice from handoff.md — confirms the task, writes failing tests first, implements, runs tests + lint, commits, and updates docs.
+---
+
 # Next Slice Workflow
 
 1. Read docs/handoff.md — identify the FIRST uncompleted task
