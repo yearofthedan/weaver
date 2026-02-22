@@ -48,8 +48,43 @@ src/
 
 **Next things to build, in order:**
 
-1. **Engine refactor** — see `docs/tech/tech-debt.md`. Note this may be out of date since the last refactor
-2. **Dogfooding** — update guidance to ensure we dogfood
+1. **`moveSymbol` operation** ✅ — shipped. Moves a named export from one file to another, updating all import references. Implemented in `TsEngine`; `VueEngine` throws `NOT_SUPPORTED`. See architecture note below on extending this to Vue projects.
+
+2. **Project restructure (dogfood with `move` + `moveSymbol`)** — agreed layout, implemented by running light-bridge's own tools against itself:
+
+   ```
+   src/
+     cli.ts
+     schema.ts
+     workspace.ts          ← lifted from daemon/workspace.ts (used by daemon + both engines)
+     mcp.ts                ← was mcp/serve.ts
+     daemon/
+       daemon.ts           ← Daemon class; owns engine singletons + server lifecycle
+       paths.ts            ← socketPath, lockfilePath, ensureCacheDir only
+       dispatcher.ts       ← dispatchRequest extracted from daemon.ts
+     engines/
+       types.ts
+       text-utils.ts
+       ts/
+         engine.ts         ← was ts-engine.ts
+         project.ts        ← findTsConfigForFile + isVueProject (moved from router.ts)
+       vue/
+         engine.ts         ← was vue-engine.ts
+         scan.ts           ← was vue-scan.ts
+   ```
+
+   Key moves:
+   - `daemon/workspace.ts` → `src/workspace.ts` (lift cross-cutting concern)
+   - `mcp/serve.ts` → `src/mcp.ts` (single-file module, no folder needed)
+   - `engines/ts-engine.ts` → `engines/ts/engine.ts`
+   - `engines/vue-engine.ts` → `engines/vue/engine.ts`
+   - `engines/vue-scan.ts` → `engines/vue/scan.ts`
+   - `engines/project.ts` → `engines/ts/project.ts`
+   - `router.ts` dissolved: `isVueProject` → `engines/ts/project.ts`; engine singletons → `Daemon` class
+   - `isDaemonAlive` + `removeDaemonFiles` → `daemon.ts` (lifecycle ops, not path derivations)
+   - `daemon.ts` becomes a `Daemon` class with private engine singletons
+   - `dispatchRequest` extracted to `dispatcher.ts` as a command map
+
 3. **Missing operations** — brainstorm and implement what's next (see below)
 ---
 
@@ -77,6 +112,10 @@ For each candidate, consider: does the daemon's stateful engine make it meaningf
 ---
 
 ## Architecture decisions
+
+- **Per-workspace engine selection — a known limitation** — `router.ts` picks one engine per workspace: if any `.vue` files are present, `VueEngine` handles everything, including `.ts` files. This is correct for `rename` and `moveFile` (Volar understands the full project graph including `.vue` SFCs). But it means `moveSymbol` in a Vue project hits `NOT_SUPPORTED`, even when both source and dest are plain `.ts` files. The `NOT_SUPPORTED` guard is a router constraint, not a Volar one — Volar has no "extract declaration" API regardless. The fix is per-operation engine selection (or a fallback path inside `VueEngine.moveSymbol` that delegates to `TsEngine` for `.ts`→`.ts` moves, then calls `updateVueImportsAfterMove` to patch `.vue` import strings). The current approach is kept because it is simpler and the broken case is uncommon; track this in tech-debt.md when it becomes a priority.
+
+- **`moveSymbol` for Vue sources (`.vue` → `.ts`) is buildable** — the declaration would be in a `<script setup>` block. Extract it with `@vue/compiler-sfc`'s `parse()`, splice the script block text, write the destination `.ts`, and patch importers. `@vue/compiler-sfc` is already a transitive dependency. Moving *into* a `.vue` destination is not worth supporting — injecting TS declarations into an SFC in the right position is fragile.
 
 - **MCP transport uses `@modelcontextprotocol/sdk`** — the agent-facing stdio layer uses the official SDK (`@modelcontextprotocol/sdk@^1.26.0`). The internal daemon↔serve socket uses plain newline-delimited JSON, no library needed.
 - **SDK wire format is newline-delimited JSON — NOT Content-Length framed** — `StdioServerTransport` sends/reads `JSON.stringify(msg) + '\n'`. There is no `Content-Length` header. `McpTestClient` must match this format.

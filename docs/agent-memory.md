@@ -64,6 +64,22 @@ If the socket connection fails (daemon not yet ready), return `{ ok: false, erro
 **Vertical slice tests assert before and after.**
 Always read fixture files before the operation to confirm original state, then assert both that the old string is gone and the new string is present. This catches false positives.
 
+**Do not introduce a `FileProvider` abstraction yet.**
+The DIP argument (program to abstractions, not concretions) is valid in principle, but one implementation is just indirection. The signal to add it: a concrete second implementation (e.g. in-memory FS for unit tests) or real maintenance pain from scattered `fs` calls. The `RefactorEngine` interface is already the adapter pattern for the refactoring concern; that's sufficient for now. `rewriteImports` in `vue/scan.ts` is pure (string → string) and never needed FS anyway; `findVueFiles` is the only candidate and it has a natural home in `vue/scan.ts`.
+
+**`moveSymbol` NOT_SUPPORTED in Vue projects is a router constraint, not a Volar limitation.**
+`VueEngine.moveSymbol` throws `NOT_SUPPORTED` because the router routes all Vue-project files to `VueEngine`, and Volar has no "extract declaration" API. But `moveSymbol` doesn't need Volar — it is pure AST surgery (find statement, splice text, patch imports). The path to Vue support: (a) for `.ts`→`.ts` in a Vue project, delegate to `TsEngine` then call `updateVueImportsAfterMove` to catch `.vue` import strings; (b) for `.vue` source, use `@vue/compiler-sfc`'s `parse()` to locate and splice the `<script>` block — `@vue/compiler-sfc` is already a transitive dep. Moving *into* a `.vue` destination is not worth supporting.
+
+**Per-workspace engine selection breaks down for `moveSymbol`.**
+`router.ts` picks one engine for the whole workspace (VueEngine if any `.vue` files are present). This is correct for `rename` and `moveFile`, which need Volar's project graph. It is wrong for `moveSymbol`, which needs AST manipulation that VueEngine can't do. Future fix: per-operation engine selection, or a fallback path inside `VueEngine.moveSymbol` that delegates to `TsEngine`. Current approach is kept for simplicity; track in tech-debt.md when it matters.
+
+**Dispatcher is engine-agnostic; use a command map, not per-engine dispatchers.**
+`RefactorEngine` already abstracts over engine type — the dispatcher calls `engine.rename(...)` or `engine.moveFile(...)` without knowing which engine it has. Per-engine dispatchers (`VueDispatcher`, `TsDispatcher`) would leak engine knowledge into the dispatch layer. Instead, use a command map:
+```typescript
+const commands = { rename: handleRename, move: handleMove } satisfies Record<string, CommandHandler>
+```
+Each handler receives `(params, workspace, engine)`. The dispatcher resolves the engine once, then delegates.
+
 **Commit body explains WHY, not WHAT.**
 Code diffs show what changed. The body should explain decisions and tradeoffs. Don't enumerate changed files or re-describe the diff. Split commits at logical boundaries; don't force a split when a single file spans two concerns.
 
