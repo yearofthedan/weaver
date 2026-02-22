@@ -1,6 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Language } from "@volar/language-core";
+import { isWithinWorkspace } from "../daemon/workspace.js";
+import { applyTextEdits } from "./text-utils.js";
 import { findTsConfigForFile } from "./project.js";
 import type { MoveResult, RefactorEngine, RenameResult } from "./types.js";
 import { SKIP_DIRS, updateVueImportsAfterMove } from "./vue-scan.js";
@@ -256,6 +258,7 @@ export class VueEngine implements RefactorEngine {
     line: number,
     col: number,
     newName: string,
+    workspace: string,
   ): Promise<RenameResult> {
     const absPath = path.resolve(filePath);
 
@@ -358,24 +361,30 @@ export class VueEngine implements RefactorEngine {
       });
     }
 
-    const modifiedFiles: string[] = [];
+    const filesModified: string[] = [];
+    const filesSkipped: string[] = [];
     for (const [fileName, edits] of fileEdits) {
+      if (!isWithinWorkspace(fileName, workspace)) {
+        filesSkipped.push(fileName);
+        continue;
+      }
       const original = fileContents.get(fileName) ?? fs.readFileSync(fileName, "utf8");
       const updated = applyTextEdits(original, edits);
       fs.writeFileSync(fileName, updated, "utf8");
       fileContents.set(fileName, updated);
-      modifiedFiles.push(fileName);
+      filesModified.push(fileName);
     }
 
     return {
-      filesModified: modifiedFiles,
+      filesModified,
+      filesSkipped,
       symbolName: oldName,
       newName,
       locationCount: locations.length,
     };
   }
 
-  async moveFile(oldPath: string, newPath: string): Promise<MoveResult> {
+  async moveFile(oldPath: string, newPath: string, workspace: string): Promise<MoveResult> {
     const absOld = path.resolve(oldPath);
     const absNew = path.resolve(newPath);
 
@@ -389,19 +398,24 @@ export class VueEngine implements RefactorEngine {
 
     const edits = languageService.getEditsForFileRename(absOld, absNew, {}, {});
 
-    // Apply import edits first
-    const modifiedFiles: string[] = [];
+    // Apply import edits first, skipping files outside the workspace.
+    const filesModified: string[] = [];
+    const filesSkipped: string[] = [];
     for (const edit of edits) {
       if (edit.textChanges.length === 0) continue;
       // Virtual .vue.ts filenames have no disk representation. The
       // updateVueImportsAfterMove scan below handles .vue file rewrites.
       if (vueVirtualToReal.has(edit.fileName)) continue;
+      if (!isWithinWorkspace(edit.fileName, workspace)) {
+        if (!filesSkipped.includes(edit.fileName)) filesSkipped.push(edit.fileName);
+        continue;
+      }
       const original = fileContents.get(edit.fileName) ?? fs.readFileSync(edit.fileName, "utf8");
       const updated = applyTextEdits(original, edit.textChanges);
       fs.writeFileSync(edit.fileName, updated, "utf8");
       fileContents.set(edit.fileName, updated);
-      if (!modifiedFiles.includes(edit.fileName)) {
-        modifiedFiles.push(edit.fileName);
+      if (!filesModified.includes(edit.fileName)) {
+        filesModified.push(edit.fileName);
       }
     }
 
@@ -416,8 +430,8 @@ export class VueEngine implements RefactorEngine {
     // filesystem state. The next call rebuilds from current disk state.
     this.invalidateService(absOld);
 
-    if (!modifiedFiles.includes(absNew)) {
-      modifiedFiles.push(absNew);
+    if (!filesModified.includes(absNew)) {
+      filesModified.push(absNew);
     }
 
     // Volar's getEditsForFileRename doesn't rewrite imports inside .vue SFCs;
@@ -426,29 +440,10 @@ export class VueEngine implements RefactorEngine {
     const searchRoot = tsConfigPath ? path.dirname(tsConfigPath) : path.dirname(absOld);
     const vueModified = updateVueImportsAfterMove(absOld, absNew, searchRoot);
     for (const f of vueModified) {
-      if (!modifiedFiles.includes(f)) modifiedFiles.push(f);
+      if (!filesModified.includes(f)) filesModified.push(f);
     }
 
-    return { filesModified: modifiedFiles, oldPath: absOld, newPath: absNew };
+    return { filesModified, filesSkipped, oldPath: absOld, newPath: absNew };
   }
 }
 
-/**
- * Apply an array of non-overlapping text edits to a string.
- * Edits must be sorted by start position descending (or we sort them here).
- */
-function applyTextEdits(
-  text: string,
-  edits: readonly { span: { start: number; length: number }; newText: string }[],
-): string {
-  // Sort descending so we can apply from the end without offset shifts
-  const sorted = [...edits].sort((a, b) => b.span.start - a.span.start);
-  let result = text;
-  for (const edit of sorted) {
-    result =
-      result.slice(0, edit.span.start) +
-      edit.newText +
-      result.slice(edit.span.start + edit.span.length);
-  }
-  return result;
-}

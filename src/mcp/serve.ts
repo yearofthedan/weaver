@@ -99,7 +99,10 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
         file: z.string().describe("Absolute path to the file"),
         line: z.number().int().positive().describe("Line number (1-based)"),
         col: z.number().int().positive().describe("Column number (1-based)"),
-        newName: z.string().describe("New name for the symbol"),
+        newName: z
+          .string()
+          .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/, "newName must be a valid identifier")
+          .describe("New name for the symbol"),
       },
     },
     async ({ file, line, col, newName }) => {

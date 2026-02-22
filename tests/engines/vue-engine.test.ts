@@ -19,7 +19,7 @@ describe("VueEngine (unit tests)", () => {
       const engine = new VueEngine();
 
       const filePath = `${dir}/src/composables/useCounter.ts`;
-      const result = await engine.rename(filePath, 1, 17, "useCount");
+      const result = await engine.rename(filePath, 1, 17, "useCount", dir);
 
       expect(result.symbolName).toBe("useCounter");
       expect(result.newName).toBe("useCount");
@@ -39,7 +39,7 @@ describe("VueEngine (unit tests)", () => {
       const engine = new VueEngine();
 
       const filePath = `${dir}/src/utils.ts`;
-      const result = await engine.rename(filePath, 1, 17, "welcomeUser");
+      const result = await engine.rename(filePath, 1, 17, "welcomeUser", dir);
 
       expect(result.symbolName).toBe("greetUser");
       expect(result.newName).toBe("welcomeUser");
@@ -65,7 +65,7 @@ describe("VueEngine (unit tests)", () => {
       );
 
       const filePath = `${dir}/src/composables/useCounter.ts`;
-      const result = await engine.rename(filePath, 1, 17, "useCount");
+      const result = await engine.rename(filePath, 1, 17, "useCount", dir);
 
       // dist/App.vue must not be touched
       expect(result.filesModified).not.toContain(`${dir}/dist/App.vue`);
@@ -80,7 +80,7 @@ describe("VueEngine (unit tests)", () => {
       const filePath = `${dir}/src/doesNotExist.ts`;
 
       try {
-        await engine.rename(filePath, 1, 1, "foo");
+        await engine.rename(filePath, 1, 1, "foo", dir);
         expect.fail("Should have thrown");
       } catch (err: unknown) {
         const error = err as { code?: string; message: string };
@@ -97,7 +97,7 @@ describe("VueEngine (unit tests)", () => {
       const oldPath = `${dir}/src/composables/useCounter.ts`;
       const newPath = `${dir}/src/utils/useCounter.ts`;
 
-      const result = await engine.moveFile(oldPath, newPath);
+      const result = await engine.moveFile(oldPath, newPath, dir);
 
       expect(result.oldPath).toBe(oldPath);
       expect(result.newPath).toBe(newPath);
@@ -123,6 +123,7 @@ describe("VueEngine (unit tests)", () => {
       await engine.moveFile(
         `${dir}/src/composables/useCounter.ts`,
         `${dir}/src/utils/useCounter.ts`,
+        dir,
       );
       expect(readFile(dir, "src/main.ts")).toContain("utils/useCounter");
 
@@ -130,6 +131,7 @@ describe("VueEngine (unit tests)", () => {
       await engine.moveFile(
         `${dir}/src/utils/useCounter.ts`,
         `${dir}/src/composables/useCounter.ts`,
+        dir,
       );
 
       expect(fileExists(dir, "src/composables/useCounter.ts")).toBe(true);
@@ -147,7 +149,7 @@ describe("VueEngine (unit tests)", () => {
       const newPath = `${dir}/src/utils/doesNotExist.ts`;
 
       try {
-        await engine.moveFile(oldPath, newPath);
+        await engine.moveFile(oldPath, newPath, dir);
         expect.fail("Should have thrown");
       } catch (err: unknown) {
         const error = err as { code?: string; message: string };

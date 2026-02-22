@@ -1,7 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Node, Project } from "ts-morph";
+import { isWithinWorkspace } from "../daemon/workspace.js";
 import { findTsConfigForFile } from "./project.js";
+import { applyTextEdits } from "./text-utils.js";
 import type { MoveResult, RefactorEngine, RenameResult } from "./types.js";
 import { updateVueImportsAfterMove } from "./vue-scan.js";
 
@@ -32,6 +34,7 @@ export class TsEngine implements RefactorEngine {
     line: number,
     col: number,
     newName: string,
+    workspace: string,
   ): Promise<RenameResult> {
     const absPath = path.resolve(filePath);
 
@@ -104,19 +107,26 @@ export class TsEngine implements RefactorEngine {
     // Perform the rename — ts-morph propagates across all project files
     target.rename(newName);
 
-    // Collect which files changed (unsaved = modified)
-    const modifiedFiles = project
-      .getSourceFiles()
-      .filter((sf) => !sf.isSaved())
-      .map((sf) => sf.getFilePath() as string);
-
-    await project.save();
+    // Collect dirty files and partition by workspace boundary.
+    const dirtySources = project.getSourceFiles().filter((sf) => !sf.isSaved());
+    const filesModified: string[] = [];
+    const filesSkipped: string[] = [];
+    for (const sf of dirtySources) {
+      const fp = sf.getFilePath() as string;
+      if (isWithinWorkspace(fp, workspace)) {
+        await sf.save();
+        filesModified.push(fp);
+      } else {
+        filesSkipped.push(fp);
+      }
+    }
 
     return {
-      filesModified: modifiedFiles,
+      filesModified,
+      filesSkipped,
       symbolName: oldName,
       newName,
-      locationCount: modifiedFiles.length, // approximate; ts-morph doesn't expose count directly
+      locationCount: dirtySources.length, // approximate; ts-morph doesn't expose count directly
     };
   }
 
@@ -125,7 +135,7 @@ export class TsEngine implements RefactorEngine {
     this.projects.delete(tsConfigPath ?? "__no_tsconfig__");
   }
 
-  async moveFile(oldPath: string, newPath: string): Promise<MoveResult> {
+  async moveFile(oldPath: string, newPath: string, workspace: string): Promise<MoveResult> {
     const absOld = path.resolve(oldPath);
     const absNew = path.resolve(newPath);
 
@@ -137,43 +147,52 @@ export class TsEngine implements RefactorEngine {
 
     const project = this.getProject(absOld);
 
-    let sourceFile = project.getSourceFile(absOld);
-    if (!sourceFile) {
-      sourceFile = project.addSourceFileAtPath(absOld);
+    // Ensure the source file is loaded into the project
+    if (!project.getSourceFile(absOld)) {
+      project.addSourceFileAtPath(absOld);
     }
 
-    // Ensure destination directory exists
+    // Use the language service directly to compute import rewrites.
+    // This gives us per-file control before anything touches disk — we never
+    // call sourceFile.move() + project.save() because that pair has no
+    // whitelist API and would write all files atomically.
+    const ls = project.getLanguageService().compilerObject;
+    const edits = ls.getEditsForFileRename(absOld, absNew, {}, {});
+
+    const filesModified: string[] = [];
+    const filesSkipped: string[] = [];
+
+    for (const edit of edits) {
+      if (edit.textChanges.length === 0) continue;
+      if (!isWithinWorkspace(edit.fileName, workspace)) {
+        if (!filesSkipped.includes(edit.fileName)) filesSkipped.push(edit.fileName);
+        continue;
+      }
+      const original = fs.readFileSync(edit.fileName, "utf8");
+      const updated = applyTextEdits(original, edit.textChanges);
+      fs.writeFileSync(edit.fileName, updated, "utf8");
+      if (!filesModified.includes(edit.fileName)) filesModified.push(edit.fileName);
+    }
+
+    // Ensure destination directory exists, then do the physical move.
     const destDir = path.dirname(absNew);
     if (!fs.existsSync(destDir)) {
       fs.mkdirSync(destDir, { recursive: true });
     }
+    fs.renameSync(absOld, absNew);
+    if (!filesModified.includes(absNew)) filesModified.push(absNew);
 
-    // ts-morph move() rewrites all imports and schedules the physical file rename
-    sourceFile.move(absNew, { overwrite: true });
-
-    const modifiedFiles = project
-      .getSourceFiles()
-      .filter((sf) => !sf.isSaved())
-      .map((sf) => sf.getFilePath() as string);
-
-    await project.save();
-
-    // Invalidate the cached project: after a file move the TypeScript program is stale.
-    // The next call will rebuild from the current disk state.
+    // Invalidate the cached project: the TypeScript program is now stale.
     this.invalidateProject(absOld);
 
-    // ts-morph doesn't know about .vue files; scan and rewrite their imports manually
+    // ts-morph doesn't know about .vue files; scan and rewrite their imports manually.
     const tsConfigForScan = findTsConfigForFile(absOld);
     const searchRoot = tsConfigForScan ? path.dirname(tsConfigForScan) : path.dirname(absOld);
     const vueModified = updateVueImportsAfterMove(absOld, absNew, searchRoot);
     for (const f of vueModified) {
-      if (!modifiedFiles.includes(f)) modifiedFiles.push(f);
+      if (!filesModified.includes(f)) filesModified.push(f);
     }
 
-    return {
-      filesModified: modifiedFiles,
-      oldPath: absOld,
-      newPath: absNew,
-    };
+    return { filesModified, filesSkipped, oldPath: absOld, newPath: absNew };
   }
 }

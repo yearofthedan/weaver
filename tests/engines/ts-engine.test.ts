@@ -18,7 +18,7 @@ describe("TsEngine (unit tests)", () => {
       const engine = new TsEngine();
 
       const filePath = `${dir}/src/utils.ts`;
-      const result = await engine.rename(filePath, 1, 17, "greetPerson");
+      const result = await engine.rename(filePath, 1, 17, "greetPerson", dir);
 
       expect(result.symbolName).toBe("greetUser");
       expect(result.newName).toBe("greetPerson");
@@ -34,7 +34,7 @@ describe("TsEngine (unit tests)", () => {
       const engine = new TsEngine();
 
       const filePath = `${dir}/src/main.ts`;
-      const result = await engine.rename(filePath, 3, 13, "sayHello");
+      const result = await engine.rename(filePath, 3, 13, "sayHello", dir);
 
       expect(result.symbolName).toBe("greetUser");
       expect(result.newName).toBe("sayHello");
@@ -49,7 +49,7 @@ describe("TsEngine (unit tests)", () => {
       const engine = new TsEngine();
 
       const filePath = `${dir}/src/utils.ts`;
-      const result = await engine.rename(filePath, 1, 17, "sum");
+      const result = await engine.rename(filePath, 1, 17, "sum", dir);
 
       expect(result.symbolName).toBe("add");
       expect(result.newName).toBe("sum");
@@ -67,7 +67,7 @@ describe("TsEngine (unit tests)", () => {
       const filePath = `${dir}/src/doesNotExist.ts`;
 
       try {
-        await engine.rename(filePath, 1, 1, "foo");
+        await engine.rename(filePath, 1, 1, "foo", dir);
         expect.fail("Should have thrown");
       } catch (err: unknown) {
         const error = err as { code?: string; message: string };
@@ -82,7 +82,7 @@ describe("TsEngine (unit tests)", () => {
       const filePath = `${dir}/src/utils.ts`;
 
       try {
-        await engine.rename(filePath, 999, 1, "foo");
+        await engine.rename(filePath, 999, 1, "foo", dir);
         expect.fail("Should have thrown");
       } catch (err: unknown) {
         const error = err as { code?: string; message: string };
@@ -99,7 +99,7 @@ describe("TsEngine (unit tests)", () => {
       const oldPath = `${dir}/src/utils.ts`;
       const newPath = `${dir}/lib/utils.ts`;
 
-      const result = await engine.moveFile(oldPath, newPath);
+      const result = await engine.moveFile(oldPath, newPath, dir);
 
       expect(result.oldPath).toBe(oldPath);
       expect(result.newPath).toBe(newPath);
@@ -118,7 +118,7 @@ describe("TsEngine (unit tests)", () => {
       const oldPath = `${dir}/src/utils.ts`;
       const newPath = `${dir}/deep/nested/lib/utils.ts`;
 
-      const result = await engine.moveFile(oldPath, newPath);
+      const result = await engine.moveFile(oldPath, newPath, dir);
 
       expect(fileExists(dir, "deep/nested/lib/utils.ts")).toBe(true);
       expect(result.filesModified).toContain(newPath);
@@ -129,11 +129,11 @@ describe("TsEngine (unit tests)", () => {
       const engine = new TsEngine();
 
       // Move 1: src/utils.ts → lib/utils.ts
-      await engine.moveFile(`${dir}/src/utils.ts`, `${dir}/lib/utils.ts`);
+      await engine.moveFile(`${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, dir);
       expect(readFile(dir, "src/main.ts")).toContain("../lib/utils");
 
       // Move 2 (back): lib/utils.ts → src/utils.ts
-      await engine.moveFile(`${dir}/lib/utils.ts`, `${dir}/src/utils.ts`);
+      await engine.moveFile(`${dir}/lib/utils.ts`, `${dir}/src/utils.ts`, dir);
 
       expect(fileExists(dir, "src/utils.ts")).toBe(true);
       expect(fileExists(dir, "lib/utils.ts")).toBe(false);
@@ -150,7 +150,7 @@ describe("TsEngine (unit tests)", () => {
       const newPath = `${dir}/lib/utils.ts`;
 
       try {
-        await engine.moveFile(oldPath, newPath);
+        await engine.moveFile(oldPath, newPath, dir);
         expect.fail("Should have thrown");
       } catch (err: unknown) {
         const error = err as { code?: string; message: string };

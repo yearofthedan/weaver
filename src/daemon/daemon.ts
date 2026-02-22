@@ -3,6 +3,7 @@ import * as net from "node:net";
 import * as path from "node:path";
 import { ensureCacheDir, lockfilePath, removeDaemonFiles, socketPath } from "./paths.js";
 import { getEngine } from "./router.js";
+import { isWithinWorkspace } from "./workspace.js";
 
 export async function runDaemon(opts: { workspace: string }): Promise<void> {
   const absWorkspace = path.resolve(opts.workspace);
@@ -52,7 +53,7 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
       const lines = buf.split("\n");
       buf = lines.pop() ?? "";
       for (const line of lines) {
-        if (line.trim()) void handleSocketRequest(socket, line.trim());
+        if (line.trim()) void handleSocketRequest(socket, line.trim(), absWorkspace);
       }
     });
     socket.on("error", () => {});
@@ -75,11 +76,16 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
   process.on("SIGINT", shutdown);
 }
 
-async function handleSocketRequest(socket: net.Socket, line: string): Promise<void> {
+
+async function handleSocketRequest(
+  socket: net.Socket,
+  line: string,
+  workspace: string,
+): Promise<void> {
   let response: object;
   try {
     const req = JSON.parse(line) as { method: string; params: Record<string, unknown> };
-    response = await dispatchRequest(req);
+    response = await dispatchRequest(req, workspace);
   } catch (err) {
     response = {
       ok: false,
@@ -90,10 +96,10 @@ async function handleSocketRequest(socket: net.Socket, line: string): Promise<vo
   socket.write(`${JSON.stringify(response)}\n`);
 }
 
-async function dispatchRequest(req: {
-  method: string;
-  params: Record<string, unknown>;
-}): Promise<object> {
+async function dispatchRequest(
+  req: { method: string; params: Record<string, unknown> },
+  workspace: string,
+): Promise<object> {
   if (req.method === "rename") {
     const { file, line, col, newName } = req.params as {
       file: string;
@@ -101,25 +107,48 @@ async function dispatchRequest(req: {
       col: number;
       newName: string;
     };
+    if (!isWithinWorkspace(file, workspace)) {
+      return {
+        ok: false,
+        error: "WORKSPACE_VIOLATION",
+        message: `File path is outside the workspace: ${file}`,
+      };
+    }
     const engine = await getEngine(file);
-    const result = await engine.rename(file, line, col, newName);
+    const result = await engine.rename(file, line, col, newName, workspace);
     const plural = result.locationCount === 1 ? "location" : "locations";
     const fileCount = result.filesModified.length;
     return {
       ok: true,
       filesModified: result.filesModified,
+      filesSkipped: result.filesSkipped,
       message: `Renamed '${result.symbolName}' to '${result.newName}' in ${result.locationCount} ${plural} across ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
     };
   }
 
   if (req.method === "move") {
     const { oldPath, newPath } = req.params as { oldPath: string; newPath: string };
+    if (!isWithinWorkspace(oldPath, workspace)) {
+      return {
+        ok: false,
+        error: "WORKSPACE_VIOLATION",
+        message: `oldPath is outside the workspace: ${oldPath}`,
+      };
+    }
+    if (!isWithinWorkspace(newPath, workspace)) {
+      return {
+        ok: false,
+        error: "WORKSPACE_VIOLATION",
+        message: `newPath is outside the workspace: ${newPath}`,
+      };
+    }
     const engine = await getEngine(oldPath);
-    const result = await engine.moveFile(oldPath, newPath);
+    const result = await engine.moveFile(oldPath, newPath, workspace);
     const fileCount = result.filesModified.length;
     return {
       ok: true,
       filesModified: result.filesModified,
+      filesSkipped: result.filesSkipped,
       message: `Moved '${oldPath}' to '${newPath}', updated imports in ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
     };
   }
