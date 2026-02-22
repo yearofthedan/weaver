@@ -1,7 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-
-export const SKIP_DIRS = new Set(["node_modules", ".git", "dist", ".nuxt", ".output", ".vite"]);
+import { walkFiles } from "../file-walk.js";
 
 /**
  * After a file move, scan all .vue files under searchRoot and rewrite any
@@ -18,7 +17,7 @@ export function updateVueImportsAfterMove(
   searchRoot: string,
 ): string[] {
   const oldWithoutExt = stripExt(oldPath);
-  const vueFiles = findVueFiles(searchRoot);
+  const vueFiles = walkFiles(searchRoot, [".vue"]);
   const modified: string[] = [];
 
   for (const vueFile of vueFiles) {
@@ -66,27 +65,3 @@ function stripExt(filePath: string): string {
   return filePath.replace(/\.(ts|tsx|js|jsx|mts|cts)$/, "");
 }
 
-function findVueFiles(dir: string): string[] {
-  const results: string[] = [];
-
-  const walk = (current: string) => {
-    let entries: fs.Dirent[];
-    try {
-      entries = fs.readdirSync(current, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (SKIP_DIRS.has(entry.name)) continue;
-      const full = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        walk(full);
-      } else if (entry.isFile() && entry.name.endsWith(".vue")) {
-        results.push(full);
-      }
-    }
-  };
-
-  walk(dir);
-  return results;
-}

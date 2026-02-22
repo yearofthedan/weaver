@@ -12,7 +12,8 @@ import type {
   RefactorEngine,
   RenameResult,
 } from "../types.js";
-import { SKIP_DIRS, updateVueImportsAfterMove } from "./scan.js";
+import { SKIP_DIRS } from "../file-walk.js";
+import { updateVueImportsAfterMove } from "./scan.js";
 
 interface VolarLanguageService {
   findRenameLocations(

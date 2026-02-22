@@ -9,6 +9,7 @@ import {
 } from "ts-morph";
 import { isWithinWorkspace } from "../../workspace.js";
 import { EngineError } from "../errors.js";
+import { walkFiles } from "../file-walk.js";
 import { applyTextEdits, offsetToLineCol } from "../text-utils.js";
 import type {
   FindReferencesResult,
@@ -19,25 +20,6 @@ import type {
 } from "../types.js";
 import { findTsConfigForFile } from "./project.js";
 
-/**
- * Recursively collect all .ts/.tsx files under `dir`, skipping directories
- * that are never part of a TypeScript project (node_modules, dist, .git).
- * Used by the moveFile post-scan to reach files outside tsconfig `include`.
- */
-function collectTsFiles(dir: string): string[] {
-  const SKIP = new Set(["node_modules", "dist", ".git"]);
-  const results: string[] = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (SKIP.has(entry.name)) continue;
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...collectTsFiles(fullPath));
-    } else if (/\.(ts|tsx)$/.test(entry.name)) {
-      results.push(fullPath);
-    }
-  }
-  return results;
-}
 
 function computeRelativeSpecifier(fromFile: string, toFile: string): string {
   let rel = path.relative(path.dirname(fromFile), toFile).replace(/\.(ts|tsx)$/, "");
@@ -436,7 +418,7 @@ export class TsEngine implements RefactorEngine {
       project.getSourceFiles().map((sf) => sf.getFilePath() as string),
     );
     const workspaceRoot = path.resolve(workspace);
-    for (const filePath of collectTsFiles(workspaceRoot)) {
+    for (const filePath of walkFiles(workspaceRoot, [".ts", ".tsx"])) {
       if (projectFilePaths.has(filePath)) continue; // already handled above
       if (!isWithinWorkspace(filePath, workspace)) {
         if (!filesSkipped.includes(filePath)) filesSkipped.push(filePath);
