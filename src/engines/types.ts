@@ -48,6 +48,74 @@ export interface GetDefinitionResult {
   definitions: Definition[];
 }
 
+// ─── Provider-level types ──────────────────────────────────────────────────
+
+export interface SpanLocation {
+  fileName: string;
+  textSpan: { start: number; length: number };
+}
+
+export interface DefinitionLocation extends SpanLocation {
+  /** Symbol name returned by the compiler. */
+  name: string;
+}
+
+export interface FileTextEdit {
+  fileName: string;
+  textChanges: { span: { start: number; length: number }; newText: string }[];
+}
+
+/**
+ * Compiler-facing abstraction implemented by TsProvider (ts-morph) and
+ * VolarProvider (@volar/typescript). Methods return normalised, real-path
+ * locations — virtual `.vue.ts` paths are never exposed to callers.
+ *
+ * All methods that invoke the compiler are async because VolarProvider
+ * requires an async initialisation step the first time a project is loaded.
+ */
+export interface LanguageProvider {
+  /** Convert 1-based line/col to a 0-based byte offset. Synchronous — no I/O. */
+  resolveOffset(file: string, line: number, col: number): number;
+
+  /**
+   * Return rename locations or `null` if no renameable symbol exists at
+   * `offset`. Throws `EngineError("RENAME_NOT_ALLOWED")` if the symbol exists
+   * but cannot be renamed.
+   */
+  getRenameLocations(file: string, offset: number): Promise<SpanLocation[] | null>;
+
+  /** Return reference locations or `null` if no symbol at `offset`. */
+  getReferencesAtPosition(file: string, offset: number): Promise<SpanLocation[] | null>;
+
+  /** Return definition locations or `null` if no symbol at `offset`. */
+  getDefinitionAtPosition(file: string, offset: number): Promise<DefinitionLocation[] | null>;
+
+  /** Return text edits to apply when `oldPath` is moved to `newPath`. */
+  getEditsForFileRename(oldPath: string, newPath: string): Promise<FileTextEdit[]>;
+
+  /**
+   * Read file content — may consult an internal cache.
+   * Called by the shared engine layer before and after writes.
+   */
+  readFile(path: string): string;
+
+  /** Called by the engine layer after writing `path`; providers update caches. */
+  notifyFileWritten(path: string, content: string): void;
+
+  /**
+   * Called after the physical file rename on disk.
+   * Provider invalidates its cache, runs any post-move scans, and returns
+   * `{ modified, skipped }` listing any additional files touched.
+   */
+  afterFileRename(
+    oldPath: string,
+    newPath: string,
+    workspace: string,
+  ): Promise<{ modified: string[]; skipped: string[] }>;
+}
+
+// ─── Engine-level types ────────────────────────────────────────────────────
+
 export interface RefactorEngine {
   /**
    * Rename the symbol at (line, col) in filePath to newName.
