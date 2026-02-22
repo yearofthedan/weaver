@@ -68,6 +68,11 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
   fs.writeFileSync(pidPath, String(process.pid));
 
   // 6. Open Unix socket and wait for connections
+  // Serialise all incoming requests with a promise-chain mutex. If two
+  // requests arrive concurrently (e.g. an MCP host retry while the first
+  // request is still in-flight), the second waits for the first to finish
+  // before dispatchRequest is called. Prevents interleaved file writes.
+  let queue: Promise<void> = Promise.resolve();
   const server = net.createServer((socket) => {
     let buf = "";
     socket.on("data", (chunk: Buffer) => {
@@ -75,7 +80,10 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
       const lines = buf.split("\n");
       buf = lines.pop() ?? "";
       for (const line of lines) {
-        if (line.trim()) void handleSocketRequest(socket, line.trim(), absWorkspace);
+        if (line.trim()) {
+          const trimmed = line.trim();
+          queue = queue.then(() => handleSocketRequest(socket, trimmed, absWorkspace));
+        }
       }
     });
     socket.on("error", () => {});
