@@ -75,38 +75,20 @@ Output (stderr):
 
 Terminates cleanly on SIGTERM. The daemon continues running after the session ends.
 
-### `light-bridge rename`
+## MCP tools
 
-Rename a symbol at a given position and update all references project-wide.
+All refactoring operations are exposed as MCP tools via `light-bridge serve`. The agent host calls them; light-bridge handles the cascade.
 
-```bash
-light-bridge rename \
-  --file src/utils/math.ts \
-  --line 5 \
-  --col 10 \
-  --newName calculateTotal
-```
+| Tool | TS | Vue | Read-only | Notes |
+|---|---|---|---|---|
+| `rename` | ✓ | ✓ | no | Renames a symbol at a given position; updates every reference project-wide |
+| `move` | ✓ | ✓ | no | Moves a file; rewrites all import paths that reference it |
+| `moveSymbol` | ✓ | — | no | Moves a named export to another file; updates all importers. Vue: `NOT_SUPPORTED` |
+| `findReferences` | ✓ | ✓ | yes | Returns every reference to the symbol at a given position |
 
-### `light-bridge move`
+All tools take absolute paths. Write operations return `filesModified` and `filesSkipped` (files outside the workspace boundary that were not touched).
 
-Move a file and update all import paths that reference it.
-
-```bash
-light-bridge move \
-  --oldPath src/utils/helpers.ts \
-  --newPath src/lib/helpers.ts
-```
-
-### `light-bridge moveSymbol`
-
-Move a named export from one file to another, updating all importers project-wide.
-
-```bash
-light-bridge moveSymbol \
-  --sourceFile src/utils/math.ts \
-  --symbolName calculateTotal \
-  --destFile src/lib/math.ts
-```
+**`moveSymbol` in Vue projects** — `NOT_SUPPORTED` is a dispatcher constraint, not a Volar limitation. When both source and destination are plain `.ts` files inside a Vue project, the operation could be delegated to the TypeScript engine; this is not yet implemented.
 
 ## Response format
 
@@ -177,11 +159,29 @@ Open the Roo MCP settings (gear icon → MCP Servers) and add:
       "command": "light-bridge",
       "args": ["serve", "--workspace", "/absolute/path/to/your/project"],
       "disabled": false,
-      "alwaysAllow": ["rename", "move", "moveSymbol"]
+      "alwaysAllow": ["rename", "move", "moveSymbol", "findReferences"]
     }
   }
 }
 ```
+
+### Guiding the agent (CLAUDE.md)
+
+The MCP tool descriptions tell Claude what each tool does, but not when to reach for them. Add this to your project's `CLAUDE.md` so Claude uses light-bridge instead of manual edits:
+
+````markdown
+## Refactoring tools
+
+light-bridge MCP tools are connected. Use them for all structural refactors:
+
+- `mcp__light-bridge__rename` — rename any symbol and update all references (not search-and-replace)
+- `mcp__light-bridge__move` — move a file and rewrite all import paths (not `mv` + manual fixes)
+- `mcp__light-bridge__moveSymbol` — move a named export between files
+- `mcp__light-bridge__findReferences` — find all usages of a symbol before deciding how to refactor
+
+If a tool returns `DAEMON_STARTING`, retry once — the daemon is still loading the project graph.
+Do not read files to verify results; the response lists exactly what changed.
+````
 
 ### Notes
 

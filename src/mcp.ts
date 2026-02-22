@@ -95,7 +95,10 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
     "rename",
     {
       description:
-        "Rename a symbol at a specific position in a file, updating all references project-wide",
+        "Rename a symbol at a specific position and update every reference project-wide. " +
+        "Use this instead of search-and-replace — it understands scope and won't touch unrelated identifiers with the same name. " +
+        "The response lists every file modified; no need to read them to verify. " +
+        "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
       inputSchema: {
         file: z.string().describe("Absolute path to the file"),
         line: z.number().int().positive().describe("Line number (1-based)"),
@@ -131,7 +134,11 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
   server.registerTool(
     "move",
     {
-      description: "Move a file to a new path and update all import references project-wide",
+      description:
+        "Move a file to a new path and rewrite every import that references it, project-wide. " +
+        "Use this instead of a shell mv followed by manual import fixes. " +
+        "The response lists every file modified; no need to read them to verify. " +
+        "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
       inputSchema: {
         oldPath: z.string().describe("Absolute path to the file to move"),
         newPath: z.string().describe("Absolute destination path"),
@@ -163,7 +170,11 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
     "moveSymbol",
     {
       description:
-        "Move a named export from one file to another, updating all import references project-wide",
+        "Move a named export from one file to another and update every importer project-wide. " +
+        "Use this when reorganising modules — it keeps the symbol's identity intact and rewrites all import paths. " +
+        "The destination file is created if it does not already exist. " +
+        "The response lists every file modified; no need to read them to verify. " +
+        "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
       inputSchema: {
         sourceFile: z.string().describe("Absolute path to the file containing the symbol"),
         symbolName: z
@@ -201,7 +212,9 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
     "findReferences",
     {
       description:
-        "Find all references to the symbol at a specific position in a file",
+        "Find all references to a symbol across the project. " +
+        "Use this before a rename or move to understand the blast radius, or to navigate to usages without reading files manually. " +
+        "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
       inputSchema: {
         file: z.string().describe("Absolute path to the file"),
         line: z.number().int().positive().describe("Line number (1-based)"),
