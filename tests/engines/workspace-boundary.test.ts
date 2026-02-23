@@ -1,10 +1,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { TsEngine } from "../../src/engines/ts/engine";
+import { moveFile } from "../../src/engines/actions/moveFile.js";
+import { rename } from "../../src/engines/actions/rename.js";
+import { TsProvider } from "../../src/engines/providers/ts.js";
 import { cleanup, copyFixture, readFile } from "../helpers";
 
-describe("TsEngine — workspace boundary enforcement", () => {
+describe("workspace boundary enforcement", () => {
   const dirs: string[] = [];
 
   afterEach(() => {
@@ -26,10 +28,10 @@ describe("TsEngine — workspace boundary enforcement", () => {
     expect(before.utils).toContain("greetUser");
     expect(before.consumer).toContain("greetUser");
 
-    const engine = new TsEngine();
+    const provider = new TsProvider();
     // greetUser starts at col 17: "export function greetUser"
     //                                               ^ col 17
-    const result = await engine.rename(utilsFile, 1, 17, "greetPerson", workspace);
+    const result = await rename(provider, utilsFile, 1, 17, "greetPerson", workspace);
 
     // In-workspace file updated
     expect(result.filesModified.some((f) => f.includes("utils.ts"))).toBe(true);
@@ -54,8 +56,8 @@ describe("TsEngine — workspace boundary enforcement", () => {
     expect(fs.existsSync(oldFilePath)).toBe(true);
     expect(readFile(root, "consumer/main.ts")).toContain("utils");
 
-    const engine = new TsEngine();
-    const result = await engine.moveFile(oldFilePath, newFilePath, workspace);
+    const provider = new TsProvider();
+    const result = await moveFile(provider, oldFilePath, newFilePath, workspace);
 
     // Physical move happened
     expect(fs.existsSync(oldFilePath)).toBe(false);

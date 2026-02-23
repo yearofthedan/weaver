@@ -1,4 +1,7 @@
-import { BaseEngine } from "../engines/engine.js";
+import { findReferences } from "../engines/actions/findReferences.js";
+import { getDefinition } from "../engines/actions/getDefinition.js";
+import { moveFile } from "../engines/actions/moveFile.js";
+import { rename } from "../engines/actions/rename.js";
 import { EngineError } from "../engines/errors.js";
 import { findTsConfigForFile, isVueProject } from "../engines/ts/project.js";
 import type {
@@ -100,7 +103,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         newName: string;
       };
       const provider = await registry.projectProvider();
-      return new BaseEngine(provider).rename(file, line, col, newName, workspace);
+      return rename(provider, file, line, col, newName, workspace);
     },
     format(result) {
       const r = result as RenameResult;
@@ -120,7 +123,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params, workspace) {
       const { oldPath, newPath } = params as { oldPath: string; newPath: string };
       const provider = await registry.projectProvider();
-      return new BaseEngine(provider).moveFile(oldPath, newPath, workspace);
+      return moveFile(provider, oldPath, newPath, workspace);
     },
     format(result) {
       const r = result as MoveResult;
@@ -171,7 +174,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params) {
       const { file, line, col } = params as { file: string; line: number; col: number };
       const provider = await registry.projectProvider();
-      return new BaseEngine(provider).findReferences(file, line, col);
+      return findReferences(provider, file, line, col);
     },
     format(result) {
       const r = result as FindReferencesResult;
@@ -190,7 +193,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params) {
       const { file, line, col } = params as { file: string; line: number; col: number };
       const provider = await registry.projectProvider();
-      return new BaseEngine(provider).getDefinition(file, line, col);
+      return getDefinition(provider, file, line, col);
     },
     format(result) {
       const r = result as GetDefinitionResult;

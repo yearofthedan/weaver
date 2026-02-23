@@ -127,53 +127,6 @@ export interface LanguageProvider {
   ): Promise<{ modified: string[]; skipped: string[] }>;
 }
 
-// ─── Engine-level types ────────────────────────────────────────────────────
-
-export interface RefactorEngine {
-  /**
-   * Rename the symbol at (line, col) in filePath to newName.
-   * line and col are 1-based.
-   * workspace is the absolute workspace root; impacted files outside it are skipped.
-   */
-  rename(
-    filePath: string,
-    line: number,
-    col: number,
-    newName: string,
-    workspace: string,
-  ): Promise<RenameResult>;
-
-  /**
-   * Move a file from oldPath to newPath, updating all import references.
-   * workspace is the absolute workspace root; impacted files outside it are skipped.
-   */
-  moveFile(oldPath: string, newPath: string, workspace: string): Promise<MoveResult>;
-
-  /**
-   * Move a named export from sourceFile to destFile, updating all import references.
-   * destFile is created if it does not exist.
-   * workspace is the absolute workspace root; impacted files outside it are skipped.
-   */
-  moveSymbol(
-    sourceFile: string,
-    symbolName: string,
-    destFile: string,
-    workspace: string,
-  ): Promise<MoveSymbolResult>;
-
-  /**
-   * Find all references to the symbol at (line, col) in filePath.
-   * line and col are 1-based. Read-only — does not modify any files.
-   */
-  findReferences(filePath: string, line: number, col: number): Promise<FindReferencesResult>;
-
-  /**
-   * Return the definition location(s) for the symbol at (line, col) in filePath.
-   * line and col are 1-based. Read-only — does not modify any files.
-   */
-  getDefinition(filePath: string, line: number, col: number): Promise<GetDefinitionResult>;
-}
-
 // ─── Registry ──────────────────────────────────────────────────────────────
 
 /**

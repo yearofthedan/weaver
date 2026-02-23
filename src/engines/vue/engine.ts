@@ -1,15 +1,12 @@
-import { BaseEngine } from "../engine.js";
 import { EngineError } from "../errors.js";
 import { VolarProvider } from "../providers/volar.js";
-import type { MoveSymbolResult, RefactorEngine } from "../types.js";
+import type { MoveSymbolResult } from "../types.js";
 
-export class VueEngine extends BaseEngine implements RefactorEngine {
+export class VueEngine {
   private volarProvider: VolarProvider;
 
   constructor(provider?: VolarProvider) {
-    const p = provider ?? new VolarProvider();
-    super(p);
-    this.volarProvider = p;
+    this.volarProvider = provider ?? new VolarProvider();
   }
 
   /**

@@ -2,10 +2,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { type ImportDeclaration, type ImportSpecifier, Node, type SourceFile } from "ts-morph";
 import { isWithinWorkspace } from "../../workspace.js";
-import { BaseEngine } from "../engine.js";
 import { EngineError } from "../errors.js";
 import { TsProvider } from "../providers/ts.js";
-import type { MoveSymbolResult, RefactorEngine } from "../types.js";
+import type { MoveSymbolResult } from "../types.js";
 
 function computeRelativeSpecifier(fromFile: string, toFile: string): string {
   let rel = path.relative(path.dirname(fromFile), toFile).replace(/\.(ts|tsx)$/, "");
@@ -13,13 +12,11 @@ function computeRelativeSpecifier(fromFile: string, toFile: string): string {
   return rel;
 }
 
-export class TsEngine extends BaseEngine implements RefactorEngine {
+export class TsEngine {
   private tsProvider: TsProvider;
 
   constructor(provider?: TsProvider) {
-    const p = provider ?? new TsProvider();
-    super(p);
-    this.tsProvider = p;
+    this.tsProvider = provider ?? new TsProvider();
   }
 
   /**
