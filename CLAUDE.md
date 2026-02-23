@@ -40,7 +40,11 @@ Explicitly state the version and instruct the subagent to confirm it from `packa
 **Rule 5: Write tests as you implement, not after.**
 Finish the test for a unit before moving to the next. The test is part of the implementation.
 
-**Rule 6: Write durable memory to `.claude/MEMORY.md` and `docs/agent-memory.md` — never to `~/.claude/`.**
+**Rule 6: When fixing items from tech-debt.md, remove them from the doc in the same commit. Only touch entries you actually completed.**
+
+**Rule 7: Commit messages must not mention things you're NOT doing.** "Does not use X" is meaningless to someone reading the log without the conversation's context.
+
+**Rule 8: Write durable memory to `.claude/MEMORY.md` and `docs/agent-memory.md` — never to `~/.claude/`.**
 This project runs in a dev container. The home directory is deleted on every rebuild, taking `~/.claude/projects/` with it. Do NOT use the auto-memory system there. Instead:
 - `.claude/MEMORY.md` — project state and agent behaviour notes (git-tracked)
 - `docs/agent-memory.md` — technical gotchas and decisions useful to humans too (git-tracked)
