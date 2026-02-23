@@ -87,6 +87,7 @@ const TOOLS: ToolDefinition[] = [
       "Rename a symbol at a specific position and update every reference project-wide. " +
       "Use this instead of search-and-replace — it understands scope and won't touch unrelated identifiers with the same name. " +
       "The response lists every file modified; no need to read them to verify. " +
+      "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
       file: z.string().describe("Absolute path to the file"),
@@ -104,6 +105,7 @@ const TOOLS: ToolDefinition[] = [
       "Move a file to a new path. Use this for all file moves — do not use shell mv. " +
       "Rewrites every import that references the file, project-wide, whether or not you expect import changes. " +
       "The response lists every file modified; no need to read them to verify. " +
+      "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
       oldPath: z.string().describe("Absolute path to the file to move"),
@@ -116,7 +118,10 @@ const TOOLS: ToolDefinition[] = [
       "Move a named export from one file to another and update every importer project-wide. " +
       "Use this when reorganising modules — it keeps the symbol's identity intact and rewrites all import paths. " +
       "The destination file is created if it does not already exist. " +
+      "Only works on top-level exported declarations (export function, export const, export class, etc.); " +
+      "does not support class methods or re-exports via `export { }`. " +
       "The response lists every file modified; no need to read them to verify. " +
+      "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
       sourceFile: z.string().describe("Absolute path to the file containing the symbol"),
@@ -134,6 +139,7 @@ const TOOLS: ToolDefinition[] = [
     description:
       "Find all references to a symbol across the project. " +
       "Use this before a rename or move to understand the blast radius, or to navigate to usages without reading files manually. " +
+      "Use before deleting a symbol or file to confirm there are no remaining callers. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
       file: z.string().describe("Absolute path to the file"),

@@ -51,6 +51,9 @@ This project runs in a dev container. The home directory is deleted on every reb
 
 Update both at the end of every session.
 
+**Rule 9: Dogfood the tools — you are the target user.**
+The `mcp__light-bridge__*` tools are always available (configured in `.mcp.json`; daemon auto-spawns on first use). Every user of this tool gets the same MCP tool descriptions you do. If those descriptions aren't compelling enough to make you reach for the tools naturally during development, they aren't good enough for users either — improve the description, don't add a private agent rule. If a tool can't do what you need at all, add it to `docs/handoff.md`.
+
 ---
 
 ## Commits
