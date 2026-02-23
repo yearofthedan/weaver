@@ -101,8 +101,8 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "moveFile",
     description:
-      "Move a file to a new path and rewrite every import that references it, project-wide. " +
-      "Use this instead of a shell mv followed by manual import fixes. " +
+      "Move a file to a new path. Use this for all file moves — do not use shell mv. " +
+      "Rewrites every import that references the file, project-wide, whether or not you expect import changes. " +
       "The response lists every file modified; no need to read them to verify. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
