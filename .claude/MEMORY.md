@@ -11,12 +11,13 @@ Update at the end of every session. Keep this file as a signpost — details liv
 
 ## Current state
 
-- 132/132 tests passing
+- 148/148 tests passing
 - All five operations shipped: `rename`, `moveFile`, `moveSymbol` (TS only), `findReferences`, `getDefinition`
 - Core architecture complete: daemon, MCP server, both engines, security controls, provider/engine separation, data-driven dispatch, filesystem watcher
+- **Phase 1 of action-centric dispatcher refactor complete**: `ProviderRegistry` in `types.ts`; `makeRegistry` factory + provider singletons in `dispatcher.ts`; `afterSymbolMove` no-op on both providers; `warmupEngine` deleted
 - CI: `.github/workflows/ci.yml` runs `pnpm check` on push/PR to main
 
-**Next work:** see `docs/handoff.md` (lazy engine init, searchText+replaceText, extractFunction, etc.)
+**Next work:** Phase 2 — extract operations to action functions, delete `BaseEngine` (see `docs/handoff.md`)
 
 ---
 
@@ -31,7 +32,7 @@ src/
   daemon/
     daemon.ts     ← socket server; mutex; isDaemonAlive + removeDaemonFiles
     paths.ts      ← socketPath, lockfilePath, ensureCacheDir
-    dispatcher.ts ← OPERATIONS table drives dispatch; engine singletons; invalidateFile/invalidateAll
+    dispatcher.ts ← OPERATIONS table drives dispatch; makeRegistry + provider singletons; invalidateFile/invalidateAll
     watcher.ts    ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
   engines/
     errors.ts     ← EngineError + ErrorCode union
@@ -79,8 +80,8 @@ Use `subagent_type: "general-purpose"` for tasks that write files.
 
 ## Notable constraints
 
-- `moveSymbol` in Vue projects returns `NOT_SUPPORTED` — router sends all Vue-project files to
-  `VueEngine`, which has no "extract declaration" API. Not a Volar limitation; fix is per-operation
-  engine selection or delegation inside `VueEngine.moveSymbol`. Tracked in `docs/tech/tech-debt.md`.
+- `moveSymbol` in Vue projects returns `NOT_SUPPORTED` — Phase 3 will implement `VolarProvider.afterSymbolMove`
+  and remove this guard. The check is now explicit in `dispatcher.ts` `moveSymbol.invoke` using
+  `findTsConfigForFile` + `isVueProject`.
 - `updateVueImportsAfterMove` does not enforce workspace boundary on its scan (low risk, search
   root is clamped to tsconfig dir). Tracked in `docs/security.md` and `docs/tech/tech-debt.md`.

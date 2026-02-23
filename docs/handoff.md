@@ -22,7 +22,7 @@ Read the docs in this order:
 
 ## Current state
 
-**132/132 tests passing.** Security controls, project restructure, all five operations plus `getDefinition`, provider/engine separation, data-driven dispatch, and filesystem watcher are complete. The file layout reflects domain boundaries:
+**148/148 tests passing.** Security controls, project restructure, all five operations plus `getDefinition`, provider/engine separation, data-driven dispatch, filesystem watcher, and `ProviderRegistry` (Phase 1 of the action-centric refactor) are complete. The file layout reflects domain boundaries:
 
 ```
 src/
@@ -68,9 +68,9 @@ src/
 
 Evaluate each candidate: does the daemon's stateful engine make it meaningfully better than the agent editing directly? `rename`, `moveFile`, and `findReferences` benefit strongly because they require project-wide reference tracking.
 
-- **Action-centric dispatcher refactor** — replace the engine-per-workspace model with a `ProviderRegistry` that actions pull from. Design is settled (see Architecture decisions below). Implement in three phases, each independently releasable:
+- **Action-centric dispatcher refactor** — replace the engine-per-workspace model with a `ProviderRegistry` that actions pull from. Design is settled (see Architecture decisions below). Phase 1 ✅ complete.
 
-  - **Phase 1 — add `ProviderRegistry` alongside engines (no behaviour change).** Add the `ProviderRegistry` interface (`projectProvider()` / `tsProvider()`) and `makeRegistry(filePath)` factory to the dispatcher. Add `afterSymbolMove(sourceFile, symbolName, destFile, workspace)` to `LanguageProvider` with no-op implementations on both providers. Wire the existing OPERATIONS table to receive a registry instead of an engine — keep `BaseEngine` and the engine classes alive, just thread the registry through. Delete `warmupEngine()` (lazy init falls out for free). All tests pass unchanged.
+  - ~~**Phase 1 — add `ProviderRegistry` alongside engines (no behaviour change).**~~ ✅ Done. `ProviderRegistry` in `src/engines/types.ts`; `makeRegistry` in `dispatcher.ts`; provider singletons replace engine singletons; `afterSymbolMove` no-op on both providers; `warmupEngine` deleted.
 
   - **Phase 2 — extract operations to action functions (delete `BaseEngine`).** Move `rename`, `findReferences`, `getDefinition`, and `moveFile` out of `BaseEngine` into standalone functions under `src/engines/actions/`. Each takes a `LanguageProvider` directly. Wire them into the OPERATIONS table via `registry.projectProvider()`. Delete `BaseEngine`. **Good dogfooding opportunity:** use `mcp__light-bridge__moveSymbol` on the light-bridge source itself to extract each method — this is a TS-only project so `moveSymbol` works today without the Vue gap.
 
