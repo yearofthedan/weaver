@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { walkFiles } from "../utils/file-walk.js";
 import { isWithinWorkspace } from "../workspace.js";
-import { walkFiles } from "./file-walk.js";
 
 /**
  * After a file move, scan all .vue files under searchRoot and rewrite any

@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { moveFile } from "../../../src/operations/moveFile.js";
 import { TsProvider } from "../../../src/providers/ts.js";
 import { VolarProvider } from "../../../src/providers/volar.js";
+import { updateVueImportsAfterMove } from "../../../src/providers/vue-scan.js";
 import { findTsConfigForFile } from "../../../src/utils/ts-project.js";
-import { updateVueImportsAfterMove } from "../../../src/utils/vue-scan.js";
 import { cleanup, copyFixture, fileExists, readFile } from "../../helpers.js";
 
 describe("moveFile action", () => {
