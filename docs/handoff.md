@@ -22,7 +22,7 @@ Read the docs in this order:
 
 ## Current state
 
-**148/148 tests passing.** Security controls, project restructure, all five operations plus `getDefinition`, provider/engine separation, data-driven dispatch, filesystem watcher, and `ProviderRegistry` (Phase 1 of the action-centric refactor) are complete. The file layout reflects domain boundaries:
+**149/149 tests passing.** Security controls, project restructure, all five operations plus `getDefinition`, provider/engine separation, data-driven dispatch, filesystem watcher, `ProviderRegistry` (Phase 1), and action-centric extraction (Phase 2) are complete. The file layout reflects domain boundaries:
 
 ```
 src/
@@ -37,18 +37,22 @@ src/
     watcher.ts    ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
   engines/
     errors.ts     ← EngineError class + ErrorCode union
-    types.ts      ← result types + LanguageProvider interface
-    engine.ts     ← BaseEngine: shared rename/findReferences/getDefinition/moveFile
-    text-utils.ts ← applyTextEdits(), offsetToLineCol() — shared by both engines
-    file-walk.ts  ← walkFiles() + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS — shared by engines and watcher
+    types.ts      ← result types + LanguageProvider interface (no RefactorEngine — removed in Phase 2)
+    text-utils.ts ← applyTextEdits(), offsetToLineCol() — shared by actions
+    file-walk.ts  ← walkFiles() + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS — shared by actions and watcher
+    actions/
+      rename.ts        ← rename(provider, filePath, line, col, newName, workspace)
+      findReferences.ts← findReferences(provider, filePath, line, col)
+      getDefinition.ts ← getDefinition(provider, filePath, line, col)
+      moveFile.ts      ← moveFile(provider, oldPath, newPath, workspace)
     providers/
       ts.ts       ← TsProvider: compiler calls via ts-morph Project; refreshFile() for selective invalidation
       volar.ts    ← VolarProvider: compiler calls via Volar proxy + virtual↔real translation
     ts/
-      engine.ts   ← TsEngine extends BaseEngine; moveSymbol (ts-morph AST); invalidateFile()
+      engine.ts   ← TsEngine: moveSymbol (ts-morph AST); invalidateFile() — no longer extends BaseEngine
       project.ts  ← findTsConfig, findTsConfigForFile, isVueProject
     vue/
-      engine.ts   ← VueEngine extends BaseEngine; moveSymbol stub (NOT_SUPPORTED); invalidateFile()
+      engine.ts   ← VueEngine: moveSymbol stub (NOT_SUPPORTED); invalidateFile() — no longer extends BaseEngine
       scan.ts     ← updateVueImportsAfterMove (regex scan for .vue SFC imports)
       service-builder.ts ← buildVolarService() — extracted from VueEngine
 ```
@@ -72,7 +76,7 @@ Evaluate each candidate: does the daemon's stateful engine make it meaningfully 
 
   - ~~**Phase 1 — add `ProviderRegistry` alongside engines (no behaviour change).**~~ ✅ Done. `ProviderRegistry` in `src/engines/types.ts`; `makeRegistry` in `dispatcher.ts`; provider singletons replace engine singletons; `afterSymbolMove` no-op on both providers; `warmupEngine` deleted.
 
-  - **Phase 2 — extract operations to action functions (delete `BaseEngine`).** Move `rename`, `findReferences`, `getDefinition`, and `moveFile` out of `BaseEngine` into standalone functions under `src/engines/actions/`. Each takes a `LanguageProvider` directly. Wire them into the OPERATIONS table via `registry.projectProvider()`. Delete `BaseEngine`. **Good dogfooding opportunity:** use `mcp__light-bridge__moveSymbol` on the light-bridge source itself to extract each method — this is a TS-only project so `moveSymbol` works today without the Vue gap.
+  - ~~**Phase 2 — extract operations to action functions (delete `BaseEngine`).**~~ ✅ Done. `rename`, `findReferences`, `getDefinition`, `moveFile` live in `src/engines/actions/` as standalone functions taking `LanguageProvider`. Dispatcher calls them directly. `BaseEngine` deleted. `RefactorEngine` interface removed. `TsEngine`/`VueEngine` trimmed to `moveSymbol` + `invalidateFile` only.
 
   - **Phase 3 — fix `moveSymbol` and delete engine classes.** Implement `VolarProvider.afterSymbolMove` to scan `.vue` files for imports of the moved symbol and rewrite them (surgical — only the named symbol, unlike `afterFileRename` which rewrites all imports of the old path). Extract `TsEngine.moveSymbol` to `src/engines/actions/moveSymbol.ts`, taking `TsProvider` for AST surgery and `LanguageProvider` for the post-move hook. Delete `TsEngine` and `VueEngine`. `moveSymbol` now works in Vue projects; `NOT_SUPPORTED` is gone.
 
