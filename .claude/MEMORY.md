@@ -11,13 +11,13 @@ Update at the end of every session. Keep this file as a signpost — details liv
 
 ## Current state
 
-- 148/148 tests passing
+- 149/149 tests passing
 - All five operations shipped: `rename`, `moveFile`, `moveSymbol` (TS only), `findReferences`, `getDefinition`
-- Core architecture complete: daemon, MCP server, both engines, security controls, provider/engine separation, data-driven dispatch, filesystem watcher
-- **Phase 1 of action-centric dispatcher refactor complete**: `ProviderRegistry` in `types.ts`; `makeRegistry` factory + provider singletons in `dispatcher.ts`; `afterSymbolMove` no-op on both providers; `warmupEngine` deleted
+- Core architecture complete: daemon, MCP server, security controls, provider/engine separation, data-driven dispatch, filesystem watcher
+- **Phases 1 + 2 of action-centric refactor complete**: `ProviderRegistry`; actions in `src/engines/actions/`; `BaseEngine` deleted; `TsEngine`/`VueEngine` trimmed to `moveSymbol` + `invalidateFile`
 - CI: `.github/workflows/ci.yml` runs `pnpm check` on push/PR to main
 
-**Next work:** Phase 2 — extract operations to action functions, delete `BaseEngine` (see `docs/handoff.md`)
+**Next work:** Phase 3 — extract moveSymbol to actions/, fix Vue support, delete engine classes (see `docs/handoff.md`)
 
 ---
 
@@ -37,15 +37,19 @@ src/
   engines/
     errors.ts     ← EngineError + ErrorCode union
     types.ts      ← result types + LanguageProvider interface
-    engine.ts     ← BaseEngine: rename, findReferences, getDefinition, moveFile
     text-utils.ts ← applyTextEdits(), offsetToLineCol()
     file-walk.ts  ← walkFiles(dir, extensions) + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS
+    actions/
+      rename.ts        ← rename(provider, filePath, line, col, newName, workspace)
+      findReferences.ts← findReferences(provider, filePath, line, col)
+      getDefinition.ts ← getDefinition(provider, filePath, line, col)
+      moveFile.ts      ← moveFile(provider, oldPath, newPath, workspace)
     providers/
       ts.ts       ← TsProvider (ts-morph)
       volar.ts    ← VolarProvider (Volar proxy + virtual↔real translation)
-    ts/engine.ts  ← TsEngine: adds moveSymbol (ts-morph AST)
+    ts/engine.ts  ← TsEngine: moveSymbol (ts-morph AST) + invalidateFile only
     ts/project.ts ← findTsConfig, isVueProject
-    vue/engine.ts ← VueEngine: moveSymbol stub (NOT_SUPPORTED)
+    vue/engine.ts ← VueEngine: moveSymbol stub (NOT_SUPPORTED) + invalidateFile only
     vue/scan.ts   ← updateVueImportsAfterMove (regex scan for .vue SFCs)
     vue/service-builder.ts ← buildVolarService()
 ```
