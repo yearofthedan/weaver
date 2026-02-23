@@ -53,7 +53,7 @@ Used at both the daemon dispatcher (input validation) and the engine layer (outp
 `schema.ts` had the identifier regex but `serve.ts` only had `z.string()`. MCP input validation and schema.ts must stay consistent — check both when changing validation rules.
 
 **`applyTextEdits` is in `src/engines/text-utils.ts`.**
-Shared by both engines (`ts/engine.ts` and `vue/engine.ts`). Takes a source string and `readonly { span: { start, length }, newText }[]`, applies edits in descending offset order.
+Shared by all action functions. Takes a source string and `readonly { span: { start, length }, newText }[]`, applies edits in descending offset order.
 
 ---
 
@@ -77,20 +77,20 @@ If the socket connection fails (daemon not yet ready), return `{ ok: false, erro
 **Vertical slice tests assert before and after.**
 Always read fixture files before the operation to confirm original state, then assert both that the old string is gone and the new string is present. This catches false positives.
 
-**Action-centric architecture — Phase 2 complete.**
-Operations (rename, findReferences, getDefinition, moveFile) are standalone functions in `src/engines/actions/`, each taking a `LanguageProvider` as their first argument. `BaseEngine` is deleted. The dispatcher calls action functions directly after resolving the provider via the registry. `TsEngine` and `VueEngine` now only carry `moveSymbol` and `invalidateFile` — they no longer extend any base class. `RefactorEngine` interface removed (it no longer reflects the shape of either class). Provider methods are `async` throughout — VolarProvider needs async lazy init; TsProvider wraps sync ts-morph calls in async. `TsProvider.afterFileRename` owns the out-of-project walkFiles scan. `VolarProvider.afterFileRename` owns the Vue SFC regex scan. `TsProvider.getProjectForFile()` exposes the ts-morph `Project` to `TsEngine.moveSymbol` for direct AST access.
+**Action-centric architecture — Phase 3 complete; no more engine classes.**
+All five operations (rename, findReferences, getDefinition, moveFile, moveSymbol) are standalone functions in `src/engines/actions/`, each taking provider arguments rather than being methods on a class. `BaseEngine`, `TsEngine`, and `VueEngine` are all deleted. The dispatcher calls action functions directly after resolving providers via the registry. `moveSymbol` now works in Vue projects: ts-morph AST surgery handles `.ts` importers; `VolarProvider.afterSymbolMove` handles `.vue` SFC script-block importers via `updateVueNamedImportAfterSymbolMove` (surgical — only the moved symbol, unlike the path-level rewrite in `afterFileRename`). `TsProvider.getProjectForFile()` exposes the ts-morph `Project` to `moveSymbol` for direct AST access.
 
 **`ProviderRegistry` lives in `src/engines/types.ts`.**
-`ProviderRegistry` has two slots: `projectProvider()` (Volar for Vue projects, TsProvider otherwise) and `tsProvider()` (always TsProvider for AST operations). The registry avoids the `import type { TsProvider }` circular dep concern — TypeScript resolves type-only circular imports lazily and correctly. `makeRegistry(filePath)` factory is in `dispatcher.ts`; provider singletons (lazy-loaded, module-scoped) live alongside it. Engine constructors accept an optional provider parameter for the dispatcher to share singletons while unit tests can still call `new TsEngine()` with no arguments.
+`ProviderRegistry` has two slots: `projectProvider()` (Volar for Vue projects, TsProvider otherwise) and `tsProvider()` (always TsProvider for AST operations). `makeRegistry(filePath)` factory is in `dispatcher.ts`; provider singletons (lazy-loaded, module-scoped) live alongside it.
 
 **Do not introduce a `FileProvider` abstraction yet.**
 The DIP argument (program to abstractions, not concretions) is valid in principle, but one implementation is just indirection. The signal to add it: a concrete second implementation (e.g. in-memory FS for unit tests) or real maintenance pain from scattered `fs` calls. The `RefactorEngine` interface is already the adapter pattern for the refactoring concern; that's sufficient for now. `rewriteImports` in `vue/scan.ts` is pure (string → string) and never needed FS anyway; `findVueFiles` is the only candidate and it has a natural home in `vue/scan.ts`.
 
-**`moveSymbol` NOT_SUPPORTED in Vue projects is a router constraint, not a Volar limitation.**
-`VueEngine.moveSymbol` throws `NOT_SUPPORTED` because the router routes all Vue-project files to `VueEngine`, and Volar has no "extract declaration" API. But `moveSymbol` doesn't need Volar — it is pure AST surgery (find statement, splice text, patch imports). The path to Vue support: (a) for `.ts`→`.ts` in a Vue project, delegate to `TsEngine` then call `updateVueImportsAfterMove` to catch `.vue` import strings; (b) for `.vue` source, use `@vue/compiler-sfc`'s `parse()` to locate and splice the `<script>` block — `@vue/compiler-sfc` is already a transitive dep. Moving *into* a `.vue` destination is not worth supporting.
+**`moveSymbol` uses both providers: `tsProvider` for AST surgery, `projectProvider` for the post-step.**
+`moveSymbol(tsProvider, projectProvider, ...)` separates concerns: ts-morph (`tsProvider`) finds and moves declarations, patches `.ts` importers via AST edits. The `projectProvider.afterSymbolMove(...)` hook handles files the TS language service doesn't see. For TS projects, `TsProvider.afterSymbolMove` is a no-op. For Vue projects, `VolarProvider.afterSymbolMove` runs `updateVueNamedImportAfterSymbolMove` to rewrite the specific named import in `.vue` SFC script blocks.
 
-**Per-operation provider selection is now the dispatcher model.**
-The dispatcher no longer picks one engine for the whole workspace. Each OPERATIONS `invoke` calls `registry.projectProvider()` (Volar for Vue projects, TsProvider otherwise) for the compiler-aware operations (rename/moveFile/findReferences/getDefinition), or `registry.tsProvider()` explicitly for `moveSymbol` (which needs ts-morph AST surgery regardless of project type). The Vue NOT_SUPPORTED guard for `moveSymbol` is now an explicit check using `findTsConfigForFile` + `isVueProject` in the `moveSymbol` invoke — Phase 3 will remove it.
+**Per-operation provider selection is the dispatcher model.**
+Each OPERATIONS `invoke` calls `registry.projectProvider()` for compiler-aware operations (rename/moveFile/findReferences/getDefinition), and both `registry.tsProvider()` + `registry.projectProvider()` for `moveSymbol`.
 
 **Dispatcher is engine-agnostic; use a command map, not per-engine dispatchers.**
 `RefactorEngine` already abstracts over engine type — the dispatcher calls `engine.rename(...)` or `engine.moveFile(...)` without knowing which engine it has. Per-engine dispatchers (`VueDispatcher`, `TsDispatcher`) would leak engine knowledge into the dispatch layer. This is realised as an `OPERATIONS` descriptor table in `dispatcher.ts`: each entry owns `pathParams` (for workspace validation), `invoke`, and `format`. The first `pathParams` entry determines the engine.
@@ -117,19 +117,18 @@ Code diffs show what changed. The body should explain decisions and tradeoffs. D
 | `src/engines/actions/findReferences.ts` | `findReferences(provider, filePath, line, col)` |
 | `src/engines/actions/getDefinition.ts` | `getDefinition(provider, filePath, line, col)` |
 | `src/engines/actions/moveFile.ts` | `moveFile(provider, oldPath, newPath, workspace)` |
+| `src/engines/actions/moveSymbol.ts` | `moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace)` |
 | `src/engines/file-walk.ts` | `walkFiles()`, `SKIP_DIRS`, `TS_EXTENSIONS`, `VUE_EXTENSIONS` |
 | `src/engines/text-utils.ts` | `applyTextEdits()`, `offsetToLineCol()` — shared utilities |
 | `src/engines/providers/ts.ts` | `TsProvider`: compiler calls via ts-morph Project; `refreshFile()` |
-| `src/engines/providers/volar.ts` | `VolarProvider`: compiler calls via Volar proxy; virtual↔real translation |
-| `src/engines/ts/engine.ts` | `TsEngine`: `moveSymbol` (ts-morph AST); `invalidateFile()` |
+| `src/engines/providers/volar.ts` | `VolarProvider`: compiler calls via Volar proxy; virtual↔real translation; `afterSymbolMove` scans `.vue` files |
 | `src/engines/ts/project.ts` | `findTsConfig`, `findTsConfigForFile`, `isVueProject` |
-| `src/engines/vue/engine.ts` | `VueEngine`: `moveSymbol` stub (NOT_SUPPORTED); `invalidateFile()` |
-| `src/engines/vue/scan.ts` | `updateVueImportsAfterMove` (regex scan for .vue SFC imports) |
+| `src/engines/vue/scan.ts` | `updateVueImportsAfterMove`, `updateVueNamedImportAfterSymbolMove` (regex scans for .vue SFC imports) |
 | `src/engines/vue/service-builder.ts` | `buildVolarService()` — Volar service factory |
 | `tests/helpers.ts` | `spawnAndWaitForReady`, `McpTestClient`, `killDaemon` |
 | `tests/fixtures/cross-boundary/` | Fixture for testing cross-workspace boundary enforcement |
 | `docs/security.md` | Threat model, controls, known limitations |
-| `docs/tech/volar-v3.md` | How the Vue engine works — read before touching `vue/engine.ts` |
+| `docs/tech/volar-v3.md` | How the Vue engine works — read before touching `vue/` files |
 | `docs/tech/tech-debt.md` | Known structural issues in the engine layer |
 
 ---

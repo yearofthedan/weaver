@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { EngineError } from "../errors.js";
 import { findTsConfigForFile } from "../ts/project.js";
 import type { DefinitionLocation, FileTextEdit, LanguageProvider, SpanLocation } from "../types.js";
-import { updateVueImportsAfterMove } from "../vue/scan.js";
+import { updateVueImportsAfterMove, updateVueNamedImportAfterSymbolMove } from "../vue/scan.js";
 import { buildVolarService, type CachedService } from "../vue/service-builder.js";
 
 export class VolarProvider implements LanguageProvider {
@@ -183,13 +183,21 @@ export class VolarProvider implements LanguageProvider {
   }
 
   async afterSymbolMove(
-    _sourceFile: string,
-    _symbolName: string,
-    _destFile: string,
-    _workspace: string,
+    sourceFile: string,
+    symbolName: string,
+    destFile: string,
+    workspace: string,
   ): Promise<{ modified: string[]; skipped: string[] }> {
-    // Phase 3 will implement scanning .vue files for imports of the moved symbol.
-    return { modified: [], skipped: [] };
+    const tsConfig = findTsConfigForFile(sourceFile);
+    const searchRoot = tsConfig ? path.dirname(tsConfig) : path.dirname(sourceFile);
+    const modified = updateVueNamedImportAfterSymbolMove(
+      sourceFile,
+      symbolName,
+      destFile,
+      searchRoot,
+      workspace,
+    );
+    return { modified, skipped: [] };
   }
 
   async afterFileRename(

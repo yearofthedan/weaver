@@ -2,7 +2,6 @@ import { findReferences } from "../engines/actions/findReferences.js";
 import { getDefinition } from "../engines/actions/getDefinition.js";
 import { moveFile } from "../engines/actions/moveFile.js";
 import { rename } from "../engines/actions/rename.js";
-import { EngineError } from "../engines/errors.js";
 import { findTsConfigForFile, isVueProject } from "../engines/ts/project.js";
 import type {
   FindReferencesResult,
@@ -145,17 +144,10 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         symbolName: string;
         destFile: string;
       };
-      // Vue projects: not supported until Phase 3 (VolarProvider.afterSymbolMove is a no-op)
-      const tsConfigPath = findTsConfigForFile(sourceFile);
-      if (tsConfigPath && isVueProject(tsConfigPath)) {
-        throw new EngineError(
-          `moveSymbol is not supported for Vue projects (symbol: '${symbolName}')`,
-          "NOT_SUPPORTED",
-        );
-      }
       const tsProvider = await registry.tsProvider();
-      const { TsEngine } = await import("../engines/ts/engine.js");
-      return new TsEngine(tsProvider).moveSymbol(sourceFile, symbolName, destFile, workspace);
+      const projectProvider = await registry.projectProvider();
+      const { moveSymbol } = await import("../engines/actions/moveSymbol.js");
+      return moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace);
     },
     format(result) {
       const r = result as MoveSymbolResult;
