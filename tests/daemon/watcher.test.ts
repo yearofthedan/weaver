@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { WatcherHandle } from "../../src/daemon/watcher.js";
 import { startWatcher } from "../../src/daemon/watcher.js";
-import { TS_EXTENSIONS } from "../../src/engines/file-walk.js";
+import { TS_EXTENSIONS } from "../../src/utils/file-walk.js";
 
 describe("startWatcher", () => {
   let tmpDir: string;

@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { moveSymbol } from "../../../src/engines/actions/moveSymbol.js";
-import { TsProvider } from "../../../src/engines/providers/ts.js";
-import { VolarProvider } from "../../../src/engines/providers/volar.js";
+import { moveSymbol } from "../../../src/operations/moveSymbol.js";
+import { TsProvider } from "../../../src/providers/ts.js";
+import { VolarProvider } from "../../../src/providers/volar.js";
 import { cleanup, copyFixture, readFile } from "../../helpers.js";
 
 describe("moveSymbol action", () => {

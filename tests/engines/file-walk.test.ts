@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { walkFiles } from "../../src/engines/file-walk.js";
+import { walkFiles } from "../../src/utils/file-walk.js";
 
 describe("walkFiles", () => {
   let tmpDir: string;

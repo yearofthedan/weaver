@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { makeRegistry } from "../../src/daemon/dispatcher.js";
-import { TsProvider } from "../../src/engines/providers/ts.js";
+import { TsProvider } from "../../src/providers/ts.js";
 import { cleanup, copyFixture } from "../helpers.js";
 
 describe("makeRegistry", () => {

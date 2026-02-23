@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EngineError } from "../../src/engines/errors.js";
+import { EngineError } from "../../src/utils/errors.js";
 
 describe("EngineError", () => {
   it("constructs with message and code", () => {

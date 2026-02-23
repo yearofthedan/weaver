@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Language } from "@volar/language-core";
-import { SKIP_DIRS } from "../file-walk.js";
+import { SKIP_DIRS } from "./file-walk.js";
 
 interface VolarLanguageService {
   findRenameLocations(

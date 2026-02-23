@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   updateVueImportsAfterMove,
   updateVueNamedImportAfterSymbolMove,
-} from "../../src/engines/vue/scan.js";
+} from "../../src/utils/vue-scan.js";
 
 // rewriteImports and computeRelativeSpecifier are private to their modules;
 // tested here through the public updateVueImportsAfterMove API.

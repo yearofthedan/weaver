@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { TsProvider } from "../../src/engines/providers/ts.js";
-import { VolarProvider } from "../../src/engines/providers/volar.js";
+import { TsProvider } from "../../src/providers/ts.js";
+import { VolarProvider } from "../../src/providers/volar.js";
 import { cleanup, copyFixture } from "../helpers.js";
 
 // simple-ts fixture:

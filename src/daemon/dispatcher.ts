@@ -1,8 +1,7 @@
-import { findReferences } from "../engines/actions/findReferences.js";
-import { getDefinition } from "../engines/actions/getDefinition.js";
-import { moveFile } from "../engines/actions/moveFile.js";
-import { rename } from "../engines/actions/rename.js";
-import { findTsConfigForFile, isVueProject } from "../engines/ts/project.js";
+import { findReferences } from "../operations/findReferences.js";
+import { getDefinition } from "../operations/getDefinition.js";
+import { moveFile } from "../operations/moveFile.js";
+import { rename } from "../operations/rename.js";
 import type {
   FindReferencesResult,
   GetDefinitionResult,
@@ -11,27 +10,28 @@ import type {
   MoveSymbolResult,
   ProviderRegistry,
   RenameResult,
-} from "../engines/types.js";
+} from "../types.js";
+import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
 import { isWithinWorkspace } from "../workspace.js";
 
 // ─── Provider singletons ───────────────────────────────────────────────────
 // Lazy-loaded and cached for the daemon lifetime. Providers hold the stateful
 // project graphs (ts-morph Projects, Volar services) — engines are thin wrappers.
 
-let tsProviderSingleton: import("../engines/providers/ts.js").TsProvider | undefined;
-let volarProviderSingleton: import("../engines/providers/volar.js").VolarProvider | undefined;
+let tsProviderSingleton: import("../providers/ts.js").TsProvider | undefined;
+let volarProviderSingleton: import("../providers/volar.js").VolarProvider | undefined;
 
-async function getTsProvider(): Promise<import("../engines/providers/ts.js").TsProvider> {
+async function getTsProvider(): Promise<import("../providers/ts.js").TsProvider> {
   if (!tsProviderSingleton) {
-    const { TsProvider } = await import("../engines/providers/ts.js");
+    const { TsProvider } = await import("../providers/ts.js");
     tsProviderSingleton = new TsProvider();
   }
   return tsProviderSingleton;
 }
 
-async function getVolarProvider(): Promise<import("../engines/providers/volar.js").VolarProvider> {
+async function getVolarProvider(): Promise<import("../providers/volar.js").VolarProvider> {
   if (!volarProviderSingleton) {
-    const { VolarProvider } = await import("../engines/providers/volar.js");
+    const { VolarProvider } = await import("../providers/volar.js");
     volarProviderSingleton = new VolarProvider();
   }
   return volarProviderSingleton;
@@ -146,7 +146,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
       };
       const tsProvider = await registry.tsProvider();
       const projectProvider = await registry.projectProvider();
-      const { moveSymbol } = await import("../engines/actions/moveSymbol.js");
+      const { moveSymbol } = await import("../operations/moveSymbol.js");
       return moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace);
     },
     format(result) {

@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { isWithinWorkspace } from "../../workspace.js";
-import { EngineError } from "../errors.js";
-import { applyTextEdits } from "../text-utils.js";
 import type { LanguageProvider, RenameResult } from "../types.js";
+import { EngineError } from "../utils/errors.js";
+import { applyTextEdits } from "../utils/text-utils.js";
+import { isWithinWorkspace } from "../workspace.js";
 
 export async function rename(
   provider: LanguageProvider,

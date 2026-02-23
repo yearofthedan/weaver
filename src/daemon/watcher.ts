@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { watch } from "chokidar";
-import { SKIP_DIRS } from "../engines/file-walk.js";
+import { SKIP_DIRS } from "../utils/file-walk.js";
 
 export interface WatcherCallbacks {
   /** A watched file's content changed in place. Use for selective TS refresh. */

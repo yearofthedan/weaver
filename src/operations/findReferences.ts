@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { EngineError } from "../errors.js";
-import { offsetToLineCol } from "../text-utils.js";
 import type { FindReferencesResult, LanguageProvider } from "../types.js";
+import { EngineError } from "../utils/errors.js";
+import { offsetToLineCol } from "../utils/text-utils.js";
 
 export async function findReferences(
   provider: LanguageProvider,

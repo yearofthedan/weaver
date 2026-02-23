@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
-import { getDefinition } from "../../../src/engines/actions/getDefinition.js";
-import { TsProvider } from "../../../src/engines/providers/ts.js";
-import { VolarProvider } from "../../../src/engines/providers/volar.js";
+import { getDefinition } from "../../../src/operations/getDefinition.js";
+import { TsProvider } from "../../../src/providers/ts.js";
+import { VolarProvider } from "../../../src/providers/volar.js";
 import { cleanup, copyFixture } from "../../helpers.js";
 
 describe("getDefinition action", () => {

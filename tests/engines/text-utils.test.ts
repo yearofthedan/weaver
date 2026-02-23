@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyTextEdits, offsetToLineCol } from "../../src/engines/text-utils.js";
+import { applyTextEdits, offsetToLineCol } from "../../src/utils/text-utils.js";
 
 describe("offsetToLineCol", () => {
   it("returns line 1 col 1 for offset 0 in empty string", () => {

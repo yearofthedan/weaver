@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
-import { EngineError } from "../engines/errors.js";
-import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../engines/file-walk.js";
-import { findTsConfigForFile, isVueProject } from "../engines/ts/project.js";
+import { EngineError } from "../utils/errors.js";
+import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../utils/file-walk.js";
+import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
 import { validateWorkspace } from "../workspace.js";
 import { dispatchRequest, invalidateAll, invalidateFile } from "./dispatcher.js";
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";

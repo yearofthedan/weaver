@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { moveFile } from "../../src/engines/actions/moveFile.js";
-import { rename } from "../../src/engines/actions/rename.js";
-import { TsProvider } from "../../src/engines/providers/ts.js";
+import { moveFile } from "../../src/operations/moveFile.js";
+import { rename } from "../../src/operations/rename.js";
+import { TsProvider } from "../../src/providers/ts.js";
 import { cleanup, copyFixture, readFile } from "../helpers";
 
 describe("workspace boundary enforcement", () => {

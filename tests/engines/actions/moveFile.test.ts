@@ -1,10 +1,10 @@
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { moveFile } from "../../../src/engines/actions/moveFile.js";
-import { TsProvider } from "../../../src/engines/providers/ts.js";
-import { VolarProvider } from "../../../src/engines/providers/volar.js";
-import { findTsConfigForFile } from "../../../src/engines/ts/project.js";
-import { updateVueImportsAfterMove } from "../../../src/engines/vue/scan.js";
+import { moveFile } from "../../../src/operations/moveFile.js";
+import { TsProvider } from "../../../src/providers/ts.js";
+import { VolarProvider } from "../../../src/providers/volar.js";
+import { findTsConfigForFile } from "../../../src/utils/ts-project.js";
+import { updateVueImportsAfterMove } from "../../../src/utils/vue-scan.js";
 import { cleanup, copyFixture, fileExists, readFile } from "../../helpers.js";
 
 describe("moveFile action", () => {

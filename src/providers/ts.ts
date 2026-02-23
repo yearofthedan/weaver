@@ -1,11 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Project } from "ts-morph";
-import { isWithinWorkspace } from "../../workspace.js";
-import { EngineError } from "../errors.js";
-import { TS_EXTENSIONS, walkFiles } from "../file-walk.js";
-import { findTsConfigForFile } from "../ts/project.js";
 import type { DefinitionLocation, FileTextEdit, LanguageProvider, SpanLocation } from "../types.js";
+import { EngineError } from "../utils/errors.js";
+import { TS_EXTENSIONS, walkFiles } from "../utils/file-walk.js";
+import { findTsConfigForFile } from "../utils/ts-project.js";
+import { isWithinWorkspace } from "../workspace.js";
 
 export class TsProvider implements LanguageProvider {
   private projects = new Map<string, Project>();
