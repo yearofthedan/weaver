@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import safeRegex from "safe-regex2";
 import { isSensitiveFile } from "../security.js";
 import type { ContextLine, SearchMatch, SearchTextResult } from "../types.js";
 import { EngineError } from "../utils/errors.js";
@@ -116,6 +117,12 @@ export async function searchText(
     re = new RegExp(pattern, "g");
   } catch {
     throw new EngineError(`Invalid regex pattern: ${pattern}`, "PARSE_ERROR");
+  }
+  if (!safeRegex(re)) {
+    throw new EngineError(
+      `Pattern rejected: potential ReDoS (catastrophic backtracking): ${pattern}`,
+      "REDOS",
+    );
   }
 
   const files = walkWorkspaceFiles(workspace, glob);

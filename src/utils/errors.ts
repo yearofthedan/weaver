@@ -8,7 +8,8 @@ export type ErrorCode =
   | "TEXT_MISMATCH"
   | "UNKNOWN_METHOD"
   | "PARSE_ERROR"
-  | "VALIDATION_ERROR";
+  | "VALIDATION_ERROR"
+  | "REDOS";
 
 export class EngineError extends Error {
   readonly code: ErrorCode;

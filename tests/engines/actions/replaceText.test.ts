@@ -91,6 +91,15 @@ describe("replaceText operation", () => {
       });
     });
 
+    it("throws REDOS for a catastrophic backtracking pattern", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+
+      await expect(replaceText(dir, { pattern: "(a+)+$", replacement: "x" })).rejects.toMatchObject(
+        { code: "REDOS" },
+      );
+    });
+
     it("does not modify sensitive files", async () => {
       const dir = copyFixture("simple-ts");
       dirs.push(dir);

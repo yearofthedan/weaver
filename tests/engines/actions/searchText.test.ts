@@ -107,4 +107,11 @@ describe("searchText operation", () => {
     expect(result.matches.length).toBeLessThanOrEqual(2);
     expect(result.truncated).toBe(true);
   });
+
+  it("throws REDOS for a catastrophic backtracking pattern", async () => {
+    const dir = copyFixture("simple-ts");
+    dirs.push(dir);
+
+    await expect(searchText("(a+)+$", dir)).rejects.toMatchObject({ code: "REDOS" });
+  });
 });
