@@ -1,8 +1,16 @@
 import * as fs from "node:fs";
+import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { isDaemonAlive, removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath, socketPath } from "../../src/daemon/paths";
-import { cleanup, copyFixture, killDaemon, spawnAndWaitForReady, waitForDaemon } from "../helpers";
+import {
+  cleanup,
+  copyFixture,
+  killDaemon,
+  McpTestClient,
+  spawnAndWaitForReady,
+  waitForDaemon,
+} from "../helpers";
 
 describe("serve command — daemon integration", () => {
   const dirs: string[] = [];
@@ -50,6 +58,36 @@ describe("serve command — daemon integration", () => {
 
     expect(secondPid).toBe(firstPid);
   });
+
+  it("re-spawns the daemon if it dies after serve starts", async () => {
+    const dir = await setup();
+    const proc = await spawnAndWaitForReady(["serve", "--workspace", dir], { pipeStdin: true });
+    procs.push(proc);
+    await waitForDaemon(dir);
+
+    // Kill the daemon — it cleans up its own socket/lockfile on SIGTERM
+    killDaemon(dir);
+    const deadline = Date.now() + 5_000;
+    while (isDaemonAlive(dir) && Date.now() < deadline) {
+      await new Promise<void>((r) => setTimeout(r, 50));
+    }
+
+    // A tool call should trigger daemon re-spawn and succeed — not return DAEMON_STARTING
+    const client = new McpTestClient(proc);
+    await client.initialize();
+    const resp = await client.request(1, "tools/call", {
+      name: "findReferences",
+      arguments: {
+        file: path.join(dir, "src/utils.ts"),
+        line: 1,
+        col: 17,
+      },
+    });
+
+    const result = JSON.parse((resp.result as { content: { text: string }[] }).content[0].text);
+    expect(result.ok).toBe(true);
+    expect(result.references).toBeDefined();
+  }, 90_000);
 
   it("recovers from a stale socket and spawns a new daemon", async () => {
     const dir = await setup();

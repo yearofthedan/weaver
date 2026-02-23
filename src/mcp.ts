@@ -174,6 +174,7 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
       { description: tool.description, inputSchema: tool.inputSchema },
       async (params) => {
         try {
+          await ensureDaemon(absWorkspace);
           const response = await callDaemon(sockPath, {
             method: tool.name,
             params: params as Record<string, unknown>,

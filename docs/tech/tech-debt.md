@@ -11,26 +11,6 @@ Known issues to address before they compound. Reference the relevant source file
 
 ---
 
-## Test cleanup: leaked daemon processes
-
-Tests that spawn `serve` (serve.test.ts, mcp/moveFile.test.ts, mcp/rename.test.ts) leak a daemon process after each test. `serve` auto-spawns the daemon as a detached, unref'd child. The `afterEach` kills the serve process and calls `removeDaemonFiles`, which deletes the socket and lockfile but does not kill the daemon process.
-
-Over a long test session this exhausts container memory and causes OOM kills (e.g. `tsc` exits 137).
-
-**Fix:** in test `afterEach`, read the PID from the lockfile before calling `removeDaemonFiles`, then `process.kill(pid, "SIGTERM")` if the process is alive. A `killDaemon(dir)` helper in `tests/helpers.ts` would centralise this. All tests that push a serve proc should also call `killDaemon(dir)` in their cleanup.
-
-There is also a related race in `waitForDaemon`: it resolves when the lockfile appears (step 5 of daemon startup) but `server.listen(sockPath)` is step 6, so an immediate `socketPath` existence check can fail. `waitForDaemon` should poll for the socket file, not just the lockfile PID.
-
----
-
-## serve: ensureDaemon fires once at startup only
-
-`src/mcp/serve.ts` calls `ensureDaemon(absWorkspace)` once during `runServe`, fire-and-forget. If the daemon dies after `serve` starts — crash, OOM, SIGKILL from tests — every subsequent tool call gets `ECONNREFUSED`, which `callDaemon` wraps as `{ ok: false, error: "DAEMON_STARTING" }`. The daemon is never re-spawned; `DAEMON_STARTING` becomes permanent until `serve` itself is restarted.
-
-**Fix:** call `ensureDaemon` inside each tool handler before `callDaemon`, or retry spawn on connection failure. The simplest safe version: in the `catch` block of each tool handler, check if the error is `ECONNREFUSED` and if so call `ensureDaemon` then retry once.
-
----
-
 ## Daemon: no request serialisation
 
 **Addressed in request serialisation: promise-chain mutex in `daemon.ts`.** The fix was to add a promise-chain mutex so concurrent socket connections are queued rather than interleaved.
