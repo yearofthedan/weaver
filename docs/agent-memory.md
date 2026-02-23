@@ -1,3 +1,10 @@
+**Purpose:** Technical gotchas, hard-won lessons, and architectural decisions useful to engineers and AI agents working on this project.
+**Audience:** Engineers and AI agents implementing features or debugging issues.
+**Status:** Current
+**Related docs:** [Handoff](handoff.md) (roadmap), [Tech Debt](tech/tech-debt.md) (known issues), [MEMORY](../.claude/MEMORY.md) (quick state snapshot)
+
+---
+
 # Agent Memory
 
 Durable notes for AI agents working on this project. Update when sessions surface new gotchas or decisions.
@@ -70,7 +77,7 @@ If the socket connection fails (daemon not yet ready), return `{ ok: false, erro
 **Vertical slice tests assert before and after.**
 Always read fixture files before the operation to confirm original state, then assert both that the old string is gone and the new string is present. This catches false positives.
 
-**A5: Provider/engine separation — design decisions.**
+**Provider/engine separation — design decisions.**
 `LanguageProvider` is in `src/engines/types.ts`. `BaseEngine` (`src/engines/engine.ts`) implements the 4 shared operations (rename, findReferences, getDefinition, moveFile) against the provider interface. `TsEngine` and `VueEngine` extend `BaseEngine` and only implement `moveSymbol`. Provider methods are `async` throughout — VolarProvider needs async lazy init; TsProvider wraps sync ts-morph calls in async. `TsProvider.afterFileRename` owns the out-of-project walkFiles scan (previously inline in TsEngine.moveFile). `VolarProvider.afterFileRename` owns the Vue SFC regex scan. `TsProvider.getProjectForFile()` is a public method that exposes the ts-morph `Project` to `TsEngine.moveSymbol` for direct AST access. TsEngine.rename now uses `ls.findRenameLocations` (text-span) instead of `target.rename()` (AST mutation) — same output, required to share the text-edit apply loop in BaseEngine.
 
 **Do not introduce a `FileProvider` abstraction yet.**
@@ -83,9 +90,9 @@ The DIP argument (program to abstractions, not concretions) is valid in principl
 `dispatcher.ts` picks one engine for the whole workspace (VueEngine if any `.vue` files are present). This is correct for `rename` and `moveFile`, which need Volar's project graph. It is wrong for `moveSymbol`, which needs AST manipulation that VueEngine can't do. Future fix: per-operation engine selection, or a fallback path inside `VueEngine.moveSymbol` that delegates to `TsEngine`. Current approach is kept for simplicity; track in tech-debt.md when it matters.
 
 **Dispatcher is engine-agnostic; use a command map, not per-engine dispatchers.**
-`RefactorEngine` already abstracts over engine type — the dispatcher calls `engine.rename(...)` or `engine.moveFile(...)` without knowing which engine it has. Per-engine dispatchers (`VueDispatcher`, `TsDispatcher`) would leak engine knowledge into the dispatch layer. In A6 this was realised as an `OPERATIONS` descriptor table in `dispatcher.ts`: each entry owns `pathParams` (for workspace validation), `invoke`, and `format`. The first `pathParams` entry determines the engine.
+`RefactorEngine` already abstracts over engine type — the dispatcher calls `engine.rename(...)` or `engine.moveFile(...)` without knowing which engine it has. Per-engine dispatchers (`VueDispatcher`, `TsDispatcher`) would leak engine knowledge into the dispatch layer. This is realised as an `OPERATIONS` descriptor table in `dispatcher.ts`: each entry owns `pathParams` (for workspace validation), `invoke`, and `format`. The first `pathParams` entry determines the engine.
 
-**A6: Data-driven MCP registration and dispatcher.**
+**Data-driven MCP registration and dispatcher.**
 `TOOLS` table in `mcp.ts` drives all `registerTool` calls. Each entry has `name`, `description`, and `inputSchema: ZodRawShape`. The loop handler passes `params as Record<string, unknown>` directly to `callDaemon` — no per-operation destructuring needed. `OPERATIONS` table in `dispatcher.ts` drives all dispatch: `pathParams` (first = engine selector) → workspace validation loop → `invoke` → `format`. Adding a new operation is now a single table entry in each file.
 
 **Commit body explains WHY, not WHAT.**

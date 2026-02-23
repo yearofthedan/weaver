@@ -1,3 +1,10 @@
+**Purpose:** Current state, source layout, architecture decisions, and next work items for engineers implementing features.
+**Audience:** Engineers implementing features, AI agents working on the codebase.
+**Status:** Current
+**Related docs:** [Vision](vision.md) (roadmap), [Features](features/) (operations), [Tech Debt](tech/tech-debt.md) (known issues)
+
+---
+
 # Handoff Notes
 
 Context that isn't in the feature docs — things you need to know before picking up the work.
@@ -15,7 +22,7 @@ Read the docs in this order:
 
 ## Current state
 
-**125/125 tests passing.** Security controls, project restructure, all five operations plus `getDefinition`, and architecture slices A1–A6 complete. The file layout reflects domain boundaries:
+**125/125 tests passing.** Security controls, project restructure, all five operations plus `getDefinition`, provider/engine separation, and data-driven dispatch are complete. The file layout reflects domain boundaries:
 
 ```
 src/
@@ -60,6 +67,7 @@ src/
 
 Evaluate each candidate: does the daemon's stateful engine make it meaningfully better than the agent editing directly? `rename`, `move`, and `findReferences` benefit strongly because they require project-wide reference tracking.
 
+- **Rename `move` → `moveFile`** — `move` and `moveSymbol` are asymmetric; an agent scanning the tool list can't tell `move` operates on files without reading the description. Renaming to `moveFile` makes the pair self-documenting. Change is mechanical: update `TOOLS` in `mcp.ts`, `OPERATIONS` in `dispatcher.ts`, the `RefactorEngine` interface in `engines/types.ts`, both engine implementations, all tests, and docs. No behaviour change. `rename` stays as-is — in LSP convention, `rename` always means symbol rename, so the name is idiomatic and unambiguous to that audience.
 - **Filesystem watcher** — the daemon loads the project graph once on startup and only invalidates on operations it performs itself. If the user edits, creates, or deletes files outside our tools (e.g. in their editor), the engine's in-memory state goes stale silently. See design notes below.
 - **Lazy engine initialisation** — the daemon currently warms both the TS and Vue engines at startup regardless of project type. A TS-only project pays the full Volar startup cost unnecessarily. Engines should be initialised on first use: the dispatcher already selects the correct engine per workspace (via `isVueProject`), so the change is to defer `warmupEngine()` until the first request arrives for that engine rather than calling it eagerly at daemon start. This also improves daemon startup time for projects that only ever use one engine.
 - **`findReferences` by file path** — "who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
@@ -128,6 +136,8 @@ There is currently no benchmarking infrastructure. Suggested approach before lan
 - **`VueEngine.translateLocations` is the shared virtual→real mapping helper** — extracted from the inline loop in `rename`; reused by `findReferences` and `getDefinition`. Any future operation that reads positions from a Vue project should call this method rather than duplicating the source-map traversal.
 
 - **`VueEngine.toVirtualLocation` for operations that don't auto-translate** — `findRenameLocations` and `getReferencesAtPosition` in Volar's proxy translate real `.vue` paths → `.vue.ts` automatically. `getDefinitionAtPosition` does NOT — it calls TypeScript's internal implementation directly and throws `Could not find source file: App.vue`. Fix: call `toVirtualLocation(absPath, pos)` first to map to the virtual `.vue.ts` coordinate space, then pass those to `getDefinitionAtPosition`. Results still go through `translateLocations` for the reverse mapping. Any future operation that hits the same error pattern needs this treatment.
+
+- **MCP tool names and daemon method names are intentionally 1:1** — the MCP handler passes `tool.name` directly as the daemon method. There is no translation layer. A proposal to split the naming (e.g. different names at each layer to cover "file rename" vs "symbol rename") was rejected: the daemon is an internal IPC detail with no independent users, and "file rename" is already covered by `move`/`moveFile` (same code path, same operation). Splitting would add a translation table for no benefit.
 
 - **MCP transport uses `@modelcontextprotocol/sdk`** — the agent-facing stdio layer uses the official SDK (`@modelcontextprotocol/sdk@^1.26.0`). The internal daemon↔serve socket uses plain newline-delimited JSON, no library needed.
 - **SDK wire format is newline-delimited JSON — NOT Content-Length framed** — `StdioServerTransport` sends/reads `JSON.stringify(msg) + '\n'`. `McpTestClient` must match this format.

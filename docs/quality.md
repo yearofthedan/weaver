@@ -1,3 +1,10 @@
+**Purpose:** Testing strategy, performance targets, and reliability guarantees for light-bridge.
+**Audience:** Developers implementing features, reviewers evaluating PRs.
+**Status:** Current
+**Related docs:** [Security](security.md) (controls), [Handoff](handoff.md) (next work)
+
+---
+
 # Quality Spec
 
 ## Testing

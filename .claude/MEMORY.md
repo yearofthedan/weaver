@@ -1,82 +1,81 @@
 # Agent Memory — Project State
 
-This file is the durable memory store for AI agents. It is git-tracked and
-survives container rebuilds. Update it at the end of every session.
-
-See `docs/agent-memory.md` for technical gotchas useful to humans too.
+This file is the durable memory store for AI agents. Git-tracked; survives container rebuilds.
+Update at the end of every session. Keep this file as a signpost — details live in the docs.
 
 ---
 
 ## Current state
 
 - 125/125 tests passing
-- Security controls complete — see `docs/security.md`
-- Operations complete: `rename` (TS+Vue), `move` (TS+Vue), `moveSymbol` (TS only), `findReferences` (TS+Vue, read-only), `getDefinition` (TS+Vue, read-only)
-- Deps pinned; pnpm override deduplicates `@volar/language-core` to 2.4.28
+- All five operations shipped: `rename`, `move`, `moveSymbol` (TS only), `findReferences`, `getDefinition`
+- Core architecture complete: daemon, MCP server, both engines, security controls, provider/engine separation, data-driven dispatch
 - CI: `.github/workflows/ci.yml` runs `pnpm check` on push/PR to main
-- Architecture slices: A1–A6 ✅ (all done)
+
+**Next work:** see `docs/handoff.md` (filesystem watcher, lazy init, extractFunction, etc.)
+
+---
 
 ## Source layout
 
 ```
 src/
   cli.ts          ← daemon + serve commands
-  schema.ts
+  schema.ts       ← Zod schemas for all operations
   workspace.ts    ← isWithinWorkspace() — shared boundary utility
-  mcp.ts          ← MCP server (connects to daemon)
+  mcp.ts          ← MCP server (TOOLS table drives registration)
   daemon/
-    daemon.ts     ← socket server; request-serialisation mutex; isDaemonAlive + removeDaemonFiles
+    daemon.ts     ← socket server; mutex; isDaemonAlive + removeDaemonFiles
     paths.ts      ← socketPath, lockfilePath, ensureCacheDir
-    dispatcher.ts ← dispatchRequest; engine singletons; vue scan post-step
+    dispatcher.ts ← OPERATIONS table drives dispatch; engine singletons; vue scan post-step
   engines/
-    errors.ts     ← EngineError class + ErrorCode union
+    errors.ts     ← EngineError + ErrorCode union
     types.ts      ← result types + LanguageProvider interface
-    engine.ts     ← BaseEngine: shared rename/findReferences/getDefinition/moveFile
-    text-utils.ts ← applyTextEdits(), offsetToLineCol() shared utilities
+    engine.ts     ← BaseEngine: rename, findReferences, getDefinition, moveFile
+    text-utils.ts ← applyTextEdits(), offsetToLineCol()
+    file-walk.ts  ← walkFiles(dir, extensions) + SKIP_DIRS
     providers/
-      ts.ts       ← TsProvider: compiler calls via ts-morph Project
-      volar.ts    ← VolarProvider: compiler calls via Volar proxy; virtual↔real translation
-    ts/
-      engine.ts   ← TsEngine extends BaseEngine; moveSymbol (ts-morph AST)
-      project.ts  ← findTsConfig, findTsConfigForFile, isVueProject
-    vue/
-      engine.ts   ← VueEngine extends BaseEngine; moveSymbol stub (NOT_SUPPORTED)
-      scan.ts     ← updateVueImportsAfterMove (regex scan for .vue SFCs)
-      service-builder.ts ← buildVolarService() — Volar service factory
+      ts.ts       ← TsProvider (ts-morph)
+      volar.ts    ← VolarProvider (Volar proxy + virtual↔real translation)
+    ts/engine.ts  ← TsEngine: adds moveSymbol (ts-morph AST)
+    ts/project.ts ← findTsConfig, isVueProject
+    vue/engine.ts ← VueEngine: moveSymbol stub (NOT_SUPPORTED)
+    vue/scan.ts   ← updateVueImportsAfterMove (regex scan for .vue SFCs)
+    vue/service-builder.ts ← buildVolarService()
 ```
 
-## Next up
+---
 
-See `docs/handoff.md` — it is the single source of truth for what's left to build.
+## Key docs
 
-## Parallel agent lesson
+| Doc | Purpose |
+|-----|---------|
+| `docs/handoff.md` | Next work, architecture decisions, technical context |
+| `docs/agent-memory.md` | Technical gotchas and implementation decisions |
+| `docs/vision.md` | What's shipped and what comes next |
+| `docs/security.md` | Threat model, controls, known limitations |
+| `docs/tech/volar-v3.md` | How the Vue engine works — read before touching `vue/engine.ts` |
+| `docs/tech/tech-debt.md` | Known structural issues |
+| `docs/features/` | Per-operation docs (rename, move, moveSymbol, findReferences, getDefinition) |
 
-Background agents launched with `isolation: "worktree"` cannot create new files
-or run Bash without interactive approval. They only work reliably on tasks that
-exclusively edit existing files. For slices that create new files, implement
-directly in the main session. Always use `subagent_type: "general-purpose"` (not
-`"Bash"`) when file writes are needed.
-
-## Architecture watch: per-workspace vs per-operation engine selection
-
-The dispatcher picks one engine per workspace. Correct for `rename`/`moveFile` (Volar needs the full project graph). Wrong for `moveSymbol` (pure AST surgery, Volar has nothing to offer). Future fix: per-operation selection or a fallback path inside `VueEngine.moveSymbol`. Tracked in `docs/handoff.md` and tech-debt.md.
-
-## Vue awareness fix (completed this session)
-
-`updateVueImportsAfterMove` was moved from both engine `moveFile()` implementations to the dispatcher's `move` handler as a post-step. Engines are now pure language-service wrappers. The scan runs once in the dispatcher regardless of which engine handled the move.
-
-## MCP tool dogfooding note
-
-`mcp__light-bridge__move` updates both project files (via `getEditsForFileRename`) and out-of-project files (via post-scan in `collectTsFiles`). Test files in `tests/` are handled automatically. `vitest.config.ts` excludes `tests/fixtures/**` so fixture files aren't picked up as test suites.
+---
 
 ## Agent behaviour
 
-**Commit body explains WHY, not WHAT.**
-Code diffs show what changed. The body should explain decisions and tradeoffs —
-not enumerate files or re-describe the diff. Split commits at logical boundaries;
-don't force a split when one file spans two concerns.
+**Commit body explains WHY, not WHAT.** Split commits at logical boundaries.
 
-**Do not use `~/.claude/` for memory.**
-That path is ephemeral and wiped on container rebuild. Write here or to
-`docs/agent-memory.md` instead. The memory storage rule in CLAUDE.md is
-authoritative.
+**Do not use `~/.claude/` for memory.** That path is wiped on container rebuild.
+Write here or to `docs/agent-memory.md` instead.
+
+**Parallel agents with `isolation: "worktree"` cannot create files or run Bash without approval.**
+Use `subagent_type: "general-purpose"` for tasks that write files.
+
+---
+
+## Notable constraints
+
+- `moveSymbol` in Vue projects returns `NOT_SUPPORTED` — router sends all Vue-project files to
+  `VueEngine`, which has no "extract declaration" API. Not a Volar limitation; fix is per-operation
+  engine selection or delegation inside `VueEngine.moveSymbol`. Tracked in `docs/tech/tech-debt.md`.
+- `updateVueImportsAfterMove` does not enforce workspace boundary on its scan (low risk, search
+  root is clamped to tsconfig dir). Tracked in `docs/security.md` and `docs/tech/tech-debt.md`.

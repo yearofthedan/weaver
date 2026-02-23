@@ -1,3 +1,10 @@
+**Purpose:** Product-level overview of what light-bridge is, why it exists, and what's planned next.
+**Audience:** Everyone — developers, users, and decision-makers.
+**Status:** Current
+**Related docs:** [Handoff](handoff.md) (current work), [Features](features/) (operations reference)
+
+---
+
 # light-bridge — Product Vision
 
 ## What it is
@@ -8,22 +15,23 @@ AI agents can read and write files, but cross-file refactoring is expensive for 
 
 light-bridge removes that burden. An agent issues an intent — rename this symbol, move this file — and light-bridge handles the cascade using the same compiler intelligence that powers IDE tooling. The agent gets back a semantic summary of what changed. It never needs to see the raw diffs.
 
-The analogy: IntelliSense does for human developers what light-bridge does for agents. A developer _could_ manually find and update every reference. IntelliSense makes that unnecessary. light-bridge is the same capability, surfaced as an agent tool.
-
 ## How it connects
 
 light-bridge has two layers:
 
-**Daemon** — a long-lived background process that loads the project graph into memory and watches the filesystem for changes. The daemon stays alive between agent sessions so the engine is always warm. It is launched explicitly by the developer, or auto-spawned on demand when an agent session starts.
+**Daemon** — a long-lived background process that loads the project graph into memory and keeps it warm across sessions. It is launched explicitly by the developer, or auto-spawned on demand when an agent session starts.
 
 **MCP server** (`light-bridge serve`) — a thin process started by the agent host (e.g. Claude, Cursor) for each session. It connects to the running daemon via a local socket, receives tool calls from the agent over stdio, and forwards them to the daemon. If the daemon is still starting, it rejects tool calls immediately with a `DAEMON_STARTING` error so the agent can retry rather than receiving stale results.
 
-The CLI also supports one-off operations directly from the shell, for scripting and manual use. These are stateless — each invocation builds a fresh project snapshot.
+The CLI (`daemon` and `serve`) is how both layers are started. All refactoring operations are invoked through the MCP tool interface, not as direct CLI subcommands.
 
 ## What it does
 
 - **Rename symbol** — rename any TypeScript or Vue symbol at a given file position and update all references project-wide, including across `.ts` and `.vue` file boundaries
 - **Move file** — move a file to a new path and update all import statements that reference it
+- **Move symbol** — move a named export from one file to another and update all importers (TypeScript projects; Vue projects currently return `NOT_SUPPORTED`)
+- **Find references** — return all references to a symbol by position, without modifying files
+- **Get definition** — return the definition location for a symbol by position, without modifying files
 
 Supported file types: `.ts`, `.tsx`, `.js`, `.jsx`, `.vue`
 
@@ -41,30 +49,38 @@ Every operation returns a JSON summary:
 
 The agent receives confirmation of what changed and where. It does not need to inspect the modified files. Its context window stays clean.
 
-## Features — priority tiers
+## Shipped
 
-### Now (exists or in active development)
+Core architecture is complete: the daemon, MCP server, both engines (TypeScript and Vue), security controls, and all five operations are live.
 
-- CLI interface: `rename`, `move`, `serve` (scaffolded)
-- TypeScript engine via ts-morph
-- Vue SFC engine via Volar
-- Unit tests for engine layer
-- Integration tests for CLI operations
-- Zod-validated input
-- JSON semantic output
+### Operations
 
-### Next
+| Operation | TS | Vue | Notes |
+|-----------|----|----|-------|
+| `rename` | ✓ | ✓ | Renames a symbol at a given position and updates all references project-wide |
+| `move` | ✓ | ✓ | Moves a file and rewrites all import paths that reference it |
+| `moveSymbol` | ✓ | — | Moves a named export from one file to another; Vue projects return `NOT_SUPPORTED` (router constraint, not a Volar limitation — see `docs/features/moveSymbol.md`) |
+| `findReferences` | ✓ | ✓ | Read-only; returns all references to a symbol by file position |
+| `getDefinition` | ✓ | ✓ | Read-only; returns the definition location(s) for a symbol by file position |
 
-- Daemon process — long-lived engine host with filesystem watcher
-- MCP server transport — `serve` as a thin client connecting to the daemon over a local socket, implementing the stdio MCP message loop
+### Infrastructure
 
-### Later
+- **Daemon** — long-lived process per workspace; loads the project graph once and keeps it warm across sessions
+- **MCP server** (`light-bridge serve`) — thin stdio client; auto-spawns the daemon if none is running; forwards tool calls over a local Unix socket
+- **CLI** — `daemon` and `serve` subcommands; all refactoring operations are invoked through the MCP server
+- **Security** — workspace boundary enforced at both dispatcher (input) and engine (output) layers; see `docs/security.md`
+- **CI** — `pnpm check` (biome + build + 125 tests) runs on push/PR to main
 
-- Additional operations (e.g. extract, inline, move symbol)
-- Multi-workspace support
-- Post-operation diagnostics — surface type errors on affected files so the agent doesn't need to run a separate lint step
-- Post-operation hook system — register scripts (e.g. tests) against the server that run after successful operations and return results in the response
+## Next work
 
-### Unknowns / open questions
+Evaluated against the same bar: does the daemon's stateful engine make this meaningfully better than the agent editing directly?
 
-- Conflict detection before applying a rename (naming collisions)
+- **Filesystem watcher** — the daemon's in-memory project graph goes stale if files are edited outside light-bridge (e.g. in an editor, via `git checkout`). Use chokidar to watch the workspace; debounce at ~200 ms; invalidate the affected engine on change. Design notes in `docs/handoff.md`.
+- **Lazy engine initialisation** — the daemon currently warms both TS and Vue engines at startup regardless of project type. Engines should initialise on first use; the dispatcher already selects the correct engine per workspace so the change is deferring `warmupEngine()` until the first request arrives.
+- **`findReferences` by file path** — "who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports; use `getEditsForFileRename` as a dry-run proxy; scan import strings via the module resolver. Warrants a separate design pass.
+- **`extractFunction`** — pull a selection into a named function, updating the call site
+- **`inlineVariable` / `inlineFunction`** — collapse a trivially-used binding
+- **`deleteFile`** — remove a file and clean up its imports in referencing files
+- **`createFile`** — scaffold a file with correct import paths inferred from its location
+- **`moveSymbol` for Vue projects** — currently `NOT_SUPPORTED`; path to fixing: for `.ts`→`.ts` in a Vue project, delegate to `TsEngine` then run `updateVueImportsAfterMove` to catch `.vue` import strings; for `.vue` source, use `@vue/compiler-sfc`'s `parse()` to locate and splice the `<script>` block (already a transitive dep, no new dependency needed)
+- **Rollback / `--dry-run`** — multi-file operations have no all-or-nothing guarantee; documented precondition is a clean git working tree. A `--dry-run` flag returning the full changeset without applying it would let the caller verify before committing.

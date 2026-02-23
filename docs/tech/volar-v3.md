@@ -1,3 +1,10 @@
+**Purpose:** Deep technical reference for how the Vue engine integrates Volar v3 with TypeScript, required reading before modifying Vue-related code.
+**Audience:** Engineers working on Vue engine, anyone debugging Vue-specific issues.
+**Status:** Current (matches installed versions in package.json)
+**Related docs:** [Features - getDefinition](../features/getDefinition.md) (example of virtual translation), [Tech Debt](tech-debt.md) (related issues)
+
+---
+
 # Volar v3 Architecture
 
 Hard-won research findings for the Vue engine. Do not re-derive — read this first.

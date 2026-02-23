@@ -1,3 +1,10 @@
+**Purpose:** Known structural issues, bugs, and their proposed fixes.
+**Audience:** Engineers deciding what to work on next, anyone hitting one of these issues in practice.
+**Status:** Current (as of last session)
+**Related docs:** [Handoff](../handoff.md) (next work), [Agent Memory](../agent-memory.md) (gotchas)
+
+---
+
 # Tech Debt
 
 Known issues to address before they compound. Reference the relevant source files before starting any of these.
@@ -26,7 +33,7 @@ There is also a related race in `waitForDaemon`: it resolves when the lockfile a
 
 ## Daemon: no request serialisation
 
-**Promoted to architecture slice A4 in `docs/handoff.md`.** See there for the fix plan.
+**Addressed in request serialisation: promise-chain mutex in `daemon.ts`.** The fix was to add a promise-chain mutex so concurrent socket connections are queued rather than interleaved.
 
 Context preserved here for reference: `src/daemon/daemon.ts` dispatches requests with `void handleSocketRequest(...)` — concurrent socket connections run as interleaved async tasks with no queueing. Current exposure is low (agents make sequential tool calls), but MCP hosts can retry on timeout, creating overlapping requests.
 
@@ -35,7 +42,7 @@ Context preserved here for reference: `src/daemon/daemon.ts` dispatches requests
 
 ## Dispatcher: operation-centric architecture
 
-**Promoted to architecture slices A5 + A6 in `docs/handoff.md`.** The provider/engine separation (A5) addresses the engine-side duplication; data-driven dispatch (A6) addresses the dispatcher-side boilerplate. Together they replace the current engine-centric routing with a model where operations and providers are independently composable.
+**Addressed in provider/engine separation and data-driven dispatch.** The provider/engine separation addresses the engine-side duplication; data-driven dispatch addresses the dispatcher-side boilerplate. Together they replace the engine-centric routing with a model where operations and providers are independently composable.
 
 Original analysis preserved here: the operation set is growing faster than the engine set. Adding a new operation today requires a method on `RefactorEngine` and an implementation in every engine. The vue-scan post-step for `moveFile` was an early signal that operations need their own orchestration strategy.
 
@@ -43,7 +50,7 @@ Original analysis preserved here: the operation set is growing faster than the e
 
 ## Missing provider/engine separation
 
-**Promoted to architecture slice A5 in `docs/handoff.md`.** See there for the full plan including `LanguageProvider` interface and extraction of `VueEngine.buildService`.
+**Addressed in provider/engine separation.** See `docs/agent-memory.md` for the full design decisions including the `LanguageProvider` interface and extraction of `VueEngine.buildService`.
 
 ---
 
@@ -71,7 +78,7 @@ The daemon socket speaks `{ method, params }` → `{ ok, ... }` but these shapes
 
 Both engines build `filesModified` and `filesSkipped` as arrays guarded by `if (!arr.includes(path))` — O(n) on every insert. `Set` expresses the dedup intent directly and is O(1).
 
-**Priority:** low. Will happen naturally during the provider/engine separation (slice A5) since the shared engine layer should use Sets internally and convert to arrays at the return boundary.
+**Priority:** low. Will happen naturally during future refactoring of the shared engine layer; `Set` expresses dedup intent directly and the conversion to array belongs at the return boundary.
 
 ---
 
@@ -81,4 +88,4 @@ Lines 16–37 of `src/engines/vue/engine.ts` manually define the TypeScript Lang
 
 **Fix:** `Pick<ts.LanguageService, 'findRenameLocations' | 'getReferencesAtPosition' | 'getEditsForFileRename'>`. Compile-time safety against upstream changes.
 
-**Priority:** low. Will be resolved as part of the provider separation (slice A5) since `VolarProvider` will type its dependency on the real `ts.LanguageService`.
+**Priority:** low. Will be resolved as part of further provider refactoring since `VolarProvider` should type its dependency on the real `ts.LanguageService`.
