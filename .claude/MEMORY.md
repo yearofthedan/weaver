@@ -11,13 +11,13 @@ Update at the end of every session. Keep this file as a signpost — details liv
 
 ## Current state
 
-- 200/200 tests passing
+- 201/201 tests passing
 - All seven operations shipped: `rename`, `moveFile`, `moveSymbol`, `findReferences`, `getDefinition`, `searchText`, `replaceText`
-- Security: workspace boundary + sensitive file blocklist (`src/security.ts`), ReDoS guard (`safe-regex2`), and runtime socket validation complete
+- Security: workspace boundary + sensitive file blocklist (`src/security.ts`), ReDoS guard (`safe-regex2`), runtime socket validation, and Vue scan boundary check complete
 - Architecture: action-centric, all three refactor phases complete. No engine classes remain.
 - CI: `.github/workflows/ci.yml` runs `pnpm check` on push/PR to main
 
-**Next work (security):** workspace boundary in `updateVueImportsAfterMove` (#3), socket timeout (#4), error masking (#5) — see `docs/security-architecture-review.md`
+**Next work (security):** socket timeout (#4), error masking (#5) — see `docs/security-architecture-review.md`
 
 **After security:** `findReferences` by file path, `moveSymbol` for class methods, `extractFunction` (see `docs/handoff.md`)
 
