@@ -2,6 +2,8 @@ import { findReferences } from "../operations/findReferences.js";
 import { getDefinition } from "../operations/getDefinition.js";
 import { moveFile } from "../operations/moveFile.js";
 import { rename } from "../operations/rename.js";
+import { replaceText } from "../operations/replaceText.js";
+import { searchText } from "../operations/searchText.js";
 import type {
   FindReferencesResult,
   GetDefinitionResult,
@@ -10,6 +12,8 @@ import type {
   MoveSymbolResult,
   ProviderRegistry,
   RenameResult,
+  ReplaceTextResult,
+  SearchTextResult,
 } from "../types.js";
 import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
 import { isWithinWorkspace } from "../workspace.js";
@@ -198,6 +202,62 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
       };
     },
   },
+
+  searchText: {
+    // No path params — operates on the whole workspace, not a specific file.
+    // Workspace boundary is enforced by the operation itself (files are walked
+    // from the workspace root and sensitive files are skipped).
+    pathParams: [],
+    async invoke(_registry, params, workspace) {
+      const { pattern, glob, context, maxResults } = params as {
+        pattern: string;
+        glob?: string;
+        context?: number;
+        maxResults?: number;
+      };
+      return searchText(pattern, workspace, { glob, context, maxResults });
+    },
+    format(result) {
+      const r = result as SearchTextResult;
+      const count = r.matches.length;
+      return {
+        ok: true,
+        matches: r.matches,
+        truncated: r.truncated,
+        message: `Found ${count} ${count === 1 ? "match" : "matches"}${r.truncated ? " (truncated)" : ""}`,
+      };
+    },
+  },
+
+  replaceText: {
+    // No path params — workspace boundary is enforced by the operation itself.
+    pathParams: [],
+    async invoke(_registry, params, workspace) {
+      const { pattern, replacement, glob, edits } = params as {
+        pattern?: string;
+        replacement?: string;
+        glob?: string;
+        edits?: Array<{
+          file: string;
+          line: number;
+          col: number;
+          oldText: string;
+          newText: string;
+        }>;
+      };
+      return replaceText(workspace, { pattern, replacement, glob, edits });
+    },
+    format(result) {
+      const r = result as ReplaceTextResult;
+      const fileCount = r.filesModified.length;
+      return {
+        ok: true,
+        filesModified: r.filesModified,
+        replacementCount: r.replacementCount,
+        message: `Replaced ${r.replacementCount} ${r.replacementCount === 1 ? "occurrence" : "occurrences"} across ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
+      };
+    },
+  },
 };
 
 // ─── Dispatcher ────────────────────────────────────────────────────────────
@@ -223,9 +283,14 @@ export async function dispatchRequest(
     }
   }
 
-  // The first path param determines which provider to use
-  const enginePath = req.params[descriptor.pathParams[0]] as string;
-  const registry = makeRegistry(enginePath);
+  // Operations with path params use the first param to select the right provider
+  // (e.g. which tsconfig covers that file). Operations with no path params
+  // (searchText, replaceText) receive a stub registry — they don't use it.
+  const registry =
+    descriptor.pathParams.length > 0
+      ? makeRegistry(req.params[descriptor.pathParams[0]] as string)
+      : makeRegistry(workspace);
+
   const result = await descriptor.invoke(registry, req.params, workspace);
   return descriptor.format(result);
 }

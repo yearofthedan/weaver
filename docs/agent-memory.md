@@ -49,6 +49,18 @@ The TS language service computes impacted files from the project graph (via tsco
 **`isWithinWorkspace` is in `src/workspace.ts`.**
 Used at both the daemon dispatcher (input validation) and the engine layer (output filtering). Resolves symlinks via `fs.realpathSync` for existing paths to prevent symlink escape. Returns `false` if `path.relative(workspace, abs)` starts with `..`.
 
+**`isSensitiveFile` is in `src/security.ts`.**
+Called by `searchText` (silently skips) and `replaceText` surgical mode (throws `SENSITIVE_FILE` before touching any file). Blocks `.env*`, `id_rsa`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `*.cert`, `*.crt`, `credentials`, `known_hosts`, `authorized_keys`.
+
+**`searchText` / `replaceText` do not use a `ProviderRegistry`.**
+They are pure filesystem operations — no compiler needed. The dispatcher passes `pathParams: []` for both, so no workspace path validation happens at the dispatcher level. Each operation enforces its own boundary checks internally. The dispatcher falls back to `makeRegistry(workspace)` as the engine anchor (harmless, ignored by the operation).
+
+**`globToRegex` splits on `**` before replacing `*`.**
+Naive single-pass replacement (`**` → placeholder → `.*`, `*` → `[^/]*`) requires a control character placeholder, which Biome rejects. Instead, split the pattern string on `**`, convert each part independently, then join with `.*`. This avoids any placeholder characters and is cleaner.
+
+**`replaceText` surgical mode sorts edits descending before applying.**
+Multiple edits to the same file must be applied last-position-first so that byte offsets of earlier edits remain valid after each write. Sort by `(line DESC, col DESC)` before the loop.
+
 **`newName` regex must be enforced at the MCP layer too.**
 `schema.ts` had the identifier regex but `serve.ts` only had `z.string()`. MCP input validation and schema.ts must stay consistent — check both when changing validation rules.
 
@@ -107,7 +119,8 @@ Code diffs show what changed. The body should explain decisions and tradeoffs. D
 
 | File | Purpose |
 |------|---------|
-| `src/workspace.ts` | `isWithinWorkspace()` — shared boundary utility |
+| `src/workspace.ts` | `isWithinWorkspace()` — workspace boundary utility |
+| `src/security.ts` | `isSensitiveFile()` — sensitive file blocklist (.env, *.pem, private keys…) |
 | `src/mcp.ts` | MCP server (connects to daemon) |
 | `src/daemon/paths.ts` | Socket and lockfile path utilities |
 | `src/daemon/daemon.ts` | Socket server; `isDaemonAlive` + `removeDaemonFiles` lifecycle fns |

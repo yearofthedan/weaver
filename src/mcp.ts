@@ -160,6 +160,72 @@ const TOOLS: ToolDefinition[] = [
       col: z.number().int().positive().describe("Column number (1-based)"),
     },
   },
+  {
+    name: "searchText",
+    description:
+      "Search for a regex pattern across all text files in the workspace. " +
+      "Returns match locations with optional surrounding context lines — use before replaceText to locate targets. " +
+      "For agents without shell access (Claude.ai, Cursor MCP-only), this is the primary way to find text before editing it. " +
+      "Sensitive files (.env, *.pem, private keys, keystores) are never returned. " +
+      "Each match includes file, line (1-based), col (1-based), matchText, and optional context lines. " +
+      "If truncated is true, results were capped at the internal limit — narrow the search with a more specific pattern or glob.",
+    inputSchema: {
+      pattern: z.string().describe("ECMAScript regex pattern to search for"),
+      glob: z
+        .string()
+        .optional()
+        .describe(
+          "Optional glob to restrict which files are searched (e.g. '**/*.ts', 'src/**/*.vue')",
+        ),
+      context: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe("Lines of context before and after each match (like grep -C)"),
+      maxResults: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Cap on total matches returned (default 500)"),
+    },
+  },
+  {
+    name: "replaceText",
+    description:
+      "Replace text across workspace files. Two modes: " +
+      "(1) Pattern mode — provide 'pattern' (regex) and 'replacement' to replace all matches across the workspace, " +
+      "optionally narrowed by 'glob'. Supports $1, $2, ... backreferences in replacement. " +
+      "(2) Surgical mode — provide 'edits' array of {file, line, col, oldText, newText} to replace exact locations; " +
+      "oldText is verified before writing, so stale edits are caught. " +
+      "Both modes skip sensitive files and enforce the workspace boundary. " +
+      "Returns filesModified and replacementCount. " +
+      "Use searchText first to locate targets, then replaceText to apply changes.",
+    inputSchema: {
+      pattern: z.string().optional().describe("Regex pattern to replace (pattern mode)"),
+      replacement: z
+        .string()
+        .optional()
+        .describe("Replacement string; supports $1, $2, ... backreferences (pattern mode)"),
+      glob: z
+        .string()
+        .optional()
+        .describe("Optional glob to restrict which files are modified (pattern mode)"),
+      edits: z
+        .array(
+          z.object({
+            file: z.string().describe("Absolute path to the file"),
+            line: z.number().int().positive().describe("Line number (1-based)"),
+            col: z.number().int().positive().describe("Column number (1-based)"),
+            oldText: z.string().describe("Text that must be present at the given position"),
+            newText: z.string().describe("Text to write in place of oldText"),
+          }),
+        )
+        .optional()
+        .describe("Surgical edits array (surgical mode)"),
+    },
+  },
 ];
 
 // ─── MCP server ────────────────────────────────────────────────────────────

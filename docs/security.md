@@ -78,9 +78,18 @@ Mitigations outside scope of this project: agent-side sandboxing, response sanit
 
 `updateVueImportsAfterMove` in `src/engines/vue/scan.ts` rewrites `.vue` imports after a move by scanning the project root directory. Its search root is clamped to `path.dirname(tsconfig)`, which is within the workspace when the tsconfig is in the workspace. If a tsconfig is placed outside the workspace (unusual), the scan could reach outside. No fix currently; tracked in `docs/tech/tech-debt.md`.
 
-### Sensitive file detection not yet implemented
+### 8. Sensitive file blocklist (`searchText` / `replaceText`)
 
-The current operations (rename, moveFile, moveSymbol, findReferences, getDefinition) work on AST nodes and do not expose raw file content, so the risk of leaking secrets is low. However, planned text search/replace operations will read and return file content. When those are added, a sensitive file pattern blocklist (`.env`, `*.pem`, `id_rsa`, cloud credential files, etc.) should be enforced before returning any content — similar to the approach used in grepika's `security.rs`. This is a prerequisite for the text search/replace slice, not a nice-to-have.
+`src/security.ts` — `isSensitiveFile(filePath)`
+
+`searchText` and `replaceText` read raw file content and must never expose secrets. Before reading any file, both operations call `isSensitiveFile` which blocks:
+
+- **`.env` variants** — `.env`, `.env.local`, `.env.production`, etc. (basename starts with `.env` followed by end-of-string, `.`, or `_`)
+- **Private keys** — `id_rsa`, `id_ecdsa`, `id_ed25519`, `id_dsa`
+- **Certificate / keystore extensions** — `.pem`, `.key`, `.p12`, `.pfx`, `.jks`, `.keystore`, `.cert`, `.crt`
+- **Credential files** — `credentials`, `.credentials`, `known_hosts`, `authorized_keys`
+
+Sensitive files are silently skipped in `searchText` (not returned in matches) and cause `SENSITIVE_FILE` error in `replaceText` surgical mode (fail-fast before touching any file). Covered by `tests/engines/sensitive-files.test.ts`.
 
 ### No rate limiting or request size limits
 

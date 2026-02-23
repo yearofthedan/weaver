@@ -36,8 +36,37 @@ export const GetDefinitionArgsSchema = z.object({
   col: z.coerce.number().int().positive("col must be a positive integer (1-based)"),
 });
 
+export const SearchTextArgsSchema = z.object({
+  pattern: z.string().min(1, "pattern is required"),
+  glob: z.string().optional(),
+  context: z.coerce.number().int().min(0).optional(),
+  maxResults: z.coerce.number().int().positive().optional(),
+});
+
+const TextEditSchema = z.object({
+  file: z.string().min(1),
+  line: z.coerce.number().int().positive(),
+  col: z.coerce.number().int().positive(),
+  oldText: z.string(),
+  newText: z.string(),
+});
+
+export const ReplaceTextArgsSchema = z
+  .object({
+    pattern: z.string().optional(),
+    replacement: z.string().optional(),
+    glob: z.string().optional(),
+    edits: z.array(TextEditSchema).optional(),
+  })
+  .refine(
+    (d) => (d.pattern !== undefined && d.replacement !== undefined) || d.edits !== undefined,
+    { message: "Provide either 'pattern'+'replacement' or 'edits'" },
+  );
+
 export type RenameArgs = z.infer<typeof RenameArgsSchema>;
 export type MoveArgs = z.infer<typeof MoveArgsSchema>;
 export type MoveSymbolArgs = z.infer<typeof MoveSymbolArgsSchema>;
 export type FindReferencesArgs = z.infer<typeof FindReferencesArgsSchema>;
 export type GetDefinitionArgs = z.infer<typeof GetDefinitionArgsSchema>;
+export type SearchTextArgs = z.infer<typeof SearchTextArgsSchema>;
+export type ReplaceTextArgs = z.infer<typeof ReplaceTextArgsSchema>;

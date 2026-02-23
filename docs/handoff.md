@@ -22,14 +22,15 @@ Read the docs in this order:
 
 ## Current state
 
-**159/159 tests passing.** Security controls, all five operations plus `getDefinition`, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, and full action-centric refactor (Phases 1–3) are complete. Directory layout matches domain boundaries:
+**191/191 tests passing.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, and full action-centric refactor (Phases 1–3) are complete. Directory layout matches domain boundaries:
 
 ```
 src/
   cli.ts          ← registers only: daemon, serve, stop
   schema.ts
   types.ts        ← result types + LanguageProvider + ProviderRegistry interfaces
-  workspace.ts    ← isWithinWorkspace() — shared boundary utility
+  workspace.ts    ← isWithinWorkspace() — workspace boundary utility
+  security.ts     ← isSensitiveFile() — sensitive file blocklist (.env, *.pem, keys, certs…)
   mcp.ts          ← MCP server (connects to daemon)
   daemon/
     daemon.ts     ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher
@@ -42,6 +43,8 @@ src/
     getDefinition.ts ← getDefinition(provider, filePath, line, col)
     moveFile.ts      ← moveFile(provider, oldPath, newPath, workspace)
     moveSymbol.ts    ← moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace)
+    searchText.ts    ← searchText(pattern, workspace, { glob, context, maxResults })
+    replaceText.ts   ← replaceText(workspace, { pattern, replacement, glob } | { edits })
   providers/
     ts.ts         ← TsProvider: compiler calls via ts-morph Project; refreshFile() for selective invalidation
     volar.ts      ← VolarProvider: compiler calls via Volar proxy + virtual↔real translation; afterSymbolMove scans .vue files
@@ -60,6 +63,8 @@ src/
 - `moveSymbol` — TS + Vue
 - `findReferences` — TS + Vue; read-only, returns all references to a symbol by position
 - `getDefinition` — TS + Vue; read-only, returns definition location(s) for a symbol by position
+- `searchText` — regex search across workspace files; glob filter, context lines, max-results cap; skips sensitive files
+- `replaceText` — pattern mode (regex replace-all + optional glob) or surgical mode (edits array with oldText verification); skips sensitive files
 
 ---
 
@@ -69,7 +74,6 @@ src/
 
 Evaluate each candidate: does the daemon's stateful engine make it meaningfully better than the agent editing directly? `rename`, `moveFile`, and `findReferences` benefit strongly because they require project-wide reference tracking.
 
-- **`searchText` + `replaceText`** — server-side grep-and-replace pair. Neither operation needs the daemon's project graph — implement as a lightweight module alongside the dispatcher, not as an engine method. `replaceText` accepts either a pattern+glob (blind replace-all) or an array of `{file, line, col, oldText, newText}` locations (surgical). `searchText` is its natural feed: returns match locations with optional surrounding context lines (`context` parameter, same semantics as `grep -C`); each hit is `{file, line, col, matchText, context: [{line, text, isMatch}]}`. For bash-less agents (Claude.ai, Cursor MCP-only), `searchText` is the only path to locating targets before replacing — without it `replaceText` has no feeder. For agents with bash, `rg --json` provides equivalent search but in a different schema; `searchText` removes the transformation step and makes the pipeline zero-friction. Implement as a pair.
 - **`findReferences` by file path** — "who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
 - **`moveSymbol` for class methods** — currently only top-level exported declarations are supported. "Extract this method to a standalone exported function in another module" is one of the most common refactoring patterns agents perform, and light-bridge can't help with it today. The extraction involves removing the method from the class, writing a standalone `export function` at the destination, rewriting all call sites from `instance.method(args)` to `method(instance, args)` or `method(args)` depending on whether `this` is used. The ts-morph AST has everything needed: `MethodDeclaration`, `CallExpression`, `this` references. Discovered during Phase 2 dogfooding — `BaseEngine` methods couldn't be extracted with `moveSymbol` because they were class methods, not top-level exports.
 - **`extractFunction`** — pull a selection into a named function, updating the call site

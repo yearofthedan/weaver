@@ -48,6 +48,39 @@ export interface GetDefinitionResult {
   definitions: Definition[];
 }
 
+export interface ContextLine {
+  line: number;
+  text: string;
+  isMatch: boolean;
+}
+
+export interface SearchMatch {
+  file: string;
+  line: number;
+  col: number;
+  matchText: string;
+  context: ContextLine[];
+}
+
+export interface SearchTextResult {
+  matches: SearchMatch[];
+  /** True if the result set was capped at the internal limit. */
+  truncated: boolean;
+}
+
+export interface TextEdit {
+  file: string;
+  line: number;
+  col: number;
+  oldText: string;
+  newText: string;
+}
+
+export interface ReplaceTextResult {
+  filesModified: string[];
+  replacementCount: number;
+}
+
 // ─── Provider-level types ──────────────────────────────────────────────────
 
 export interface SpanLocation {
