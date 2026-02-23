@@ -94,4 +94,26 @@ describe("daemon command", () => {
     expect(fs.existsSync(socketPath(dir))).toBe(false);
     expect(fs.existsSync(lockfilePath(dir))).toBe(false);
   });
+
+  it("returns PARSE_ERROR when the socket receives a malformed envelope (missing method)", async () => {
+    const dir = await setup();
+    const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
+    procs.push(proc);
+
+    const response = await callDaemonSocket(dir, { method: "", params: {} });
+    expect(response).toMatchObject({ ok: false, error: "PARSE_ERROR" });
+  });
+
+  it("returns PARSE_ERROR when params is not an object", async () => {
+    const dir = await setup();
+    const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
+    procs.push(proc);
+
+    // callDaemonSocket types params as Record but we force a bad value at runtime
+    const response = await callDaemonSocket(dir, {
+      method: "rename",
+      params: "not-an-object" as unknown as Record<string, unknown>,
+    });
+    expect(response).toMatchObject({ ok: false, error: "PARSE_ERROR" });
+  });
 });

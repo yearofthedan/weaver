@@ -4,6 +4,15 @@ import { moveFile } from "../operations/moveFile.js";
 import { rename } from "../operations/rename.js";
 import { replaceText } from "../operations/replaceText.js";
 import { searchText } from "../operations/searchText.js";
+import {
+  FindReferencesArgsSchema,
+  GetDefinitionArgsSchema,
+  MoveArgsSchema,
+  MoveSymbolArgsSchema,
+  RenameArgsSchema,
+  ReplaceTextArgsSchema,
+  SearchTextArgsSchema,
+} from "../schema.js";
 import { isWithinWorkspace } from "../security.js";
 import type {
   FindReferencesResult,
@@ -85,6 +94,14 @@ export function invalidateAll(): void {
 interface OperationDescriptor {
   /** Param keys that hold file paths requiring workspace validation. */
   pathParams: string[];
+  /** Zod schema used to validate incoming params at the socket boundary. */
+  schema: {
+    safeParse(
+      data: unknown,
+    ):
+      | { success: true; data: Record<string, unknown> }
+      | { success: false; error: { issues: Array<{ message: string }> } };
+  };
   /** Call the appropriate provider method and return the raw result. */
   invoke(
     registry: ProviderRegistry,
@@ -98,6 +115,7 @@ interface OperationDescriptor {
 const OPERATIONS: Record<string, OperationDescriptor> = {
   rename: {
     pathParams: ["file"],
+    schema: RenameArgsSchema,
     async invoke(registry, params, workspace) {
       const { file, line, col, newName } = params as {
         file: string;
@@ -123,6 +141,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
 
   moveFile: {
     pathParams: ["oldPath", "newPath"],
+    schema: MoveArgsSchema,
     async invoke(registry, params, workspace) {
       const { oldPath, newPath } = params as { oldPath: string; newPath: string };
       const provider = await registry.projectProvider();
@@ -142,6 +161,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
 
   moveSymbol: {
     pathParams: ["sourceFile", "destFile"],
+    schema: MoveSymbolArgsSchema,
     async invoke(registry, params, workspace) {
       const { sourceFile, symbolName, destFile } = params as {
         sourceFile: string;
@@ -167,6 +187,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
 
   findReferences: {
     pathParams: ["file"],
+    schema: FindReferencesArgsSchema,
     async invoke(registry, params) {
       const { file, line, col } = params as { file: string; line: number; col: number };
       const provider = await registry.projectProvider();
@@ -186,6 +207,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
 
   getDefinition: {
     pathParams: ["file"],
+    schema: GetDefinitionArgsSchema,
     async invoke(registry, params) {
       const { file, line, col } = params as { file: string; line: number; col: number };
       const provider = await registry.projectProvider();
@@ -208,6 +230,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     // Workspace boundary is enforced by the operation itself (files are walked
     // from the workspace root and sensitive files are skipped).
     pathParams: [],
+    schema: SearchTextArgsSchema,
     async invoke(_registry, params, workspace) {
       const { pattern, glob, context, maxResults } = params as {
         pattern: string;
@@ -232,6 +255,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
   replaceText: {
     // No path params — workspace boundary is enforced by the operation itself.
     pathParams: [],
+    schema: ReplaceTextArgsSchema,
     async invoke(_registry, params, workspace) {
       const { pattern, replacement, glob, edits } = params as {
         pattern?: string;
@@ -271,6 +295,13 @@ export async function dispatchRequest(
     return { ok: false, error: "UNKNOWN_METHOD", message: `Unknown method: ${req.method}` };
   }
 
+  // Validate params against the operation's schema before touching any files
+  const parsed = descriptor.schema.safeParse(req.params);
+  if (!parsed.success) {
+    const message = parsed.error.issues.map((i) => i.message).join("; ");
+    return { ok: false, error: "VALIDATION_ERROR", message };
+  }
+
   // Validate all path params are within the workspace
   for (const paramKey of descriptor.pathParams) {
     const value = req.params[paramKey] as string;
@@ -291,6 +322,6 @@ export async function dispatchRequest(
       ? makeRegistry(req.params[descriptor.pathParams[0]] as string)
       : makeRegistry(workspace);
 
-  const result = await descriptor.invoke(registry, req.params, workspace);
+  const result = await descriptor.invoke(registry, parsed.data, workspace);
   return descriptor.format(result);
 }

@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { makeRegistry } from "../../src/daemon/dispatcher.js";
+import { dispatchRequest, makeRegistry } from "../../src/daemon/dispatcher.js";
 import { TsProvider } from "../../src/providers/ts.js";
 import { cleanup, copyFixture } from "../helpers.js";
 
@@ -31,4 +31,51 @@ describe("makeRegistry", () => {
     const provider = await registry.projectProvider();
     expect(provider).toBeInstanceOf(TsProvider);
   }, 10_000);
+});
+
+describe("dispatchRequest param validation", () => {
+  const workspace = "/tmp/test-workspace";
+
+  it("returns VALIDATION_ERROR when rename receives line as a string", async () => {
+    const result = await dispatchRequest(
+      {
+        method: "rename",
+        params: { file: "/tmp/test-workspace/a.ts", line: "five", col: 1, newName: "foo" },
+      },
+      workspace,
+    );
+    expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
+  });
+
+  it("returns VALIDATION_ERROR when rename is missing required params", async () => {
+    const result = await dispatchRequest(
+      { method: "rename", params: { file: "/tmp/test-workspace/a.ts" } },
+      workspace,
+    );
+    expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
+  });
+
+  it("returns VALIDATION_ERROR when searchText receives pattern as a number", async () => {
+    const result = await dispatchRequest(
+      { method: "searchText", params: { pattern: 123 } },
+      workspace,
+    );
+    expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
+  });
+
+  it("returns VALIDATION_ERROR when findReferences receives col as null", async () => {
+    const result = await dispatchRequest(
+      {
+        method: "findReferences",
+        params: { file: "/tmp/test-workspace/a.ts", line: 1, col: null },
+      },
+      workspace,
+    );
+    expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
+  });
+
+  it("returns UNKNOWN_METHOD for an unrecognised method", async () => {
+    const result = await dispatchRequest({ method: "doSomethingFake", params: {} }, workspace);
+    expect(result).toMatchObject({ ok: false, error: "UNKNOWN_METHOD" });
+  });
 });

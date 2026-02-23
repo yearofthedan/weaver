@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
+import { z } from "zod";
 import { validateWorkspace } from "../security.js";
 import { EngineError } from "../utils/errors.js";
 import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../utils/file-walk.js";
@@ -147,6 +148,11 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
   process.on("SIGINT", shutdown);
 }
 
+const RequestEnvelopeSchema = z.object({
+  method: z.string().min(1, "method is required"),
+  params: z.record(z.unknown()).default({}),
+});
+
 async function handleSocketRequest(
   socket: net.Socket,
   line: string,
@@ -154,8 +160,14 @@ async function handleSocketRequest(
 ): Promise<void> {
   let response: object;
   try {
-    const req = JSON.parse(line) as { method: string; params: Record<string, unknown> };
-    response = await dispatchRequest(req, workspace);
+    const raw: unknown = JSON.parse(line);
+    const envelope = RequestEnvelopeSchema.safeParse(raw);
+    if (!envelope.success) {
+      const message = envelope.error.issues.map((i) => i.message).join("; ");
+      response = { ok: false, error: "PARSE_ERROR", message };
+    } else {
+      response = await dispatchRequest(envelope.data, workspace);
+    }
   } catch (err) {
     response = {
       ok: false,
