@@ -68,7 +68,14 @@ src/
 
 Evaluate each candidate: does the daemon's stateful engine make it meaningfully better than the agent editing directly? `rename`, `moveFile`, and `findReferences` benefit strongly because they require project-wide reference tracking.
 
-- **Lazy engine initialisation** — the daemon currently warms both the TS and Vue engines at startup regardless of project type. A TS-only project pays the full Volar startup cost unnecessarily. Engines should be initialised on first use: the dispatcher already selects the correct engine per workspace (via `isVueProject`), so the change is to defer `warmupEngine()` until the first request arrives for that engine rather than calling it eagerly at daemon start. This also improves daemon startup time for projects that only ever use one engine.
+- **Action-centric dispatcher refactor** — replace the engine-per-workspace model with a `ProviderRegistry` that actions pull from. Design is settled (see Architecture decisions below). Implement in three phases, each independently releasable:
+
+  - **Phase 1 — add `ProviderRegistry` alongside engines (no behaviour change).** Add the `ProviderRegistry` interface (`projectProvider()` / `tsProvider()`) and `makeRegistry(filePath)` factory to the dispatcher. Add `afterSymbolMove(sourceFile, symbolName, destFile, workspace)` to `LanguageProvider` with no-op implementations on both providers. Wire the existing OPERATIONS table to receive a registry instead of an engine — keep `BaseEngine` and the engine classes alive, just thread the registry through. Delete `warmupEngine()` (lazy init falls out for free). All tests pass unchanged.
+
+  - **Phase 2 — extract operations to action functions (delete `BaseEngine`).** Move `rename`, `findReferences`, `getDefinition`, and `moveFile` out of `BaseEngine` into standalone functions under `src/engines/actions/`. Each takes a `LanguageProvider` directly. Wire them into the OPERATIONS table via `registry.projectProvider()`. Delete `BaseEngine`. **Good dogfooding opportunity:** use `mcp__light-bridge__moveSymbol` on the light-bridge source itself to extract each method — this is a TS-only project so `moveSymbol` works today without the Vue gap.
+
+  - **Phase 3 — fix `moveSymbol` and delete engine classes.** Implement `VolarProvider.afterSymbolMove` to scan `.vue` files for imports of the moved symbol and rewrite them (surgical — only the named symbol, unlike `afterFileRename` which rewrites all imports of the old path). Extract `TsEngine.moveSymbol` to `src/engines/actions/moveSymbol.ts`, taking `TsProvider` for AST surgery and `LanguageProvider` for the post-move hook. Delete `TsEngine` and `VueEngine`. `moveSymbol` now works in Vue projects; `NOT_SUPPORTED` is gone.
+
 - **`findReferences` by file path** — "who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
 - **`searchText` + `replaceText`** — server-side grep-and-replace pair. Neither operation needs the daemon's project graph — implement as a lightweight module alongside the dispatcher, not as an engine method. `replaceText` accepts either a pattern+glob (blind replace-all) or an array of `{file, line, col, oldText, newText}` locations (surgical). `searchText` is its natural feed: returns match locations with optional surrounding context lines (`context` parameter, same semantics as `grep -C`); each hit is `{file, line, col, matchText, context: [{line, text, isMatch}]}`. For bash-less agents (Claude.ai, Cursor MCP-only), `searchText` is the only path to locating targets before replacing — without it `replaceText` has no feeder. For agents with bash, `rg --json` provides equivalent search but in a different schema; `searchText` removes the transformation step and makes the pipeline zero-friction. Implement as a pair.
 - **`extractFunction`** — pull a selection into a named function, updating the call site
@@ -89,7 +96,20 @@ Evaluate each candidate: does the daemon's stateful engine make it meaningfully 
 
 ## Architecture decisions
 
-- **Per-workspace engine selection — a known limitation** — `dispatcher.ts` picks one engine per workspace: if any `.vue` files are present, `VueEngine` handles everything, including `.ts` files. This is correct for `rename`, `moveFile`, and `findReferences` (Volar understands the full project graph). But it means `moveSymbol` in a Vue project hits `NOT_SUPPORTED` even when both files are plain `.ts`. The fix is per-operation engine selection or a fallback path inside `VueEngine.moveSymbol` that delegates to `TsEngine`. The current approach is kept because it is simpler and the broken case is uncommon; tracked in tech-debt.md.
+- **Action-centric dispatcher — settled design** — operations are the core construct, not engines. Each action function pulls the provider capabilities it needs from a `ProviderRegistry` rather than being a method on an engine class. The registry has two named slots:
+
+  ```typescript
+  interface ProviderRegistry {
+    projectProvider(): Promise<LanguageProvider>  // Volar in Vue projects, TsProvider otherwise
+    tsProvider(): Promise<TsProvider>             // always ts-morph; for AST-level operations
+  }
+  ```
+
+  `projectProvider` is scoped by `findTsConfigForFile(inputFile)` — in a monorepo, each package resolves to its own tsconfig and gets the right provider. No monorepo-specific design needed. Both providers are lazy singletons; each manages a per-tsconfig cache internally (`Map<tsconfig, Project|CachedService>`).
+
+  `LanguageProvider` gains `afterSymbolMove(sourceFile, symbolName, destFile, workspace)` — a post-step hook symmetric with `afterFileRename`. `TsProvider` implements it as a no-op (TS import paths are handled by ts-morph AST edits in the action). `VolarProvider` implements it by scanning `.vue` files for imports of the specific `symbolName` and rewriting them to point at `destFile` (surgical — unlike `afterFileRename`, which rewrites all imports of the old path).
+
+  Operations that need neither provider (e.g. `searchText`) receive the registry but simply ignore it.
 
 - **`moveSymbol` for Vue sources (`.vue` → `.ts`) is buildable — no new deps needed** — `@vue/language-core` re-exports `parse()` (wraps `@vue/compiler-sfc` internally), returning an `Sfc` with `script.ast` as a `ts.SourceFile` plus block offsets. Extract the declaration from a `<script setup>` block, write to the destination `.ts`, and patch importers. `parseScriptSetupRanges` can locate `defineProps`/`defineEmits` declarations to avoid moving them. Moving *into* a `.vue` destination is not worth supporting. See `docs/tech/volar-v3.md` § "Package ecosystem" for the full API inventory.
 
