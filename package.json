@@ -8,7 +8,7 @@
   "type": "module",
   "main": "./dist/cli.js",
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
     "dev": "tsx src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
