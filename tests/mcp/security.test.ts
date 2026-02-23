@@ -56,11 +56,11 @@ describe("MCP transport — workspace security", () => {
     expect(result.error).toBe("WORKSPACE_VIOLATION");
   }, 60_000);
 
-  it("rejects move when oldPath is outside the workspace", async () => {
+  it("rejects moveFile when oldPath is outside the workspace", async () => {
     const { dir, client } = await setup();
 
     const resp = await client.request(2, "tools/call", {
-      name: "move",
+      name: "moveFile",
       arguments: {
         oldPath: path.join(os.tmpdir(), "outside.ts"),
         newPath: path.join(dir, "src/inside.ts"),
@@ -73,11 +73,11 @@ describe("MCP transport — workspace security", () => {
     expect(result.error).toBe("WORKSPACE_VIOLATION");
   }, 60_000);
 
-  it("rejects move when newPath is outside the workspace", async () => {
+  it("rejects moveFile when newPath is outside the workspace", async () => {
     const { dir, client } = await setup();
 
     const resp = await client.request(3, "tools/call", {
-      name: "move",
+      name: "moveFile",
       arguments: {
         oldPath: path.join(dir, "src/utils.ts"),
         newPath: path.join(os.tmpdir(), "stolen.ts"),

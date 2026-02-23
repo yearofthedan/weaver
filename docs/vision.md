@@ -58,7 +58,7 @@ Core architecture is complete: the daemon, MCP server, both engines (TypeScript 
 | Operation | TS | Vue | Notes |
 |-----------|----|----|-------|
 | `rename` | ✓ | ✓ | Renames a symbol at a given position and updates all references project-wide |
-| `move` | ✓ | ✓ | Moves a file and rewrites all import paths that reference it |
+| `moveFile` | ✓ | ✓ | Moves a file and rewrites all import paths that reference it |
 | `moveSymbol` | ✓ | — | Moves a named export from one file to another; Vue projects return `NOT_SUPPORTED` (router constraint, not a Volar limitation — see `docs/features/moveSymbol.md`) |
 | `findReferences` | ✓ | ✓ | Read-only; returns all references to a symbol by file position |
 | `getDefinition` | ✓ | ✓ | Read-only; returns the definition location(s) for a symbol by file position |

@@ -11,7 +11,7 @@ import {
   waitForDaemon,
 } from "../helpers";
 
-describe("MCP transport — move tool", () => {
+describe("MCP transport — moveFile tool", () => {
   const dirs: string[] = [];
   const procs: import("node:child_process").ChildProcess[] = [];
 
@@ -45,7 +45,7 @@ describe("MCP transport — move tool", () => {
     const newPath = path.join(dir, "src/helpers.ts");
 
     const resp = await client.request(1, "tools/call", {
-      name: "move",
+      name: "moveFile",
       arguments: { oldPath, newPath },
     });
 

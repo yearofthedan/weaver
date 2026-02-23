@@ -13,7 +13,7 @@ Known issues to address before they compound. Reference the relevant source file
 
 ## Test cleanup: leaked daemon processes
 
-Tests that spawn `serve` (serve.test.ts, mcp/move.test.ts, mcp/rename.test.ts) leak a daemon process after each test. `serve` auto-spawns the daemon as a detached, unref'd child. The `afterEach` kills the serve process and calls `removeDaemonFiles`, which deletes the socket and lockfile but does not kill the daemon process.
+Tests that spawn `serve` (serve.test.ts, mcp/moveFile.test.ts, mcp/rename.test.ts) leak a daemon process after each test. `serve` auto-spawns the daemon as a detached, unref'd child. The `afterEach` kills the serve process and calls `removeDaemonFiles`, which deletes the socket and lockfile but does not kill the daemon process.
 
 Over a long test session this exhausts container memory and causes OOM kills (e.g. `tsc` exits 137).
 

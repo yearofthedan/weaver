@@ -99,7 +99,7 @@ const TOOLS: ToolDefinition[] = [
     },
   },
   {
-    name: "move",
+    name: "moveFile",
     description:
       "Move a file to a new path and rewrite every import that references it, project-wide. " +
       "Use this instead of a shell mv followed by manual import fixes. " +

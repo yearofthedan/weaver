@@ -1,4 +1,4 @@
-# Operation: move
+# Operation: moveFile
 
 ## What it does
 
@@ -8,7 +8,7 @@ Moves a file from one path to another and rewrites all import statements that re
 
 ```json
 {
-  "name": "move",
+  "name": "moveFile",
   "arguments": {
     "oldPath": "/path/to/project/src/utils/helpers.ts",
     "newPath": "/path/to/project/src/lib/helpers.ts"
@@ -76,7 +76,7 @@ See `docs/security.md` for the full threat model.
 `sourceFile.move()` + `project.save()` is an atomic API — it writes all dirty files with no per-file whitelist. Workspace boundary enforcement would require reverting writes after the fact. `getEditsForFileRename()` returns per-file text spans. Boundary-check each file before writing; skip those that fail. The Vue engine already used this pattern; the TS engine was rewritten to match.
 
 **Why a post-scan for Vue imports?**
-Volar's `getEditsForFileRename` returns edits with virtual `.vue.ts` filenames that can't be written to disk directly (they don't exist as real files). The Vue import string rewriting (`import Foo from './Foo.vue'`) is done by a separate regex scan in `vue/scan.ts`. This scan runs as a dispatcher post-step after any `move`, regardless of which engine handled it — so a move in a TS project still updates `.vue` SFC imports if any exist.
+Volar's `getEditsForFileRename` returns edits with virtual `.vue.ts` filenames that can't be written to disk directly (they don't exist as real files). The Vue import string rewriting (`import Foo from './Foo.vue'`) is done by a separate regex scan in `vue/scan.ts`. This scan runs as a dispatcher post-step after any `moveFile`, regardless of which engine handled it — so a move in a TS project still updates `.vue` SFC imports if any exist.
 
 **Why does invalidation happen after the move?**
 ts-morph and Volar both cache project state keyed by file path. After `renameSync`, the old path no longer exists but may still be in the cache. Explicit invalidation (`TsProvider.invalidateProject()`) forces the engine to rebuild on the next request. Without it, a subsequent rename or move referencing the moved file would use stale state.

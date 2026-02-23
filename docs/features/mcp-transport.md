@@ -30,7 +30,7 @@ All tools use position-based parameters where applicable, consistent with LSP co
 | Tool | Parameters |
 |------|-----------|
 | `rename` | `file`, `line`, `col`, `newName` |
-| `move` | `oldPath`, `newPath` |
+| `moveFile` | `oldPath`, `newPath` |
 | `moveSymbol` | `sourceFile`, `symbolName`, `destFile` |
 | `findReferences` | `file`, `line`, `col` |
 | `getDefinition` | `file`, `line`, `col` |

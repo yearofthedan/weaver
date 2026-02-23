@@ -6,7 +6,7 @@
 
 The CLI is the primary binary for light-bridge. It has two subcommands: `daemon` (start the long-lived engine host) and `serve` (start an MCP server session for an agent).
 
-All refactoring operations (`rename`, `move`, `moveSymbol`, `findReferences`, `getDefinition`) are exposed through the MCP server — not as direct CLI subcommands. The CLI is how both the daemon and the MCP server are started; the MCP tools are how operations are invoked.
+All refactoring operations (`rename`, `moveFile`, `moveSymbol`, `findReferences`, `getDefinition`) are exposed through the MCP server — not as direct CLI subcommands. The CLI is how both the daemon and the MCP server are started; the MCP tools are how operations are invoked.
 
 ## Commands
 
@@ -70,6 +70,6 @@ Both commands write a JSON ready signal to stderr on startup. All MCP tool respo
 
 ## Out of scope
 
-- Direct CLI invocation of refactoring operations (rename, move, etc.) — use `serve` + an MCP client
+- Direct CLI invocation of refactoring operations (rename, moveFile, etc.) — use `serve` + an MCP client
 - Interactive/TUI mode
 - Config file

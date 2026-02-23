@@ -72,7 +72,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     },
   },
 
-  move: {
+  moveFile: {
     pathParams: ["oldPath", "newPath"],
     invoke(engine, params, workspace) {
       const { oldPath, newPath } = params as { oldPath: string; newPath: string };

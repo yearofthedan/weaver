@@ -51,7 +51,7 @@ Adding a new operation is a single table entry in `dispatcher.ts` and `mcp.ts`.
 | Operation | TS | Vue | Entry point |
 |-----------|----|----|-------------|
 | `rename` | ✓ | ✓ | `BaseEngine.rename` → `LanguageProvider.findRenameLocations` |
-| `move` | ✓ | ✓ | `BaseEngine.moveFile` → `LanguageProvider.getEditsForFileRename` + post-scan |
+| `moveFile` | ✓ | ✓ | `BaseEngine.moveFile` → `LanguageProvider.getEditsForFileRename` + post-scan |
 | `moveSymbol` | ✓ | — | `TsEngine.moveSymbol` (ts-morph AST); `VueEngine` throws `NOT_SUPPORTED` |
 
 ### Read-only
@@ -65,7 +65,7 @@ Adding a new operation is a single table entry in `dispatcher.ts` and `mcp.ts`.
 
 - `src/engines/text-utils.ts` — `applyTextEdits()`, `offsetToLineCol()` — used by both engines
 - `src/engines/file-walk.ts` — `walkFiles(dir, extensions)`, `SKIP_DIRS` — git-aware file collection
-- `src/engines/vue/scan.ts` — `updateVueImportsAfterMove()` — regex scan for `.vue` SFC import strings; runs as a dispatcher post-step after any `move`, regardless of engine
+- `src/engines/vue/scan.ts` — `updateVueImportsAfterMove()` — regex scan for `.vue` SFC import strings; runs as a dispatcher post-step after any `moveFile`, regardless of engine
 
 ## Workspace boundary enforcement
 

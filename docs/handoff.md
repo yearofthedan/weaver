@@ -56,7 +56,7 @@ src/
 
 **Operations shipped:**
 - `rename` — TS + Vue
-- `move` — TS + Vue
+- `moveFile` — TS + Vue
 - `moveSymbol` — TS only; Vue throws `NOT_SUPPORTED` (dispatcher constraint, not Volar)
 - `findReferences` — TS + Vue; read-only, returns all references to a symbol by position
 - `getDefinition` — TS + Vue; read-only, returns definition location(s) for a symbol by position
@@ -65,12 +65,12 @@ src/
 
 ## Next things to build
 
-Evaluate each candidate: does the daemon's stateful engine make it meaningfully better than the agent editing directly? `rename`, `move`, and `findReferences` benefit strongly because they require project-wide reference tracking.
+Evaluate each candidate: does the daemon's stateful engine make it meaningfully better than the agent editing directly? `rename`, `moveFile`, and `findReferences` benefit strongly because they require project-wide reference tracking.
 
-- **Rename `move` → `moveFile`** — `move` and `moveSymbol` are asymmetric; an agent scanning the tool list can't tell `move` operates on files without reading the description. Renaming to `moveFile` makes the pair self-documenting. Change is mechanical: update `TOOLS` in `mcp.ts`, `OPERATIONS` in `dispatcher.ts`, the `RefactorEngine` interface in `engines/types.ts`, both engine implementations, all tests, and docs. No behaviour change. `rename` stays as-is — in LSP convention, `rename` always means symbol rename, so the name is idiomatic and unambiguous to that audience.
 - **Filesystem watcher** — the daemon loads the project graph once on startup and only invalidates on operations it performs itself. If the user edits, creates, or deletes files outside our tools (e.g. in their editor), the engine's in-memory state goes stale silently. See design notes below.
 - **Lazy engine initialisation** — the daemon currently warms both the TS and Vue engines at startup regardless of project type. A TS-only project pays the full Volar startup cost unnecessarily. Engines should be initialised on first use: the dispatcher already selects the correct engine per workspace (via `isVueProject`), so the change is to defer `warmupEngine()` until the first request arrives for that engine rather than calling it eagerly at daemon start. This also improves daemon startup time for projects that only ever use one engine.
 - **`findReferences` by file path** — "who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
+- **`searchText` + `replaceText`** — server-side grep-and-replace pair. The agent never loads file content; token cost is proportional to match count, not file size. `searchText` returns match locations with optional surrounding context lines (controlled by a `context` parameter, same semantics as `grep -C`); each hit includes `{file, line, col, matchText, context: [{line, text, isMatch}]}` so the agent can discriminate without reading full files. `replaceText` accepts either a pattern+glob (blind replace-all) or an array of `{file, line, col, oldText, newText}` locations (surgical, composes naturally with `searchText` results). Neither operation needs the daemon's project graph — implement as a lightweight module alongside the dispatcher, not as an engine method.
 - **`extractFunction`** — pull a selection into a named function, updating the call site
 - **`inlineVariable` / `inlineFunction`** — collapse a trivially-used binding
 - **`deleteFile`** — remove a file and clean up its imports in other files
@@ -137,7 +137,7 @@ There is currently no benchmarking infrastructure. Suggested approach before lan
 
 - **`VueEngine.toVirtualLocation` for operations that don't auto-translate** — `findRenameLocations` and `getReferencesAtPosition` in Volar's proxy translate real `.vue` paths → `.vue.ts` automatically. `getDefinitionAtPosition` does NOT — it calls TypeScript's internal implementation directly and throws `Could not find source file: App.vue`. Fix: call `toVirtualLocation(absPath, pos)` first to map to the virtual `.vue.ts` coordinate space, then pass those to `getDefinitionAtPosition`. Results still go through `translateLocations` for the reverse mapping. Any future operation that hits the same error pattern needs this treatment.
 
-- **MCP tool names and daemon method names are intentionally 1:1** — the MCP handler passes `tool.name` directly as the daemon method. There is no translation layer. A proposal to split the naming (e.g. different names at each layer to cover "file rename" vs "symbol rename") was rejected: the daemon is an internal IPC detail with no independent users, and "file rename" is already covered by `move`/`moveFile` (same code path, same operation). Splitting would add a translation table for no benefit.
+- **MCP tool names and daemon method names are intentionally 1:1** — the MCP handler passes `tool.name` directly as the daemon method. There is no translation layer. A proposal to split the naming (e.g. different names at each layer to cover "file rename" vs "symbol rename") was rejected: the daemon is an internal IPC detail with no independent users, and "file rename" is already covered by `moveFile` (same code path, same operation). Splitting would add a translation table for no benefit.
 
 - **MCP transport uses `@modelcontextprotocol/sdk`** — the agent-facing stdio layer uses the official SDK (`@modelcontextprotocol/sdk@^1.26.0`). The internal daemon↔serve socket uses plain newline-delimited JSON, no library needed.
 - **SDK wire format is newline-delimited JSON — NOT Content-Length framed** — `StdioServerTransport` sends/reads `JSON.stringify(msg) + '\n'`. `McpTestClient` must match this format.

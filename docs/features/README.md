@@ -9,7 +9,7 @@ All operations are invoked through the MCP server (`light-bridge serve`). There 
 | Operation | Doc | TS | Vue | Mutating |
 |-----------|-----|----|----|---------|
 | `rename` | [rename.md](./rename.md) | ✓ | ✓ | yes |
-| `move` | [move.md](./move.md) | ✓ | ✓ | yes |
+| `moveFile` | [moveFile.md](./moveFile.md) | ✓ | ✓ | yes |
 | `moveSymbol` | [moveSymbol.md](./moveSymbol.md) | ✓ | — | yes |
 | `findReferences` | [findReferences.md](./findReferences.md) | ✓ | ✓ | no |
 | `getDefinition` | [getDefinition.md](./getDefinition.md) | ✓ | ✓ | no |
