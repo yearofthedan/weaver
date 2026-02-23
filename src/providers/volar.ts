@@ -189,7 +189,7 @@ export class VolarProvider implements LanguageProvider {
     workspace: string,
   ): Promise<{ modified: string[]; skipped: string[] }> {
     const tsConfig = findTsConfigForFile(sourceFile);
-    const searchRoot = tsConfig ? path.dirname(tsConfig) : path.dirname(sourceFile);
+    const searchRoot = tsConfig ? path.dirname(tsConfig) : workspace;
     const modified = updateVueNamedImportAfterSymbolMove(
       sourceFile,
       symbolName,
@@ -203,12 +203,12 @@ export class VolarProvider implements LanguageProvider {
   async afterFileRename(
     oldPath: string,
     newPath: string,
-    _workspace: string,
+    workspace: string,
   ): Promise<{ modified: string[]; skipped: string[] }> {
     this.invalidateService(oldPath);
 
     const tsConfig = findTsConfigForFile(oldPath);
-    const searchRoot = tsConfig ? path.dirname(tsConfig) : path.dirname(oldPath);
+    const searchRoot = tsConfig ? path.dirname(tsConfig) : workspace;
     const modified = updateVueImportsAfterMove(oldPath, newPath, searchRoot);
 
     return { modified, skipped: [] };
