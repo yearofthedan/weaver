@@ -155,6 +155,16 @@ export class TsProvider implements LanguageProvider {
     // ts-morph reads from disk; no in-memory cache to update.
   }
 
+  async afterSymbolMove(
+    _sourceFile: string,
+    _symbolName: string,
+    _destFile: string,
+    _workspace: string,
+  ): Promise<{ modified: string[]; skipped: string[] }> {
+    // ts-morph AST edits in TsEngine.moveSymbol handle TS importers directly.
+    return { modified: [], skipped: [] };
+  }
+
   async afterFileRename(
     oldPath: string,
     newPath: string,

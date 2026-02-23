@@ -1,54 +1,77 @@
+import { BaseEngine } from "../engines/engine.js";
+import { EngineError } from "../engines/errors.js";
 import { findTsConfigForFile, isVueProject } from "../engines/ts/project.js";
 import type {
   FindReferencesResult,
   GetDefinitionResult,
+  LanguageProvider,
   MoveResult,
   MoveSymbolResult,
-  RefactorEngine,
+  ProviderRegistry,
   RenameResult,
 } from "../engines/types.js";
 import { isWithinWorkspace } from "../workspace.js";
 
-let tsEngine: import("../engines/ts/engine.js").TsEngine | undefined;
-let vueEngine: import("../engines/vue/engine.js").VueEngine | undefined;
+// ─── Provider singletons ───────────────────────────────────────────────────
+// Lazy-loaded and cached for the daemon lifetime. Providers hold the stateful
+// project graphs (ts-morph Projects, Volar services) — engines are thin wrappers.
 
-async function getEngine(filePath: string): Promise<RefactorEngine> {
-  const tsConfigPath = findTsConfigForFile(filePath);
-  if (tsConfigPath && isVueProject(tsConfigPath)) {
-    if (!vueEngine) {
-      const { VueEngine } = await import("../engines/vue/engine.js");
-      vueEngine = new VueEngine();
-    }
-    return vueEngine;
+let tsProviderSingleton: import("../engines/providers/ts.js").TsProvider | undefined;
+let volarProviderSingleton: import("../engines/providers/volar.js").VolarProvider | undefined;
+
+async function getTsProvider(): Promise<import("../engines/providers/ts.js").TsProvider> {
+  if (!tsProviderSingleton) {
+    const { TsProvider } = await import("../engines/providers/ts.js");
+    tsProviderSingleton = new TsProvider();
   }
-  if (!tsEngine) {
-    const { TsEngine } = await import("../engines/ts/engine.js");
-    tsEngine = new TsEngine();
-  }
-  return tsEngine;
+  return tsProviderSingleton;
 }
 
-export async function warmupEngine(filePath: string): Promise<void> {
-  await getEngine(filePath);
+async function getVolarProvider(): Promise<import("../engines/providers/volar.js").VolarProvider> {
+  if (!volarProviderSingleton) {
+    const { VolarProvider } = await import("../engines/providers/volar.js");
+    volarProviderSingleton = new VolarProvider();
+  }
+  return volarProviderSingleton;
 }
 
 /**
- * Refresh a single file in whichever engine(s) are loaded.
+ * Create a `ProviderRegistry` scoped to the project containing `filePath`.
+ * `projectProvider` returns TsProvider or VolarProvider based on project type.
+ * `tsProvider` always returns TsProvider for AST-level operations (e.g. moveSymbol).
+ */
+export function makeRegistry(filePath: string): ProviderRegistry {
+  return {
+    async projectProvider(): Promise<LanguageProvider> {
+      const tsConfigPath = findTsConfigForFile(filePath);
+      if (tsConfigPath && isVueProject(tsConfigPath)) {
+        return getVolarProvider();
+      }
+      return getTsProvider();
+    },
+    async tsProvider() {
+      return getTsProvider();
+    },
+  };
+}
+
+/**
+ * Refresh a single file in whichever provider(s) are loaded.
  * Called by the watcher on `change` events — cheaper than full rebuild.
  */
 export function invalidateFile(filePath: string): void {
-  tsEngine?.invalidateFile(filePath);
-  vueEngine?.invalidateFile(filePath);
+  tsProviderSingleton?.refreshFile(filePath);
+  volarProviderSingleton?.invalidateService(filePath);
 }
 
 /**
- * Drop all loaded engines so they rebuild lazily on the next request.
+ * Drop all loaded providers so they rebuild lazily on the next request.
  * Called by the watcher on `add` and `unlink` events — structural changes
  * that require the full project graph to be refreshed.
  */
 export function invalidateAll(): void {
-  tsEngine = undefined;
-  vueEngine = undefined;
+  tsProviderSingleton = undefined;
+  volarProviderSingleton = undefined;
 }
 
 // ─── Operation descriptor table ───────────────────────────────────────────
@@ -56,9 +79,9 @@ export function invalidateAll(): void {
 interface OperationDescriptor {
   /** Param keys that hold file paths requiring workspace validation. */
   pathParams: string[];
-  /** Call the appropriate engine method and return the raw result. */
+  /** Call the appropriate provider method and return the raw result. */
   invoke(
-    engine: RefactorEngine,
+    registry: ProviderRegistry,
     params: Record<string, unknown>,
     workspace: string,
   ): Promise<unknown>;
@@ -69,14 +92,15 @@ interface OperationDescriptor {
 const OPERATIONS: Record<string, OperationDescriptor> = {
   rename: {
     pathParams: ["file"],
-    invoke(engine, params, workspace) {
+    async invoke(registry, params, workspace) {
       const { file, line, col, newName } = params as {
         file: string;
         line: number;
         col: number;
         newName: string;
       };
-      return engine.rename(file, line, col, newName, workspace);
+      const provider = await registry.projectProvider();
+      return new BaseEngine(provider).rename(file, line, col, newName, workspace);
     },
     format(result) {
       const r = result as RenameResult;
@@ -93,9 +117,10 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
 
   moveFile: {
     pathParams: ["oldPath", "newPath"],
-    invoke(engine, params, workspace) {
+    async invoke(registry, params, workspace) {
       const { oldPath, newPath } = params as { oldPath: string; newPath: string };
-      return engine.moveFile(oldPath, newPath, workspace);
+      const provider = await registry.projectProvider();
+      return new BaseEngine(provider).moveFile(oldPath, newPath, workspace);
     },
     format(result) {
       const r = result as MoveResult;
@@ -111,13 +136,23 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
 
   moveSymbol: {
     pathParams: ["sourceFile", "destFile"],
-    invoke(engine, params, workspace) {
+    async invoke(registry, params, workspace) {
       const { sourceFile, symbolName, destFile } = params as {
         sourceFile: string;
         symbolName: string;
         destFile: string;
       };
-      return engine.moveSymbol(sourceFile, symbolName, destFile, workspace);
+      // Vue projects: not supported until Phase 3 (VolarProvider.afterSymbolMove is a no-op)
+      const tsConfigPath = findTsConfigForFile(sourceFile);
+      if (tsConfigPath && isVueProject(tsConfigPath)) {
+        throw new EngineError(
+          `moveSymbol is not supported for Vue projects (symbol: '${symbolName}')`,
+          "NOT_SUPPORTED",
+        );
+      }
+      const tsProvider = await registry.tsProvider();
+      const { TsEngine } = await import("../engines/ts/engine.js");
+      return new TsEngine(tsProvider).moveSymbol(sourceFile, symbolName, destFile, workspace);
     },
     format(result) {
       const r = result as MoveSymbolResult;
@@ -133,9 +168,10 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
 
   findReferences: {
     pathParams: ["file"],
-    invoke(engine, params) {
+    async invoke(registry, params) {
       const { file, line, col } = params as { file: string; line: number; col: number };
-      return engine.findReferences(file, line, col);
+      const provider = await registry.projectProvider();
+      return new BaseEngine(provider).findReferences(file, line, col);
     },
     format(result) {
       const r = result as FindReferencesResult;
@@ -151,9 +187,10 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
 
   getDefinition: {
     pathParams: ["file"],
-    invoke(engine, params) {
+    async invoke(registry, params) {
       const { file, line, col } = params as { file: string; line: number; col: number };
-      return engine.getDefinition(file, line, col);
+      const provider = await registry.projectProvider();
+      return new BaseEngine(provider).getDefinition(file, line, col);
     },
     format(result) {
       const r = result as GetDefinitionResult;
@@ -191,9 +228,9 @@ export async function dispatchRequest(
     }
   }
 
-  // The first path param determines which engine to use
+  // The first path param determines which provider to use
   const enginePath = req.params[descriptor.pathParams[0]] as string;
-  const engine = await getEngine(enginePath);
-  const result = await descriptor.invoke(engine, req.params, workspace);
+  const registry = makeRegistry(enginePath);
+  const result = await descriptor.invoke(registry, req.params, workspace);
   return descriptor.format(result);
 }

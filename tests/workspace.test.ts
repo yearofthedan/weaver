@@ -82,14 +82,17 @@ describe("validateWorkspace", () => {
   });
 
   // System paths that are guaranteed to exist on Linux — each must be rejected.
-  it.each(["/", "/etc", "/usr", "/var", "/bin"])(
-    "rejects restricted system path: %s",
-    (restrictedPath) => {
-      const result = validateWorkspace(restrictedPath);
-      expect(result.ok).toBe(false);
-      if (!result.ok) expect(result.error).toMatch(/restricted/i);
-    },
-  );
+  it.each([
+    "/",
+    "/etc",
+    "/usr",
+    "/var",
+    "/bin",
+  ])("rejects restricted system path: %s", (restrictedPath) => {
+    const result = validateWorkspace(restrictedPath);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/restricted/i);
+  });
 
   // User credential directories — only tested when the path actually exists on
   // the current machine, since not every developer has all of these.
@@ -97,14 +100,11 @@ describe("validateWorkspace", () => {
     .map((d) => path.join(os.homedir(), d))
     .filter((p) => fs.existsSync(p));
 
-  it.each(credentialDirs)(
-    "rejects user credential directory: %s",
-    (credPath) => {
-      const result = validateWorkspace(credPath);
-      expect(result.ok).toBe(false);
-      if (!result.ok) expect(result.error).toMatch(/restricted/i);
-    },
-  );
+  it.each(credentialDirs)("rejects user credential directory: %s", (credPath) => {
+    const result = validateWorkspace(credPath);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/restricted/i);
+  });
 
   it("rejects a symlink that resolves to a restricted path", () => {
     const dir = makeTmpDir();

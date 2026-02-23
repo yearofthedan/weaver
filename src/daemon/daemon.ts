@@ -5,7 +5,7 @@ import { EngineError } from "../engines/errors.js";
 import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../engines/file-walk.js";
 import { findTsConfigForFile, isVueProject } from "../engines/ts/project.js";
 import { validateWorkspace } from "../workspace.js";
-import { dispatchRequest, invalidateAll, invalidateFile, warmupEngine } from "./dispatcher.js";
+import { dispatchRequest, invalidateAll, invalidateFile } from "./dispatcher.js";
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
 import { startWatcher } from "./watcher.js";
 
@@ -51,14 +51,10 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
   // 3. Remove any leftover socket/lockfile from a previous run
   removeDaemonFiles(absWorkspace);
 
-  // 4. Load project graph into memory — warm up the engine for this workspace
-  const sentinelPath = path.join(absWorkspace, "__sentinel__");
-  await warmupEngine(sentinelPath);
-
-  // 5. Write PID lockfile
+  // 4. Write PID lockfile
   fs.writeFileSync(pidPath, String(process.pid));
 
-  // 6. Open Unix socket and wait for connections
+  // 5. Open Unix socket and wait for connections
   // Serialise all incoming requests with a promise-chain mutex. If two
   // requests arrive concurrently (e.g. an MCP host retry while the first
   // request is still in-flight), the second waits for the first to finish
@@ -82,8 +78,9 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
 
   server.listen(sockPath);
 
-  // 7. Watch for out-of-band file changes and invalidate stale engine state.
+  // 6. Watch for out-of-band file changes and invalidate stale provider state.
   // Extensions are chosen by project type — Vue projects also watch .vue files.
+  const sentinelPath = path.join(absWorkspace, "__sentinel__");
   const tsConfigPath = findTsConfigForFile(sentinelPath);
   const watchExtensions =
     tsConfigPath && isVueProject(tsConfigPath) ? VUE_EXTENSIONS : TS_EXTENSIONS;
@@ -94,11 +91,11 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
     onFileRemoved: invalidateAll,
   });
 
-  // 8. Signal readiness
+  // 7. Signal readiness
   const readySignal = { status: "ready", workspace: absWorkspace };
   process.stderr.write(`${JSON.stringify(readySignal)}\n`);
 
-  // 9. Clean up on shutdown
+  // 8. Clean up on shutdown
   function shutdown(): void {
     void watcher.stop();
     server.close();

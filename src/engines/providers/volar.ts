@@ -182,6 +182,16 @@ export class VolarProvider implements LanguageProvider {
     if (cached) cached.fileContents.set(filePath, content);
   }
 
+  async afterSymbolMove(
+    _sourceFile: string,
+    _symbolName: string,
+    _destFile: string,
+    _workspace: string,
+  ): Promise<{ modified: string[]; skipped: string[] }> {
+    // Phase 3 will implement scanning .vue files for imports of the moved symbol.
+    return { modified: [], skipped: [] };
+  }
+
   async afterFileRename(
     oldPath: string,
     newPath: string,

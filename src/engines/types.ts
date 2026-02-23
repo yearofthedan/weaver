@@ -112,6 +112,19 @@ export interface LanguageProvider {
     newPath: string,
     workspace: string,
   ): Promise<{ modified: string[]; skipped: string[] }>;
+
+  /**
+   * Called after a named export has been moved from `sourceFile` to `destFile`.
+   * Providers may scan for imports of the specific symbol and rewrite them.
+   * `TsProvider` is a no-op (ts-morph AST edits handle TS importers directly).
+   * `VolarProvider` will scan `.vue` files in Phase 3.
+   */
+  afterSymbolMove(
+    sourceFile: string,
+    symbolName: string,
+    destFile: string,
+    workspace: string,
+  ): Promise<{ modified: string[]; skipped: string[] }>;
 }
 
 // ─── Engine-level types ────────────────────────────────────────────────────
@@ -159,4 +172,21 @@ export interface RefactorEngine {
    * line and col are 1-based. Read-only — does not modify any files.
    */
   getDefinition(filePath: string, line: number, col: number): Promise<GetDefinitionResult>;
+}
+
+// ─── Registry ──────────────────────────────────────────────────────────────
+
+/**
+ * Lazy accessor for compiler providers scoped to a single workspace request.
+ *
+ * `projectProvider` returns the right provider for the project type — Volar for
+ * Vue projects, TsProvider otherwise. `tsProvider` always returns TsProvider for
+ * operations that need ts-morph AST access (e.g. moveSymbol).
+ *
+ * Both providers are lazy singletons: first call initialises, subsequent calls
+ * return the cached instance.
+ */
+export interface ProviderRegistry {
+  projectProvider(): Promise<LanguageProvider>;
+  tsProvider(): Promise<import("./providers/ts.js").TsProvider>;
 }

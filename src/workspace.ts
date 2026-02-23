@@ -56,7 +56,10 @@ export function validateWorkspace(
   try {
     const real = fs.realpathSync(absWorkspace);
     if (RESTRICTED_WORKSPACE_ROOTS.has(real)) {
-      return { ok: false, error: `Workspace resolves to a restricted system path: ${workspacePath}` };
+      return {
+        ok: false,
+        error: `Workspace resolves to a restricted system path: ${workspacePath}`,
+      };
     }
   } catch {
     return { ok: false, error: `Could not resolve workspace path: ${workspacePath}` };

@@ -16,8 +16,8 @@ function computeRelativeSpecifier(fromFile: string, toFile: string): string {
 export class TsEngine extends BaseEngine implements RefactorEngine {
   private tsProvider: TsProvider;
 
-  constructor() {
-    const p = new TsProvider();
+  constructor(provider?: TsProvider) {
+    const p = provider ?? new TsProvider();
     super(p);
     this.tsProvider = p;
   }

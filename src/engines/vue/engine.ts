@@ -6,8 +6,8 @@ import type { MoveSymbolResult, RefactorEngine } from "../types.js";
 export class VueEngine extends BaseEngine implements RefactorEngine {
   private volarProvider: VolarProvider;
 
-  constructor() {
-    const p = new VolarProvider();
+  constructor(provider?: VolarProvider) {
+    const p = provider ?? new VolarProvider();
     super(p);
     this.volarProvider = p;
   }
