@@ -14,35 +14,11 @@
 
 ---
 
-### 2. No runtime validation on daemon socket protocol
+### 2. No runtime validation on daemon socket protocol ✅ Fixed
 
-**Files:** `src/daemon/daemon.ts:157`, `src/daemon/dispatcher.ts:101-107`
-
-**Problem:** The socket handler parses incoming JSON but uses only type assertions, not runtime validation:
-
-```typescript
-// daemon.ts:157 — type assertion, not validation
-const req = JSON.parse(line) as { method: string; params: Record<string, unknown> };
-
-// dispatcher.ts:102-107 — type assertion in operation handler
-const { file, line, col, newName } = params as {
-  file: string;
-  line: number;
-  col: number;
-  newName: string;
-};
-```
-
-If a local attacker sends `{ "line": "not-a-number" }`, it flows unchecked into the compiler layer, potentially causing confusing errors or undefined behavior.
-
-**Impact:** Medium — requires local access to the socket file. Could enable privilege escalation or code execution via malformed requests.
-
-**Related:** `schema.ts` defines Zod schemas for CLI validation, but the daemon never runs them. The MCP server defines inline Zod schemas (`mcp.ts:92-228`), but those only validate the MCP-to-serve boundary.
-
-**Mitigation:**
-- Move Zod schemas from CLI-only to a shared location
-- Run all schema validation in the dispatcher before forwarding to operations
-- Or: rebuild dispatcher to use schema-first dispatch (schema defines pathParams, invoke signature, etc.)
+Two layers now guard the socket:
+1. **Envelope** (`daemon.ts`): `RequestEnvelopeSchema` (Zod) validates `{ method: string, params: object }` before reaching the dispatcher. Invalid envelopes return `PARSE_ERROR`.
+2. **Params** (`dispatcher.ts`): each `OperationDescriptor` carries a `schema` field from `schema.ts`. `dispatchRequest` calls `.safeParse()` before any file I/O, returning `VALIDATION_ERROR` on failure. Validated `parsed.data` is passed to `invoke`. 200 tests pass.
 
 ---
 
@@ -321,7 +297,7 @@ A change to parameter names or types requires updating all three locations manua
 ## Recommended Priority Order
 
 1. ~~**ReDoS guard** (Issue #1)~~ ✅ Done
-2. **Runtime validation on socket** (Issue #2) — closes the untyped param gap
+2. ~~**Runtime validation on socket** (Issue #2)~~ ✅ Done
 3. **Workspace boundary in `updateVueImportsAfterMove`** (Issue #3) — prevents silent data corruption
 4. **Socket timeout** (Issue #4) — prevents resource leak from hung daemon
 5. **Fix error masking** (Issue #5) — distinguishes recoverable from permanent failures
