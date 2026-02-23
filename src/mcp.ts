@@ -8,37 +8,23 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { isDaemonAlive, removeDaemonFiles } from "./daemon/daemon.js";
 import { socketPath } from "./daemon/paths.js";
+import { validateWorkspace } from "./workspace.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const CLI_ENTRY = path.resolve(__dirname, "..", "src", "cli.ts");
 const TSX_BIN = path.resolve(__dirname, "..", "node_modules", ".bin", "tsx");
 
 export async function runServe(opts: { workspace: string }): Promise<void> {
-  // 1. Resolve workspace to absolute path
-  const absWorkspace = path.resolve(opts.workspace);
-
-  // 2. Validate workspace exists and is a directory
-  if (!fs.existsSync(absWorkspace)) {
-    const error = {
-      ok: false,
-      error: "VALIDATION_ERROR",
-      message: `Workspace directory not found: ${opts.workspace}`,
-    };
-    process.stdout.write(`${JSON.stringify(error)}\n`);
+  const validation = validateWorkspace(opts.workspace);
+  if (!validation.ok) {
+    process.stdout.write(
+      `${JSON.stringify({ ok: false, error: "VALIDATION_ERROR", message: validation.error })}\n`,
+    );
     process.exit(1);
   }
 
-  if (!fs.statSync(absWorkspace).isDirectory()) {
-    const error = {
-      ok: false,
-      error: "VALIDATION_ERROR",
-      message: `Workspace is not a directory: ${opts.workspace}`,
-    };
-    process.stdout.write(`${JSON.stringify(error)}\n`);
-    process.exit(1);
-  }
+  const absWorkspace = validation.workspace;
 
-  // 3. Register signal handlers for clean shutdown
   process.on("SIGTERM", () => {
     process.exit(0);
   });
@@ -47,21 +33,20 @@ export async function runServe(opts: { workspace: string }): Promise<void> {
     process.exit(0);
   });
 
-  // 4. Ensure daemon in the background — tool calls that arrive before it is
-  //    ready return DAEMON_STARTING, which the caller can retry.
+  // Spawn daemon in background. Tool calls that arrive before it's ready
+  // return DAEMON_STARTING, allowing the caller to retry.
   ensureDaemon(absWorkspace).catch((err) => {
     process.stderr.write(
       `daemon spawn failed: ${err instanceof Error ? err.message : String(err)}\n`,
     );
   });
 
-  // 5. Write readiness signal to stderr
   const readySignal = { status: "ready", workspace: absWorkspace };
   process.stderr.write(`${JSON.stringify(readySignal)}\n`);
 
-  // 6. Start MCP server immediately — takes over stdin/stdout for the JSON-RPC
-  //    message loop. Must happen before daemon startup so the MCP initialize
-  //    handshake completes within the host's connection timeout.
+  // Start MCP server immediately. It takes over stdin/stdout for JSON-RPC.
+  // Must happen after the ready signal so the MCP initialize handshake
+  // completes within the host's connection timeout.
   await startMcpServer(absWorkspace);
 }
 

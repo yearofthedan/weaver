@@ -64,24 +64,6 @@ When a new operation is added, a daemon running from a previous session will acc
 
 ---
 
-## Wire protocol types (daemon ↔ serve)
-
-The daemon socket speaks `{ method, params }` → `{ ok, ... }` but these shapes are typed inline with `as` casts at every usage (`dispatcher.ts`, `mcp.ts`, `daemon.ts`). If param names change, nothing catches it at compile time.
-
-**Fix:** shared request/response types in `src/protocol.ts` or extend `src/schema.ts`. Reuse the Zod schemas already defined for MCP input validation.
-
-**Priority:** low. The protocol is simple and stable. The cost of drift is a runtime error caught by the first test run, not a silent bug. Worth doing when the protocol surface grows (e.g. adding operation metadata or streaming responses).
-
----
-
-## Use `Set<string>` for filesModified / filesSkipped
-
-Both engines build `filesModified` and `filesSkipped` as arrays guarded by `if (!arr.includes(path))` — O(n) on every insert. `Set` expresses the dedup intent directly and is O(1).
-
-**Priority:** low. Will happen naturally during future refactoring of the shared engine layer; `Set` expresses dedup intent directly and the conversion to array belongs at the return boundary.
-
----
-
 ## VolarLanguageService interface is hand-typed
 
 Lines 16–37 of `src/engines/vue/engine.ts` manually define the TypeScript LanguageService methods used by the Vue engine. If an upstream API changes signature, this compiles fine but fails at runtime.
