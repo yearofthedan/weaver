@@ -22,7 +22,7 @@ Read the docs in this order:
 
 ## Current state
 
-**125/125 tests passing.** Security controls, project restructure, all five operations plus `getDefinition`, provider/engine separation, and data-driven dispatch are complete. The file layout reflects domain boundaries:
+**132/132 tests passing.** Security controls, project restructure, all five operations plus `getDefinition`, provider/engine separation, data-driven dispatch, and filesystem watcher are complete. The file layout reflects domain boundaries:
 
 ```
 src/
@@ -31,23 +31,24 @@ src/
   workspace.ts    ← isWithinWorkspace() — shared boundary utility
   mcp.ts          ← MCP server (connects to daemon)
   daemon/
-    daemon.ts     ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns
+    daemon.ts     ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher
     paths.ts      ← socketPath, lockfilePath, ensureCacheDir only
-    dispatcher.ts ← dispatchRequest; engine singletons; vue scan post-step
+    dispatcher.ts ← dispatchRequest; engine singletons; invalidateFile/invalidateAll
+    watcher.ts    ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
   engines/
     errors.ts     ← EngineError class + ErrorCode union
     types.ts      ← result types + LanguageProvider interface
     engine.ts     ← BaseEngine: shared rename/findReferences/getDefinition/moveFile
     text-utils.ts ← applyTextEdits(), offsetToLineCol() — shared by both engines
-    file-walk.ts  ← walkFiles(dir, extensions) + SKIP_DIRS — git-aware, shared by both engines
+    file-walk.ts  ← walkFiles() + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS — shared by engines and watcher
     providers/
-      ts.ts       ← TsProvider: compiler calls via ts-morph Project
+      ts.ts       ← TsProvider: compiler calls via ts-morph Project; refreshFile() for selective invalidation
       volar.ts    ← VolarProvider: compiler calls via Volar proxy + virtual↔real translation
     ts/
-      engine.ts   ← TsEngine extends BaseEngine; moveSymbol (ts-morph AST)
+      engine.ts   ← TsEngine extends BaseEngine; moveSymbol (ts-morph AST); invalidateFile()
       project.ts  ← findTsConfig, findTsConfigForFile, isVueProject
     vue/
-      engine.ts   ← VueEngine extends BaseEngine; moveSymbol stub (NOT_SUPPORTED)
+      engine.ts   ← VueEngine extends BaseEngine; moveSymbol stub (NOT_SUPPORTED); invalidateFile()
       scan.ts     ← updateVueImportsAfterMove (regex scan for .vue SFC imports)
       service-builder.ts ← buildVolarService() — extracted from VueEngine
 ```
@@ -67,7 +68,6 @@ src/
 
 Evaluate each candidate: does the daemon's stateful engine make it meaningfully better than the agent editing directly? `rename`, `moveFile`, and `findReferences` benefit strongly because they require project-wide reference tracking.
 
-- **Filesystem watcher** — the daemon loads the project graph once on startup and only invalidates on operations it performs itself. If the user edits, creates, or deletes files outside our tools (e.g. in their editor), the engine's in-memory state goes stale silently. See design notes below.
 - **Lazy engine initialisation** — the daemon currently warms both the TS and Vue engines at startup regardless of project type. A TS-only project pays the full Volar startup cost unnecessarily. Engines should be initialised on first use: the dispatcher already selects the correct engine per workspace (via `isVueProject`), so the change is to defer `warmupEngine()` until the first request arrives for that engine rather than calling it eagerly at daemon start. This also improves daemon startup time for projects that only ever use one engine.
 - **`findReferences` by file path** — "who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
 - **`searchText` + `replaceText`** — server-side grep-and-replace pair. Neither operation needs the daemon's project graph — implement as a lightweight module alongside the dispatcher, not as an engine method. `replaceText` accepts either a pattern+glob (blind replace-all) or an array of `{file, line, col, oldText, newText}` locations (surgical). `searchText` is its natural feed: returns match locations with optional surrounding context lines (`context` parameter, same semantics as `grep -C`); each hit is `{file, line, col, matchText, context: [{line, text, isMatch}]}`. For bash-less agents (Claude.ai, Cursor MCP-only), `searchText` is the only path to locating targets before replacing — without it `replaceText` has no feeder. For agents with bash, `rg --json` provides equivalent search but in a different schema; `searchText` removes the transformation step and makes the pipeline zero-friction. Implement as a pair.
@@ -75,44 +75,6 @@ Evaluate each candidate: does the daemon's stateful engine make it meaningfully 
 - **`inlineVariable` / `inlineFunction`** — collapse a trivially-used binding
 - **`deleteFile`** — remove a file and clean up its imports in other files
 - **`createFile`** — scaffolding with correct import paths inferred from location
-
----
-
-## Filesystem watcher — design notes
-
-### Problem
-The daemon's ts-morph `Project` and Volar service are loaded once on startup. Out-of-band file changes (edits in an editor, git checkouts, code generators) leave the engine with a stale view. The next operation may use wrong symbol positions, miss new files, or still see deleted ones.
-
-### Likely approach
-Use **chokidar** (the de-facto Node.js file-watching library; used by Vite, webpack, Jest) to watch the workspace root. On change, invalidate only the affected engine rather than rebuilding the full project graph.
-
-```
-file changed/added/deleted
-  → debounce ~200 ms
-  → call TsProvider.invalidateProject() and/or VolarProvider.invalidateService()
-  → engine rebuilds lazily on next request
-```
-
-Lazy rebuild keeps watch latency near zero — the cost is paid on the next incoming tool call, not immediately. This matches how most LSP servers work.
-
-### UX considerations
-- **What does the agent see?** The next tool call after a file change may take longer than usual (cold rebuild). The latency should be surfaced — either via the `message` field in the result or a new `rebuiltEngine: true` flag — so the agent knows why a call was slow and can set expectations.
-- **`DAEMON_STARTING` vs stale** — currently the daemon has one warm state and one error state. With watching, there is a third state: engine is warming after invalidation. Consider returning a distinct code (e.g. `ENGINE_REBUILDING`) or just absorbing the delay transparently.
-- **File deletions** — if the watched file is the one being renamed or moved, the watcher may fire before the operation completes. The post-operation invalidation already handles this; the watcher's invalidation would be redundant but harmless. Guard against double-invalidation triggering two rebuilds.
-
-### Performance considerations
-- **Debounce is mandatory** — `git checkout`, code generators, and `pnpm install` can touch hundreds of files in milliseconds. A 150–300 ms debounce collapses a burst into one invalidation.
-- **Selective invalidation** — ts-morph supports `project.getSourceFile(path)?.refreshFromFileSystemSync()` to update a single file without rebuilding the whole project. Worth using for `change` events; full invalidation only needed for `add`/`unlink` (structural changes).
-- **Volar** — `VolarProvider` wraps a Volar service that keeps its own `fileContents` map. On an out-of-band change, invalidating the whole service is safest until we understand whether Volar supports incremental file refresh.
-- **Watch scope** — only watch files matching the engine's extensions (`ts`, `tsx`, `js`, `jsx`, `vue`); ignore `node_modules` and build output directories (`dist`, `.tsbuildinfo`). `chokidar` supports glob ignore patterns.
-
-### Profiling gap
-Before implementing, we should know how long a cold engine rebuild takes on a realistic project (e.g. 500–2000 TypeScript files). If rebuild is <200 ms, full invalidation on every change is fine and selective refresh adds complexity for no benefit. If rebuild is >1 s, selective refresh (single-file refresh for edits, full rebuild for adds/deletes) becomes important.
-
-There is currently no benchmarking infrastructure. Suggested approach before landing the watcher:
-1. Add a `--bench` flag to the CLI that loads the engine, records wall-clock time to first ready state, and prints it.
-2. Measure on a fixture that approximates a real project (e.g. copy a known open-source TS project into `tests/fixtures/`).
-3. Use results to decide between full-invalidation-on-change vs. selective-refresh strategy before writing the watcher code.
 
 ---
 

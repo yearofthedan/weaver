@@ -22,6 +22,14 @@ export class TsEngine extends BaseEngine implements RefactorEngine {
     this.tsProvider = p;
   }
 
+  /**
+   * Refresh a single file in the engine's in-memory project graph.
+   * Called by the daemon watcher on `change` events.
+   */
+  invalidateFile(filePath: string): void {
+    this.tsProvider.refreshFile(filePath);
+  }
+
   async moveSymbol(
     sourceFile: string,
     symbolName: string,

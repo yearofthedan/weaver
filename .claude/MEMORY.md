@@ -11,12 +11,12 @@ Update at the end of every session. Keep this file as a signpost — details liv
 
 ## Current state
 
-- 125/125 tests passing
-- All five operations shipped: `rename`, `move`, `moveSymbol` (TS only), `findReferences`, `getDefinition`
-- Core architecture complete: daemon, MCP server, both engines, security controls, provider/engine separation, data-driven dispatch
+- 132/132 tests passing
+- All five operations shipped: `rename`, `moveFile`, `moveSymbol` (TS only), `findReferences`, `getDefinition`
+- Core architecture complete: daemon, MCP server, both engines, security controls, provider/engine separation, data-driven dispatch, filesystem watcher
 - CI: `.github/workflows/ci.yml` runs `pnpm check` on push/PR to main
 
-**Next work:** see `docs/handoff.md` (filesystem watcher, lazy init, extractFunction, etc.)
+**Next work:** see `docs/handoff.md` (lazy engine init, searchText+replaceText, extractFunction, etc.)
 
 ---
 
@@ -31,13 +31,14 @@ src/
   daemon/
     daemon.ts     ← socket server; mutex; isDaemonAlive + removeDaemonFiles
     paths.ts      ← socketPath, lockfilePath, ensureCacheDir
-    dispatcher.ts ← OPERATIONS table drives dispatch; engine singletons; vue scan post-step
+    dispatcher.ts ← OPERATIONS table drives dispatch; engine singletons; invalidateFile/invalidateAll
+    watcher.ts    ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
   engines/
     errors.ts     ← EngineError + ErrorCode union
     types.ts      ← result types + LanguageProvider interface
     engine.ts     ← BaseEngine: rename, findReferences, getDefinition, moveFile
     text-utils.ts ← applyTextEdits(), offsetToLineCol()
-    file-walk.ts  ← walkFiles(dir, extensions) + SKIP_DIRS
+    file-walk.ts  ← walkFiles(dir, extensions) + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS
     providers/
       ts.ts       ← TsProvider (ts-morph)
       volar.ts    ← VolarProvider (Volar proxy + virtual↔real translation)
@@ -60,7 +61,7 @@ src/
 | `docs/security.md` | Threat model, controls, known limitations |
 | `docs/tech/volar-v3.md` | How the Vue engine works — read before touching `vue/engine.ts` |
 | `docs/tech/tech-debt.md` | Known structural issues |
-| `docs/features/` | Per-operation docs (rename, move, moveSymbol, findReferences, getDefinition) |
+| `docs/features/` | Per-operation docs (rename, moveFile, moveSymbol, findReferences, getDefinition, watcher) |
 
 ---
 

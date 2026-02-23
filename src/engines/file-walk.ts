@@ -3,10 +3,16 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 /**
- * Directories that are never meaningful to an agent when walking a workspace.
- * Used by the fallback recursive walker for non-git workspaces.
+ * Directories that are never meaningful to an agent when walking or watching
+ * a workspace. Used by the file walker and the filesystem watcher.
  */
 export const SKIP_DIRS = new Set(["node_modules", ".git", "dist", ".nuxt", ".output", ".vite"]);
+
+/** Source file extensions for a plain TypeScript/JavaScript project. */
+export const TS_EXTENSIONS: ReadonlySet<string> = new Set([".ts", ".tsx", ".js", ".jsx"]);
+
+/** Source file extensions for a Vue project (superset of TS_EXTENSIONS). */
+export const VUE_EXTENSIONS: ReadonlySet<string> = new Set([".ts", ".tsx", ".js", ".jsx", ".vue"]);
 
 /**
  * Collect all files under `dir` whose extension is in `extensions`.

@@ -64,6 +64,18 @@ When a new operation is added, a daemon running from a previous session will acc
 
 ---
 
+## Watcher: own-writes trigger redundant invalidation
+
+The daemon's own operations (`rename`, `moveFile`, `moveSymbol`) write files to disk. Those writes emit inotify/FSEvents events that the watcher picks up, firing `invalidateFile` or `invalidateAll` ~200ms after the write — by which time the operation has already performed its own invalidation. The redundant callbacks are currently no-ops (refreshing a project that is already dropped), so there is no correctness issue.
+
+The risk is latency: if a second tool call arrives within the 200ms debounce window after an operation, the debounce timer will fire mid-call and null out the engine. The promise-chain mutex means this cannot interleave with an in-flight request, and nulling the engine only affects the *next* `getEngine()` call, so it is still safe — but it adds an unnecessary cold-rebuild to the call that follows.
+
+**Fix:** maintain an in-memory skip-set of file paths the daemon itself just wrote. Before writing a file, add the path to the set; in the watcher callback, skip paths in the set and drain them after a short grace period. The skip-set is populated and drained entirely within the mutex-serialised operation, so no concurrency guard is needed.
+
+**Priority:** low. The current behaviour is safe. The overhead is one extra project rebuild on the call immediately following a write-heavy operation — noticeable only for large projects.
+
+---
+
 ## VolarLanguageService interface is hand-typed
 
 Lines 16–37 of `src/engines/vue/engine.ts` manually define the TypeScript LanguageService methods used by the Vue engine. If an upstream API changes signature, this compiles fine but fails at runtime.

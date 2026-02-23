@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { Project } from "ts-morph";
 import { isWithinWorkspace } from "../../workspace.js";
 import { EngineError } from "../errors.js";
-import { walkFiles } from "../file-walk.js";
+import { TS_EXTENSIONS, walkFiles } from "../file-walk.js";
 import { findTsConfigForFile } from "../ts/project.js";
 import type { DefinitionLocation, FileTextEdit, LanguageProvider, SpanLocation } from "../types.js";
 
@@ -36,6 +36,17 @@ export class TsProvider implements LanguageProvider {
   invalidateProject(filePath: string): void {
     const tsConfigPath = findTsConfigForFile(filePath);
     this.projects.delete(tsConfigPath ?? "__no_tsconfig__");
+  }
+
+  /**
+   * Refresh a single source file from disk without rebuilding the whole project.
+   * Called by the watcher on `change` events; cheaper than full invalidation.
+   */
+  refreshFile(filePath: string): void {
+    const key = findTsConfigForFile(filePath) ?? "__no_tsconfig__";
+    const project = this.projects.get(key);
+    if (!project) return; // project not loaded yet — nothing to refresh
+    project.getSourceFile(filePath)?.refreshFromFileSystemSync();
   }
 
   resolveOffset(file: string, line: number, col: number): number {
@@ -162,7 +173,7 @@ export class TsProvider implements LanguageProvider {
     const modified: string[] = [];
     const skipped: string[] = [];
 
-    for (const filePath of walkFiles(workspaceRoot, [".ts", ".tsx"])) {
+    for (const filePath of walkFiles(workspaceRoot, [...TS_EXTENSIONS])) {
       if (projectFilePaths.has(filePath)) continue;
       if (!isWithinWorkspace(filePath, workspace)) {
         skipped.push(filePath);

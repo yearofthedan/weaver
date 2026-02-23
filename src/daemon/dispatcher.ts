@@ -32,6 +32,25 @@ export async function warmupEngine(filePath: string): Promise<void> {
   await getEngine(filePath);
 }
 
+/**
+ * Refresh a single file in whichever engine(s) are loaded.
+ * Called by the watcher on `change` events — cheaper than full rebuild.
+ */
+export function invalidateFile(filePath: string): void {
+  tsEngine?.invalidateFile(filePath);
+  vueEngine?.invalidateFile(filePath);
+}
+
+/**
+ * Drop all loaded engines so they rebuild lazily on the next request.
+ * Called by the watcher on `add` and `unlink` events — structural changes
+ * that require the full project graph to be refreshed.
+ */
+export function invalidateAll(): void {
+  tsEngine = undefined;
+  vueEngine = undefined;
+}
+
 // ─── Operation descriptor table ───────────────────────────────────────────
 
 interface OperationDescriptor {

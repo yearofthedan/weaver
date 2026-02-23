@@ -2,8 +2,11 @@ import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
 import { EngineError } from "../engines/errors.js";
-import { dispatchRequest, warmupEngine } from "./dispatcher.js";
+import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../engines/file-walk.js";
+import { findTsConfigForFile, isVueProject } from "../engines/ts/project.js";
+import { dispatchRequest, invalidateAll, invalidateFile, warmupEngine } from "./dispatcher.js";
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
+import { startWatcher } from "./watcher.js";
 
 export function isDaemonAlive(workspaceRoot: string): boolean {
   const lockfile = lockfilePath(workspaceRoot);
@@ -91,12 +94,25 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
 
   server.listen(sockPath);
 
-  // 7. Signal readiness
+  // 7. Watch for out-of-band file changes and invalidate stale engine state.
+  // Extensions are chosen by project type — Vue projects also watch .vue files.
+  const tsConfigPath = findTsConfigForFile(sentinelPath);
+  const watchExtensions =
+    tsConfigPath && isVueProject(tsConfigPath) ? VUE_EXTENSIONS : TS_EXTENSIONS;
+
+  const watcher = startWatcher(absWorkspace, watchExtensions, {
+    onFileChanged: invalidateFile,
+    onFileAdded: invalidateAll,
+    onFileRemoved: invalidateAll,
+  });
+
+  // 8. Signal readiness
   const readySignal = { status: "ready", workspace: absWorkspace };
   process.stderr.write(`${JSON.stringify(readySignal)}\n`);
 
-  // 8. Clean up on shutdown
+  // 9. Clean up on shutdown
   function shutdown(): void {
+    void watcher.stop();
     server.close();
     removeDaemonFiles(absWorkspace);
     process.exit(0);

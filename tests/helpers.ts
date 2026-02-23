@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import * as fs from "node:fs";
+import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -132,6 +133,39 @@ export function killDaemon(dir: string): void {
   } catch {
     // lockfile missing — nothing to kill
   }
+}
+
+/**
+ * Send a single JSON request to the daemon socket and return its response.
+ * Opens a fresh connection, writes one line, reads one line, then closes.
+ */
+export function callDaemonSocket(
+  dir: string,
+  req: { method: string; params: Record<string, unknown> },
+): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection(socketPath(dir));
+    let buf = "";
+
+    socket.on("connect", () => {
+      socket.write(`${JSON.stringify(req)}\n`);
+    });
+
+    socket.on("data", (chunk: Buffer) => {
+      buf += chunk.toString();
+      const nl = buf.indexOf("\n");
+      if (nl !== -1) {
+        try {
+          resolve(JSON.parse(buf.slice(0, nl)) as Record<string, unknown>);
+        } catch (e) {
+          reject(e);
+        }
+        socket.destroy();
+      }
+    });
+
+    socket.on("error", reject);
+  });
 }
 
 /**

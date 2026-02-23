@@ -108,10 +108,12 @@ Code diffs show what changed. The body should explain decisions and tradeoffs. D
 | `src/mcp.ts` | MCP server (connects to daemon) |
 | `src/daemon/paths.ts` | Socket and lockfile path utilities |
 | `src/daemon/daemon.ts` | Socket server; `isDaemonAlive` + `removeDaemonFiles` lifecycle fns |
-| `src/daemon/dispatcher.ts` | `dispatchRequest`; engine singletons; vue scan post-step |
+| `src/daemon/dispatcher.ts` | `dispatchRequest`; engine singletons; `invalidateFile`/`invalidateAll` |
+| `src/daemon/watcher.ts` | `startWatcher(root, extensions, callbacks)`; chokidar + 200ms debounce |
 | `src/engines/engine.ts` | `BaseEngine`: shared rename/findReferences/getDefinition/moveFile |
+| `src/engines/file-walk.ts` | `walkFiles()`, `SKIP_DIRS`, `TS_EXTENSIONS`, `VUE_EXTENSIONS` |
 | `src/engines/text-utils.ts` | `applyTextEdits()`, `offsetToLineCol()` — shared utilities |
-| `src/engines/providers/ts.ts` | `TsProvider`: compiler calls via ts-morph Project |
+| `src/engines/providers/ts.ts` | `TsProvider`: compiler calls via ts-morph Project; `refreshFile()` |
 | `src/engines/providers/volar.ts` | `VolarProvider`: compiler calls via Volar proxy; virtual↔real translation |
 | `src/engines/ts/engine.ts` | `TsEngine extends BaseEngine`; adds `moveSymbol` (ts-morph AST) |
 | `src/engines/ts/project.ts` | `findTsConfig`, `findTsConfigForFile`, `isVueProject` |
