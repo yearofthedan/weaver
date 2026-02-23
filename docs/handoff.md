@@ -22,7 +22,7 @@ Read the docs in this order:
 
 ## Current state
 
-**191/191 tests passing.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, and full action-centric refactor (Phases 1–3) are complete. Directory layout matches domain boundaries:
+**193/193 tests passing.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, and full action-centric refactor (Phases 1–3) are complete. Directory layout matches domain boundaries:
 
 ```
 src/
@@ -83,6 +83,13 @@ Evaluate each candidate: does the daemon's stateful engine make it meaningfully 
 
 ---
 
+## Security & Architecture Issues
+
+**`docs/security-architecture-review.md`** — high-priority bugs and architectural gaps. Read this before implementing features or touching security-sensitive code. Includes three critical issues (ReDoS, unvalidated socket params, workspace boundary in Vue scanning) and nine medium/low-severity findings with mitigation strategies and test cases.
+
+**Recommended fix order:** ReDoS guard → socket validation → workspace boundary → timeout → error masking.
+
+---
 
 ## Technical context
 
