@@ -47,6 +47,16 @@ Original analysis preserved here: the operation set is growing faster than the e
 
 ---
 
+## Daemon: stale process not detected on protocol version change
+
+When a new operation is added, a daemon running from a previous session will accept connections (so `isDaemonAlive` returns `true`) but silently lack the new handler. `ensureDaemon` reuses the old process and the MCP server never registers the new tool from the client's perspective until the daemon is manually killed.
+
+**Fix:** embed a `PROTOCOL_VERSION` constant (increment on every operation add/remove). Add a lightweight `ping` RPC to the daemon that returns `{ ok: true, version: PROTOCOL_VERSION }`. In `ensureDaemon`, after confirming the process is alive, call `ping`. If the version doesn't match (or the call fails), call `removeDaemonFiles` then respawn. This makes version upgrades automatic and invisible to users.
+
+**Priority:** medium. The current workaround is to kill the daemon manually (`kill <pid>`) and restart the MCP server. Pain is low in day-to-day use but high when dogfooding during development.
+
+---
+
 ## Wire protocol types (daemon ↔ serve)
 
 The daemon socket speaks `{ method, params }` → `{ ok, ... }` but these shapes are typed inline with `as` casts at every usage (`dispatcher.ts`, `mcp.ts`, `daemon.ts`). If param names change, nothing catches it at compile time.

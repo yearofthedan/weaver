@@ -1,15 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { EngineError } from "../errors.js";
-import type {
-  DefinitionLocation,
-  FileTextEdit,
-  LanguageProvider,
-  SpanLocation,
-} from "../types.js";
 import { findTsConfigForFile } from "../ts/project.js";
-import { type CachedService, buildVolarService } from "../vue/service-builder.js";
+import type { DefinitionLocation, FileTextEdit, LanguageProvider, SpanLocation } from "../types.js";
 import { updateVueImportsAfterMove } from "../vue/scan.js";
+import { buildVolarService, type CachedService } from "../vue/service-builder.js";
 
 export class VolarProvider implements LanguageProvider {
   private services = new Map<string, CachedService>();

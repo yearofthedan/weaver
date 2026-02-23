@@ -9,9 +9,8 @@ description: Execute the next vertical slice from handoff.md — confirms the ta
 2. Confirm the exact task with the user BEFORE writing any code
 3. Write failing tests first that define the expected behaviour
 4. Implement the minimum code to make each test pass, one at a time
-5. Run `pnpm test` — all tests must pass before continuing
-6. Run `pnpm lint`
-7. Commit with a conventional commit message
+5. Run `pnpm check` (this runs biome check + build + test all together) — all must pass before continuing
+6. Commit with a conventional commit message
 8. Remove the completed slice from docs/handoff.md and update the "Current state" section (test count, layout changes)
 9. Update docs/agent-memory.md with any architectural decisions made
 10. Do NOT proceed to the next slice without explicit user approval

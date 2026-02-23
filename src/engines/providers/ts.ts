@@ -4,13 +4,8 @@ import { Project } from "ts-morph";
 import { isWithinWorkspace } from "../../workspace.js";
 import { EngineError } from "../errors.js";
 import { walkFiles } from "../file-walk.js";
-import type {
-  DefinitionLocation,
-  FileTextEdit,
-  LanguageProvider,
-  SpanLocation,
-} from "../types.js";
 import { findTsConfigForFile } from "../ts/project.js";
+import type { DefinitionLocation, FileTextEdit, LanguageProvider, SpanLocation } from "../types.js";
 
 export class TsProvider implements LanguageProvider {
   private projects = new Map<string, Project>();
@@ -52,10 +47,7 @@ export class TsProvider implements LanguageProvider {
     try {
       return sourceFile.compilerNode.getPositionOfLineAndCharacter(line - 1, col - 1);
     } catch {
-      throw new EngineError(
-        `No symbol at line ${line}, col ${col} in ${file}`,
-        "SYMBOL_NOT_FOUND",
-      );
+      throw new EngineError(`No symbol at line ${line}, col ${col} in ${file}`, "SYMBOL_NOT_FOUND");
     }
   }
 

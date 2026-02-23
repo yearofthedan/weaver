@@ -51,9 +51,7 @@ describe("MCP transport — findReferences tool", () => {
     expect(result.ok).toBe(true);
     expect(result.symbolName).toBe("greetUser");
     expect(result.references.length).toBeGreaterThanOrEqual(2);
-    expect(result.references.some((r: { file: string }) => r.file.endsWith("utils.ts"))).toBe(
-      true,
-    );
+    expect(result.references.some((r: { file: string }) => r.file.endsWith("utils.ts"))).toBe(true);
     expect(result.references.some((r: { file: string }) => r.file.endsWith("main.ts"))).toBe(true);
   }, 60_000);
 });

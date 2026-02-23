@@ -28,7 +28,10 @@ describe("updateVueImportsAfterMove", () => {
   it("rewrites a same-directory import", () => {
     const oldPath = path.join(tmpDir, "src/utils.ts");
     const newPath = path.join(tmpDir, "src/helpers.ts");
-    const vueFile = writeVue("src/Comp.vue", `<script setup>\nimport foo from './utils'\n</script>`);
+    const vueFile = writeVue(
+      "src/Comp.vue",
+      `<script setup>\nimport foo from './utils'\n</script>`,
+    );
 
     updateVueImportsAfterMove(oldPath, newPath, tmpDir);
 

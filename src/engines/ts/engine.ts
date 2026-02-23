@@ -1,17 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import {
-  type ImportDeclaration,
-  type ImportSpecifier,
-  Node,
-  type SourceFile,
-} from "ts-morph";
+import { type ImportDeclaration, type ImportSpecifier, Node, type SourceFile } from "ts-morph";
 import { isWithinWorkspace } from "../../workspace.js";
 import { BaseEngine } from "../engine.js";
 import { EngineError } from "../errors.js";
-import type { MoveSymbolResult, RefactorEngine } from "../types.js";
 import { TsProvider } from "../providers/ts.js";
-
+import type { MoveSymbolResult, RefactorEngine } from "../types.js";
 
 function computeRelativeSpecifier(fromFile: string, toFile: string): string {
   let rel = path.relative(path.dirname(fromFile), toFile).replace(/\.(ts|tsx)$/, "");

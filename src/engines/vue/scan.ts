@@ -64,4 +64,3 @@ function rewriteImports(
 function stripExt(filePath: string): string {
   return filePath.replace(/\.(ts|tsx|js|jsx|mts|cts)$/, "");
 }
-

@@ -18,7 +18,9 @@ interface VolarLanguageService {
   getDefinitionAtPosition(
     fileName: string,
     position: number,
-  ): readonly { fileName: string; textSpan: { start: number; length: number }; name: string }[] | undefined;
+  ):
+    | readonly { fileName: string; textSpan: { start: number; length: number }; name: string }[]
+    | undefined;
   getEditsForFileRename(
     oldFilePath: string,
     newFilePath: string,
@@ -164,10 +166,9 @@ export async function buildVolarService(
       if (realVuePath !== undefined) {
         const sourceScript = languageRef?.scripts.get(realVuePath);
         if (sourceScript?.generated) {
-          const serviceScript =
-            sourceScript.generated.languagePlugin.typescript?.getServiceScript(
-              sourceScript.generated.root,
-            );
+          const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(
+            sourceScript.generated.root,
+          );
           if (serviceScript) return serviceScript.code.snapshot;
         }
         return undefined;
@@ -186,10 +187,9 @@ export async function buildVolarService(
       if (realVuePath !== undefined) {
         const sourceScript = languageRef?.scripts.get(realVuePath);
         if (sourceScript?.generated) {
-          const serviceScript =
-            sourceScript.generated.languagePlugin.typescript?.getServiceScript(
-              sourceScript.generated.root,
-            );
+          const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(
+            sourceScript.generated.root,
+          );
           if (serviceScript) {
             return serviceScript.code.snapshot.getText(0, serviceScript.code.snapshot.getLength());
           }

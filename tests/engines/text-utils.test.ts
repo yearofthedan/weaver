@@ -57,27 +57,27 @@ describe("applyTextEdits", () => {
   });
 
   it("inserts at start with zero-length span", () => {
-    expect(
-      applyTextEdits("world", [{ span: { start: 0, length: 0 }, newText: "hello " }]),
-    ).toBe("hello world");
+    expect(applyTextEdits("world", [{ span: { start: 0, length: 0 }, newText: "hello " }])).toBe(
+      "hello world",
+    );
   });
 
   it("inserts at end with zero-length span", () => {
-    expect(
-      applyTextEdits("hello", [{ span: { start: 5, length: 0 }, newText: "!" }]),
-    ).toBe("hello!");
+    expect(applyTextEdits("hello", [{ span: { start: 5, length: 0 }, newText: "!" }])).toBe(
+      "hello!",
+    );
   });
 
   it("deletes a span with empty newText", () => {
-    expect(
-      applyTextEdits("hello world", [{ span: { start: 5, length: 6 }, newText: "" }]),
-    ).toBe("hello");
+    expect(applyTextEdits("hello world", [{ span: { start: 5, length: 6 }, newText: "" }])).toBe(
+      "hello",
+    );
   });
 
   it("replaces the entire string", () => {
-    expect(
-      applyTextEdits("old", [{ span: { start: 0, length: 3 }, newText: "brand new" }]),
-    ).toBe("brand new");
+    expect(applyTextEdits("old", [{ span: { start: 0, length: 3 }, newText: "brand new" }])).toBe(
+      "brand new",
+    );
   });
 
   it("applies multiple non-overlapping edits correctly", () => {
