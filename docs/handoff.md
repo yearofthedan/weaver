@@ -22,11 +22,11 @@ Read the docs in this order:
 
 ## Current state
 
-**156/156 tests passing.** Security controls, all five operations plus `getDefinition`, provider separation, data-driven dispatch, filesystem watcher, and full action-centric refactor (Phases 1–3) are complete. Directory layout matches domain boundaries:
+**158/158 tests passing.** Security controls, all five operations plus `getDefinition`, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, and full action-centric refactor (Phases 1–3) are complete. Directory layout matches domain boundaries:
 
 ```
 src/
-  cli.ts          ← registers only: daemon, serve
+  cli.ts          ← registers only: daemon, serve, stop
   schema.ts
   types.ts        ← result types + LanguageProvider + ProviderRegistry interfaces
   workspace.ts    ← isWithinWorkspace() — shared boundary utility
@@ -66,8 +66,6 @@ src/
 ## Next things to build
 
 Evaluate each candidate: does the daemon's stateful engine make it meaningfully better than the agent editing directly? `rename`, `moveFile`, and `findReferences` benefit strongly because they require project-wide reference tracking.
-
-- **`stop` CLI command** — no way to stop the daemon today except finding the PID in the lockfile and killing it manually. `light-bridge stop` should read the lockfile, send SIGTERM, and clean up socket + lockfile. Low effort; `isDaemonAlive` and `removeDaemonFiles` are already in `daemon.ts`.
 
 - **`findReferences` by file path** — "who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
 - **`searchText` + `replaceText`** — server-side grep-and-replace pair. Neither operation needs the daemon's project graph — implement as a lightweight module alongside the dispatcher, not as an engine method. `replaceText` accepts either a pattern+glob (blind replace-all) or an array of `{file, line, col, oldText, newText}` locations (surgical). `searchText` is its natural feed: returns match locations with optional surrounding context lines (`context` parameter, same semantics as `grep -C`); each hit is `{file, line, col, matchText, context: [{line, text, isMatch}]}`. For bash-less agents (Claude.ai, Cursor MCP-only), `searchText` is the only path to locating targets before replacing — without it `replaceText` has no feeder. For agents with bash, `rg --json` provides equivalent search but in a different schema; `searchText` removes the transformation step and makes the pipeline zero-friction. Implement as a pair.
