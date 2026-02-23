@@ -1,5 +1,5 @@
 import { Command, type CommanderError } from "commander";
-import { runDaemon } from "./daemon/daemon.js";
+import { runDaemon, runStop } from "./daemon/daemon.js";
 import { runServe } from "./mcp.js";
 
 function jsonError(message: string): void {
@@ -28,6 +28,15 @@ program
   .exitOverride(commanderExitOverride)
   .action(async (opts) => {
     await runDaemon(opts);
+  });
+
+program
+  .command("stop")
+  .description("Stop a running daemon process for a workspace")
+  .requiredOption("--workspace <path>", "Root directory of the project to stop")
+  .exitOverride(commanderExitOverride)
+  .action(async (opts) => {
+    await runStop(opts);
   });
 
 program

@@ -31,6 +31,46 @@ export function removeDaemonFiles(workspaceRoot: string): void {
   }
 }
 
+export async function runStop(opts: { workspace: string }): Promise<void> {
+  const wsResult = validateWorkspace(opts.workspace);
+  if (!wsResult.ok) {
+    process.stdout.write(
+      `${JSON.stringify({ ok: false, error: "VALIDATION_ERROR", message: wsResult.error })}\n`,
+    );
+    process.exit(1);
+  }
+  const absWorkspace = wsResult.workspace;
+
+  if (!isDaemonAlive(absWorkspace)) {
+    process.stdout.write(
+      `${JSON.stringify({ ok: true, stopped: false, message: "No daemon running for this workspace" })}\n`,
+    );
+    return;
+  }
+
+  const pid = parseInt(fs.readFileSync(lockfilePath(absWorkspace), "utf8").trim(), 10);
+  process.kill(pid, "SIGTERM");
+
+  // Wait for daemon to stop; it removes its own files on SIGTERM
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if (!isDaemonAlive(absWorkspace)) break;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+
+  // Defensive cleanup in case the daemon didn't remove files before exiting
+  removeDaemonFiles(absWorkspace);
+
+  if (isDaemonAlive(absWorkspace)) {
+    process.stdout.write(
+      `${JSON.stringify({ ok: false, error: "ENGINE_ERROR", message: "Daemon did not stop within the timeout" })}\n`,
+    );
+    process.exit(1);
+  }
+
+  process.stdout.write(`${JSON.stringify({ ok: true, stopped: true })}\n`);
+}
+
 export async function runDaemon(opts: { workspace: string }): Promise<void> {
   // 1. Validate workspace (existence, directory, not a restricted system path)
   const wsResult = validateWorkspace(opts.workspace);

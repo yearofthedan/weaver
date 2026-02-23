@@ -169,6 +169,42 @@ export function callDaemonSocket(
 }
 
 /**
+ * Spawn the CLI as a one-shot command and return its captured output.
+ * Use this for commands that exit on their own (e.g. `stop`).
+ */
+export function runCliCommand(
+  args: string[],
+  timeoutMs = 10_000,
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(TSX_BIN, [CLI_ENTRY, ...args], {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" },
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`CLI command timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+    child.on("exit", (code) => {
+      clearTimeout(timer);
+      resolve({ exitCode: code ?? 0, stdout, stderr });
+    });
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
+/**
  * Minimal MCP client for testing. Handles Content-Length framing and the
  * initialize handshake. Use with a process spawned via spawnAndWaitForReady
  * with pipeStdin: true.
