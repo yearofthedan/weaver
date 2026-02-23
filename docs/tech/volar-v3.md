@@ -2,6 +2,28 @@
 
 Hard-won research findings for the Vue engine. Do not re-derive — read this first.
 
+## Package ecosystem
+
+Two separate repos with a layered relationship:
+
+**[volarjs/volar.js](https://github.com/volarjs/volar.js)** — language-agnostic framework for bridging virtual languages into TypeScript. Publishes `@volar/*` packages:
+- `@volar/language-core` — virtual code abstraction, source maps
+- `@volar/typescript` — decorates TS language service host to understand virtual files
+- `@volar/source-map` — position mapping between virtual and real code (transitive dep)
+
+**[vuejs/language-tools](https://github.com/vuejs/language-tools)** — Vue-specific tooling built on top of Volar.js. Publishes `@vue/*` packages:
+- `@vue/language-core` — SFC parsing + virtual code generation (Vue → TypeScript)
+- `@vue/language-server`, `@vue/language-service` — full LSP (not needed here)
+- `vue-tsc` — CLI type checker
+- `vue-component-meta` — component metadata extraction for docs (not needed here)
+
+We use the **core layers only** — `@vue/language-core` to understand SFCs, `@volar/typescript` to feed virtual code to TS, and `@volar/language-core` for the type abstractions. The higher-level LSP/IDE packages add nothing for headless refactoring.
+
+### Extra APIs in `@vue/language-core` we don't use yet
+
+- **`parse()`** — wraps `@vue/compiler-sfc` internally. Returns an `Sfc` type with `script`, `scriptSetup`, `template`, `styles` blocks, each with offset info and a `ts.SourceFile` AST for script blocks. Useful for `moveSymbol` on `.vue` sources — no new dependency needed.
+- **`parseScriptSetupRanges` / `parseScriptRanges`** — extracts `defineProps`, `defineEmits`, `defineSlots`, `defineModel`, `defineExpose` declarations with text ranges.
+
 ## The core problem
 
 TypeScript's program builder silently ignores non-`.ts`/`.tsx` filenames in `getScriptFileNames`. Even if you pre-load `.vue` files into Volar's script registry, TypeScript's `findRenameLocations` never traverses into their content.

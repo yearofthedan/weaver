@@ -60,11 +60,51 @@ src/
 
 Evaluate each candidate: does the daemon's stateful engine make it meaningfully better than the agent editing directly? `rename`, `move`, and `findReferences` benefit strongly because they require project-wide reference tracking.
 
+- **Filesystem watcher** — the daemon loads the project graph once on startup and only invalidates on operations it performs itself. If the user edits, creates, or deletes files outside our tools (e.g. in their editor), the engine's in-memory state goes stale silently. See design notes below.
+- **Lazy engine initialisation** — the daemon currently warms both the TS and Vue engines at startup regardless of project type. A TS-only project pays the full Volar startup cost unnecessarily. Engines should be initialised on first use: the dispatcher already selects the correct engine per workspace (via `isVueProject`), so the change is to defer `warmupEngine()` until the first request arrives for that engine rather than calling it eagerly at daemon start. This also improves daemon startup time for projects that only ever use one engine.
 - **`findReferences` by file path** — "who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
 - **`extractFunction`** — pull a selection into a named function, updating the call site
 - **`inlineVariable` / `inlineFunction`** — collapse a trivially-used binding
 - **`deleteFile`** — remove a file and clean up its imports in other files
 - **`createFile`** — scaffolding with correct import paths inferred from location
+
+---
+
+## Filesystem watcher — design notes
+
+### Problem
+The daemon's ts-morph `Project` and Volar service are loaded once on startup. Out-of-band file changes (edits in an editor, git checkouts, code generators) leave the engine with a stale view. The next operation may use wrong symbol positions, miss new files, or still see deleted ones.
+
+### Likely approach
+Use **chokidar** (the de-facto Node.js file-watching library; used by Vite, webpack, Jest) to watch the workspace root. On change, invalidate only the affected engine rather than rebuilding the full project graph.
+
+```
+file changed/added/deleted
+  → debounce ~200 ms
+  → call TsProvider.invalidateProject() and/or VolarProvider.invalidateService()
+  → engine rebuilds lazily on next request
+```
+
+Lazy rebuild keeps watch latency near zero — the cost is paid on the next incoming tool call, not immediately. This matches how most LSP servers work.
+
+### UX considerations
+- **What does the agent see?** The next tool call after a file change may take longer than usual (cold rebuild). The latency should be surfaced — either via the `message` field in the result or a new `rebuiltEngine: true` flag — so the agent knows why a call was slow and can set expectations.
+- **`DAEMON_STARTING` vs stale** — currently the daemon has one warm state and one error state. With watching, there is a third state: engine is warming after invalidation. Consider returning a distinct code (e.g. `ENGINE_REBUILDING`) or just absorbing the delay transparently.
+- **File deletions** — if the watched file is the one being renamed or moved, the watcher may fire before the operation completes. The post-operation invalidation already handles this; the watcher's invalidation would be redundant but harmless. Guard against double-invalidation triggering two rebuilds.
+
+### Performance considerations
+- **Debounce is mandatory** — `git checkout`, code generators, and `pnpm install` can touch hundreds of files in milliseconds. A 150–300 ms debounce collapses a burst into one invalidation.
+- **Selective invalidation** — ts-morph supports `project.getSourceFile(path)?.refreshFromFileSystemSync()` to update a single file without rebuilding the whole project. Worth using for `change` events; full invalidation only needed for `add`/`unlink` (structural changes).
+- **Volar** — `VolarProvider` wraps a Volar service that keeps its own `fileContents` map. On an out-of-band change, invalidating the whole service is safest until we understand whether Volar supports incremental file refresh.
+- **Watch scope** — only watch files matching the engine's extensions (`ts`, `tsx`, `js`, `jsx`, `vue`); ignore `node_modules` and build output directories (`dist`, `.tsbuildinfo`). `chokidar` supports glob ignore patterns.
+
+### Profiling gap
+Before implementing, we should know how long a cold engine rebuild takes on a realistic project (e.g. 500–2000 TypeScript files). If rebuild is <200 ms, full invalidation on every change is fine and selective refresh adds complexity for no benefit. If rebuild is >1 s, selective refresh (single-file refresh for edits, full rebuild for adds/deletes) becomes important.
+
+There is currently no benchmarking infrastructure. Suggested approach before landing the watcher:
+1. Add a `--bench` flag to the CLI that loads the engine, records wall-clock time to first ready state, and prints it.
+2. Measure on a fixture that approximates a real project (e.g. copy a known open-source TS project into `tests/fixtures/`).
+3. Use results to decide between full-invalidation-on-change vs. selective-refresh strategy before writing the watcher code.
 
 ---
 
@@ -81,7 +121,7 @@ Evaluate each candidate: does the daemon's stateful engine make it meaningfully 
 
 - **Per-workspace engine selection — a known limitation** — `dispatcher.ts` picks one engine per workspace: if any `.vue` files are present, `VueEngine` handles everything, including `.ts` files. This is correct for `rename`, `moveFile`, and `findReferences` (Volar understands the full project graph). But it means `moveSymbol` in a Vue project hits `NOT_SUPPORTED` even when both files are plain `.ts`. The fix is per-operation engine selection or a fallback path inside `VueEngine.moveSymbol` that delegates to `TsEngine`. The current approach is kept because it is simpler and the broken case is uncommon; tracked in tech-debt.md.
 
-- **`moveSymbol` for Vue sources (`.vue` → `.ts`) is buildable** — extract the declaration from a `<script setup>` block using `@vue/compiler-sfc`'s `parse()`, write to the destination `.ts`, and patch importers. Moving *into* a `.vue` destination is not worth supporting.
+- **`moveSymbol` for Vue sources (`.vue` → `.ts`) is buildable — no new deps needed** — `@vue/language-core` re-exports `parse()` (wraps `@vue/compiler-sfc` internally), returning an `Sfc` with `script.ast` as a `ts.SourceFile` plus block offsets. Extract the declaration from a `<script setup>` block, write to the destination `.ts`, and patch importers. `parseScriptSetupRanges` can locate `defineProps`/`defineEmits` declarations to avoid moving them. Moving *into* a `.vue` destination is not worth supporting. See `docs/tech/volar-v3.md` § "Package ecosystem" for the full API inventory.
 
 - **Read-only operations do not take a `workspace` parameter in the engine interface** — `findReferences` returns all references including those outside the workspace; it is up to the dispatcher to validate the input file is within the workspace. Write operations (`rename`, `moveFile`, `moveSymbol`) take `workspace` because they need to know which collateral writes to skip.
 
