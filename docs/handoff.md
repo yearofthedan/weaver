@@ -22,46 +22,42 @@ Read the docs in this order:
 
 ## Current state
 
-**156/156 tests passing.** Security controls, project restructure, all five operations plus `getDefinition`, provider/engine separation, data-driven dispatch, filesystem watcher, `ProviderRegistry` (Phase 1), action-centric extraction (Phase 2), and engine-class deletion (Phase 3) are complete. The file layout reflects domain boundaries:
+**156/156 tests passing.** Security controls, all five operations plus `getDefinition`, provider separation, data-driven dispatch, filesystem watcher, and full action-centric refactor (Phases 1–3) are complete. Directory layout matches domain boundaries:
 
 ```
 src/
   cli.ts          ← registers only: daemon, serve
   schema.ts
+  types.ts        ← result types + LanguageProvider + ProviderRegistry interfaces
   workspace.ts    ← isWithinWorkspace() — shared boundary utility
   mcp.ts          ← MCP server (connects to daemon)
   daemon/
     daemon.ts     ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher
     paths.ts      ← socketPath, lockfilePath, ensureCacheDir only
-    dispatcher.ts ← dispatchRequest; engine singletons; invalidateFile/invalidateAll
+    dispatcher.ts ← dispatchRequest; provider singletons; invalidateFile/invalidateAll
     watcher.ts    ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
-  engines/
+  operations/
+    rename.ts        ← rename(provider, filePath, line, col, newName, workspace)
+    findReferences.ts← findReferences(provider, filePath, line, col)
+    getDefinition.ts ← getDefinition(provider, filePath, line, col)
+    moveFile.ts      ← moveFile(provider, oldPath, newPath, workspace)
+    moveSymbol.ts    ← moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace)
+  providers/
+    ts.ts         ← TsProvider: compiler calls via ts-morph Project; refreshFile() for selective invalidation
+    volar.ts      ← VolarProvider: compiler calls via Volar proxy + virtual↔real translation; afterSymbolMove scans .vue files
+    vue-scan.ts   ← updateVueImportsAfterMove + updateVueNamedImportAfterSymbolMove (regex scans; enforces workspace boundary)
+    vue-service.ts← buildVolarService() — Volar service factory
+  utils/
     errors.ts     ← EngineError class + ErrorCode union
-    types.ts      ← result types + LanguageProvider interface
-    text-utils.ts ← applyTextEdits(), offsetToLineCol() — shared by actions
-    file-walk.ts  ← walkFiles() + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS — shared by actions and watcher
-    actions/
-      rename.ts        ← rename(provider, filePath, line, col, newName, workspace)
-      findReferences.ts← findReferences(provider, filePath, line, col)
-      getDefinition.ts ← getDefinition(provider, filePath, line, col)
-      moveFile.ts      ← moveFile(provider, oldPath, newPath, workspace)
-      moveSymbol.ts    ← moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace)
-    providers/
-      ts.ts       ← TsProvider: compiler calls via ts-morph Project; refreshFile() for selective invalidation
-      volar.ts    ← VolarProvider: compiler calls via Volar proxy + virtual↔real translation; afterSymbolMove scans .vue files
-    ts/
-      project.ts  ← findTsConfig, findTsConfigForFile, isVueProject
-    vue/
-      scan.ts     ← updateVueImportsAfterMove + updateVueNamedImportAfterSymbolMove (regex scans)
-      service-builder.ts ← buildVolarService() — Volar service factory
+    text-utils.ts ← applyTextEdits(), offsetToLineCol()
+    file-walk.ts  ← walkFiles() + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS
+    ts-project.ts ← findTsConfig, findTsConfigForFile, isVueProject
 ```
-
-**Known remaining gap** — `updateVueImportsAfterMove` (vue/scan) does not enforce workspace boundary on its regex scan. Low risk in practice (search root is clamped to tsconfig directory), tracked in tech-debt.md.
 
 **Operations shipped:**
 - `rename` — TS + Vue
 - `moveFile` — TS + Vue
-- `moveSymbol` — TS only; Vue throws `NOT_SUPPORTED` (dispatcher constraint, not Volar)
+- `moveSymbol` — TS + Vue
 - `findReferences` — TS + Vue; read-only, returns all references to a symbol by position
 - `getDefinition` — TS + Vue; read-only, returns definition location(s) for a symbol by position
 
@@ -71,15 +67,7 @@ src/
 
 Evaluate each candidate: does the daemon's stateful engine make it meaningfully better than the agent editing directly? `rename`, `moveFile`, and `findReferences` benefit strongly because they require project-wide reference tracking.
 
-- **Action-centric dispatcher refactor** — replace the engine-per-workspace model with a `ProviderRegistry` that actions pull from. Design is settled (see Architecture decisions below). Phase 1 ✅ complete.
-
-  - ~~**Phase 1 — add `ProviderRegistry` alongside engines (no behaviour change).**~~ ✅ Done. `ProviderRegistry` in `src/engines/types.ts`; `makeRegistry` in `dispatcher.ts`; provider singletons replace engine singletons; `afterSymbolMove` no-op on both providers; `warmupEngine` deleted.
-
-  - ~~**Phase 2 — extract operations to action functions (delete `BaseEngine`).**~~ ✅ Done. `rename`, `findReferences`, `getDefinition`, `moveFile` live in `src/engines/actions/` as standalone functions taking `LanguageProvider`. Dispatcher calls them directly. `BaseEngine` deleted. `RefactorEngine` interface removed. `TsEngine`/`VueEngine` trimmed to `moveSymbol` + `invalidateFile` only.
-
-  - ~~**Phase 3 — fix `moveSymbol` and delete engine classes.**~~ ✅ Done. `moveSymbol` extracted to `src/engines/actions/moveSymbol.ts`; `VolarProvider.afterSymbolMove` now scans `.vue` files for imports of the moved symbol (surgical — only that named symbol, unlike `afterFileRename`). `TsEngine` and `VueEngine` deleted. `moveSymbol` now works in Vue projects; `NOT_SUPPORTED` is gone.
-
-- **Rename `src/engines/ts/` and `src/engines/vue/` subdirectories** — after Phase 3 these no longer contain engine classes: `ts/` has only `project.ts` (tsconfig utilities) and `vue/` has only `scan.ts` and `service-builder.ts`. Consider flattening `ts/project.ts` into `engines/ts-project.ts` and moving the `vue/` utilities up into `engines/vue-utils/` or similar, so the directory names match their actual contents. Low priority — cosmetic only.
+- **`stop` CLI command** — no way to stop the daemon today except finding the PID in the lockfile and killing it manually. `light-bridge stop` should read the lockfile, send SIGTERM, and clean up socket + lockfile. Low effort; `isDaemonAlive` and `removeDaemonFiles` are already in `daemon.ts`.
 
 - **`findReferences` by file path** — "who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
 - **`searchText` + `replaceText`** — server-side grep-and-replace pair. Neither operation needs the daemon's project graph — implement as a lightweight module alongside the dispatcher, not as an engine method. `replaceText` accepts either a pattern+glob (blind replace-all) or an array of `{file, line, col, oldText, newText}` locations (surgical). `searchText` is its natural feed: returns match locations with optional surrounding context lines (`context` parameter, same semantics as `grep -C`); each hit is `{file, line, col, matchText, context: [{line, text, isMatch}]}`. For bash-less agents (Claude.ai, Cursor MCP-only), `searchText` is the only path to locating targets before replacing — without it `replaceText` has no feeder. For agents with bash, `rg --json` provides equivalent search but in a different schema; `searchText` removes the transformation step and makes the pipeline zero-friction. Implement as a pair.
@@ -94,9 +82,10 @@ Evaluate each candidate: does the daemon's stateful engine make it meaningfully 
 
 ## Technical context
 
-- **`docs/tech/volar-v3.md`** — how the Vue engine works around TypeScript's refusal to process `.vue` files. Read this before touching `src/engines/vue-engine.ts`.
-- **`docs/tech/tech-debt.md`** — known structural issues in the engine layer. Includes the `ensureDaemon` one-shot bug.
-- **`@volar/language-core` version skew** — `@vue/language-core` and `@volar/typescript` previously depended on different patch versions of `@volar/language-core`, causing type mismatches. Fixed via `pnpm.overrides` in `package.json` pinning to 2.4.28. `@volar/language-core` is also a direct `devDependency` so TypeScript can resolve the `Language<string>` type import in `vue-engine.ts`.
+- **`docs/tech/volar-v3.md`** — how the Vue provider works around TypeScript's refusal to process `.vue` files. Read this before touching `src/providers/volar.ts`.
+- **`docs/tech/tech-debt.md`** — known structural issues. Includes the `ensureDaemon` one-shot bug.
+- **`@volar/language-core` version skew** — `@vue/language-core` and `@volar/typescript` previously depended on different patch versions of `@volar/language-core`, causing type mismatches. Fixed via `pnpm.overrides` in `package.json` pinning to 2.4.28. `@volar/language-core` is also a direct `devDependency` so TypeScript can resolve the `Language<string>` type import in `volar.ts`.
+- **`moveFile` does not update imports in files outside `tsconfig.include`** — `tsconfig.json` includes only `src/`; test files are not in the ts-morph project. Any file move that has importers in `tests/` requires manual import fixes. If tests are added outside `src/` for a new operation, remember to update their paths by hand. Tracked in tech-debt.md.
 
 ---
 
