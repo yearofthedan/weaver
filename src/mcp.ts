@@ -266,10 +266,17 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
   await server.connect(transport);
 }
 
-function callDaemon(sockPath: string, req: object): Promise<object> {
+function callDaemon(sockPath: string, req: object, timeoutMs = 30_000): Promise<object> {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection(sockPath);
     let buf = "";
+
+    socket.setTimeout(timeoutMs);
+
+    socket.on("timeout", () => {
+      // destroy() with an error fires the "error" event, which calls reject.
+      socket.destroy(new Error(`callDaemon timed out after ${timeoutMs}ms`));
+    });
 
     socket.on("connect", () => {
       socket.write(`${JSON.stringify(req)}\n`);
@@ -291,6 +298,9 @@ function callDaemon(sockPath: string, req: object): Promise<object> {
     socket.on("error", reject);
   });
 }
+
+/** Exported for testing only — do not call from production code. */
+export { callDaemon as callDaemonForTest };
 
 function spawnDaemon(absWorkspace: string): Promise<void> {
   return new Promise((resolve, reject) => {

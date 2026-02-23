@@ -30,28 +30,7 @@ Two layers now guard the socket:
 
 ## Medium Severity
 
-### 4. No timeout on daemon socket calls
-
-**File:** `src/mcp.ts:269-293` (`callDaemon`)
-
-**Problem:** Socket connections to the daemon have no timeout. If the daemon hangs during request processing (e.g., due to ReDoS in issue #1), the MCP tool call blocks indefinitely.
-
-```typescript
-function callDaemon(sockPath: string, req: object): Promise<object> {
-  return new Promise((resolve, reject) => {
-    const socket = net.createConnection(sockPath);
-    // ... no socket.setTimeout() ...
-  });
-}
-```
-
-The MCP host will eventually time out (default ~30s), but the connection and its promise leak.
-
-**Mitigation:** Add `socket.setTimeout(30_000)` and handle timeout errors by rejecting the promise.
-
----
-
-### 5. Error masking: all errors → `DAEMON_STARTING`
+### 4. Error masking: all errors → `DAEMON_STARTING`
 
 **File:** `src/mcp.ts:249-259`
 
@@ -286,7 +265,7 @@ A change to parameter names or types requires updating all three locations manua
 1. ~~**ReDoS guard** (Issue #1)~~ ✅ Done
 2. ~~**Runtime validation on socket** (Issue #2)~~ ✅ Done
 3. ~~**Workspace boundary in `updateVueImportsAfterMove`** (Issue #3)~~ ✅ Done
-4. **Socket timeout** (Issue #4) — prevents resource leak from hung daemon
+4. ~~**Socket timeout** (Issue #4)~~ ✅ Done
 5. **Fix error masking** (Issue #5) — distinguishes recoverable from permanent failures
 6. **TOCTOU race** (Issue #6) — strengthen defense-in-depth (lower practical risk)
 7. **Fix naive string replacement** (Issue #7) — prevent silent comment corruption
