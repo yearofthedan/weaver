@@ -56,6 +56,16 @@ The risk is latency: if a second tool call arrives within the 200ms debounce win
 
 ---
 
+## moveSymbol: generated imports missing .js extension
+
+When `moveSymbol` adds an import to the destination file it writes `from "./security"` rather than `from "./security.js"`. ESM + `moduleResolution: nodenext` rejects bare specifiers, so the project fails to compile until manually fixed.
+
+**Fix:** in `src/operations/moveSymbol.ts`, the `computeRelativeSpecifier` function already strips `.ts`/`.tsx` — it should replace that suffix with `.js` instead of removing it entirely, so the generated specifier is always a valid ESM path.
+
+**Priority:** medium. Discovered during dogfooding (consolidating `workspace.ts` into `security.ts`). Workaround: run `biome check --write` and then manually add `.js` to any bare specifiers the build reports.
+
+---
+
 ## VolarLanguageService interface is hand-typed
 
 Lines 16–37 of `src/engines/vue/engine.ts` manually define the TypeScript LanguageService methods used by the Vue engine. If an upstream API changes signature, this compiles fine but fails at runtime.
