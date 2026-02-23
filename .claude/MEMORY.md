@@ -11,13 +11,15 @@ Update at the end of every session. Keep this file as a signpost — details liv
 
 ## Current state
 
-- 191/191 tests passing
+- 200/200 tests passing
 - All seven operations shipped: `rename`, `moveFile`, `moveSymbol`, `findReferences`, `getDefinition`, `searchText`, `replaceText`
-- Security: workspace boundary + sensitive file blocklist (`src/security.ts`) complete
+- Security: workspace boundary + sensitive file blocklist (`src/security.ts`), ReDoS guard (`safe-regex2`), and runtime socket validation complete
 - Architecture: action-centric, all three refactor phases complete. No engine classes remain.
 - CI: `.github/workflows/ci.yml` runs `pnpm check` on push/PR to main
 
-**Next work:** `findReferences` by file path, `moveSymbol` for class methods, `extractFunction` (see `docs/handoff.md`)
+**Next work (security):** workspace boundary in `updateVueImportsAfterMove` (#3), socket timeout (#4), error masking (#5) — see `docs/security-architecture-review.md`
+
+**After security:** `findReferences` by file path, `moveSymbol` for class methods, `extractFunction` (see `docs/handoff.md`)
 
 ---
 
@@ -28,8 +30,8 @@ src/
   cli.ts          ← daemon + serve + stop commands
   schema.ts       ← Zod schemas for all operations
   types.ts        ← result types + LanguageProvider + ProviderRegistry interfaces
-  workspace.ts    ← isWithinWorkspace() — workspace boundary utility
-  security.ts     ← isSensitiveFile() — sensitive file blocklist
+  protocol.ts     ← wire protocol types for daemon ↔ serve socket
+  security.ts     ← isWithinWorkspace() + isSensitiveFile() — boundary + blocklist
   mcp.ts          ← MCP server (TOOLS table drives registration)
   daemon/
     daemon.ts     ← socket server; mutex; isDaemonAlive + removeDaemonFiles
