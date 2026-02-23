@@ -8,7 +8,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { isDaemonAlive, removeDaemonFiles } from "./daemon/daemon.js";
 import { socketPath } from "./daemon/paths.js";
-import { validateWorkspace } from "./workspace.js";
+import { validateWorkspace } from "./security.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const CLI_ENTRY = path.resolve(__dirname, "..", "src", "cli.ts");

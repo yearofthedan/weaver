@@ -4,6 +4,7 @@ import { moveFile } from "../operations/moveFile.js";
 import { rename } from "../operations/rename.js";
 import { replaceText } from "../operations/replaceText.js";
 import { searchText } from "../operations/searchText.js";
+import { isWithinWorkspace } from "../security.js";
 import type {
   FindReferencesResult,
   GetDefinitionResult,
@@ -16,7 +17,6 @@ import type {
   SearchTextResult,
 } from "../types.js";
 import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
-import { isWithinWorkspace } from "../workspace.js";
 
 // ─── Provider singletons ───────────────────────────────────────────────────
 // Lazy-loaded and cached for the daemon lifetime. Providers hold the stateful

@@ -1,10 +1,10 @@
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
+import { validateWorkspace } from "../security.js";
 import { EngineError } from "../utils/errors.js";
 import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../utils/file-walk.js";
 import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
-import { validateWorkspace } from "../workspace.js";
 import { dispatchRequest, invalidateAll, invalidateFile } from "./dispatcher.js";
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
 import { startWatcher } from "./watcher.js";

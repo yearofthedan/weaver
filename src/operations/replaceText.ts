@@ -1,9 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { isSensitiveFile } from "../security.js";
+import { isSensitiveFile, isWithinWorkspace } from "../security.js";
 import type { ReplaceTextResult, TextEdit } from "../types.js";
 import { EngineError } from "../utils/errors.js";
-import { isWithinWorkspace } from "../workspace.js";
 import { walkWorkspaceFiles } from "./searchText.js";
 
 /**
@@ -64,6 +63,9 @@ function applyPatternReplace(
   let replacementCount = 0;
 
   for (const filePath of files) {
+    // Symlinks in git-tracked files can resolve outside the workspace —
+    // isWithinWorkspace re-checks via realpathSync to catch this case.
+    if (!isWithinWorkspace(filePath, workspace)) continue;
     if (isSensitiveFile(filePath)) continue;
 
     let content: string;
