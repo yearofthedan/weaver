@@ -64,24 +64,24 @@ export class BaseEngine {
       editsByFile.get(loc.fileName)?.push({ span: loc.textSpan, newText: newName });
     }
 
-    const filesModified: string[] = [];
-    const filesSkipped: string[] = [];
+    const filesModified = new Set<string>();
+    const filesSkipped = new Set<string>();
 
     for (const [fileName, edits] of editsByFile) {
       if (!isWithinWorkspace(fileName, workspace)) {
-        filesSkipped.push(fileName);
+        filesSkipped.add(fileName);
         continue;
       }
       const original = this.provider.readFile(fileName);
       const updated = applyTextEdits(original, edits);
       fs.writeFileSync(fileName, updated, "utf8");
       this.provider.notifyFileWritten(fileName, updated);
-      filesModified.push(fileName);
+      filesModified.add(fileName);
     }
 
     return {
-      filesModified,
-      filesSkipped,
+      filesModified: Array.from(filesModified),
+      filesSkipped: Array.from(filesSkipped),
       symbolName: oldName,
       newName,
       locationCount: locs.length,
@@ -159,19 +159,19 @@ export class BaseEngine {
 
     const edits = await this.provider.getEditsForFileRename(absOld, absNew);
 
-    const filesModified: string[] = [];
-    const filesSkipped: string[] = [];
+    const filesModified = new Set<string>();
+    const filesSkipped = new Set<string>();
 
     for (const edit of edits) {
       if (!isWithinWorkspace(edit.fileName, workspace)) {
-        if (!filesSkipped.includes(edit.fileName)) filesSkipped.push(edit.fileName);
+        filesSkipped.add(edit.fileName);
         continue;
       }
       const original = this.provider.readFile(edit.fileName);
       const updated = applyTextEdits(original, edit.textChanges);
       fs.writeFileSync(edit.fileName, updated, "utf8");
       this.provider.notifyFileWritten(edit.fileName, updated);
-      if (!filesModified.includes(edit.fileName)) filesModified.push(edit.fileName);
+      filesModified.add(edit.fileName);
     }
 
     // Physical move.
@@ -189,14 +189,19 @@ export class BaseEngine {
     );
 
     for (const f of extraModified) {
-      if (!filesModified.includes(f)) filesModified.push(f);
+      filesModified.add(f);
     }
     for (const f of extraSkipped) {
-      if (!filesSkipped.includes(f)) filesSkipped.push(f);
+      filesSkipped.add(f);
     }
 
-    if (!filesModified.includes(absNew)) filesModified.push(absNew);
+    filesModified.add(absNew);
 
-    return { filesModified, filesSkipped, oldPath: absOld, newPath: absNew };
+    return {
+      filesModified: Array.from(filesModified),
+      filesSkipped: Array.from(filesSkipped),
+      oldPath: absOld,
+      newPath: absNew,
+    };
   }
 }

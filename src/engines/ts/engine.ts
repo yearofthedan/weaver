@@ -121,14 +121,14 @@ export class TsEngine extends BaseEngine implements RefactorEngine {
     dstSF.replaceWithText(`${existingText.trimEnd()}${separator}${declarationText}\n`);
 
     // Update import declarations in each importer
-    const filesModified: string[] = [];
-    const filesSkipped: string[] = [];
+    const filesModified = new Set<string>();
+    const filesSkipped = new Set<string>();
 
     for (const { sf, importDecl, specifiers, totalNamedImports } of importers) {
       const filePath = sf.getFilePath() as string;
       if (filePath === absDest) continue; // skip dest file: it defines the symbol, not imports it
       if (!isWithinWorkspace(filePath, workspace)) {
-        if (!filesSkipped.includes(filePath)) filesSkipped.push(filePath);
+        filesSkipped.add(filePath);
         continue;
       }
 
@@ -159,7 +159,7 @@ export class TsEngine extends BaseEngine implements RefactorEngine {
         }
       }
 
-      if (!filesModified.includes(filePath)) filesModified.push(filePath);
+      filesModified.add(filePath);
     }
 
     // Collect any other dirty files (srcSF, dstSF) that weren't covered above
@@ -167,9 +167,9 @@ export class TsEngine extends BaseEngine implements RefactorEngine {
       if (sf.isSaved()) continue;
       const fp = sf.getFilePath() as string;
       if (isWithinWorkspace(fp, workspace)) {
-        if (!filesModified.includes(fp)) filesModified.push(fp);
+        filesModified.add(fp);
       } else {
-        if (!filesSkipped.includes(fp)) filesSkipped.push(fp);
+        filesSkipped.add(fp);
       }
     }
 
@@ -183,8 +183,8 @@ export class TsEngine extends BaseEngine implements RefactorEngine {
     this.tsProvider.invalidateProject(absSource);
 
     return {
-      filesModified,
-      filesSkipped,
+      filesModified: Array.from(filesModified),
+      filesSkipped: Array.from(filesSkipped),
       symbolName,
       sourceFile: absSource,
       destFile: absDest,
