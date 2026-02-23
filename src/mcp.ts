@@ -252,7 +252,7 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
             content: [
               {
                 type: "text" as const,
-                text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }),
+                text: JSON.stringify({ ok: false, error: classifyDaemonError(err), message }),
               },
             ],
             isError: true,
@@ -297,6 +297,22 @@ function callDaemon(sockPath: string, req: object, timeoutMs = 30_000): Promise<
 
     socket.on("error", reject);
   });
+}
+
+/**
+ * Returns "DAEMON_STARTING" for socket-level connection failures and timeouts
+ * (transient — the daemon isn't ready yet, caller should retry).
+ * Returns "INTERNAL_ERROR" for anything else (don't retry).
+ *
+ * Exported for testing only — do not call from production code.
+ */
+export function classifyDaemonError(err: unknown): "DAEMON_STARTING" | "INTERNAL_ERROR" {
+  if (!(err instanceof Error)) return "INTERNAL_ERROR";
+  const code = (err as NodeJS.ErrnoException).code;
+  if (code === "ECONNREFUSED" || code === "ENOENT" || code === "ECONNRESET")
+    return "DAEMON_STARTING";
+  if (err.message.includes("timed out")) return "DAEMON_STARTING";
+  return "INTERNAL_ERROR";
 }
 
 /** Exported for testing only — do not call from production code. */

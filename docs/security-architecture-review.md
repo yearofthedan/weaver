@@ -30,29 +30,9 @@ Two layers now guard the socket:
 
 ## Medium Severity
 
-### 4. Error masking: all errors → `DAEMON_STARTING`
+### 4. Error masking: all errors → `DAEMON_STARTING` ✅ Fixed
 
-**File:** `src/mcp.ts:249-259`
-
-**Problem:** Every error from an MCP tool is wrapped as `DAEMON_STARTING`:
-
-```typescript
-} catch (err) {
-  return {
-    content: [{
-      type: "text" as const,
-      text: JSON.stringify({ ok: false, error: "DAEMON_STARTING", message }),
-    }],
-    isError: true,
-  };
-}
-```
-
-This conflates "daemon is booting, retry" with "your request is invalid, stop retrying" and "the daemon crashed". Agents can't distinguish recoverable from permanent failures.
-
-**Mitigation:**
-- Distinguish error codes: return `DAEMON_STARTING` only for socket connection failures
-- Return operation-specific errors (e.g., `WORKSPACE_VIOLATION`, `SYMBOL_NOT_FOUND`) to distinguish real failures
+`classifyDaemonError()` in `src/mcp.ts` now returns `DAEMON_STARTING` only for socket-level connection failures (`ECONNREFUSED`, `ENOENT`, `ECONNRESET`) and timeouts. All other caught exceptions (e.g. JSON parse failures) return `INTERNAL_ERROR`. 223 tests pass.
 
 ---
 
@@ -266,7 +246,7 @@ A change to parameter names or types requires updating all three locations manua
 2. ~~**Runtime validation on socket** (Issue #2)~~ ✅ Done
 3. ~~**Workspace boundary in `updateVueImportsAfterMove`** (Issue #3)~~ ✅ Done
 4. ~~**Socket timeout** (Issue #4)~~ ✅ Done
-5. **Fix error masking** (Issue #5) — distinguishes recoverable from permanent failures
+5. ~~**Fix error masking** (Issue #5)~~ ✅ Done
 6. **TOCTOU race** (Issue #6) — strengthen defense-in-depth (lower practical risk)
 7. **Fix naive string replacement** (Issue #7) — prevent silent comment corruption
 8. **Remove dead code** (Issue #10) — reduce confusion
