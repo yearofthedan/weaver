@@ -209,7 +209,7 @@ export class VolarProvider implements LanguageProvider {
 
     const tsConfig = findTsConfigForFile(oldPath);
     const searchRoot = tsConfig ? path.dirname(tsConfig) : workspace;
-    const modified = updateVueImportsAfterMove(oldPath, newPath, searchRoot);
+    const modified = updateVueImportsAfterMove(oldPath, newPath, searchRoot, workspace);
 
     return { modified, skipped: [] };
   }

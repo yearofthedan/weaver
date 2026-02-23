@@ -36,7 +36,7 @@ describe("updateVueImportsAfterMove", () => {
       `<script setup>\nimport foo from './utils'\n</script>`,
     );
 
-    updateVueImportsAfterMove(oldPath, newPath, tmpDir);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
 
     const result = fs.readFileSync(vueFile, "utf8");
     expect(result).toContain("from './helpers'");
@@ -51,7 +51,7 @@ describe("updateVueImportsAfterMove", () => {
       `<script setup>\nimport foo from '../shared/utils'\n</script>`,
     );
 
-    updateVueImportsAfterMove(oldPath, newPath, tmpDir);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
 
     const result = fs.readFileSync(vueFile, "utf8");
     expect(result).toContain("from '../shared/helpers'");
@@ -64,7 +64,7 @@ describe("updateVueImportsAfterMove", () => {
     const original = `<script setup>\nimport foo from './other'\n</script>`;
     const vueFile = writeVue("src/Comp.vue", original);
 
-    updateVueImportsAfterMove(oldPath, newPath, tmpDir);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
 
     expect(fs.readFileSync(vueFile, "utf8")).toBe(original);
   });
@@ -75,7 +75,7 @@ describe("updateVueImportsAfterMove", () => {
     writeVue("A.vue", `<script>\nimport x from './utils'\n</script>`);
     writeVue("B.vue", `<script>\nimport x from './other'\n</script>`);
 
-    const modified = updateVueImportsAfterMove(oldPath, newPath, tmpDir);
+    const modified = updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
 
     expect(modified).toHaveLength(1);
     expect(path.basename(modified[0])).toBe("A.vue");
@@ -85,7 +85,28 @@ describe("updateVueImportsAfterMove", () => {
     const oldPath = path.join(tmpDir, "utils.ts");
     const newPath = path.join(tmpDir, "helpers.ts");
 
-    expect(updateVueImportsAfterMove(oldPath, newPath, tmpDir)).toEqual([]);
+    expect(updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir)).toEqual([]);
+  });
+
+  it("skips files outside workspace and does not write them", () => {
+    const workspace = path.join(tmpDir, "src");
+    fs.mkdirSync(workspace, { recursive: true });
+
+    const oldPath = path.join(tmpDir, "src/utils.ts");
+    const newPath = path.join(tmpDir, "src/helpers.ts");
+
+    // This .vue file is outside the workspace (in other/, not src/)
+    const outsideVue = writeVue(
+      "other/Comp.vue",
+      `<script setup>\nimport foo from '../src/utils'\n</script>`,
+    );
+    const originalContent = fs.readFileSync(outsideVue, "utf8");
+
+    const modified = updateVueImportsAfterMove(oldPath, newPath, tmpDir, workspace);
+
+    expect(modified).toHaveLength(0);
+    // File must not have been written
+    expect(fs.readFileSync(outsideVue, "utf8")).toBe(originalContent);
   });
 
   it("handles double-quoted imports", () => {
@@ -93,7 +114,7 @@ describe("updateVueImportsAfterMove", () => {
     const newPath = path.join(tmpDir, "src/helpers.ts");
     const vueFile = writeVue("src/Comp.vue", `<script>\nimport foo from "./utils"\n</script>`);
 
-    updateVueImportsAfterMove(oldPath, newPath, tmpDir);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
 
     expect(fs.readFileSync(vueFile, "utf8")).toContain('from "./helpers"');
   });
@@ -106,7 +127,7 @@ describe("updateVueImportsAfterMove", () => {
       `<script>\nimport x from '../lib/deep/util'\n</script>`,
     );
 
-    updateVueImportsAfterMove(oldPath, newPath, tmpDir);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
 
     const result = fs.readFileSync(vueFile, "utf8");
     expect(result).toContain("from '../lib/deep/renamed'");

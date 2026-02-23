@@ -16,12 +16,15 @@ export function updateVueImportsAfterMove(
   oldPath: string,
   newPath: string,
   searchRoot: string,
+  workspace: string,
 ): string[] {
   const oldWithoutExt = stripExt(oldPath);
   const vueFiles = walkFiles(searchRoot, [".vue"]);
   const modified: string[] = [];
 
   for (const vueFile of vueFiles) {
+    if (!isWithinWorkspace(vueFile, workspace)) continue;
+
     let content: string;
     try {
       content = fs.readFileSync(vueFile, "utf8");
