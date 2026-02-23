@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { isWithinWorkspace } from "../security.js";
 import { walkFiles } from "../utils/file-walk.js";
+import { computeRelativeImportPath } from "../utils/relative-path.js";
 
 /**
  * After a file move, scan all .vue files under searchRoot and rewrite any
@@ -57,10 +58,7 @@ function rewriteImports(
     const absImport = stripExt(path.resolve(path.dirname(fromFile), importPath));
     if (absImport !== oldPathNoExt) return match;
 
-    let rel = path.relative(path.dirname(fromFile), stripExt(newPath));
-    rel = rel.replace(/\\/g, "/"); // normalise Windows separators
-    if (!rel.startsWith(".")) rel = `./${rel}`;
-
+    const rel = computeRelativeImportPath(fromFile, newPath);
     return `from ${quote}${rel}${quote}`;
   });
 }
@@ -140,9 +138,7 @@ function rewriteNamedSymbolImport(
       const symbolSpec = specList[symbolIdx];
       const remaining = [...specList.slice(0, symbolIdx), ...specList.slice(symbolIdx + 1)];
 
-      let relNew = path.relative(path.dirname(fromFile), stripExt(destFile));
-      relNew = relNew.replace(/\\/g, "/");
-      if (!relNew.startsWith(".")) relNew = `./${relNew}`;
+      const relNew = computeRelativeImportPath(fromFile, destFile);
 
       if (remaining.length === 0) {
         return `import { ${symbolSpec} } from ${quote}${relNew}${quote}`;

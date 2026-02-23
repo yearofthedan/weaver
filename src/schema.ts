@@ -59,8 +59,12 @@ export const ReplaceTextArgsSchema = z
     edits: z.array(TextEditSchema).optional(),
   })
   .refine(
-    (d) => (d.pattern !== undefined && d.replacement !== undefined) || d.edits !== undefined,
-    { message: "Provide either 'pattern'+'replacement' or 'edits'" },
+    (d) => {
+      const hasPattern = d.pattern !== undefined && d.replacement !== undefined;
+      const hasEdits = d.edits !== undefined;
+      return hasPattern !== hasEdits; // XOR — exactly one mode must be provided
+    },
+    { message: "Provide either 'pattern'+'replacement' or 'edits', not both" },
   );
 
 export type RenameArgs = z.infer<typeof RenameArgsSchema>;

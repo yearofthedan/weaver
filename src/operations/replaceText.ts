@@ -38,6 +38,8 @@ export async function replaceText(
     return applyPatternReplace(workspace, pattern, replacement, glob);
   }
 
+  // Zod's refine() in ReplaceTextArgsSchema catches this at the protocol boundary;
+  // this guard is a second line of defence for callers that bypass the schema (e.g. tests).
   throw new EngineError(
     "replaceText requires either 'pattern'+'replacement' or 'edits'",
     "VALIDATION_ERROR",

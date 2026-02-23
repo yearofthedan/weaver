@@ -78,4 +78,26 @@ describe("dispatchRequest param validation", () => {
     const result = await dispatchRequest({ method: "doSomethingFake", params: {} }, workspace);
     expect(result).toMatchObject({ ok: false, error: "UNKNOWN_METHOD" });
   });
+
+  it("returns VALIDATION_ERROR when replaceText receives both pattern and edits", async () => {
+    const result = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          pattern: "foo",
+          replacement: "bar",
+          edits: [
+            { file: "/tmp/test-workspace/a.ts", line: 1, col: 1, oldText: "x", newText: "y" },
+          ],
+        },
+      },
+      workspace,
+    );
+    expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
+  });
+
+  it("returns VALIDATION_ERROR when replaceText receives neither pattern nor edits", async () => {
+    const result = await dispatchRequest({ method: "replaceText", params: {} }, workspace);
+    expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
+  });
 });

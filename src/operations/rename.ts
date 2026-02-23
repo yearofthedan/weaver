@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
 import { isWithinWorkspace } from "../security.js";
 import type { LanguageProvider, RenameResult } from "../types.js";
+import { assertFileExists } from "../utils/assert-file.js";
 import { EngineError } from "../utils/errors.js";
 import { applyTextEdits } from "../utils/text-utils.js";
 
@@ -13,11 +13,7 @@ export async function rename(
   newName: string,
   workspace: string,
 ): Promise<RenameResult> {
-  const absPath = path.resolve(filePath);
-
-  if (!fs.existsSync(absPath)) {
-    throw new EngineError(`File not found: ${filePath}`, "FILE_NOT_FOUND");
-  }
+  const absPath = assertFileExists(filePath);
 
   const offset = provider.resolveOffset(absPath, line, col);
   // getRenameLocations throws RENAME_NOT_ALLOWED when appropriate.

@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { isWithinWorkspace } from "../security.js";
 import type { LanguageProvider, MoveResult } from "../types.js";
-import { EngineError } from "../utils/errors.js";
+import { assertFileExists } from "../utils/assert-file.js";
 import { applyTextEdits } from "../utils/text-utils.js";
 
 export async function moveFile(
@@ -11,12 +11,8 @@ export async function moveFile(
   newPath: string,
   workspace: string,
 ): Promise<MoveResult> {
-  const absOld = path.resolve(oldPath);
+  const absOld = assertFileExists(oldPath);
   const absNew = path.resolve(newPath);
-
-  if (!fs.existsSync(absOld)) {
-    throw new EngineError(`File not found: ${oldPath}`, "FILE_NOT_FOUND");
-  }
 
   const edits = await provider.getEditsForFileRename(absOld, absNew);
 

@@ -4,13 +4,9 @@ import { type ImportDeclaration, type ImportSpecifier, Node, type SourceFile } f
 import type { TsProvider } from "../providers/ts.js";
 import { isWithinWorkspace } from "../security.js";
 import type { LanguageProvider, MoveSymbolResult } from "../types.js";
+import { assertFileExists } from "../utils/assert-file.js";
 import { EngineError } from "../utils/errors.js";
-
-function computeRelativeSpecifier(fromFile: string, toFile: string): string {
-  let rel = path.relative(path.dirname(fromFile), toFile).replace(/\.(ts|tsx)$/, "");
-  if (!rel.startsWith(".")) rel = `./${rel}`;
-  return rel;
-}
+import { computeRelativeImportPath } from "../utils/relative-path.js";
 
 /**
  * Move a named export from `sourceFile` to `destFile`, updating all importers
@@ -28,12 +24,8 @@ export async function moveSymbol(
   destFile: string,
   workspace: string,
 ): Promise<MoveSymbolResult> {
-  const absSource = path.resolve(sourceFile);
+  const absSource = assertFileExists(sourceFile);
   const absDest = path.resolve(destFile);
-
-  if (!fs.existsSync(absSource)) {
-    throw new EngineError(`File not found: ${sourceFile}`, "FILE_NOT_FOUND");
-  }
 
   const project = tsProvider.getProjectForFile(absSource);
 
@@ -132,7 +124,7 @@ export async function moveSymbol(
       continue;
     }
 
-    const destSpecifier = computeRelativeSpecifier(filePath, absDest);
+    const destSpecifier = computeRelativeImportPath(filePath, absDest);
 
     // Find any existing import from destFile in this source file
     const existingDestImport = sf

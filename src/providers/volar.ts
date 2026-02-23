@@ -9,9 +9,13 @@ import { buildVolarService, type CachedService } from "./vue-service.js";
 export class VolarProvider implements LanguageProvider {
   private services = new Map<string, CachedService>();
 
+  private cacheKey(tsConfigPath: string | null, filePath: string): string {
+    return tsConfigPath ?? `__no_tsconfig__:${path.dirname(filePath)}`;
+  }
+
   private async getService(filePath: string): Promise<CachedService> {
     const tsConfigPath = findTsConfigForFile(filePath);
-    const cacheKey = tsConfigPath ?? `__no_tsconfig__:${path.dirname(filePath)}`;
+    const cacheKey = this.cacheKey(tsConfigPath, filePath);
 
     let cached = this.services.get(cacheKey);
     if (!cached) {
@@ -23,7 +27,7 @@ export class VolarProvider implements LanguageProvider {
 
   invalidateService(filePath: string): void {
     const tsConfigPath = findTsConfigForFile(filePath);
-    this.services.delete(tsConfigPath ?? `__no_tsconfig__:${path.dirname(filePath)}`);
+    this.services.delete(this.cacheKey(tsConfigPath, filePath));
   }
 
   // ─── Virtual ↔ real path helpers ──────────────────────────────────────────
@@ -170,15 +174,13 @@ export class VolarProvider implements LanguageProvider {
   readFile(filePath: string): string {
     // Check the service cache first (may already have content loaded by buildService).
     const tsConfigPath = findTsConfigForFile(filePath);
-    const cacheKey = tsConfigPath ?? `__no_tsconfig__:${path.dirname(filePath)}`;
-    const cached = this.services.get(cacheKey);
+    const cached = this.services.get(this.cacheKey(tsConfigPath, filePath));
     return cached?.fileContents.get(filePath) ?? fs.readFileSync(filePath, "utf8");
   }
 
   notifyFileWritten(filePath: string, content: string): void {
     const tsConfigPath = findTsConfigForFile(filePath);
-    const cacheKey = tsConfigPath ?? `__no_tsconfig__:${path.dirname(filePath)}`;
-    const cached = this.services.get(cacheKey);
+    const cached = this.services.get(this.cacheKey(tsConfigPath, filePath));
     if (cached) cached.fileContents.set(filePath, content);
   }
 
