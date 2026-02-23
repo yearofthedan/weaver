@@ -8,33 +8,11 @@
 
 ## Critical Issues
 
-### 1. ReDoS — User-supplied regex with no complexity guard ✅ Fixed
-
-`safe-regex2` (pinned 5.0.0) is called immediately after `new RegExp(pattern)` in both `searchText` and `replaceText`. Dangerous patterns are rejected with `REDOS` before any file is read. 193 tests pass.
-
----
-
-### 2. No runtime validation on daemon socket protocol ✅ Fixed
-
-Two layers now guard the socket:
-1. **Envelope** (`daemon.ts`): `RequestEnvelopeSchema` (Zod) validates `{ method: string, params: object }` before reaching the dispatcher. Invalid envelopes return `PARSE_ERROR`.
-2. **Params** (`dispatcher.ts`): each `OperationDescriptor` carries a `schema` field from `schema.ts`. `dispatchRequest` calls `.safeParse()` before any file I/O, returning `VALIDATION_ERROR` on failure. Validated `parsed.data` is passed to `invoke`. 200 tests pass.
-
----
-
-### 3. Missing workspace boundary check in Vue import rewriting ✅ Fixed
-
-`updateVueImportsAfterMove` now accepts a `workspace` parameter and calls `isWithinWorkspace` before writing each `.vue` file — matching the pattern already in `updateVueNamedImportAfterSymbolMove`. `VolarProvider.afterFileRename` passes the workspace through. 201 tests pass.
-
----
+All critical issues have been fixed. See git history for details.
 
 ## Medium Severity
 
-### 4. Error masking: all errors → `DAEMON_STARTING` ✅ Fixed
-
-`classifyDaemonError()` in `src/mcp.ts` now returns `DAEMON_STARTING` only for socket-level connection failures (`ECONNREFUSED`, `ENOENT`, `ECONNRESET`) and timeouts. All other caught exceptions (e.g. JSON parse failures) return `INTERNAL_ERROR`. 223 tests pass.
-
----
+## Medium Severity (continued)
 
 ### 6. TOCTOU race in symlink checks
 
@@ -242,14 +220,9 @@ A change to parameter names or types requires updating all three locations manua
 
 ## Recommended Priority Order
 
-1. ~~**ReDoS guard** (Issue #1)~~ ✅ Done
-2. ~~**Runtime validation on socket** (Issue #2)~~ ✅ Done
-3. ~~**Workspace boundary in `updateVueImportsAfterMove`** (Issue #3)~~ ✅ Done
-4. ~~**Socket timeout** (Issue #4)~~ ✅ Done
-5. ~~**Fix error masking** (Issue #5)~~ ✅ Done
-6. **TOCTOU race** (Issue #6) — strengthen defense-in-depth (lower practical risk)
-7. **Fix naive string replacement** (Issue #7) — prevent silent comment corruption
-8. **Remove dead code** (Issue #10) — reduce confusion
+1. **TOCTOU race** (Issue #6) — strengthen defense-in-depth (lower practical risk)
+2. **Fix naive string replacement** (Issue #7) — prevent silent comment corruption
+3. **Remove dead code** (Issue #10) — reduce confusion
 
 ---
 
