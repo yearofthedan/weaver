@@ -22,22 +22,9 @@ Two layers now guard the socket:
 
 ---
 
-### 3. Missing workspace boundary check in Vue import rewriting
+### 3. Missing workspace boundary check in Vue import rewriting ✅ Fixed
 
-**File:** `src/providers/vue-scan.ts:15-40` (`updateVueImportsAfterMove`)
-
-**Problem:** This function scans `searchRoot` and rewrites import statements, but never calls `isWithinWorkspace`. The `searchRoot` is derived from the tsconfig location, which can extend beyond the workspace.
-
-Contrast with `updateVueNamedImportAfterSymbolMove` (line 88), which *does* check the workspace boundary.
-
-**Impact:** High — a `moveFile` operation could silently modify `.vue` files outside the workspace, corrupting codebases.
-
-**Call chain:**
-1. `moveFile` operation calls `provider.afterFileRename(oldPath, newPath, workspace)`
-2. `VolarProvider.afterFileRename` calls `updateVueImportsAfterMove(oldPath, newPath, searchRoot)` without passing `workspace`
-3. Function scans and modifies `.vue` files with no boundary check
-
-**Mitigation:** Pass `workspace` to `updateVueImportsAfterMove` and add boundary checks for each file before writing.
+`updateVueImportsAfterMove` now accepts a `workspace` parameter and calls `isWithinWorkspace` before writing each `.vue` file — matching the pattern already in `updateVueNamedImportAfterSymbolMove`. `VolarProvider.afterFileRename` passes the workspace through. 201 tests pass.
 
 ---
 
@@ -298,7 +285,7 @@ A change to parameter names or types requires updating all three locations manua
 
 1. ~~**ReDoS guard** (Issue #1)~~ ✅ Done
 2. ~~**Runtime validation on socket** (Issue #2)~~ ✅ Done
-3. **Workspace boundary in `updateVueImportsAfterMove`** (Issue #3) — prevents silent data corruption
+3. ~~**Workspace boundary in `updateVueImportsAfterMove`** (Issue #3)~~ ✅ Done
 4. **Socket timeout** (Issue #4) — prevents resource leak from hung daemon
 5. **Fix error masking** (Issue #5) — distinguishes recoverable from permanent failures
 6. **TOCTOU race** (Issue #6) — strengthen defense-in-depth (lower practical risk)

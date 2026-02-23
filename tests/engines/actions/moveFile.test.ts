@@ -107,7 +107,7 @@ describe("moveFile action", () => {
       // Post-step: scan .vue files for import rewrites (mirrors what dispatcher does)
       const tsConfig = findTsConfigForFile(oldPath);
       const searchRoot = tsConfig ? path.dirname(tsConfig) : path.dirname(oldPath);
-      const vueModified = updateVueImportsAfterMove(oldPath, newPath, searchRoot);
+      const vueModified = updateVueImportsAfterMove(oldPath, newPath, searchRoot, dir);
       for (const f of vueModified) {
         if (!result.filesModified.includes(f)) result.filesModified.push(f);
       }
