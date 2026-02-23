@@ -1,6 +1,8 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
-import { describe, expect, it } from "vitest";
-import { isWithinWorkspace } from "../src/workspace.js";
+import { afterEach, describe, expect, it } from "vitest";
+import { isWithinWorkspace, validateWorkspace } from "../src/workspace.js";
 
 describe("isWithinWorkspace", () => {
   const ws = "/tmp/my-workspace";
@@ -42,5 +44,74 @@ describe("isWithinWorkspace", () => {
   it("handles absolute paths computed with path.join correctly", () => {
     const inside = path.join(ws, "src/index.ts");
     expect(isWithinWorkspace(inside, ws)).toBe(true);
+  });
+});
+
+describe("validateWorkspace", () => {
+  const tmpDirs: string[] = [];
+
+  afterEach(() => {
+    for (const d of tmpDirs.splice(0)) {
+      fs.rmSync(d, { recursive: true, force: true });
+    }
+  });
+
+  function makeTmpDir(): string {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), "ws-test-"));
+    tmpDirs.push(d);
+    return d;
+  }
+
+  it("accepts a valid workspace directory", () => {
+    const dir = makeTmpDir();
+    const result = validateWorkspace(dir);
+    expect(result).toMatchObject({ ok: true, workspace: dir });
+  });
+
+  it("rejects a non-existent path", () => {
+    const result = validateWorkspace("/tmp/does-not-exist-xyzzy-999");
+    expect(result).toMatchObject({ ok: false });
+  });
+
+  it("rejects a file (non-directory)", () => {
+    const dir = makeTmpDir();
+    const file = path.join(dir, "file.txt");
+    fs.writeFileSync(file, "");
+    const result = validateWorkspace(file);
+    expect(result).toMatchObject({ ok: false });
+  });
+
+  // System paths that are guaranteed to exist on Linux — each must be rejected.
+  it.each(["/", "/etc", "/usr", "/var", "/bin"])(
+    "rejects restricted system path: %s",
+    (restrictedPath) => {
+      const result = validateWorkspace(restrictedPath);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toMatch(/restricted/i);
+    },
+  );
+
+  // User credential directories — only tested when the path actually exists on
+  // the current machine, since not every developer has all of these.
+  const credentialDirs = [".aws", ".azure", ".gnupg", ".kube", ".ssh"]
+    .map((d) => path.join(os.homedir(), d))
+    .filter((p) => fs.existsSync(p));
+
+  it.each(credentialDirs)(
+    "rejects user credential directory: %s",
+    (credPath) => {
+      const result = validateWorkspace(credPath);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toMatch(/restricted/i);
+    },
+  );
+
+  it("rejects a symlink that resolves to a restricted path", () => {
+    const dir = makeTmpDir();
+    const link = path.join(dir, "etc-link");
+    fs.symlinkSync("/etc", link);
+    const result = validateWorkspace(link);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/restricted/i);
   });
 });

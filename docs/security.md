@@ -21,7 +21,7 @@ The key invariant we enforce: **the MCP server may only read and write files wit
 
 ### 1. Input path validation (daemon layer)
 
-`src/daemon/workspace.ts` — `isWithinWorkspace(filePath, workspace)`
+`src/workspace.ts` — `isWithinWorkspace(filePath, workspace)`
 
 All file paths supplied by the agent (`file`, `oldPath`, `newPath`) are validated before the engine is called. Validation:
 - Resolves to absolute path via `path.resolve()`
@@ -56,6 +56,14 @@ The daemon uses newline-delimited JSON over a Unix socket. All values are serial
 
 The daemon socket path is derived from a hash of the workspace path (`src/daemon/paths.ts`). Access is governed by OS filesystem permissions — only processes running as the same user can connect. No authentication beyond that is implemented, which is appropriate for a single-user dev container.
 
+### 7. Workspace root validation (daemon startup)
+
+`src/workspace.ts` — `validateWorkspace(workspacePath)`
+
+At daemon startup, the declared workspace path is checked against a hardcoded blocklist of system directories (`/`, `/etc`, `/usr`, `/var`, `/bin`, …) and user credential directories (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`, `~/.azure`). Symlinks are resolved via `fs.realpathSync()` before the check, preventing indirect access through an innocuous-looking symlink target.
+
+A misconfigured or malicious MCP client config pointing the daemon at one of these paths is rejected at startup with `VALIDATION_ERROR` before any file operations are attempted.
+
 ---
 
 ## Known limitations
@@ -68,7 +76,11 @@ Mitigations outside scope of this project: agent-side sandboxing, response sanit
 
 ### Vue scan does not enforce workspace boundary
 
-`updateVueImportsAfterMove` in `src/engines/vue-scan.ts` rewrites `.vue` imports after a move by scanning the project root directory. Its search root is clamped to `path.dirname(tsconfig)`, which is within the workspace when the tsconfig is in the workspace. If a tsconfig is placed outside the workspace (unusual), the scan could reach outside. No fix currently; tracked in `docs/tech/tech-debt.md`.
+`updateVueImportsAfterMove` in `src/engines/vue/scan.ts` rewrites `.vue` imports after a move by scanning the project root directory. Its search root is clamped to `path.dirname(tsconfig)`, which is within the workspace when the tsconfig is in the workspace. If a tsconfig is placed outside the workspace (unusual), the scan could reach outside. No fix currently; tracked in `docs/tech/tech-debt.md`.
+
+### Sensitive file detection not yet implemented
+
+The current operations (rename, moveFile, moveSymbol, findReferences, getDefinition) work on AST nodes and do not expose raw file content, so the risk of leaking secrets is low. However, planned text search/replace operations will read and return file content. When those are added, a sensitive file pattern blocklist (`.env`, `*.pem`, `id_rsa`, cloud credential files, etc.) should be enforced before returning any content — similar to the approach used in grepika's `security.rs`. This is a prerequisite for the text search/replace slice, not a nice-to-have.
 
 ### No rate limiting or request size limits
 

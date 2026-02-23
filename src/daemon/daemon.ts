@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { EngineError } from "../engines/errors.js";
 import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../engines/file-walk.js";
 import { findTsConfigForFile, isVueProject } from "../engines/ts/project.js";
+import { validateWorkspace } from "../workspace.js";
 import { dispatchRequest, invalidateAll, invalidateFile, warmupEngine } from "./dispatcher.js";
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
 import { startWatcher } from "./watcher.js";
@@ -31,28 +32,15 @@ export function removeDaemonFiles(workspaceRoot: string): void {
 }
 
 export async function runDaemon(opts: { workspace: string }): Promise<void> {
-  const absWorkspace = path.resolve(opts.workspace);
-
-  // 1. Validate workspace
-  if (!fs.existsSync(absWorkspace)) {
-    const error = {
-      ok: false,
-      error: "VALIDATION_ERROR",
-      message: `Workspace directory not found: ${opts.workspace}`,
-    };
-    process.stdout.write(`${JSON.stringify(error)}\n`);
+  // 1. Validate workspace (existence, directory, not a restricted system path)
+  const wsResult = validateWorkspace(opts.workspace);
+  if (!wsResult.ok) {
+    process.stdout.write(
+      `${JSON.stringify({ ok: false, error: "VALIDATION_ERROR", message: wsResult.error })}\n`,
+    );
     process.exit(1);
   }
-
-  if (!fs.statSync(absWorkspace).isDirectory()) {
-    const error = {
-      ok: false,
-      error: "VALIDATION_ERROR",
-      message: `Workspace is not a directory: ${opts.workspace}`,
-    };
-    process.stdout.write(`${JSON.stringify(error)}\n`);
-    process.exit(1);
-  }
+  const absWorkspace = wsResult.workspace;
 
   // 2. Ensure cache dir exists
   ensureCacheDir();
