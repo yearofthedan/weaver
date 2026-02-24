@@ -145,9 +145,10 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "findReferences",
     description:
-      "Find all references to a symbol across the project. " +
-      "Use this before a rename or move to understand the blast radius, or to navigate to usages without reading files manually. " +
-      "Use before deleting a symbol or file to confirm there are no remaining callers. " +
+      "Find every reference to a symbol across the entire project. " +
+      "Use this to check whether a symbol is used anywhere — the primary signal before deleting, deprecating, or renaming it. " +
+      "Prefer this over searching for the symbol name as text (grep, searchText): it understands scope and ignores identically-named symbols in unrelated files or string literals that happen to match. " +
+      "Also use before a move or rename to understand the blast radius, or to navigate to all usages without reading files manually. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
       file: FindReferencesArgsSchema.shape.file.describe("Absolute path to the file"),
@@ -171,10 +172,10 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "searchText",
     description:
-      "Search for a regex pattern across all text files in the workspace. " +
-      "Returns match locations with optional surrounding context lines — use before replaceText to locate targets. " +
-      "For agents without shell access (Claude.ai, Cursor MCP-only), this is the primary way to find text before editing it. " +
-      "Sensitive files (.env, *.pem, private keys, keystores) are never returned. " +
+      "Search for a regex pattern across all workspace files. " +
+      "Prefer this over running shell grep or rg — results are structured JSON (file, line, col, matchText) that feed directly into replaceText's surgical edit mode, sensitive files are never scanned, and the workspace boundary is enforced. " +
+      "Use this to discover where a string literal, import path, configuration value, or any text appears across the project before editing it. " +
+      "Returns match locations with optional surrounding context lines. " +
       "Each match includes file, line (1-based), col (1-based), matchText, and optional context lines. " +
       "If truncated is true, results were capped at the internal limit — narrow the search with a more specific pattern or glob.",
     inputSchema: {
