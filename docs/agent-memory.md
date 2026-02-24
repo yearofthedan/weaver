@@ -198,6 +198,19 @@ When asked to reorganise test files, the agent reached for shell commands (`mkdi
 
 ---
 
+## Mutation-testing gotcha: test scope and stale sandbox directories (Feb 2026)
+
+When running `pnpm check` after a previous `pnpm test:mutate` run, Biome will error with "Found a nested root configuration" if `.stryker-tmp/` directories are still present. Run `rm -rf .stryker-tmp` before `pnpm check` whenever Stryker sandboxes are left behind.
+
+The surviving mutants listed in `quality.md` under "Known surviving mutants (as of initial run)" reflect the state *before* the security test suite was built out. After fixing P1 #3 (Feb 2026), the gaps that remained were:
+- `isWithinWorkspace` symlink branch — tested by creating a real temp dir + symlink pointing outside
+- `.env` regex `^` anchor — tested by asserting `config.env` / `myapp.env` are NOT blocked
+- `.credentials` exact-match entry — tested alongside `credentials`
+
+The correct way to cover symlink branches is always to create real filesystem artefacts (temp dirs, symlinks) in tests — non-existent paths skip `fs.existsSync` guards and leave the branch dead.
+
+---
+
 ## Memory storage
 
 - `.claude/MEMORY.md` — project state and agent behaviour notes

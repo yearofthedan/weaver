@@ -7,6 +7,21 @@ import { isWithinWorkspace, validateWorkspace } from "../../src/security.js";
 describe("isWithinWorkspace", () => {
   const ws = "/tmp/my-workspace";
 
+  // Temp dirs created for real-filesystem tests.
+  const tmpDirs: string[] = [];
+
+  afterEach(() => {
+    for (const d of tmpDirs.splice(0)) {
+      fs.rmSync(d, { recursive: true, force: true });
+    }
+  });
+
+  function makeTmpDir(): string {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), "ws-iswithin-"));
+    tmpDirs.push(d);
+    return d;
+  }
+
   it("returns true for a path inside the workspace", () => {
     expect(isWithinWorkspace("/tmp/my-workspace/src/foo.ts", ws)).toBe(true);
   });
@@ -44,6 +59,31 @@ describe("isWithinWorkspace", () => {
   it("handles absolute paths computed with path.join correctly", () => {
     const inside = path.join(ws, "src/index.ts");
     expect(isWithinWorkspace(inside, ws)).toBe(true);
+  });
+
+  it("returns false for a symlink inside the workspace that resolves outside", () => {
+    // Create two real directories: workspace and an outside target.
+    const workspace = makeTmpDir();
+    const outside = makeTmpDir();
+
+    // Place a file in the outside directory.
+    const outsideFile = path.join(outside, "secret.ts");
+    fs.writeFileSync(outsideFile, "");
+
+    // Create a symlink inside the workspace pointing to the outside file.
+    const link = path.join(workspace, "escape.ts");
+    fs.symlinkSync(outsideFile, link);
+
+    // isWithinWorkspace must reject it even though the link itself is inside.
+    expect(isWithinWorkspace(link, workspace)).toBe(false);
+  });
+
+  it("returns true for a regular (non-symlink) file that actually exists inside the workspace", () => {
+    const workspace = makeTmpDir();
+    const file = path.join(workspace, "src", "index.ts");
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, "");
+    expect(isWithinWorkspace(file, workspace)).toBe(true);
   });
 });
 

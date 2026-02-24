@@ -24,7 +24,7 @@ Context that isn't in the feature docs — things you need to know before pickin
 
 ## Current state
 
-**252/252 tests passing.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), and protocol version check in `ensureDaemon` are complete. Directory layout matches domain boundaries:
+**255/255 tests passing.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), and protocol version check in `ensureDaemon` are complete. Directory layout matches domain boundaries:
 
 ```
 src/
@@ -78,10 +78,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-**3. Fix security mutation survivors** — `pnpm test:mutate` revealed that several security-critical code paths have no effective test coverage. See the surviving mutants table in [`quality.md`](quality.md) for the full list. Key gaps:
-- `isWithinWorkspace` symlink resolution branch — zero coverage; a symlink pointing outside the workspace would not be caught
-- All sensitive-file lookup tables (`SENSITIVE_BASENAME_EXACT`, `SENSITIVE_EXTENSIONS`, `SENSITIVE_BASENAME_PATTERNS`, `RESTRICTED_WORKSPACE_ROOTS`) can be emptied without any test failing
-- `.env` regex `^` anchor can be dropped without test failure (would match `.env` mid-filename)
+*(No open P1 items.)*
 
 ---
 

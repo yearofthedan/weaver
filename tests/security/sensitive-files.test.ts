@@ -43,6 +43,7 @@ describe("isSensitiveFile", () => {
   it("blocks AWS and cloud credential files", () => {
     expect(isSensitiveFile("/home/user/.aws/credentials")).toBe(true);
     expect(isSensitiveFile("/workspace/credentials")).toBe(true);
+    expect(isSensitiveFile("/workspace/.credentials")).toBe(true);
   });
 
   it("blocks SSH known_hosts and authorized_keys", () => {
@@ -61,6 +62,14 @@ describe("isSensitiveFile", () => {
   it("allows files that merely contain env-like words in their name", () => {
     expect(isSensitiveFile("/workspace/src/environment.ts")).toBe(false);
     expect(isSensitiveFile("/workspace/src/keyUtils.ts")).toBe(false);
+  });
+
+  it("does not block files whose name merely ends with .env (^ anchor must hold)", () => {
+    // Dropping the ^ from /^\.env($|\.|_)/ would match mid-filename occurrences
+    // like config.env or template.env — these should NOT be blocked.
+    expect(isSensitiveFile("/workspace/config.env")).toBe(false);
+    expect(isSensitiveFile("/workspace/template.env")).toBe(false);
+    expect(isSensitiveFile("/workspace/myapp.env")).toBe(false);
   });
 
   it("blocks npm and HTTP credential files", () => {
