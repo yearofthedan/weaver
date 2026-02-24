@@ -75,6 +75,12 @@ describe("lineColToOffset", () => {
   it("throws a RangeError when line is out of range", () => {
     expect(() => lineColToOffset("one line", 5, 1)).toThrow(RangeError);
   });
+
+  it("throws RangeError at the exact boundary (line count + 1)", () => {
+    // "one line" has 1 line, so line=2 is the minimum out-of-range value.
+    // Pins the >= operator: if changed to >, (line-1)==lines.length (1==1) would not throw.
+    expect(() => lineColToOffset("one line", 2, 1)).toThrow(RangeError);
+  });
 });
 
 describe("applyTextEdits", () => {
@@ -130,5 +136,18 @@ describe("applyTextEdits", () => {
         { span: { start: 0, length: 3 }, newText: "qux" },
       ]),
     ).toBe("qux bar quux");
+  });
+
+  it("applies later spans before earlier ones so a shorter replacement does not corrupt subsequent offsets", () => {
+    // Edit at start=1 deletes 'X' (length 1 → 0 chars); edit at start=3 replaces 'YY' with 'Z'.
+    // Edits are given in ascending order. If sort were removed or reversed to ascending,
+    // the deletion at 1 would shift 'YY' from [3,4] to [2,3], causing the edit at
+    // position 3 to land on the wrong character and produce "abYZ" instead of "abZ".
+    expect(
+      applyTextEdits("aXbYY", [
+        { span: { start: 1, length: 1 }, newText: "" },
+        { span: { start: 3, length: 2 }, newText: "Z" },
+      ]),
+    ).toBe("abZ");
   });
 });
