@@ -351,6 +351,44 @@ describe("VolarProvider", () => {
     }
   }, 30_000);
 
+  it("getDefinitionAtPosition in a .vue file returns a real path (exercises toVirtualLocation)", async () => {
+    const dir = setup();
+    const p = new VolarProvider();
+    const file = path.join(dir, "src/App.vue");
+    const content = fs.readFileSync(file, "utf8");
+    const useCounterOffset = content.indexOf("useCounter");
+    const result = await p.getDefinitionAtPosition(file, useCounterOffset);
+    expect(result).not.toBeNull();
+    expect(result?.length).toBeGreaterThanOrEqual(1);
+    expect(result?.[0].fileName).not.toMatch(/\.vue\.ts$/);
+    expect(result?.[0].fileName).toContain("useCounter.ts");
+  }, 30_000);
+
+  it("getReferencesAtPosition returns null for a blank line (no symbol)", async () => {
+    // main.ts line 2 is blank — the LS returns undefined/[] there, which becomes null.
+    const dir = setup();
+    const p = new VolarProvider();
+    const file = path.join(dir, "src/main.ts");
+    const content = fs.readFileSync(file, "utf8");
+    const blankLineOffset = content.indexOf("\n\n") + 1;
+    const result = await p.getReferencesAtPosition(file, blankLineOffset);
+    expect(result).toBeNull();
+  }, 30_000);
+
+  it("getEditsForFileRename returns only real-path edits with non-empty textChanges", async () => {
+    const dir = setup();
+    const p = new VolarProvider();
+    const oldPath = path.join(dir, "src/composables/useCounter.ts");
+    const newPath = path.join(dir, "src/composables/useTimer.ts");
+    const edits = await p.getEditsForFileRename(oldPath, newPath);
+
+    expect(edits.length).toBeGreaterThan(0);
+    for (const edit of edits) {
+      expect(edit.fileName).not.toMatch(/\.vue\.ts$/);
+      expect(edit.textChanges.length).toBeGreaterThan(0);
+    }
+  }, 30_000);
+
   it("getDefinitionAtPosition returns null for a whitespace position", async () => {
     // Exercises the `!rawDefs || rawDefs.length === 0` null-return path.
     const dir = setup();

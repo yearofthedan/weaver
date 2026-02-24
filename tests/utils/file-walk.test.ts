@@ -163,6 +163,21 @@ describe("walkFiles", () => {
       expect(path.isAbsolute(result[0])).toBe(true);
     });
 
+    it("excludes gitignored files in directories not in SKIP_DIRS", () => {
+      // "private/" is not in SKIP_DIRS, so the recursive fallback would include it.
+      // This test ensures git mode (not the fallback) runs and respects .gitignore.
+      initGit();
+      write(".gitignore", "private/\n");
+      write("src/a.ts");
+      write("private/secret.ts");
+      execSync("git add .", { cwd: tmpDir, stdio: "pipe" });
+
+      const result = walkFiles(tmpDir, [".ts"]);
+      const names = result.map((f) => path.basename(f));
+      expect(names).toContain("a.ts");
+      expect(names).not.toContain("secret.ts");
+    });
+
     it("excludes files with non-matching extensions in git mode", () => {
       // Exercises the extension filter in the git path:
       // extSet.has(path.extname(line)) must exclude non-requested extensions.

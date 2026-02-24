@@ -30,7 +30,7 @@ Fixtures should be minimal but realistic — a small app with enough complexity 
 
 ### Coverage targets by module
 
-Numbers from `pnpm coverage` (vitest v8) as of 264 tests.
+Numbers from `pnpm coverage` (vitest v8) as of 264 tests. Test count is now 309; module-level coverage numbers are stable.
 
 | Module | Lines | Branches | Target | Notes |
 |--------|-------|----------|--------|-------|
@@ -54,28 +54,27 @@ Use [Stryker](https://stryker-mutator.io/) with vitest (`pnpm test:mutate`) to v
 - **Expect noise from:** string-heavy operations where Stryker's `StringLiteral` mutations produce equivalent mutants (excluded via config).
 - **Target mutation score:** 80%+ on scoped modules. Below 60% indicates real assertion gaps worth fixing.
 
-#### Mutation scores (as of 301 tests)
+#### Mutation scores (as of 309 tests)
 
-Partial re-run on 5 target modules after mutation round 2 (see "Worth fixing" history below).
-Run `pnpm test:mutate` for a fresh overall score.
+Full run after mutation round 3. Run `pnpm test:mutate` for a fresh score.
 
 | Module | Score (total) | Score (covered) | Notes |
 |--------|--------------|-----------------|-------|
-| All scoped files | **≥76.23%** | — | Partial re-run; 5 modules improved |
+| All scoped files | **80.11%** | 82.96% | Full run; 309 tests |
 | `security.ts` | 82.19% | 88.24% | Above threshold |
 | `utils/text-utils.ts` | **100%** | 100% | Clean |
 | `utils/assert-file.ts` | **100%** | 100% | Clean |
-| `utils/file-walk.ts` | 76.67% | 76.67% | Below threshold |
+| `utils/file-walk.ts` | **86.67%** | 86.67% | Above threshold ↑ (was 76.67%) |
 | `utils/relative-path.ts` | 75.00% | 75.00% | Below threshold |
 | `operations/moveFile.ts` | 86.67% | 92.86% | Above threshold |
-| `operations/moveSymbol.ts` | 72.82% | 74.26% | Below threshold |
+| `operations/moveSymbol.ts` | **80.58%** | 81.37% | Above threshold ↑ (was 72.82%) |
 | `operations/rename.ts` | 78.26% | 81.82% | Near threshold |
 | `operations/replaceText.ts` | 77.78% | 81.91% | Near threshold |
 | `operations/findReferences.ts` | 76.47% | 81.25% | Near threshold |
-| `operations/getDefinition.ts` | **93.33%** | 93.33% | Above threshold ↑ (was 73.33%) |
-| `operations/searchText.ts` | **80.77%** | 85.71% | Above threshold ↑ (was 70.19%) |
+| `operations/getDefinition.ts` | **93.33%** | 93.33% | Above threshold |
+| `operations/searchText.ts` | **80.77%** | 85.71% | Above threshold |
 | `providers/ts.ts` | 71.03% | 72.03% | Caching + out-of-project scan gaps |
-| `providers/volar.ts` | 71.30% | 75.23% | Below threshold ↑ (was 66.96%) |
+| `providers/volar.ts` | 73.91% | 77.98% | Below threshold ↑ (was 71.30%) |
 | `providers/vue-scan.ts` | 88.75% | 91.03% | Above threshold |
 
 #### Known surviving mutants (current)
@@ -110,9 +109,7 @@ Fixed gaps are removed. Remaining survivors by category:
 
 | Area | Gap |
 |------|-----|
-| `operations/moveSymbol.ts` | 72.82% — workspace-boundary `filesSkipped` importer-loop path; requires a fixture where ts-morph project resolves an import from outside the workspace root |
-| `providers/volar.ts` | 71.30% — Volar internal path-translation branches; the `rawRefs.length === 0` and `textChanges.length > 0` guards need fixtures that produce zero-result or zero-change LS responses |
-| `utils/file-walk.ts` | 76.67% — git-path `ArrayDeclaration`/`BlockStatement`/`filter(Boolean)` mutants are equivalent or require kernel-level test harness |
+| `providers/volar.ts` | 73.91% — 24 surviving mutants, most accepted (see below). `rawRefs.length === 0` and `textChanges.length > 0` guards need fixtures that produce zero-result or zero-change LS responses. Getting above 80% requires addressing the no-coverage items (toVirtualLocation fallback branches for non-standard `.vue` files with no `<script>` block). |
 | `operations/rename.ts` | 78.26% — near threshold; one more round may push it over |
 | `operations/findReferences.ts` | 76.47% — near threshold |
 
@@ -122,6 +119,8 @@ Fixed gaps are removed. Remaining survivors by category:
 |------|--------|-------|--------------------------|
 | `operations/getDefinition.ts` | 73.33% | **93.33%** | Added SYMBOL_NOT_FOUND test for blank-line position (kills `!defs` null guard); added VolarProvider out-of-range line test (kills `resolveOffset` catch block) |
 | `operations/searchText.ts` | 70.19% | **80.77%** | Added `globToRegex` unit tests (kills glob-regex construction mutants); binary file skip test (kills `isBinaryBuffer` null-byte check); context-boundary tests (kills `Math.max/min` clamp mutants); non-git workspace test (kills `walkRecursive` fallback path) |
+| `utils/file-walk.ts` | 76.67% | **86.67%** | Added gitignored non-SKIP_DIRS dir test (kills `BlockStatement`/`ArrayDeclaration` mutants on the git-path `if` body — the recursive fallback includes such dirs since it ignores `.gitignore`) |
+| `operations/moveSymbol.ts` | 72.82% | **80.58%** | Added test for dest-file-in-importers guard (`filePath === absDest`); dirty-files-loop filesSkipped with out-of-workspace source; test for `export const` symbol (kills `Node.isVariableDeclaration` branch mutants); test for importer importing only other symbols (kills `specifiers.length > 0 → >= 0`) |
 
 ### Hard-won mutation lessons
 
@@ -165,6 +164,21 @@ Covered by calling `resolveOffset` with `line: 999` on a real `.vue` file (via `
 
 **Covering `translateLocations` requires asserting span length and no `.vue.ts` paths.**
 Adding `getReferencesAtPosition` to VolarProvider tests covers the `translateLocations` code path. Assert that returned spans have non-zero `textSpan.length` and that no paths end in `.vue.ts` — otherwise the path-translation mutants survive.
+
+**`filter(Boolean)` in the git path is an equivalent mutant.**
+After `split("\n")`, the subsequent `.filter((line) => extSet.has(path.extname(line)))` also filters empty strings (since `path.extname("")` is `""`, which is never in the extension set). Removing `filter(Boolean)` produces identical output. Accept this survivor.
+
+**Gitignored non-SKIP_DIRS directories kill the git-path `BlockStatement` mutant.**
+If the git-path `if` body is emptied (BlockStatement mutation), the function falls back to recursive walk. The recursive walk respects `SKIP_DIRS` but NOT `.gitignore`. A gitignored directory that is not in `SKIP_DIRS` (e.g., `private/`) would then appear in the output. The test `excludes gitignored files in directories not in SKIP_DIRS` catches this.
+
+**`moveSymbol` `filePath === absDest` guard needs the dest file to pre-import the symbol.**
+The guard `if (filePath === absDest) continue` in the importer loop fires only when the destination file is itself an importer of the symbol (i.e., it already imports the symbol from the source). Without the guard, the importer loop would rewrite the dest file's import to a self-reference (`from "./helpers.js"` in helpers.ts). Assert `not.toContain('"./helpers.js"')` in the dest file content.
+
+**`moveSymbol` dirty-files-loop filesSkipped requires the source to be outside the workspace.**
+The `else { filesSkipped.add(fp) }` branch in the dirty-files loop fires when a ts-morph-dirtied file is outside the declared workspace. Set the workspace to `src/` only, put the source file in `lib/`, and use a tsconfig with `include: ["**/*.ts"]` so ts-morph loads both. Assert the source file is in `filesSkipped` AND its on-disk content is unchanged (proving the save loop also respected the boundary).
+
+**`specifiers.length > 0` needs an importer with non-matching symbols.**
+Mutation `> 0 → >= 0` includes importers with 0 matching specifiers. These "false positives" then gain a wrong import from the dest file. To kill this, add a file that imports OTHER symbols from the source (but not the moved symbol) and assert it does not gain an import from the dest.
 
 **Symlink branch coverage requires real filesystem artefacts.**
 The `isWithinWorkspace` symlink branch only fires when the path exists and `fs.existsSync` passes. Create real temp dirs and symlinks pointing outside the workspace — non-existent paths skip the `realpathSync` call and leave the branch dead.

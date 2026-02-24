@@ -252,6 +252,33 @@ describe("moveSymbol action", () => {
       expect(content).toMatch(/import\s*\{[^}]*add[^}]*\}\s*from\s*["']\.\/helpers\.js/);
     });
 
+    it("moves an exported const variable (exercises VariableDeclaration → VariableStatement traversal)", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      fs.appendFileSync(path.join(dir, "src/utils.ts"), "\nexport const VERSION = '1.0.0';\n");
+      fs.writeFileSync(
+        path.join(dir, "src/consumer.ts"),
+        'import { VERSION } from "./utils";\nexport const v = VERSION;\n',
+      );
+      const tsProvider = new TsProvider();
+
+      const result = await moveSymbol(
+        tsProvider,
+        tsProvider,
+        `${dir}/src/utils.ts`,
+        "VERSION",
+        `${dir}/src/constants.ts`,
+        dir,
+      );
+
+      expect(readFile(dir, "src/constants.ts")).toContain("export const VERSION");
+      expect(readFile(dir, "src/utils.ts")).not.toContain("VERSION");
+      const consumerContent = readFile(dir, "src/consumer.ts");
+      expect(consumerContent).toContain('"./constants.js"');
+      expect(consumerContent).not.toContain('"./utils"');
+      expect(result.filesModified).toContain(path.join(dir, "src/consumer.ts"));
+    });
+
     it("appends to a non-empty destination file with a blank-line separator", async () => {
       const dir = copyFixture("simple-ts");
       dirs.push(dir);
@@ -311,6 +338,94 @@ describe("moveSymbol action", () => {
       expect(helperImports?.[0]).toContain("add");
       // multiply stays in the utils import
       expect(content).toMatch(/import\s*\{[^}]*multiply[^}]*\}\s*from\s*["']\.\/utils/);
+    });
+
+    it("does not modify files that import other symbols from source but not the moved symbol", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      fs.appendFileSync(
+        path.join(dir, "src/utils.ts"),
+        "\nexport function multiply(a: number, b: number): number { return a * b; }\n",
+      );
+      // feature.ts imports only multiply — not greetUser (the symbol being moved)
+      fs.writeFileSync(
+        path.join(dir, "src/feature.ts"),
+        'import { multiply } from "./utils";\nexport const r = multiply(2, 3);\n',
+      );
+      const tsProvider = new TsProvider();
+
+      await moveSymbol(
+        tsProvider,
+        tsProvider,
+        `${dir}/src/utils.ts`,
+        "greetUser",
+        `${dir}/src/helpers.ts`,
+        dir,
+      );
+
+      // feature.ts must not gain an import from helpers.ts
+      const featureContent = readFile(dir, "src/feature.ts");
+      expect(featureContent).not.toContain("helpers");
+      expect(featureContent).toContain('"./utils"');
+    });
+
+    it("skips updating imports in the dest file when it already imports the symbol from source", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      fs.writeFileSync(
+        path.join(dir, "src/helpers.ts"),
+        'import { greetUser } from "./utils";\nexport function helper(): void { greetUser("x"); }\n',
+      );
+      const tsProvider = new TsProvider();
+
+      const result = await moveSymbol(
+        tsProvider,
+        tsProvider,
+        `${dir}/src/utils.ts`,
+        "greetUser",
+        `${dir}/src/helpers.ts`,
+        dir,
+      );
+
+      expect(readFile(dir, "src/helpers.ts")).toContain("export function greetUser");
+      // No self-referencing import — the dest-file guard prevents the importer loop from
+      // updating the dest file's own import to point at itself.
+      expect(readFile(dir, "src/helpers.ts")).not.toContain('"./helpers.js"');
+      expect(result.filesSkipped).toHaveLength(0);
+    });
+
+    it("filesSkipped includes dirty source file that is outside the workspace root", async () => {
+      // tsconfig covers both src/ and lib/, but workspace is only src/.
+      // ts-morph modifies lib/utils.ts in memory (removes the symbol) yet must not save it.
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-movesymbol-dirtysrc-"));
+      dirs.push(tmpDir);
+
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, "lib"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "tsconfig.json"),
+        JSON.stringify({ compilerOptions: { strict: true }, include: ["**/*.ts"] }),
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, "lib/utils.ts"),
+        "export function add(a: number, b: number): number { return a + b; }\n",
+      );
+
+      const tsProvider = new TsProvider();
+      const result = await moveSymbol(
+        tsProvider,
+        tsProvider,
+        path.join(tmpDir, "lib/utils.ts"),
+        "add",
+        path.join(tmpDir, "src/helpers.ts"),
+        path.join(tmpDir, "src"), // workspace = src/ only
+      );
+
+      expect(result.filesSkipped.some((f) => f.includes("lib/utils.ts"))).toBe(true);
+      expect(result.filesModified.some((f) => f.includes("src/helpers.ts"))).toBe(true);
+      // lib/utils.ts is outside the workspace boundary — must not be written to disk
+      const srcContent = fs.readFileSync(path.join(tmpDir, "lib/utils.ts"), "utf8");
+      expect(srcContent).toContain("add");
     });
 
     it("filesSkipped includes importers outside the workspace boundary", async () => {
