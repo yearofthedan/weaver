@@ -148,6 +148,178 @@ describe("moveSymbol action", () => {
         expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
       }
     });
+
+    it("throws NOT_SUPPORTED for a symbol re-exported via 'export { }'", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      // localFn is declared without 'export'; re-exported via export { }.
+      // declarationText is "const localFn = (): number => 42;" — no 'export' prefix.
+      fs.writeFileSync(
+        path.join(dir, "src/reexport.ts"),
+        "const localFn = (): number => 42;\nexport { localFn };\n",
+      );
+      const tsProvider = new TsProvider();
+
+      try {
+        await moveSymbol(
+          tsProvider,
+          tsProvider,
+          `${dir}/src/reexport.ts`,
+          "localFn",
+          `${dir}/src/helpers.ts`,
+          dir,
+        );
+        expect.fail("Should have thrown");
+      } catch (err: unknown) {
+        expect((err as { code?: string }).code).toBe("NOT_SUPPORTED");
+      }
+    });
+
+    it("creates the destination directory when it does not exist", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const tsProvider = new TsProvider();
+      const dstPath = path.join(dir, "src/nested/deep/helpers.ts");
+
+      await moveSymbol(tsProvider, tsProvider, `${dir}/src/utils.ts`, "greetUser", dstPath, dir);
+
+      expect(fs.existsSync(dstPath)).toBe(true);
+      expect(fs.readFileSync(dstPath, "utf8")).toContain("greetUser");
+    });
+
+    it("filesModified includes both the source file and the destination file", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const tsProvider = new TsProvider();
+
+      const result = await moveSymbol(
+        tsProvider,
+        tsProvider,
+        `${dir}/src/utils.ts`,
+        "greetUser",
+        `${dir}/src/helpers.ts`,
+        dir,
+      );
+
+      expect(result.filesModified).toContain(`${dir}/src/utils.ts`);
+      expect(result.filesModified).toContain(`${dir}/src/helpers.ts`);
+    });
+
+    it("updates all importers when multiple files import the moved symbol", async () => {
+      const dir = copyFixture("multi-importer");
+      dirs.push(dir);
+      const tsProvider = new TsProvider();
+
+      const result = await moveSymbol(
+        tsProvider,
+        tsProvider,
+        `${dir}/src/utils.ts`,
+        "add",
+        `${dir}/src/helpers.ts`,
+        dir,
+      );
+
+      // Both importers get updated
+      const featureA = fs.readFileSync(path.join(dir, "src/featureA.ts"), "utf8");
+      const featureB = fs.readFileSync(path.join(dir, "src/featureB.ts"), "utf8");
+      expect(featureA).not.toContain('"./utils"');
+      expect(featureA).toContain('"./helpers.js"');
+      expect(featureB).not.toContain('"./utils"');
+      expect(featureB).toContain('"./helpers.js"');
+      expect(result.filesModified).toContain(`${dir}/src/featureA.ts`);
+      expect(result.filesModified).toContain(`${dir}/src/featureB.ts`);
+    });
+
+    it("removes only the moved specifier when an importer has multiple named imports from the source", async () => {
+      const dir = copyFixture("multi-importer");
+      dirs.push(dir);
+      // Give utils.ts a second export so featureA can import two symbols from it
+      fs.appendFileSync(
+        path.join(dir, "src/utils.ts"),
+        "\nexport function multiply(a: number, b: number): number { return a * b; }\n",
+      );
+      fs.writeFileSync(
+        path.join(dir, "src/featureA.ts"),
+        'import { add, multiply } from "./utils";\nexport const result = add(1, 2) + multiply(3, 4);\n',
+      );
+      const tsProvider = new TsProvider();
+
+      await moveSymbol(
+        tsProvider,
+        tsProvider,
+        `${dir}/src/utils.ts`,
+        "add",
+        `${dir}/src/helpers.ts`,
+        dir,
+      );
+
+      const content = fs.readFileSync(path.join(dir, "src/featureA.ts"), "utf8");
+      // 'add' removed from utils import; new helpers import added
+      expect(content).not.toMatch(/import\s*\{[^}]*add[^}]*\}\s*from\s*["']\.\/utils/);
+      expect(content).toMatch(/import\s*\{[^}]*multiply[^}]*\}\s*from\s*["']\.\/utils/);
+      expect(content).toMatch(/import\s*\{[^}]*add[^}]*\}\s*from\s*["']\.\/helpers\.js/);
+    });
+
+    it("appends to a non-empty destination file with a blank-line separator", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      fs.writeFileSync(
+        path.join(dir, "src/helpers.ts"),
+        'export function helper(): string { return "hi"; }\n',
+      );
+      const tsProvider = new TsProvider();
+
+      await moveSymbol(
+        tsProvider,
+        tsProvider,
+        `${dir}/src/utils.ts`,
+        "greetUser",
+        `${dir}/src/helpers.ts`,
+        dir,
+      );
+
+      const content = fs.readFileSync(path.join(dir, "src/helpers.ts"), "utf8");
+      expect(content).toContain("helper");
+      expect(content).toContain("greetUser");
+      // Exactly two newlines between existing content and appended declaration
+      expect(content).toMatch(/helper[\s\S]*\n\nexport function greetUser/);
+    });
+
+    it("merges moved symbol into an existing dest import when importer has multiple named imports from source", async () => {
+      const dir = copyFixture("multi-importer");
+      dirs.push(dir);
+      // Give utils.ts a second export
+      fs.appendFileSync(
+        path.join(dir, "src/utils.ts"),
+        "\nexport function multiply(a: number, b: number): number { return a * b; }\n",
+      );
+      // helpers.ts already exists with its own export
+      fs.writeFileSync(path.join(dir, "src/helpers.ts"), "export const PI = 3.14;\n");
+      // featureA imports two symbols from utils AND already imports from helpers
+      fs.writeFileSync(
+        path.join(dir, "src/featureA.ts"),
+        'import { add, multiply } from "./utils";\nimport { PI } from "./helpers";\nexport const r = add(1, 2) + multiply(3, 4) + PI;\n',
+      );
+      const tsProvider = new TsProvider();
+
+      await moveSymbol(
+        tsProvider,
+        tsProvider,
+        `${dir}/src/utils.ts`,
+        "add",
+        `${dir}/src/helpers.ts`,
+        dir,
+      );
+
+      const content = fs.readFileSync(path.join(dir, "src/featureA.ts"), "utf8");
+      // A single import from helpers containing both PI and add (merged, not duplicated)
+      const helperImports = content.match(/import\s*\{[^}]+\}\s*from\s*["']\.\/helpers/g);
+      expect(helperImports).toHaveLength(1);
+      expect(helperImports?.[0]).toContain("PI");
+      expect(helperImports?.[0]).toContain("add");
+      // multiply stays in the utils import
+      expect(content).toMatch(/import\s*\{[^}]*multiply[^}]*\}\s*from\s*["']\.\/utils/);
+    });
   });
 
   describe("with VolarProvider (Vue project)", () => {

@@ -24,7 +24,7 @@ Context that isn't in the feature docs — things you need to know before pickin
 
 ## Current state
 
-**257/257 tests passing.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), and protocol version check in `ensureDaemon` are complete. Directory layout matches domain boundaries:
+**264/264 tests passing.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), and protocol version check in `ensureDaemon` are complete. Directory layout matches domain boundaries:
 
 ```
 src/
@@ -87,8 +87,6 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 Feature doc: [`quality.md`](quality.md) — covers mutation testing strategy, coverage targets by module, surviving mutants table, and what not to do.
 
 Stryker mutation testing is operational: `pnpm test:mutate` runs 680 mutants across `src/operations/`, `src/utils/`, and `src/security.ts` in ~7 minutes. Overall score: 72% (78% covered). After fixing the P1 security survivors, focus shifts to strengthening assertion quality.
-
-**5. Improve `moveSymbol.ts` mutation score** — 55% is the weakest module. 16 no-coverage mutants and 30 survivors indicate significant assertion gaps.
 
 **6. Expand mutation testing to `src/providers/`** — 88–91% line coverage. Virtual↔real path translation in Volar and AST manipulation in TsProvider are complex enough to harbour subtle bugs.
 
