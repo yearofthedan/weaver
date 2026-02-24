@@ -1,78 +1,146 @@
 # Feature: Engines
 
-**Purpose:** Architecture reference for the engine layer. Read before touching any file under `src/engines/`.
+**Purpose:** Architecture reference for the engine layer. Read before touching anything in `src/operations/`, `src/providers/`, or `src/daemon/dispatcher.ts`.
 
-See also: `docs/tech/volar-v3.md` (Vue engine internals), `docs/tech/tech-debt.md` (known issues).
+See also: `docs/tech/volar-v3.md` (Vue provider internals), `docs/tech/tech-debt.md` (known issues).
 
-## What they are
+---
 
-Engines are the language-specific layer that execute refactoring and lookup operations against the project graph. light-bridge delegates all code intelligence to the engines.
+## Overview
 
-## Current engines
-
-- **TypeScript engine** (`src/engines/ts/`) — powered by ts-morph. Used for pure TypeScript projects (no `.vue` files).
-- **Vue engine** (`src/engines/vue/`) — powered by Volar. Used for any project containing `.vue` files, regardless of the starting file's extension. Volar creates a unified TypeScript program covering both `.ts` and `.vue` files, so cross-boundary renames work correctly.
-
-The dispatcher (`src/daemon/dispatcher.ts`) selects the engine per workspace via `isVueProject()` at first request. One engine instance per workspace, kept alive for the daemon's lifetime.
-
-## Architecture
-
-### Provider / engine separation
-
-The engine layer has two tiers:
+The engine layer has two tiers: **providers** hold the stateful compiler objects, and **operations** are standalone functions that call into providers. There are no engine classes.
 
 ```
-LanguageProvider  (src/engines/types.ts)
-  ↑ implements
-TsProvider        (src/engines/providers/ts.ts)    — ts-morph compiler calls
-VolarProvider     (src/engines/providers/volar.ts) — Volar proxy + virtual↔real translation
+src/operations/          ← standalone action functions (one per operation)
+  rename.ts
+  moveFile.ts
+  moveSymbol.ts
+  findReferences.ts
+  getDefinition.ts
+  searchText.ts
+  replaceText.ts
 
-BaseEngine        (src/engines/engine.ts)
-  ↑ extends
-TsEngine          (src/engines/ts/engine.ts)       — adds moveSymbol (ts-morph AST)
-VueEngine         (src/engines/vue/engine.ts)      — moveSymbol stub (NOT_SUPPORTED)
+src/providers/           ← stateful compiler wrappers
+  ts.ts                 ← TsProvider  — ts-morph Project; per-tsconfig cache
+  volar.ts              ← VolarProvider — Volar proxy; virtual↔real translation; afterSymbolMove
+  vue-scan.ts           ← updateVueImportsAfterMove, updateVueNamedImportAfterSymbolMove
+  vue-service.ts        ← buildVolarService() factory
 ```
 
-`BaseEngine` implements the four shared operations (`rename`, `findReferences`, `getDefinition`, `moveFile`) against the `LanguageProvider` interface. Engines only need to implement `moveSymbol`.
+---
 
-### Data-driven dispatch
+## Provider interface
 
-`dispatcher.ts` uses an `OPERATIONS` descriptor table. Each entry owns:
-- `pathParams` — which params are file paths (first entry determines engine selection)
-- `invoke` — calls the engine method
-- `format` — shapes the result for the wire response
+Both providers implement `LanguageProvider` (defined in `src/types.ts`):
 
-Adding a new operation is a single table entry in `dispatcher.ts` and `mcp.ts`.
+```typescript
+interface LanguageProvider {
+  resolveOffset(file, line, col): number
+  getRenameLocations(file, offset): Promise<SpanLocation[] | null>
+  getReferencesAtPosition(file, offset): Promise<SpanLocation[] | null>
+  getDefinitionAtPosition(file, offset): Promise<DefinitionLocation[] | null>
+  getEditsForFileRename(oldPath, newPath): Promise<FileTextEdit[]>
+  readFile(path): string
+  notifyFileWritten(path, content): void
+  afterFileRename(oldPath, newPath, workspace): Promise<{ modified, skipped }>
+  afterSymbolMove(sourceFile, symbolName, destFile, workspace): Promise<{ modified, skipped }>
+}
+```
+
+`afterFileRename` and `afterSymbolMove` are post-step hooks. `TsProvider.afterSymbolMove` is a no-op — ts-morph AST edits handle TS importers directly. `VolarProvider.afterSymbolMove` scans `.vue` SFC script blocks for imports of the moved symbol and rewrites them.
+
+---
+
+## Provider registry
+
+The dispatcher creates a `ProviderRegistry` per request, scoped to the project that contains the input file:
+
+```typescript
+interface ProviderRegistry {
+  projectProvider(): Promise<LanguageProvider>  // VolarProvider for Vue projects, TsProvider otherwise
+  tsProvider(): Promise<TsProvider>             // always TsProvider — for AST-level operations
+}
+```
+
+Provider selection uses `findTsConfigForFile(inputFile)` to locate the right tsconfig, then `isVueProject(tsconfig)` to choose the provider. In a monorepo each package resolves to its own tsconfig and gets the right provider automatically. Both providers are lazy singletons at the daemon level; each manages a per-tsconfig cache internally.
+
+---
+
+## Operation dispatch
+
+`src/daemon/dispatcher.ts` uses an `OPERATIONS` descriptor table. Each entry owns:
+
+- `pathParams` — which params are file paths (first entry is used for provider selection and workspace validation)
+- `schema` — Zod schema for input validation at the socket boundary
+- `invoke(registry, params, workspace)` — calls the operation function with the resolved providers
+
+```
+tool call (MCP)
+  → mcp.ts: TOOLS table → callDaemon(method, params)
+  → daemon.ts: socket → dispatchRequest(method, params, workspace)
+  → dispatcher.ts: OPERATIONS[method]
+      1. validate params (schema.safeParse)
+      2. validate path params against workspace boundary (isWithinWorkspace)
+      3. makeRegistry(firstPathParam) → ProviderRegistry
+      4. descriptor.invoke(registry, params, workspace)
+      5. return { ok: true, ...result }
+```
+
+Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and one entry in `TOOLS` (mcp.ts). No other files need to change.
+
+---
 
 ## Operations
 
 ### Mutating
 
-| Operation | TS | Vue | Entry point |
-|-----------|----|----|-------------|
-| `rename` | ✓ | ✓ | `BaseEngine.rename` → `LanguageProvider.findRenameLocations` |
-| `moveFile` | ✓ | ✓ | `BaseEngine.moveFile` → `LanguageProvider.getEditsForFileRename` + post-scan |
-| `moveSymbol` | ✓ | — | `TsEngine.moveSymbol` (ts-morph AST); `VueEngine` throws `NOT_SUPPORTED` |
+| Operation | Providers used | Notes |
+|-----------|---------------|-------|
+| `rename` | `projectProvider` | Calls `getRenameLocations`; applies edits; returns `filesModified`, `filesSkipped` |
+| `moveFile` | `projectProvider` | Calls `getEditsForFileRename`; renames file; calls `afterFileRename` post-hook |
+| `moveSymbol` | `tsProvider` + `projectProvider` | ts-morph AST for source/importers; `afterSymbolMove` hook for Vue SFC importers |
 
 ### Read-only
 
-| Operation | TS | Vue | Entry point |
-|-----------|----|----|-------------|
-| `findReferences` | ✓ | ✓ | `BaseEngine.findReferences` → `LanguageProvider.getReferencesAtPosition` |
-| `getDefinition` | ✓ | ✓ | `BaseEngine.getDefinition` → `LanguageProvider.getDefinitionAtPosition` |
+| Operation | Providers used | Notes |
+|-----------|---------------|-------|
+| `findReferences` | `projectProvider` | Does not take `workspace` — returns all references, including outside the workspace |
+| `getDefinition` | `projectProvider` | Same — workspace boundary is only enforced on inputs (the query file), not outputs |
 
-## Shared utilities
+### Filesystem-only (no provider)
 
-- `src/engines/text-utils.ts` — `applyTextEdits()`, `offsetToLineCol()` — used by both engines
-- `src/engines/file-walk.ts` — `walkFiles(dir, extensions)`, `SKIP_DIRS` — git-aware file collection
-- `src/engines/vue/scan.ts` — `updateVueImportsAfterMove()` — regex scan for `.vue` SFC import strings; runs as a dispatcher post-step after any `moveFile`, regardless of engine
+| Operation | Notes |
+|-----------|-------|
+| `searchText` | Pure filesystem walk; no compiler needed; enforces its own boundary checks |
+| `replaceText` | Pattern mode (regex) or surgical mode (edits array); enforces its own boundary checks |
+
+`searchText` and `replaceText` receive a registry but ignore it. The dispatcher still passes `pathParams: []` so workspace validation falls back to the workspace root.
+
+---
 
 ## Workspace boundary enforcement
 
-The engine layer enforces the workspace boundary on outputs (collateral writes). Files outside the workspace are skipped and returned in `result.filesSkipped`. See `docs/security.md` for the full picture.
+- **Inputs:** the dispatcher validates all `pathParams` against `isWithinWorkspace` before calling the operation
+- **Outputs (collateral writes):** each operation checks files before writing; out-of-workspace files are skipped and returned in `filesSkipped`. Agents should surface `filesSkipped` to the user.
 
-Input validation happens at the dispatcher layer before the engine is called.
+Input validation is at the dispatcher layer; output filtering is at the operation layer. Both call `isWithinWorkspace` from `src/security.ts`.
 
-## Known constraint: moveSymbol in Vue projects
+---
 
-The dispatcher routes all files in a Vue project to `VueEngine`. `VueEngine.moveSymbol` throws `NOT_SUPPORTED` because Volar has no "extract declaration" API. This is a router constraint, not a Volar limitation — `moveSymbol` is pure AST surgery that does not need Volar. Fix path: per-operation engine selection, or delegation inside `VueEngine.moveSymbol`. Tracked in `docs/tech/tech-debt.md`.
+## Provider invalidation
+
+The watcher (`src/daemon/watcher.ts`) calls into the dispatcher:
+
+- `invalidateFile(path)` — on file change; cheaper than full rebuild. Calls `TsProvider.refreshFile` and `VolarProvider.invalidateService`.
+- `invalidateAll()` — on file add/remove; drops both provider singletons so they rebuild lazily on the next request.
+
+---
+
+## Shared utilities
+
+| File | Purpose |
+|------|---------|
+| `src/utils/text-utils.ts` | `applyTextEdits()`, `offsetToLineCol()` — used by all operations |
+| `src/utils/file-walk.ts` | `walkFiles(dir, extensions)`, `SKIP_DIRS` — git-aware file collection |
+| `src/utils/ts-project.ts` | `findTsConfig`, `findTsConfigForFile`, `isVueProject` — project discovery |
+| `src/providers/vue-scan.ts` | `updateVueImportsAfterMove`, `updateVueNamedImportAfterSymbolMove` — regex scans for `.vue` SFC import strings |

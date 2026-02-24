@@ -1,4 +1,4 @@
-**Purpose:** Current state, source layout, architecture decisions, and next work items for engineers implementing features.
+**Purpose:** Current state, source layout, and prioritised next work items. Each task links to its feature doc for the detailed spec.
 **Audience:** Engineers implementing features, AI agents working on the codebase.
 **Status:** Current
 **Related docs:** [Vision](vision.md) (roadmap), [Features](features/) (operations), [Tech Debt](tech/tech-debt.md) (known issues)
@@ -11,12 +11,14 @@ Context that isn't in the feature docs — things you need to know before pickin
 
 ## Start here
 
-Read the docs in this order:
-1. `docs/vision.md` — what this is and where it's going
-2. `docs/features/daemon.md` — understand the daemon before touching `serve`
-3. `docs/features/mcp-transport.md` — how `serve` connects to the daemon
-4. `docs/features/engines.md` — understand the engine boundary before touching anything
-5. `docs/quality.md` — testing and reliability expectations
+**New to the codebase?** Read in this order:
+1. [`docs/vision.md`](vision.md) — what this is and where it's going
+2. [`docs/features/daemon.md`](features/daemon.md) — understand the daemon before touching `serve`
+3. [`docs/features/mcp-transport.md`](features/mcp-transport.md) — how `serve` connects to the daemon
+4. [`docs/features/engines.md`](features/engines.md) — provider/operation architecture; read before touching anything in `src/`
+5. [`docs/quality.md`](quality.md) — testing and reliability expectations
+
+**Picking up a task?** Each item in "Next things to build" links to its feature doc. The feature doc is the detailed spec — start there, then come back to the task entry for the implementation notes that aren't in the doc. If no feature doc is linked, writing the design doc is the first step.
 
 ---
 
@@ -70,40 +72,86 @@ src/
 
 ## Next things to build
 
-### Features
-
-Evaluate each candidate: does the daemon's stateful engine make it meaningfully better than the agent editing directly? `rename`, `moveFile`, and `findReferences` benefit strongly because they require project-wide reference tracking.
-
-- **`findReferences` by file path** — "who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
-- **`moveSymbol` for class methods** — currently only top-level exported declarations are supported. "Extract this method to a standalone exported function in another module" is one of the most common refactoring patterns agents perform, and light-bridge can't help with it today. The extraction involves removing the method from the class, writing a standalone `export function` at the destination, rewriting all call sites from `instance.method(args)` to `method(instance, args)` or `method(args)` depending on whether `this` is used. The ts-morph AST has everything needed: `MethodDeclaration`, `CallExpression`, `this` references. Discovered during Phase 2 dogfooding — `BaseEngine` methods couldn't be extracted with `moveSymbol` because they were class methods, not top-level exports.
-- **`extractFunction`** — pull a selection into a named function, updating the call site
-- **`inlineVariable` / `inlineFunction`** — collapse a trivially-used binding
-- **`deleteFile`** — remove a file and clean up its imports in other files
-- **`createFile`** — scaffolding with correct import paths inferred from location
+Priorities run top to bottom. Complete a tier before starting the next — later tiers depend on the quality signal from earlier ones.
 
 ---
 
-## Test quality improvement
+### P1 — Fix now (bugs / correctness)
 
-Current coverage: ~77% statements, ~66% branches, ~78% lines. Coverage is unevenly distributed — operations and utils are well-tested (89–98%), while daemon/MCP entry paths lag (32–56%).
+**1. `moveSymbol`: missing `.js` extension in generated imports**
+Feature docs: [`features/moveSymbol.md`](features/moveSymbol.md), [`tech/tech-debt.md`](tech/tech-debt.md)
+`computeRelativeSpecifier` strips `.ts`/`.tsx` instead of replacing with `.js`. ESM + `moduleResolution: nodenext` rejects the bare specifier; the project fails to compile until the import is patched by hand. Fix is a one-liner in `src/operations/moveSymbol.ts`.
 
-### Recommended order
+**2. Protocol version check in `ensureDaemon`**
+Feature docs: [`features/daemon.md`](features/daemon.md), [`tech/tech-debt.md`](tech/tech-debt.md)
+A daemon started by a previous session will accept connections (`isDaemonAlive` returns `true`) but silently lack any operation added since it was spawned. Fix: embed a `PROTOCOL_VERSION` constant; add a lightweight `ping` RPC that returns `{ ok: true, version }`. In `ensureDaemon`, after confirming the process is alive, call `ping` — if versions differ, kill and respawn.
 
-1. **Mutation testing on `src/operations/` and `src/security.ts`** — these modules have 89–92% line coverage, making surviving mutants informative rather than noisy. Use [Stryker](https://stryker-mutator.io/) with vitest. Scope: `mutate: ["src/operations/**/*.ts", "src/security.ts"]`. Goal: identify weak assertions and missing edge-case checks. Security boundary logic in `security.ts` is especially worth hardening — correctness matters more than coverage there.
+---
 
-2. **Mutation testing on `src/utils/`** — 98% coverage means this should produce a very high mutation score. Quick sanity check; any surviving mutants here indicate genuine gaps in assertion quality.
+### P2 — Test quality (before adding more features)
 
-3. **Mutation testing on `src/providers/`** — 88–91% coverage. The virtual↔real path translation in Volar and AST manipulation in TsProvider are complex enough to harbour subtle bugs that pass existing assertions. Run after operations are clean.
+Feature doc: [`quality.md`](quality.md) — covers mutation testing strategy, coverage targets by module, and what not to do.
 
-4. **Coverage improvement: `src/daemon/` and `src/mcp.ts`** — currently 32–56%. These are integration-heavy (Unix sockets, stdio, process lifecycle, chokidar). Raising coverage here requires test harness investment (mocking sockets, spawning child processes). Do this after mutation testing reveals the full picture of assertion quality in the well-tested modules — the lessons learned will inform how to write stronger tests for the daemon layer from the start.
+Do mutation testing before coverage work. Raising coverage first risks shallow assertions ("doesn't throw" vs "returns correct output"). Let surviving mutants tell you where to write *more* tests and where to write *stronger* ones.
 
-5. **Coverage improvement: `src/schema.ts`** — validation logic. Lower priority because Zod schemas are declarative and less prone to subtle logic bugs, but worth covering for completeness.
+**3. Mutation testing: `src/operations/` + `src/security.ts`** — 89–92% line coverage makes surviving mutants informative rather than noisy. Use [Stryker](https://stryker-mutator.io/) with vitest: `mutate: ["src/operations/**/*.ts", "src/security.ts"]`. Security boundary logic in `security.ts` is especially worth hardening.
 
-### What not to do
+**4. Mutation testing: `src/utils/`** — 98% coverage; any surviving mutants indicate genuine assertion gaps. Quick sanity check.
 
-- Don't run mutation testing on the daemon/MCP layer at current coverage — it will produce a wall of surviving mutants that just say "you don't have tests here."
-- Don't chase coverage numbers before mutation testing. Raising coverage first risks writing shallow tests (e.g. asserting "doesn't throw" instead of checking output). Let surviving mutants guide where you need *more* tests vs *stronger* tests.
-- Expect noise from string-heavy operations (`replaceText`, `searchText`) — Stryker's string mutations produce equivalent mutants in code that manipulates text. Triage these rather than chasing 100% mutation score.
+**5. Mutation testing: `src/providers/`** — 88–91% coverage. Virtual↔real path translation in Volar and AST manipulation in TsProvider are complex enough to harbour subtle bugs that pass existing assertions.
+
+**6. Coverage improvement: `src/daemon/` + `src/mcp.ts`** — currently 32–56%. Integration-heavy (Unix sockets, stdio, process lifecycle, chokidar). Do this after mutation testing reveals what strong tests look like — that will inform the harness design (mocking sockets, spawning child processes) from the start.
+
+**7. Coverage improvement: `src/schema.ts`** — Zod schemas are declarative and low-risk; worth covering for completeness but last in the queue.
+
+**What not to do:** Don't run mutation testing on daemon/MCP at current coverage — it produces a wall of surviving mutants that just say "you don't have tests here." Expect noise from string-heavy operations (`replaceText`, `searchText`) — Stryker's string mutations produce equivalent mutants; triage rather than chase 100%.
+
+---
+
+### P3 — High-value features
+
+**8. `findReferences` by file path**
+Feature doc: [`features/findReferences.md`](features/findReferences.md) — covers the symbol-position variant; the file-path variant needs a design section added.
+"Who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
+
+**9. `moveSymbol` for class methods**
+Feature doc: [`features/moveSymbol.md`](features/moveSymbol.md) — covers the current top-level-export behaviour; class method extraction needs a design section added.
+Currently only top-level exported declarations are supported. "Extract this method to a standalone exported function in another module" is one of the most common refactoring patterns agents perform. The extraction involves removing the method from the class, writing a standalone `export function` at the destination, rewriting all call sites from `instance.method(args)` to `method(instance, args)` or `method(args)` depending on whether `this` is used. The ts-morph AST has everything needed: `MethodDeclaration`, `CallExpression`, `this` references. Discovered during Phase 2 dogfooding — `BaseEngine` methods couldn't be extracted with `moveSymbol` because they were class methods, not top-level exports.
+
+**10. `deleteFile`**
+Feature doc: none yet — write the design doc as the first step.
+Remove a file and clean up its imports in referencing files. Simpler than `createFile` (no scaffolding logic); the compiler already knows all importers via `getEditsForFileRename`.
+
+---
+
+### P4 — Medium-value features and tech debt
+
+**11. `buildVolarService` refactoring**
+Feature docs: [`features/engines.md`](features/engines.md), [`tech/volar-v3.md`](tech/volar-v3.md)
+`src/providers/vue-service.ts` is ~176 lines doing 8 distinct things in sequence: library imports, file-contents map, tsconfig parsing, file collection, Volar language setup, virtual-path mapping, service-host creation, service decoration. Extract named sub-functions for each phase; the top-level function orchestrates. Prerequisite before adding more Vue-specific operations.
+
+**12. `moveSymbol` for Vue projects**
+Feature doc: [`features/moveSymbol.md`](features/moveSymbol.md) — see the "Known constraint" section for current status and fix path.
+Currently returns `NOT_SUPPORTED`. For `.ts`→`.ts` in a Vue project: delegate to TsProvider then run `updateVueImportsAfterMove` to catch `.vue` import strings. For `.vue` source: use `@vue/compiler-sfc`'s `parse()` to locate and splice the `<script>` block (`@vue/language-core` re-exports it; already a transitive dep, no new dependency needed). Moving *into* a `.vue` destination is not worth supporting. Depends on #11.
+
+**13. `createFile`**
+Feature doc: none yet — write the design doc as the first step.
+Scaffold a file with correct import paths inferred from its location.
+
+**14. `extractFunction`**
+Feature doc: none yet — write the design doc as the first step.
+Pull a selection into a named function, updating the call site. High potential value but AST-level code generation is complex across all call-site shapes; wait until P1–P3 are stable.
+
+---
+
+### P5 — Low priority / accepted
+
+- **`inlineVariable` / `inlineFunction`** — less common refactoring pattern; complex to implement safely
+- **Rollback / `--dry-run`** — multi-file operations have no all-or-nothing guarantee; documented precondition (clean git working tree) is workable for now
+- **Watcher own-writes redundant invalidation** — safe as-is; only adds one extra rebuild per write-heavy op (see tech-debt.md)
+- **Daemon discovery cache invalidation** — only hurts if `tsconfig.json` moves at runtime (see tech-debt.md)
+- **`VolarLanguageService` hand-typed interface** — low urgency; will resolve naturally during further Volar refactoring (see tech-debt.md)
+- **TOCTOU symlink race** — accepted risk; revisit only if deployment model changes (see tech-debt.md)
 
 ---
 
@@ -116,51 +164,18 @@ Current coverage: ~77% statements, ~66% branches, ~78% lines. Coverage is uneven
 
 ---
 
-## Architecture decisions
+## Where to find architecture detail
 
-- **Action-centric dispatcher — settled design** — operations are the core construct, not engines. Each action function pulls the provider capabilities it needs from a `ProviderRegistry` rather than being a method on an engine class. The registry has two named slots:
+Each concern has a dedicated doc. Read those — don't rely on handoff for design specifics.
 
-  ```typescript
-  interface ProviderRegistry {
-    projectProvider(): Promise<LanguageProvider>  // Volar in Vue projects, TsProvider otherwise
-    tsProvider(): Promise<TsProvider>             // always ts-morph; for AST-level operations
-  }
-  ```
-
-  `projectProvider` is scoped by `findTsConfigForFile(inputFile)` — in a monorepo, each package resolves to its own tsconfig and gets the right provider. No monorepo-specific design needed. Both providers are lazy singletons; each manages a per-tsconfig cache internally (`Map<tsconfig, Project|CachedService>`).
-
-  `LanguageProvider` gains `afterSymbolMove(sourceFile, symbolName, destFile, workspace)` — a post-step hook symmetric with `afterFileRename`. `TsProvider` implements it as a no-op (TS import paths are handled by ts-morph AST edits in the action). `VolarProvider` implements it by scanning `.vue` files for imports of the specific `symbolName` and rewriting them to point at `destFile` (surgical — unlike `afterFileRename`, which rewrites all imports of the old path).
-
-  Operations that need neither provider (e.g. `searchText`) receive the registry but simply ignore it.
-
-- **`moveSymbol` for Vue sources (`.vue` → `.ts`) is buildable — no new deps needed** — `@vue/language-core` re-exports `parse()` (wraps `@vue/compiler-sfc` internally), returning an `Sfc` with `script.ast` as a `ts.SourceFile` plus block offsets. Extract the declaration from a `<script setup>` block, write to the destination `.ts`, and patch importers. `parseScriptSetupRanges` can locate `defineProps`/`defineEmits` declarations to avoid moving them. Moving *into* a `.vue` destination is not worth supporting. See `docs/tech/volar-v3.md` § "Package ecosystem" for the full API inventory.
-
-- **Read-only operations do not take a `workspace` parameter in the engine interface** — `findReferences` returns all references including those outside the workspace; it is up to the dispatcher to validate the input file is within the workspace. Write operations (`rename`, `moveFile`, `moveSymbol`) take `workspace` because they need to know which collateral writes to skip.
-
-- **`VueEngine.translateLocations` is the shared virtual→real mapping helper** — extracted from the inline loop in `rename`; reused by `findReferences` and `getDefinition`. Any future operation that reads positions from a Vue project should call this method rather than duplicating the source-map traversal.
-
-- **`VueEngine.toVirtualLocation` for operations that don't auto-translate** — `findRenameLocations` and `getReferencesAtPosition` in Volar's proxy translate real `.vue` paths → `.vue.ts` automatically. `getDefinitionAtPosition` does NOT — it calls TypeScript's internal implementation directly and throws `Could not find source file: App.vue`. Fix: call `toVirtualLocation(absPath, pos)` first to map to the virtual `.vue.ts` coordinate space, then pass those to `getDefinitionAtPosition`. Results still go through `translateLocations` for the reverse mapping. Any future operation that hits the same error pattern needs this treatment.
-
-- **MCP tool names and daemon method names are intentionally 1:1** — the MCP handler passes `tool.name` directly as the daemon method. There is no translation layer. A proposal to split the naming (e.g. different names at each layer to cover "file rename" vs "symbol rename") was rejected: the daemon is an internal IPC detail with no independent users, and "file rename" is already covered by `moveFile` (same code path, same operation). Splitting would add a translation table for no benefit.
-
-- **MCP transport uses `@modelcontextprotocol/sdk`** — the agent-facing stdio layer uses the official SDK (`@modelcontextprotocol/sdk@^1.26.0`). The internal daemon↔serve socket uses plain newline-delimited JSON, no library needed.
-- **SDK wire format is newline-delimited JSON — NOT Content-Length framed** — `StdioServerTransport` sends/reads `JSON.stringify(msg) + '\n'`. `McpTestClient` must match this format.
-- **SDK is Zod v3/v4 agnostic** — pass Zod v3 schemas from `src/schema.ts` directly to `registerTool`. No version conflict.
-- **Daemon socket: one connection per call** — `serve` opens a fresh Unix socket connection per tool call, writes one JSON line, reads one JSON line, closes.
-- **`callDaemon` error → `DAEMON_STARTING`** — if the socket connection fails (e.g. daemon not yet ready), return `{ ok: false, error: "DAEMON_STARTING", message: "..." }` to the agent.
-- **`ensureDaemon` fires once at startup** — if the daemon dies after `serve` starts, tool calls return `DAEMON_STARTING` permanently. See tech-debt.md for the fix.
-- **Test helper: `McpTestClient`** — handles newline-delimited framing and the initialize handshake. `spawnAndWaitForReady` requires `{ pipeStdin: true }` for MCP tests.
-- **Vertical slice tests assert before and after** — always read fixture files before the operation to confirm original state, then assert both old string is gone and new string present.
-- **`filesSkipped` in engine results** — collateral writes outside the workspace are skipped and listed in `filesSkipped`. Agents should surface this to the user.
-- **`ts-engine.moveFile` uses language service directly** — `ls.getEditsForFileRename()` applied file-by-file, then `fs.renameSync`. `sourceFile.move()` + `project.save()` has no per-file whitelist API. ts-morph project invalidated after the operation and rebuilt on next call.
-
----
-
-## Tech debt: break up `buildVolarService`
-
-`src/providers/vue-service.ts` — `buildVolarService` is ~176 lines doing 8 distinct things in sequence: library imports, file-contents map, tsconfig parsing, file collection, Volar language setup, virtual-path mapping, service-host creation, service decoration. It works but is at the upper limit of readability and is effectively untestable at the unit level.
-
-**Fix:** Extract named sub-functions for each phase. The top-level function orchestrates; each sub-function is independently readable and testable.
+| Topic | Doc |
+|-------|-----|
+| Provider/operation architecture, dispatcher design, `ProviderRegistry` | [`docs/features/engines.md`](features/engines.md) |
+| MCP wire protocol, tool interface, `DAEMON_STARTING`, `filesSkipped` | [`docs/features/mcp-transport.md`](features/mcp-transport.md) |
+| Daemon lifecycle, auto-spawn, socket protocol | [`docs/features/daemon.md`](features/daemon.md) |
+| Vue provider internals, virtual↔real path translation, `toVirtualLocation` | [`docs/tech/volar-v3.md`](tech/volar-v3.md) |
+| Implementation gotchas, hard-won decisions (MCP naming, read-only `workspace` convention, etc.) | [`docs/agent-memory.md`](agent-memory.md) |
+| Known structural issues and their fixes | [`docs/tech/tech-debt.md`](tech/tech-debt.md) |
 
 ---
 

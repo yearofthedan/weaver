@@ -33,16 +33,16 @@ Cross-type reference tracking (e.g. a rename in a `.ts` file updates references 
 | [cli.md](./cli.md) | CLI commands: `daemon` and `serve` |
 | [daemon.md](./daemon.md) | The long-lived engine host: lifecycle, discovery, auto-spawn |
 | [mcp-transport.md](./mcp-transport.md) | MCP wire protocol, tool interface, response contract |
-| [engines.md](./engines.md) | Engine architecture: TS vs Vue, provider/engine separation, dispatch |
+| [engines.md](./engines.md) | Provider/operation architecture, `ProviderRegistry`, dispatcher design |
 
 ## Other docs
 
 | Doc | Purpose |
 |-----|---------|
 | `docs/vision.md` | What's shipped and what comes next |
-| `docs/handoff.md` | Next work, architecture decisions, technical context |
+| `docs/handoff.md` | Current state, prioritised next work, pointers to architecture docs |
 | `docs/security.md` | Threat model, controls, known limitations |
 | `docs/agent-memory.md` | Technical gotchas and implementation decisions for agents |
-| `docs/tech/volar-v3.md` | Vue engine internals — read before touching `src/engines/vue/` |
+| `docs/tech/volar-v3.md` | Vue provider internals — read before touching `src/providers/volar.ts` |
 | `docs/tech/tech-debt.md` | Known structural issues |
 | `docs/quality.md` | Testing strategy, performance targets, reliability expectations |

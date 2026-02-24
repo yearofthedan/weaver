@@ -71,6 +71,15 @@ Shared by all action functions. Takes a source string and `readonly { span: { st
 
 ## Architecture decisions
 
+**Read-only operations do not take a `workspace` parameter.**
+`findReferences` and `getDefinition` return all compiler results including those outside the workspace. Workspace enforcement only applies to the *input* file (validated at the dispatcher layer). Write operations (`rename`, `moveFile`, `moveSymbol`) take `workspace` because they need to know which collateral writes to skip. Don't add a `workspace` param to future read-only operations — filter at the call site if needed.
+
+**MCP tool names and daemon method names are intentionally 1:1.**
+The MCP handler passes `tool.name` directly as the daemon method. There is no translation layer. A proposal to split naming (e.g. "file rename" vs "symbol rename") was rejected: the daemon is an internal IPC detail with no independent users, and "file rename" is already `moveFile`. Splitting would add a translation table for no benefit.
+
+**`VolarProvider.translateLocations` is the shared virtual→real mapping helper.**
+Extracted from the inline loop in `rename`; reused by `findReferences` and `getDefinition`. Any future operation that reads positions from a Vue project should call this method rather than duplicating the source-map traversal.
+
 **MCP transport uses `@modelcontextprotocol/sdk`.**
 The agent-facing stdio layer uses the official SDK (`@modelcontextprotocol/sdk@^1.26.0`). The internal daemon↔serve socket uses plain newline-delimited JSON — no library needed.
 
