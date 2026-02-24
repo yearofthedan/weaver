@@ -42,16 +42,34 @@ describe("daemon command", () => {
     expect(fs.existsSync(socketPath(dir))).toBe(true);
   });
 
-  it("writes a lockfile containing a live PID", async () => {
+  it("writes a lockfile containing a live PID and a startedAt timestamp", async () => {
+    const dir = await setup();
+    const before = Date.now();
+    const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
+    procs.push(proc);
+    const after = Date.now();
+
+    // tsx spawns a child process, so proc.pid is the tsx wrapper — not the
+    // inner daemon process. Verify the lockfile PID is a live process instead.
+    const raw = fs.readFileSync(lockfilePath(dir), "utf8");
+    const lock = JSON.parse(raw) as { pid: number; startedAt: number };
+    expect(Number.isNaN(lock.pid)).toBe(false);
+    expect(() => process.kill(lock.pid, 0)).not.toThrow();
+    expect(lock.startedAt).toBeGreaterThanOrEqual(before);
+    expect(lock.startedAt).toBeLessThanOrEqual(after);
+  });
+
+  it("isDaemonAlive returns false when socket file is missing even if lockfile exists", async () => {
     const dir = await setup();
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
 
-    // tsx spawns a child process, so proc.pid is the tsx wrapper — not the
-    // inner daemon process. Verify the lockfile PID is a live process instead.
-    const pid = parseInt(fs.readFileSync(lockfilePath(dir), "utf8").trim(), 10);
-    expect(Number.isNaN(pid)).toBe(false);
-    expect(() => process.kill(pid, 0)).not.toThrow();
+    // Remove the socket file while the daemon is still running (simulates
+    // a PID-recycled scenario: lockfile present, PID alive, but no socket).
+    fs.unlinkSync(socketPath(dir));
+
+    const { isDaemonAlive } = await import("../../src/daemon/daemon.js");
+    expect(isDaemonAlive(dir)).toBe(false);
   });
 
   it("picks up a new source file added out-of-band via the watcher", async () => {

@@ -54,20 +54,36 @@ describe("isDaemonAlive", () => {
     expect(isDaemonAlive(testWorkspace)).toBe(false);
   });
 
-  it("returns false when lockfile contains a non-numeric value", () => {
+  it("returns false when lockfile is malformed (not JSON)", () => {
     fs.writeFileSync(lockfilePath(testWorkspace), "not-a-pid");
     expect(isDaemonAlive(testWorkspace)).toBe(false);
   });
 
   it("returns false when lockfile contains a non-existent PID", () => {
     // PID 999999999 is extremely unlikely to exist
-    fs.writeFileSync(lockfilePath(testWorkspace), "999999999");
+    fs.writeFileSync(
+      lockfilePath(testWorkspace),
+      JSON.stringify({ pid: 999999999, startedAt: Date.now() }),
+    );
     expect(isDaemonAlive(testWorkspace)).toBe(false);
   });
 
-  it("returns true when lockfile contains the current process PID", () => {
-    fs.writeFileSync(lockfilePath(testWorkspace), String(process.pid));
+  it("returns true when lockfile has a live PID and socket file exists", () => {
+    fs.mkdirSync(path.dirname(socketPath(testWorkspace)), { recursive: true });
+    fs.writeFileSync(socketPath(testWorkspace), "");
+    fs.writeFileSync(
+      lockfilePath(testWorkspace),
+      JSON.stringify({ pid: process.pid, startedAt: Date.now() }),
+    );
     expect(isDaemonAlive(testWorkspace)).toBe(true);
+  });
+
+  it("returns false when lockfile has a live PID but socket file is missing", () => {
+    fs.writeFileSync(
+      lockfilePath(testWorkspace),
+      JSON.stringify({ pid: process.pid, startedAt: Date.now() }),
+    );
+    expect(isDaemonAlive(testWorkspace)).toBe(false);
   });
 });
 

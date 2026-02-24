@@ -10,16 +10,35 @@ import { dispatchRequest, invalidateAll, invalidateFile } from "./dispatcher.js"
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
 import { startWatcher } from "./watcher.js";
 
-export function isDaemonAlive(workspaceRoot: string): boolean {
-  const lockfile = lockfilePath(workspaceRoot);
+function readLockfile(workspaceRoot: string): { pid: number; startedAt: number } | null {
   try {
-    const pid = parseInt(fs.readFileSync(lockfile, "utf8").trim(), 10);
-    if (Number.isNaN(pid)) return false;
-    process.kill(pid, 0); // throws if process doesn't exist
-    return true;
+    const raw = fs.readFileSync(lockfilePath(workspaceRoot), "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      typeof (parsed as Record<string, unknown>).pid === "number" &&
+      typeof (parsed as Record<string, unknown>).startedAt === "number"
+    ) {
+      return parsed as { pid: number; startedAt: number };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function isDaemonAlive(workspaceRoot: string): boolean {
+  const lock = readLockfile(workspaceRoot);
+  if (lock === null) return false;
+  try {
+    process.kill(lock.pid, 0); // throws if process doesn't exist
   } catch {
     return false;
   }
+  // A running daemon always has a socket file. If the socket is gone but the
+  // PID is alive, it's likely a recycled PID from a crashed daemon.
+  return fs.existsSync(socketPath(workspaceRoot));
 }
 
 export function removeDaemonFiles(workspaceRoot: string): void {
@@ -49,8 +68,14 @@ export async function runStop(opts: { workspace: string }): Promise<void> {
     return;
   }
 
-  const pid = parseInt(fs.readFileSync(lockfilePath(absWorkspace), "utf8").trim(), 10);
-  process.kill(pid, "SIGTERM");
+  const lock = readLockfile(absWorkspace);
+  if (lock === null) {
+    process.stdout.write(
+      `${JSON.stringify({ ok: false, error: "ENGINE_ERROR", message: "Could not read lockfile" })}\n`,
+    );
+    process.exit(1);
+  }
+  process.kill(lock.pid, "SIGTERM");
 
   // Wait for daemon to stop; it removes its own files on SIGTERM
   const deadline = Date.now() + 5_000;
@@ -92,8 +117,8 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
   // 3. Remove any leftover socket/lockfile from a previous run
   removeDaemonFiles(absWorkspace);
 
-  // 4. Write PID lockfile
-  fs.writeFileSync(pidPath, String(process.pid));
+  // 4. Write PID lockfile (JSON with pid + startedAt to detect recycled PIDs)
+  fs.writeFileSync(pidPath, JSON.stringify({ pid: process.pid, startedAt: Date.now() }));
 
   // 5. Open Unix socket and wait for connections
   // Serialise all incoming requests with a promise-chain mutex. If two
