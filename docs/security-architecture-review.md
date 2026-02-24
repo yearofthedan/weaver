@@ -41,34 +41,7 @@ Between the check and the write, a symlink could be replaced to point outside th
 
 ### 7. Naive string replacement in `TsProvider.afterFileRename`
 
-**File:** `src/providers/ts.ts:203-207`
-
-**Problem:** Post-rename import rewriting does simple `replaceAll` on entire file contents:
-
-```typescript
-let updated = raw;
-for (const ext of ["", ".js", ".ts", ".tsx"]) {
-  updated = updated.replaceAll(relOldBase + ext, relNewBase + ext);
-}
-```
-
-This matches inside comments, string literals, template strings — not just import statements. If a comment contains a relative path like `./foo/bar`, it gets silently rewritten.
-
-**Example:**
-```typescript
-// TODO: move data from ./types to ./models
-import { User } from "./types";
-```
-
-After renaming `./types` to `./models`, the comment becomes corrupted:
-```typescript
-// TODO: move data from ./models to ./models
-import { User } from "./models";
-```
-
-**Impact:** Medium — silently corrupts non-code content. Unlikely but possible.
-
-**Mitigation:** Parse the TypeScript AST (already done for `.ts` files by ts-morph) and only rewrite import specifiers, not raw string matching.
+**Fixed.** `afterFileRename` now uses ts-morph to parse each out-of-project file in-memory and updates only `ImportDeclaration`/`ExportDeclaration` module specifiers. Comments and string literals are no longer touched.
 
 ---
 
@@ -221,8 +194,7 @@ A change to parameter names or types requires updating all three locations manua
 ## Recommended Priority Order
 
 1. **TOCTOU race** (Issue #6) — strengthen defense-in-depth (lower practical risk)
-2. **Fix naive string replacement** (Issue #7) — prevent silent comment corruption
-3. **Remove dead code** (Issue #10) — reduce confusion
+2. **Remove dead code** (Issue #10) — reduce confusion
 
 ---
 

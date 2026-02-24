@@ -201,13 +201,27 @@ export class TsProvider implements LanguageProvider {
       })();
 
       const raw = fs.readFileSync(filePath, "utf8");
-      let updated = raw;
-      for (const ext of ["", ".js", ".ts", ".tsx"]) {
-        updated = updated.replaceAll(relOldBase + ext, relNewBase + ext);
-      }
-      if (updated === raw) continue;
 
-      fs.writeFileSync(filePath, updated, "utf8");
+      // Use ts-morph to update only import/export specifiers, not comments or strings.
+      const tmpProject = new Project({ useInMemoryFileSystem: true });
+      const sf = tmpProject.createSourceFile(filePath, raw);
+      let hasChanges = false;
+
+      for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {
+        const specifier = decl.getModuleSpecifierValue();
+        if (specifier === undefined) continue;
+        for (const ext of ["", ".js", ".ts", ".tsx"]) {
+          if (specifier === relOldBase + ext) {
+            decl.setModuleSpecifier(relNewBase + ext);
+            hasChanges = true;
+            break;
+          }
+        }
+      }
+
+      if (!hasChanges) continue;
+
+      fs.writeFileSync(filePath, sf.getFullText(), "utf8");
       modified.push(filePath);
     }
 

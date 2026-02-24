@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { moveFile } from "../../../src/operations/moveFile.js";
@@ -72,6 +73,32 @@ describe("moveFile action", () => {
       const testContent = readFile(dir, "tests/utils.test.ts");
       expect(testContent).toContain("../lib/utils");
       expect(testContent).not.toContain("../src/utils");
+    });
+
+    it("does not corrupt comments when updating imports in out-of-project files", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const provider = new TsProvider();
+
+      // Create an out-of-project file with both an import and a comment referencing the same path
+      const extraTestFile = path.join(dir, "tests", "import-with-comment.ts");
+      fs.writeFileSync(
+        extraTestFile,
+        [
+          "// TODO: migrate logic from ../src/utils to ../lib/utils",
+          'import { greetUser } from "../src/utils";',
+          "",
+          "console.log(greetUser('test'));",
+        ].join("\n"),
+      );
+
+      await moveFile(provider, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, dir);
+
+      const content = readFile(dir, "tests/import-with-comment.ts");
+      // Import specifier must be updated
+      expect(content).toContain('"../lib/utils"');
+      // Comment must NOT be rewritten
+      expect(content).toContain("// TODO: migrate logic from ../src/utils to ../lib/utils");
     });
 
     it("throws FILE_NOT_FOUND for non-existent source", async () => {
