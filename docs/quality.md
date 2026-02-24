@@ -48,29 +48,32 @@ Targets are floors, not goals. Mutation score is a better quality signal than li
 
 Use [Stryker](https://stryker-mutator.io/) with vitest (`pnpm test:mutate`) to validate assertion quality. Mutation testing answers "would my tests catch it if this line were wrong?" — a fundamentally different question from coverage.
 
-- **Scope:** `src/security.ts`, `src/utils/`, `src/operations/`. Excludes `src/providers/` (expand once operations are clean), `src/daemon/`, and `src/mcp.ts` (line coverage too low — surviving mutants would just confirm test absence).
-- **Don't add to `pnpm check`** — a full run takes ~8 minutes. Run periodically or before releases.
+- **Scope:** `src/security.ts`, `src/utils/`, `src/operations/`, `src/providers/` (excluding `vue-service.ts` — factory setup code driven by integration tests). Excludes `src/daemon/`, and `src/mcp.ts` (line coverage too low — surviving mutants would just confirm test absence).
+- **Don't add to `pnpm check`** — a full run takes ~13 minutes. Run periodically or before releases.
 - **Config note:** `disableTypeChecks: false` is required. The default (`true`) prepends `// @ts-nocheck` to files in Stryker's sandbox, shifting line numbers and breaking any test that asserts on line/col positions.
 - **Expect noise from:** string-heavy operations where Stryker's `StringLiteral` mutations produce equivalent mutants (excluded via config).
 - **Target mutation score:** 80%+ on scoped modules. Below 60% indicates real assertion gaps worth fixing.
 
-#### Mutation scores (as of 264 tests)
+#### Mutation scores (as of 284 tests)
 
 | Module | Score (total) | Score (covered) | Notes |
 |--------|--------------|-----------------|-------|
-| All scoped files | **77.57%** | 81.37% | Up from 72% at initial run |
+| All scoped files | **76.23%** | 79.50% | Providers added to scope |
 | `security.ts` | 82.19% | 88.24% | Above threshold |
 | `utils/text-utils.ts` | **100%** | 100% | Clean |
 | `utils/assert-file.ts` | **100%** | 100% | Clean |
-| `utils/file-walk.ts` | 70.00% | 72.41% | Below threshold |
+| `utils/file-walk.ts` | 73.33% | 73.33% | Below threshold |
 | `utils/relative-path.ts` | 75.00% | 75.00% | Below threshold |
 | `operations/moveFile.ts` | 86.67% | 92.86% | Above threshold |
-| `operations/moveSymbol.ts` | 72.82% | 75.00% | Up from 55%; below threshold |
+| `operations/moveSymbol.ts` | 72.82% | 75.00% | Below threshold |
 | `operations/rename.ts` | 78.26% | 81.82% | Near threshold |
 | `operations/replaceText.ts` | 77.78% | 81.91% | Near threshold |
 | `operations/findReferences.ts` | 76.47% | 81.25% | Near threshold |
 | `operations/getDefinition.ts` | 73.33% | 78.57% | Below threshold |
 | `operations/searchText.ts` | 70.19% | 75.26% | Below threshold |
+| `providers/ts.ts` | 71.03% | 72.03% | First run; caching + out-of-project scan gaps |
+| `providers/volar.ts` | 66.96% | 71.96% | Volar virtual↔real path branches; below threshold |
+| `providers/vue-scan.ts` | 88.75% | 91.03% | Above threshold |
 
 #### Known surviving mutants (current)
 
@@ -85,15 +88,30 @@ Fixed gaps are removed. Remaining survivors by category:
 | `security.ts` | Regex mutations on `SENSITIVE_BASENAME_PATTERNS[0]` — `^` anchor drop, `$` drop, `.*` → `.` | Even without `^`, `service-account*.json` still matches all real filenames. Minor permissiveness; accepted. |
 | `security.ts` | Regex mutation on `SENSITIVE_BASENAME_PATTERNS[1]` — `$` drop from `/-key\.json$/` | Slightly more permissive without `$`; still blocks all real key files. Accepted. |
 | `relative-path.ts` | Regex `.cts$` → `.cts` (drop `$` anchor) | `.cts` only appears at the end of filenames in practice; functional difference is zero. |
+| `providers/ts.ts` | `if (!project) → if (true)` (caching guard line 17) and `if (tsConfigPath) → if (true)` (branch line 18) | Always rebuilding the project is slower but produces identical results. Caching is a performance concern, not a correctness concern. |
+| `providers/ts.ts` | `new Project({ useInMemoryFileSystem: false }) → new Project({})` (line 24) | The default for ts-morph Project when no tsconfig is given; functionally equivalent for standalone file analysis. |
+| `providers/ts.ts` | `refreshFile` whole-body no-op and related boolean mutations (lines 45–49) | `refreshFile` effects are only visible via subsequent compiler queries. Tests don't assert on post-refresh content; adding such tests would require disk writes and re-queries — a reasonable tradeoff to leave as-is. |
+| `providers/ts.ts` | `if (!sourceFile) → if (true)` at lines 55, 68, 95, 115 | `addSourceFileAtPath` is idempotent; calling it on an already-loaded file is a no-op. The mutation `if (true)` is semantically equivalent when the file is already in the project. `if (false)` variants were killed by the no-tsconfig tests. |
+| `providers/ts.ts` | Null guards `if (!locs \|\| locs.length === 0)`, `if (!refs \|\| ...)`, `if (!defs \|\| ...)` | TypeScript LS always returns non-empty arrays for any position that passes `getRenameInfo`/`canRename`. These are defensive guards that the TS LS never triggers in practice. |
+| `providers/ts.ts` | `findRenameLocations` boolean params (`findInStrings: false → true`, `findInComments: false → true`) | Enabling string/comment search would only add more results to the returned set; no test asserts that rename locations are ABSENT from strings or comments. |
+| `providers/ts.ts` | `allowRenameOfImportPath: false → true` in `getRenameInfo` and `findRenameLocations` | Tests don't attempt to rename an import specifier, so this option is never exercised in a way that distinguishes `true` from `false`. |
+| `providers/ts.ts` | `getEditsForFileRename` filter (`textChanges.length > 0 → true`, `>= 0`) (line 140) | The TS LS never returns file rename edits with zero text changes; defensive guard. |
+| `providers/ts.ts` | `afterFileRename` out-of-project scan survivors (lines 176–222) | Requires a fixture with files outside `tsconfig.include` that import the moved file. The existing moveFile tests use project-internal files only. Accepted for now — the logic is exercised by the moveFile integration tests indirectly. |
+| `providers/volar.ts` | `cacheKey` `?? → &&` (line 14) | All Volar tests use a Vue fixture with a tsconfig; the null-tsconfig branch of `cacheKey` is not exercised. Killing this requires a Vue project without tsconfig — an uncommon scenario. |
+| `providers/volar.ts` | `if (!cached) → if (true)` (line 22) | Always rebuilds Volar service; slower but correct. Same pattern as TsProvider caching guards. |
+| `providers/volar.ts` | `toVirtualLocation` branch survivors (lines 41–59) | Multiple fallback branches triggered when Volar's source map or script generation returns null — edge cases in Volar's internal state that require `.vue` files with non-standard script blocks to exercise. |
+| `providers/volar.ts` | `translateSingleLocation` branch survivors (lines 67–83) | Same as above — fallback paths for Volar glue code. The `if (!next.done) → if (true)` mutation means always taking the mapped position path even when no source mapping exists; would produce wrong offsets, but the one getDefinition test only checks the file name not the exact span. |
+| `providers/volar.ts` | `NoCoverage` — `resolveOffset` catch block (line 103), `toVirtualLocation` ObjectLiteral returns | The catch path requires an out-of-bounds line; `toVirtualLocation` is only called via `getDefinitionAtPosition` which has one test. |
 
 **Worth fixing (next quality pass):**
 
 | Area | Gap |
 |------|-----|
-| `operations/searchText.ts` | 70.19% — weakest operation after moveSymbol improvements |
+| `operations/searchText.ts` | 70.19% — weakest operation |
 | `operations/getDefinition.ts` | 73.33% — SYMBOL_NOT_FOUND and out-of-range paths need stronger assertion |
-| `utils/file-walk.ts` | 70.00% — SKIP_DIRS logic and extension filtering have uncovered branches |
+| `utils/file-walk.ts` | 73.33% — SKIP_DIRS logic and extension filtering have uncovered branches |
 | `operations/moveSymbol.ts` | 72.82% — workspace-boundary `filesSkipped` paths still not covered |
+| `providers/volar.ts` | 66.96% — Volar internal path-translation branches; needs a fixture with `.vue` files using `<script>` (non-setup) blocks and specific source-map edge cases |
 
 ---
 

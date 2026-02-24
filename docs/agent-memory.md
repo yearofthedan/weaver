@@ -211,6 +211,24 @@ The correct way to cover symlink branches is always to create real filesystem ar
 
 ---
 
+## Mutation-testing providers: key lessons (Feb 2026)
+
+When expanding Stryker to cover `src/providers/`, several patterns appeared:
+
+**TypeScript LS never returns empty/null for in-range positions.** `getRenameLocations`, `getReferencesAtPosition`, and `getDefinitionAtPosition` all guard against a null/empty result from the language service. In practice, the TS LS navigates contextually to the nearest symbol for *any* position within a declaration — even whitespace. The `if (!locs || locs.length === 0)` guards are defensive dead code; accepted survivors.
+
+**Offset 0 in a file maps to the function name, not `export` keyword.** `getRenameInfo(file, 0)` on `export function greetUser(...)` returns the function `greetUser` as the rename target (TypeScript contextually resolves). To test `RENAME_NOT_ALLOWED`, use an import path string (e.g., `"./utils"` in `import ... from "./utils"`) with `allowRenameOfImportPath: false` set — this reliably triggers `canRename: false`.
+
+**`if (!sourceFile) → if (true)` survives even with no-tsconfig path.** `addSourceFileAtPath` is idempotent — calling it on an already-loaded file is a no-op. So `if (true)` (always call `addSourceFileAtPath`) and `if (false)` (never call it) produce different results only when the file *is not* in the project. The `if (false)` variant is killed by the no-tsconfig tests; `if (true)` is still equivalent.
+
+**Caching guards are performance-only.** `if (!project)` and `if (!cached)` guards prevent rebuilding the project/service on every call. Mutations that always rebuild produce identical results and are accepted survivors.
+
+**`rewriteImports` normalises whitespace.** The replacement template always outputs `from ${quote}${rel}${quote}` (single space), regardless of how many spaces appeared in the original. A test for "multiple spaces after `from`" should assert the rewrite DID happen, not that the whitespace is preserved.
+
+**Volar `toVirtualLocation` branches need specific `.vue` file structures.** The fallback paths in `toVirtualLocation` and `translateSingleLocation` fire when Volar's source map or script generation returns null — this requires `.vue` files using `<script>` (non-setup) blocks or non-standard structures. Standard `<script setup>` fixtures always produce the "happy path" and leave fallbacks uncovered.
+
+---
+
 ## Memory storage
 
 - `.claude/MEMORY.md` — project state and agent behaviour notes

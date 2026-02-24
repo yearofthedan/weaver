@@ -24,6 +24,9 @@ const config = {
     "src/operations/getDefinition.ts",
     "src/operations/moveFile.ts",
     "src/operations/moveSymbol.ts",
+    "src/providers/ts.ts",
+    "src/providers/vue-scan.ts",
+    "src/providers/volar.ts",
   ],
   // Exclude MCP/daemon integration tests — they spawn CLI binaries that
   // aren't available in Stryker's sandbox.
@@ -31,6 +34,7 @@ const config = {
     "tests/security/**/*.test.ts",
     "tests/utils/**/*.test.ts",
     "tests/operations/**/*.test.ts",
+    "tests/providers/**/*.test.ts",
   ],
   mutator: {
     excludedMutations: ["StringLiteral"],

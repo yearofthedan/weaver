@@ -132,6 +132,23 @@ describe("updateVueImportsAfterMove", () => {
     const result = fs.readFileSync(vueFile, "utf8");
     expect(result).toContain("from '../lib/deep/renamed.js'");
   });
+
+  it("rewrites import with multiple spaces after from keyword", () => {
+    const oldPath = path.join(tmpDir, "src/utils.ts");
+    const newPath = path.join(tmpDir, "src/helpers.ts");
+    const vueFile = writeVue(
+      "src/Comp.vue",
+      `<script setup>\nimport foo from  './utils'\n</script>`,
+    );
+
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
+
+    // The replacement normalises whitespace to a single space.
+    // The key assertion is that the rewrite DID happen (two-space import was matched).
+    const result = fs.readFileSync(vueFile, "utf8");
+    expect(result).toContain("from './helpers.js'");
+    expect(result).not.toContain("'./utils'");
+  });
 });
 
 describe("updateVueNamedImportAfterSymbolMove", () => {
@@ -255,5 +272,85 @@ describe("updateVueNamedImportAfterSymbolMove", () => {
     );
 
     expect(modified).toHaveLength(0);
+  });
+
+  it("rewrites an aliased import { myFn as fn } — matches by original name", () => {
+    const sourceFile = path.join(tmpDir, "src/utils.ts");
+    const destFile = path.join(tmpDir, "src/helpers.ts");
+    const vueFile = writeVue(
+      "src/Comp.vue",
+      `<script setup>\nimport { myFn as fn } from './utils'\n</script>`,
+    );
+
+    updateVueNamedImportAfterSymbolMove(sourceFile, "myFn", destFile, tmpDir, tmpDir);
+
+    const result = fs.readFileSync(vueFile, "utf8");
+    // Alias is preserved, import path is rewritten to helpers
+    expect(result).toContain("myFn as fn");
+    expect(result).toContain("from './helpers.js'");
+    expect(result).not.toContain("from './utils'");
+  });
+
+  it("splits a multi-symbol import that includes an aliased symbol", () => {
+    const sourceFile = path.join(tmpDir, "src/utils.ts");
+    const destFile = path.join(tmpDir, "src/helpers.ts");
+    const vueFile = writeVue(
+      "src/Comp.vue",
+      `<script setup>\nimport { myFn as fn, otherFn } from './utils'\n</script>`,
+    );
+
+    updateVueNamedImportAfterSymbolMove(sourceFile, "myFn", destFile, tmpDir, tmpDir);
+
+    const result = fs.readFileSync(vueFile, "utf8");
+    expect(result).toContain("myFn as fn");
+    expect(result).toContain("from './helpers.js'");
+    expect(result).toContain("otherFn");
+    expect(result).toContain("from './utils'");
+  });
+
+  it("handles specifiers with extra surrounding whitespace (trim)", () => {
+    const sourceFile = path.join(tmpDir, "src/utils.ts");
+    const destFile = path.join(tmpDir, "src/helpers.ts");
+    const vueFile = writeVue(
+      "src/Comp.vue",
+      `<script setup>\nimport {  myFn  ,  otherFn  } from './utils'\n</script>`,
+    );
+
+    updateVueNamedImportAfterSymbolMove(sourceFile, "myFn", destFile, tmpDir, tmpDir);
+
+    const result = fs.readFileSync(vueFile, "utf8");
+    expect(result).toContain("myFn");
+    expect(result).toContain("from './helpers.js'");
+    expect(result).toContain("otherFn");
+  });
+
+  it("rewrites import with no spaces around braces: import{myFn}from './utils'", () => {
+    const sourceFile = path.join(tmpDir, "src/utils.ts");
+    const destFile = path.join(tmpDir, "src/helpers.ts");
+    const vueFile = writeVue(
+      "src/Comp.vue",
+      `<script setup>\nimport{myFn}from './utils'\n</script>`,
+    );
+
+    updateVueNamedImportAfterSymbolMove(sourceFile, "myFn", destFile, tmpDir, tmpDir);
+
+    const result = fs.readFileSync(vueFile, "utf8");
+    expect(result).toContain("from './helpers.js'");
+    expect(result).not.toContain("from './utils'");
+  });
+
+  it("rewrites import with multiple spaces before braces: import  { myFn } from './utils'", () => {
+    const sourceFile = path.join(tmpDir, "src/utils.ts");
+    const destFile = path.join(tmpDir, "src/helpers.ts");
+    const vueFile = writeVue(
+      "src/Comp.vue",
+      `<script setup>\nimport  { myFn } from './utils'\n</script>`,
+    );
+
+    updateVueNamedImportAfterSymbolMove(sourceFile, "myFn", destFile, tmpDir, tmpDir);
+
+    const result = fs.readFileSync(vueFile, "utf8");
+    expect(result).toContain("from './helpers.js'");
+    expect(result).not.toContain("from './utils'");
   });
 });

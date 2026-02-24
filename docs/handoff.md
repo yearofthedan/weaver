@@ -24,7 +24,7 @@ Context that isn't in the feature docs — things you need to know before pickin
 
 ## Current state
 
-**264/264 tests passing. Mutation score: 77.57% overall (81.37% covered). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon 39.59%; mcp.ts 28.42%.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), and protocol version check in `ensureDaemon` are complete. Directory layout matches domain boundaries:
+**284/284 tests passing. Mutation score: 76.23% overall (79.50% covered). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon 39.59%; mcp.ts 28.42%.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), protocol version check in `ensureDaemon`, and mutation testing expanded to `src/providers/` are complete. Directory layout matches domain boundaries:
 
 ```
 src/
@@ -86,11 +86,9 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 Feature doc: [`quality.md`](quality.md) — covers mutation testing strategy, coverage targets by module, surviving mutants table, and what not to do.
 
-Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/operations/`, `src/utils/`, and `src/security.ts` in ~7 minutes. Overall score: **77.57% (81.37% covered)**. See [`quality.md`](quality.md) for the full per-module breakdown and surviving mutants table.
+Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/operations/`, `src/utils/`, `src/security.ts`, and `src/providers/` in ~13 minutes. Overall score: **76.23% (79.50% covered)**. See [`quality.md`](quality.md) for the full per-module breakdown and surviving mutants table.
 
-**6. Expand mutation testing to `src/providers/`** — 91.61% line coverage but only 66.04% branch coverage. Virtual↔real path translation in Volar and AST manipulation in TsProvider are complex enough to harbour subtle bugs. Add to `stryker.config.mjs` `mutate` array and run; survivors will direct the next round of test additions.
-
-**7. Next mutation round: `searchText.ts` (70%), `getDefinition.ts` (73%), `file-walk.ts` (70%)** — these are the weakest modules at current scores. See the "Worth fixing" table in `quality.md` for specific gaps.
+**7. Next mutation round: `searchText.ts` (70%), `getDefinition.ts` (73%), `file-walk.ts` (73%), `volar.ts` (67%)** — these are the weakest modules at current scores. See the "Worth fixing" table in `quality.md` for specific gaps.
 
 **8. Coverage improvement: `src/daemon/` + `src/mcp.ts`** — 39.59% and 28.42% respectively. Integration-heavy (Unix sockets, stdio, process lifecycle, chokidar). Do this after mutation testing reveals what strong tests look like.
 
