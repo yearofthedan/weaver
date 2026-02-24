@@ -145,9 +145,8 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "findReferences",
     description:
-      "Find every reference to a symbol across the entire project. " +
-      "Use this to check whether a symbol is used anywhere — the primary signal before deleting, deprecating, or renaming it. " +
-      "Prefer this over searching for the symbol name as text (grep, searchText): it understands scope and ignores identically-named symbols in unrelated files or string literals that happen to match. " +
+      "Find every reference to a symbol across the entire project using the TypeScript compiler — scope-aware, so it ignores identically-named symbols in unrelated files and string literals that happen to match. " +
+      "Use this to check whether a symbol is used anywhere before deleting, deprecating, or renaming it. " +
       "Also use before a move or rename to understand the blast radius, or to navigate to all usages without reading files manually. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
