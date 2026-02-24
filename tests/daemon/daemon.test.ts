@@ -99,6 +99,22 @@ describe("daemon command", () => {
     expect(refs.some((r) => r.file === newFile)).toBe(true);
   });
 
+  it("killDaemon terminates the inner node process", async () => {
+    const dir = await setup();
+    const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
+    procs.push(proc);
+
+    const raw = fs.readFileSync(lockfilePath(dir), "utf8");
+    const { pid } = JSON.parse(raw) as { pid: number; startedAt: number };
+    expect(() => process.kill(pid, 0)).not.toThrow(); // sanity: process is alive
+
+    killDaemon(dir);
+
+    await new Promise((r) => setTimeout(r, 300));
+
+    expect(() => process.kill(pid, 0)).toThrow(); // inner node process is gone
+  });
+
   it("removes socket and lockfile on SIGTERM", async () => {
     const dir = await setup();
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
