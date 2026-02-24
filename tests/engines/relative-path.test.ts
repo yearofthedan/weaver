@@ -2,38 +2,92 @@ import { describe, expect, it } from "vitest";
 import { computeRelativeImportPath } from "../../src/utils/relative-path.js";
 
 describe("computeRelativeImportPath", () => {
-  it("produces a same-directory specifier with ./ prefix", () => {
-    const result = computeRelativeImportPath("/project/src/a.ts", "/project/src/b.ts");
-    expect(result).toBe("./b");
+  describe("TypeScript source extensions → .js runtime extension", () => {
+    it(".ts → .js (same directory)", () => {
+      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/b.ts")).toBe("./b.js");
+    });
+
+    it(".tsx → .js", () => {
+      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/comp.tsx")).toBe(
+        "./comp.js",
+      );
+    });
+
+    it(".jsx → .js", () => {
+      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/comp.jsx")).toBe(
+        "./comp.js",
+      );
+    });
+
+    it(".mts → .mjs", () => {
+      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/worker.mts")).toBe(
+        "./worker.mjs",
+      );
+    });
+
+    it(".cts → .cjs", () => {
+      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/legacy.cts")).toBe(
+        "./legacy.cjs",
+      );
+    });
   });
 
-  it("strips .tsx extension", () => {
-    const result = computeRelativeImportPath("/project/src/a.ts", "/project/src/comp.tsx");
-    expect(result).toBe("./comp");
+  describe("JavaScript runtime extensions → unchanged", () => {
+    it(".js → .js (kept, not stripped)", () => {
+      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/utils.js")).toBe(
+        "./utils.js",
+      );
+    });
+
+    it(".mjs → .mjs", () => {
+      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/worker.mjs")).toBe(
+        "./worker.mjs",
+      );
+    });
+
+    it(".cjs → .cjs", () => {
+      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/legacy.cjs")).toBe(
+        "./legacy.cjs",
+      );
+    });
   });
 
-  it("strips .js extension", () => {
-    const result = computeRelativeImportPath("/project/src/a.ts", "/project/src/utils.js");
-    expect(result).toBe("./utils");
+  describe("non-TS extensions → left untouched", () => {
+    it(".vue → unchanged", () => {
+      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/App.vue")).toBe(
+        "./App.vue",
+      );
+    });
+
+    it(".json → unchanged", () => {
+      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/data.json")).toBe(
+        "./data.json",
+      );
+    });
   });
 
-  it("produces a parent-directory specifier", () => {
-    const result = computeRelativeImportPath("/project/src/sub/a.ts", "/project/src/utils.ts");
-    expect(result).toBe("../utils");
-  });
+  describe("path shape", () => {
+    it("parent-directory specifier", () => {
+      expect(computeRelativeImportPath("/project/src/sub/a.ts", "/project/src/utils.ts")).toBe(
+        "../utils.js",
+      );
+    });
 
-  it("produces a child-directory specifier", () => {
-    const result = computeRelativeImportPath("/project/src/a.ts", "/project/src/utils/helpers.ts");
-    expect(result).toBe("./utils/helpers");
-  });
+    it("child-directory specifier", () => {
+      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/utils/helpers.ts")).toBe(
+        "./utils/helpers.js",
+      );
+    });
 
-  it("never returns a bare name without leading ./", () => {
-    const result = computeRelativeImportPath("/project/src/a.ts", "/project/src/b.ts");
-    expect(result.startsWith(".")).toBe(true);
-  });
+    it("always starts with ./ or ../", () => {
+      const result = computeRelativeImportPath("/project/src/a.ts", "/project/src/b.ts");
+      expect(result.startsWith(".")).toBe(true);
+    });
 
-  it("handles files with no recognised extension (leaves path as-is)", () => {
-    const result = computeRelativeImportPath("/project/src/a.ts", "/project/src/data.json");
-    expect(result).toBe("./data.json");
+    it("index file keeps the index filename (no directory collapse)", () => {
+      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/utils/index.ts")).toBe(
+        "./utils/index.js",
+      );
+    });
   });
 });

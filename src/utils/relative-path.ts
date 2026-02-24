@@ -3,11 +3,21 @@ import * as path from "node:path";
 /**
  * Compute a relative import specifier from `fromFile` to `toFile`.
  *
- * Strips the file extension, normalises Windows separators, and
- * ensures the result starts with `./` or `../`.
+ * TypeScript source extensions are replaced with their runtime equivalents
+ * (.ts/.tsx/.jsx → .js, .mts → .mjs, .cts → .cjs). JavaScript and all other
+ * extensions are left unchanged. The result always starts with `./` or `../`.
+ *
+ * Generated imports use explicit extensions rather than bare specifiers so the
+ * output is valid under `moduleResolution: nodenext` as well as bundler-mode
+ * projects. If your project enforces bare specifiers via lint rules, run your
+ * linter/formatter after this operation.
  */
 export function computeRelativeImportPath(fromFile: string, toFile: string): string {
-  let rel = path.relative(path.dirname(fromFile), toFile).replace(/\.(ts|tsx|js|jsx|mts|cts)$/, "");
+  let rel = path
+    .relative(path.dirname(fromFile), toFile)
+    .replace(/\.(ts|tsx|jsx)$/, ".js")
+    .replace(/\.mts$/, ".mjs")
+    .replace(/\.cts$/, ".cjs");
   rel = rel.replace(/\\/g, "/");
   if (!rel.startsWith(".")) rel = `./${rel}`;
   return rel;

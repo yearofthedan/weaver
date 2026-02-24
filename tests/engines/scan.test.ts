@@ -39,7 +39,7 @@ describe("updateVueImportsAfterMove", () => {
     updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
 
     const result = fs.readFileSync(vueFile, "utf8");
-    expect(result).toContain("from './helpers'");
+    expect(result).toContain("from './helpers.js'");
     expect(result).not.toContain("from './utils'");
   });
 
@@ -54,7 +54,7 @@ describe("updateVueImportsAfterMove", () => {
     updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
 
     const result = fs.readFileSync(vueFile, "utf8");
-    expect(result).toContain("from '../shared/helpers'");
+    expect(result).toContain("from '../shared/helpers.js'");
     expect(result).not.toContain("from '../shared/utils'");
   });
 
@@ -116,7 +116,7 @@ describe("updateVueImportsAfterMove", () => {
 
     updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
 
-    expect(fs.readFileSync(vueFile, "utf8")).toContain('from "./helpers"');
+    expect(fs.readFileSync(vueFile, "utf8")).toContain('from "./helpers.js"');
   });
 
   it("rewrites a deeply-nested import", () => {
@@ -130,7 +130,7 @@ describe("updateVueImportsAfterMove", () => {
     updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
 
     const result = fs.readFileSync(vueFile, "utf8");
-    expect(result).toContain("from '../lib/deep/renamed'");
+    expect(result).toContain("from '../lib/deep/renamed.js'");
   });
 });
 
@@ -163,7 +163,7 @@ describe("updateVueNamedImportAfterSymbolMove", () => {
     updateVueNamedImportAfterSymbolMove(sourceFile, "myFn", destFile, tmpDir, tmpDir);
 
     const result = fs.readFileSync(vueFile, "utf8");
-    expect(result).toContain("from './helpers'");
+    expect(result).toContain("from './helpers.js'");
     expect(result).not.toContain("from './utils'");
   });
 
@@ -182,7 +182,7 @@ describe("updateVueNamedImportAfterSymbolMove", () => {
     expect(result).toContain("from './utils'");
     expect(result).toContain("otherFn");
     // myFn gets a new import from helpers
-    expect(result).toContain("from './helpers'");
+    expect(result).toContain("from './helpers.js'");
     expect(result).toContain("myFn");
     // myFn is not in the old import any more
     const oldImportMatch = result.match(/import\s*\{[^}]+\}\s*from\s*'\.\/utils'/);
@@ -237,7 +237,7 @@ describe("updateVueNamedImportAfterSymbolMove", () => {
 
     updateVueNamedImportAfterSymbolMove(sourceFile, "myFn", destFile, tmpDir, tmpDir);
 
-    expect(fs.readFileSync(vueFile, "utf8")).toContain('from "./helpers"');
+    expect(fs.readFileSync(vueFile, "utf8")).toContain('from "./helpers.js"');
   });
 
   it("skips files outside workspace", () => {

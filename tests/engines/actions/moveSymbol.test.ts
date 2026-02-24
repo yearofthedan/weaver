@@ -51,7 +51,7 @@ describe("moveSymbol action", () => {
       expect(destContent).toContain("greetUser");
     });
 
-    it("updates the import in the importing file", async () => {
+    it("updates the import in the importing file with .js extension", async () => {
       const dir = copyFixture("simple-ts");
       dirs.push(dir);
       const tsProvider = new TsProvider();
@@ -66,8 +66,9 @@ describe("moveSymbol action", () => {
       );
 
       const mainContent = readFile(dir, "src/main.ts");
-      expect(mainContent).toContain("./helpers");
-      expect(mainContent).not.toContain("./utils");
+      expect(mainContent).toContain('"./helpers.js"');
+      expect(mainContent).not.toContain('"./utils"');
+      expect(mainContent).not.toContain('"./helpers"');
     });
 
     it("merges with an existing dest import when importer already imports from dest", async () => {
@@ -178,12 +179,12 @@ describe("moveSymbol action", () => {
 
       // main.ts (TS importer) updated by ts-morph AST surgery
       const mainContent = readFile(dir, "src/main.ts");
-      expect(mainContent).toContain("./shared");
+      expect(mainContent).toContain('"./shared.js"');
       expect(mainContent).not.toContain("composables/useCounter");
 
       // App.vue (SFC importer) updated by VolarProvider.afterSymbolMove
       const vueContent = readFile(dir, "src/App.vue");
-      expect(vueContent).toContain("./shared");
+      expect(vueContent).toContain("./shared.js");
       expect(vueContent).not.toContain("composables/useCounter");
 
       expect(result.filesModified).toContain(dstPath);

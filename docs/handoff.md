@@ -24,7 +24,7 @@ Context that isn't in the feature docs — things you need to know before pickin
 
 ## Current state
 
-**242/242 tests passing.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, and full action-centric refactor (Phases 1–3) are complete. Directory layout matches domain boundaries:
+**249/249 tests passing.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, and full action-centric refactor (Phases 1–3) are complete. Directory layout matches domain boundaries:
 
 ```
 src/
@@ -78,11 +78,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-**1. `moveSymbol`: missing `.js` extension in generated imports**
-Feature docs: [`features/moveSymbol.md`](features/moveSymbol.md), [`tech/tech-debt.md`](tech/tech-debt.md)
-`computeRelativeSpecifier` strips `.ts`/`.tsx` instead of replacing with `.js`. ESM + `moduleResolution: nodenext` rejects the bare specifier; the project fails to compile until the import is patched by hand. Fix is a one-liner in `src/operations/moveSymbol.ts`.
-
-**2. Protocol version check in `ensureDaemon`**
+**1. Protocol version check in `ensureDaemon`**
 Feature docs: [`features/daemon.md`](features/daemon.md), [`tech/tech-debt.md`](tech/tech-debt.md)
 A daemon started by a previous session will accept connections (`isDaemonAlive` returns `true`) but silently lack any operation added since it was spawned. Fix: embed a `PROTOCOL_VERSION` constant; add a lightweight `ping` RPC that returns `{ ok: true, version }`. In `ensureDaemon`, after confirming the process is alive, call `ping` — if versions differ, kill and respawn.
 

@@ -56,16 +56,6 @@ The risk is latency: if a second tool call arrives within the 200ms debounce win
 
 ---
 
-## moveSymbol: generated imports missing .js extension
-
-When `moveSymbol` adds an import to the destination file it writes `from "./security"` rather than `from "./security.js"`. ESM + `moduleResolution: nodenext` rejects bare specifiers, so the project fails to compile until manually fixed.
-
-**Fix:** in `src/operations/moveSymbol.ts`, the `computeRelativeSpecifier` function already strips `.ts`/`.tsx` — it should replace that suffix with `.js` instead of removing it entirely, so the generated specifier is always a valid ESM path.
-
-**Priority:** medium. Discovered during dogfooding (consolidating `workspace.ts` into `security.ts`). Workaround: run `biome check --write` and then manually add `.js` to any bare specifiers the build reports.
-
----
-
 ## Security: TOCTOU race in symlink checks
 
 `isWithinWorkspace` resolves symlinks at check-time, but the actual write happens later. Between the check and the write, a symlink could be swapped to point outside the workspace.
