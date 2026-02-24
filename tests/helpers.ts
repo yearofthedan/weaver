@@ -116,14 +116,21 @@ export function waitForDaemon(dir: string, timeoutMs = 30_000): Promise<void> {
 
 /**
  * Kill the daemon process for the given workspace directory, if it is running.
- * Reads the PID from the lockfile and sends SIGTERM. Call this in afterEach
- * before removeDaemonFiles so the daemon process is cleaned up.
+ * Reads the PID from the lockfile (JSON format: { pid, startedAt }) and sends
+ * SIGTERM. Call this in afterEach before removeDaemonFiles so the daemon
+ * process is cleaned up. Note: proc.kill() only kills the tsx wrapper; the
+ * inner node process (whose PID is in the lockfile) must be killed separately.
  */
 export function killDaemon(dir: string): void {
   const pidPath = lockfilePath(dir);
   try {
-    const pid = parseInt(fs.readFileSync(pidPath, "utf8").trim(), 10);
-    if (!Number.isNaN(pid)) {
+    const raw = fs.readFileSync(pidPath, "utf8").trim();
+    const parsed = JSON.parse(raw) as unknown;
+    const pid =
+      typeof parsed === "object" && parsed !== null
+        ? (parsed as Record<string, unknown>).pid
+        : undefined;
+    if (typeof pid === "number" && !Number.isNaN(pid)) {
       try {
         process.kill(pid, "SIGTERM");
       } catch {
@@ -131,7 +138,7 @@ export function killDaemon(dir: string): void {
       }
     }
   } catch {
-    // lockfile missing — nothing to kill
+    // lockfile missing or not yet written — nothing to kill
   }
 }
 
