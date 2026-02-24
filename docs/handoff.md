@@ -90,8 +90,6 @@ Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/ope
 
 **7. Next mutation round: `moveSymbol.ts` (72.82%), `volar.ts` (71.30%), `file-walk.ts` (76.67%)** — still below 80% threshold after round 2. `getDefinition.ts` (93.33%) and `searchText.ts` (80.77%) are resolved. See the "Worth fixing" table in `quality.md` for specific gaps per module.
 
-**8. Test design quality review: check tests are good quality, at right level, appropriate reuse (eg. common builders, methods, paramaterization)
-
 **9. Coverage improvement: `src/daemon/` + `src/mcp.ts`** — 39.59% and 28.42% respectively. Integration-heavy (Unix sockets, stdio, process lifecycle, chokidar). Do this after mutation testing reveals what strong tests look like.
 
 ---

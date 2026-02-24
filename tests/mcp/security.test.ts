@@ -1,41 +1,10 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { removeDaemonFiles } from "../../src/daemon/daemon";
-import {
-  cleanup,
-  copyFixture,
-  killDaemon,
-  McpTestClient,
-  spawnAndWaitForReady,
-  waitForDaemon,
-} from "../helpers";
+import { describe, expect, it } from "vitest";
+import { parseMcpResult, useMcpContext } from "../helpers";
 
 describe("MCP transport — workspace security", () => {
-  const dirs: string[] = [];
-  const procs: import("node:child_process").ChildProcess[] = [];
-
-  afterEach(() => {
-    for (const proc of procs.splice(0)) {
-      if (!proc.killed) proc.kill();
-    }
-    for (const dir of dirs.splice(0)) {
-      killDaemon(dir);
-      removeDaemonFiles(dir);
-      cleanup(dir);
-    }
-  });
-
-  async function setup() {
-    const dir = copyFixture("simple-ts");
-    dirs.push(dir);
-    const proc = await spawnAndWaitForReady(["serve", "--workspace", dir], { pipeStdin: true });
-    procs.push(proc);
-    await waitForDaemon(dir);
-    const client = new McpTestClient(proc);
-    await client.initialize();
-    return { dir, client };
-  }
+  const { setup } = useMcpContext();
 
   it("rejects rename of a file outside the workspace", async () => {
     const { client } = await setup();
@@ -50,8 +19,7 @@ describe("MCP transport — workspace security", () => {
       },
     });
 
-    const text = (resp.result as { content: { text: string }[] }).content[0].text;
-    const result = JSON.parse(text);
+    const result = parseMcpResult(resp);
     expect(result.ok).toBe(false);
     expect(result.error).toBe("WORKSPACE_VIOLATION");
   }, 60_000);
@@ -67,8 +35,7 @@ describe("MCP transport — workspace security", () => {
       },
     });
 
-    const text = (resp.result as { content: { text: string }[] }).content[0].text;
-    const result = JSON.parse(text);
+    const result = parseMcpResult(resp);
     expect(result.ok).toBe(false);
     expect(result.error).toBe("WORKSPACE_VIOLATION");
   }, 60_000);
@@ -84,8 +51,7 @@ describe("MCP transport — workspace security", () => {
       },
     });
 
-    const text = (resp.result as { content: { text: string }[] }).content[0].text;
-    const result = JSON.parse(text);
+    const result = parseMcpResult(resp);
     expect(result.ok).toBe(false);
     expect(result.error).toBe("WORKSPACE_VIOLATION");
   }, 60_000);
@@ -106,8 +72,7 @@ describe("MCP transport — workspace security", () => {
       },
     });
 
-    const text = (resp.result as { content: { text: string }[] }).content[0].text;
-    const result = JSON.parse(text);
+    const result = parseMcpResult(resp);
     expect(result.ok).toBe(false);
     expect(result.error).toBe("WORKSPACE_VIOLATION");
   }, 60_000);
@@ -147,8 +112,7 @@ describe("MCP transport — workspace security", () => {
 
     // Should get exactly one response (WORKSPACE_VIOLATION or FILE_NOT_FOUND),
     // demonstrating the newline was escaped and only one request reached the daemon.
-    const text = (resp.result as { content: { text: string }[] }).content[0].text;
-    const result = JSON.parse(text);
+    const result = parseMcpResult(resp);
     expect(result.ok).toBe(false);
 
     // Daemon is still alive and responsive after the attempt
@@ -161,7 +125,6 @@ describe("MCP transport — workspace security", () => {
         newName: "greetPerson",
       },
     });
-    const followText = (followUp.result as { content: { text: string }[] }).content[0].text;
-    expect(JSON.parse(followText).ok).toBe(true);
+    expect(parseMcpResult(followUp).ok).toBe(true);
   }, 60_000);
 });

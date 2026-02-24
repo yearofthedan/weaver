@@ -106,12 +106,9 @@ describe("moveFile action", () => {
       dirs.push(dir);
       const provider = new TsProvider();
 
-      try {
-        await moveFile(provider, `${dir}/src/doesNotExist.ts`, `${dir}/lib/utils.ts`, dir);
-        expect.fail("Should have thrown");
-      } catch (err: unknown) {
-        expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
-      }
+      await expect(
+        moveFile(provider, `${dir}/src/doesNotExist.ts`, `${dir}/lib/utils.ts`, dir),
+      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
   });
 
@@ -178,17 +175,9 @@ describe("moveFile action", () => {
       dirs.push(dir);
       const provider = new VolarProvider();
 
-      try {
-        await moveFile(
-          provider,
-          `${dir}/src/doesNotExist.ts`,
-          `${dir}/src/utils/doesNotExist.ts`,
-          dir,
-        );
-        expect.fail("Should have thrown");
-      } catch (err: unknown) {
-        expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
-      }
+      await expect(
+        moveFile(provider, `${dir}/src/doesNotExist.ts`, `${dir}/src/utils/doesNotExist.ts`, dir),
+      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
   });
 });

@@ -1,45 +1,15 @@
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { removeDaemonFiles } from "../../src/daemon/daemon";
-import {
-  cleanup,
-  copyFixture,
-  killDaemon,
-  McpTestClient,
-  readFile,
-  spawnAndWaitForReady,
-  waitForDaemon,
-} from "../helpers";
+import { describe, expect, it } from "vitest";
+import { parseMcpResult, readFile, useMcpContext } from "../helpers";
 
 describe("MCP transport — moveFile tool", () => {
-  const dirs: string[] = [];
-  const procs: import("node:child_process").ChildProcess[] = [];
-
-  afterEach(() => {
-    for (const proc of procs.splice(0)) {
-      if (!proc.killed) proc.kill();
-    }
-    for (const dir of dirs.splice(0)) {
-      killDaemon(dir);
-      removeDaemonFiles(dir);
-      cleanup(dir);
-    }
-  });
+  const { setup } = useMcpContext();
 
   it("moves a file end-to-end via MCP and updates import paths", async () => {
-    const dir = copyFixture("multi-importer");
-    dirs.push(dir);
+    const { dir, client } = await setup("multi-importer");
 
-    // Verify fixture starts with the original import path
     expect(readFile(dir, "src/featureA.ts")).toContain("./utils");
     expect(readFile(dir, "src/featureB.ts")).toContain("./utils");
-
-    const proc = await spawnAndWaitForReady(["serve", "--workspace", dir], { pipeStdin: true });
-    procs.push(proc);
-    await waitForDaemon(dir);
-
-    const client = new McpTestClient(proc);
-    await client.initialize();
 
     const oldPath = path.join(dir, "src/utils.ts");
     const newPath = path.join(dir, "src/helpers.ts");
@@ -49,8 +19,7 @@ describe("MCP transport — moveFile tool", () => {
       arguments: { oldPath, newPath },
     });
 
-    const text = (resp.result as { content: { text: string }[] }).content[0].text;
-    const result = JSON.parse(text);
+    const result = parseMcpResult(resp);
 
     expect(result.ok).toBe(true);
     expect(readFile(dir, "src/featureA.ts")).not.toContain("./utils");

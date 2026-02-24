@@ -243,6 +243,25 @@ When expanding Stryker to cover `src/providers/`, several patterns appeared:
 
 **Adding `getReferencesAtPosition` to VolarProvider tests** covers the `translateLocations` code path (which exercises `translateSingleLocation`). The test needs to assert that returned spans have non-zero `textSpan.length` and no `.vue.ts` paths — otherwise the path-translation mutants survive.
 
+## Test design patterns (Feb 2026)
+
+**`useMcpContext()` in `tests/helpers.ts` for MCP integration tests.**
+Call once at the top of a `describe` block; returns `{ setup }`. `setup(fixture?)` copies the fixture, starts the MCP server, waits for the daemon, returns `{ dir, client }`. The `afterEach` cleanup (kill process, removeDaemonFiles, remove temp dir) is registered automatically. Drop the `dirs/procs/afterEach` boilerplate from MCP test files entirely.
+
+**`parseMcpResult(resp)` in `tests/helpers.ts` for MCP response parsing.**
+Extracts `.content[0].text` and JSON-parses it. Use instead of the two-line cast-and-parse inline in every MCP test.
+
+**Error assertions: always use `rejects.toMatchObject`.**
+`await expect(op(...)).rejects.toMatchObject({ code: "ERROR_CODE" })` is idiomatic vitest and safer than `try/catch + expect.fail`. The `try/catch` pattern silently passes if the wrong error type is thrown.
+
+**`setup(fixture?)` helper pattern for operation tests.**
+Each operation test file defines a local `setup(fixture = "default-fixture")` at the top of the `describe`, which calls `copyFixture` + `dirs.push`. Tests call `setup()` or `setup("other-fixture")` instead of repeating the two lines. See `rename.test.ts`, `findReferences.test.ts`, `getDefinition.test.ts` for examples.
+
+**`it.each` for extension-mapping tables.**
+`relative-path.test.ts` uses `it.each` with named object rows (`{ src, expected, desc }`) and `$desc` as the test name template. This is the preferred pattern for parametric tests where each row has a different semantic meaning.
+
+---
+
 ## Memory storage
 
 - `.claude/MEMORY.md` — project state and agent behaviour notes

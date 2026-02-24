@@ -3,66 +3,33 @@ import { computeRelativeImportPath } from "../../src/utils/relative-path.js";
 
 describe("computeRelativeImportPath", () => {
   describe("TypeScript source extensions → .js runtime extension", () => {
-    it(".ts → .js (same directory)", () => {
-      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/b.ts")).toBe("./b.js");
-    });
-
-    it(".tsx → .js", () => {
-      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/comp.tsx")).toBe(
-        "./comp.js",
-      );
-    });
-
-    it(".jsx → .js", () => {
-      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/comp.jsx")).toBe(
-        "./comp.js",
-      );
-    });
-
-    it(".mts → .mjs", () => {
-      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/worker.mts")).toBe(
-        "./worker.mjs",
-      );
-    });
-
-    it(".cts → .cjs", () => {
-      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/legacy.cts")).toBe(
-        "./legacy.cjs",
-      );
+    it.each([
+      { src: "b.ts", expected: "./b.js", desc: ".ts → .js" },
+      { src: "comp.tsx", expected: "./comp.js", desc: ".tsx → .js" },
+      { src: "comp.jsx", expected: "./comp.js", desc: ".jsx → .js" },
+      { src: "worker.mts", expected: "./worker.mjs", desc: ".mts → .mjs" },
+      { src: "legacy.cts", expected: "./legacy.cjs", desc: ".cts → .cjs" },
+    ])("$desc", ({ src, expected }) => {
+      expect(computeRelativeImportPath("/project/src/a.ts", `/project/src/${src}`)).toBe(expected);
     });
   });
 
   describe("JavaScript runtime extensions → unchanged", () => {
-    it(".js → .js (kept, not stripped)", () => {
-      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/utils.js")).toBe(
-        "./utils.js",
-      );
-    });
-
-    it(".mjs → .mjs", () => {
-      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/worker.mjs")).toBe(
-        "./worker.mjs",
-      );
-    });
-
-    it(".cjs → .cjs", () => {
-      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/legacy.cjs")).toBe(
-        "./legacy.cjs",
-      );
+    it.each([
+      { src: "utils.js", expected: "./utils.js", desc: ".js kept" },
+      { src: "worker.mjs", expected: "./worker.mjs", desc: ".mjs kept" },
+      { src: "legacy.cjs", expected: "./legacy.cjs", desc: ".cjs kept" },
+    ])("$desc", ({ src, expected }) => {
+      expect(computeRelativeImportPath("/project/src/a.ts", `/project/src/${src}`)).toBe(expected);
     });
   });
 
   describe("non-TS extensions → left untouched", () => {
-    it(".vue → unchanged", () => {
-      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/App.vue")).toBe(
-        "./App.vue",
-      );
-    });
-
-    it(".json → unchanged", () => {
-      expect(computeRelativeImportPath("/project/src/a.ts", "/project/src/data.json")).toBe(
-        "./data.json",
-      );
+    it.each([
+      { src: "App.vue", expected: "./App.vue", desc: ".vue unchanged" },
+      { src: "data.json", expected: "./data.json", desc: ".json unchanged" },
+    ])("$desc", ({ src, expected }) => {
+      expect(computeRelativeImportPath("/project/src/a.ts", `/project/src/${src}`)).toBe(expected);
     });
   });
 

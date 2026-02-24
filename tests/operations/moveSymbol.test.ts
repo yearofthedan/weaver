@@ -115,19 +115,16 @@ describe("moveSymbol action", () => {
       dirs.push(dir);
       const tsProvider = new TsProvider();
 
-      try {
-        await moveSymbol(
+      await expect(
+        moveSymbol(
           tsProvider,
           tsProvider,
           `${dir}/src/utils.ts`,
           "doesNotExist",
           `${dir}/src/helpers.ts`,
           dir,
-        );
-        expect.fail("Should have thrown");
-      } catch (err: unknown) {
-        expect((err as { code?: string }).code).toBe("SYMBOL_NOT_FOUND");
-      }
+        ),
+      ).rejects.toMatchObject({ code: "SYMBOL_NOT_FOUND" });
     });
 
     it("throws FILE_NOT_FOUND for a missing source file", async () => {
@@ -135,19 +132,16 @@ describe("moveSymbol action", () => {
       dirs.push(dir);
       const tsProvider = new TsProvider();
 
-      try {
-        await moveSymbol(
+      await expect(
+        moveSymbol(
           tsProvider,
           tsProvider,
           `${dir}/src/doesNotExist.ts`,
           "greetUser",
           `${dir}/src/helpers.ts`,
           dir,
-        );
-        expect.fail("Should have thrown");
-      } catch (err: unknown) {
-        expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
-      }
+        ),
+      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
     it("throws NOT_SUPPORTED for a symbol re-exported via 'export { }'", async () => {
@@ -161,19 +155,16 @@ describe("moveSymbol action", () => {
       );
       const tsProvider = new TsProvider();
 
-      try {
-        await moveSymbol(
+      await expect(
+        moveSymbol(
           tsProvider,
           tsProvider,
           `${dir}/src/reexport.ts`,
           "localFn",
           `${dir}/src/helpers.ts`,
           dir,
-        );
-        expect.fail("Should have thrown");
-      } catch (err: unknown) {
-        expect((err as { code?: string }).code).toBe("NOT_SUPPORTED");
-      }
+        ),
+      ).rejects.toMatchObject({ code: "NOT_SUPPORTED" });
     });
 
     it("creates the destination directory when it does not exist", async () => {

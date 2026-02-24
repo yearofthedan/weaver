@@ -63,24 +63,18 @@ describe("rename action", () => {
       const dir = setup();
       const provider = new TsProvider();
 
-      try {
-        await rename(provider, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", dir);
-        expect.fail("Should have thrown");
-      } catch (err: unknown) {
-        expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
-      }
+      await expect(
+        rename(provider, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", dir),
+      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
     it("throws SYMBOL_NOT_FOUND for out-of-range line", async () => {
       const dir = setup();
       const provider = new TsProvider();
 
-      try {
-        await rename(provider, `${dir}/src/utils.ts`, 999, 1, "foo", dir);
-        expect.fail("Should have thrown");
-      } catch (err: unknown) {
-        expect((err as { code?: string }).code).toBe("SYMBOL_NOT_FOUND");
-      }
+      await expect(
+        rename(provider, `${dir}/src/utils.ts`, 999, 1, "foo", dir),
+      ).rejects.toMatchObject({ code: "SYMBOL_NOT_FOUND" });
     });
   });
 
@@ -147,12 +141,9 @@ describe("rename action", () => {
       const dir = vueSetup();
       const provider = new VolarProvider();
 
-      try {
-        await rename(provider, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", dir);
-        expect.fail("Should have thrown");
-      } catch (err: unknown) {
-        expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
-      }
+      await expect(
+        rename(provider, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", dir),
+      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
   });
 });

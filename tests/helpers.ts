@@ -4,6 +4,8 @@ import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { afterEach } from "vitest";
+import { removeDaemonFiles } from "../src/daemon/daemon.js";
 import { lockfilePath, socketPath } from "../src/daemon/paths.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -273,4 +275,49 @@ export class McpTestClient {
     });
     this.send({ jsonrpc: "2.0", method: "notifications/initialized", params: {} });
   }
+}
+
+/**
+ * Parse the JSON result from an MCP tool call response.
+ * Extracts the text content and JSON.parses it.
+ */
+export function parseMcpResult(resp: Record<string, unknown>): Record<string, unknown> {
+  const text = (resp.result as { content: { text: string }[] }).content[0].text;
+  return JSON.parse(text) as Record<string, unknown>;
+}
+
+/**
+ * Registers afterEach cleanup and returns a `setup` function for MCP integration tests.
+ * Call once at the top of a `describe` block; `setup(fixture?)` starts the MCP server
+ * for the given fixture and returns `{ dir, client }`.
+ */
+export function useMcpContext(): {
+  setup: (fixture?: string) => Promise<{ dir: string; client: McpTestClient }>;
+} {
+  const dirs: string[] = [];
+  const procs: ChildProcess[] = [];
+
+  afterEach(() => {
+    for (const proc of procs.splice(0)) {
+      if (!proc.killed) proc.kill();
+    }
+    for (const dir of dirs.splice(0)) {
+      killDaemon(dir);
+      removeDaemonFiles(dir);
+      cleanup(dir);
+    }
+  });
+
+  async function setup(fixture = "simple-ts"): Promise<{ dir: string; client: McpTestClient }> {
+    const dir = copyFixture(fixture);
+    dirs.push(dir);
+    const proc = await spawnAndWaitForReady(["serve", "--workspace", dir], { pipeStdin: true });
+    procs.push(proc);
+    await waitForDaemon(dir);
+    const client = new McpTestClient(proc);
+    await client.initialize();
+    return { dir, client };
+  }
+
+  return { setup };
 }

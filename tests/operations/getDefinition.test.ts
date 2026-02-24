@@ -9,10 +9,15 @@ describe("getDefinition action", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
+  function setup(fixture = "simple-ts") {
+    const dir = copyFixture(fixture);
+    dirs.push(dir);
+    return dir;
+  }
+
   describe("with TsProvider", () => {
     it("returns the definition location from a call site", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
       const provider = new TsProvider();
 
       // main.ts line 3: console.log(greetUser("World")); → col 13
@@ -30,8 +35,7 @@ describe("getDefinition action", () => {
     });
 
     it("returns the definition location from the declaration site itself", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
       const provider = new TsProvider();
 
       const result = await getDefinition(provider, `${dir}/src/utils.ts`, 1, 17);
@@ -41,36 +45,27 @@ describe("getDefinition action", () => {
     });
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
       const provider = new TsProvider();
 
-      try {
-        await getDefinition(provider, `${dir}/src/doesNotExist.ts`, 1, 1);
-        expect.fail("Should have thrown");
-      } catch (err: unknown) {
-        expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
-      }
+      await expect(
+        getDefinition(provider, `${dir}/src/doesNotExist.ts`, 1, 1),
+      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
     it("throws SYMBOL_NOT_FOUND for an out-of-range line", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
       const provider = new TsProvider();
 
-      try {
-        await getDefinition(provider, `${dir}/src/utils.ts`, 999, 1);
-        expect.fail("Should have thrown");
-      } catch (err: unknown) {
-        expect((err as { code?: string }).code).toBe("SYMBOL_NOT_FOUND");
-      }
+      await expect(getDefinition(provider, `${dir}/src/utils.ts`, 999, 1)).rejects.toMatchObject({
+        code: "SYMBOL_NOT_FOUND",
+      });
     });
 
     it("throws SYMBOL_NOT_FOUND when position is valid but has no definition", async () => {
       // Exercises the `!defs || defs.length === 0` path in getDefinition.ts:
       // line 2 of main.ts is blank — resolveOffset succeeds but getDefinitionAtPosition returns null.
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
       const provider = new TsProvider();
 
       await expect(getDefinition(provider, `${dir}/src/main.ts`, 2, 1)).rejects.toMatchObject({
@@ -81,8 +76,7 @@ describe("getDefinition action", () => {
 
   describe("with VolarProvider", () => {
     it("resolves a composable definition from a .vue call site", async () => {
-      const dir = copyFixture("vue-ts-boundary");
-      dirs.push(dir);
+      const dir = setup("vue-ts-boundary");
       const provider = new VolarProvider();
 
       const appVue = `${dir}/src/App.vue`;
@@ -106,22 +100,17 @@ describe("getDefinition action", () => {
     });
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
-      const dir = copyFixture("vue-project");
-      dirs.push(dir);
+      const dir = setup("vue-project");
       const provider = new VolarProvider();
 
-      try {
-        await getDefinition(provider, `${dir}/src/doesNotExist.ts`, 1, 1);
-        expect.fail("Should have thrown");
-      } catch (err: unknown) {
-        expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
-      }
+      await expect(
+        getDefinition(provider, `${dir}/src/doesNotExist.ts`, 1, 1),
+      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
     it("throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", async () => {
       // Exercises the resolveOffset catch block in VolarProvider (volar.ts line 103).
-      const dir = copyFixture("vue-ts-boundary");
-      dirs.push(dir);
+      const dir = setup("vue-ts-boundary");
       const provider = new VolarProvider();
 
       await expect(getDefinition(provider, `${dir}/src/App.vue`, 999, 1)).rejects.toMatchObject({

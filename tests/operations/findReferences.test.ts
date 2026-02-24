@@ -8,10 +8,15 @@ describe("findReferences action", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
+  function setup(fixture = "simple-ts") {
+    const dir = copyFixture(fixture);
+    dirs.push(dir);
+    return dir;
+  }
+
   describe("with TsProvider", () => {
     it("finds all references to a symbol from the declaration site", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
       const provider = new TsProvider();
 
       const result = await findReferences(provider, `${dir}/src/utils.ts`, 1, 17);
@@ -31,8 +36,7 @@ describe("findReferences action", () => {
     });
 
     it("finds the same references from a call site", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
       const provider = new TsProvider();
 
       const result = await findReferences(provider, `${dir}/src/main.ts`, 3, 13);
@@ -44,36 +48,27 @@ describe("findReferences action", () => {
     });
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
       const provider = new TsProvider();
 
-      try {
-        await findReferences(provider, `${dir}/src/doesNotExist.ts`, 1, 1);
-        expect.fail("Should have thrown");
-      } catch (err: unknown) {
-        expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
-      }
+      await expect(
+        findReferences(provider, `${dir}/src/doesNotExist.ts`, 1, 1),
+      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
     it("throws SYMBOL_NOT_FOUND for an out-of-range line", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
       const provider = new TsProvider();
 
-      try {
-        await findReferences(provider, `${dir}/src/utils.ts`, 999, 1);
-        expect.fail("Should have thrown");
-      } catch (err: unknown) {
-        expect((err as { code?: string }).code).toBe("SYMBOL_NOT_FOUND");
-      }
+      await expect(findReferences(provider, `${dir}/src/utils.ts`, 999, 1)).rejects.toMatchObject({
+        code: "SYMBOL_NOT_FOUND",
+      });
     });
   });
 
   describe("with VolarProvider", () => {
     it("finds references to a composable across .ts and .vue files", async () => {
-      const dir = copyFixture("vue-project");
-      dirs.push(dir);
+      const dir = setup("vue-project");
       const provider = new VolarProvider();
 
       const result = await findReferences(provider, `${dir}/src/composables/useCounter.ts`, 1, 17);
@@ -93,16 +88,12 @@ describe("findReferences action", () => {
     });
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
-      const dir = copyFixture("vue-project");
-      dirs.push(dir);
+      const dir = setup("vue-project");
       const provider = new VolarProvider();
 
-      try {
-        await findReferences(provider, `${dir}/src/doesNotExist.ts`, 1, 1);
-        expect.fail("Should have thrown");
-      } catch (err: unknown) {
-        expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
-      }
+      await expect(
+        findReferences(provider, `${dir}/src/doesNotExist.ts`, 1, 1),
+      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
   });
 });
