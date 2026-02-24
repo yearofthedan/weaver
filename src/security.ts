@@ -42,11 +42,17 @@ const SENSITIVE_BASENAME_EXACT = new Set([
   "id_ecdsa",
   "id_ed25519",
   "id_dsa",
+  ".npmrc",
+  ".netrc",
+  ".vault-token",
+  ".htpasswd",
+  "secrets.yaml",
+  "secrets.yml",
 ]);
 
 /**
  * File extensions that indicate sensitive content (private keys, certificates,
- * keystores). Matched against the full extension, lowercased.
+ * keystores, password databases). Matched against the full extension, lowercased.
  */
 const SENSITIVE_EXTENSIONS = new Set([
   ".pem",
@@ -57,7 +63,14 @@ const SENSITIVE_EXTENSIONS = new Set([
   ".keystore",
   ".cert",
   ".crt",
+  ".kdbx",
 ]);
+
+/**
+ * Regex patterns matched against the lowercased basename.
+ * Used for wildcard-style matches like service-account*.json and *-key.json.
+ */
+const SENSITIVE_BASENAME_PATTERNS: RegExp[] = [/^service-account.*\.json$/, /-key\.json$/];
 
 /**
  * Returns true if the file at `filePath` should never have its content read
@@ -73,6 +86,7 @@ export function isSensitiveFile(filePath: string): boolean {
 
   if (SENSITIVE_EXTENSIONS.has(ext)) return true;
   if (SENSITIVE_BASENAME_EXACT.has(baseLower)) return true;
+  if (SENSITIVE_BASENAME_PATTERNS.some((re) => re.test(baseLower))) return true;
 
   // .env, .env.local, .env.production, etc. — basename starts with ".env"
   // followed by end-of-string, a dot, or an underscore.

@@ -62,4 +62,40 @@ describe("isSensitiveFile", () => {
     expect(isSensitiveFile("/workspace/src/environment.ts")).toBe(false);
     expect(isSensitiveFile("/workspace/src/keyUtils.ts")).toBe(false);
   });
+
+  it("blocks npm and HTTP credential files", () => {
+    expect(isSensitiveFile("/workspace/.npmrc")).toBe(true);
+    expect(isSensitiveFile("/home/user/.npmrc")).toBe(true);
+    expect(isSensitiveFile("/home/user/.netrc")).toBe(true);
+  });
+
+  it("blocks HashiCorp Vault token file", () => {
+    expect(isSensitiveFile("/home/user/.vault-token")).toBe(true);
+  });
+
+  it("blocks htpasswd files", () => {
+    expect(isSensitiveFile("/workspace/.htpasswd")).toBe(true);
+  });
+
+  it("blocks secrets YAML files", () => {
+    expect(isSensitiveFile("/workspace/secrets.yaml")).toBe(true);
+    expect(isSensitiveFile("/workspace/secrets.yml")).toBe(true);
+  });
+
+  it("blocks KeePass database files", () => {
+    expect(isSensitiveFile("/workspace/passwords.kdbx")).toBe(true);
+  });
+
+  it("blocks GCP and AWS service account key files", () => {
+    expect(isSensitiveFile("/workspace/service-account.json")).toBe(true);
+    expect(isSensitiveFile("/workspace/service-account-prod.json")).toBe(true);
+    expect(isSensitiveFile("/workspace/my-app-key.json")).toBe(true);
+    expect(isSensitiveFile("/workspace/firebase-key.json")).toBe(true);
+  });
+
+  it("does not block ordinary JSON files", () => {
+    expect(isSensitiveFile("/workspace/package.json")).toBe(false);
+    expect(isSensitiveFile("/workspace/tsconfig.json")).toBe(false);
+    expect(isSensitiveFile("/workspace/monkey.json")).toBe(false);
+  });
 });
