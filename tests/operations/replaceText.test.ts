@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { replaceText } from "../../../src/operations/replaceText.js";
-import { cleanup, copyFixture, readFile } from "../../helpers.js";
+import { replaceText } from "../../src/operations/replaceText.js";
+import { cleanup, copyFixture, readFile } from "../helpers.js";
 
 describe("replaceText operation", () => {
   const dirs: string[] = [];

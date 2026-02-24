@@ -186,6 +186,18 @@ Always check `package.json` for the installed version before reading docs — we
 
 ---
 
+## Tool adoption observation (Feb 2026)
+
+When asked to reorganise test files, the agent reached for shell commands (`mkdir` + `git mv`) rather than the `moveFile` MCP tool — even though Rule 9 says to dogfood the tools.
+
+**Likely reason:** The agent associated `moveFile` with TypeScript source files tracked by the compiler. The tool description emphasises import rewriting ("Rewrites every import that references the file, project-wide"), which implicitly signals "only useful when imports need updating." For test files — which sit outside `tsconfig.include` and often have no inbound imports — the agent didn't see the tool as relevant.
+
+**What actually happened:** `moveFile` worked perfectly: created the destination directory, moved the file, and updated the one self-import. The compiler scope limitation (`src/` only) didn't matter — the physical move still happened correctly.
+
+**Implication for the tool description:** Consider adding a line like "Also use for non-source files (tests, scripts) — creates the destination directory and moves the file even when there are no imports to rewrite." This would close the perception gap without adding a private agent rule.
+
+---
+
 ## Memory storage
 
 - `.claude/MEMORY.md` — project state and agent behaviour notes

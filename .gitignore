@@ -11,4 +11,3 @@ coverage/
 .claude/skills/*
 !.claude/skills/*/
 .pnpm-store/
-.mcp.json

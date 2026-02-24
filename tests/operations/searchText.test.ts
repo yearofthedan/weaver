@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { searchText } from "../../../src/operations/searchText.js";
-import { cleanup, copyFixture } from "../../helpers.js";
+import { searchText } from "../../src/operations/searchText.js";
+import { cleanup, copyFixture } from "../helpers.js";
 
 describe("searchText operation", () => {
   const dirs: string[] = [];

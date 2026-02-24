@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
-import { rename } from "../../../src/operations/rename.js";
-import { TsProvider } from "../../../src/providers/ts.js";
-import { VolarProvider } from "../../../src/providers/volar.js";
-import { cleanup, copyFixture, readFile } from "../../helpers.js";
+import { rename } from "../../src/operations/rename.js";
+import { TsProvider } from "../../src/providers/ts.js";
+import { VolarProvider } from "../../src/providers/volar.js";
+import { cleanup, copyFixture, readFile } from "../helpers.js";
 
 describe("rename action", () => {
   const dirs: string[] = [];

@@ -139,8 +139,9 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "moveFile",
     description:
-      "Move a source file and rewrite every import that references it, project-wide. " +
-      "Moving a file without this leaves broken imports across the project. " +
+      "Move a file to a new path. Use this for all file moves — do not use shell mv. " +
+      "Rewrites every import that references the file, project-wide, whether or not you expect import changes. " +
+      "Also use for non-source files (tests, scripts, config) — creates the destination directory and moves the file even when there are no imports to rewrite. " +
       "The response lists every file modified; no need to read them to verify. " +
       "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",

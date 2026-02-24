@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { isWithinWorkspace, validateWorkspace } from "../src/security.js";
+import { isWithinWorkspace, validateWorkspace } from "../../src/security.js";
 
 describe("isWithinWorkspace", () => {
   const ws = "/tmp/my-workspace";

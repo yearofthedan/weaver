@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { findReferences } from "../../../src/operations/findReferences.js";
-import { TsProvider } from "../../../src/providers/ts.js";
-import { VolarProvider } from "../../../src/providers/volar.js";
-import { cleanup, copyFixture } from "../../helpers.js";
+import { findReferences } from "../../src/operations/findReferences.js";
+import { TsProvider } from "../../src/providers/ts.js";
+import { VolarProvider } from "../../src/providers/volar.js";
+import { cleanup, copyFixture } from "../helpers.js";
 
 describe("findReferences action", () => {
   const dirs: string[] = [];
