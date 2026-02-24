@@ -24,7 +24,7 @@ Context that isn't in the feature docs — things you need to know before pickin
 
 ## Current state
 
-**264/264 tests passing.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), and protocol version check in `ensureDaemon` are complete. Directory layout matches domain boundaries:
+**264/264 tests passing. Mutation score: 77.57% overall (81.37% covered). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon 39.59%; mcp.ts 28.42%.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), and protocol version check in `ensureDaemon` are complete. Directory layout matches domain boundaries:
 
 ```
 src/
@@ -86,19 +86,19 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 Feature doc: [`quality.md`](quality.md) — covers mutation testing strategy, coverage targets by module, surviving mutants table, and what not to do.
 
-Stryker mutation testing is operational: `pnpm test:mutate` runs 680 mutants across `src/operations/`, `src/utils/`, and `src/security.ts` in ~7 minutes. Overall score: 72% (78% covered). After fixing the P1 security survivors, focus shifts to strengthening assertion quality.
+Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/operations/`, `src/utils/`, and `src/security.ts` in ~7 minutes. Overall score: **77.57% (81.37% covered)**. See [`quality.md`](quality.md) for the full per-module breakdown and surviving mutants table.
 
-**6. Expand mutation testing to `src/providers/`** — 88–91% line coverage. Virtual↔real path translation in Volar and AST manipulation in TsProvider are complex enough to harbour subtle bugs.
+**6. Expand mutation testing to `src/providers/`** — 91.61% line coverage but only 66.04% branch coverage. Virtual↔real path translation in Volar and AST manipulation in TsProvider are complex enough to harbour subtle bugs. Add to `stryker.config.mjs` `mutate` array and run; survivors will direct the next round of test additions.
 
-**7. Coverage improvement: `src/daemon/` + `src/mcp.ts`** — currently 32–56%. Integration-heavy (Unix sockets, stdio, process lifecycle, chokidar). Do this after mutation testing reveals what strong tests look like.
+**7. Next mutation round: `searchText.ts` (70%), `getDefinition.ts` (73%), `file-walk.ts` (70%)** — these are the weakest modules at current scores. See the "Worth fixing" table in `quality.md` for specific gaps.
 
-**8. Coverage improvement: `src/schema.ts`** — Zod schemas are declarative and low-risk; last in the queue.
+**8. Coverage improvement: `src/daemon/` + `src/mcp.ts`** — 39.59% and 28.42% respectively. Integration-heavy (Unix sockets, stdio, process lifecycle, chokidar). Do this after mutation testing reveals what strong tests look like.
 
 ---
 
 ### P3 — High-value features
 
-**8. `findReferences` by file path**
+**9. `findReferences` by file path**
 Feature doc: [`features/findReferences.md`](features/findReferences.md) — covers the symbol-position variant; the file-path variant needs a design section added.
 "Who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
 
