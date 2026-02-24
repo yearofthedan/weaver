@@ -1,8 +1,41 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { searchText } from "../../src/operations/searchText.js";
+import { globToRegex, searchText } from "../../src/operations/searchText.js";
 import { cleanup, copyFixture } from "../helpers.js";
+
+describe("globToRegex", () => {
+  it("matches basename when pattern has no slash (prepends **/ internally)", () => {
+    // "*.ts" → "**/\*.ts" → regex ^.*/[^/]*\.ts$ — matches any dir/basename.ts
+    const re = globToRegex("*.ts");
+    expect(re.test("src/foo.ts")).toBe(true);
+    expect(re.test("deep/nested/foo.ts")).toBe(true);
+    expect(re.test("src/foo.tsx")).toBe(false);
+    expect(re.test("src/foo.js")).toBe(false);
+  });
+
+  it("matches full relative path when pattern includes a slash", () => {
+    const re = globToRegex("src/*.ts");
+    expect(re.test("src/foo.ts")).toBe(true);
+    expect(re.test("lib/foo.ts")).toBe(false);
+    expect(re.test("src/nested/foo.ts")).toBe(false);
+  });
+
+  it("** matches any number of path segments", () => {
+    const re = globToRegex("**/*.test.ts");
+    expect(re.test("tests/utils/foo.test.ts")).toBe(true);
+    expect(re.test("src/foo.test.ts")).toBe(true);
+    expect(re.test("src/foo.ts")).toBe(false);
+  });
+
+  it("? matches exactly one non-slash character", () => {
+    const re = globToRegex("src/?.ts");
+    expect(re.test("src/a.ts")).toBe(true);
+    expect(re.test("src/ab.ts")).toBe(false);
+    expect(re.test("src/.ts")).toBe(false);
+  });
+});
 
 describe("searchText operation", () => {
   const dirs: string[] = [];
@@ -113,5 +146,79 @@ describe("searchText operation", () => {
     dirs.push(dir);
 
     await expect(searchText("(a+)+$", dir)).rejects.toMatchObject({ code: "REDOS" });
+  });
+
+  it("skips binary files (files containing a null byte)", async () => {
+    // Exercises the isBinaryBuffer path: buf[i] === 0 must return true.
+    const dir = copyFixture("simple-ts");
+    dirs.push(dir);
+
+    const binaryContent = Buffer.concat([
+      Buffer.from("greetUser"),
+      Buffer.from([0x00]), // null byte marks it as binary
+      Buffer.from("more content"),
+    ]);
+    fs.writeFileSync(path.join(dir, "src/binary.bin"), binaryContent);
+
+    const result = await searchText("greetUser", dir);
+    expect(result.matches.every((m) => !m.file.endsWith("binary.bin"))).toBe(true);
+  });
+
+  it("context lines do not extend before line 1", async () => {
+    // Exercises Math.max(0, lineIdx - context): start must be >= 1 even on first line.
+    const dir = copyFixture("simple-ts");
+    dirs.push(dir);
+
+    const result = await searchText("greetUser", dir, { glob: "**/utils.ts", context: 5 });
+
+    expect(result.matches).toHaveLength(1);
+    const lineNums = result.matches[0].context.map((c) => c.line);
+    expect(Math.min(...lineNums)).toBeGreaterThanOrEqual(1);
+  });
+
+  it("context lines do not extend past the last line of the file", async () => {
+    // Exercises Math.min(lines.length - 1, lineIdx + context): end must not exceed EOF.
+    const dir = copyFixture("simple-ts");
+    dirs.push(dir);
+
+    const content = fs.readFileSync(path.join(dir, "src/utils.ts"), "utf8");
+    const totalLines = content.split("\n").length;
+
+    const result = await searchText("greetUser", dir, { glob: "**/utils.ts", context: 100 });
+
+    expect(result.matches.length).toBeGreaterThan(0);
+    for (const match of result.matches) {
+      for (const ctx of match.context) {
+        expect(ctx.line).toBeGreaterThanOrEqual(1);
+        expect(ctx.line).toBeLessThanOrEqual(totalLines);
+      }
+    }
+  });
+
+  it("searches in a non-git workspace (exercises the walkRecursive fallback)", async () => {
+    // Create a bare temp dir with no .git so the git path fails and falls back to walkRecursive.
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-nogit-"));
+    dirs.push(tmpDir);
+
+    fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "src/hello.ts"), "export const greeting = 'hello';\n");
+
+    const result = await searchText("greeting", tmpDir);
+
+    expect(result.matches.length).toBeGreaterThan(0);
+    expect(result.matches.some((m) => m.file.endsWith("hello.ts"))).toBe(true);
+  });
+
+  it("each match reports the correct matchText", async () => {
+    // Verifies that m[0] (the actual match) is stored, not a mutated value.
+    const dir = copyFixture("simple-ts");
+    dirs.push(dir);
+
+    const result = await searchText("Hello", dir, { glob: "**/utils.ts" });
+
+    expect(result.matches.length).toBeGreaterThan(0);
+    for (const match of result.matches) {
+      expect(match.matchText).toBe("Hello");
+    }
   });
 });

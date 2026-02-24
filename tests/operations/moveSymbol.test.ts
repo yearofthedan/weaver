@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { moveSymbol } from "../../src/operations/moveSymbol.js";
@@ -319,6 +320,46 @@ describe("moveSymbol action", () => {
       expect(helperImports?.[0]).toContain("add");
       // multiply stays in the utils import
       expect(content).toMatch(/import\s*\{[^}]*multiply[^}]*\}\s*from\s*["']\.\/utils/);
+    });
+
+    it("filesSkipped includes importers outside the workspace boundary", async () => {
+      // Exercises the `!isWithinWorkspace(filePath, workspace)` branch in the importer loop.
+      // The ts-morph project includes both src/ and lib/ but the workspace is only src/.
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-movesymbol-boundary-"));
+      dirs.push(tmpDir);
+
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, "lib"), { recursive: true });
+
+      // tsconfig includes all TS files so lib/consumer.ts is in the project
+      fs.writeFileSync(
+        path.join(tmpDir, "tsconfig.json"),
+        JSON.stringify({ compilerOptions: { strict: true }, include: ["**/*.ts"] }),
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, "src/utils.ts"),
+        "export function add(a: number, b: number): number { return a + b; }\n",
+      );
+      // Importer is in the project (tsconfig includes **/*.ts) but OUTSIDE workspace (src/)
+      fs.writeFileSync(
+        path.join(tmpDir, "lib/consumer.ts"),
+        'import { add } from "../src/utils";\nexport const result = add(1, 2);\n',
+      );
+
+      const tsProvider = new TsProvider();
+      const result = await moveSymbol(
+        tsProvider,
+        tsProvider,
+        path.join(tmpDir, "src/utils.ts"),
+        "add",
+        path.join(tmpDir, "src/helpers.ts"),
+        path.join(tmpDir, "src"), // workspace = src/ only; lib/ is out-of-bounds
+      );
+
+      expect(result.filesSkipped.some((f) => f.includes("consumer.ts"))).toBe(true);
+      // The out-of-workspace importer must not be rewritten on disk
+      const consumerContent = fs.readFileSync(path.join(tmpDir, "lib/consumer.ts"), "utf8");
+      expect(consumerContent).toContain("../src/utils");
     });
   });
 

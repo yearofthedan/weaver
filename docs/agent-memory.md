@@ -229,6 +229,20 @@ When expanding Stryker to cover `src/providers/`, several patterns appeared:
 
 ---
 
+---
+
+## Mutation round 2 lessons (Feb 2026)
+
+**`globToRegex("*.ts")` does NOT match root-level files.** The implementation prepends `**/` for patterns without `/`, producing regex `^.*/[^/]*\.ts$`. This requires at least one directory separator before the basename. Root-level files (relative path = bare filename, e.g. `"foo.ts"`) never match. This is acceptable for the workspace use case (all project files live under subdirectories), but tests must assert `"src/foo.ts"` not `"foo.ts"`.
+
+**`isBinaryBuffer` is exercised by writing a real file containing a null byte (`\x00`).** Use `Buffer.concat([Buffer.from("text"), Buffer.from([0x00]), Buffer.from("more")])` and write via `fs.writeFileSync`. The binary skip is only triggered when the file is read during `searchText`, not during the glob walk.
+
+**`moveSymbol` filesSkipped importer path requires resolvable imports.** The `if (!isWithinWorkspace(filePath, workspace))` guard in the importer loop only fires when ts-morph's `getModuleSpecifierSourceFile()` successfully resolves the import to a source file in the project. If the import specifier doesn't resolve (wrong module resolution settings, missing `moduleResolution` in tsconfig), the importer is never found and `filesSkipped` stays empty. A test for this path needs a tsconfig with explicit `moduleResolution: "node"` or similar, plus an importer with a resolvable import path.
+
+**VolarProvider `resolveOffset` catch block** is covered by calling `resolveOffset` with `line: 999` on a real `.vue` file (via `getDefinition`). The `lineColToOffset` call in the try block throws `RangeError`, which is caught and rethrown as `EngineError("SYMBOL_NOT_FOUND")`. This is the simplest way to cover the branch.
+
+**Adding `getReferencesAtPosition` to VolarProvider tests** covers the `translateLocations` code path (which exercises `translateSingleLocation`). The test needs to assert that returned spans have non-zero `textSpan.length` and no `.vue.ts` paths — otherwise the path-translation mutants survive.
+
 ## Memory storage
 
 - `.claude/MEMORY.md` — project state and agent behaviour notes

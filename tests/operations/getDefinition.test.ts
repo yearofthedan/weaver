@@ -65,6 +65,18 @@ describe("getDefinition action", () => {
         expect((err as { code?: string }).code).toBe("SYMBOL_NOT_FOUND");
       }
     });
+
+    it("throws SYMBOL_NOT_FOUND when position is valid but has no definition", async () => {
+      // Exercises the `!defs || defs.length === 0` path in getDefinition.ts:
+      // line 2 of main.ts is blank — resolveOffset succeeds but getDefinitionAtPosition returns null.
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const provider = new TsProvider();
+
+      await expect(getDefinition(provider, `${dir}/src/main.ts`, 2, 1)).rejects.toMatchObject({
+        code: "SYMBOL_NOT_FOUND",
+      });
+    });
   });
 
   describe("with VolarProvider", () => {
@@ -85,6 +97,12 @@ describe("getDefinition action", () => {
       expect(result.symbolName).toBe("greetUser");
       expect(result.definitions.length).toBeGreaterThanOrEqual(1);
       expect(result.definitions.some((d) => d.file.endsWith("utils.ts"))).toBe(true);
+      // Assert specific span values so offset-translation mutants are caught.
+      const def = result.definitions.find((d) => d.file.endsWith("utils.ts"));
+      expect(def).toBeDefined();
+      expect(def?.line).toBe(1);
+      expect(def?.col).toBeGreaterThan(0);
+      expect(def?.length).toBeGreaterThan(0);
     });
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
@@ -98,6 +116,17 @@ describe("getDefinition action", () => {
       } catch (err: unknown) {
         expect((err as { code?: string }).code).toBe("FILE_NOT_FOUND");
       }
+    });
+
+    it("throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", async () => {
+      // Exercises the resolveOffset catch block in VolarProvider (volar.ts line 103).
+      const dir = copyFixture("vue-ts-boundary");
+      dirs.push(dir);
+      const provider = new VolarProvider();
+
+      await expect(getDefinition(provider, `${dir}/src/App.vue`, 999, 1)).rejects.toMatchObject({
+        code: "SYMBOL_NOT_FOUND",
+      });
     });
   });
 });

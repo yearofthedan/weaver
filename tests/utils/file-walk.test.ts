@@ -26,6 +26,13 @@ describe("walkFiles", () => {
   // ── non-git fallback ──────────────────────────────────────────────────────
 
   describe("non-git fallback (no .git dir)", () => {
+    it("returns empty array when the directory does not exist", () => {
+      // Exercises the walkRecursive try/catch path: readdirSync fails → []
+      const nonExistent = path.join(tmpDir, "does-not-exist");
+      const result = walkFiles(nonExistent, [".ts"]);
+      expect(result).toEqual([]);
+    });
+
     it("returns files matching extensions", () => {
       write("a.ts");
       write("b.tsx");
@@ -154,6 +161,21 @@ describe("walkFiles", () => {
       const result = walkFiles(tmpDir, [".ts"]);
       expect(result.length).toBeGreaterThan(0);
       expect(path.isAbsolute(result[0])).toBe(true);
+    });
+
+    it("excludes files with non-matching extensions in git mode", () => {
+      // Exercises the extension filter in the git path:
+      // extSet.has(path.extname(line)) must exclude non-requested extensions.
+      initGit();
+      write("src/a.ts");
+      write("src/b.vue"); // added to git but not requested
+      execSync("git add .", { cwd: tmpDir, stdio: "pipe" });
+
+      const result = walkFiles(tmpDir, [".ts"]);
+      const names = result.map((f) => path.basename(f));
+      expect(names).toContain("a.ts");
+      expect(names).not.toContain("b.vue");
+      expect(result).toHaveLength(1);
     });
   });
 });

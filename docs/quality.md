@@ -54,25 +54,28 @@ Use [Stryker](https://stryker-mutator.io/) with vitest (`pnpm test:mutate`) to v
 - **Expect noise from:** string-heavy operations where Stryker's `StringLiteral` mutations produce equivalent mutants (excluded via config).
 - **Target mutation score:** 80%+ on scoped modules. Below 60% indicates real assertion gaps worth fixing.
 
-#### Mutation scores (as of 284 tests)
+#### Mutation scores (as of 301 tests)
+
+Partial re-run on 5 target modules after mutation round 2 (see "Worth fixing" history below).
+Run `pnpm test:mutate` for a fresh overall score.
 
 | Module | Score (total) | Score (covered) | Notes |
 |--------|--------------|-----------------|-------|
-| All scoped files | **76.23%** | 79.50% | Providers added to scope |
+| All scoped files | **≥76.23%** | — | Partial re-run; 5 modules improved |
 | `security.ts` | 82.19% | 88.24% | Above threshold |
 | `utils/text-utils.ts` | **100%** | 100% | Clean |
 | `utils/assert-file.ts` | **100%** | 100% | Clean |
-| `utils/file-walk.ts` | 73.33% | 73.33% | Below threshold |
+| `utils/file-walk.ts` | 76.67% | 76.67% | Below threshold |
 | `utils/relative-path.ts` | 75.00% | 75.00% | Below threshold |
 | `operations/moveFile.ts` | 86.67% | 92.86% | Above threshold |
-| `operations/moveSymbol.ts` | 72.82% | 75.00% | Below threshold |
+| `operations/moveSymbol.ts` | 72.82% | 74.26% | Below threshold |
 | `operations/rename.ts` | 78.26% | 81.82% | Near threshold |
 | `operations/replaceText.ts` | 77.78% | 81.91% | Near threshold |
 | `operations/findReferences.ts` | 76.47% | 81.25% | Near threshold |
-| `operations/getDefinition.ts` | 73.33% | 78.57% | Below threshold |
-| `operations/searchText.ts` | 70.19% | 75.26% | Below threshold |
-| `providers/ts.ts` | 71.03% | 72.03% | First run; caching + out-of-project scan gaps |
-| `providers/volar.ts` | 66.96% | 71.96% | Volar virtual↔real path branches; below threshold |
+| `operations/getDefinition.ts` | **93.33%** | 93.33% | Above threshold ↑ (was 73.33%) |
+| `operations/searchText.ts` | **80.77%** | 85.71% | Above threshold ↑ (was 70.19%) |
+| `providers/ts.ts` | 71.03% | 72.03% | Caching + out-of-project scan gaps |
+| `providers/volar.ts` | 71.30% | 75.23% | Below threshold ↑ (was 66.96%) |
 | `providers/vue-scan.ts` | 88.75% | 91.03% | Above threshold |
 
 #### Known surviving mutants (current)
@@ -107,11 +110,18 @@ Fixed gaps are removed. Remaining survivors by category:
 
 | Area | Gap |
 |------|-----|
-| `operations/searchText.ts` | 70.19% — weakest operation |
-| `operations/getDefinition.ts` | 73.33% — SYMBOL_NOT_FOUND and out-of-range paths need stronger assertion |
-| `utils/file-walk.ts` | 73.33% — SKIP_DIRS logic and extension filtering have uncovered branches |
-| `operations/moveSymbol.ts` | 72.82% — workspace-boundary `filesSkipped` paths still not covered |
-| `providers/volar.ts` | 66.96% — Volar internal path-translation branches; needs a fixture with `.vue` files using `<script>` (non-setup) blocks and specific source-map edge cases |
+| `operations/moveSymbol.ts` | 72.82% — workspace-boundary `filesSkipped` importer-loop path; requires a fixture where ts-morph project resolves an import from outside the workspace root |
+| `providers/volar.ts` | 71.30% — Volar internal path-translation branches; the `rawRefs.length === 0` and `textChanges.length > 0` guards need fixtures that produce zero-result or zero-change LS responses |
+| `utils/file-walk.ts` | 76.67% — git-path `ArrayDeclaration`/`BlockStatement`/`filter(Boolean)` mutants are equivalent or require kernel-level test harness |
+| `operations/rename.ts` | 78.26% — near threshold; one more round may push it over |
+| `operations/findReferences.ts` | 76.47% — near threshold |
+
+**Resolved (moved above 80% threshold):**
+
+| Area | Before | After | What killed the survivors |
+|------|--------|-------|--------------------------|
+| `operations/getDefinition.ts` | 73.33% | **93.33%** | Added SYMBOL_NOT_FOUND test for blank-line position (kills `!defs` null guard); added VolarProvider out-of-range line test (kills `resolveOffset` catch block) |
+| `operations/searchText.ts` | 70.19% | **80.77%** | Added `globToRegex` unit tests (kills glob-regex construction mutants); binary file skip test (kills `isBinaryBuffer` null-byte check); context-boundary tests (kills `Math.max/min` clamp mutants); non-git workspace test (kills `walkRecursive` fallback path) |
 
 ---
 

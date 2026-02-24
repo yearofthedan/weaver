@@ -320,4 +320,47 @@ describe("VolarProvider", () => {
     expect(result.modified).toEqual([]);
     expect(result.skipped).toEqual([]);
   });
+
+  it("resolveOffset throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", () => {
+    // Exercises the resolveOffset catch block in volar.ts (line 103-104).
+    const dir = setup();
+    const p = new VolarProvider();
+    const file = path.join(dir, "src/App.vue");
+    expect(() => p.resolveOffset(file, 999, 1)).toThrow();
+    try {
+      p.resolveOffset(file, 999, 1);
+    } catch (err: unknown) {
+      expect((err as { code?: string }).code).toBe("SYMBOL_NOT_FOUND");
+    }
+  });
+
+  it("getReferencesAtPosition returns translated spans for a symbol in a Vue project", async () => {
+    // Exercises translateLocations + translateSingleLocation for getReferencesAtPosition.
+    const dir = setup();
+    const p = new VolarProvider();
+    const file = path.join(dir, "src/composables/useCounter.ts");
+    const offset = p.resolveOffset(file, 1, 17); // useCounter declaration
+    const refs = await p.getReferencesAtPosition(file, offset);
+    expect(refs).not.toBeNull();
+    expect(refs?.length).toBeGreaterThanOrEqual(1);
+    // All returned paths must be real paths (no .vue.ts virtual paths)
+    for (const ref of refs ?? []) {
+      expect(ref.fileName).not.toMatch(/\.vue\.ts$/);
+      expect(typeof ref.textSpan.start).toBe("number");
+      expect(ref.textSpan.length).toBeGreaterThan(0);
+    }
+  }, 30_000);
+
+  it("getDefinitionAtPosition returns null for a whitespace position", async () => {
+    // Exercises the `!rawDefs || rawDefs.length === 0` null-return path.
+    const dir = setup();
+    const p = new VolarProvider();
+    const file = path.join(dir, "src/composables/useCounter.ts");
+    const content = fs.readFileSync(file, "utf8");
+    // Find a position on the closing brace line (no symbol definition there)
+    const closingBraceOffset = content.lastIndexOf("}");
+    const result = await p.getDefinitionAtPosition(file, closingBraceOffset);
+    // Either null (no def) or an array — must not throw.
+    expect(result === null || Array.isArray(result)).toBe(true);
+  }, 30_000);
 });

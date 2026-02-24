@@ -24,7 +24,7 @@ Context that isn't in the feature docs — things you need to know before pickin
 
 ## Current state
 
-**284/284 tests passing. Mutation score: 76.23% overall (79.50% covered). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon 39.59%; mcp.ts 28.42%.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), protocol version check in `ensureDaemon`, and mutation testing expanded to `src/providers/` are complete. Directory layout matches domain boundaries:
+**301/301 tests passing. Mutation score: ≥76.23% overall (partial re-run; run `pnpm test:mutate` for current). Per-module highlights: `getDefinition.ts` 93.33%, `searchText.ts` 80.77% (both newly above threshold), `volar.ts` 71.30%, `moveSymbol.ts` 72.82%, `file-walk.ts` 76.67%. Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon 39.59%; mcp.ts 28.42%.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), protocol version check in `ensureDaemon`, mutation testing expanded to `src/providers/`, and mutation round 2 (17 new tests targeting `getDefinition`, `searchText`, `volar`, `file-walk`, `moveSymbol`) are complete. Directory layout matches domain boundaries:
 
 ```
 src/
@@ -88,9 +88,11 @@ Feature doc: [`quality.md`](quality.md) — covers mutation testing strategy, co
 
 Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/operations/`, `src/utils/`, `src/security.ts`, and `src/providers/` in ~13 minutes. Overall score: **76.23% (79.50% covered)**. See [`quality.md`](quality.md) for the full per-module breakdown and surviving mutants table.
 
-**7. Next mutation round: `searchText.ts` (70%), `getDefinition.ts` (73%), `file-walk.ts` (73%), `volar.ts` (67%)** — these are the weakest modules at current scores. See the "Worth fixing" table in `quality.md` for specific gaps.
+**7. Next mutation round: `moveSymbol.ts` (72.82%), `volar.ts` (71.30%), `file-walk.ts` (76.67%)** — still below 80% threshold after round 2. `getDefinition.ts` (93.33%) and `searchText.ts` (80.77%) are resolved. See the "Worth fixing" table in `quality.md` for specific gaps per module.
 
-**8. Coverage improvement: `src/daemon/` + `src/mcp.ts`** — 39.59% and 28.42% respectively. Integration-heavy (Unix sockets, stdio, process lifecycle, chokidar). Do this after mutation testing reveals what strong tests look like.
+**8. Test design quality review: check tests are good quality, at right level, appropriate reuse (eg. common builders, methods, paramaterization)
+
+**9. Coverage improvement: `src/daemon/` + `src/mcp.ts`** — 39.59% and 28.42% respectively. Integration-heavy (Unix sockets, stdio, process lifecycle, chokidar). Do this after mutation testing reveals what strong tests look like.
 
 ---
 
