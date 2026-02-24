@@ -94,8 +94,8 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "rename",
     description:
-      "Rename a symbol at a specific position and update every reference project-wide. " +
-      "Use this instead of search-and-replace — it understands scope and won't touch unrelated identifiers with the same name. " +
+      "When renaming an identifier, use this to update every reference project-wide. " +
+      "Scope-aware — won't touch unrelated identifiers that share the same name. " +
       "The response lists every file modified; no need to read them to verify. " +
       "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
@@ -109,8 +109,8 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "moveFile",
     description:
-      "Move a file to a new path. Use this for all file moves — do not use shell mv. " +
-      "Rewrites every import that references the file, project-wide, whether or not you expect import changes. " +
+      "Move a source file and rewrite every import that references it, project-wide. " +
+      "Moving a file without this leaves broken imports across the project. " +
       "The response lists every file modified; no need to read them to verify. " +
       "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
@@ -145,9 +145,11 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "findReferences",
     description:
-      "Find every reference to a symbol across the entire project using the TypeScript compiler — scope-aware, so it ignores identically-named symbols in unrelated files and string literals that happen to match. " +
-      "Use this to check whether a symbol is used anywhere before deleting, deprecating, or renaming it. " +
-      "Also use before a move or rename to understand the blast radius, or to navigate to all usages without reading files manually. " +
+      "Before modifying, moving, or deleting a symbol, call this to see every file that depends on it. " +
+      "This replaces reading files to trace call sites — the compiler already tracks every reference " +
+      "through re-exports, barrel files, type-only imports, and Vue SFCs. " +
+      "Also use after a change to verify no callers were missed. " +
+      "Scope-aware: ignores identically-named symbols in unrelated scopes and string literals that happen to match. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
       file: FindReferencesArgsSchema.shape.file.describe("Absolute path to the file"),
@@ -158,9 +160,9 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "getDefinition",
     description:
-      "Jump to the definition of a symbol at a specific position. " +
-      "Use this to navigate to where a symbol is declared before reading or editing it. " +
-      "Compiler-verified — avoids grep and works across re-exports, barrel files, and declaration files. " +
+      "When you need to find where a symbol is declared, call this. " +
+      "Resolves through re-exports, barrel files, and declaration files " +
+      "where text search would find the re-export, not the actual definition. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
       file: GetDefinitionArgsSchema.shape.file.describe("Absolute path to the file"),
@@ -172,10 +174,10 @@ const TOOLS: ToolDefinition[] = [
     name: "searchText",
     description:
       "Search for a regex pattern across all workspace files. " +
-      "Prefer this over running shell grep or rg — results are structured JSON (file, line, col, matchText) that feed directly into replaceText's surgical edit mode, sensitive files are never scanned, and the workspace boundary is enforced. " +
-      "Use this to discover where a string literal, import path, configuration value, or any text appears across the project before editing it. " +
+      "Results are structured JSON (file, line, col, matchText) that feed directly into replaceText's surgical edit mode. " +
+      "Sensitive files (.env, keys, certificates) are never scanned, and the workspace boundary is enforced. " +
+      "Use this to discover where a string literal, import path, configuration value, or any text pattern appears before editing it. " +
       "Returns match locations with optional surrounding context lines. " +
-      "Each match includes file, line (1-based), col (1-based), matchText, and optional context lines. " +
       "If truncated is true, results were capped at the internal limit — narrow the search with a more specific pattern or glob.",
     inputSchema: {
       pattern: SearchTextArgsSchema.shape.pattern.describe(
@@ -235,7 +237,18 @@ const TOOLS: ToolDefinition[] = [
 
 async function startMcpServer(absWorkspace: string): Promise<void> {
   const sockPath = socketPath(absWorkspace);
-  const server = new McpServer({ name: "light-bridge", version: "0.1.0" });
+  const server = new McpServer(
+    { name: "light-bridge", version: "0.1.0" },
+    {
+      instructions:
+        "light-bridge provides compiler-aware refactoring tools for JavaScript and TypeScript " +
+        "projects (.ts, .tsx, .js, .jsx), with additional support for Vue single-file components (.vue). " +
+        "A persistent daemon keeps the project graph in memory — " +
+        "tool calls are fast and use far fewer tokens than reading files to trace dependencies manually. " +
+        "These tools use the compiler's reference graph, which tracks dependencies through " +
+        "re-exports, barrel files, type-only imports, and Vue SFCs that text-based approaches miss.",
+    },
+  );
 
   for (const tool of TOOLS) {
     server.registerTool(

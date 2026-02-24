@@ -11,7 +11,7 @@ Update at the end of every session. Keep this file as a signpost — details liv
 
 ## Current state
 
-- 224/224 tests passing
+- 242/242 tests passing
 - All seven operations shipped: `rename`, `moveFile`, `moveSymbol`, `findReferences`, `getDefinition`, `searchText`, `replaceText`
 - Security: workspace boundary + sensitive file blocklist (`src/security.ts`), ReDoS guard (`safe-regex2`), runtime socket validation, Vue scan boundary check, socket timeout, error masking all complete
 - Architecture: action-centric, all three refactor phases complete. No engine classes remain.

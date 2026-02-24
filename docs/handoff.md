@@ -22,7 +22,7 @@ Read the docs in this order:
 
 ## Current state
 
-**233/233 tests passing.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, and full action-centric refactor (Phases 1–3) are complete. Directory layout matches domain boundaries:
+**242/242 tests passing.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, and full action-centric refactor (Phases 1–3) are complete. Directory layout matches domain boundaries:
 
 ```
 src/
@@ -156,12 +156,6 @@ Current coverage: ~77% statements, ~66% branches, ~78% lines. Coverage is uneven
 
 ---
 
-## Conversation: optimising agent tool adoption
+## Completed: agent tool adoption improvements
 
-During refactoring sessions (design-feedback.md slices), the agent consistently defaulted to reading files manually to map call sites and check cross-file impact — even though `findReferences` and `searchText` exist precisely for that. This is worth a dedicated conversation covering:
-
-- **MCP tool descriptions** — do the current descriptions create enough pull to reach for tools before reading files? Specific gap observed: `findReferences` should more clearly signal "use this instead of opening a file to scan for call sites."
-- **MCP strict mode / tool hints** — whether an MCP capability (e.g. a required preamble, a tool-choice hint, or a system prompt injection) could enforce or suggest tool use at the protocol level before code changes begin.
-- **Optional skill files** — whether a `refactor/SKILL.md` (or similar) loaded only during refactoring sessions could encode the workflow pattern "always call `findReferences` before touching a symbol" without polluting the always-on rules.
-
-No action needed now — start a fresh conversation to design the approach.
+Server-level `instructions` added to the MCP server (via `McpServer` constructor) — provides a brief orientation about supported file types, the compiler reference graph advantage, and token savings over manual file reading. Tool descriptions rewritten to lead with triggers ("when renaming an identifier", "before modifying a symbol") rather than capabilities ("rename a symbol", "find references"). No skill file yet — revisit if dogfooding reveals workflow gaps the descriptions can't cover.

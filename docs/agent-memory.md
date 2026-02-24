@@ -110,6 +110,12 @@ Each OPERATIONS `invoke` calls `registry.projectProvider()` for compiler-aware o
 **Data-driven MCP registration and dispatcher.**
 `TOOLS` table in `mcp.ts` drives all `registerTool` calls. Each entry has `name`, `description`, and `inputSchema: ZodRawShape`. The loop handler passes `params as Record<string, unknown>` directly to `callDaemon` — no per-operation destructuring needed. `OPERATIONS` table in `dispatcher.ts` drives all dispatch: `pathParams` (first = engine selector) → workspace validation loop → `invoke` → `format`. Adding a new operation is now a single table entry in each file.
 
+**MCP server `instructions` field for tool adoption.**
+The `McpServer` constructor takes an optional `instructions` string (part of the MCP spec's `InitializeResult`). Clients like Cursor and Claude Desktop surface this as a system prompt hint. We use it for a brief orientation: supported file types (.ts, .tsx, .js, .jsx, .vue), the compiler reference graph advantage over text-based approaches, and token savings. Keep it short — it's injected on every turn alongside all tool descriptions. Per-tool trigger guidance ("when to use this") belongs in individual tool descriptions, not here.
+
+**Tool descriptions should lead with triggers, not capabilities.**
+"Before modifying a symbol, call this" is more effective than "Find all references to a symbol" because it matches the agent's situation at the point of decision. Avoid naming specific agent tools (grep, shell mv, search-and-replace) — frame the consequence of not using the tool instead ("leaves broken imports", "text search would find the re-export, not the actual definition"). Don't say "TypeScript and Vue" — say "JavaScript and TypeScript projects" with "additional support for Vue" to avoid signalling that React/Angular projects aren't covered.
+
 **Commit body explains WHY, not WHAT.**
 Code diffs show what changed. The body should explain decisions and tradeoffs. Don't enumerate changed files or re-describe the diff. Split commits at logical boundaries; don't force a split when a single file spans two concerns.
 
