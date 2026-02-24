@@ -153,3 +153,15 @@ Current coverage: ~77% statements, ~66% branches, ~78% lines. Coverage is uneven
 - **Vertical slice tests assert before and after** — always read fixture files before the operation to confirm original state, then assert both old string is gone and new string present.
 - **`filesSkipped` in engine results** — collateral writes outside the workspace are skipped and listed in `filesSkipped`. Agents should surface this to the user.
 - **`ts-engine.moveFile` uses language service directly** — `ls.getEditsForFileRename()` applied file-by-file, then `fs.renameSync`. `sourceFile.move()` + `project.save()` has no per-file whitelist API. ts-morph project invalidated after the operation and rebuilt on next call.
+
+---
+
+## Conversation: optimising agent tool adoption
+
+During refactoring sessions (design-feedback.md slices), the agent consistently defaulted to reading files manually to map call sites and check cross-file impact — even though `findReferences` and `searchText` exist precisely for that. This is worth a dedicated conversation covering:
+
+- **MCP tool descriptions** — do the current descriptions create enough pull to reach for tools before reading files? Specific gap observed: `findReferences` should more clearly signal "use this instead of opening a file to scan for call sites."
+- **MCP strict mode / tool hints** — whether an MCP capability (e.g. a required preamble, a tool-choice hint, or a system prompt injection) could enforce or suggest tool use at the protocol level before code changes begin.
+- **Optional skill files** — whether a `refactor/SKILL.md` (or similar) loaded only during refactoring sessions could encode the workflow pattern "always call `findReferences` before touching a symbol" without polluting the always-on rules.
+
+No action needed now — start a fresh conversation to design the approach.
