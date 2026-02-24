@@ -16,6 +16,7 @@
     "format": "biome format . --write",
     "smoke-test": "bash scripts/smoke-test.sh",
     "coverage": "vitest run --coverage",
+    "test:mutate": "stryker run",
     "check": "biome check . && pnpm build && pnpm test",
     "prepare": "tsc",
     "prepublishOnly": "pnpm run build"
@@ -38,6 +39,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.3",
+    "@stryker-mutator/core": "9.5.1",
+    "@stryker-mutator/vitest-runner": "9.5.1",
     "@types/node": "22.19.11",
     "@vitest/coverage-v8": "4.0.18",
     "@volar/language-core": "2.4.28",
