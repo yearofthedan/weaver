@@ -156,6 +156,14 @@ Current coverage: ~77% statements, ~66% branches, ~78% lines. Coverage is uneven
 
 ---
 
+## Tech debt: break up `buildVolarService`
+
+`src/providers/vue-service.ts` — `buildVolarService` is ~176 lines doing 8 distinct things in sequence: library imports, file-contents map, tsconfig parsing, file collection, Volar language setup, virtual-path mapping, service-host creation, service decoration. It works but is at the upper limit of readability and is effectively untestable at the unit level.
+
+**Fix:** Extract named sub-functions for each phase. The top-level function orchestrates; each sub-function is independently readable and testable.
+
+---
+
 ## Completed: agent tool adoption improvements
 
 Server-level `instructions` added to the MCP server (via `McpServer` constructor) — provides a brief orientation about supported file types, the compiler reference graph advantage, and token savings over manual file reading. Tool descriptions rewritten to lead with triggers ("when renaming an identifier", "before modifying a symbol") rather than capabilities ("rename a symbol", "find references"). No skill file yet — revisit if dogfooding reveals workflow gaps the descriptions can't cover.
