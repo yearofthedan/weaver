@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { DefinitionLocation, FileTextEdit, LanguageProvider, SpanLocation } from "../types.js";
 import { EngineError } from "../utils/errors.js";
+import { lineColToOffset } from "../utils/text-utils.js";
 import { findTsConfigForFile } from "../utils/ts-project.js";
 import { updateVueImportsAfterMove, updateVueNamedImportAfterSymbolMove } from "./vue-scan.js";
 import { buildVolarService, type CachedService } from "./vue-service.js";
@@ -102,17 +103,12 @@ export class VolarProvider implements LanguageProvider {
   // ─── LanguageProvider ─────────────────────────────────────────────────────
 
   resolveOffset(file: string, line: number, col: number): number {
-    // Pure string arithmetic — no service needed.
     const content = fs.readFileSync(file, "utf8");
-    const lines = content.split("\n");
-    if (line - 1 >= lines.length) {
+    try {
+      return lineColToOffset(content, line, col);
+    } catch {
       throw new EngineError(`Line ${line} out of range in ${file}`, "SYMBOL_NOT_FOUND");
     }
-    let offset = 0;
-    for (let i = 0; i < line - 1; i++) {
-      offset += lines[i].length + 1; // +1 for \n
-    }
-    return offset + col - 1;
   }
 
   async getRenameLocations(file: string, offset: number): Promise<SpanLocation[] | null> {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyTextEdits, offsetToLineCol } from "../../src/utils/text-utils.js";
+import { applyTextEdits, lineColToOffset, offsetToLineCol } from "../../src/utils/text-utils.js";
 
 describe("offsetToLineCol", () => {
   it("returns line 1 col 1 for offset 0 in empty string", () => {
@@ -42,6 +42,38 @@ describe("offsetToLineCol", () => {
     expect(offsetToLineCol(s, 3)).toEqual({ line: 1, col: 4 });
     // offset 5 = space after emoji → col 6
     expect(offsetToLineCol(s, 5)).toEqual({ line: 1, col: 6 });
+  });
+});
+
+describe("lineColToOffset", () => {
+  it("returns offset 0 for line 1 col 1", () => {
+    expect(lineColToOffset("hello", 1, 1)).toBe(0);
+  });
+
+  it("returns correct offset mid-line", () => {
+    expect(lineColToOffset("hello world", 1, 7)).toBe(6);
+  });
+
+  it("returns correct offset at start of second line", () => {
+    // "abc\ndef" — line 2, col 1 → offset 4
+    expect(lineColToOffset("abc\ndef", 2, 1)).toBe(4);
+  });
+
+  it("returns correct offset mid second line", () => {
+    // "abc\ndef" — line 2, col 3 → offset 6
+    expect(lineColToOffset("abc\ndef", 2, 3)).toBe(6);
+  });
+
+  it("is the inverse of offsetToLineCol (round-trip)", () => {
+    const content = "first line\nsecond line\nthird line";
+    for (const offset of [0, 5, 11, 17, 23]) {
+      const { line, col } = offsetToLineCol(content, offset);
+      expect(lineColToOffset(content, line, col)).toBe(offset);
+    }
+  });
+
+  it("throws a RangeError when line is out of range", () => {
+    expect(() => lineColToOffset("one line", 5, 1)).toThrow(RangeError);
   });
 });
 
