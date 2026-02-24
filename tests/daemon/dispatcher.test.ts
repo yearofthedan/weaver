@@ -101,3 +101,17 @@ describe("dispatchRequest param validation", () => {
     expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
   });
 });
+
+describe("dispatchRequest success format", () => {
+  it("returns ok:true and result fields without a message field", async () => {
+    // searchText on a pattern that matches nothing is the cheapest operation to invoke
+    const result = (await dispatchRequest(
+      { method: "searchText", params: { pattern: "__nonexistent_pattern_xyz__" } },
+      "/tmp",
+    )) as Record<string, unknown>;
+    expect(result.ok).toBe(true);
+    expect(result).toHaveProperty("matches");
+    expect(result).toHaveProperty("truncated");
+    expect(result).not.toHaveProperty("message");
+  });
+});

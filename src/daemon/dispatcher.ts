@@ -14,17 +14,7 @@ import {
   SearchTextArgsSchema,
 } from "../schema.js";
 import { isWithinWorkspace } from "../security.js";
-import type {
-  FindReferencesResult,
-  GetDefinitionResult,
-  LanguageProvider,
-  MoveResult,
-  MoveSymbolResult,
-  ProviderRegistry,
-  RenameResult,
-  ReplaceTextResult,
-  SearchTextResult,
-} from "../types.js";
+import type { LanguageProvider, ProviderRegistry } from "../types.js";
 import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
 
 // ─── Provider singletons ───────────────────────────────────────────────────
@@ -108,8 +98,6 @@ interface OperationDescriptor {
     params: Record<string, unknown>,
     workspace: string,
   ): Promise<unknown>;
-  /** Format the raw result into the final response object. */
-  format(result: unknown): object;
 }
 
 const OPERATIONS: Record<string, OperationDescriptor> = {
@@ -126,17 +114,6 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
       const provider = await registry.projectProvider();
       return rename(provider, file, line, col, newName, workspace);
     },
-    format(result) {
-      const r = result as RenameResult;
-      const plural = r.locationCount === 1 ? "location" : "locations";
-      const fileCount = r.filesModified.length;
-      return {
-        ok: true,
-        filesModified: r.filesModified,
-        filesSkipped: r.filesSkipped,
-        message: `Renamed '${r.symbolName}' to '${r.newName}' in ${r.locationCount} ${plural} across ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
-      };
-    },
   },
 
   moveFile: {
@@ -146,16 +123,6 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
       const { oldPath, newPath } = params as { oldPath: string; newPath: string };
       const provider = await registry.projectProvider();
       return moveFile(provider, oldPath, newPath, workspace);
-    },
-    format(result) {
-      const r = result as MoveResult;
-      const fileCount = r.filesModified.length;
-      return {
-        ok: true,
-        filesModified: r.filesModified,
-        filesSkipped: r.filesSkipped,
-        message: `Moved '${r.oldPath}' to '${r.newPath}', updated imports in ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
-      };
     },
   },
 
@@ -173,16 +140,6 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
       const { moveSymbol } = await import("../operations/moveSymbol.js");
       return moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace);
     },
-    format(result) {
-      const r = result as MoveSymbolResult;
-      const fileCount = r.filesModified.length;
-      return {
-        ok: true,
-        filesModified: r.filesModified,
-        filesSkipped: r.filesSkipped,
-        message: `Moved '${r.symbolName}' from '${r.sourceFile}' to '${r.destFile}', updated imports in ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
-      };
-    },
   },
 
   findReferences: {
@@ -193,16 +150,6 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
       const provider = await registry.projectProvider();
       return findReferences(provider, file, line, col);
     },
-    format(result) {
-      const r = result as FindReferencesResult;
-      const count = r.references.length;
-      return {
-        ok: true,
-        symbolName: r.symbolName,
-        references: r.references,
-        message: `Found ${count} ${count === 1 ? "reference" : "references"} to '${r.symbolName}'`,
-      };
-    },
   },
 
   getDefinition: {
@@ -212,16 +159,6 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
       const { file, line, col } = params as { file: string; line: number; col: number };
       const provider = await registry.projectProvider();
       return getDefinition(provider, file, line, col);
-    },
-    format(result) {
-      const r = result as GetDefinitionResult;
-      const count = r.definitions.length;
-      return {
-        ok: true,
-        symbolName: r.symbolName,
-        definitions: r.definitions,
-        message: `Found ${count} ${count === 1 ? "definition" : "definitions"} for '${r.symbolName}'`,
-      };
     },
   },
 
@@ -239,16 +176,6 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         maxResults?: number;
       };
       return searchText(pattern, workspace, { glob, context, maxResults });
-    },
-    format(result) {
-      const r = result as SearchTextResult;
-      const count = r.matches.length;
-      return {
-        ok: true,
-        matches: r.matches,
-        truncated: r.truncated,
-        message: `Found ${count} ${count === 1 ? "match" : "matches"}${r.truncated ? " (truncated)" : ""}`,
-      };
     },
   },
 
@@ -270,16 +197,6 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         }>;
       };
       return replaceText(workspace, { pattern, replacement, glob, edits });
-    },
-    format(result) {
-      const r = result as ReplaceTextResult;
-      const fileCount = r.filesModified.length;
-      return {
-        ok: true,
-        filesModified: r.filesModified,
-        replacementCount: r.replacementCount,
-        message: `Replaced ${r.replacementCount} ${r.replacementCount === 1 ? "occurrence" : "occurrences"} across ${fileCount} ${fileCount === 1 ? "file" : "files"}`,
-      };
     },
   },
 };
@@ -322,6 +239,9 @@ export async function dispatchRequest(
       ? makeRegistry(req.params[descriptor.pathParams[0]] as string)
       : makeRegistry(workspace);
 
-  const result = await descriptor.invoke(registry, parsed.data, workspace);
-  return descriptor.format(result);
+  const result = (await descriptor.invoke(registry, parsed.data, workspace)) as Record<
+    string,
+    unknown
+  >;
+  return { ok: true, ...result };
 }

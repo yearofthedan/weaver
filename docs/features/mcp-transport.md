@@ -34,6 +34,8 @@ All tools use position-based parameters where applicable, consistent with LSP co
 | `moveSymbol` | `sourceFile`, `symbolName`, `destFile` |
 | `findReferences` | `file`, `line`, `col` |
 | `getDefinition` | `file`, `line`, `col` |
+| `searchText` | `pattern`, `glob?`, `context?`, `maxResults?` |
+| `replaceText` | `pattern` + `replacement` + `glob?` (pattern mode) or `edits[]` (surgical mode) |
 
 ## Response contract
 
@@ -45,8 +47,7 @@ Mutating operations (success):
 {
   "ok": true,
   "filesModified": ["src/components/Button.vue", "src/App.vue"],
-  "filesSkipped": [],
-  "message": "Renamed 'Button' to 'BaseButton' in 2 files"
+  "filesSkipped": []
 }
 ```
 
@@ -55,10 +56,10 @@ Read-only operations (success):
 ```json
 {
   "ok": true,
+  "symbolName": "Button",
   "references": [
-    { "file": "src/App.vue", "line": 5, "col": 3 }
-  ],
-  "message": "Found 1 reference"
+    { "file": "src/App.vue", "line": 5, "col": 3, "length": 6 }
+  ]
 }
 ```
 
