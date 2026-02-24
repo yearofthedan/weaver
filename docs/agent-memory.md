@@ -89,6 +89,12 @@ Both the daemon (ping handler) and `mcp.ts` (`ensureDaemon`) import it from ther
 **`stopDaemon` is the canonical way to kill a daemon from `mcp.ts`.**
 Exported from `daemon.ts`. Reads the lockfile PID, sends SIGTERM, polls until `isDaemonAlive` returns false (up to 5s), then calls `removeDaemonFiles`. Avoids duplicating the kill-and-wait logic from `runStop`.
 
+**Process-entry-point coverage gap is inherent, not a test gap.**
+`runDaemon`, `runStop` body (after the early-returns), and `handleSocketRequest` all run inside spawned daemon processes. Coverage only tracks what runs in the test runner's process, so these lines will always show as uncovered in unit tests — the existing integration tests (which spawn subprocesses) exercise them correctly. Don't export private functions to reach them; that's an antipattern. Instead: (a) test the early-return validation paths directly by mocking `process.exit` to throw; (b) test the happy path for fully exported functions like `stopDaemon` and `runStop` (the happy path never calls `process.exit` so no mocking needed); (c) extract genuinely reusable logic into a proper module.
+
+**Mocking `process.exit` — use the throw pattern.**
+`vi.spyOn(process, "exit").mockImplementation((() => { throw new Error("EXIT"); }) as () => never)` is the standard pattern for testing code that calls `process.exit` on failure. The throw stops execution at the point the real exit would have, keeping the test hermetic. Always restore with `vi.restoreAllMocks()` in `afterEach`. For paths that do NOT call `process.exit` (happy paths), no mock is needed — await the function directly.
+
 **`callDaemon` failure returns `DAEMON_STARTING`.**
 If the socket connection fails (daemon not yet ready), return `{ ok: false, error: "DAEMON_STARTING", message: "..." }` to the agent rather than throwing.
 

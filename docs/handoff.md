@@ -24,7 +24,7 @@ Context that isn't in the feature docs — things you need to know before pickin
 
 ## Current state
 
-**309/309 tests passing. Mutation score: 80.11% overall (full run as of 309 tests). Per-module highlights: `getDefinition.ts` 93.33%, `searchText.ts` 80.77%, `moveSymbol.ts` 80.58%, `file-walk.ts` 86.67% (all above threshold), `volar.ts` 73.91% (below threshold — many accepted survivors). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon 39.59%; mcp.ts 28.42%.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), protocol version check in `ensureDaemon`, mutation testing expanded to `src/providers/`, mutation rounds 2 and 3 (new tests targeting `moveSymbol`, `volar`, `file-walk`) are complete. Directory layout matches domain boundaries:
+**316/316 tests passing. Mutation score: 80.11% overall (full run as of 309 tests). Per-module highlights: `getDefinition.ts` 93.33%, `searchText.ts` 80.77%, `moveSymbol.ts` 80.58%, `file-walk.ts` 86.67% (all above threshold), `volar.ts` 73.91% (below threshold — many accepted survivors). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon folder 60.4% statements / 58.65% lines (up from 39.59% — at threshold); mcp.ts 33.67% (up from 28.42% — subprocess-level gap remains).** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), protocol version check in `ensureDaemon`, mutation testing expanded to `src/providers/`, mutation rounds 2 and 3 (new tests targeting `moveSymbol`, `volar`, `file-walk`) are complete. Directory layout matches domain boundaries:
 
 ```
 src/
@@ -89,7 +89,7 @@ Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/ope
 
 **7. Next mutation round: `volar.ts` (73.91%)** — still below 80% threshold after round 3. `moveSymbol.ts` (80.58%) and `file-walk.ts` (86.67%) are now resolved. The 24 surviving mutants in `volar.ts` are dominated by accepted ones (caching guards, toVirtualLocation fallback branches, translateSingleLocation Volar-glue paths). See the "Worth fixing" table in `quality.md` for specific remaining gaps.
 
-**9. Coverage improvement: `src/daemon/` + `src/mcp.ts`** — 39.59% and 28.42% respectively. Integration-heavy (Unix sockets, stdio, process lifecycle, chokidar). Do this after mutation testing reveals what strong tests look like.
+**9. Coverage improvement: `src/mcp.ts`** — now 33.67% (up from 28.42%). `src/daemon/` has reached the 60%+ folder-level target (60.4% statements). The remaining `mcp.ts` gap is in `ensureDaemon`, `startMcpServer`, and `spawnDaemon` — code that only runs when the full MCP server is spawned over stdio. Reaching 60% requires either subprocess-level instrumentation or extracting those functions into a separately testable module.
 
 ---
 

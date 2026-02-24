@@ -30,7 +30,7 @@ Fixtures should be minimal but realistic — a small app with enough complexity 
 
 ### Coverage targets by module
 
-Numbers from `pnpm coverage` (vitest v8) as of 264 tests. Test count is now 309; module-level coverage numbers are stable.
+Numbers from `pnpm coverage` (vitest v8) as of 316 tests.
 
 | Module | Lines | Branches | Target | Notes |
 |--------|-------|----------|--------|-------|
@@ -38,8 +38,8 @@ Numbers from `pnpm coverage` (vitest v8) as of 264 tests. Test count is now 309;
 | `src/providers/` | 91.61% | 66.04% | 85%+ | Lines healthy; branch coverage low — virtual↔real path translation has many branches |
 | `src/utils/` | 98.70% | 96.55% | 95%+ | Healthy; maintain |
 | `src/security.ts` | 94.11% | 100% | 90%+ | All branches covered; two uncovered lines are `realpathSync` catch paths |
-| `src/daemon/` | 39.59% | 39.13% | 60%+ | Below target; integration-heavy (socket, process lifecycle) |
-| `src/mcp.ts` | 28.42% | 36.66% | 60%+ | Below target; stdio/socket mocking needed |
+| `src/daemon/` | 60.4% | 59.42% | 60%+ | At threshold (folder level); `daemon.ts` alone is 57.28% — `handleSocketRequest` and watcher-extension logic only run inside spawned processes |
+| `src/mcp.ts` | 33.67% | 40% | 60%+ | Below target; `ensureDaemon`, `startMcpServer`, `spawnDaemon` only run when the full MCP server is spawned — subprocess-level gap |
 | `src/schema.ts` | 100% | 100% | — | Declarative Zod schemas; trivially covered |
 
 Targets are floors, not goals. Mutation score is a better quality signal than line coverage for modules above 80%.
@@ -179,6 +179,9 @@ The `else { filesSkipped.add(fp) }` branch in the dirty-files loop fires when a 
 
 **`specifiers.length > 0` needs an importer with non-matching symbols.**
 Mutation `> 0 → >= 0` includes importers with 0 matching specifiers. These "false positives" then gain a wrong import from the dest file. To kill this, add a file that imports OTHER symbols from the source (but not the moved symbol) and assert it does not gain an import from the dest.
+
+**Process-entry-point code has an inherent in-process coverage gap.**
+`runDaemon`, `runStop` body (after early-returns), and `handleSocketRequest` only run inside spawned daemon processes. v8 coverage only tracks what runs in the test runner's process. The right approach: test the validation early-returns with mocked `process.exit` (throw pattern); test exported happy-path functions directly (e.g. `stopDaemon`, `runStop` on a real daemon); accept the subprocess gap for the rest. Do NOT export private functions for testing — extract to a real module if the function deserves a public API.
 
 **Symlink branch coverage requires real filesystem artefacts.**
 The `isWithinWorkspace` symlink branch only fires when the path exists and `fs.existsSync` passes. Create real temp dirs and symlinks pointing outside the workspace — non-existent paths skip the `realpathSync` call and leave the branch dead.
