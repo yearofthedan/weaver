@@ -8,6 +8,16 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { isDaemonAlive, removeDaemonFiles } from "./daemon/daemon.js";
 import { socketPath } from "./daemon/paths.js";
+import {
+  FindReferencesArgsSchema,
+  GetDefinitionArgsSchema,
+  MoveArgsSchema,
+  MoveSymbolArgsSchema,
+  RenameArgsSchema,
+  ReplaceTextBaseSchema,
+  SearchTextArgsSchema,
+  TextEditSchema,
+} from "./schema.js";
 import { validateWorkspace } from "./security.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -90,13 +100,10 @@ const TOOLS: ToolDefinition[] = [
       "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
-      file: z.string().describe("Absolute path to the file"),
-      line: z.number().int().positive().describe("Line number (1-based)"),
-      col: z.number().int().positive().describe("Column number (1-based)"),
-      newName: z
-        .string()
-        .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/, "newName must be a valid identifier")
-        .describe("New name for the symbol"),
+      file: RenameArgsSchema.shape.file.describe("Absolute path to the file"),
+      line: RenameArgsSchema.shape.line.describe("Line number (1-based)"),
+      col: RenameArgsSchema.shape.col.describe("Column number (1-based)"),
+      newName: RenameArgsSchema.shape.newName.describe("New name for the symbol"),
     },
   },
   {
@@ -108,8 +115,8 @@ const TOOLS: ToolDefinition[] = [
       "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
-      oldPath: z.string().describe("Absolute path to the file to move"),
-      newPath: z.string().describe("Absolute destination path"),
+      oldPath: MoveArgsSchema.shape.oldPath.describe("Absolute path to the file to move"),
+      newPath: MoveArgsSchema.shape.newPath.describe("Absolute destination path"),
     },
   },
   {
@@ -124,14 +131,15 @@ const TOOLS: ToolDefinition[] = [
       "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
-      sourceFile: z.string().describe("Absolute path to the file containing the symbol"),
-      symbolName: z
-        .string()
-        .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/, "symbolName must be a valid identifier")
-        .describe("Name of the exported symbol to move"),
-      destFile: z
-        .string()
-        .describe("Absolute path of the destination file (created if it does not exist)"),
+      sourceFile: MoveSymbolArgsSchema.shape.sourceFile.describe(
+        "Absolute path to the file containing the symbol",
+      ),
+      symbolName: MoveSymbolArgsSchema.shape.symbolName.describe(
+        "Name of the exported symbol to move",
+      ),
+      destFile: MoveSymbolArgsSchema.shape.destFile.describe(
+        "Absolute path of the destination file (created if it does not exist)",
+      ),
     },
   },
   {
@@ -142,9 +150,9 @@ const TOOLS: ToolDefinition[] = [
       "Use before deleting a symbol or file to confirm there are no remaining callers. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
-      file: z.string().describe("Absolute path to the file"),
-      line: z.number().int().positive().describe("Line number (1-based)"),
-      col: z.number().int().positive().describe("Column number (1-based)"),
+      file: FindReferencesArgsSchema.shape.file.describe("Absolute path to the file"),
+      line: FindReferencesArgsSchema.shape.line.describe("Line number (1-based)"),
+      col: FindReferencesArgsSchema.shape.col.describe("Column number (1-based)"),
     },
   },
   {
@@ -155,9 +163,9 @@ const TOOLS: ToolDefinition[] = [
       "Compiler-verified — avoids grep and works across re-exports, barrel files, and declaration files. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
-      file: z.string().describe("Absolute path to the file"),
-      line: z.number().int().positive().describe("Line number (1-based)"),
-      col: z.number().int().positive().describe("Column number (1-based)"),
+      file: GetDefinitionArgsSchema.shape.file.describe("Absolute path to the file"),
+      line: GetDefinitionArgsSchema.shape.line.describe("Line number (1-based)"),
+      col: GetDefinitionArgsSchema.shape.col.describe("Column number (1-based)"),
     },
   },
   {
@@ -170,25 +178,18 @@ const TOOLS: ToolDefinition[] = [
       "Each match includes file, line (1-based), col (1-based), matchText, and optional context lines. " +
       "If truncated is true, results were capped at the internal limit — narrow the search with a more specific pattern or glob.",
     inputSchema: {
-      pattern: z.string().describe("ECMAScript regex pattern to search for"),
-      glob: z
-        .string()
-        .optional()
-        .describe(
-          "Optional glob to restrict which files are searched (e.g. '**/*.ts', 'src/**/*.vue')",
-        ),
-      context: z
-        .number()
-        .int()
-        .min(0)
-        .optional()
-        .describe("Lines of context before and after each match (like grep -C)"),
-      maxResults: z
-        .number()
-        .int()
-        .positive()
-        .optional()
-        .describe("Cap on total matches returned (default 500)"),
+      pattern: SearchTextArgsSchema.shape.pattern.describe(
+        "ECMAScript regex pattern to search for",
+      ),
+      glob: SearchTextArgsSchema.shape.glob.describe(
+        "Optional glob to restrict which files are searched (e.g. '**/*.ts', 'src/**/*.vue')",
+      ),
+      context: SearchTextArgsSchema.shape.context.describe(
+        "Lines of context before and after each match (like grep -C)",
+      ),
+      maxResults: SearchTextArgsSchema.shape.maxResults.describe(
+        "Cap on total matches returned (default 500)",
+      ),
     },
   },
   {
@@ -203,23 +204,25 @@ const TOOLS: ToolDefinition[] = [
       "Returns filesModified and replacementCount. " +
       "Use searchText first to locate targets, then replaceText to apply changes.",
     inputSchema: {
-      pattern: z.string().optional().describe("Regex pattern to replace (pattern mode)"),
-      replacement: z
-        .string()
-        .optional()
-        .describe("Replacement string; supports $1, $2, ... backreferences (pattern mode)"),
-      glob: z
-        .string()
-        .optional()
-        .describe("Optional glob to restrict which files are modified (pattern mode)"),
+      pattern: ReplaceTextBaseSchema.shape.pattern.describe(
+        "Regex pattern to replace (pattern mode)",
+      ),
+      replacement: ReplaceTextBaseSchema.shape.replacement.describe(
+        "Replacement string; supports $1, $2, ... backreferences (pattern mode)",
+      ),
+      glob: ReplaceTextBaseSchema.shape.glob.describe(
+        "Optional glob to restrict which files are modified (pattern mode)",
+      ),
       edits: z
         .array(
           z.object({
-            file: z.string().describe("Absolute path to the file"),
-            line: z.number().int().positive().describe("Line number (1-based)"),
-            col: z.number().int().positive().describe("Column number (1-based)"),
-            oldText: z.string().describe("Text that must be present at the given position"),
-            newText: z.string().describe("Text to write in place of oldText"),
+            file: TextEditSchema.shape.file.describe("Absolute path to the file"),
+            line: TextEditSchema.shape.line.describe("Line number (1-based)"),
+            col: TextEditSchema.shape.col.describe("Column number (1-based)"),
+            oldText: TextEditSchema.shape.oldText.describe(
+              "Text that must be present at the given position",
+            ),
+            newText: TextEditSchema.shape.newText.describe("Text to write in place of oldText"),
           }),
         )
         .optional()
@@ -326,26 +329,34 @@ function spawnDaemon(absWorkspace: string): Promise<void> {
     });
 
     let stderrBuf = "";
+    let consumed = 0;
 
     const timer = setTimeout(() => {
       reject(new Error("Timed out waiting for daemon ready signal"));
     }, 30_000);
 
-    child.stderr.on("data", (chunk: Buffer) => {
+    const onData = (chunk: Buffer) => {
       stderrBuf += chunk.toString();
-      for (const line of stderrBuf.split("\n")) {
+      while (stderrBuf.indexOf("\n", consumed) !== -1) {
+        const newline = stderrBuf.indexOf("\n", consumed);
+        const line = stderrBuf.slice(consumed, newline).trim();
+        consumed = newline + 1;
         try {
-          const msg = JSON.parse(line.trim());
+          const msg = JSON.parse(line);
           if (msg.status === "ready") {
             clearTimeout(timer);
+            child.stderr.off("data", onData);
             child.unref();
             resolve();
+            return;
           }
         } catch {
           // not JSON, ignore
         }
       }
-    });
+    };
+
+    child.stderr.on("data", onData);
 
     child.on("exit", (code) => {
       clearTimeout(timer);
