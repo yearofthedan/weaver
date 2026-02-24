@@ -28,6 +28,28 @@ Fixtures should be minimal but realistic — a small app with enough complexity 
 - Cross-boundary scenarios (`.ts` ↔ `.vue`) covered by integration tests
 - Error paths (symbol not found, file not found, invalid path) explicitly tested
 
+### Coverage targets by module
+
+| Module | Current lines | Target | Notes |
+|--------|--------------|--------|-------|
+| `src/operations/` | 92% | 90%+ | Already strong; mutation testing is more valuable than chasing % |
+| `src/providers/` | 91% | 85%+ | Virtual↔real translation paths are the priority |
+| `src/utils/` | 99% | 95%+ | Healthy; maintain |
+| `src/security.ts` | — | 90%+ | Correctness-critical; every branch matters |
+| `src/daemon/` | 32% | 60%+ | Integration-heavy; requires harness investment |
+| `src/mcp.ts` | 56% | 60%+ | Same — socket/stdio mocking needed |
+
+Targets are floors, not goals. Mutation score is a better quality signal than line coverage for modules above 80%.
+
+### Mutation testing
+
+Use [Stryker](https://stryker-mutator.io/) with vitest to validate assertion quality in well-covered modules. Mutation testing answers "would my tests catch it if this line were wrong?" — a fundamentally different question from coverage.
+
+- **Scope:** Start with `src/operations/`, `src/security.ts`, and `src/utils/`. Expand to `src/providers/` once those are clean.
+- **Don't run on:** `src/daemon/` or `src/mcp.ts` until line coverage reaches 60%+. Below that threshold, surviving mutants just confirm the absence of tests.
+- **Expect noise from:** string-heavy operations (`replaceText`, `searchText`) where Stryker's string literal mutations produce equivalent mutants.
+- **Target mutation score:** 80%+ on scoped modules. Below 60% indicates real assertion gaps worth fixing.
+
 ---
 
 ## Performance

@@ -47,53 +47,13 @@ Between the check and the write, a symlink could be replaced to point outside th
 
 ### 8. `spawnDaemon` stderr buffer management
 
-**File:** `src/mcp.ts:308-320`
-
-**Problem:** The stderr buffer accumulates and re-processes all previously-seen lines on every new chunk:
-
-```typescript
-child.stderr.on("data", (chunk) => {
-  stderrBuf += chunk.toString();
-  for (const line of stderrBuf.split("\n")) {
-    try {
-      const msg = JSON.parse(line.trim());
-      if (msg.status === "ready") {
-        // resolve...
-      }
-    } catch { }
-  }
-});
-```
-
-This is inefficient (re-parsing lines) and can leak memory if the daemon emits stderr after the ready signal. The child is `unref()`'d after ready, so the event listener remains attached and the buffer grows indefinitely.
-
-**Impact:** Low — minor memory leak and inefficiency.
-
-**Mitigation:**
-- Track consumed position in buffer instead of re-splitting
-- Remove the `data` listener after ready signal is found
-- Or: consume from buffer incrementally
+**Fixed.** Lines are now consumed incrementally using a byte offset; the `data` listener is removed after the ready signal is found, so the buffer cannot grow after `child.unref()`.
 
 ---
 
 ### 9. PID reuse in lockfile check
 
-**File:** `src/daemon/daemon.ts:12-21`
-
-**Problem:** `isDaemonAlive` checks liveness by calling `process.kill(pid, 0)`:
-
-```typescript
-const pid = parseInt(fs.readFileSync(lockfile, "utf8").trim(), 10);
-if (Number.isNaN(pid)) return false;
-process.kill(pid, 0); // throws if process doesn't exist
-return true;
-```
-
-PIDs are recycled by the OS. If the daemon crashes without cleaning up and a new process takes the PID (unlikely but possible), `isDaemonAlive` returns `true` and the stale socket prevents a fresh daemon from starting.
-
-**Impact:** Low — unlikely in practice, but prevents clean recovery from crash loops.
-
-**Mitigation:** Add a nonce or creation timestamp to the lockfile. On startup, verify the daemon at the PID created the file recently (e.g., within the last 5 minutes).
+**Fixed.** Lockfile format changed from a bare PID string to `{pid, startedAt}` JSON. `isDaemonAlive` now also verifies the socket file exists — a running daemon always has a socket, so a live PID with no socket means a recycled PID or a crashed daemon that didn't clean up.
 
 ---
 
@@ -101,41 +61,13 @@ PIDs are recycled by the OS. If the daemon crashes without cleaning up and a new
 
 ### 10. `protocol.ts` is dead code
 
-**File:** `src/protocol.ts`
-
-**Problem:** This file defines typed request/response interfaces:
-
-```typescript
-export interface RenameRequest {
-  method: "rename";
-  params: { file: string; line: number; col: number; newName: string; workspace: string };
-}
-```
-
-But it's never imported anywhere. Grepping confirms zero references. The actual request typing happens via `as` assertions in `dispatcher.ts`.
-
-**Impact:** Low — confusing for maintainers, creates false confidence that the wire protocol is typed.
-
-**Mitigation:** Either wire `protocol.ts` into the dispatcher for runtime validation, or delete it.
+**Fixed.** `src/protocol.ts` deleted — confirmed zero imports across the codebase.
 
 ---
 
 ### 11. Sensitive file detection gaps
 
-**File:** `src/security.ts:36-59`
-
-**Missing patterns:**
-- `.npmrc` (npm auth tokens)
-- `.netrc` (HTTP credentials)
-- `service-account*.json`, `*-key.json` (GCP, AWS)
-- `.vault-token` (HashiCorp Vault)
-- `secrets.yaml`, `secrets.yml`
-- `.htpasswd`
-- `*.kdbx` (KeePass databases)
-
-**Impact:** Low — unlikely to cause real-world harm given the tool's use case, but the blocklist is incomplete.
-
-**Mitigation:** Add the patterns above to `SENSITIVE_BASENAME_EXACT` and `SENSITIVE_EXTENSIONS`.
+**Fixed.** Added `.npmrc`, `.netrc`, `.vault-token`, `.htpasswd`, `secrets.yaml`, `secrets.yml`, `.kdbx`, `service-account*.json`, and `*-key.json` to `isSensitiveFile`. The last two use a new `SENSITIVE_BASENAME_PATTERNS` regex array for wildcard-style matching.
 
 ---
 
@@ -162,19 +94,7 @@ The file watcher triggers `invalidateAll()` on the *providers* but never clears 
 
 ### 13. Three-way schema duplication
 
-**Files:** `src/schema.ts`, `src/mcp.ts`, `src/daemon/dispatcher.ts`
-
-**Problem:** Input shapes are defined in three disconnected places with no shared source of truth:
-
-1. **`schema.ts`** — Zod schemas (used only by CLI)
-2. **`mcp.ts`** — inline Zod schemas (used for MCP tool registration)
-3. **`dispatcher.ts`** — `as` type assertions (no validation)
-
-A change to parameter names or types requires updating all three locations manually and risks silent inconsistency.
-
-**Impact:** Low — maintenance burden and potential for bugs.
-
-**Mitigation:** Export schemas from a single module and reuse in all three places.
+**Fixed.** `mcp.ts` input schemas are now derived from `schema.ts` shapes using `.describe()` — no duplicated regexes or field definitions. `dispatcher.ts` already imported from `schema.ts` (this was fixed in the action-centric refactor). `schema.ts` is now the single source of truth for all field validation.
 
 ---
 
@@ -193,8 +113,7 @@ A change to parameter names or types requires updating all three locations manua
 
 ## Recommended Priority Order
 
-1. **TOCTOU race** (Issue #6) — strengthen defense-in-depth (lower practical risk)
-2. **Remove dead code** (Issue #10) — reduce confusion
+1. **TOCTOU race** (Issue #6) — strengthen defense-in-depth (lower practical risk; only remaining open issue)
 
 ---
 

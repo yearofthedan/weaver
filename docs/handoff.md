@@ -22,7 +22,7 @@ Read the docs in this order:
 
 ## Current state
 
-**223/223 tests passing.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, and full action-centric refactor (Phases 1–3) are complete. Directory layout matches domain boundaries:
+**233/233 tests passing.** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, and full action-centric refactor (Phases 1–3) are complete. Directory layout matches domain boundaries:
 
 ```
 src/
@@ -83,11 +83,33 @@ Evaluate each candidate: does the daemon's stateful engine make it meaningfully 
 
 ---
 
+## Test quality improvement
+
+Current coverage: ~77% statements, ~66% branches, ~78% lines. Coverage is unevenly distributed — operations and utils are well-tested (89–98%), while daemon/MCP entry paths lag (32–56%).
+
+### Recommended order
+
+1. **Mutation testing on `src/operations/` and `src/security.ts`** — these modules have 89–92% line coverage, making surviving mutants informative rather than noisy. Use [Stryker](https://stryker-mutator.io/) with vitest. Scope: `mutate: ["src/operations/**/*.ts", "src/security.ts"]`. Goal: identify weak assertions and missing edge-case checks. Security boundary logic in `security.ts` is especially worth hardening — correctness matters more than coverage there.
+
+2. **Mutation testing on `src/utils/`** — 98% coverage means this should produce a very high mutation score. Quick sanity check; any surviving mutants here indicate genuine gaps in assertion quality.
+
+3. **Mutation testing on `src/providers/`** — 88–91% coverage. The virtual↔real path translation in Volar and AST manipulation in TsProvider are complex enough to harbour subtle bugs that pass existing assertions. Run after operations are clean.
+
+4. **Coverage improvement: `src/daemon/` and `src/mcp.ts`** — currently 32–56%. These are integration-heavy (Unix sockets, stdio, process lifecycle, chokidar). Raising coverage here requires test harness investment (mocking sockets, spawning child processes). Do this after mutation testing reveals the full picture of assertion quality in the well-tested modules — the lessons learned will inform how to write stronger tests for the daemon layer from the start.
+
+5. **Coverage improvement: `src/schema.ts`** — validation logic. Lower priority because Zod schemas are declarative and less prone to subtle logic bugs, but worth covering for completeness.
+
+### What not to do
+
+- Don't run mutation testing on the daemon/MCP layer at current coverage — it will produce a wall of surviving mutants that just say "you don't have tests here."
+- Don't chase coverage numbers before mutation testing. Raising coverage first risks writing shallow tests (e.g. asserting "doesn't throw" instead of checking output). Let surviving mutants guide where you need *more* tests vs *stronger* tests.
+- Expect noise from string-heavy operations (`replaceText`, `searchText`) — Stryker's string mutations produce equivalent mutants in code that manipulates text. Triage these rather than chasing 100% mutation score.
+
+---
+
 ## Security & Architecture Issues
 
-**`docs/security-architecture-review.md`** — high-priority bugs and architectural gaps. Read this before implementing features or touching security-sensitive code. Includes three critical issues (ReDoS, unvalidated socket params, workspace boundary in Vue scanning) and nine medium/low-severity findings with mitigation strategies and test cases.
-
-**Recommended fix order:** ReDoS guard → socket validation → workspace boundary → timeout → error masking.
+**`docs/security-architecture-review.md`** — security and architectural issues. All critical issues and most medium/low issues are now fixed. One open issue remains: TOCTOU race in symlink checks (Issue #6, low practical risk, accepted for now).
 
 ---
 
