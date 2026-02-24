@@ -59,45 +59,39 @@ export class VolarProvider implements LanguageProvider {
     return { fileName: virtualPath, pos };
   }
 
-  private translateLocations(
-    rawLocations: readonly { fileName: string; textSpan: { start: number; length: number } }[],
-    service: CachedService,
-  ): { fileName: string; textSpan: { start: number; length: number } }[] {
-    const locations: { fileName: string; textSpan: { start: number; length: number } }[] = [];
-    for (const loc of rawLocations) {
-      const realVuePath = service.vueVirtualToReal.get(loc.fileName);
-      if (realVuePath === undefined) {
-        locations.push(loc);
-        continue;
-      }
+  private translateSingleLocation(loc: SpanLocation, service: CachedService): SpanLocation | null {
+    const realVuePath = service.vueVirtualToReal.get(loc.fileName);
+    if (realVuePath === undefined) return loc;
 
-      const sourceScript = service.language.scripts.get(realVuePath);
-      if (!sourceScript?.generated) {
-        locations.push({ fileName: realVuePath, textSpan: loc.textSpan });
-        continue;
-      }
+    const sourceScript = service.language.scripts.get(realVuePath);
+    if (!sourceScript?.generated) return { fileName: realVuePath, textSpan: loc.textSpan };
 
-      const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(
-        sourceScript.generated.root,
-      );
-      if (!serviceScript) {
-        locations.push({ fileName: realVuePath, textSpan: loc.textSpan });
-        continue;
-      }
+    const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(
+      sourceScript.generated.root,
+    );
+    if (!serviceScript) return { fileName: realVuePath, textSpan: loc.textSpan };
 
-      const mapper = service.language.maps.get(serviceScript.code, sourceScript);
-      const iter = mapper.toSourceLocation(loc.textSpan.start);
-      const next = iter.next() as IteratorResult<readonly [number, unknown]>;
-      if (!next.done) {
-        const [sourceOffset] = next.value;
-        locations.push({
-          fileName: realVuePath,
-          textSpan: { start: sourceOffset, length: loc.textSpan.length },
-        });
-      }
-      // Locations with no source mapping are Volar glue code — skip them.
+    const mapper = service.language.maps.get(serviceScript.code, sourceScript);
+    const iter = mapper.toSourceLocation(loc.textSpan.start);
+    const next = iter.next() as IteratorResult<readonly [number, unknown]>;
+    if (!next.done) {
+      const [sourceOffset] = next.value;
+      return {
+        fileName: realVuePath,
+        textSpan: { start: sourceOffset, length: loc.textSpan.length },
+      };
     }
-    return locations;
+    // No source mapping — Volar glue code; exclude from results.
+    return null;
+  }
+
+  private translateLocations(
+    rawLocations: readonly SpanLocation[],
+    service: CachedService,
+  ): SpanLocation[] {
+    return rawLocations
+      .map((loc) => this.translateSingleLocation(loc, service))
+      .filter((loc): loc is SpanLocation => loc !== null);
   }
 
   // ─── LanguageProvider ─────────────────────────────────────────────────────

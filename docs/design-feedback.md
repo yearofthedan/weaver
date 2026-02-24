@@ -47,6 +47,6 @@ Every operation descriptor builds a human-readable message string. `mcp.ts` neve
 | Priority | Issue | Effort | Status |
 |---|---|---|---|
 | 1 | Move `lineColToOffset` to `text-utils.ts` | Small | Done |
-| 2 | Flatten `translateLocations` with a helper | Medium | |
+| 2 | Flatten `translateLocations` with a helper | Medium | Done |
 | 3 | Remove dead `message` field in dispatcher | Small | |
 | 4 | Break up `buildVolarService` | Medium | |

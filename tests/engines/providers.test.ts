@@ -138,4 +138,18 @@ describe("VolarProvider", () => {
       expect(loc.fileName).not.toMatch(/\.vue\.ts$/);
     }
   });
+
+  it("getRenameLocations translates virtual .vue.ts paths to real .vue paths in results", async () => {
+    const dir = setup();
+    const p = new VolarProvider();
+    // useCounter is used in App.vue; rename locations from useCounter.ts must include
+    // the real App.vue path (not the .vue.ts virtual path used internally by Volar)
+    const file = path.join(dir, "src/composables/useCounter.ts");
+    const offset = p.resolveOffset(file, 1, 17); // useCounter declaration
+    const locs = await p.getRenameLocations(file, offset);
+    expect(locs).not.toBeNull();
+    const vueFile = path.join(dir, "src/App.vue");
+    const hasVueLoc = locs?.some((loc) => loc.fileName === vueFile);
+    expect(hasVueLoc).toBe(true);
+  });
 });
