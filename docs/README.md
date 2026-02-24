@@ -12,6 +12,7 @@
 ## By Document
 
 ### Product & Vision
+- [Why light-bridge](why.md) — Speed, determinism, context efficiency; the AI coding ecosystem
 - [Vision](vision.md) — What light-bridge does, who it's for, and what's next
 
 ### User Integration
