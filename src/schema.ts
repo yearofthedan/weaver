@@ -43,7 +43,7 @@ export const SearchTextArgsSchema = z.object({
   maxResults: z.coerce.number().int().positive().optional(),
 });
 
-const TextEditSchema = z.object({
+export const TextEditSchema = z.object({
   file: z.string().min(1),
   line: z.coerce.number().int().positive(),
   col: z.coerce.number().int().positive(),
@@ -51,21 +51,21 @@ const TextEditSchema = z.object({
   newText: z.string(),
 });
 
-export const ReplaceTextArgsSchema = z
-  .object({
-    pattern: z.string().optional(),
-    replacement: z.string().optional(),
-    glob: z.string().optional(),
-    edits: z.array(TextEditSchema).optional(),
-  })
-  .refine(
-    (d) => {
-      const hasPattern = d.pattern !== undefined && d.replacement !== undefined;
-      const hasEdits = d.edits !== undefined;
-      return hasPattern !== hasEdits; // XOR — exactly one mode must be provided
-    },
-    { message: "Provide either 'pattern'+'replacement' or 'edits', not both" },
-  );
+export const ReplaceTextBaseSchema = z.object({
+  pattern: z.string().optional(),
+  replacement: z.string().optional(),
+  glob: z.string().optional(),
+  edits: z.array(TextEditSchema).optional(),
+});
+
+export const ReplaceTextArgsSchema = ReplaceTextBaseSchema.refine(
+  (d) => {
+    const hasPattern = d.pattern !== undefined && d.replacement !== undefined;
+    const hasEdits = d.edits !== undefined;
+    return hasPattern !== hasEdits; // XOR — exactly one mode must be provided
+  },
+  { message: "Provide either 'pattern'+'replacement' or 'edits', not both" },
+);
 
 export type RenameArgs = z.infer<typeof RenameArgsSchema>;
 export type MoveArgs = z.infer<typeof MoveArgsSchema>;
