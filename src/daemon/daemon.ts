@@ -10,6 +10,13 @@ import { dispatchRequest, invalidateAll, invalidateFile } from "./dispatcher.js"
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
 import { startWatcher } from "./watcher.js";
 
+/**
+ * Increment whenever a new operation is added or an existing one changes its
+ * wire format. `ensureDaemon` checks this against a live daemon's `ping`
+ * response and respawns on mismatch so stale daemons are never silently reused.
+ */
+export const PROTOCOL_VERSION = 1;
+
 function readLockfile(workspaceRoot: string): { pid: number; startedAt: number } | null {
   try {
     const raw = fs.readFileSync(lockfilePath(workspaceRoot), "utf8");
@@ -49,6 +56,27 @@ export function removeDaemonFiles(workspaceRoot: string): void {
       // already gone
     }
   }
+}
+
+/**
+ * Send SIGTERM to the daemon for this workspace, wait up to `timeoutMs` for
+ * it to stop, then remove any leftover socket/lockfile. Safe to call when no
+ * daemon is running — it's a no-op in that case.
+ */
+export async function stopDaemon(workspaceRoot: string, timeoutMs = 5_000): Promise<void> {
+  const lock = readLockfile(workspaceRoot);
+  if (lock === null) return;
+  try {
+    process.kill(lock.pid, "SIGTERM");
+  } catch {
+    // already gone
+  }
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!isDaemonAlive(workspaceRoot)) break;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  removeDaemonFiles(workspaceRoot);
 }
 
 export async function runStop(opts: { workspace: string }): Promise<void> {
@@ -190,6 +218,8 @@ async function handleSocketRequest(
     if (!envelope.success) {
       const message = envelope.error.issues.map((i) => i.message).join("; ");
       response = { ok: false, error: "PARSE_ERROR", message };
+    } else if (envelope.data.method === "ping") {
+      response = { ok: true, version: PROTOCOL_VERSION };
     } else {
       response = await dispatchRequest(envelope.data, workspace);
     }

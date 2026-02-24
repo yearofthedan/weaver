@@ -34,16 +34,6 @@ Original analysis preserved here: the operation set is growing faster than the e
 
 ---
 
-## Daemon: stale process not detected on protocol version change
-
-When a new operation is added, a daemon running from a previous session will accept connections (so `isDaemonAlive` returns `true`) but silently lack the new handler. `ensureDaemon` reuses the old process and the MCP server never registers the new tool from the client's perspective until the daemon is manually killed.
-
-**Fix:** embed a `PROTOCOL_VERSION` constant (increment on every operation add/remove). Add a lightweight `ping` RPC to the daemon that returns `{ ok: true, version: PROTOCOL_VERSION }`. In `ensureDaemon`, after confirming the process is alive, call `ping`. If the version doesn't match (or the call fails), call `removeDaemonFiles` then respawn. This makes version upgrades automatic and invisible to users.
-
-**Priority:** medium. The current workaround is to kill the daemon manually (`kill <pid>`) and restart the MCP server. Pain is low in day-to-day use but high when dogfooding during development.
-
----
-
 ## Watcher: own-writes trigger redundant invalidation
 
 The daemon's own operations (`rename`, `moveFile`, `moveSymbol`) write files to disk. Those writes emit inotify/FSEvents events that the watcher picks up, firing `invalidateFile` or `invalidateAll` ~200ms after the write — by which time the operation has already performed its own invalidation. The redundant callbacks are currently no-ops (refreshing a project that is already dropped), so there is no correctness issue.

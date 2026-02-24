@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { isDaemonAlive, removeDaemonFiles } from "./daemon/daemon.js";
+import { isDaemonAlive, PROTOCOL_VERSION, removeDaemonFiles, stopDaemon } from "./daemon/daemon.js";
 import { socketPath } from "./daemon/paths.js";
 import {
   FindReferencesArgsSchema,
@@ -61,9 +61,20 @@ export async function runServe(opts: { workspace: string }): Promise<void> {
 }
 
 /**
+ * Tracks whether the running daemon's protocol version has already been
+ * verified against PROTOCOL_VERSION. Reset whenever the daemon is known to
+ * have stopped so the next ensureDaemon call re-verifies the new process.
+ */
+let versionVerified = false;
+
+/**
  * Ensure a daemon is running for the workspace. If the socket exists but the
  * process is gone (stale), clean it up first. Then auto-spawn if needed and
  * wait for the ready signal.
+ *
+ * On first contact with a live daemon the protocol version is checked via
+ * `ping`. A version mismatch means the daemon is from a prior session and
+ * may be missing operations — it is killed and a fresh one is spawned.
  */
 async function ensureDaemon(absWorkspace: string): Promise<void> {
   const sockPath = socketPath(absWorkspace);
@@ -71,15 +82,34 @@ async function ensureDaemon(absWorkspace: string): Promise<void> {
   // If socket file exists but process is dead, remove stale files
   if (fs.existsSync(sockPath) && !isDaemonAlive(absWorkspace)) {
     removeDaemonFiles(absWorkspace);
+    versionVerified = false;
   }
 
-  // If daemon is already live, nothing to do
   if (isDaemonAlive(absWorkspace)) {
-    return;
+    if (versionVerified) return;
+
+    // First contact with this daemon process — verify protocol version.
+    try {
+      const ping = await callDaemon(sockPath, { method: "ping", params: {} }, 10_000);
+      if ((ping as Record<string, unknown>).version !== PROTOCOL_VERSION) {
+        // Stale daemon from a previous session — kill it and fall through to respawn.
+        await stopDaemon(absWorkspace);
+        versionVerified = false;
+      } else {
+        versionVerified = true;
+        return;
+      }
+    } catch {
+      // Ping failed unexpectedly; proceed without respawning to preserve
+      // existing behaviour for callers that were already mid-flight.
+      versionVerified = true;
+      return;
+    }
   }
 
-  // Auto-spawn the daemon as a detached child so it outlives this process
+  // Auto-spawn the daemon as a detached child so it outlives this process.
   await spawnDaemon(absWorkspace);
+  versionVerified = true;
 }
 
 // ─── Tool definition table ─────────────────────────────────────────────────

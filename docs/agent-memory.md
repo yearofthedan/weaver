@@ -92,6 +92,15 @@ The SDK ships `zod-compat` and accepts both Zod v3 and v4 schemas. Pass Zod v3 s
 **Daemon socket: one connection per call.**
 `serve` opens a fresh Unix socket connection per tool call, writes one JSON line, reads one JSON line, then closes. No persistent connection.
 
+**`ping` is a meta-operation handled before `dispatchRequest`.**
+`handleSocketRequest` in `daemon.ts` intercepts `method === "ping"` before calling `dispatchRequest`, returning `{ ok: true, version: PROTOCOL_VERSION }` directly. This avoids adding `ping` to the `OPERATIONS` table and keeps the dispatcher clean of protocol-level concerns.
+
+**`PROTOCOL_VERSION` lives in `daemon.ts`; increment it whenever the operation set changes.**
+Both the daemon (ping handler) and `mcp.ts` (`ensureDaemon`) import it from there. `ensureDaemon` uses a `versionVerified` module-level flag so the ping check runs only once per daemon process lifetime — not on every tool call. Reset the flag whenever the daemon is detected as dead so the next spawn is re-verified.
+
+**`stopDaemon` is the canonical way to kill a daemon from `mcp.ts`.**
+Exported from `daemon.ts`. Reads the lockfile PID, sends SIGTERM, polls until `isDaemonAlive` returns false (up to 5s), then calls `removeDaemonFiles`. Avoids duplicating the kill-and-wait logic from `runStop`.
+
 **`callDaemon` failure returns `DAEMON_STARTING`.**
 If the socket connection fails (daemon not yet ready), return `{ ok: false, error: "DAEMON_STARTING", message: "..." }` to the agent rather than throwing.
 
