@@ -71,6 +71,7 @@ export function spawnAndWaitForReady(
       reject(new Error(`Timed out waiting for ready signal after ${timeoutMs}ms`));
     }, timeoutMs);
 
+    if (!child.stderr) throw new Error("child.stderr is null");
     child.stderr.on("data", (chunk: Buffer) => {
       stderrBuf += chunk.toString();
       for (const line of stderrBuf.split("\n")) {

@@ -123,6 +123,76 @@ Fixed gaps are removed. Remaining survivors by category:
 | `operations/getDefinition.ts` | 73.33% | **93.33%** | Added SYMBOL_NOT_FOUND test for blank-line position (kills `!defs` null guard); added VolarProvider out-of-range line test (kills `resolveOffset` catch block) |
 | `operations/searchText.ts` | 70.19% | **80.77%** | Added `globToRegex` unit tests (kills glob-regex construction mutants); binary file skip test (kills `isBinaryBuffer` null-byte check); context-boundary tests (kills `Math.max/min` clamp mutants); non-git workspace test (kills `walkRecursive` fallback path) |
 
+### Hard-won mutation lessons
+
+Patterns that recur across mutation rounds — read before writing tests intended to kill surviving mutants.
+
+**Stale Stryker sandboxes break `pnpm check`.**
+After `pnpm test:mutate`, Biome errors with "Found a nested root configuration" if `.stryker-tmp/` dirs remain. Run `rm -rf .stryker-tmp` before `pnpm check`.
+
+**`disableTypeChecks: false` is required in the Stryker config.**
+The default (`true`) prepends `// @ts-nocheck` to files in Stryker's sandbox, shifting line numbers and breaking any test that asserts on line/col positions.
+
+**TypeScript LS never returns empty/null for in-range positions.**
+`getRenameLocations`, `getReferencesAtPosition`, and `getDefinitionAtPosition` all guard against null/empty results. In practice the TS LS navigates contextually to the nearest symbol for any position within a declaration. The `if (!locs || locs.length === 0)` guards are defensive dead code; accept them as survivors.
+
+**Offset 0 maps to the function name, not the `export` keyword.**
+`getRenameInfo(file, 0)` on `export function greetUser(...)` returns `greetUser` as the rename target (TS contextually resolves). To test `RENAME_NOT_ALLOWED`, use an import path string (e.g. `"./utils"` in `import ... from "./utils"`) with `allowRenameOfImportPath: false` — this reliably triggers `canRename: false`.
+
+**Caching guards are performance-only survivors.**
+`if (!project)` and `if (!cached)` guards prevent rebuilding on every call. Mutations that always rebuild produce identical results and are accepted survivors.
+
+**`if (!sourceFile) → if (true)` survives even with no-tsconfig path.**
+`addSourceFileAtPath` is idempotent — calling it on an already-loaded file is a no-op. `if (true)` (always call it) is semantically equivalent when the file is already in the project. `if (false)` variants are killed by the no-tsconfig tests.
+
+**`rewriteImports` normalises whitespace.**
+The replacement template always outputs `from ${quote}${rel}${quote}` (single space), regardless of how many spaces appeared in the original. A test for "multiple spaces after `from`" should assert the rewrite DID happen, not that the whitespace is preserved.
+
+**Volar `toVirtualLocation` fallback branches need non-setup `.vue` structures.**
+The fallback paths fire when Volar's source map or script generation returns null — this requires `.vue` files using `<script>` (non-setup) blocks or non-standard structures. Standard `<script setup>` fixtures always produce the happy path and leave fallbacks uncovered.
+
+**`globToRegex("*.ts")` does NOT match root-level files.**
+The implementation prepends `**/` for patterns without `/`, producing regex `^.*/[^/]*\.ts$`. This requires at least one directory separator before the basename. Root-level files (e.g. `"foo.ts"`) never match. Tests must assert `"src/foo.ts"` not `"foo.ts"`.
+
+**`isBinaryBuffer` is exercised by writing a real file with a null byte.**
+Use `Buffer.concat([Buffer.from("text"), Buffer.from([0x00]), Buffer.from("more")])` and write via `fs.writeFileSync`. The binary skip is only triggered when the file is read during `searchText`, not during the glob walk.
+
+**`moveSymbol` `filesSkipped` importer-loop path requires resolvable imports.**
+The `if (!isWithinWorkspace(filePath, workspace))` guard only fires when ts-morph's `getModuleSpecifierSourceFile()` successfully resolves the import to a source file in the project. A test for this path needs a tsconfig with explicit `moduleResolution: "node"` or similar, plus an importer with a resolvable import path.
+
+**`VolarProvider.resolveOffset` catch block needs an out-of-bounds line.**
+Covered by calling `resolveOffset` with `line: 999` on a real `.vue` file (via `getDefinition`). The `lineColToOffset` call throws `RangeError`, caught and rethrown as `EngineError("SYMBOL_NOT_FOUND")`.
+
+**Covering `translateLocations` requires asserting span length and no `.vue.ts` paths.**
+Adding `getReferencesAtPosition` to VolarProvider tests covers the `translateLocations` code path. Assert that returned spans have non-zero `textSpan.length` and that no paths end in `.vue.ts` — otherwise the path-translation mutants survive.
+
+**Symlink branch coverage requires real filesystem artefacts.**
+The `isWithinWorkspace` symlink branch only fires when the path exists and `fs.existsSync` passes. Create real temp dirs and symlinks pointing outside the workspace — non-existent paths skip the `realpathSync` call and leave the branch dead.
+
+---
+
+### Test design patterns
+
+Patterns established across the test suite — use these for consistency.
+
+**`useMcpContext()` in `tests/helpers.ts` for MCP integration tests.**
+Call once at the top of a `describe` block; returns `{ setup }`. `setup(fixture?)` copies the fixture, starts the MCP server, waits for the daemon, returns `{ dir, client }`. The `afterEach` cleanup (kill process, `removeDaemonFiles`, remove temp dir) is registered automatically.
+
+**`parseMcpResult(resp)` in `tests/helpers.ts` for MCP response parsing.**
+Extracts `.content[0].text` and JSON-parses it. Use instead of the two-line cast-and-parse inline in every MCP test.
+
+**Error assertions: always use `rejects.toMatchObject`.**
+`await expect(op(...)).rejects.toMatchObject({ code: "ERROR_CODE" })` is idiomatic vitest and safer than `try/catch + expect.fail`. The `try/catch` pattern silently passes if the wrong error type is thrown.
+
+**`setup(fixture?)` helper pattern for operation tests.**
+Each operation test file defines a local `setup(fixture = "default-fixture")` at the top of the `describe`, which calls `copyFixture` + `dirs.push`. Tests call `setup()` or `setup("other-fixture")` instead of repeating the two lines. See `rename.test.ts`, `findReferences.test.ts`, `getDefinition.test.ts` for examples.
+
+**`it.each` for extension-mapping tables.**
+`relative-path.test.ts` uses `it.each` with named object rows (`{ src, expected, desc }`) and `$desc` as the test name template. Preferred for parametric tests where each row has a different semantic meaning.
+
+**Vertical slice tests assert before and after.**
+Always read fixture files before the operation to confirm original state, then assert both that the old string is gone and the new string is present. This catches false positives where an assertion passes because the fixture never had the expected content.
+
 ---
 
 ## Performance

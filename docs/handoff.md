@@ -31,8 +31,7 @@ src/
   cli.ts          ← registers only: daemon, serve, stop
   schema.ts
   types.ts        ← result types + LanguageProvider + ProviderRegistry interfaces
-  workspace.ts    ← isWithinWorkspace() — workspace boundary utility
-  security.ts     ← isSensitiveFile() — sensitive file blocklist (.env, *.pem, keys, certs…)
+  security.ts     ← isWithinWorkspace() + isSensitiveFile() — boundary + sensitive file blocklist
   mcp.ts          ← MCP server (connects to daemon)
   daemon/
     daemon.ts     ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher
@@ -116,9 +115,9 @@ Remove a file and clean up its imports in referencing files. Simpler than `creat
 Feature docs: [`features/engines.md`](features/engines.md), [`tech/volar-v3.md`](tech/volar-v3.md)
 `src/providers/vue-service.ts` is ~176 lines doing 8 distinct things in sequence: library imports, file-contents map, tsconfig parsing, file collection, Volar language setup, virtual-path mapping, service-host creation, service decoration. Extract named sub-functions for each phase; the top-level function orchestrates. Prerequisite before adding more Vue-specific operations.
 
-**12. `moveSymbol` for Vue projects**
-Feature doc: [`features/moveSymbol.md`](features/moveSymbol.md) — see the "Known constraint" section for current status and fix path.
-Currently returns `NOT_SUPPORTED`. For `.ts`→`.ts` in a Vue project: delegate to TsProvider then run `updateVueImportsAfterMove` to catch `.vue` import strings. For `.vue` source: use `@vue/compiler-sfc`'s `parse()` to locate and splice the `<script>` block (`@vue/language-core` re-exports it; already a transitive dep, no new dependency needed). Moving *into* a `.vue` destination is not worth supporting. Depends on #11.
+**12. `moveSymbol` from a `.vue` source file**
+Feature doc: [`features/moveSymbol.md`](features/moveSymbol.md)
+Moving a top-level export *from* a `.ts` file in a Vue project is complete — ts-morph handles `.ts` importers; `VolarProvider.afterSymbolMove` patches `.vue` SFC importers. The remaining case is a symbol declared *inside* a `.vue` `<script setup>` block: use `@vue/compiler-sfc`'s `parse()` to locate and splice the `<script>` block (`@vue/language-core` re-exports it; already a transitive dep). Moving *into* a `.vue` destination is not worth supporting. Depends on #11.
 
 **13. `createFile`**
 Feature doc: none yet — write the design doc as the first step.
