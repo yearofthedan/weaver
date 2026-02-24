@@ -43,12 +43,25 @@ Targets are floors, not goals. Mutation score is a better quality signal than li
 
 ### Mutation testing
 
-Use [Stryker](https://stryker-mutator.io/) with vitest to validate assertion quality in well-covered modules. Mutation testing answers "would my tests catch it if this line were wrong?" — a fundamentally different question from coverage.
+Use [Stryker](https://stryker-mutator.io/) with vitest (`pnpm test:mutate`) to validate assertion quality. Mutation testing answers "would my tests catch it if this line were wrong?" — a fundamentally different question from coverage.
 
-- **Scope:** Start with `src/operations/`, `src/security.ts`, and `src/utils/`. Expand to `src/providers/` once those are clean.
-- **Don't run on:** `src/daemon/` or `src/mcp.ts` until line coverage reaches 60%+. Below that threshold, surviving mutants just confirm the absence of tests.
-- **Expect noise from:** string-heavy operations (`replaceText`, `searchText`) where Stryker's string literal mutations produce equivalent mutants.
+- **Scope:** `src/security.ts`, `src/utils/`, `src/operations/`. Excludes `src/providers/` (expand once operations are clean), `src/daemon/`, and `src/mcp.ts` (line coverage too low — surviving mutants would just confirm test absence).
+- **Don't add to `pnpm check`** — a full run takes ~8 minutes. Run periodically or before releases.
+- **Config note:** `disableTypeChecks: false` is required. The default (`true`) prepends `// @ts-nocheck` to files in Stryker's sandbox, shifting line numbers and breaking any test that asserts on line/col positions.
+- **Expect noise from:** string-heavy operations where Stryker's `StringLiteral` mutations produce equivalent mutants (excluded via config).
 - **Target mutation score:** 80%+ on scoped modules. Below 60% indicates real assertion gaps worth fixing.
+
+#### Known surviving mutants (as of initial run)
+
+High-value survivors that indicate real test gaps:
+
+| Area | Gap |
+|------|-----|
+| `security.ts` | `isWithinWorkspace` symlink resolution branch has no coverage |
+| `security.ts` | Sensitive-file lookup tables (`SENSITIVE_BASENAME_EXACT`, `SENSITIVE_EXTENSIONS`, `SENSITIVE_BASENAME_PATTERNS`, `RESTRICTED_WORKSPACE_ROOTS`) can all be emptied without test failure |
+| `security.ts` | `.env` regex `^` anchor can be dropped (would match mid-filename) |
+| `text-utils.ts` | `lineColToOffset` boundary check `>=` vs `>` not tested |
+| `text-utils.ts` | `applyTextEdits` descending sort not exercised |
 
 ---
 

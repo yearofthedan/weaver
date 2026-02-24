@@ -3,24 +3,34 @@
 const config = {
   plugins: ["@stryker-mutator/vitest-runner"],
   testRunner: "vitest",
-  inPlace: true,
+  // Must be false — the default (true) prepends `// @ts-nocheck` to files in
+  // the sandbox, which shifts line numbers and breaks tests that assert on
+  // line/col positions (searchText, replaceText surgical mode, rename).
+  disableTypeChecks: false,
   vitest: {
     configFile: "vitest.config.ts",
     related: false,
   },
-  // Scope to code that works reliably under Stryker's vitest-runner.
-  // Operations that use ts-morph / TypeScript's language service are excluded
-  // because TS's module-level caches break under Stryker's thread pool.
   mutate: [
     "src/security.ts",
     "src/utils/text-utils.ts",
     "src/utils/file-walk.ts",
     "src/utils/relative-path.ts",
     "src/utils/assert-file.ts",
+    "src/operations/searchText.ts",
+    "src/operations/replaceText.ts",
+    "src/operations/rename.ts",
+    "src/operations/findReferences.ts",
+    "src/operations/getDefinition.ts",
+    "src/operations/moveFile.ts",
+    "src/operations/moveSymbol.ts",
   ],
+  // Exclude MCP/daemon integration tests — they spawn CLI binaries that
+  // aren't available in Stryker's sandbox.
   testFiles: [
     "tests/security/**/*.test.ts",
     "tests/utils/**/*.test.ts",
+    "tests/operations/**/*.test.ts",
   ],
   mutator: {
     excludedMutations: ["StringLiteral"],

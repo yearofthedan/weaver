@@ -78,27 +78,28 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-*No open P1 items.*
+**3. Fix security mutation survivors** — `pnpm test:mutate` revealed that several security-critical code paths have no effective test coverage. See the surviving mutants table in [`quality.md`](quality.md) for the full list. Key gaps:
+- `isWithinWorkspace` symlink resolution branch — zero coverage; a symlink pointing outside the workspace would not be caught
+- All sensitive-file lookup tables (`SENSITIVE_BASENAME_EXACT`, `SENSITIVE_EXTENSIONS`, `SENSITIVE_BASENAME_PATTERNS`, `RESTRICTED_WORKSPACE_ROOTS`) can be emptied without any test failing
+- `.env` regex `^` anchor can be dropped without test failure (would match `.env` mid-filename)
 
 ---
 
 ### P2 — Test quality (before adding more features)
 
-Feature doc: [`quality.md`](quality.md) — covers mutation testing strategy, coverage targets by module, and what not to do.
+Feature doc: [`quality.md`](quality.md) — covers mutation testing strategy, coverage targets by module, surviving mutants table, and what not to do.
 
-Do mutation testing before coverage work. Raising coverage first risks shallow assertions ("doesn't throw" vs "returns correct output"). Let surviving mutants tell you where to write *more* tests and where to write *stronger* ones.
+Stryker mutation testing is operational: `pnpm test:mutate` runs 680 mutants across `src/operations/`, `src/utils/`, and `src/security.ts` in ~7 minutes. Overall score: 72% (78% covered). After fixing the P1 security survivors, focus shifts to strengthening assertion quality.
 
-**3. Mutation testing: `src/operations/` + `src/security.ts`** — 89–92% line coverage makes surviving mutants informative rather than noisy. Use [Stryker](https://stryker-mutator.io/) with vitest: `mutate: ["src/operations/**/*.ts", "src/security.ts"]`. Security boundary logic in `security.ts` is especially worth hardening.
+**4. Fix `text-utils.ts` mutation survivors** — `lineColToOffset` boundary check (`>=` vs `>`) and `applyTextEdits` descending sort are both untested. Quick wins.
 
-**4. Mutation testing: `src/utils/`** — 98% coverage; any surviving mutants indicate genuine assertion gaps. Quick sanity check.
+**5. Improve `moveSymbol.ts` mutation score** — 55% is the weakest module. 16 no-coverage mutants and 30 survivors indicate significant assertion gaps.
 
-**5. Mutation testing: `src/providers/`** — 88–91% coverage. Virtual↔real path translation in Volar and AST manipulation in TsProvider are complex enough to harbour subtle bugs that pass existing assertions.
+**6. Expand mutation testing to `src/providers/`** — 88–91% line coverage. Virtual↔real path translation in Volar and AST manipulation in TsProvider are complex enough to harbour subtle bugs.
 
-**6. Coverage improvement: `src/daemon/` + `src/mcp.ts`** — currently 32–56%. Integration-heavy (Unix sockets, stdio, process lifecycle, chokidar). Do this after mutation testing reveals what strong tests look like — that will inform the harness design (mocking sockets, spawning child processes) from the start.
+**7. Coverage improvement: `src/daemon/` + `src/mcp.ts`** — currently 32–56%. Integration-heavy (Unix sockets, stdio, process lifecycle, chokidar). Do this after mutation testing reveals what strong tests look like.
 
-**7. Coverage improvement: `src/schema.ts`** — Zod schemas are declarative and low-risk; worth covering for completeness but last in the queue.
-
-**What not to do:** Don't run mutation testing on daemon/MCP at current coverage — it produces a wall of surviving mutants that just say "you don't have tests here." Expect noise from string-heavy operations (`replaceText`, `searchText`) — Stryker's string mutations produce equivalent mutants; triage rather than chase 100%.
+**8. Coverage improvement: `src/schema.ts`** — Zod schemas are declarative and low-risk; last in the queue.
 
 ---
 
