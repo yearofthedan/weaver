@@ -16,7 +16,8 @@
     "format": "biome format . --write",
     "smoke-test": "bash scripts/smoke-test.sh",
     "coverage": "vitest run --coverage",
-    "test:mutate": "stryker run",
+    "clean": "rm -rf dist .stryker-tmp",
+    "test:mutate": "rm -rf .stryker-tmp && stryker run",
     "check": "biome check . && pnpm build && pnpm test",
     "prepare": "tsc",
     "prepublishOnly": "pnpm run build"
