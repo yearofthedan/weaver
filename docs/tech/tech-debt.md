@@ -66,6 +66,35 @@ When `moveSymbol` adds an import to the destination file it writes `from "./secu
 
 ---
 
+## Security: TOCTOU race in symlink checks
+
+`isWithinWorkspace` resolves symlinks at check-time, but the actual write happens later. Between the check and the write, a symlink could be swapped to point outside the workspace.
+
+**Impact:** Low in practice — the tool is local-only with no multi-tenant exposure.
+
+**Mitigation options:**
+- Use `O_NOFOLLOW` on write operations (Unix-specific, non-trivial in Node.js)
+- Add a second symlink re-check immediately before write (shrinks the window, doesn't close it)
+- Accept the race as reasonable risk given the use case
+
+**Decision:** accepted risk for now. Revisit if the tool ever runs in a shared or networked environment.
+
+**Priority:** low.
+
+---
+
+## Daemon: process-lifetime discovery caches have no invalidation
+
+`src/utils/ts-project.ts` caches `findTsConfig` and `isVueProject` results in module-level `Map`s for the daemon's entire lifetime. The file watcher calls `invalidateAll()` on providers but never clears these discovery caches.
+
+If a `tsconfig.json` is created, deleted, moved, or `.vue` files are added to a previously non-Vue project while the daemon is running, the daemon will serve stale project-type decisions until it is restarted.
+
+**Fix:** hook the watcher's `onFileAdded`/`onFileRemoved` callbacks to clear the relevant cache entries when a `tsconfig.json` or `.vue` file changes.
+
+**Priority:** low. `tsconfig.json` is usually static. Most likely to surface during monorepo restructuring.
+
+---
+
 ## VolarLanguageService interface is hand-typed
 
 Lines 16–37 of `src/engines/vue/engine.ts` manually define the TypeScript LanguageService methods used by the Vue engine. If an upstream API changes signature, this compiles fine but fails at runtime.

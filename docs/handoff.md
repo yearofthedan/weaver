@@ -107,12 +107,6 @@ Current coverage: ~77% statements, ~66% branches, ~78% lines. Coverage is uneven
 
 ---
 
-## Security & Architecture Issues
-
-**`docs/security-architecture-review.md`** — security and architectural issues. All critical issues and most medium/low issues are now fixed. One open issue remains: TOCTOU race in symlink checks (Issue #6, low practical risk, accepted for now).
-
----
-
 ## Technical context
 
 - **`docs/tech/volar-v3.md`** — how the Vue provider works around TypeScript's refusal to process `.vue` files. Read this before touching `src/providers/volar.ts`.
