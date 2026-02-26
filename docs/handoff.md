@@ -98,6 +98,18 @@ Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/ope
 
 **9. Coverage improvement: `src/mcp.ts`** — now 33.67% (up from 28.42%). `src/daemon/` has reached the 60%+ folder-level target (60.4% statements). The remaining `mcp.ts` gap is in `ensureDaemon`, `startMcpServer`, and `spawnDaemon` — code that only runs when the full MCP server is spawned over stdio. Reaching 60% requires either subprocess-level instrumentation or extracting those functions into a separately testable module.
 
+**10. Documentation freshness guardrails (process + automation)**
+Feature docs: [`features/cli.md`](features/cli.md), [`features/mcp-transport.md`](features/mcp-transport.md), [`features/architecture.md`](features/architecture.md)
+Recent drift showed docs can silently lag code (tool list, command list, watcher status, path layout). Add guardrails at three layers:
+- **Agent workflow:** update `.claude/skills/slice/SKILL.md` so every completed slice explicitly updates affected feature docs/README and validates doc links before commit.
+- **Project policy:** add a CLAUDE rule for doc-sync triggers (new/renamed MCP tool, CLI command, error code, provider/operation layout change) and required files to touch.
+- **Automated check:** add `pnpm docs:check` in CI to compare canonical runtime surfaces (`src/mcp.ts` TOOLS, `src/cli.ts` commands) against documented surfaces and fail on mismatch.
+
+Acceptance criteria:
+- docs drift on MCP tool names / CLI command names fails CI
+- slice skill contains an explicit doc-sync step with a checklist
+- CLAUDE guidance defines when doc updates are mandatory vs optional
+
 ---
 
 ### P3 — High-value features
