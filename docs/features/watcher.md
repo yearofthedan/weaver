@@ -1,7 +1,7 @@
 **Purpose:** How the daemon detects out-of-band file changes and keeps its engine state fresh.
 **Audience:** Engineers modifying the daemon, engine layer, or invalidation strategy.
 **Status:** Current
-**Related docs:** [Daemon](daemon.md), [Engines](engines.md), [Tech Debt](../tech/tech-debt.md)
+**Related docs:** [Daemon](daemon.md), [Architecture](architecture.md), [Tech Debt](../tech/tech-debt.md)
 
 ---
 
@@ -29,9 +29,9 @@ Out-of-band file change (editor, git, codegen…)
          │
          ├─ "change" ──► invalidateFile(path)
          │                   │
-         │                   ├─ TsEngine  → sourceFile.refreshFromFileSystemSync()
+         │                   ├─ TsProvider  → sourceFile.refreshFromFileSystemSync()
          │                   │              (single file; project graph preserved)
-         │                   └─ VueEngine → volarProvider.invalidateService(path)
+         │                   └─ VolarProvider → volarProvider.invalidateService(path)
          │                                  (full service drop; Volar has no incremental API)
          │
          └─ "add" / "unlink" ──► invalidateAll()
@@ -44,7 +44,7 @@ Next tool call arriving at the daemon socket
          ▼ dispatchRequest()
     getEngine(filePath)
          │
-         ├─ engine is undefined  →  create fresh TsEngine / VueEngine
+         ├─ provider is undefined  →  create fresh TsProvider / VolarProvider
          │                          (project graph rebuilt lazily from tsconfig)
          │
          └─ engine exists  →  use cached instance

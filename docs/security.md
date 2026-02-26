@@ -21,7 +21,7 @@ The key invariant we enforce: **the MCP server may only read and write files wit
 
 ### 1. Input path validation (daemon layer)
 
-`src/workspace.ts` — `isWithinWorkspace(filePath, workspace)`
+`src/security.ts` — `isWithinWorkspace(filePath, workspace)`
 
 All file paths supplied by the agent (`file`, `oldPath`, `newPath`) are validated before the engine is called. Validation:
 - Resolves to absolute path via `path.resolve()`
@@ -42,7 +42,7 @@ Skipped files are returned to the agent in `result.filesSkipped` so it has visib
 
 ### 3. `newName` identifier validation (MCP layer)
 
-`serve.ts` validates `newName` against `/^[a-zA-Z_$][a-zA-Z0-9_$]*$/` at the MCP input schema level, consistent with `schema.ts`. Invalid identifiers are rejected before reaching the daemon.
+`schema.ts` defines `newName` as `/^[a-zA-Z_$][a-zA-Z0-9_$]*$/`, and `mcp.ts` reuses that schema for MCP tool registration. Invalid identifiers are rejected before reaching the daemon.
 
 ### 4. JSON framing integrity (wire protocol)
 
@@ -50,7 +50,7 @@ The daemon uses newline-delimited JSON over a Unix socket. All values are serial
 
 ### 5. No shell execution of agent input
 
-`spawnDaemon` in `serve.ts` uses `spawn(cmd, args)` with an argument array and no `shell: true`. Agent-supplied values never reach a shell.
+`spawnDaemon` in `mcp.ts` uses `spawn(cmd, args)` with an argument array and no `shell: true`. Agent-supplied values never reach a shell.
 
 ### 6. Unix socket access control
 
@@ -58,7 +58,7 @@ The daemon socket path is derived from a hash of the workspace path (`src/daemon
 
 ### 7. Workspace root validation (daemon startup)
 
-`src/workspace.ts` — `validateWorkspace(workspacePath)`
+`src/security.ts` — `validateWorkspace(workspacePath)`
 
 At daemon startup, the declared workspace path is checked against a hardcoded blocklist of system directories (`/`, `/etc`, `/usr`, `/var`, `/bin`, …) and user credential directories (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`, `~/.azure`). Symlinks are resolved via `fs.realpathSync()` before the check, preventing indirect access through an innocuous-looking symlink target.
 
@@ -74,9 +74,9 @@ The response `message` field includes `symbolName` (taken from `target.getText()
 
 Mitigations outside scope of this project: agent-side sandboxing, response sanitisation at the MCP host layer.
 
-### Vue scan does not enforce workspace boundary
+### Vue scan is regex-based (not semantic)
 
-`updateVueImportsAfterMove` in `src/engines/vue/scan.ts` rewrites `.vue` imports after a move by scanning the project root directory. Its search root is clamped to `path.dirname(tsconfig)`, which is within the workspace when the tsconfig is in the workspace. If a tsconfig is placed outside the workspace (unusual), the scan could reach outside. No fix currently; tracked in `docs/tech/tech-debt.md`.
+`updateVueImportsAfterMove` in `src/providers/vue-scan.ts` rewrites `.vue` imports after a move using import-string regexes. It enforces workspace boundaries before write, but it does not use semantic binding analysis like compiler-powered edits.
 
 ### 8. Sensitive file blocklist (`searchText` / `replaceText`)
 
@@ -89,7 +89,7 @@ Mitigations outside scope of this project: agent-side sandboxing, response sanit
 - **Certificate / keystore extensions** — `.pem`, `.key`, `.p12`, `.pfx`, `.jks`, `.keystore`, `.cert`, `.crt`
 - **Credential files** — `credentials`, `.credentials`, `known_hosts`, `authorized_keys`
 
-Sensitive files are silently skipped in `searchText` (not returned in matches) and cause `SENSITIVE_FILE` error in `replaceText` surgical mode (fail-fast before touching any file). Covered by `tests/engines/sensitive-files.test.ts`.
+Sensitive files are silently skipped in `searchText` (not returned in matches) and cause `SENSITIVE_FILE` error in `replaceText` surgical mode (fail-fast before touching any file). Covered by `tests/security/sensitive-files.test.ts`.
 
 ### No rate limiting or request size limits
 

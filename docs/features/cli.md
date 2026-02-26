@@ -4,9 +4,13 @@
 
 ## What it is
 
-The CLI is the primary binary for light-bridge. It has two subcommands: `daemon` (start the long-lived engine host) and `serve` (start an MCP server session for an agent).
+The CLI is the primary binary for light-bridge. It has three subcommands:
 
-All refactoring operations (`rename`, `moveFile`, `moveSymbol`, `findReferences`, `getDefinition`) are exposed through the MCP server — not as direct CLI subcommands. The CLI is how both the daemon and the MCP server are started; the MCP tools are how operations are invoked.
+- `daemon` — start the long-lived engine host
+- `serve` — start an MCP server session for an agent
+- `stop` — stop a running daemon for a workspace
+
+All refactoring operations (`rename`, `moveFile`, `moveSymbol`, `findReferences`, `getDefinition`, `searchText`, `replaceText`) are exposed through the MCP server — not as direct CLI subcommands. The CLI is how the daemon is managed and how the MCP server is started; MCP tools are how operations are invoked.
 
 ## Commands
 
@@ -54,19 +58,40 @@ If the daemon is still initialising when a tool call arrives, `serve` responds i
 
 The agent is responsible for retrying. `serve` does not buffer or queue tool calls.
 
+### `light-bridge stop`
+
+Stops a running daemon process for a workspace.
+
+```bash
+light-bridge stop --workspace /path/to/project
+```
+
+Success response (stdout):
+
+```json
+{ "ok": true, "stopped": true }
+```
+
+If no daemon is running for that workspace:
+
+```json
+{ "ok": true, "stopped": false, "message": "No daemon running for this workspace" }
+```
+
 ## Shutdown
 
-`serve` shuts down cleanly on SIGTERM — this ends the agent session but does not stop the daemon. The daemon shuts down cleanly on SIGTERM and can also be stopped by the developer's process manager.
+`serve` shuts down cleanly on SIGTERM — this ends the agent session but does not stop the daemon. The daemon shuts down cleanly on SIGTERM and can be stopped via `light-bridge stop` or your process manager.
 
 ## Characteristics
 
 - **`daemon` is stateful** — owns the long-lived project graph. Shared across all `serve` instances for the same workspace.
 - **`serve` is a thin client** — no engine logic; connects to the daemon and adapts the MCP protocol.
-- Both commands take `--workspace` as a required flag. No config file.
+- **`stop` is lifecycle management** — sends SIGTERM to the workspace daemon and cleans up lock/socket files.
+- All three commands take `--workspace` as a required flag. No config file.
 
 ## Output
 
-Both commands write a JSON ready signal to stderr on startup. All MCP tool responses go to stdout as part of the MCP protocol.
+`daemon` and `serve` write a JSON ready signal to stderr on startup. `stop` writes JSON status to stdout. MCP tool responses go to stdout as part of the MCP protocol.
 
 ## Out of scope
 

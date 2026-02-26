@@ -35,7 +35,7 @@ Returns the definition location(s) for a symbol at a given file position. Read-o
 
 1. The MCP layer validates the request (Zod schema).
 2. The dispatcher validates that `file` is within the workspace.
-3. `BaseEngine.getDefinition` calls `LanguageProvider.getDefinitionAtPosition(file, offset)`.
+3. `operations/getDefinition.ts` calls `LanguageProvider.getDefinitionAtPosition(file, offset)`.
    - **TsProvider:** delegates to `ts.LanguageService.getDefinitionAtPosition`.
    - **VolarProvider:** requires an extra step — `getDefinitionAtPosition` in Volar's proxy calls TypeScript's internal implementation directly and does NOT auto-translate `.vue` paths to their virtual `.vue.ts` equivalents (unlike `findRenameLocations` and `getReferencesAtPosition`, which do). Calling with a real `.vue` path throws `Could not find source file`. Fix: call `toVirtualLocation(absPath, pos)` first to map the path and offset into the virtual coordinate space, then call `getDefinitionAtPosition` with the translated values. Results still go through `translateLocations` for the `.vue.ts` → `.vue` reverse mapping.
 4. Results are returned as an array of `{ file, line, col }` objects.
@@ -49,7 +49,7 @@ Returns the definition location(s) for a symbol at a given file position. Read-o
 
 ## Constraints & limitations
 
-- Results reflect the in-memory project graph at the time of the call. If files were edited outside light-bridge after the daemon started, results may be stale (no filesystem watcher yet — see `docs/handoff.md`).
+- Results reflect the in-memory project graph at the time of the call. The daemon watcher keeps it fresh for out-of-band edits, but there can be a short debounce window before changes are visible.
 - Definitions in declaration files (`.d.ts`) are returned as-is; the definition points to the type declaration, not the JavaScript runtime value.
 - If the symbol resolves to a built-in TypeScript type or a type in `node_modules`, the result file path will point into `node_modules`. This is correct behaviour.
 

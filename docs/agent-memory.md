@@ -1,7 +1,7 @@
 **Purpose:** Technical gotchas, hard-won lessons, and non-obvious architectural decisions.
 **Audience:** Engineers and AI agents implementing features or debugging issues.
 **Status:** Current
-**Related docs:** [Handoff](handoff.md) (current state + roadmap), [Engines](features/engines.md) (provider/operation architecture), [Quality](quality.md) (test lessons), [Tech Debt](tech/tech-debt.md) (known issues)
+**Related docs:** [Handoff](handoff.md) (current state + roadmap), [Architecture](features/architecture.md) (provider/operation architecture), [Quality](quality.md) (test lessons), [Tech Debt](tech/tech-debt.md) (known issues)
 
 ---
 
@@ -12,6 +12,12 @@ Durable notes for AI agents working on this project. Update when sessions surfac
 ---
 
 ## Technical gotchas
+
+**`docs/features/architecture.md` replaced `docs/features/engines.md`.**
+The architecture reference was renamed for clarity. Update links/searches that still point to `features/engines.md`.
+
+**Cloud runs may not expose MCP resources if `.mcp.json` points at a different workspace path.**
+In this repo, MCP resources were absent in `/workspace` while `.mcp.json` referenced `/workspaces/light-bridge`. If MCP tools/resources appear missing in a cloud run, verify the configured `--workspace` path first.
 
 **`child.pid` is the tsx wrapper PID, not the script's PID.**
 When you spawn a process with `spawn('tsx', ...)`, `child.pid` is the PID of the tsx wrapper, not `process.pid` inside the script. To check if a lockfile PID is alive, use `process.kill(pid, 0)` — don't compare to `child.pid`.
@@ -57,13 +63,13 @@ Naive single-pass replacement (`**` → placeholder → `.*`, `*` → `[^/]*`) r
 Multiple edits to the same file must be applied last-position-first so that byte offsets of earlier edits remain valid after each write. Sort by `(line DESC, col DESC)` before the loop.
 
 **`newName` regex must be enforced at the MCP layer too.**
-`schema.ts` had the identifier regex but `serve.ts` only had `z.string()`. MCP input validation and schema.ts must stay consistent — check both when changing validation rules.
+`schema.ts` had the identifier regex but `mcp.ts` previously only had `z.string()`. MCP input validation and schema.ts must stay consistent — check both when changing validation rules.
 
 ---
 
 ## Architecture decisions
 
-*(For the provider/operation/dispatcher architecture, see `docs/features/engines.md`. Entries here cover things not in that doc.)*
+*(For the provider/operation/dispatcher architecture, see `docs/features/architecture.md`. Entries here cover things not in that doc.)*
 
 **MCP tool names and daemon method names are intentionally 1:1.**
 The MCP handler passes `tool.name` directly as the daemon method. There is no translation layer. A proposal to split naming (e.g. "file rename" vs "symbol rename") was rejected: the daemon is an internal IPC detail with no independent users, and "file rename" is already `moveFile`. Splitting would add a translation table for no benefit.
