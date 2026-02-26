@@ -86,6 +86,19 @@ Treat this as a config portability bug (not an engine bug): ensure checked-in MC
 - docs show a portable setup pattern and where to put machine-local overrides
 - smoke validation in both environments confirms MCP server starts against the active repo root
 
+**2. Response contract mismatch: success `message` field**
+Feature docs: [`features/mcp-transport.md`](features/mcp-transport.md), operation docs in `docs/features/*`, [`README.md`](../README.md)
+Current runtime success responses are `{ ok: true, ...operationResult }` with no `message` field (see `dispatchRequest` and `tests/daemon/dispatcher.test.ts` asserting no message on success). Several docs still show success payloads with `"message": "..."`, which can mislead clients that rely on strict response shapes.
+
+Decide and enforce one contract:
+- either add `message` to all success responses in code/types/tests, or
+- remove success `message` from docs and keep message-only-on-failure semantics.
+
+Acceptance criteria:
+- `src/types.ts` + docs use the same response shape
+- tests explicitly lock the chosen contract for both success and failure paths
+- no docs examples show fields that are absent from actual tool responses
+
 ---
 
 ### P2 — Test quality (before adding more features)
