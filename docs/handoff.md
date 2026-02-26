@@ -77,7 +77,14 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-*(No open P1 items.)*
+**1. MCP config path portability (`.mcp.json`)**
+Feature docs: [`features/cli.md`](features/cli.md), [`features/mcp-transport.md`](features/mcp-transport.md)
+The checked-in `.mcp.json` currently hardcodes `/workspaces/light-bridge` for both CLI path and `--workspace`. Cloud agents in this repo run under `/workspace`, so MCP resources/tools may not appear or may point at the wrong project root.
+
+Treat this as a config portability bug (not an engine bug): ensure checked-in MCP config works across local devcontainers and cloud runners, or move host-specific absolute paths out of the committed file. Acceptance criteria:
+- no hardcoded single-environment absolute workspace path in committed MCP config
+- docs show a portable setup pattern and where to put machine-local overrides
+- smoke validation in both environments confirms MCP server starts against the active repo root
 
 ---
 
