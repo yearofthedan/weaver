@@ -29,14 +29,15 @@ The daemon solves both: load once, stay alive.
 ```
 light-bridge daemon --workspace /path/to/project
   ├── resolve and validate workspace path
-  ├── detect engine type (TypeScript or Vue via isVueProject())
-  ├── warm both engines (TsEngine + VueEngine) eagerly
   ├── open Unix socket at ~/.cache/light-bridge/<workspace-hash>.sock
   ├── write lockfile with PID
+  ├── start filesystem watcher for the workspace
   └── write ready signal to stderr, wait for connections
 ```
 
 The daemon runs until it receives SIGTERM or SIGINT. It does not exit when all client sessions disconnect.
+
+Engines are loaded lazily on first request. The dispatcher picks `TsProvider` or `VolarProvider` per operation based on project type and request path.
 
 ## Daemon discovery
 
@@ -48,7 +49,7 @@ If the socket file exists but the process is not running (stale lockfile), the s
 
 `serve` auto-spawns the daemon if none is running for the workspace. The spawned daemon runs as a detached, unref'd child process so it outlives the `serve` session that created it.
 
-Note: if the daemon dies after `serve` has started, subsequent tool calls return `DAEMON_STARTING` permanently for that `serve` session — `ensureDaemon` fires once at startup only. See `docs/tech/tech-debt.md` for the fix plan.
+`serve` calls `ensureDaemon` at startup and again per tool call. If the daemon dies mid-session, the next tool call attempts to reconnect/spawn and may briefly return `DAEMON_STARTING` while the new daemon is coming up.
 
 ## Readiness
 
@@ -66,9 +67,15 @@ The daemon processes one request at a time using a promise-chain mutex in `daemo
 
 ## Filesystem watcher
 
-Not yet implemented. The daemon currently loads the project graph once at startup and only invalidates state after operations it performs itself. If files are edited outside light-bridge (e.g. in an editor, via `git checkout`), the engine's in-memory state goes stale silently.
+Implemented in `src/daemon/watcher.ts` using chokidar.
 
-Design notes and implementation plan in `docs/handoff.md` (Filesystem watcher section).
+- Watches the workspace root.
+- Filters to project-relevant extensions (`.ts`, `.tsx`, `.js`, `.jsx`, and `.vue` for Vue projects).
+- Debounces file events (200ms) to avoid thrash during save bursts.
+- Calls `invalidateFile(path)` on content changes.
+- Calls `invalidateAll()` on add/remove events.
+
+The watcher keeps provider state fresh when files are edited outside light-bridge (editor saves, generators, branch switches). Full behavior and invalidation strategy are documented in [watcher.md](watcher.md).
 
 ## Out of scope
 

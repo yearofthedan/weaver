@@ -14,7 +14,7 @@ light-bridge serve --workspace /path
 light-bridge daemon --workspace /path
   │
   ▼
-engine (TsEngine or VueEngine)
+provider layer (TsProvider or VolarProvider)
 ```
 
 1. `light-bridge serve --workspace <path>` is launched by the agent host at session start.
@@ -73,7 +73,7 @@ Failure:
 }
 ```
 
-Error codes include: `DAEMON_STARTING`, `WORKSPACE_VIOLATION`, `SYMBOL_NOT_FOUND`, `NOT_SUPPORTED`, `ENGINE_ERROR`, `VALIDATION_ERROR`.
+Error codes include: `DAEMON_STARTING`, `INTERNAL_ERROR`, `VALIDATION_ERROR`, `WORKSPACE_VIOLATION`, `FILE_NOT_FOUND`, `SYMBOL_NOT_FOUND`, `RENAME_NOT_ALLOWED`, `NOT_SUPPORTED`, `SENSITIVE_FILE`, `TEXT_MISMATCH`, `PARSE_ERROR`, `REDOS`, `UNKNOWN_METHOD`.
 
 `filesSkipped` lists collateral writes that were skipped because they fell outside the workspace boundary. Agents should surface this to the user.
 

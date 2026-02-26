@@ -17,7 +17,7 @@
 
 ### User Integration
 - [CLAUDE.md](../CLAUDE.md) — How to configure your agent to use light-bridge
-- [Features Overview](features/README.md) — All operations: rename, moveFile, moveSymbol, findReferences, getDefinition
+- [Features Overview](features/README.md) — All operations: rename, moveFile, moveSymbol, findReferences, getDefinition, searchText, replaceText
 
 ### For Developers
 - [Handoff](handoff.md) — Current state, source layout, next work items
@@ -26,6 +26,7 @@
 
 ### Architecture & Implementation
 - [Features](features/) — Per-operation guides (how to use, how it works, constraints, security)
+  - [architecture](features/architecture.md)
   - [rename](features/rename.md)
   - [moveFile](features/moveFile.md)
   - [moveSymbol](features/moveSymbol.md)

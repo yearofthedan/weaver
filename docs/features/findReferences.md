@@ -37,7 +37,7 @@ Returns all references to a symbol at a given file position. Read-only — does 
 
 1. The MCP layer validates the request (Zod schema).
 2. The dispatcher validates that `file` is within the workspace.
-3. `BaseEngine.findReferences` calls `LanguageProvider.getReferencesAtPosition(file, offset)`.
+3. `operations/findReferences.ts` calls `LanguageProvider.getReferencesAtPosition(file, offset)`.
    - **TsProvider:** delegates to `ts.LanguageService.getReferencesAtPosition`.
    - **VolarProvider:** delegates to the same method on the Volar-decorated language service, then translates virtual `.vue.ts` positions back to real `.vue` positions via source-map.
 4. Results are returned as an array of `{ file, line, col }` objects.
@@ -53,7 +53,7 @@ Note: unlike mutating operations, `findReferences` does not take a `workspace` p
 
 ## Constraints & limitations
 
-- Results reflect the in-memory project graph at the time of the call. If files were edited outside light-bridge after the daemon started, results may be stale (no filesystem watcher yet — see `docs/handoff.md`).
+- Results reflect the in-memory project graph at the time of the call. The daemon watcher keeps it fresh for out-of-band edits, but there can be a short debounce window before changes are visible.
 - "Find references by file path" (who imports this file?) is a separate capability not yet implemented. See `docs/handoff.md` for design notes.
 - Results may include references in files outside the workspace if those files are in the project graph (via tsconfig `include`). This is intentional — `findReferences` is read-only and cross-boundary reads are not a security concern in the same way writes are.
 

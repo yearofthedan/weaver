@@ -15,7 +15,7 @@ Context that isn't in the feature docs — things you need to know before pickin
 1. [`docs/vision.md`](vision.md) — what this is and where it's going
 2. [`docs/features/daemon.md`](features/daemon.md) — understand the daemon before touching `serve`
 3. [`docs/features/mcp-transport.md`](features/mcp-transport.md) — how `serve` connects to the daemon
-4. [`docs/features/engines.md`](features/engines.md) — provider/operation architecture; read before touching anything in `src/`
+4. [`docs/features/architecture.md`](features/architecture.md) — provider/operation architecture; read before touching anything in `src/`
 5. [`docs/quality.md`](quality.md) — testing and reliability expectations
 
 **Picking up a task?** Each item in "Next things to build" links to its feature doc. The feature doc is the detailed spec — start there, then come back to the task entry for the implementation notes that aren't in the doc. If no feature doc is linked, writing the design doc is the first step.
@@ -112,7 +112,7 @@ Remove a file and clean up its imports in referencing files. Simpler than `creat
 ### P4 — Medium-value features and tech debt
 
 **11. `buildVolarService` refactoring**
-Feature docs: [`features/engines.md`](features/engines.md), [`tech/volar-v3.md`](tech/volar-v3.md)
+Feature docs: [`features/architecture.md`](features/architecture.md), [`tech/volar-v3.md`](tech/volar-v3.md)
 `src/providers/vue-service.ts` is ~176 lines doing 8 distinct things in sequence: library imports, file-contents map, tsconfig parsing, file collection, Volar language setup, virtual-path mapping, service-host creation, service decoration. Extract named sub-functions for each phase; the top-level function orchestrates. Prerequisite before adding more Vue-specific operations.
 
 **12. `moveSymbol` from a `.vue` source file**
@@ -155,7 +155,7 @@ Each concern has a dedicated doc. Read those — don't rely on handoff for desig
 
 | Topic | Doc |
 |-------|-----|
-| Provider/operation architecture, dispatcher design, `ProviderRegistry` | [`docs/features/engines.md`](features/engines.md) |
+| Provider/operation architecture, dispatcher design, `ProviderRegistry` | [`docs/features/architecture.md`](features/architecture.md) |
 | MCP wire protocol, tool interface, `DAEMON_STARTING`, `filesSkipped` | [`docs/features/mcp-transport.md`](features/mcp-transport.md) |
 | Daemon lifecycle, auto-spawn, socket protocol | [`docs/features/daemon.md`](features/daemon.md) |
 | Vue provider internals, virtual↔real path translation, `toVirtualLocation` | [`docs/tech/volar-v3.md`](tech/volar-v3.md) |

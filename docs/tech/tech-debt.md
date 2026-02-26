@@ -77,7 +77,7 @@ If a `tsconfig.json` is created, deleted, moved, or `.vue` files are added to a 
 
 ## VolarLanguageService interface is hand-typed
 
-Lines 16–37 of `src/engines/vue/engine.ts` manually define the TypeScript LanguageService methods used by the Vue engine. If an upstream API changes signature, this compiles fine but fails at runtime.
+`src/providers/volar.ts` manually narrows the TypeScript LanguageService surface used by the Vue provider. If an upstream API changes signature, this can compile but fail at runtime.
 
 **Fix:** `Pick<ts.LanguageService, 'findRenameLocations' | 'getReferencesAtPosition' | 'getEditsForFileRename'>`. Compile-time safety against upstream changes.
 

@@ -79,6 +79,20 @@ Output (stderr):
 
 Terminates cleanly on SIGTERM. The daemon continues running after the session ends.
 
+### `light-bridge stop`
+
+Stop a running daemon for a workspace.
+
+```bash
+light-bridge stop --workspace /path/to/project
+```
+
+Output (stdout):
+
+```json
+{ "ok": true, "stopped": true }
+```
+
 ## MCP tools
 
 All refactoring operations are exposed as MCP tools via `light-bridge serve`. The agent host calls them; light-bridge handles the cascade.
@@ -86,13 +100,16 @@ All refactoring operations are exposed as MCP tools via `light-bridge serve`. Th
 | Tool | TS | Vue | Read-only | Notes |
 |---|---|---|---|---|
 | `rename` | ✓ | ✓ | no | Renames a symbol at a given position; updates every reference project-wide |
-| `move` | ✓ | ✓ | no | Moves a file; rewrites all import paths that reference it |
-| `moveSymbol` | ✓ | — | no | Moves a named export to another file; updates all importers. Vue: `NOT_SUPPORTED` |
+| `moveFile` | ✓ | ✓ | no | Moves a file; rewrites all import paths that reference it |
+| `moveSymbol` | ✓ | ✓* | no | Moves a named export to another file; updates all importers |
 | `findReferences` | ✓ | ✓ | yes | Returns every reference to the symbol at a given position |
+| `getDefinition` | ✓ | ✓ | yes | Returns definition location(s) for the symbol at a given position |
+| `searchText` | n/a | n/a | yes | Regex search across workspace files with optional glob/context controls |
+| `replaceText` | n/a | n/a | no | Regex replace-all (pattern mode) or exact-position edits (surgical mode) |
 
 All tools take absolute paths. Write operations return `filesModified` and `filesSkipped` (files outside the workspace boundary that were not touched).
 
-**`moveSymbol` in Vue projects** — `NOT_SUPPORTED` is a dispatcher constraint, not a Volar limitation. When both source and destination are plain `.ts` files inside a Vue project, the operation could be delegated to the TypeScript engine; this is not yet implemented.
+\* `moveSymbol` supports moving exports from `.ts`/`.tsx` sources inside Vue workspaces and updates `.vue` importers in a post-step. Moving symbols from a `.vue` source file is still pending.
 
 ## Response format
 
@@ -120,10 +137,15 @@ On failure:
 
 - `VALIDATION_ERROR` — invalid command arguments
 - `FILE_NOT_FOUND` — source file does not exist
-- `TSCONFIG_NOT_FOUND` — no TypeScript configuration found
 - `SYMBOL_NOT_FOUND` — symbol not found at specified position
 - `RENAME_NOT_ALLOWED` — symbol cannot be renamed (e.g. built-in types)
-- `ENGINE_ERROR` — unexpected error during refactoring
+- `NOT_SUPPORTED` — requested operation shape is not supported
+- `WORKSPACE_VIOLATION` — path is outside the workspace boundary
+- `SENSITIVE_FILE` — operation attempted on a blocked sensitive file
+- `TEXT_MISMATCH` — surgical replace precondition failed (`oldText` mismatch)
+- `PARSE_ERROR` — malformed request payload or invalid regex
+- `REDOS` — unsafe regex rejected
+- `INTERNAL_ERROR` — unexpected server-side failure
 - `DAEMON_STARTING` — daemon is still initialising; retry the tool call
 
 ## Agent integration
@@ -163,7 +185,15 @@ Open the Roo MCP settings (gear icon → MCP Servers) and add:
       "command": "light-bridge",
       "args": ["serve", "--workspace", "/absolute/path/to/your/project"],
       "disabled": false,
-      "alwaysAllow": ["rename", "move", "moveSymbol", "findReferences"]
+      "alwaysAllow": [
+        "rename",
+        "moveFile",
+        "moveSymbol",
+        "findReferences",
+        "getDefinition",
+        "searchText",
+        "replaceText"
+      ]
     }
   }
 }
@@ -179,9 +209,11 @@ The MCP tool descriptions tell Claude what each tool does, but not when to reach
 light-bridge MCP tools are connected. Use them for all structural refactors:
 
 - `mcp__light-bridge__rename` — rename any symbol and update all references (not search-and-replace)
-- `mcp__light-bridge__move` — move a file and rewrite all import paths (not `mv` + manual fixes)
+- `mcp__light-bridge__moveFile` — move a file and rewrite all import paths (not `mv` + manual fixes)
 - `mcp__light-bridge__moveSymbol` — move a named export between files
 - `mcp__light-bridge__findReferences` — find all usages of a symbol before deciding how to refactor
+- `mcp__light-bridge__getDefinition` — jump from a symbol usage to its declaration
+- `mcp__light-bridge__searchText` / `mcp__light-bridge__replaceText` — safe text search/replace operations with workspace and sensitive-file protections
 
 If a tool returns `DAEMON_STARTING`, retry once — the daemon is still loading the project graph.
 Do not read files to verify results; the response lists exactly what changed.
@@ -220,50 +252,57 @@ pnpm run test
 
 Tests include:
 
-- **Unit tests** — engine operations in isolation (`tests/engines/`)
-- **Integration tests** — CLI operations via subprocess (`tests/rename.test.ts`, `tests/move.test.ts`, `tests/vue.test.ts`)
-- **Daemon tests** — lifecycle, socket, and serve integration (`tests/daemon/`)
-
-### Smoke test
-
-Verify the CLI is working end-to-end without running the full test suite:
-
-```bash
-pnpm smoke-test
-```
-
-This runs `rename` and `move` against copies of the test fixtures and reports pass/fail for each check.
+- **Operation tests** — per-operation behavior and boundary handling (`tests/operations/`)
+- **Provider tests** — ts-morph/Volar provider behavior (`tests/providers/`)
+- **MCP transport tests** — tool registration and end-to-end MCP calls (`tests/mcp/`)
+- **Daemon tests** — lifecycle, socket protocol, watcher, and stop behavior (`tests/daemon/`)
+- **Security tests** — workspace boundary and sensitive-file controls (`tests/security/`)
+- **Utility tests** — shared path/text/file helpers (`tests/utils/`)
 
 ## Project structure
 
 ```
 src/
-├── cli.ts                 # CLI entry point (registers daemon, serve)
+├── cli.ts                 # CLI entry point (daemon, serve, stop)
 ├── schema.ts              # Zod input validation
-├── workspace.ts           # Workspace boundary enforcement
+├── types.ts               # Shared result/provider interfaces
+├── security.ts            # Workspace + sensitive-file checks
 ├── mcp.ts                 # MCP server (connects to daemon)
 ├── daemon/
 │   ├── daemon.ts          # Socket server; daemon lifecycle
 │   ├── paths.ts           # Socket/lockfile path utilities
-│   └── dispatcher.ts      # Dispatches requests to engines
-└── engines/
-    ├── types.ts           # Shared engine types
-    ├── text-utils.ts      # Shared text edit utilities
-    ├── ts/
-    │   ├── engine.ts      # TypeScript engine (ts-morph)
-    │   └── project.ts     # tsconfig discovery utilities
-    └── vue/
-        ├── engine.ts      # Vue engine (Volar)
-        └── scan.ts        # Post-move Vue import scan
+│   ├── dispatcher.ts      # Data-driven operation dispatch
+│   └── watcher.ts         # Filesystem watcher + invalidation callbacks
+├── operations/
+│   ├── rename.ts
+│   ├── moveFile.ts
+│   ├── moveSymbol.ts
+│   ├── findReferences.ts
+│   ├── getDefinition.ts
+│   ├── searchText.ts
+│   └── replaceText.ts
+├── providers/
+│   ├── ts.ts              # TypeScript provider (ts-morph)
+│   ├── volar.ts           # Vue provider (Volar)
+│   ├── vue-scan.ts        # Vue import rewrite post-steps
+│   └── vue-service.ts     # Volar service factory
+└── utils/
+    ├── text-utils.ts
+    ├── file-walk.ts
+    ├── ts-project.ts
+    ├── relative-path.ts
+    ├── assert-file.ts
+    └── errors.ts
 
 tests/
-├── engines/               # Engine unit tests
-├── daemon/                # Daemon lifecycle + serve integration tests
-├── rename.test.ts         # CLI integration tests (rename)
-├── move.test.ts           # CLI integration tests (move)
-├── move-symbol.test.ts    # CLI integration tests (moveSymbol)
+├── operations/            # Operation behavior tests
+├── providers/             # Provider behavior tests
+├── mcp/                   # MCP transport + tool call tests
+├── daemon/                # Daemon lifecycle + protocol tests
+├── security/              # Boundary and sensitive-file tests
+├── utils/                 # Shared utility tests
 ├── helpers.ts             # Test utilities
-└── fixtures/              # Test fixture projects
+└── fixtures/              # Fixture projects
 ```
 
 ## License

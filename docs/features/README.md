@@ -7,14 +7,16 @@ Reference documentation for light-bridge operations and infrastructure.
 All operations are invoked through the MCP server (`light-bridge serve`). There are no direct CLI subcommands for refactoring operations.
 
 | Operation | Doc | TS | Vue | Mutating |
-|-----------|-----|----|----|---------|
+|-----------|-----|----|-----|----------|
 | `rename` | [rename.md](./rename.md) | ✓ | ✓ | yes |
 | `moveFile` | [moveFile.md](./moveFile.md) | ✓ | ✓ | yes |
-| `moveSymbol` | [moveSymbol.md](./moveSymbol.md) | ✓ | — | yes |
+| `moveSymbol` | [moveSymbol.md](./moveSymbol.md) | ✓ | ✓* | yes |
 | `findReferences` | [findReferences.md](./findReferences.md) | ✓ | ✓ | no |
 | `getDefinition` | [getDefinition.md](./getDefinition.md) | ✓ | ✓ | no |
+| `searchText` | [mcp-transport.md](./mcp-transport.md) | n/a | n/a | no |
+| `replaceText` | [mcp-transport.md](./mcp-transport.md) | n/a | n/a | yes |
 
-`moveSymbol` returns `NOT_SUPPORTED` for Vue projects (any workspace containing `.vue` files). This is a dispatcher routing constraint, not a Volar limitation. See [moveSymbol.md](./moveSymbol.md).
+\* `moveSymbol` supports moving exported symbols from `.ts`/`.tsx` sources inside Vue workspaces and updates `.vue` importers in a post-step. Moving symbols from a `.vue` source file is still pending; see [moveSymbol.md](./moveSymbol.md).
 
 ## Supported file types summary
 
@@ -30,10 +32,10 @@ Cross-type reference tracking (e.g. a rename in a `.ts` file updates references 
 
 | Doc | Purpose |
 |-----|---------|
-| [cli.md](./cli.md) | CLI commands: `daemon` and `serve` |
+| [cli.md](./cli.md) | CLI commands: `daemon`, `serve`, and `stop` |
 | [daemon.md](./daemon.md) | The long-lived engine host: lifecycle, discovery, auto-spawn |
 | [mcp-transport.md](./mcp-transport.md) | MCP wire protocol, tool interface, response contract |
-| [engines.md](./engines.md) | Provider/operation architecture, `ProviderRegistry`, dispatcher design |
+| [architecture.md](./architecture.md) | Provider/operation architecture, `ProviderRegistry`, dispatcher design |
 
 ## Other docs
 

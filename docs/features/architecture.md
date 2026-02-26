@@ -1,6 +1,6 @@
-# Feature: Engines
+# Feature: Architecture
 
-**Purpose:** Architecture reference for the engine layer. Read before touching anything in `src/operations/`, `src/providers/`, or `src/daemon/dispatcher.ts`.
+**Purpose:** Architecture reference for providers, operations, and dispatch. Read before touching anything in `src/operations/`, `src/providers/`, or `src/daemon/dispatcher.ts`.
 
 See also: `docs/tech/volar-v3.md` (Vue provider internals), `docs/tech/tech-debt.md` (known issues).
 
