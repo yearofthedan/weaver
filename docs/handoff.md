@@ -127,6 +127,14 @@ Scaffold a file with correct import paths inferred from its location.
 Feature doc: none yet — write the design doc as the first step.
 Pull a selection into a named function, updating the call site. High potential value but AST-level code generation is complex across all call-site shapes; wait until P1–P3 are stable.
 
+**15. Docs IA pass: decide `architecture.md` placement**
+Feature doc: [`features/architecture.md`](features/architecture.md)
+`architecture.md` is now correctly named, but placement is still a docs-information-architecture question: keep under `features/` (current "operations + infrastructure" convention) or move to top-level `docs/` as a cross-cutting architecture doc. Do this as a single IA pass, not piecemeal:
+- choose canonical location and naming convention for cross-cutting docs (`architecture`, `security`, `quality`, etc.)
+- migrate links in one commit
+- preserve compatibility for deep links (stub file at old path or explicit redirect note)
+- update `docs/README.md` grouping to match the chosen structure
+
 ---
 
 ### P5 — Low priority / accepted
