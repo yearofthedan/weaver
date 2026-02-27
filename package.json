@@ -6,7 +6,9 @@
     "light-bridge": "./dist/cli.js"
   },
   "type": "module",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "main": "./dist/cli.js",
   "scripts": {
     "build": "rm -rf dist && tsc",
