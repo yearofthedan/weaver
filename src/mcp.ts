@@ -21,8 +21,7 @@ import {
 import { validateWorkspace } from "./security.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const CLI_ENTRY = path.resolve(__dirname, "..", "src", "cli.ts");
-const TSX_BIN = path.resolve(__dirname, "..", "node_modules", ".bin", "tsx");
+const CLI_ENTRY = path.resolve(__dirname, "..", "dist", "cli.js");
 
 export async function runServe(opts: { workspace: string }): Promise<void> {
   const validation = validateWorkspace(opts.workspace);
@@ -367,7 +366,7 @@ export { callDaemon as callDaemonForTest };
 
 function spawnDaemon(absWorkspace: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(TSX_BIN, [CLI_ENTRY, "daemon", "--workspace", absWorkspace], {
+    const child = spawn(process.execPath, [CLI_ENTRY, "daemon", "--workspace", absWorkspace], {
       stdio: ["ignore", "ignore", "pipe"],
       detached: true,
     });
