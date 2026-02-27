@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { Command, type CommanderError } from "commander";
 import { runDaemon, runStop } from "./daemon/daemon.js";
 import { runServe } from "./mcp.js";

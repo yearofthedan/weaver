@@ -37,12 +37,16 @@ flowchart TD
 
 ## Installation
 
-Install from GitHub (builds automatically on install):
+```bash
+pnpm add -D @yearofthedan/light-bridge
+# or
+npm install -D @yearofthedan/light-bridge
+```
+
+Or install from GitHub for unreleased builds:
 
 ```bash
 pnpm add -D github:yearofthedan/light-bridge
-# or
-npm install -D github:yearofthedan/light-bridge
 ```
 
 ## CLI Commands
@@ -153,21 +157,21 @@ On failure:
 
 ### Claude Code
 
-Use a portable, repo-root-relative `.mcp.json` for team-shared config (checked into version control):
+Add a `.mcp.json` to your project root (checked into version control):
 
 ```json
 {
   "mcpServers": {
     "light-bridge": {
       "type": "stdio",
-      "command": "pnpm",
-      "args": ["exec", "tsx", "src/cli.ts", "serve", "--workspace", "."]
+      "command": "light-bridge",
+      "args": ["serve", "--workspace", "."]
     }
   }
 }
 ```
 
-This pattern works across different checkout roots (for example `/workspace` in cloud runners and `/workspaces/<repo>` in devcontainers) because it avoids hardcoded absolute paths.
+This uses the `light-bridge` bin from `node_modules/.bin/` and works across different checkout roots (cloud runners, devcontainers) because it avoids hardcoded absolute paths.
 
 For machine-local overrides, add an entry with the Claude CLI instead of editing the committed `.mcp.json`:
 

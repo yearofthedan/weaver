@@ -1,11 +1,12 @@
 {
-  "name": "light-bridge",
+  "name": "@yearofthedan/light-bridge",
   "version": "0.1.0",
   "description": "Headless CLI refactoring engine for AI agents",
   "bin": {
     "light-bridge": "./dist/cli.js"
   },
   "type": "module",
+  "files": ["dist"],
   "main": "./dist/cli.js",
   "scripts": {
     "build": "rm -rf dist && tsc",
@@ -39,6 +40,9 @@
     "overrides": {
       "@volar/language-core": "2.4.28"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.3",
