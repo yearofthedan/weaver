@@ -159,7 +159,14 @@ Scaffold a file with correct import paths inferred from its location.
 Feature doc: none yet — write the design doc as the first step.
 Pull a selection into a named function, updating the call site. High potential value but AST-level code generation is complex across all call-site shapes; wait until P1–P3 are stable.
 
-**15. Docs IA pass: decide `architecture.md` placement**
+**15. Language server bundling strategy**
+Feature docs: [`features/architecture.md`](features/architecture.md), [`features/daemon.md`](features/daemon.md)
+Verify whether bundling language servers (Volar, ts-morph internals) into the distribution is the right approach, or if we should resolve them at runtime from the project's `node_modules`. Impacts: bundle size, installation footprint, version compatibility with user projects, and daemon spawn complexity. Acceptance criteria:
+- document the tradeoffs (e.g., bundle vs. project-local resolution, version pinning vs. flexibility)
+- decide on the strategy that best serves the deployment model (CLI tool, MCP server, or both)
+- if switching to runtime resolution, update daemon spawn logic and document the new contract
+
+**16. Docs IA pass: decide `architecture.md` placement**
 Feature doc: [`features/architecture.md`](features/architecture.md)
 `architecture.md` is now correctly named, but placement is still a docs-information-architecture question: keep under `features/` (current "operations + infrastructure" convention) or move to top-level `docs/` as a cross-cutting architecture doc. Do this as a single IA pass, not piecemeal:
 - choose canonical location and naming convention for cross-cutting docs (`architecture`, `security`, `quality`, etc.)
