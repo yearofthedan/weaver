@@ -15,6 +15,8 @@
     "lint": "biome lint .",
     "format": "biome format . --write",
     "smoke-test": "bash scripts/smoke-test.sh",
+    "agent:check": "tsx scripts/agent-check.ts",
+    "agent:doctor": "tsx scripts/agent-doctor.ts",
     "coverage": "vitest run --coverage",
     "clean": "rm -rf dist .stryker-tmp",
     "test:mutate": "rm -rf .stryker-tmp && stryker run",

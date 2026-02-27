@@ -23,6 +23,26 @@ provider layer (TsProvider or VolarProvider)
 4. If the daemon is still initialising, `serve` rejects the tool call immediately with `DAEMON_STARTING` — the agent retries; there is no buffering.
 5. `serve` shuts down when the agent session ends; the daemon continues running.
 
+## Portable MCP config pattern
+
+For repo-committed `.mcp.json`, use a workspace-relative launch command so the same config works in different checkout roots:
+
+```json
+{
+  "mcpServers": {
+    "light-bridge": {
+      "type": "stdio",
+      "command": "pnpm",
+      "args": ["exec", "tsx", "src/cli.ts", "serve", "--workspace", "."]
+    }
+  }
+}
+```
+
+This avoids host-specific absolute paths such as `/workspace/...` or `/workspaces/...`.
+Keep machine-specific absolute paths in user-level MCP settings (for example via `claude mcp add ...`) rather than the committed project config.
+Use `pnpm agent:check` to enforce this policy in committed files. Use `pnpm agent:doctor` only for local runtime setup smoke checks.
+
 ## Tool interface
 
 All tools use position-based parameters where applicable, consistent with LSP convention. Parameters are Zod-validated at the MCP layer before reaching the daemon.

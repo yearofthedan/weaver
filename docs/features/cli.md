@@ -87,7 +87,8 @@ If no daemon is running for that workspace:
 - **`daemon` is stateful** — owns the long-lived project graph. Shared across all `serve` instances for the same workspace.
 - **`serve` is a thin client** — no engine logic; connects to the daemon and adapts the MCP protocol.
 - **`stop` is lifecycle management** — sends SIGTERM to the workspace daemon and cleans up lock/socket files.
-- All three commands take `--workspace` as a required flag. No config file.
+- All three commands take `--workspace` as a required flag. The value can be absolute or relative (resolved from the process working directory), which enables portable repo configs to pass `--workspace .`.
+- No config file.
 
 ## Output
 
