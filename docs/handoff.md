@@ -24,7 +24,7 @@ Context that isn't in the feature docs — things you need to know before pickin
 
 ## Current state
 
-**319/319 tests passing. Mutation score: 80.11% overall (full run as of 309 tests). Per-module highlights: `getDefinition.ts` 93.33%, `searchText.ts` 80.77%, `moveSymbol.ts` 80.58%, `file-walk.ts` 86.67% (all above threshold), `volar.ts` 73.91% (below threshold — many accepted survivors). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon folder 60.4% statements / 58.65% lines (up from 39.59% — at threshold); mcp.ts 33.67% (up from 28.42% — subprocess-level gap remains).** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), protocol version check in `ensureDaemon`, mutation testing expanded to `src/providers/`, mutation rounds 2 and 3 (new tests targeting `moveSymbol`, `volar`, `file-walk`), and portable `.mcp.json` defaults (no hardcoded workspace root) are complete. Directory layout matches domain boundaries:
+**320/320 tests passing. Mutation score: 80.11% overall (full run as of 309 tests). Per-module highlights: `getDefinition.ts` 93.33%, `searchText.ts` 80.77%, `moveSymbol.ts` 80.58%, `file-walk.ts` 86.67% (all above threshold), `volar.ts` 73.91% (below threshold — many accepted survivors). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon folder 60.4% statements / 58.65% lines (up from 39.59% — at threshold); mcp.ts 33.67% (up from 28.42% — subprocess-level gap remains).** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), protocol version check in `ensureDaemon`, mutation testing expanded to `src/providers/`, mutation rounds 2 and 3 (new tests targeting `moveSymbol`, `volar`, `file-walk`), portable `.mcp.json` defaults (no hardcoded workspace root), and response contract consistency (success/failure semantics locked in docs and code) are complete. Directory layout matches domain boundaries:
 
 ```
 src/
@@ -76,21 +76,6 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 ---
 
 ### P1 — Fix now (bugs / correctness)
-
-**1. Response contract mismatch: success `message` field**
-Feature docs: [`features/mcp-transport.md`](features/mcp-transport.md), operation docs in `docs/features/*`, [`README.md`](../README.md)
-Current runtime success responses are `{ ok: true, ...operationResult }` with no `message` field (see `dispatchRequest` and `tests/daemon/dispatcher.test.ts` asserting no message on success). Several docs still show success payloads with `"message": "..."`, which can mislead clients that rely on strict response shapes.
-
-Decide and enforce one contract:
-- either add `message` to all success responses in code/types/tests, or
-- remove success `message` from docs and keep message-only-on-failure semantics.
-
-Acceptance criteria:
-- `src/types.ts` + docs use the same response shape
-- tests explicitly lock the chosen contract for both success and failure paths
-- no docs examples show fields that are absent from actual tool responses
-
----
 
 ### P2 — Test quality (before adding more features)
 

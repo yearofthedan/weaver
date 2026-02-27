@@ -24,8 +24,7 @@ Renames a symbol at a given file position and updates all references to it proje
 {
   "ok": true,
   "filesModified": ["src/utils.ts", "src/App.vue", "src/components/Summary.ts"],
-  "filesSkipped": [],
-  "message": "Renamed 'computeSum' to 'calculateTotal' in 3 files"
+  "filesSkipped": []
 }
 ```
 
