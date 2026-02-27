@@ -44,8 +44,7 @@ Every operation returns a JSON summary:
 ```json
 {
   "ok": true,
-  "filesModified": ["src/components/Button.vue", "src/App.vue"],
-  "message": "Renamed 'Button' to 'BaseButton' in 2 files"
+  "filesModified": ["src/components/Button.vue", "src/App.vue"]
 }
 ```
 

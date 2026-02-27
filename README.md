@@ -118,8 +118,7 @@ All operations return a JSON summary:
 ```json
 {
   "ok": true,
-  "filesModified": ["src/utils/math.ts", "src/index.ts"],
-  "message": "Renamed 'calculateSum' to 'calculateTotal' in 2 files"
+  "filesModified": ["src/utils/math.ts", "src/index.ts"]
 }
 ```
 
