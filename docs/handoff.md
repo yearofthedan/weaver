@@ -1,7 +1,7 @@
 **Purpose:** Current state, source layout, and prioritised next work items. Each task links to its feature doc for the detailed spec.
 **Audience:** Engineers implementing features, AI agents working on the codebase.
 **Status:** Current
-**Related docs:** [Vision](vision.md) (roadmap), [Features](features/) (operations), [Tech Debt](tech/tech-debt.md) (known issues)
+**Related docs:** [Why](why.md) (product rationale), [Features](features/) (operations), [Tech Debt](tech/tech-debt.md) (known issues)
 
 ---
 
@@ -12,13 +12,21 @@ Context that isn't in the feature docs — things you need to know before pickin
 ## Start here
 
 **New to the codebase?** Read in this order:
-1. [`docs/vision.md`](vision.md) — what this is and where it's going
+1. [`docs/why.md`](why.md) — what this is and why it exists
 2. [`docs/features/daemon.md`](features/daemon.md) — understand the daemon before touching `serve`
 3. [`docs/features/mcp-transport.md`](features/mcp-transport.md) — how `serve` connects to the daemon
-4. [`docs/features/architecture.md`](features/architecture.md) — provider/operation architecture; read before touching anything in `src/`
+4. [`docs/architecture.md`](architecture.md) — provider/operation architecture; read before touching anything in `src/`
 5. [`docs/quality.md`](quality.md) — testing and reliability expectations
 
 **Picking up a task?** Each item in "Next things to build" links to its feature doc. The feature doc is the detailed spec — start there, then come back to the task entry for the implementation notes that aren't in the doc. If no feature doc is linked, writing the design doc is the first step.
+
+**Finishing a task?** Before committing, verify:
+1. Remove the task from the backlog below (or move to P5 if accepted/deferred)
+2. Update the test count in "Current state" (`pnpm test` for a fresh count)
+3. If you added/removed MCP tools, changed CLI commands, or changed error codes: update `README.md`
+4. If the feature spec changed: update the relevant `docs/features/*.md`
+5. Write any new gotchas or decisions to `docs/agent-memory.md`
+6. Commit with a conventional commit message (see `CLAUDE.md`)
 
 ---
 
@@ -88,7 +96,7 @@ Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/ope
 **9. Coverage improvement: `src/mcp.ts`** — 33.67%. `src/daemon/` is at the 60%+ folder-level target (60.4% statements). The remaining `mcp.ts` gap is in `ensureDaemon`, `startMcpServer`, and `spawnDaemon` — code that only runs when the full MCP server is spawned over stdio. `spawnDaemon` uses `process.execPath` + `dist/cli.js`. Reaching 60% requires either subprocess-level instrumentation or extracting those functions into a separately testable module.
 
 **10. Documentation freshness guardrails (process + automation)**
-Feature docs: [`features/cli.md`](features/cli.md), [`features/mcp-transport.md`](features/mcp-transport.md), [`features/architecture.md`](features/architecture.md)
+Feature docs: [`features/cli.md`](features/cli.md), [`features/mcp-transport.md`](features/mcp-transport.md), [`architecture.md`](architecture.md)
 Recent drift showed docs can silently lag code (tool list, command list, watcher status, path layout). Add guardrails at three layers:
 - **Agent workflow:** update `.claude/skills/slice/SKILL.md` so every completed slice explicitly updates affected feature docs/README and validates doc links before commit.
 - **Project policy:** add a CLAUDE rule for doc-sync triggers (new/renamed MCP tool, CLI command, error code, provider/operation layout change) and required files to touch.
@@ -129,7 +137,7 @@ Remove a file and clean up its imports in referencing files. Simpler than `creat
 ### P4 — Medium-value features and tech debt
 
 **11. `buildVolarService` refactoring**
-Feature docs: [`features/architecture.md`](features/architecture.md), [`tech/volar-v3.md`](tech/volar-v3.md)
+Feature docs: [`architecture.md`](architecture.md), [`tech/volar-v3.md`](tech/volar-v3.md)
 `src/providers/vue-service.ts` is ~176 lines doing 8 distinct things in sequence: library imports, file-contents map, tsconfig parsing, file collection, Volar language setup, virtual-path mapping, service-host creation, service decoration. Extract named sub-functions for each phase; the top-level function orchestrates. Prerequisite before adding more Vue-specific operations.
 
 **12. `moveSymbol` from a `.vue` source file**
@@ -145,7 +153,7 @@ Feature doc: none yet — write the design doc as the first step.
 Pull a selection into a named function, updating the call site. High potential value but AST-level code generation is complex across all call-site shapes; wait until P1–P3 are stable.
 
 **15. Claude Code plugin distribution**
-Feature docs: [`features/architecture.md`](features/architecture.md), [`features/daemon.md`](features/daemon.md)
+Feature docs: [`architecture.md`](architecture.md), [`features/daemon.md`](features/daemon.md)
 npm distribution is complete (`@yearofthedan/light-bridge`). The remaining question is how to distribute as a Claude Code plugin — Claude Code has a plugin system supporting MCP servers, LSP servers, skills, and hooks. A plugin can declare `mcpServers` in `.claude-plugin/plugin.json` using `${CLAUDE_PLUGIN_ROOT}` paths and `lspServers` via `.lsp.json` for language diagnostics.
 
 A `--write-only` flag on `serve` would let the plugin's MCP server omit read-only tools (`findReferences`, `getDefinition`, `searchText`) when Claude Code's native LSP handles navigation. This avoids tool duplication while keeping refactoring tools MCP-only (where they need daemon state).
@@ -157,14 +165,6 @@ Tasks:
 2. Create `.claude-plugin/plugin.json` with inline `mcpServers` using `${CLAUDE_PLUGIN_ROOT}/dist/cli.js`
 3. Create `.lsp.json` for Vue language server (prerequisite: `@vue/language-server` installed)
 4. Evaluate dual language server overhead — decide whether to ship both or MCP-only
-
-**16. Docs IA pass: decide `architecture.md` placement**
-Feature doc: [`features/architecture.md`](features/architecture.md)
-`architecture.md` is now correctly named, but placement is still a docs-information-architecture question: keep under `features/` (current "operations + infrastructure" convention) or move to top-level `docs/` as a cross-cutting architecture doc. Do this as a single IA pass, not piecemeal:
-- choose canonical location and naming convention for cross-cutting docs (`architecture`, `security`, `quality`, etc.)
-- migrate links in one commit
-- preserve compatibility for deep links (stub file at old path or explicit redirect note)
-- update `docs/README.md` grouping to match the chosen structure
 
 ---
 
@@ -194,7 +194,7 @@ Each concern has a dedicated doc. Read those — don't rely on handoff for desig
 
 | Topic | Doc |
 |-------|-----|
-| Provider/operation architecture, dispatcher design, `ProviderRegistry` | [`docs/features/architecture.md`](features/architecture.md) |
+| Provider/operation architecture, dispatcher design, `ProviderRegistry` | [`docs/architecture.md`](architecture.md) |
 | MCP wire protocol, tool interface, `DAEMON_STARTING`, `filesSkipped` | [`docs/features/mcp-transport.md`](features/mcp-transport.md) |
 | Daemon lifecycle, auto-spawn, socket protocol | [`docs/features/daemon.md`](features/daemon.md) |
 | Vue provider internals, virtual↔real path translation, `toVirtualLocation` | [`docs/tech/volar-v3.md`](tech/volar-v3.md) |

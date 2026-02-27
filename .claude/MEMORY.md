@@ -22,7 +22,7 @@ Do not log per-session "fixed X" history here; keep durable process guidance onl
 |-----|---------|
 | `docs/handoff.md` | Current state, source layout, next work, technical context |
 | `docs/agent-memory.md` | Technical gotchas and non-obvious implementation decisions |
-| `docs/features/architecture.md` | Provider/operation architecture — read before touching `src/` |
+| `docs/architecture.md` | Provider/operation architecture — read before touching `src/` |
 | `docs/quality.md` | Testing strategy, mutation scores, hard-won test lessons |
 | `docs/tech/volar-v3.md` | How the Vue provider works — read before touching `providers/volar.ts` |
 | `docs/tech/tech-debt.md` | Known structural issues |

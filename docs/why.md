@@ -1,7 +1,7 @@
 **Purpose:** Explain why light-bridge exists — the problem, the value, and how it fits into the AI coding ecosystem.
 **Audience:** Developers evaluating adoption, and contributors who want to understand the thesis.
 **Status:** Current
-**Related docs:** [Vision](vision.md) (roadmap), [README](../README.md) (getting started)
+**Related docs:** [Handoff](handoff.md) (current state + roadmap), [README](../README.md) (getting started)
 
 ---
 
@@ -125,3 +125,12 @@ light-bridge is open-source, headless, and designed from the ground up as agent 
 - **Teams using AI agents** for day-to-day development who want refactoring operations to be fast and correct rather than token-expensive and approximate
 - **Contributors** interested in the intersection of compiler tooling and AI agent infrastructure
 
+---
+
+## What's worth building
+
+Each potential operation is evaluated against one bar: **does the daemon's stateful engine make this meaningfully better than the agent editing directly?**
+
+Operations that benefit from the compiler's binding graph — rename, move file, move symbol — are clear candidates. Operations where a capable agent with file access does as well, or where loading the project graph costs more than it saves, are not.
+
+This keeps light-bridge focused. It is not trying to replicate an IDE — it is extracting the specific capabilities where compiler intelligence gives agents a decisive advantage over direct file editing.

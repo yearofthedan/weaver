@@ -252,19 +252,6 @@ All mutating operations (rename, move) are atomic. Either all file changes are a
 
 ---
 
-## Security
+---
 
-### Principles
-
-- **Workspace boundary enforcement** — all file paths in tool calls must be validated against the workspace root. Any path that resolves outside the workspace is rejected. This applies to both read and write operations.
-- **Least privilege** — the server writes files and nothing else. It does not delete files, execute commands, or access the network (except as part of explicitly registered hooks, which carry their own security review).
-- **Input validation** — Zod schemas enforce shape. Validation must also explicitly enforce workspace boundary constraints, not just schema correctness.
-- **Treat code as data** — symbol names, file paths, and any content derived from the codebase must never be interpolated unsanitised into structured output. All code content is data, not instructions.
-- **Error message hygiene** — error responses must not leak stack traces, internal paths, or server internals. Errors should be descriptive enough for the agent to act on, not diagnostic dumps.
-- **Response size limits** — `filesModified` must be capped or paginated to prevent oversized responses from flooding the agent's context window.
-- **Log hygiene** — logs must not contain file contents, symbol values, or any data derived from code. Operations and metadata only.
-
-### Deferred
-
-- Full security review of the post-operation hook system (high attack surface — arbitrary shell command execution)
-- Broader security audit (deferred, flagged in vision)
+For the threat model, controls, and known limitations, see [`docs/security.md`](security.md).
