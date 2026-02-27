@@ -226,7 +226,7 @@ Do not read files to verify results; the response lists exactly what changed.
 - Keep the committed `.mcp.json` portable (no single-machine absolute paths).
 - Put machine-local path overrides in your user-level MCP config via `claude mcp add ...` so team config stays portable.
 - Run `pnpm agent:check` to enforce MCP config conventions in committed files.
-- Run `pnpm agent:doctor` as an optional local smoke check if MCP tools are missing or fail to start.
+- Run `pnpm agent:doctor` as an optional local liveness check if MCP tools are missing or fail to start (it does not enforce a fixed tool contract).
 - The daemon auto-spawns on first tool call if not already running. For faster first-call response, start it manually: `light-bridge daemon --workspace /path/to/project`.
 - One `serve` instance per agent session; one daemon per workspace. The daemon keeps running between sessions.
 

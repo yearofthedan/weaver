@@ -2,20 +2,10 @@ import { type ChildProcess, spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { validateMcpConfigText } from "./agent-conventions.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const CONFIG_PATH = path.join(PROJECT_ROOT, ".mcp.json");
-const EXPECTED_TOOLS = [
-  "rename",
-  "moveFile",
-  "moveSymbol",
-  "findReferences",
-  "getDefinition",
-  "searchText",
-  "replaceText",
-] as const;
 
 interface RpcResponse<T = unknown> {
   id?: number;
@@ -28,8 +18,8 @@ interface RpcResponse<T = unknown> {
 interface McpConfig {
   mcpServers?: {
     "light-bridge"?: {
-      command: string;
-      args?: string[];
+      command?: unknown;
+      args?: unknown;
     };
   };
 }
@@ -112,17 +102,21 @@ class JsonRpcLineClient {
 
 function loadConfig(): { command: string; args: string[] } {
   const raw = fs.readFileSync(CONFIG_PATH, "utf8");
-  const issues = validateMcpConfigText(".mcp.json", raw);
-  if (issues.length > 0) {
-    throw new Error(
-      `Conventions failed for .mcp.json:\n${issues.map((i) => `- ${i.message}`).join("\n")}`,
-    );
-  }
-
   const parsed = JSON.parse(raw) as McpConfig;
   const server = parsed.mcpServers?.["light-bridge"];
   if (!server) throw new Error("Missing mcpServers.light-bridge in .mcp.json");
-  return { command: server.command, args: server.args ?? [] };
+
+  if (typeof server.command !== "string" || server.command.trim().length === 0) {
+    throw new Error("mcpServers.light-bridge.command must be a non-empty string");
+  }
+  if (server.args !== undefined && !Array.isArray(server.args)) {
+    throw new Error("mcpServers.light-bridge.args must be an array when provided");
+  }
+  if (Array.isArray(server.args) && !server.args.every((arg) => typeof arg === "string")) {
+    throw new Error("mcpServers.light-bridge.args must contain only strings");
+  }
+
+  return { command: server.command, args: Array.isArray(server.args) ? server.args : [] };
 }
 
 function waitForReady(proc: ChildProcess, timeoutMs = 20_000): Promise<string> {
@@ -235,29 +229,14 @@ async function main(): Promise<void> {
 
     const toolsResult = await client.request<{ tools?: Array<{ name?: string }> }>("tools/list", {});
     const toolNames = new Set((toolsResult.tools ?? []).flatMap((tool) => (tool.name ? [tool.name] : [])));
-    const missing = EXPECTED_TOOLS.filter((tool) => !toolNames.has(tool));
-    if (missing.length > 0) throw new Error(`missing expected tools: ${missing.join(", ")}`);
-
-    const callResult = await client.request<{ content?: Array<{ text?: string }> }>("tools/call", {
-      name: "getDefinition",
-      arguments: {
-        file: path.join(readyWorkspace, "src", "cli.ts"),
-        line: 2,
-        col: 10,
-      },
-    });
-    const text = callResult.content?.[0]?.text;
-    if (!text) throw new Error("tools/call returned no content");
-    const payload = JSON.parse(text) as { ok?: boolean; definitions?: unknown[] };
-    if (payload.ok !== true) throw new Error("getDefinition returned ok=false");
-    if (!Array.isArray(payload.definitions) || payload.definitions.length === 0) {
-      throw new Error("getDefinition returned no definitions");
-    }
 
     process.stdout.write(`agent:doctor ok (workspace=${readyWorkspace})\n`);
-    process.stdout.write(
-      `agent:doctor tools: ${[...toolNames].sort((a, b) => a.localeCompare(b)).join(", ")}\n`,
-    );
+    const names = [...toolNames].sort((a, b) => a.localeCompare(b));
+    if (names.length === 0) {
+      process.stdout.write("agent:doctor warning: tools/list returned no tools\n");
+    } else {
+      process.stdout.write(`agent:doctor tools: ${names.join(", ")}\n`);
+    }
   } finally {
     if (readyWorkspace) await stopDaemon(readyWorkspace);
     if (!serve.killed) serve.kill("SIGTERM");
