@@ -83,9 +83,9 @@ Feature doc: [`quality.md`](quality.md) — covers mutation testing strategy, co
 
 Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/operations/`, `src/utils/`, `src/security.ts`, and `src/providers/` in ~13 minutes. Overall score: **76.23% (79.50% covered)**. See [`quality.md`](quality.md) for the full per-module breakdown and surviving mutants table.
 
-**7. Next mutation round: `volar.ts` (73.91%)** — still below 80% threshold after round 3. `moveSymbol.ts` (80.58%) and `file-walk.ts` (86.67%) are now resolved. The 24 surviving mutants in `volar.ts` are dominated by accepted ones (caching guards, toVirtualLocation fallback branches, translateSingleLocation Volar-glue paths). See the "Worth fixing" table in `quality.md` for specific remaining gaps.
+**7. Next mutation round: `volar.ts` (73.91%)** — below 80% threshold. `moveSymbol.ts` (80.58%) and `file-walk.ts` (86.67%) are above threshold. The 24 surviving mutants in `volar.ts` are dominated by accepted ones (caching guards, toVirtualLocation fallback branches, translateSingleLocation Volar-glue paths). See the "Worth fixing" table in `quality.md` for specific remaining gaps.
 
-**9. Coverage improvement: `src/mcp.ts`** — now 33.67% (up from 28.42%). `src/daemon/` has reached the 60%+ folder-level target (60.4% statements). The remaining `mcp.ts` gap is in `ensureDaemon`, `startMcpServer`, and `spawnDaemon` — code that only runs when the full MCP server is spawned over stdio. `spawnDaemon` is now simpler (removed `TSX_BIN` constant; uses `process.execPath` + `dist/cli.js`). Reaching 60% requires either subprocess-level instrumentation or extracting those functions into a separately testable module.
+**9. Coverage improvement: `src/mcp.ts`** — 33.67%. `src/daemon/` is at the 60%+ folder-level target (60.4% statements). The remaining `mcp.ts` gap is in `ensureDaemon`, `startMcpServer`, and `spawnDaemon` — code that only runs when the full MCP server is spawned over stdio. `spawnDaemon` uses `process.execPath` + `dist/cli.js`. Reaching 60% requires either subprocess-level instrumentation or extracting those functions into a separately testable module.
 
 **10. Documentation freshness guardrails (process + automation)**
 Feature docs: [`features/cli.md`](features/cli.md), [`features/mcp-transport.md`](features/mcp-transport.md), [`features/architecture.md`](features/architecture.md)
@@ -205,4 +205,4 @@ Each concern has a dedicated doc. Read those — don't rely on handoff for desig
 
 ## Completed: agent tool adoption improvements
 
-Server-level `instructions` added to the MCP server (via `McpServer` constructor) — provides a brief orientation about supported file types, the compiler reference graph advantage, and token savings over manual file reading. Tool descriptions rewritten to lead with triggers ("when renaming an identifier", "before modifying a symbol") rather than capabilities ("rename a symbol", "find references"). No skill file yet — revisit if dogfooding reveals workflow gaps the descriptions can't cover.
+The MCP server includes server-level `instructions` (via `McpServer` constructor) providing orientation about supported file types, the compiler reference graph advantage, and token savings over manual file reading. Tool descriptions lead with triggers ("when renaming an identifier", "before modifying a symbol") rather than capabilities. No skill file yet — revisit if dogfooding reveals workflow gaps the descriptions can't cover.
