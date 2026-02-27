@@ -16,8 +16,11 @@ Durable notes for AI agents working on this project. Update when sessions surfac
 **`docs/features/architecture.md` replaced `docs/features/engines.md`.**
 The architecture reference was renamed for clarity. Update links/searches that still point to `features/engines.md`.
 
-**Cloud runs may not expose MCP resources if `.mcp.json` points at a different workspace path.**
-In this repo, MCP resources were absent in `/workspace` while `.mcp.json` referenced `/workspaces/light-bridge`. If MCP tools/resources appear missing in a cloud run, verify the configured `--workspace` path first.
+**Keep committed `.mcp.json` path-portable; put machine-local paths in user-level config.**
+Hardcoded workspace roots in repo config (for example `/workspace/...` or `/workspaces/...`) break MCP startup on other hosts. Keep the committed config root-relative (for example `--workspace .`), and store machine-specific absolute-path overrides in user-level MCP settings (`claude mcp add ...`) rather than version-controlled files.
+
+**Use `pnpm agent:check` for policy and `pnpm agent:doctor` for runtime setup checks.**
+`agent:check` is a static conventions check (safe for CI): validates committed MCP config shape and portability policy. `agent:doctor` is a local runtime smoke check (spawn + initialize + tools/list + read-only call) and should be run during environment setup/debugging, not on every push.
 
 **`child.pid` is the tsx wrapper PID, not the script's PID.**
 When you spawn a process with `spawn('tsx', ...)`, `child.pid` is the PID of the tsx wrapper, not `process.pid` inside the script. To check if a lockfile PID is alive, use `process.kill(pid, 0)` — don't compare to `child.pid`.

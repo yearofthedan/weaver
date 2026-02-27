@@ -12,10 +12,7 @@ Keep this file as a signpost — details live in the docs.
 ## Current state
 
 See `docs/handoff.md` for the current test count, feature status, and next things to build.
-
-Recent update (2026-02-26):
-- Documentation sync pass completed: README/tooling docs updated to reflect 7 MCP tools + `stop` command.
-- Architecture doc renamed from `docs/features/engines.md` to `docs/features/architecture.md`; links updated project-wide.
+Do not log per-session "fixed X" history here; keep durable process guidance only.
 
 ---
 

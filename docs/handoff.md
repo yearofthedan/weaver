@@ -24,7 +24,7 @@ Context that isn't in the feature docs — things you need to know before pickin
 
 ## Current state
 
-**316/316 tests passing. Mutation score: 80.11% overall (full run as of 309 tests). Per-module highlights: `getDefinition.ts` 93.33%, `searchText.ts` 80.77%, `moveSymbol.ts` 80.58%, `file-walk.ts` 86.67% (all above threshold), `volar.ts` 73.91% (below threshold — many accepted survivors). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon folder 60.4% statements / 58.65% lines (up from 39.59% — at threshold); mcp.ts 33.67% (up from 28.42% — subprocess-level gap remains).** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), protocol version check in `ensureDaemon`, mutation testing expanded to `src/providers/`, mutation rounds 2 and 3 (new tests targeting `moveSymbol`, `volar`, `file-walk`) are complete. Directory layout matches domain boundaries:
+**319/319 tests passing. Mutation score: 80.11% overall (full run as of 309 tests). Per-module highlights: `getDefinition.ts` 93.33%, `searchText.ts` 80.77%, `moveSymbol.ts` 80.58%, `file-walk.ts` 86.67% (all above threshold), `volar.ts` 73.91% (below threshold — many accepted survivors). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon folder 60.4% statements / 58.65% lines (up from 39.59% — at threshold); mcp.ts 33.67% (up from 28.42% — subprocess-level gap remains).** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), protocol version check in `ensureDaemon`, mutation testing expanded to `src/providers/`, mutation rounds 2 and 3 (new tests targeting `moveSymbol`, `volar`, `file-walk`), and portable `.mcp.json` defaults (no hardcoded workspace root) are complete. Directory layout matches domain boundaries:
 
 ```
 src/
@@ -77,16 +77,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-**1. MCP config path portability (`.mcp.json`)**
-Feature docs: [`features/cli.md`](features/cli.md), [`features/mcp-transport.md`](features/mcp-transport.md)
-The checked-in `.mcp.json` currently hardcodes `/workspaces/light-bridge` for both CLI path and `--workspace`. Cloud agents in this repo run under `/workspace`, so MCP resources/tools may not appear or may point at the wrong project root.
-
-Treat this as a config portability bug (not an engine bug): ensure checked-in MCP config works across local devcontainers and cloud runners, or move host-specific absolute paths out of the committed file. Acceptance criteria:
-- no hardcoded single-environment absolute workspace path in committed MCP config
-- docs show a portable setup pattern and where to put machine-local overrides
-- smoke validation in both environments confirms MCP server starts against the active repo root
-
-**2. Response contract mismatch: success `message` field**
+**1. Response contract mismatch: success `message` field**
 Feature docs: [`features/mcp-transport.md`](features/mcp-transport.md), operation docs in `docs/features/*`, [`README.md`](../README.md)
 Current runtime success responses are `{ ok: true, ...operationResult }` with no `message` field (see `dispatchRequest` and `tests/daemon/dispatcher.test.ts` asserting no message on success). Several docs still show success payloads with `"message": "..."`, which can mislead clients that rely on strict response shapes.
 
@@ -122,6 +113,15 @@ Acceptance criteria:
 - docs drift on MCP tool names / CLI command names fails CI
 - slice skill contains an explicit doc-sync step with a checklist
 - CLAUDE guidance defines when doc updates are mandatory vs optional
+
+**11. Scope an Agent+MCP eval approach with the owner before building**
+Feature docs: [`quality.md`](quality.md), [`features/mcp-transport.md`](features/mcp-transport.md), [`README.md`](../README.md)
+Current tests prove engine correctness and protocol behavior, but the right eval shape for agent behavior is product-direction dependent. Do a short scoping pass with the owner first, then implement only the agreed slice.
+
+Acceptance criteria:
+- a brief design note captures agreed goals/non-goals, success metrics, and where eval should run (CI, local-only, scheduled, etc.)
+- scope is explicitly approved by the owner before implementation work starts
+- the first implementation task in handoff references that approved scope doc instead of assuming a fixed eval architecture
 
 ---
 

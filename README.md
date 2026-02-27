@@ -154,21 +154,23 @@ On failure:
 
 ### Claude Code
 
-Add to `.mcp.json` in your project root (checked into version control, shared with your team):
+Use a portable, repo-root-relative `.mcp.json` for team-shared config (checked into version control):
 
 ```json
 {
   "mcpServers": {
     "light-bridge": {
       "type": "stdio",
-      "command": "light-bridge",
-      "args": ["serve", "--workspace", "/absolute/path/to/your/project"]
+      "command": "pnpm",
+      "args": ["exec", "tsx", "src/cli.ts", "serve", "--workspace", "."]
     }
   }
 }
 ```
 
-Or use the CLI to add it to your local scope:
+This pattern works across different checkout roots (for example `/workspace` in cloud runners and `/workspaces/<repo>` in devcontainers) because it avoids hardcoded absolute paths.
+
+For machine-local overrides, add an entry with the Claude CLI instead of editing the committed `.mcp.json`:
 
 ```bash
 claude mcp add light-bridge -- light-bridge serve --workspace /absolute/path/to/your/project
@@ -221,7 +223,10 @@ Do not read files to verify results; the response lists exactly what changed.
 
 ### Notes
 
-- Replace paths with absolute paths — relative paths are not supported in MCP configs.
+- Keep the committed `.mcp.json` portable (no single-machine absolute paths).
+- Put machine-local path overrides in your user-level MCP config via `claude mcp add ...` so team config stays portable.
+- Run `pnpm agent:check` to enforce MCP config conventions in committed files.
+- Run `pnpm agent:doctor` as an optional local smoke check if MCP tools are missing or fail to start.
 - The daemon auto-spawns on first tool call if not already running. For faster first-call response, start it manually: `light-bridge daemon --workspace /path/to/project`.
 - One `serve` instance per agent session; one daemon per workspace. The daemon keeps running between sessions.
 
@@ -248,6 +253,16 @@ pnpm run build
 
 ```bash
 pnpm run test
+```
+
+### Agent workspace checks
+
+```bash
+# Fast static policy check for committed MCP configs (CI-friendly)
+pnpm run agent:check
+
+# Optional runtime smoke check for local environment/debugging
+pnpm run agent:doctor
 ```
 
 Tests include:

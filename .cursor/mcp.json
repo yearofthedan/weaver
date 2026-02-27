@@ -2,13 +2,8 @@
   "mcpServers": {
     "light-bridge": {
       "type": "stdio",
-      "command": "node",
-      "args": [
-        "/workspaces/light-bridge/dist/cli.js",
-        "serve",
-        "--workspace",
-        "/workspaces/light-bridge"
-      ]
+      "command": "pnpm",
+      "args": ["exec", "tsx", "src/cli.ts", "serve", "--workspace", "."]
     }
   }
 }
