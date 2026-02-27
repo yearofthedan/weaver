@@ -4,39 +4,29 @@
 
 ## Quick Start
 
-- **I want to use light-bridge** → Start with [README](../README.md), then integrate with [CLAUDE.md](../CLAUDE.md)
-- **I'm implementing a feature** → Start with [Vision](vision.md), then [Handoff](handoff.md)
-- **I'm reviewing security** → Start with [Security](security.md), then check specific [Features](features/)
-- **I'm debugging an issue** → Start with [Tech Debt](tech/tech-debt.md), then [Agent Memory](agent-memory.md)
+- **I want to use light-bridge** → [README](../README.md) — installation, CLI, MCP tools, agent integration
+- **I'm implementing a feature** → [Handoff](handoff.md) — backlog, current state, finish checklist
+- **I'm reviewing security** → [Security](security.md), then specific [Features](features/)
+- **I'm debugging an issue** → [Tech Debt](tech/tech-debt.md), then [Agent Memory](agent-memory.md)
 
-## By Document
+## Product & Rationale
 
-### Product & Vision
-- [Why light-bridge](why.md) — Speed, determinism, context efficiency; the AI coding ecosystem
-- [Vision](vision.md) — What light-bridge does, who it's for, and what's next
+- [Why light-bridge](why.md) — what it is, the problem it solves, design bar, ecosystem fit
 
-### User Integration
-- [CLAUDE.md](../CLAUDE.md) — How to configure your agent to use light-bridge
-- [Features Overview](features/README.md) — All operations: rename, moveFile, moveSymbol, findReferences, getDefinition, searchText, replaceText
+## Project Management
 
-### For Developers
-- [Handoff](handoff.md) — Current state, source layout, next work items
-- [Security](security.md) — Threat model, controls, known limitations
-- [Quality](quality.md) — Testing expectations, performance targets, reliability guarantees
+- [Handoff](handoff.md) — current state, prioritised backlog, reading order, finish checklist
+- [Quality](quality.md) — testing strategy, coverage targets, mutation scores
+- [Tech Debt](tech/tech-debt.md) — known structural issues
 
-### Architecture & Implementation
-- [Features](features/) — Per-operation guides (how to use, how it works, constraints, security)
-  - [architecture](features/architecture.md)
-  - [rename](features/rename.md)
-  - [moveFile](features/moveFile.md)
-  - [moveSymbol](features/moveSymbol.md)
-  - [findReferences](features/findReferences.md)
-  - [getDefinition](features/getDefinition.md)
+## Architecture & Implementation
 
-### Technical Reference
-- [Agent Memory](agent-memory.md) — Implementation gotchas, hard-won lessons, architectural decisions
-- [Tech Debt](tech/tech-debt.md) — Known structural issues and their fixes
-- [Volar v3 Architecture](tech/volar-v3.md) — How the Vue engine works (required reading before touching Vue code)
+- [Architecture](architecture.md) — provider/operation/dispatcher design; read before touching `src/`
+- [Security](security.md) — threat model, controls, known limitations
+- [Features](features/) — per-operation specs (rename, moveFile, moveSymbol, …) and infrastructure docs
+- [Volar v3](tech/volar-v3.md) — Vue provider internals; required reading before touching `providers/volar.ts`
 
-### Project Notes
-- [MEMORY](../.claude/MEMORY.md) — Session-to-session state signpost
+## Agent Docs
+
+- [Agent Memory](agent-memory.md) — technical gotchas and hard-won implementation decisions
+- [MEMORY](./../.claude/MEMORY.md) — session-to-session state signpost

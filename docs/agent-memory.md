@@ -1,7 +1,7 @@
 **Purpose:** Technical gotchas, hard-won lessons, and non-obvious architectural decisions.
 **Audience:** Engineers and AI agents implementing features or debugging issues.
 **Status:** Current
-**Related docs:** [Handoff](handoff.md) (current state + roadmap), [Architecture](features/architecture.md) (provider/operation architecture), [Quality](quality.md) (test lessons), [Tech Debt](tech/tech-debt.md) (known issues)
+**Related docs:** [Handoff](handoff.md) (current state + roadmap), [Architecture](architecture.md) (provider/operation architecture), [Quality](quality.md) (test lessons), [Tech Debt](tech/tech-debt.md) (known issues)
 
 ---
 
@@ -13,7 +13,7 @@ Durable notes for AI agents working on this project. Update when sessions surfac
 
 ## Technical gotchas
 
-**`docs/features/architecture.md` replaced `docs/features/engines.md`.**
+**`docs/architecture.md` replaced `docs/features/engines.md`.**
 The architecture reference was renamed for clarity. Update links/searches that still point to `features/engines.md`.
 
 **Keep committed `.mcp.json` path-portable; put machine-local paths in user-level config.**
@@ -72,7 +72,7 @@ Multiple edits to the same file must be applied last-position-first so that byte
 
 ## Architecture decisions
 
-*(For the provider/operation/dispatcher architecture, see `docs/features/architecture.md`. Entries here cover things not in that doc.)*
+*(For the provider/operation/dispatcher architecture, see `docs/architecture.md`. Entries here cover things not in that doc.)*
 
 **MCP tool names and daemon method names are intentionally 1:1.**
 The MCP handler passes `tool.name` directly as the daemon method. There is no translation layer. A proposal to split naming (e.g. "file rename" vs "symbol rename") was rejected: the daemon is an internal IPC detail with no independent users, and "file rename" is already `moveFile`. Splitting would add a translation table for no benefit.
