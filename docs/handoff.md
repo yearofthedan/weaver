@@ -24,7 +24,7 @@ Context that isn't in the feature docs — things you need to know before pickin
 
 ## Current state
 
-**320/320 tests passing. Mutation score: 80.11% overall (full run as of 309 tests). Per-module highlights: `getDefinition.ts` 93.33%, `searchText.ts` 80.77%, `moveSymbol.ts` 80.58%, `file-walk.ts` 86.67% (all above threshold), `volar.ts` 73.91% (below threshold — many accepted survivors). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon folder 60.4% statements / 58.65% lines (up from 39.59% — at threshold); mcp.ts 33.67% (up from 28.42% — subprocess-level gap remains).** Security controls (including sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, full action-centric refactor (Phases 1–3), protocol version check in `ensureDaemon`, mutation testing expanded to `src/providers/`, mutation rounds 2 and 3 (new tests targeting `moveSymbol`, `volar`, `file-walk`), portable `.mcp.json` defaults (no hardcoded workspace root), and response contract consistency (success/failure semantics locked in docs and code) are complete. Directory layout matches domain boundaries:
+**320/320 tests passing. Mutation score: 80.11% overall (full run as of 309 tests). Per-module highlights: `getDefinition.ts` 93.33%, `searchText.ts` 80.77%, `moveSymbol.ts` 80.58%, `file-walk.ts` 86.67% (all above threshold), `volar.ts` 73.91% (below threshold — many accepted survivors). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon folder 60.4% statements / 58.65% lines (at threshold); mcp.ts 33.67% (subprocess-level gap remains).** Security controls (sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, action-centric architecture, protocol version check in `ensureDaemon`, mutation testing across `src/operations/`, `src/utils/`, `src/security.ts`, and `src/providers/`, portable `.mcp.json` defaults, npm distribution (`@yearofthedan/light-bridge`), and response contract consistency (success/failure semantics locked in docs and code) are complete. Directory layout matches domain boundaries:
 
 ```
 src/
@@ -85,7 +85,7 @@ Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/ope
 
 **7. Next mutation round: `volar.ts` (73.91%)** — still below 80% threshold after round 3. `moveSymbol.ts` (80.58%) and `file-walk.ts` (86.67%) are now resolved. The 24 surviving mutants in `volar.ts` are dominated by accepted ones (caching guards, toVirtualLocation fallback branches, translateSingleLocation Volar-glue paths). See the "Worth fixing" table in `quality.md` for specific remaining gaps.
 
-**9. Coverage improvement: `src/mcp.ts`** — now 33.67% (up from 28.42%). `src/daemon/` has reached the 60%+ folder-level target (60.4% statements). The remaining `mcp.ts` gap is in `ensureDaemon`, `startMcpServer`, and `spawnDaemon` — code that only runs when the full MCP server is spawned over stdio. Reaching 60% requires either subprocess-level instrumentation or extracting those functions into a separately testable module.
+**9. Coverage improvement: `src/mcp.ts`** — now 33.67% (up from 28.42%). `src/daemon/` has reached the 60%+ folder-level target (60.4% statements). The remaining `mcp.ts` gap is in `ensureDaemon`, `startMcpServer`, and `spawnDaemon` — code that only runs when the full MCP server is spawned over stdio. `spawnDaemon` is now simpler (removed `TSX_BIN` constant; uses `process.execPath` + `dist/cli.js`). Reaching 60% requires either subprocess-level instrumentation or extracting those functions into a separately testable module.
 
 **10. Documentation freshness guardrails (process + automation)**
 Feature docs: [`features/cli.md`](features/cli.md), [`features/mcp-transport.md`](features/mcp-transport.md), [`features/architecture.md`](features/architecture.md)
@@ -144,12 +144,19 @@ Scaffold a file with correct import paths inferred from its location.
 Feature doc: none yet — write the design doc as the first step.
 Pull a selection into a named function, updating the call site. High potential value but AST-level code generation is complex across all call-site shapes; wait until P1–P3 are stable.
 
-**15. Language server bundling strategy**
+**15. Claude Code plugin distribution**
 Feature docs: [`features/architecture.md`](features/architecture.md), [`features/daemon.md`](features/daemon.md)
-Verify whether bundling language servers (Volar, ts-morph internals) into the distribution is the right approach, or if we should resolve them at runtime from the project's `node_modules`. Impacts: bundle size, installation footprint, version compatibility with user projects, and daemon spawn complexity. Acceptance criteria:
-- document the tradeoffs (e.g., bundle vs. project-local resolution, version pinning vs. flexibility)
-- decide on the strategy that best serves the deployment model (CLI tool, MCP server, or both)
-- if switching to runtime resolution, update daemon spawn logic and document the new contract
+npm distribution is complete (`@yearofthedan/light-bridge`). The remaining question is how to distribute as a Claude Code plugin — Claude Code has a plugin system supporting MCP servers, LSP servers, skills, and hooks. A plugin can declare `mcpServers` in `.claude-plugin/plugin.json` using `${CLAUDE_PLUGIN_ROOT}` paths and `lspServers` via `.lsp.json` for language diagnostics.
+
+A `--write-only` flag on `serve` would let the plugin's MCP server omit read-only tools (`findReferences`, `getDefinition`, `searchText`) when Claude Code's native LSP handles navigation. This avoids tool duplication while keeping refactoring tools MCP-only (where they need daemon state).
+
+Open concern — dual language server: if the plugin provides a Vue LSP (diagnostics/navigation) AND the MCP server uses Volar internally (refactoring), two TS language servers run simultaneously. They serve different purposes (LSP = diagnostics + go-to-definition; Volar engine = rename/move), but the memory/CPU overhead needs evaluation. Options: accept the overlap (different responsibilities), make `--write-only` also skip Volar initialization, or ship MCP-only without an LSP.
+
+Tasks:
+1. Add `--write-only` flag to `serve` — filter TOOLS array, extract `getToolList()` for testability
+2. Create `.claude-plugin/plugin.json` with inline `mcpServers` using `${CLAUDE_PLUGIN_ROOT}/dist/cli.js`
+3. Create `.lsp.json` for Vue language server (prerequisite: `@vue/language-server` installed)
+4. Evaluate dual language server overhead — decide whether to ship both or MCP-only
 
 **16. Docs IA pass: decide `architecture.md` placement**
 Feature doc: [`features/architecture.md`](features/architecture.md)
