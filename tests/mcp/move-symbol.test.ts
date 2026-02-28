@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseMcpResult, readFile, useMcpContext } from "../helpers";
+import { readFile } from "../helpers.js";
+import { parseMcpResult, useMcpContext } from "../mcp-helpers.js";
 
 describe("MCP transport — moveSymbol tool", () => {
   const { setup } = useMcpContext();

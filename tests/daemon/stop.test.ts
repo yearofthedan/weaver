@@ -2,7 +2,8 @@ import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath, socketPath } from "../../src/daemon/paths";
-import { cleanup, copyFixture, killDaemon, runCliCommand, spawnAndWaitForReady } from "../helpers";
+import { cleanup, copyFixture } from "../helpers.js";
+import { killDaemon, runCliCommand, spawnAndWaitForReady } from "../process-helpers.js";
 
 const WORKSPACE_FIXTURE = "simple-ts";
 

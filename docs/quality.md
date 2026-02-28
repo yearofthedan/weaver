@@ -148,7 +148,10 @@ The default (`true`) prepends `// @ts-nocheck` to files in Stryker's sandbox, sh
 The replacement template always outputs `from ${quote}${rel}${quote}` (single space), regardless of how many spaces appeared in the original. A test for "multiple spaces after `from`" should assert the rewrite DID happen, not that the whitespace is preserved.
 
 **Volar `toVirtualLocation` fallback branches need non-setup `.vue` structures.**
-The fallback paths fire when Volar's source map or script generation returns null — this requires `.vue` files using `<script>` (non-setup) blocks or non-standard structures. Standard `<script setup>` fixtures always produce the happy path and leave fallbacks uncovered.
+The fallback paths fire when Volar's source map or script generation returns null — this requires `.vue` files using `<script>` (non-setup) blocks or non-standard structures. Standard `<script setup>` fixtures always produce the happy path and leave fallbacks uncovered. A template-only `.vue` file (no `<script>` block) causes `getServiceScript()` to return null, triggering the `!serviceScript` branch. Create it programmatically via `fs.mkdtempSync` — do NOT add it to the shared fixture.
+
+**`VolarProvider.getRenameLocations` and `getReferencesAtPosition` must be called with `.ts` paths, not `.vue` paths.**
+The Volar proxy TS language service registers `.vue` files as `.vue.ts` virtual paths. Calling either operation with a `.vue` path throws "Could not find source file". Always initiate from a `.ts` file; `.vue` locations appear in the translated output, not the input. To test the `rawLocs.length === 0` null-return path, call from a `.ts` file at a blank-line offset within a Vue project.
 
 **`globToRegex("*.ts")` does NOT match root-level files.**
 The implementation prepends `**/` for patterns without `/`, producing regex `^.*/[^/]*\.ts$`. This requires at least one directory separator before the basename. Root-level files (e.g. `"foo.ts"`) never match. Tests must assert `"src/foo.ts"` not `"foo.ts"`.

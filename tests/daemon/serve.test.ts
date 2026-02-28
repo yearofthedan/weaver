@@ -3,14 +3,9 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { isDaemonAlive, removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath, socketPath } from "../../src/daemon/paths";
-import {
-  cleanup,
-  copyFixture,
-  killDaemon,
-  McpTestClient,
-  spawnAndWaitForReady,
-  waitForDaemon,
-} from "../helpers";
+import { cleanup, copyFixture } from "../helpers.js";
+import { McpTestClient } from "../mcp-helpers.js";
+import { killDaemon, spawnAndWaitForReady, waitForDaemon } from "../process-helpers.js";
 
 describe("serve command — daemon integration", () => {
   const dirs: string[] = [];

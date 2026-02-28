@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { isDaemonAlive, removeDaemonFiles, stopDaemon } from "../../src/daemon/daemon.js";
-import { cleanup, copyFixture, killDaemon, spawnAndWaitForReady } from "../helpers.js";
+import { cleanup, copyFixture } from "../helpers.js";
+import { killDaemon, spawnAndWaitForReady } from "../process-helpers.js";
 
 describe("stopDaemon", () => {
   const dirs: string[] = [];

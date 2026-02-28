@@ -401,4 +401,54 @@ describe("VolarProvider", () => {
     // Either null (no def) or an array — must not throw.
     expect(result === null || Array.isArray(result)).toBe(true);
   }, 30_000);
+
+  it("getDefinitionAtPosition on a template-only .vue file exercises toVirtualLocation !serviceScript fallback", async () => {
+    // A template-only .vue file has no <script> block, so Volar's getServiceScript()
+    // returns null/undefined. This exercises the `if (!serviceScript)` fallback branch
+    // in toVirtualLocation (returns { fileName: virtualPath, pos } safely instead of
+    // trying to access serviceScript.code).
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vue-noscript-"));
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "tsconfig.json"),
+        JSON.stringify({
+          compilerOptions: { strict: true, target: "ESNext", moduleResolution: "bundler" },
+          include: ["src/**/*.ts", "src/**/*.vue"],
+        }),
+      );
+      const vueFile = path.join(tmpDir, "src/NoScript.vue");
+      fs.writeFileSync(vueFile, "<template>\n  <div>Hello</div>\n</template>\n");
+
+      const p = new VolarProvider();
+      // Any position — must not throw even though the file has no TypeScript service script.
+      const result = await p.getDefinitionAtPosition(vueFile, 15);
+      // Template-only: no TypeScript symbols, so result is null or an empty array.
+      // The key assertion is that the call completes without throwing a TypeError
+      // (which would happen if the !serviceScript guard were removed).
+      expect(result === null || Array.isArray(result)).toBe(true);
+      if (Array.isArray(result)) {
+        for (const def of result) {
+          expect(def.fileName).not.toMatch(/\.vue\.ts$/);
+        }
+      }
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it("getRenameLocations returns null for a blank-line position in a .ts file (exercises rawLocs.length === 0 guard)", async () => {
+    // The Volar LS returns undefined/empty for a blank-line position, exercising the
+    // `if (!rawLocs || rawLocs.length === 0) return null` guard in getRenameLocations.
+    // Note: getRenameLocations must be called with a .ts file path — the Volar proxy TS
+    // language service only registers .vue files as virtual .vue.ts paths internally.
+    const dir = setup();
+    const p = new VolarProvider();
+    // main.ts line 2 is blank — Volar TS LS returns undefined there.
+    const file = path.join(dir, "src/main.ts");
+    const content = fs.readFileSync(file, "utf8");
+    const blankLineOffset = content.indexOf("\n\n") + 1;
+    const result = await p.getRenameLocations(file, blankLineOffset);
+    expect(result).toBeNull();
+  }, 30_000);
 });

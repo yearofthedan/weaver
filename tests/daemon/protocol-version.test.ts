@@ -5,13 +5,8 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { isDaemonAlive, PROTOCOL_VERSION, removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath } from "../../src/daemon/paths";
-import {
-  callDaemonSocket,
-  cleanup,
-  copyFixture,
-  killDaemon,
-  spawnAndWaitForReady,
-} from "../helpers";
+import { cleanup, copyFixture } from "../helpers.js";
+import { callDaemonSocket, killDaemon, spawnAndWaitForReady } from "../process-helpers.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "../..");
