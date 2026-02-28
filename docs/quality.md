@@ -48,7 +48,7 @@ Targets are floors, not goals. Mutation score is a better quality signal than li
 
 Use [Stryker](https://stryker-mutator.io/) with vitest (`pnpm test:mutate`) to validate assertion quality. Mutation testing answers "would my tests catch it if this line were wrong?" — a fundamentally different question from coverage.
 
-- **Scope:** All `src/**/*.ts` except: `cli.ts`, `schema.ts`, `types.ts` (declarative/entry-point, no logic to mutate), `mcp.ts`, `daemon/**` (line coverage too low for the full integration-test set — surviving mutants would confirm test absence). Exception: `src/daemon/ensure-daemon.ts` has a dedicated unit-test suite (`tests/daemon/ensure-daemon.test.ts`) and a scoped Stryker config (`stryker-ensure-daemon.mjs`); run it separately.
+- **Scope:** All `src/**/*.ts` except: `cli.ts`, `schema.ts`, `types.ts` (declarative/entry-point, no logic to mutate), `mcp.ts`, and most of `daemon/**` (integration tests spawn CLI binaries unavailable in Stryker's sandbox). `src/daemon/ensure-daemon.ts` is re-included — its tests are pure unit tests that work in the sandbox.
 - **Don't add to `pnpm check`** — a full run takes ~22 minutes. Run periodically or before releases.
 - **Config note:** `disableTypeChecks: false` is required. The default (`true`) prepends `// @ts-nocheck` to files in Stryker's sandbox, shifting line numbers and breaking any test that asserts on line/col positions.
 - **Expect noise from:** string-heavy operations where Stryker's `StringLiteral` mutations produce equivalent mutants (excluded via config). `ArrayDeclaration` mutations are also excluded — replacing an entire constant array with `[]` is a massive structural change that code review catches; individual-entry mutations were already excluded via `StringLiteral`.
