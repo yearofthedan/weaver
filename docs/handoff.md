@@ -36,7 +36,7 @@ An agent discovering new work should add a `[needs design]` entry and move on �
 
 ## Current state
 
-**322/322 tests passing. Mutation score: 80.46% overall (full run as of 322 tests). Per-module highlights: `getDefinition.ts` 93.33%, `searchText.ts` 80.77%, `moveSymbol.ts` 80.58%, `file-walk.ts` 86.67%, `vue-scan.ts` 88.75% (all above threshold), `volar.ts` 76.52% (below 80%; 6 NoCoverage items remain — all ObjectLiteral returns inside Volar-internals defensive null checks that require edge-case `.vue` structures to trigger). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon folder 60.4% statements / 58.65% lines (at threshold); mcp.ts 33.67% (subprocess-level gap remains).** Security controls (sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, action-centric architecture, protocol version check in `ensureDaemon`, mutation testing across `src/operations/`, `src/utils/`, `src/security.ts`, and `src/providers/`, portable `.mcp.json` defaults, npm distribution (`@yearofthedan/light-bridge`), and response contract consistency (success/failure semantics locked in docs and code) are complete. Directory layout matches domain boundaries:
+**332/332 tests passing. Mutation score: 80.46% overall (full run as of 322 tests); `src/daemon/ensure-daemon.ts` 81.36% (scoped run). Per-module highlights: `getDefinition.ts` 93.33%, `searchText.ts` 80.77%, `moveSymbol.ts` 80.58%, `file-walk.ts` 86.67%, `vue-scan.ts` 88.75% (all above threshold), `volar.ts` 76.52% (below 80%; 6 NoCoverage items remain — all ObjectLiteral returns inside Volar-internals defensive null checks that require edge-case `.vue` structures to trigger). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon folder at threshold; mcp.ts subprocess-level gap shrunk (startMcpServer still uncovered).** Security controls (sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, action-centric architecture, protocol version check in `ensureDaemon`, mutation testing across `src/operations/`, `src/utils/`, `src/security.ts`, `src/providers/`, and `src/daemon/ensure-daemon.ts`, portable `.mcp.json` defaults, npm distribution (`@yearofthedan/light-bridge`), and response contract consistency (success/failure semantics locked in docs and code) are complete. Directory layout matches domain boundaries:
 
 ```
 src/
@@ -46,10 +46,11 @@ src/
   security.ts     ← isWithinWorkspace() + isSensitiveFile() — boundary + sensitive file blocklist
   mcp.ts          ← MCP server (connects to daemon)
   daemon/
-    daemon.ts     ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher
-    paths.ts      ← socketPath, lockfilePath, ensureCacheDir only
-    dispatcher.ts ← dispatchRequest; provider singletons; invalidateFile/invalidateAll
-    watcher.ts    ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
+    daemon.ts         ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher
+    ensure-daemon.ts  ← ensureDaemon (version check + auto-spawn); callDaemon (socket client); spawnDaemon
+    paths.ts          ← socketPath, lockfilePath, ensureCacheDir only
+    dispatcher.ts     ← dispatchRequest; provider singletons; invalidateFile/invalidateAll
+    watcher.ts        ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
   operations/
     rename.ts        ← rename(provider, filePath, line, col, newName, workspace)
     findReferences.ts← findReferences(provider, filePath, line, col)
@@ -94,8 +95,6 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 Feature doc: [`quality.md`](quality.md) — covers mutation testing strategy, coverage targets by module, surviving mutants table, and what not to do.
 
 Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/operations/`, `src/utils/`, `src/security.ts`, and `src/providers/` in ~13 minutes. Overall score: **80.46% (full run as of 322 tests)**. See [`quality.md`](quality.md) for the full per-module breakdown, surviving mutants table, and hard-won lessons (including why TypeScript `strict` mode does not kill any surviving mutants).
-
-**9. Coverage improvement: `src/mcp.ts`** — 33.67%. `src/daemon/` is at the 60%+ folder-level target (60.4% statements). The remaining `mcp.ts` gap is in `ensureDaemon`, `startMcpServer`, and `spawnDaemon` — code that only runs when the full MCP server is spawned over stdio. `spawnDaemon` uses `process.execPath` + `dist/cli.js`. Reaching 60% requires either subprocess-level instrumentation or extracting those functions into a separately testable module.
 
 **11. Scope an Agent+MCP eval approach with the owner before building**
 Feature docs: [`quality.md`](quality.md), [`features/mcp-transport.md`](features/mcp-transport.md), [`README.md`](../README.md)
