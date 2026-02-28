@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { replaceText } from "../../src/operations/replaceText.js";
@@ -8,12 +9,17 @@ describe("replaceText operation", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
+  function setup(fixture = "simple-ts") {
+    const dir = copyFixture(fixture);
+    dirs.push(dir);
+    return dir;
+  }
+
   // ─── Pattern mode ───────────────────────────────────────────────────────
 
   describe("pattern mode", () => {
     it("replaces all occurrences across workspace files", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
 
       const before = readFile(dir, "src/utils.ts");
       expect(before).toContain("greetUser");
@@ -36,8 +42,7 @@ describe("replaceText operation", () => {
     });
 
     it("restricts replacement to files matching glob", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
 
       const result = await replaceText(dir, {
         pattern: "greetUser",
@@ -54,8 +59,7 @@ describe("replaceText operation", () => {
     });
 
     it("supports regex capture groups in replacement", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
 
       // Wrap "greetUser" in parens → "GREET(greetUser)"
       const result = await replaceText(dir, {
@@ -70,7 +74,7 @@ describe("replaceText operation", () => {
     });
 
     it("returns empty result when no files match the pattern", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
       dirs.push(dir);
 
       const result = await replaceText(dir, {
@@ -83,7 +87,7 @@ describe("replaceText operation", () => {
     });
 
     it("throws PARSE_ERROR for invalid regex", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
       dirs.push(dir);
 
       await expect(replaceText(dir, { pattern: "[bad", replacement: "x" })).rejects.toMatchObject({
@@ -92,7 +96,7 @@ describe("replaceText operation", () => {
     });
 
     it("throws REDOS for a catastrophic backtracking pattern", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
       dirs.push(dir);
 
       await expect(replaceText(dir, { pattern: "(a+)+$", replacement: "x" })).rejects.toMatchObject(
@@ -101,8 +105,7 @@ describe("replaceText operation", () => {
     });
 
     it("does not modify sensitive files", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
 
       const envPath = path.join(dir, ".env");
       fs.writeFileSync(envPath, "greetUser=secret\n");
@@ -119,7 +122,7 @@ describe("replaceText operation", () => {
     });
 
     it("rejects paths outside the workspace", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
       dirs.push(dir);
 
       // edits array with a file outside workspace
@@ -135,8 +138,7 @@ describe("replaceText operation", () => {
 
   describe("surgical mode", () => {
     it("applies exact text edits at specified locations", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
 
       // utils.ts line 1, col 17: "greetUser"
       const result = await replaceText(dir, {
@@ -159,8 +161,7 @@ describe("replaceText operation", () => {
     });
 
     it("throws TEXT_MISMATCH when oldText does not match", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
 
       await expect(
         replaceText(dir, {
@@ -178,8 +179,7 @@ describe("replaceText operation", () => {
     });
 
     it("applies multiple edits to the same file correctly", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
 
       // utils.ts line 1: "export function greetUser(name: string): string {"
       // "greetUser" at col 17, "name" at col 27, "string" at col 33
@@ -209,8 +209,7 @@ describe("replaceText operation", () => {
     });
 
     it("rejects edits to sensitive files", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
 
       const envPath = path.join(dir, ".env");
       fs.writeFileSync(envPath, "KEY=value\n");
@@ -223,8 +222,7 @@ describe("replaceText operation", () => {
     });
 
     it("throws WORKSPACE_VIOLATION for edits outside workspace", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
+      const dir = setup();
 
       await expect(
         replaceText(dir, {
@@ -234,7 +232,7 @@ describe("replaceText operation", () => {
     });
 
     it("requires either pattern+replacement or edits", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
       dirs.push(dir);
 
       await expect(replaceText(dir, {})).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
