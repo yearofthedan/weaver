@@ -102,9 +102,15 @@ The SDK ships `zod-compat` and accepts both Zod v3 and v4 schemas. Pass Zod v3 s
 `handleSocketRequest` in `daemon.ts` intercepts `method === "ping"` before calling `dispatchRequest`, returning `{ ok: true, version: PROTOCOL_VERSION }` directly. This avoids adding `ping` to the `OPERATIONS` table and keeps the dispatcher clean of protocol-level concerns.
 
 **`PROTOCOL_VERSION` lives in `daemon.ts`; increment it whenever the operation set changes.**
-Both the daemon (ping handler) and `mcp.ts` (`ensureDaemon`) import it from there. `ensureDaemon` uses a `versionVerified` module-level flag so the ping check runs only once per daemon process lifetime. Reset the flag whenever the daemon is detected as dead so the next spawn is re-verified.
+Both the daemon (ping handler) and `ensure-daemon.ts` (`ensureDaemon`) import it from there. `ensureDaemon` uses a `versionVerified` module-level flag so the ping check runs only once per daemon process lifetime. Reset the flag whenever the daemon is detected as dead so the next spawn is re-verified.
 
-**`stopDaemon` is the canonical way to kill a daemon from `mcp.ts`.**
+**`mockReturnValue` vs `mockImplementation` for fake child processes with async gaps.**
+If the code under test calls an async operation (e.g. a socket ping) before calling `spawn`, the fake child returned by `mockReturnValue(makeFakeChild())` will have its `setTimeout(0)` fire *before* `child.stderr.on("data", ...)` is registered — the ready event is missed and `spawnDaemon` times out. Fix: use `mockImplementation(() => makeFakeChild())` so the child (and its timer) is created at the moment `spawn` is called, not at test-setup time. Rule of thumb: whenever there is an `await` between calling `mockReturnValue` and the code that sets up event listeners on the returned object, use `mockImplementation` instead.
+
+**`vi.resetModules()` + dynamic `import()` in `beforeEach` is the correct pattern for module-level state reset.**
+`ensure-daemon.ts` (and similar modules) use a module-level `let versionVerified = false`. Tests that exercise the "already verified" path require controlling this flag between test cases. The correct approach: call `vi.resetModules()` in `beforeEach`, then `const mod = await import("...")` to get a fresh module instance. Registered `vi.mock()` factories remain active after `vi.resetModules()` (mock registry is separate from module instance cache), so mocked dependencies continue to work. Do NOT export the flag for testing — that is the antipattern this pattern replaces.
+
+**`stopDaemon` is the canonical way to kill a daemon from `ensure-daemon.ts`.**
 Exported from `daemon.ts`. Reads the lockfile PID, sends SIGTERM, polls until `isDaemonAlive` returns false (up to 5s), then calls `removeDaemonFiles`. Avoids duplicating the kill-and-wait logic from `runStop`.
 
 **Process-entry-point coverage gap is inherent, not a test gap.**

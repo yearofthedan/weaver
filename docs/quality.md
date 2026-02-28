@@ -48,7 +48,7 @@ Targets are floors, not goals. Mutation score is a better quality signal than li
 
 Use [Stryker](https://stryker-mutator.io/) with vitest (`pnpm test:mutate`) to validate assertion quality. Mutation testing answers "would my tests catch it if this line were wrong?" — a fundamentally different question from coverage.
 
-- **Scope:** All `src/**/*.ts` except: `cli.ts`, `schema.ts`, `types.ts` (declarative/entry-point, no logic to mutate), `mcp.ts`, `daemon/**` (line coverage too low — surviving mutants would just confirm test absence).
+- **Scope:** All `src/**/*.ts` except: `cli.ts`, `schema.ts`, `types.ts` (declarative/entry-point, no logic to mutate), `mcp.ts`, `daemon/**` (line coverage too low for the full integration-test set — surviving mutants would confirm test absence). Exception: `src/daemon/ensure-daemon.ts` has a dedicated unit-test suite (`tests/daemon/ensure-daemon.test.ts`) and a scoped Stryker config (`stryker-ensure-daemon.mjs`); run it separately.
 - **Don't add to `pnpm check`** — a full run takes ~22 minutes. Run periodically or before releases.
 - **Config note:** `disableTypeChecks: false` is required. The default (`true`) prepends `// @ts-nocheck` to files in Stryker's sandbox, shifting line numbers and breaking any test that asserts on line/col positions.
 - **Expect noise from:** string-heavy operations where Stryker's `StringLiteral` mutations produce equivalent mutants (excluded via config). `ArrayDeclaration` mutations are also excluded — replacing an entire constant array with `[]` is a massive structural change that code review catches; individual-entry mutations were already excluded via `StringLiteral`.
@@ -58,6 +58,18 @@ Use [Stryker](https://stryker-mutator.io/) with vitest (`pnpm test:mutate`) to v
 #### Known surviving mutants (current)
 
 Fixed gaps are removed. Remaining survivors by category:
+
+**`ensure-daemon.ts` (scoped run, 81.36%):**
+
+| Area | Survivor | Why accepted |
+|------|----------|-------------|
+| `ensure-daemon.ts` | `versionVerified = false → true` in stale-socket cleanup | Intermediate state. After cleanup, the `if (isDaemonAlive)` block is skipped and `spawnDaemon` runs unconditionally; whether `versionVerified` is true or false at that point doesn't change observable behavior for the current call. |
+| `ensure-daemon.ts` | `versionVerified = false → true` / `true → false` assignments inside version-mismatch and version-match branches | Same class — intermediate assignments between two unconditional fall-throughs. Not observable without exporting `versionVerified`. |
+| `ensure-daemon.ts` | `callDaemon(sockPath, {} , ...)` — ping request body emptied | Test servers respond based on version number, not request format. Not observable within the unit-test boundary; the daemon validates the method field in integration. |
+| `ensure-daemon.ts` | `if (nl !== -1) → if (true)` and `if (nl !== +1)` | Equivalent mutants for all test responses (response length >> 1, so `nl > 1` always). |
+| `ensure-daemon.ts` | `resolve(JSON.parse(buf))` instead of `resolve(JSON.parse(buf.slice(0, nl)))` | `JSON.parse` tolerates trailing whitespace; functionally identical for single-response test cases. |
+| `ensure-daemon.ts` | `.trim()` variants of the `stderrBuf.slice(consumed, newline).trim()` line | Only observable with multi-line or whitespace-padded stderr output from the spawned process. Single-line ready signal in tests makes both variants equivalent. |
+| `ensure-daemon.ts` | `NoCoverage` — timer callback and JSON-parse catch in `spawnDaemon` | Timer fires after 30s (no fake-timer tests for the timeout path); JSON-parse catch only fires on truly malformed stderr (never in production). |
 
 **Accepted / low-risk (noise):**
 

@@ -288,6 +288,7 @@ src/
 ├── mcp.ts                 # MCP server (connects to daemon)
 ├── daemon/
 │   ├── daemon.ts          # Socket server; daemon lifecycle
+│   ├── ensure-daemon.ts   # ensureDaemon, callDaemon, spawnDaemon
 │   ├── paths.ts           # Socket/lockfile path utilities
 │   ├── dispatcher.ts      # Data-driven operation dispatch
 │   └── watcher.ts         # Filesystem watcher + invalidation callbacks
