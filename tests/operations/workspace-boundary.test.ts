@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { moveFile } from "../../src/operations/moveFile.js";
 import { rename } from "../../src/operations/rename.js";
 import { TsProvider } from "../../src/providers/ts.js";
-import { cleanup, copyFixture, readFile } from "../helpers";
+import { cleanup, copyFixture, readFile } from "../helpers.js";
 
 describe("workspace boundary enforcement", () => {
   const dirs: string[] = [];

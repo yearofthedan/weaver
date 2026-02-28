@@ -9,7 +9,8 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isDaemonAlive, removeDaemonFiles, runDaemon, runStop } from "../../src/daemon/daemon.js";
-import { cleanup, copyFixture, killDaemon, spawnAndWaitForReady } from "../helpers.js";
+import { cleanup, copyFixture } from "../helpers.js";
+import { killDaemon, spawnAndWaitForReady } from "../process-helpers.js";
 
 // ─── runStop ─────────────────────────────────────────────────────────────────
 

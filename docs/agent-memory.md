@@ -68,6 +68,15 @@ Multiple edits to the same file must be applied last-position-first so that byte
 **`newName` regex must be enforced at the MCP layer too.**
 `schema.ts` had the identifier regex but `mcp.ts` previously only had `z.string()`. MCP input validation and schema.ts must stay consistent — check both when changing validation rules.
 
+**`VolarProvider.getRenameLocations` / `getReferencesAtPosition` require `.ts` file paths, not `.vue` paths.**
+The Volar proxy TS language service registers `.vue` files as `.vue.ts` virtual paths internally. Calling `findRenameLocations` or `getReferencesAtPosition` with a `.vue` path throws "Could not find source file: X.vue". Both operations must be initiated from a `.ts` file; `.vue` results in the output are then translated via `translateLocations`. Only `getDefinitionAtPosition` requires explicit `.vue` → `.vue.ts` translation on input (via `toVirtualLocation`) because Volar doesn't auto-translate it.
+
+**Template-only `.vue` files (no `<script>` block) exercise `toVirtualLocation` fallback branches.**
+A `.vue` file with only a `<template>` block has `sourceScript.generated.languagePlugin.typescript?.getServiceScript()` return null (no TypeScript service script generated). This triggers the `if (!serviceScript) return { fileName: virtualPath, pos }` fallback in `toVirtualLocation`. Useful for mutation testing coverage of those branches. Create via `fs.mkdtempSync` with a minimal tsconfig; the `buildVolarService` directory scan picks up all `.vue` files in the project root automatically.
+
+**Test helpers are split into three files by concern.**
+`tests/helpers.ts` — fixture I/O only (`copyFixture`, `cleanup`, `readFile`, `fileExists`, `PROJECT_ROOT`). `tests/process-helpers.ts` — CLI spawn and daemon helpers (`spawnAndWaitForReady`, `waitForDaemon`, `killDaemon`, `callDaemonSocket`, `runCliCommand`). `tests/mcp-helpers.ts` — MCP client (`McpTestClient`, `parseMcpResult`, `useMcpContext`). Import from the appropriate module; `mcp-helpers` imports from both others.
+
 ---
 
 ## Architecture decisions
@@ -81,7 +90,7 @@ The MCP handler passes `tool.name` directly as the daemon method. There is no tr
 Extracted from the inline loop in `rename`; reused by `findReferences` and `getDefinition`. Any future operation that reads positions from a Vue project should call this method rather than duplicating the source-map traversal.
 
 **SDK wire format is newline-delimited JSON, not Content-Length framed.**
-`StdioServerTransport` sends/reads `JSON.stringify(msg) + '\n'`. There is no `Content-Length` header. `McpTestClient` in `tests/helpers.ts` must match this format.
+`StdioServerTransport` sends/reads `JSON.stringify(msg) + '\n'`. There is no `Content-Length` header. `McpTestClient` in `tests/mcp-helpers.ts` must match this format.
 
 **SDK is Zod v3/v4 agnostic.**
 The SDK ships `zod-compat` and accepts both Zod v3 and v4 schemas. Pass Zod v3 schemas from `src/schema.ts` directly to `registerTool` — no version conflict.

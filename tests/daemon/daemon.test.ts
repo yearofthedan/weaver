@@ -3,13 +3,8 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath, socketPath } from "../../src/daemon/paths";
-import {
-  callDaemonSocket,
-  cleanup,
-  copyFixture,
-  killDaemon,
-  spawnAndWaitForReady,
-} from "../helpers";
+import { cleanup, copyFixture } from "../helpers.js";
+import { callDaemonSocket, killDaemon, spawnAndWaitForReady } from "../process-helpers.js";
 
 const WORKSPACE_FIXTURE = "simple-ts";
 
