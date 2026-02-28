@@ -54,13 +54,13 @@ Use [Stryker](https://stryker-mutator.io/) with vitest (`pnpm test:mutate`) to v
 - **Expect noise from:** string-heavy operations where Stryker's `StringLiteral` mutations produce equivalent mutants (excluded via config).
 - **Target mutation score:** 80%+ on scoped modules. Below 60% indicates real assertion gaps worth fixing.
 
-#### Mutation scores (as of 309 tests)
+#### Mutation scores (as of 322 tests)
 
 Full run after mutation round 3. Run `pnpm test:mutate` for a fresh score.
 
 | Module | Score (total) | Score (covered) | Notes |
 |--------|--------------|-----------------|-------|
-| All scoped files | **80.11%** | 82.96% | Full run; 309 tests |
+| All scoped files | **80.46%** | — | Full run; 322 tests |
 | `security.ts` | 82.19% | 88.24% | Above threshold |
 | `utils/text-utils.ts` | **100%** | 100% | Clean |
 | `utils/assert-file.ts` | **100%** | 100% | Clean |
@@ -131,6 +131,12 @@ After `pnpm test:mutate`, Biome errors with "Found a nested root configuration" 
 
 **`disableTypeChecks: false` is required in the Stryker config.**
 The default (`true`) prepends `// @ts-nocheck` to files in Stryker's sandbox, shifting line numbers and breaking any test that asserts on line/col positions.
+
+**`strict: true` does not kill mutants — TypeScript provides no mutation coverage.**
+`disableTypeChecks: false` only prevents the `// @ts-nocheck` line-shift; it does not run `tsc --noEmit` on mutated files. vitest uses esbuild for transpilation (strips types, no type checking). Confirmed by 0 CompileErrors across all modules. Two practical implications:
+- **Null-guard survivors** (`if (!locs || locs.length === 0)` etc.) — the return type is `SpanLocation[] | null`. TypeScript *requires* these guards; they are not dead code. They survive because the TS LS never returns null for in-range positions at runtime, not because TypeScript covers the null case.
+- **Arithmetic / sort survivors** (`offset + len → offset - len`, sort comparators) — both variants are type-valid `number` expressions; TypeScript cannot distinguish semantic direction. Only tests can kill these.
+"TypeScript covers this" is never a valid acceptance argument for a surviving mutant.
 
 **TypeScript LS never returns empty/null for in-range positions.**
 `getRenameLocations`, `getReferencesAtPosition`, and `getDefinitionAtPosition` all guard against null/empty results. In practice the TS LS navigates contextually to the nearest symbol for any position within a declaration. The `if (!locs || locs.length === 0)` guards are defensive dead code; accept them as survivors.
