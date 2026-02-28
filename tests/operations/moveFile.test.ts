@@ -80,6 +80,8 @@ describe("moveFile action", () => {
       dirs.push(dir);
       const provider = new TsProvider();
 
+      // This file has a specific structure (comment containing the same path as the import)
+      // that would pollute the shared fixture with a special-case artefact
       // Create an out-of-project file with both an import and a comment referencing the same path
       const extraTestFile = path.join(dir, "tests", "import-with-comment.ts");
       fs.writeFileSync(

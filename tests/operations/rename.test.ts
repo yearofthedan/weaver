@@ -123,6 +123,7 @@ describe("rename action", () => {
       const dir = vueSetup();
       const provider = new VolarProvider();
 
+      // dist/ is conventionally gitignored so it can't live in the committed fixture
       fs.mkdirSync(`${dir}/dist`, { recursive: true });
       fs.writeFileSync(
         `${dir}/dist/App.vue`,
