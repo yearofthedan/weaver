@@ -12,24 +12,15 @@ const config = {
     related: false,
   },
   mutate: [
-    "src/security.ts",
-    "src/utils/errors.ts",
-    "src/utils/text-utils.ts",
-    "src/utils/file-walk.ts",
-    "src/utils/relative-path.ts",
-    "src/utils/assert-file.ts",
-    "src/utils/ts-project.ts",
-    "src/operations/searchText.ts",
-    "src/operations/replaceText.ts",
-    "src/operations/rename.ts",
-    "src/operations/findReferences.ts",
-    "src/operations/getDefinition.ts",
-    "src/operations/moveFile.ts",
-    "src/operations/moveSymbol.ts",
-    "src/providers/ts.ts",
-    "src/providers/vue-scan.ts",
-    "src/providers/volar.ts",
-    "src/providers/vue-service.ts",
+    "src/**/*.ts",
+    // Declarative / entry-point files: no logic to mutate
+    "!src/cli.ts",
+    "!src/schema.ts",
+    "!src/types.ts",
+    // Daemon + MCP: line coverage too low — surviving mutants would just
+    // confirm test absence, not real gaps
+    "!src/mcp.ts",
+    "!src/daemon/**/*.ts",
   ],
   // Exclude MCP/daemon integration tests — they spawn CLI binaries that
   // aren't available in Stryker's sandbox.
