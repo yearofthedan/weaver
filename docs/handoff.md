@@ -18,7 +18,11 @@ Context that isn't in the feature docs — things you need to know before pickin
 4. [`docs/architecture.md`](architecture.md) — provider/operation architecture; read before touching anything in `src/`
 5. [`docs/quality.md`](quality.md) — testing and reliability expectations
 
-**Picking up a task?** Each item in "Next things to build" links to its feature doc. The feature doc is the detailed spec — start there, then come back to the task entry for the implementation notes that aren't in the doc. If no feature doc is linked, writing the design doc is the first step.
+**Picking up a task?** Tasks are at one of two levels:
+- **`[needs design]`** — the problem is understood but the solution isn't. First move: propose a design and acceptance criteria to the user. Do not write code until ACs are agreed.
+- **No tag** — has acceptance criteria, ready to implement. Read the linked feature doc, then use the task entry for implementation notes not in the doc.
+
+An agent discovering new work should add a `[needs design]` entry and move on — do not block on designing it in the same session.
 
 **Finishing a task?** Before committing, verify:
 1. Remove the task from the backlog below (or move to P5 if accepted/deferred)
@@ -118,16 +122,15 @@ Acceptance criteria:
 
 ### P3 — High-value features
 
-**9. `findReferences` by file path**
+**9. `findReferences` by file path** `[needs design]`
 Feature doc: [`features/findReferences.md`](features/findReferences.md) — covers the symbol-position variant; the file-path variant needs a design section added.
 "Who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
 
-**9. `moveSymbol` for class methods**
+**9. `moveSymbol` for class methods** `[needs design]`
 Feature doc: [`features/moveSymbol.md`](features/moveSymbol.md) — covers the current top-level-export behaviour; class method extraction needs a design section added.
 Currently only top-level exported declarations are supported. "Extract this method to a standalone exported function in another module" is one of the most common refactoring patterns agents perform. The extraction involves removing the method from the class, writing a standalone `export function` at the destination, rewriting all call sites from `instance.method(args)` to `method(instance, args)` or `method(args)` depending on whether `this` is used. The ts-morph AST has everything needed: `MethodDeclaration`, `CallExpression`, `this` references. Discovered during Phase 2 dogfooding — `BaseEngine` methods couldn't be extracted with `moveSymbol` because they were class methods, not top-level exports.
 
-**10. `deleteFile`**
-Feature doc: none yet — write the design doc as the first step.
+**10. `deleteFile`** `[needs design]`
 Remove a file and clean up its imports in referencing files. Simpler than `createFile` (no scaffolding logic); the compiler already knows all importers via `getEditsForFileRename`.
 
 ---
@@ -142,12 +145,10 @@ Feature docs: [`architecture.md`](architecture.md), [`tech/volar-v3.md`](tech/vo
 Feature doc: [`features/moveSymbol.md`](features/moveSymbol.md)
 Moving a top-level export *from* a `.ts` file in a Vue project is complete — ts-morph handles `.ts` importers; `VolarProvider.afterSymbolMove` patches `.vue` SFC importers. The remaining case is a symbol declared *inside* a `.vue` `<script setup>` block: use `@vue/compiler-sfc`'s `parse()` to locate and splice the `<script>` block (`@vue/language-core` re-exports it; already a transitive dep). Moving *into* a `.vue` destination is not worth supporting. Depends on #11.
 
-**13. `createFile`**
-Feature doc: none yet — write the design doc as the first step.
+**13. `createFile`** `[needs design]`
 Scaffold a file with correct import paths inferred from its location.
 
-**14. `extractFunction`**
-Feature doc: none yet — write the design doc as the first step.
+**14. `extractFunction`** `[needs design]`
 Pull a selection into a named function, updating the call site. High potential value but AST-level code generation is complex across all call-site shapes; wait until P1–P3 are stable.
 
 **15. Claude Code plugin distribution**

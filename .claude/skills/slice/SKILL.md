@@ -5,12 +5,17 @@ description: Execute the next vertical slice from handoff.md — confirms the ta
 
 # Next Slice Workflow
 
-1. Read docs/handoff.md — identify the FIRST uncompleted task
-2. Confirm the exact task with the user BEFORE writing any code
-3. Write failing tests first that define the expected behaviour
+1. Read `docs/handoff.md` — identify the FIRST uncompleted task
+2. Confirm the exact task with the user BEFORE writing any code. If the task has no acceptance criteria, draft them with the user before proceeding.
+3. **Write failing tests first.** For each test:
+   - State in the `it`/`describe` label what specific behaviour is being specified
+   - Ask: "What would have to be wrong in the implementation for this test to still pass?" Add at least one assertion that answers that — pin exact values, boundary conditions, or the absence of something
+   - A test that only verifies a result exists is incomplete — assert the shape, a boundary case, and at least one error/edge path
+   - Before moving to implementation: review the test file as a whole. Would a logic inversion (`>` → `>=`, `+` → `-`, a null guard flipped) survive undetected? If yes, add a test that would catch it.
 4. Implement the minimum code to make each test pass, one at a time
-5. Run `pnpm check` (this runs biome check + build + test all together) — all must pass before continuing
-6. Remove the completed slice from docs/handoff.md and update the "Current state" section (test count, layout changes)
-7. Update docs/agent-memory.md with any architectural decisions made
-8. Commit with a conventional commit message
-9. Do NOT proceed to the next slice without explicit user approval
+5. Run `pnpm check` (biome check + build + test) — all must pass before continuing
+6. Run `pnpm test:mutate` scoped to the files changed in this slice. If the score is below threshold, add tests — do not adjust the threshold or add survivors to `docs/quality.md` without explaining why the gap is accepted.
+7. Remove the completed slice from `docs/handoff.md` and update the "Current state" section (test count, layout changes). Update any affected feature docs.
+8. Update `docs/agent-memory.md` with any architectural decisions or non-obvious gotchas discovered
+9. Commit with a conventional commit message (see `CLAUDE.md`)
+10. Do NOT proceed to the next slice without explicit user approval
