@@ -122,6 +122,9 @@ The `McpServer` constructor takes an optional `instructions` string (part of the
 **Tool descriptions should lead with triggers, not capabilities.**
 "Before modifying a symbol, call this" is more effective than "Find all references to a symbol" because it matches the agent's situation at the point of decision. Avoid naming specific agent tools (grep, shell mv, search-and-replace) — frame the consequence of not using the tool instead ("leaves broken imports", "text search would find the re-export, not the actual definition").
 
+**Do not record test-run scores in docs — they go stale immediately.**
+Tracking per-module mutation scores in `docs/quality.md` caused real harm: a doc-update commit copied stale round-3 numbers (80.46%) into the round-4 section, then a rebase conflict resolver chose the "newer" (wrong) main-branch version, silently discarding the actual round-4 result (76.80%). The `break` threshold in `stryker.config.mjs` is the only authoritative, machine-verified floor. Everything else belongs to the "Worth fixing" and "Accepted survivors" sections, which describe *why* a gap exists and *how* to fix it — information that doesn't go stale between runs.
+
 ---
 
 ## Memory storage

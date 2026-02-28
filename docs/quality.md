@@ -48,35 +48,12 @@ Targets are floors, not goals. Mutation score is a better quality signal than li
 
 Use [Stryker](https://stryker-mutator.io/) with vitest (`pnpm test:mutate`) to validate assertion quality. Mutation testing answers "would my tests catch it if this line were wrong?" — a fundamentally different question from coverage.
 
-- **Scope:** `src/security.ts`, `src/utils/` (all files: `errors.ts`, `text-utils.ts`, `file-walk.ts`, `relative-path.ts`, `assert-file.ts`, `ts-project.ts`), `src/operations/`, `src/providers/` (all files including `vue-service.ts`). Excludes `src/daemon/` and `src/mcp.ts` (line coverage too low — surviving mutants would just confirm test absence).
+- **Scope:** All `src/**/*.ts` except: `cli.ts`, `schema.ts`, `types.ts` (declarative/entry-point, no logic to mutate), `mcp.ts`, `daemon/**` (line coverage too low — surviving mutants would just confirm test absence).
 - **Don't add to `pnpm check`** — a full run takes ~22 minutes. Run periodically or before releases.
 - **Config note:** `disableTypeChecks: false` is required. The default (`true`) prepends `// @ts-nocheck` to files in Stryker's sandbox, shifting line numbers and breaking any test that asserts on line/col positions.
 - **Expect noise from:** string-heavy operations where Stryker's `StringLiteral` mutations produce equivalent mutants (excluded via config). `ArrayDeclaration` mutations are also excluded — replacing an entire constant array with `[]` is a massive structural change that code review catches; individual-entry mutations were already excluded via `StringLiteral`.
 - **Target mutation score:** 80%+ on scoped modules. Below 60% indicates real assertion gaps worth fixing. `break` threshold in CI is set to 75 (floor, not target).
-
-#### Mutation scores (as of 322 tests)
-
-Full run after mutation round 4 (scope expanded). Run `pnpm test:mutate` for a fresh score.
-
-| Module | Score (total) | Score (covered) | Notes |
-|--------|--------------|-----------------|-------|
-| All scoped files | **80.46%** | — | Full run; 322 tests |
-| `security.ts` | 82.19% | 88.24% | Above threshold |
-| `utils/text-utils.ts` | **100%** | 100% | Clean |
-| `utils/assert-file.ts` | **100%** | 100% | Clean |
-| `utils/file-walk.ts` | **96.00%** | 96.00% | Above threshold ↑ |
-| `utils/relative-path.ts` | 75.00% | 75.00% | Below threshold |
-| `utils/ts-project.ts` | 56.52% | 86.67% | Below threshold (new in scope) — 8 no-coverage mutants |
-| `operations/moveFile.ts` | 86.67% | 92.86% | Above threshold |
-| `operations/moveSymbol.ts` | 80.20% | 81.00% | Above threshold |
-| `operations/rename.ts` | 77.27% | 80.95% | Near threshold |
-| `operations/replaceText.ts` | 76.84% | 81.11% | Near threshold |
-| `operations/findReferences.ts` | 76.47% | 81.25% | Near threshold |
-| `operations/getDefinition.ts` | **93.33%** | 93.33% | Above threshold |
-| `operations/searchText.ts` | **80.77%** | 85.71% | Above threshold |
-| `providers/ts.ts` | 71.03% | 72.03% | Caching + out-of-project scan gaps |
-| `providers/volar.ts` | 76.52% | 80.73% | Below threshold ↑ (was 71.30% / 73.91%) |
-| `providers/vue-scan.ts` | 88.75% | 91.03% | Above threshold |
+- **Current score:** Run `pnpm test:mutate` — scores are not tracked in this file to avoid stale data.
 
 #### Known surviving mutants (current)
 
@@ -109,18 +86,10 @@ Fixed gaps are removed. Remaining survivors by category:
 
 | Area | Gap |
 |------|-----|
-| `providers/volar.ts` | 76.52% — 21 surviving mutants, 6 NoCoverage. The 6 NoCoverage items are all ObjectLiteral mutations (`return {}`) in defensive null-check early returns inside `toVirtualLocation` and `translateSingleLocation` (lines 44, 47, 52, 59, 67, 72). Triggering them requires edge-case `.vue` structures deep in Volar internals: a `.vue` file absent from the virtual map (line 44), `sourceScript.generated === null` for a file that IS in the map (lines 47, 67), and `getServiceScript()` returning null with non-null `generated` (lines 52, 72). Template-only `.vue` files hit line 47 (not 52), because `sourceScript` itself is null for files without any Volar-processable block. |
-| `operations/rename.ts` | 78.26% — near threshold; one more round may push it over |
-| `operations/findReferences.ts` | 76.47% — near threshold |
-
-**Resolved (moved above 80% threshold):**
-
-| Area | Before | After | What killed the survivors |
-|------|--------|-------|--------------------------|
-| `operations/getDefinition.ts` | 73.33% | **93.33%** | Added SYMBOL_NOT_FOUND test for blank-line position (kills `!defs` null guard); added VolarProvider out-of-range line test (kills `resolveOffset` catch block) |
-| `operations/searchText.ts` | 70.19% | **80.77%** | Added `globToRegex` unit tests (kills glob-regex construction mutants); binary file skip test (kills `isBinaryBuffer` null-byte check); context-boundary tests (kills `Math.max/min` clamp mutants); non-git workspace test (kills `walkRecursive` fallback path) |
-| `utils/file-walk.ts` | 76.67% | **86.67%** | Added gitignored non-SKIP_DIRS dir test (kills `BlockStatement`/`ArrayDeclaration` mutants on the git-path `if` body — the recursive fallback includes such dirs since it ignores `.gitignore`) |
-| `operations/moveSymbol.ts` | 72.82% | **80.58%** | Added test for dest-file-in-importers guard (`filePath === absDest`); dirty-files-loop filesSkipped with out-of-workspace source; test for `export const` symbol (kills `Node.isVariableDeclaration` branch mutants); test for importer importing only other symbols (kills `specifiers.length > 0 → >= 0`) |
+| `providers/volar.ts` | 6 NoCoverage ObjectLiteral mutations (`return {}`) in defensive null-check early returns inside `toVirtualLocation` and `translateSingleLocation` (lines 44, 47, 52, 59, 67, 72). Triggering them requires edge-case `.vue` structures deep in Volar internals: a `.vue` file absent from the virtual map (line 44), `sourceScript.generated === null` for a file that IS in the map (lines 47, 67), and `getServiceScript()` returning null with non-null `generated` (lines 52, 72). Template-only `.vue` files hit line 47 (not 52), because `sourceScript` itself is null for files without any Volar-processable block. |
+| `utils/ts-project.ts` | 8 no-coverage mutants; score is well below threshold. Unblocked — add tests for `findTsConfig` walk-up loop and `isVueProject` cache. |
+| `operations/rename.ts` | Near threshold; one more round may push it over. |
+| `operations/findReferences.ts` | Near threshold. |
 
 ### Hard-won mutation lessons
 
