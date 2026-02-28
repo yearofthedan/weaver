@@ -32,8 +32,8 @@ For repo-committed `.mcp.json`, use a workspace-relative launch command so the s
   "mcpServers": {
     "light-bridge": {
       "type": "stdio",
-      "command": "pnpm",
-      "args": ["exec", "tsx", "src/cli.ts", "serve", "--workspace", "."]
+      "command": "light-bridge",
+      "args": ["serve", "--workspace", "."]
     }
   }
 }

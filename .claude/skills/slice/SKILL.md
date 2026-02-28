@@ -15,7 +15,13 @@ description: Execute the next vertical slice from handoff.md — confirms the ta
 4. Implement the minimum code to make each test pass, one at a time
 5. Run `pnpm check` (biome check + build + test) — all must pass before continuing
 6. Run `pnpm test:mutate` scoped to the files changed in this slice. If the score is below threshold, add tests — do not adjust the threshold or add survivors to `docs/quality.md` without explaining why the gap is accepted.
-7. Remove the completed slice from `docs/handoff.md` and update the "Current state" section (test count, layout changes). Update any affected feature docs.
+7. **Doc sync** — run through this checklist before committing:
+   - [ ] Remove the completed slice from `docs/handoff.md`; update the "Current state" section (test count, layout changes)
+   - [ ] **MCP tool added/renamed/removed** → update `README.md` tool table and `docs/features/mcp-transport.md` tool table
+   - [ ] **CLI command added/renamed/removed** → update `README.md` CLI Commands section and `docs/features/cli.md`
+   - [ ] **Error code added/removed** → update `README.md` Error codes section
+   - [ ] **Source layout changed** (new file, renamed/moved file) → update `README.md` Project structure and `docs/handoff.md` "Current state" layout
+   - [ ] **Any other feature doc** that references changed code: update it
 8. Update `docs/agent-memory.md` with any architectural decisions or non-obvious gotchas discovered
 9. Commit with a conventional commit message (see `CLAUDE.md`)
 10. Do NOT proceed to the next slice without explicit user approval
