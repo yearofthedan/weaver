@@ -74,7 +74,7 @@ Full run after mutation round 3. Run `pnpm test:mutate` for a fresh score.
 | `operations/getDefinition.ts` | **93.33%** | 93.33% | Above threshold |
 | `operations/searchText.ts` | **80.77%** | 85.71% | Above threshold |
 | `providers/ts.ts` | 71.03% | 72.03% | Caching + out-of-project scan gaps |
-| `providers/volar.ts` | 73.91% | 77.98% | Below threshold ↑ (was 71.30%) |
+| `providers/volar.ts` | 76.52% | 80.73% | Below threshold ↑ (was 71.30% / 73.91%) |
 | `providers/vue-scan.ts` | 88.75% | 91.03% | Above threshold |
 
 #### Known surviving mutants (current)
@@ -109,7 +109,7 @@ Fixed gaps are removed. Remaining survivors by category:
 
 | Area | Gap |
 |------|-----|
-| `providers/volar.ts` | 73.91% — 24 surviving mutants, most accepted (see below). `rawRefs.length === 0` and `textChanges.length > 0` guards need fixtures that produce zero-result or zero-change LS responses. Getting above 80% requires addressing the no-coverage items (toVirtualLocation fallback branches for non-standard `.vue` files with no `<script>` block). |
+| `providers/volar.ts` | 76.52% — 21 surviving mutants, 6 NoCoverage. The 6 NoCoverage items are all ObjectLiteral mutations (`return {}`) in defensive null-check early returns inside `toVirtualLocation` and `translateSingleLocation` (lines 44, 47, 52, 59, 67, 72). Triggering them requires edge-case `.vue` structures deep in Volar internals: a `.vue` file absent from the virtual map (line 44), `sourceScript.generated === null` for a file that IS in the map (lines 47, 67), and `getServiceScript()` returning null with non-null `generated` (lines 52, 72). Template-only `.vue` files hit line 47 (not 52), because `sourceScript` itself is null for files without any Volar-processable block. |
 | `operations/rename.ts` | 78.26% — near threshold; one more round may push it over |
 | `operations/findReferences.ts` | 76.47% — near threshold |
 
