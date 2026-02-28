@@ -118,6 +118,9 @@ Acceptance criteria:
 - scope is explicitly approved by the owner before implementation work starts
 - the first implementation task in handoff references that approved scope doc instead of assuming a fixed eval architecture
 
+**12. Agent triage on mutation score warning** `[needs design]`
+When the Quality Feedback workflow warns (score below threshold), trigger a Claude Code agent run to inspect surviving mutants and either open a GitHub issue summarising gaps or attempt a fix branch. Key design questions: report-only vs auto-fix, what artifact the agent receives (HTML report, JSON report, or inline Stryker run), and guardrails on which files it can touch. Uses `claude-code-action` in a second job conditioned on the mutation step outcome.
+
 ---
 
 ### P3 — High-value features
