@@ -17,10 +17,13 @@ const config = {
     "!src/cli.ts",
     "!src/schema.ts",
     "!src/types.ts",
-    // Daemon + MCP: line coverage too low — surviving mutants would just
-    // confirm test absence, not real gaps
+    // Daemon + MCP: integration tests spawn CLI binaries not available in
+    // Stryker's sandbox — surviving mutants would confirm test absence.
+    // Exception: ensure-daemon.ts has a pure unit-test suite (no subprocess
+    // spawning) so it can be mutation-tested with the standard runner.
     "!src/mcp.ts",
     "!src/daemon/**/*.ts",
+    "src/daemon/ensure-daemon.ts",
   ],
   // Exclude MCP/daemon integration tests — they spawn CLI binaries that
   // aren't available in Stryker's sandbox.
@@ -29,6 +32,9 @@ const config = {
     "tests/utils/**/*.test.ts",
     "tests/operations/**/*.test.ts",
     "tests/providers/**/*.test.ts",
+    // ensure-daemon unit tests: mock-based, no subprocess spawning
+    "tests/daemon/ensure-daemon.test.ts",
+    "tests/mcp/call-daemon-timeout.test.ts",
   ],
   mutator: {
     excludedMutations: ["StringLiteral", "ArrayDeclaration"],
