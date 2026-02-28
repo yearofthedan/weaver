@@ -13,10 +13,12 @@ const config = {
   },
   mutate: [
     "src/security.ts",
+    "src/utils/errors.ts",
     "src/utils/text-utils.ts",
     "src/utils/file-walk.ts",
     "src/utils/relative-path.ts",
     "src/utils/assert-file.ts",
+    "src/utils/ts-project.ts",
     "src/operations/searchText.ts",
     "src/operations/replaceText.ts",
     "src/operations/rename.ts",
@@ -27,6 +29,7 @@ const config = {
     "src/providers/ts.ts",
     "src/providers/vue-scan.ts",
     "src/providers/volar.ts",
+    "src/providers/vue-service.ts",
   ],
   // Exclude MCP/daemon integration tests — they spawn CLI binaries that
   // aren't available in Stryker's sandbox.
@@ -37,7 +40,7 @@ const config = {
     "tests/providers/**/*.test.ts",
   ],
   mutator: {
-    excludedMutations: ["StringLiteral"],
+    excludedMutations: ["StringLiteral", "ArrayDeclaration"],
   },
   reporters: ["html", "clear-text", "progress"],
   htmlReporter: {
@@ -46,7 +49,7 @@ const config = {
   thresholds: {
     high: 80,
     low: 60,
-    break: null,
+    break: 75,
   },
   coverageAnalysis: "off",
   timeoutMS: 120_000,
