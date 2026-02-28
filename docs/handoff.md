@@ -89,7 +89,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 Feature doc: [`quality.md`](quality.md) — covers mutation testing strategy, coverage targets by module, surviving mutants table, and what not to do.
 
-Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/operations/`, `src/utils/`, `src/security.ts`, and `src/providers/` in ~13 minutes. Overall score: **76.23% (79.50% covered)**. See [`quality.md`](quality.md) for the full per-module breakdown and surviving mutants table.
+Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/operations/`, `src/utils/`, `src/security.ts`, and `src/providers/` in ~13 minutes. Overall score: **80.46% (full run as of 322 tests)**. See [`quality.md`](quality.md) for the full per-module breakdown, surviving mutants table, and hard-won lessons (including why TypeScript `strict` mode does not kill any surviving mutants).
 
 **9. Coverage improvement: `src/mcp.ts`** — 33.67%. `src/daemon/` is at the 60%+ folder-level target (60.4% statements). The remaining `mcp.ts` gap is in `ensureDaemon`, `startMcpServer`, and `spawnDaemon` — code that only runs when the full MCP server is spawned over stdio. `spawnDaemon` uses `process.execPath` + `dist/cli.js`. Reaching 60% requires either subprocess-level instrumentation or extracting those functions into a separately testable module.
 
