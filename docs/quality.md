@@ -48,15 +48,15 @@ Targets are floors, not goals. Mutation score is a better quality signal than li
 
 Use [Stryker](https://stryker-mutator.io/) with vitest (`pnpm test:mutate`) to validate assertion quality. Mutation testing answers "would my tests catch it if this line were wrong?" — a fundamentally different question from coverage.
 
-- **Scope:** `src/security.ts`, `src/utils/`, `src/operations/`, `src/providers/` (excluding `vue-service.ts` — factory setup code driven by integration tests). Excludes `src/daemon/`, and `src/mcp.ts` (line coverage too low — surviving mutants would just confirm test absence).
-- **Don't add to `pnpm check`** — a full run takes ~13 minutes. Run periodically or before releases.
+- **Scope:** `src/security.ts`, `src/utils/` (all files: `errors.ts`, `text-utils.ts`, `file-walk.ts`, `relative-path.ts`, `assert-file.ts`, `ts-project.ts`), `src/operations/`, `src/providers/` (all files including `vue-service.ts`). Excludes `src/daemon/` and `src/mcp.ts` (line coverage too low — surviving mutants would just confirm test absence).
+- **Don't add to `pnpm check`** — a full run takes ~22 minutes. Run periodically or before releases.
 - **Config note:** `disableTypeChecks: false` is required. The default (`true`) prepends `// @ts-nocheck` to files in Stryker's sandbox, shifting line numbers and breaking any test that asserts on line/col positions.
-- **Expect noise from:** string-heavy operations where Stryker's `StringLiteral` mutations produce equivalent mutants (excluded via config).
-- **Target mutation score:** 80%+ on scoped modules. Below 60% indicates real assertion gaps worth fixing.
+- **Expect noise from:** string-heavy operations where Stryker's `StringLiteral` mutations produce equivalent mutants (excluded via config). `ArrayDeclaration` mutations are also excluded — replacing an entire constant array with `[]` is a massive structural change that code review catches; individual-entry mutations were already excluded via `StringLiteral`.
+- **Target mutation score:** 80%+ on scoped modules. Below 60% indicates real assertion gaps worth fixing. `break` threshold in CI is set to 75 (floor, not target).
 
 #### Mutation scores (as of 322 tests)
 
-Full run after mutation round 3. Run `pnpm test:mutate` for a fresh score.
+Full run after mutation round 4 (scope expanded). Run `pnpm test:mutate` for a fresh score.
 
 | Module | Score (total) | Score (covered) | Notes |
 |--------|--------------|-----------------|-------|
@@ -64,12 +64,13 @@ Full run after mutation round 3. Run `pnpm test:mutate` for a fresh score.
 | `security.ts` | 82.19% | 88.24% | Above threshold |
 | `utils/text-utils.ts` | **100%** | 100% | Clean |
 | `utils/assert-file.ts` | **100%** | 100% | Clean |
-| `utils/file-walk.ts` | **86.67%** | 86.67% | Above threshold ↑ (was 76.67%) |
+| `utils/file-walk.ts` | **96.00%** | 96.00% | Above threshold ↑ |
 | `utils/relative-path.ts` | 75.00% | 75.00% | Below threshold |
+| `utils/ts-project.ts` | 56.52% | 86.67% | Below threshold (new in scope) — 8 no-coverage mutants |
 | `operations/moveFile.ts` | 86.67% | 92.86% | Above threshold |
-| `operations/moveSymbol.ts` | **80.58%** | 81.37% | Above threshold ↑ (was 72.82%) |
-| `operations/rename.ts` | 78.26% | 81.82% | Near threshold |
-| `operations/replaceText.ts` | 77.78% | 81.91% | Near threshold |
+| `operations/moveSymbol.ts` | 80.20% | 81.00% | Above threshold |
+| `operations/rename.ts` | 77.27% | 80.95% | Near threshold |
+| `operations/replaceText.ts` | 76.84% | 81.11% | Near threshold |
 | `operations/findReferences.ts` | 76.47% | 81.25% | Near threshold |
 | `operations/getDefinition.ts` | **93.33%** | 93.33% | Above threshold |
 | `operations/searchText.ts` | **80.77%** | 85.71% | Above threshold |
@@ -85,7 +86,6 @@ Fixed gaps are removed. Remaining survivors by category:
 
 | Area | Survivor | Why accepted |
 |------|----------|-------------|
-| `security.ts` | `ArrayDeclaration` — all four lookup tables (`RESTRICTED_WORKSPACE_ROOTS`, `SENSITIVE_BASENAME_EXACT`, `SENSITIVE_EXTENSIONS`, `SENSITIVE_BASENAME_PATTERNS`) can be emptied as a whole | Stryker's `ArrayDeclaration` mutator replaces the entire literal with `[]`; individual entries are `StringLiteral` mutations (excluded). Emptying a whole constant table is a massive change that code review catches; individual-entry tests exist. |
 | `security.ts` | `NoCoverage` — `realpathSync` catch blocks in `validateWorkspace` (line 126) and `isWithinWorkspace` (line 141–142) | Requires a path that exists but throws on `realpathSync` — not reproducible without kernel-level mocking. Accepted risk. |
 | `security.ts` | Regex mutations on `SENSITIVE_BASENAME_PATTERNS[0]` — `^` anchor drop, `$` drop, `.*` → `.` | Even without `^`, `service-account*.json` still matches all real filenames. Minor permissiveness; accepted. |
 | `security.ts` | Regex mutation on `SENSITIVE_BASENAME_PATTERNS[1]` — `$` drop from `/-key\.json$/` | Slightly more permissive without `$`; still blocks all real key files. Accepted. |
