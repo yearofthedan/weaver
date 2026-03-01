@@ -36,21 +36,53 @@ describe("getTypeErrors operation", () => {
       }
     });
 
-    it("pins the exact error codes and positions for broken.ts", async () => {
+    it("pins the exact error codes, positions and messages for broken.ts", async () => {
       const dir = setup();
       const provider = new TsProvider();
 
       const result = await getTypeErrors(provider, `${dir}/src/broken.ts`, dir);
 
-      // Sort by line for deterministic order
       const diags = result.diagnostics.slice().sort((a, b) => a.line - b.line);
 
-      // TS2345 on "hello" at line 6, col 17 (start of the string literal)
-      expect(diags[0]).toMatchObject({ line: 6, col: 17, code: 2345 });
-      // TS2322 on _r2 at line 8, col 7 (variable declaration site)
-      expect(diags[1]).toMatchObject({ line: 8, col: 7, code: 2322 });
-      // TS2322 on _r3 at line 10, col 7
-      expect(diags[2]).toMatchObject({ line: 10, col: 7, code: 2322 });
+      expect(diags[0]).toMatchObject({
+        line: 6,
+        col: 17,
+        code: 2345,
+        message: "Argument of type 'string' is not assignable to parameter of type 'number'.",
+      });
+      expect(diags[1]).toMatchObject({
+        line: 8,
+        col: 7,
+        code: 2322,
+        message: "Type 'number' is not assignable to type 'string'.",
+      });
+      expect(diags[2]).toMatchObject({
+        line: 10,
+        col: 7,
+        code: 2322,
+        message: "Type 'number' is not assignable to type 'boolean'.",
+      });
+    });
+
+    it("returns only the top-level message for chained diagnostics, not the full chain", async () => {
+      const dir = setup();
+      const provider = new TsProvider();
+
+      // chained-error.ts: function argument with wrong property type — produces a
+      // DiagnosticMessageChain where d.messageText is an object (not a string):
+      //   chain[0]: "Type '(x: number) => string' is not assignable to type '(x: string) => number'."
+      //   chain[1]: "Types of parameters 'x' and 'x' are incompatible."
+      //   chain[2]: "Type 'string' is not assignable to type 'number'."
+      const result = await getTypeErrors(provider, `${dir}/src/chained-error.ts`, dir);
+
+      expect(result.diagnostics).toHaveLength(1);
+      const { message } = result.diagnostics[0];
+
+      // Top-level node only: the function type mismatch
+      expect(message).toContain("not assignable to type '(x: string) => number'");
+      // Chain levels must NOT be present — they balloon message size for complex generic types
+      expect(message).not.toContain("Types of parameters");
+      expect(message).not.toContain("Type 'string' is not assignable to type 'number'");
     });
 
     it("returns empty diagnostics for a clean file", async () => {
