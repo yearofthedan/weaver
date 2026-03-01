@@ -135,20 +135,26 @@ Acceptance criteria:
 - `README.md` tool table updated, `docs/features/getTypeErrors.md` created
 - Tests cover: single-file errors, project-wide with cap, post-write diagnostics on rename, clean file returns empty array
 
-**9. `findReferences` by file path** `[needs design]`
-Feature doc: [`features/findReferences.md`](features/findReferences.md) — covers the symbol-position variant; the file-path variant needs a design section added.
-"Who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
-
 **9. `moveSymbol` for class methods** `[needs design]`
 Feature doc: [`features/moveSymbol.md`](features/moveSymbol.md) — covers the current top-level-export behaviour; class method extraction needs a design section added.
 Currently only top-level exported declarations are supported. "Extract this method to a standalone exported function in another module" is one of the most common refactoring patterns agents perform. The extraction involves removing the method from the class, writing a standalone `export function` at the destination, rewriting all call sites from `instance.method(args)` to `method(instance, args)` or `method(args)` depending on whether `this` is used. The ts-morph AST has everything needed: `MethodDeclaration`, `CallExpression`, `this` references. Discovered during Phase 2 dogfooding — `BaseEngine` methods couldn't be extracted with `moveSymbol` because they were class methods, not top-level exports.
 
-**10. `deleteFile`** `[needs design]`
+**10. `extractFunction`** `[needs design]`
+Pull a selection into a named function, updating the call site. Agents extract functions constantly — this is one of the most common refactoring patterns alongside method extraction (#9). AST-level code generation is complex across all call-site shapes.
+
+**17. `deleteFile`** `[needs design]`
 Remove a file and clean up its imports in referencing files. Simpler than `createFile` (no scaffolding logic); the compiler already knows all importers via `getEditsForFileRename`.
 
 ---
 
 ### P4 — Medium-value features and tech debt
+
+**18. `findReferences` by file path** `[needs design]`
+Feature doc: [`features/findReferences.md`](features/findReferences.md) — covers the symbol-position variant; the file-path variant needs a design section added.
+"Who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant. Workable approximation exists today via `searchText` for the import path.
+
+**16. `getTypeErrors` Volar support for `.vue` files** `[needs design]`
+Extend type error detection to `.vue` SFC `<script>` blocks via VolarProvider. Requires the same virtual-to-real path translation used by `findReferences` and `getDefinition` in Volar. Depends on P3 item 8 (TS-only `getTypeErrors`) shipping first. Design questions: whether to use `@volar/typescript` proxy's `getSemanticDiagnostics` or Volar's own diagnostic API, and how to map virtual-file positions back to SFC line numbers.
 
 **11. `buildVolarService` refactoring**
 Feature docs: [`architecture.md`](architecture.md), [`tech/volar-v3.md`](tech/volar-v3.md)
@@ -160,12 +166,6 @@ Moving a top-level export *from* a `.ts` file in a Vue project is complete — t
 
 **13. `createFile`** `[needs design]`
 Scaffold a file with correct import paths inferred from its location.
-
-**14. `extractFunction`** `[needs design]`
-Pull a selection into a named function, updating the call site. High potential value but AST-level code generation is complex across all call-site shapes; wait until P1–P3 are stable.
-
-**16. `getTypeErrors` Volar support for `.vue` files** `[needs design]`
-Extend type error detection to `.vue` SFC `<script>` blocks via VolarProvider. Requires the same virtual-to-real path translation used by `findReferences` and `getDefinition` in Volar. Depends on P3 item 8 (TS-only `getTypeErrors`) shipping first. Design questions: whether to use `@volar/typescript` proxy's `getSemanticDiagnostics` or Volar's own diagnostic API, and how to map virtual-file positions back to SFC line numbers.
 
 **15. Claude Code plugin distribution**
 Feature docs: [`architecture.md`](architecture.md), [`features/daemon.md`](features/daemon.md)
