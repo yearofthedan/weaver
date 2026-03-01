@@ -13,6 +13,15 @@ Durable notes for AI agents working on this project. Update when sessions surfac
 
 ## Technical gotchas
 
+**Stryker JSON reporter must be explicitly enabled — it is not on by default.**
+The Stryker config only listed `html`, `clear-text`, and `progress` reporters initially. The `json` reporter (required for the `/mutate-triage` skill to parse structured output) must be added to `reporters` and configured via `jsonReporter.fileName`. Added in the mutation-triage-ci slice.
+
+**`anthropics/claude-code-action@v1` uses `claude_args` for CLI flags, not separate action inputs.**
+Model selection (`--model`), tool allowlist (`--allowedTools`), and turn limit (`--max-turns`) are all passed via the single `claude_args` string. Use YAML block scalar (`>-`) to split across lines cleanly. The `GH_TOKEN` needed for `gh` commands is provided automatically by the action — no separate secret needed.
+
+**The `/mutate-triage` skill extends the existing `quality-feedback.yml` — there is no separate `mutation.yml`.**
+Spec originally named the target file `mutation.yml`, but the mutation test setup already existed in `quality-feedback.yml`. Extending the existing workflow avoids duplicating checkout/install/build steps. Noted in spec archive.
+
 **`docs/architecture.md` replaced `docs/features/engines.md`.**
 The architecture reference was renamed for clarity. Update links/searches that still point to `features/engines.md`.
 

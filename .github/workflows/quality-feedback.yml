@@ -3,6 +3,10 @@ name: Quality Feedback
 on:
   push:
     branches: [main]
+  schedule:
+    # Run weekly on Monday at 06:00 UTC
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 jobs:
   mutation:
@@ -34,7 +38,9 @@ jobs:
         if: always()
         with:
           name: mutation-report
-          path: reports/mutation/mutation.html
+          path: |
+            reports/mutation/mutation.html
+            reports/mutation/mutation.json
 
       - name: Post summary
         if: always()
@@ -46,3 +52,17 @@ jobs:
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Full report: download the \`mutation-report\` artifact." >> $GITHUB_STEP_SUMMARY
+
+      # Triggered only when score drops below the break threshold (75).
+      # Uses claude-opus-4-6 — classification and test-writing require strong code reasoning.
+      # Required secrets: ANTHROPIC_API_KEY
+      - name: Triage surviving mutants
+        if: steps.mutate.outcome == 'failure'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: "/mutate-triage"
+          claude_args: >-
+            --model claude-opus-4-6
+            --max-turns 50
+            --allowedTools "Bash,Read,Edit,Write,Glob,Grep"

@@ -120,3 +120,19 @@ Run `pnpm test:mutate` to confirm score improvement.
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Agent insights captured in docs/agent-memory.md
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Tests added:** 0 — this slice delivers configuration and skill files, not testable TypeScript code. The triage skill itself is exercised in production (CI triggers it when score drops). No unit tests apply.
+
+**Mutation score:** N/A — `stryker.config.mjs` and `.github/workflows/` are excluded from mutation scope; `.claude/skills/` files are not TypeScript source.
+
+**Architectural decisions:**
+- Extended `quality-feedback.yml` rather than creating a new `mutation.yml` — avoids duplicating checkout/install/build steps. Spec named `mutation.yml` as the target; noted in agent-memory.
+- Stryker JSON reporter added to `stryker.config.mjs` — was not in the original config (only `html`, `clear-text`, `progress`). The skill requires machine-readable JSON; reading the HTML report would have been fragile.
+- Used `anthropics/claude-code-action@v1` with `claude_args` for model/tool/turn-limit settings — the action's `GH_TOKEN` is provided automatically, no extra secret needed.
+- Skill classified as self-contained per the Edges constraint: any agent invoked with `/mutate-triage` can follow it without prior context.
+
+**Surprising discoveries:**
+- `claude --headless` flag does not exist — the correct flag is `-p` (or `--print`). The spec was updated during the design conversation to reflect this.
+- The `anthropics/claude-code-action@v1` GitHub Action is the modern integration point; a custom Node.js script calling the Anthropic SDK was the original approach but abandoned in favour of the action.
