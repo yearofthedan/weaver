@@ -42,15 +42,15 @@ describe("getTypeErrors operation", () => {
 
       const result = await getTypeErrors(provider, `${dir}/src/broken.ts`, dir);
 
-      const codes = result.diagnostics.map((d) => d.code).sort((a, b) => a - b);
-      // TS2322 × 2 (wrong return type) and TS2345 × 1 (wrong argument type)
-      expect(codes).toEqual([2322, 2322, 2345]);
+      // Sort by line for deterministic order
+      const diags = result.diagnostics.slice().sort((a, b) => a.line - b.line);
 
-      // All errors reference lines 6–10 (the bad calls, not the function declaration)
-      for (const diag of result.diagnostics) {
-        expect(diag.line).toBeGreaterThanOrEqual(6);
-        expect(diag.line).toBeLessThanOrEqual(10);
-      }
+      // TS2345 on "hello" at line 6, col 17 (start of the string literal)
+      expect(diags[0]).toMatchObject({ line: 6, col: 17, code: 2345 });
+      // TS2322 on _r2 at line 8, col 7 (variable declaration site)
+      expect(diags[1]).toMatchObject({ line: 8, col: 7, code: 2322 });
+      // TS2322 on _r3 at line 10, col 7
+      expect(diags[2]).toMatchObject({ line: 10, col: 7, code: 2322 });
     });
 
     it("returns empty diagnostics for a clean file", async () => {
@@ -92,6 +92,29 @@ describe("getTypeErrors operation", () => {
       expect(result.errorCount).toBe(result.diagnostics.length);
       expect(result.truncated).toBe(false);
     });
+
+    it("caps at 100 and sets truncated=true when a single file has more than 100 errors", async () => {
+      const dir = setup();
+      const provider = new TsProvider();
+
+      // many-errors.ts has 105 deliberate type errors
+      const result = await getTypeErrors(provider, `${dir}/src/many-errors.ts`, dir);
+
+      expect(result.truncated).toBe(true);
+      expect(result.diagnostics).toHaveLength(100);
+      expect(result.errorCount).toBe(105);
+    });
+
+    it("is not truncated and errorCount equals 100 when a file has exactly 100 errors", async () => {
+      const dir = setup("ts-100-errors");
+      const provider = new TsProvider();
+
+      const result = await getTypeErrors(provider, `${dir}/src/exactly-100.ts`, dir);
+
+      expect(result.truncated).toBe(false);
+      expect(result.errorCount).toBe(100);
+      expect(result.diagnostics).toHaveLength(100);
+    });
   });
 
   describe("project-wide mode (no file param)", () => {
@@ -118,6 +141,17 @@ describe("getTypeErrors operation", () => {
       // errorCount is the total found, not the capped count
       expect(result.errorCount).toBeGreaterThan(100);
       expect(result.errorCount).toBeGreaterThan(result.diagnostics.length);
+    });
+
+    it("is not truncated and errorCount equals 100 when the project has exactly 100 errors", async () => {
+      const dir = setup("ts-100-errors");
+      const provider = new TsProvider();
+
+      const result = await getTypeErrors(provider, undefined, dir);
+
+      expect(result.truncated).toBe(false);
+      expect(result.errorCount).toBe(100);
+      expect(result.diagnostics).toHaveLength(100);
     });
 
     it("returns empty result for a project with no errors", async () => {
