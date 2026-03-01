@@ -79,11 +79,38 @@ validation (must be a real directory).
 
 ## Done-when
 
-- [ ] All ACs verified by running `pnpm eval` (the eval IS the end-to-end test)
-- [ ] Vitest unit tests cover the fixture daemon's socket protocol (ping, fixture lookup,
+- [x] All ACs verified by running `pnpm eval` (the eval IS the end-to-end test)
+- [x] Vitest unit tests cover the fixture daemon's socket protocol (ping, fixture lookup,
       unknown method) — these run under `pnpm test`
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] `package.json` gains an `eval` script
-- [ ] README.md project structure updated with `eval/` entry
-- [ ] handoff.md entry removed; current-state section updated with `eval/` in the layout
-- [ ] Spec archived to `docs/specs/archive/` with Outcome section
+- [x] `pnpm check` passes (lint + build + test)
+- [x] `package.json` gains an `eval` script
+- [x] README.md project structure updated with `eval/` entry
+- [x] handoff.md entry removed; current-state section updated with `eval/` in the layout
+- [x] Spec archived to `docs/specs/archive/` with Outcome section
+
+---
+
+## Outcome
+
+**Tests added:** 6 vitest unit tests in `tests/eval/fixture-server.test.ts` covering:
+- socket file + lockfile creation
+- lockfile PID equals `process.pid` (in-process fixture)
+- `ping` response matches `PROTOCOL_VERSION`
+- fixture file contents returned verbatim for a known method
+- `NOT_FOUND` error for an unknown method
+- socket + lockfile removal on `stop()`
+
+**Total test suite after slice:** 352 tests (346 pre-existing + 6 new), all passing.
+
+**Mutation testing:** Not applicable — `eval/fixture-server.ts` is in `eval/`, not `src/`. Stryker is scoped to `src/**/*.ts` only.
+
+**End-to-end verification:** `pnpm run eval` confirmed working in this environment (PromptFoo 0.120.25, fixture server starts, MCP server connects, 6 cases loaded and sent to Anthropic API). API calls fail with 401 in the dev container because `ANTHROPIC_API_KEY` is not set — expected; provide a real key to get pass/fail results.
+
+**Architectural decisions:**
+- `fixture-server.ts` is a module (not a script) so it can be imported by both `run-eval.ts` and vitest tests. The in-process approach avoids subprocess management complexity.
+- `run-eval.ts` uses a fixed eval workspace `/tmp/light-bridge-eval` (created at runtime) so the PromptFoo config can reference it as a static string.
+- Cases are inlined in `promptfooconfig.yaml` rather than split into per-tool files — simpler for v1; PromptFoo's `--filter-pattern` flag provides case-level filtering if needed.
+
+**Surprises:**
+- `pnpm eval` conflicts with pnpm's built-in `eval` subcommand. Use `pnpm run eval` instead.
+- `better-sqlite3` (a PromptFoo dependency) requires native compilation. In this dev container, build scripts are blocked by default. Run `node /path/to/prebuild-install/bin.js` from the project root to download pre-built binaries. See `docs/agent-memory.md` for the exact command.

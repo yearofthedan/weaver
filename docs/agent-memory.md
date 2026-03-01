@@ -143,6 +143,18 @@ For fields that wrap compiler or external-API output, "string" as a type is not 
 **Do not record test-run scores in docs — they go stale immediately.**
 Tracking per-module mutation scores in `docs/quality.md` caused real harm: a doc-update commit copied stale round-3 numbers (80.46%) into the round-4 section, then a rebase conflict resolver chose the "newer" (wrong) main-branch version, silently discarding the actual round-4 result (76.80%). The `break` threshold in `stryker.config.mjs` is the only authoritative, machine-verified floor. Everything else belongs to the "Worth fixing" and "Accepted survivors" sections, which describe *why* a gap exists and *how* to fix it — information that doesn't go stale between runs.
 
+**PromptFoo requires `better-sqlite3` native bindings — build scripts are blocked by default in this dev container.**
+`pnpm install` silently ignores build scripts for `better-sqlite3`. After installing promptfoo, run `node /home/user/light-bridge/node_modules/.pnpm/prebuild-install@7.1.3/node_modules/prebuild-install/bin.js` from the project root to download the pre-built binary. Without this step, `promptfoo --version` fails with "Could not locate the bindings file". Add to container setup docs if adding more native dependencies.
+
+**`pnpm eval` conflicts with pnpm's built-in `eval` subcommand — use `pnpm run eval` instead.**
+`pnpm eval` is intercepted by pnpm itself and never reaches the npm script. Use `pnpm run eval` to invoke the eval entry point (`tsx eval/run-eval.ts`).
+
+**Fixture server must write the lockfile in-process, not as a subprocess.**
+The real daemon writes `{ pid: process.pid, ... }` to the lockfile. The fixture server impersonates the daemon from within the `run-eval.ts` process, so `process.pid` in the lockfile is `run-eval.ts`'s own PID. `isDaemonAlive` calls `process.kill(pid, 0)` — the `run-eval.ts` process is alive while promptfoo runs, so this returns true. Never spawn the fixture server as a detached subprocess unless you also update the lockfile PID and manage the subprocess lifecycle.
+
+**PromptFoo MCP provider config key is `mcp.server`, not `mcp.servers`.**
+When configuring a single MCP server, use `mcp.server: { command, args, name }`. Using `mcp.servers` (plural) is a different config shape for multiple servers — mixing the two silently fails to connect.
+
 ---
 
 ## Memory storage

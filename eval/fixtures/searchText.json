@@ -1,0 +1,28 @@
+{
+  "ok": true,
+  "matches": [
+    {
+      "file": "/tmp/light-bridge-eval/src/auth.ts",
+      "line": 3,
+      "col": 3,
+      "matchText": "TODO: add rate limiting",
+      "context": [
+        { "line": 2, "text": "function authenticate(token: string) {", "isMatch": false },
+        { "line": 3, "text": "  // TODO: add rate limiting", "isMatch": true },
+        { "line": 4, "text": "  return verifyJwt(token);", "isMatch": false }
+      ]
+    },
+    {
+      "file": "/tmp/light-bridge-eval/src/api.ts",
+      "line": 18,
+      "col": 5,
+      "matchText": "TODO: handle pagination",
+      "context": [
+        { "line": 17, "text": "  const results = await db.query(sql);", "isMatch": false },
+        { "line": 18, "text": "  // TODO: handle pagination", "isMatch": true },
+        { "line": 19, "text": "  return results;", "isMatch": false }
+      ]
+    }
+  ],
+  "truncated": false
+}

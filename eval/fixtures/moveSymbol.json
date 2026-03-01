@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "symbolName": "parseToken",
+  "sourceFile": "/tmp/light-bridge-eval/src/auth.ts",
+  "destFile": "/tmp/light-bridge-eval/src/utils/token.ts",
+  "filesModified": [
+    "/tmp/light-bridge-eval/src/auth.ts",
+    "/tmp/light-bridge-eval/src/utils/token.ts",
+    "/tmp/light-bridge-eval/src/api.ts"
+  ],
+  "filesSkipped": []
+}
