@@ -98,7 +98,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](quality.md) for per-module breakdown and surviving mutants.
 
-- **spec:** [Agent+MCP eval scoping](specs/20260301-agent-mcp-eval.md) — scope an eval approach with the owner before building
+- **Agent+MCP eval implementation `[needs design]`** — design is approved ([eval-design.md](eval-design.md)); implement PromptFoo-based eval with fixture daemon, `claude-haiku-4-5`, local-only run; see eval-design.md for case structure and iteration path
 - Agent triage on mutation score warning `[needs design]` — when quality feedback warns (score below threshold), trigger an agent run to inspect surviving mutants and either open an issue or attempt a fix branch
 
 ---
