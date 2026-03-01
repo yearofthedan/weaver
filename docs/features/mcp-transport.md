@@ -49,13 +49,15 @@ All tools use position-based parameters where applicable, consistent with LSP co
 
 | Tool | Parameters |
 |------|-----------|
-| `rename` | `file`, `line`, `col`, `newName` |
-| `moveFile` | `oldPath`, `newPath` |
-| `moveSymbol` | `sourceFile`, `symbolName`, `destFile` |
+| `rename` | `file`, `line`, `col`, `newName`, `checkTypeErrors?` |
+| `moveFile` | `oldPath`, `newPath`, `checkTypeErrors?` |
+| `moveSymbol` | `sourceFile`, `symbolName`, `destFile`, `checkTypeErrors?` |
 | `findReferences` | `file`, `line`, `col` |
 | `getDefinition` | `file`, `line`, `col` |
 | `searchText` | `pattern`, `glob?`, `context?`, `maxResults?` |
-| `replaceText` | `pattern` + `replacement` + `glob?` (pattern mode) or `edits[]` (surgical mode) |
+| `replaceText` | `pattern` + `replacement` + `glob?` (pattern mode) or `edits[]` (surgical mode); `checkTypeErrors?` |
+
+`checkTypeErrors` (optional boolean, default `false`): when `true`, type diagnostics are run against `filesModified` immediately after the write and returned as `typeErrors`, `typeErrorCount`, `typeErrorsTruncated`. Same cap and shape as standalone `getTypeErrors`. TS/TSX files only; `.vue` files in `filesModified` are silently skipped.
 
 ## Response contract
 

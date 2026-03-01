@@ -66,6 +66,31 @@ Vue SFC (`.vue`) diagnostics are not yet supported — see handoff.md P4 item 16
 - **Errors only**: `DiagnosticCategory.Warning`, `Suggestion`, and `Message` are excluded.
 - **No stale AST**: the project is loaded fresh from disk on first access; subsequent calls reuse the daemon's cached project.
 
+## Post-write diagnostics (`checkTypeErrors`)
+
+Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) accept an optional `checkTypeErrors: true` parameter. When set, type diagnostics are run against `filesModified` immediately after the write completes and appended to the response:
+
+```json
+{
+  "ok": true,
+  "filesModified": ["src/utils.ts"],
+  "typeErrors": [
+    { "file": "/abs/src/utils.ts", "line": 5, "col": 3, "code": 2322, "message": "Type 'number' is not assignable to type 'string'." }
+  ],
+  "typeErrorCount": 1,
+  "typeErrorsTruncated": false
+}
+```
+
+When omitted or `false`, none of the three fields (`typeErrors`, `typeErrorCount`, `typeErrorsTruncated`) appear in the response.
+
+**Constraints:**
+- TS/TSX files only. `.vue` or other file types in `filesModified` are silently skipped.
+- Same 100-diagnostic cap and `TypeDiagnostic` shape as standalone `getTypeErrors`.
+- `typeErrorCount` is the true total; `typeErrorsTruncated` is `true` when capped.
+- `filesSkipped` files are not checked — only `filesModified` (files actually written within the workspace).
+- Cache freshness: the write operation refreshes each modified file before diagnostics run.
+
 ## Implementation notes
 
 - `src/operations/getTypeErrors.ts` — core logic; uses `TsProvider` directly (not `LanguageProvider`) because Vue diagnostics are out of scope.

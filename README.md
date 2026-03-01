@@ -112,7 +112,7 @@ All refactoring operations are exposed as MCP tools via `light-bridge serve`. Th
 | `searchText` | n/a | n/a | yes | Regex search across workspace files with optional glob/context controls |
 | `replaceText` | n/a | n/a | no | Regex replace-all (pattern mode) or exact-position edits (surgical mode) |
 
-All tools take absolute paths. Write operations return `filesModified` and `filesSkipped` (files outside the workspace boundary that were not touched).
+All tools take absolute paths. Write operations return `filesModified` and `filesSkipped` (files outside the workspace boundary that were not touched). Write operations also accept `checkTypeErrors: true` to return type diagnostics for modified files in the same response — see `getTypeErrors` for the diagnostic shape.
 
 \* `moveSymbol` supports moving exports from `.ts`/`.tsx` sources inside Vue workspaces and updates `.vue` importers in a post-step. Moving symbols from a `.vue` source file is still pending.
 

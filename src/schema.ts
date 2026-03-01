@@ -8,11 +8,13 @@ export const RenameArgsSchema = z.object({
     .string()
     .min(1, "newName is required")
     .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/, "newName must be a valid identifier"),
+  checkTypeErrors: z.boolean().optional(),
 });
 
 export const MoveArgsSchema = z.object({
   oldPath: z.string().min(1, "oldPath is required"),
   newPath: z.string().min(1, "newPath is required"),
+  checkTypeErrors: z.boolean().optional(),
 });
 
 export const MoveSymbolArgsSchema = z.object({
@@ -22,6 +24,7 @@ export const MoveSymbolArgsSchema = z.object({
     .min(1, "symbolName is required")
     .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/, "symbolName must be a valid identifier"),
   destFile: z.string().min(1, "destFile is required"),
+  checkTypeErrors: z.boolean().optional(),
 });
 
 export const FindReferencesArgsSchema = z.object({
@@ -56,6 +59,7 @@ export const ReplaceTextBaseSchema = z.object({
   replacement: z.string().optional(),
   glob: z.string().optional(),
   edits: z.array(TextEditSchema).optional(),
+  checkTypeErrors: z.boolean().optional(),
 });
 
 export const GetTypeErrorsArgsSchema = z.object({
