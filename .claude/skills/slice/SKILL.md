@@ -26,7 +26,7 @@ description: Pick up the next task — if it needs a spec, create one first; if 
 6. **Run `pnpm test:mutate`** scoped to the files changed in this slice. If the score is below threshold, add tests — do not adjust the threshold or add survivors to `docs/quality.md` without explaining why the gap is accepted.
 
 7. **Complete the spec's Done-when checklist.** Walk through every item in the spec's Done-when section (defined by the template — see `docs/specs/templates/change.md` or `bug.md`). Additionally:
-   - [ ] Remove or update the handoff.md entry; update the "Current state" section (test count, layout changes)
+   - [ ] **Remove** the handoff.md task entry entirely — handoff.md is a work queue, not a history. Do not mark it shipped, do not leave a link to the archive. Just delete the line. Update the "Current state" section (test count, layout changes) if needed.
    - [ ] If public surfaces changed, follow `CLAUDE.md` Rule 11 for which docs to update
 
 8. **Archive the spec.** Move the spec file from `docs/specs/` to `docs/specs/archive/`. Append an `## Outcome` section with:
