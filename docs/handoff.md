@@ -54,6 +54,7 @@ src/
     rename.ts        ← rename(provider, filePath, line, col, newName, workspace)
     findReferences.ts← findReferences(provider, filePath, line, col)
     getDefinition.ts ← getDefinition(provider, filePath, line, col)
+    getTypeErrors.ts ← getTypeErrors(tsProvider, file?, workspace) — errors-only, cap 100
     moveFile.ts      ← moveFile(provider, oldPath, newPath, workspace)
     moveSymbol.ts    ← moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace)
     searchText.ts    ← searchText(pattern, workspace, { glob, context, maxResults })
@@ -76,6 +77,7 @@ src/
 - `moveSymbol` — TS + Vue
 - `findReferences` — TS + Vue; read-only, returns all references to a symbol by position
 - `getDefinition` — TS + Vue; read-only, returns definition location(s) for a symbol by position
+- `getTypeErrors` — TS only; read-only, returns type errors for a single file or whole project; capped at 100
 - `searchText` — regex search across workspace files; glob filter, context lines, max-results cap; skips sensitive files
 - `replaceText` — pattern mode (regex replace-all + optional glob) or surgical mode (edits array with oldText verification); skips sensitive files
 
@@ -111,29 +113,9 @@ When the Quality Feedback workflow warns (score below threshold), trigger a Clau
 
 ### P3 — High-value features
 
-**8. `getTypeErrors` — standalone tool + post-write diagnostics**
+**8b. `getTypeErrors` — post-write diagnostics** `[needs design]`
 
-Two parts:
-1. **Standalone `getTypeErrors` MCP tool** — check a specific file or the whole project for type errors. Optional `file` param (absolute path); if omitted, checks all project files. Returns `{ diagnostics: [{ file, line, col, code, message }], errorCount, truncated }`. Errors only (no warnings). Cap at 100 results.
-2. **Post-write type diagnostics** — after every write operation (rename, moveFile, moveSymbol, replaceText), refresh modified files in the provider cache and check them for type errors. Append `typeErrors` array to the result. Cap at 20.
-
-Both use the same diagnostic extraction logic via TsProvider. TS/TSX files only (Vue `.vue` SFC diagnostics are a follow-on — see P4 item 16).
-
-Implementation notes:
-- New `src/operations/getTypeErrors.ts` — shared diagnostic extraction
-- `src/daemon/dispatcher.ts` — post-write hook after write ops; calls `invalidateFile()` then extracts diagnostics for `filesModified`
-- `src/mcp.ts` — new tool entry (after `getDefinition`, before `searchText`)
-- `src/schema.ts` / `src/types.ts` — schema + result types
-
-Acceptance criteria:
-- Standalone `getTypeErrors` tool returns type errors for a single file when `file` is provided
-- Standalone `getTypeErrors` tool returns project-wide errors when `file` is omitted, capped at 100 with `truncated: true` when exceeded
-- Write operations (rename, moveFile, moveSymbol, replaceText) include a `typeErrors` array in their response, containing errors from `filesModified` files only, capped at 20
-- Dispatcher refreshes modified files in the provider cache before extracting diagnostics (no stale AST)
-- Each diagnostic includes: `file` (absolute path), `line` (1-based), `col` (1-based), `code` (TS error number), `message`
-- Errors only — warnings/suggestions are excluded
-- `README.md` tool table updated, `docs/features/getTypeErrors.md` created
-- Tests cover: single-file errors, project-wide with cap, post-write diagnostics on rename, clean file returns empty array
+After every write operation (rename, moveFile, moveSymbol, replaceText), refresh modified files in the provider cache and check them for type errors. Append `typeErrors` array to the result. Cap at 20. Depends on the standalone `getTypeErrors` tool (shipped). Design questions: exact response shape change for each write op, whether to gate on a flag or always-on, and how to handle projects with many pre-existing errors (post-write noise).
 
 **9. `moveSymbol` for class methods** `[needs design]`
 Feature doc: [`features/moveSymbol.md`](features/moveSymbol.md) — covers the current top-level-export behaviour; class method extraction needs a design section added.

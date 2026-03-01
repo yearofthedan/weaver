@@ -5,7 +5,7 @@ import { isWithinWorkspace } from "../security.js";
 import type { DefinitionLocation, FileTextEdit, LanguageProvider, SpanLocation } from "../types.js";
 import { EngineError } from "../utils/errors.js";
 import { TS_EXTENSIONS, walkFiles } from "../utils/file-walk.js";
-import { findTsConfigForFile } from "../utils/ts-project.js";
+import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 
 export class TsProvider implements LanguageProvider {
   private projects = new Map<string, Project>();
@@ -31,6 +31,29 @@ export class TsProvider implements LanguageProvider {
   /** For operations that need direct AST access (e.g. moveSymbol). */
   getProjectForFile(filePath: string): Project {
     return this.getProject(filePath);
+  }
+
+  /**
+   * Get the project covering the given workspace directory.
+   * Unlike `getProjectForFile`, starts the tsconfig search from `dirPath` itself
+   * rather than from its parent — correct when the caller has a directory, not a file.
+   */
+  getProjectForDirectory(dirPath: string): Project {
+    const tsConfigPath = findTsConfig(dirPath);
+    const cacheKey = tsConfigPath ?? "__no_tsconfig__";
+    let project = this.projects.get(cacheKey);
+    if (!project) {
+      if (tsConfigPath) {
+        project = new Project({
+          tsConfigFilePath: tsConfigPath,
+          skipAddingFilesFromTsConfig: false,
+        });
+      } else {
+        project = new Project({ useInMemoryFileSystem: false });
+      }
+      this.projects.set(cacheKey, project);
+    }
+    return project;
   }
 
   invalidateProject(filePath: string): void {

@@ -81,6 +81,22 @@ export interface ReplaceTextResult {
   replacementCount: number;
 }
 
+export interface TypeDiagnostic {
+  file: string;
+  line: number;
+  col: number;
+  code: number;
+  message: string;
+}
+
+export interface GetTypeErrorsResult {
+  diagnostics: TypeDiagnostic[];
+  /** Total number of errors found (may exceed diagnostics.length when truncated). */
+  errorCount: number;
+  /** True when the result was capped at the internal limit. */
+  truncated: boolean;
+}
+
 // ─── Provider-level types ──────────────────────────────────────────────────
 
 export interface SpanLocation {

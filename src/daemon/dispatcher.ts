@@ -1,5 +1,6 @@
 import { findReferences } from "../operations/findReferences.js";
 import { getDefinition } from "../operations/getDefinition.js";
+import { getTypeErrors } from "../operations/getTypeErrors.js";
 import { moveFile } from "../operations/moveFile.js";
 import { rename } from "../operations/rename.js";
 import { replaceText } from "../operations/replaceText.js";
@@ -7,6 +8,7 @@ import { searchText } from "../operations/searchText.js";
 import {
   FindReferencesArgsSchema,
   GetDefinitionArgsSchema,
+  GetTypeErrorsArgsSchema,
   MoveArgsSchema,
   MoveSymbolArgsSchema,
   RenameArgsSchema,
@@ -159,6 +161,16 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
       const { file, line, col } = params as { file: string; line: number; col: number };
       const provider = await registry.projectProvider();
       return getDefinition(provider, file, line, col);
+    },
+  },
+
+  getTypeErrors: {
+    pathParams: [],
+    schema: GetTypeErrorsArgsSchema,
+    async invoke(registry, params, workspace) {
+      const { file } = params as { file?: string };
+      const tsProvider = await registry.tsProvider();
+      return getTypeErrors(tsProvider, file, workspace);
     },
   },
 

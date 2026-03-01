@@ -58,6 +58,10 @@ export const ReplaceTextBaseSchema = z.object({
   edits: z.array(TextEditSchema).optional(),
 });
 
+export const GetTypeErrorsArgsSchema = z.object({
+  file: z.string().min(1, "file path must not be empty").optional(),
+});
+
 export const ReplaceTextArgsSchema = ReplaceTextBaseSchema.refine(
   (d) => {
     const hasPattern = d.pattern !== undefined && d.replacement !== undefined;
@@ -67,6 +71,7 @@ export const ReplaceTextArgsSchema = ReplaceTextBaseSchema.refine(
   { message: "Provide either 'pattern'+'replacement' or 'edits', not both" },
 );
 
+export type GetTypeErrorsArgs = z.infer<typeof GetTypeErrorsArgsSchema>;
 export type RenameArgs = z.infer<typeof RenameArgsSchema>;
 export type MoveArgs = z.infer<typeof MoveArgsSchema>;
 export type MoveSymbolArgs = z.infer<typeof MoveSymbolArgsSchema>;
