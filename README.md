@@ -108,6 +108,7 @@ All refactoring operations are exposed as MCP tools via `light-bridge serve`. Th
 | `moveSymbol` | ✓ | ✓* | no | Moves a named export to another file; updates all importers |
 | `findReferences` | ✓ | ✓ | yes | Returns every reference to the symbol at a given position |
 | `getDefinition` | ✓ | ✓ | yes | Returns definition location(s) for the symbol at a given position |
+| `getTypeErrors` | ✓ | — | yes | Returns type errors for a single file or whole project (capped at 100) |
 | `searchText` | n/a | n/a | yes | Regex search across workspace files with optional glob/context controls |
 | `replaceText` | n/a | n/a | no | Regex replace-all (pattern mode) or exact-position edits (surgical mode) |
 
@@ -298,6 +299,7 @@ src/
 │   ├── moveSymbol.ts
 │   ├── findReferences.ts
 │   ├── getDefinition.ts
+│   ├── getTypeErrors.ts
 │   ├── searchText.ts
 │   └── replaceText.ts
 ├── providers/

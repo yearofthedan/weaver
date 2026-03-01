@@ -6,6 +6,7 @@ import { socketPath } from "./daemon/paths.js";
 import {
   FindReferencesArgsSchema,
   GetDefinitionArgsSchema,
+  GetTypeErrorsArgsSchema,
   MoveArgsSchema,
   MoveSymbolArgsSchema,
   RenameArgsSchema,
@@ -138,6 +139,24 @@ const TOOLS: ToolDefinition[] = [
       file: GetDefinitionArgsSchema.shape.file.describe("Absolute path to the file"),
       line: GetDefinitionArgsSchema.shape.line.describe("Line number (1-based)"),
       col: GetDefinitionArgsSchema.shape.col.describe("Column number (1-based)"),
+    },
+  },
+  {
+    name: "getTypeErrors",
+    description:
+      "Check a TypeScript file or whole project for type errors. " +
+      "Use this after making changes to verify you haven't introduced type errors, " +
+      "or before starting a refactor to understand the existing error baseline. " +
+      "Omit 'file' to check the whole project (capped at 100 errors); provide 'file' for a single-file check. " +
+      "Returns each error with its file, line, col, TypeScript error code, and message. " +
+      "Only type errors are returned — warnings and suggestions are excluded. " +
+      "TS/TSX files only; Vue SFC diagnostics are not yet supported. " +
+      "If truncated is true, narrow the scope by providing a specific file. " +
+      "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+    inputSchema: {
+      file: GetTypeErrorsArgsSchema.shape.file.describe(
+        "Absolute path to a single .ts/.tsx file to check (omit to check the whole project)",
+      ),
     },
   },
   {

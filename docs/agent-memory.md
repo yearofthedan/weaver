@@ -74,6 +74,15 @@ The Volar proxy TS language service registers `.vue` files as `.vue.ts` virtual 
 **Template-only `.vue` files (no `<script>` block) exercise `toVirtualLocation` fallback branches.**
 A `.vue` file with only a `<template>` block has `sourceScript.generated.languagePlugin.typescript?.getServiceScript()` return null (no TypeScript service script generated). This triggers the `if (!serviceScript) return { fileName: virtualPath, pos }` fallback in `toVirtualLocation`. Useful for mutation testing coverage of those branches. Create via `fs.mkdtempSync` with a minimal tsconfig; the `buildVolarService` directory scan picks up all `.vue` files in the project root automatically.
 
+**`getTypeErrors` uses `TsProvider` directly, not `LanguageProvider`.**
+Vue SFC diagnostics via Volar are deferred (handoff P4 item 16). The operation signature takes `TsProvider` instead of the generic `LanguageProvider` interface. The dispatcher calls `registry.tsProvider()` (always returns `TsProvider`, even in Vue projects). This matches the pattern used by `moveSymbol`.
+
+**ts-morph bundles its own TypeScript instance; use `{ ts }` from `ts-morph`, not `import * as ts from "typescript"`.**
+`project.getLanguageService().compilerObject` returns TypeScript objects typed against ts-morph's bundled TypeScript (`@ts-morph/common`). If you import `typescript` directly and annotate with its types, TypeScript rejects the assignment: `SyntaxKind.SourceFile` from one instance is not assignable to the other. Use `import { ts } from "ts-morph"` for any types that touch the compiler object's return values. The standalone `typescript` import is fine for utilities that don't touch ts-morph project objects (e.g. `ts.sys.readDirectory` in `ts-project.ts`).
+
+**`TsProvider.getProjectForDirectory(dir)` vs `getProjectForFile(file)` — the difference is `findTsConfig(dir)` vs `findTsConfigForFile(file)`.**
+`findTsConfigForFile` walks up from `path.dirname(file)`, so passing a directory path gives the parent's config (wrong). `getProjectForDirectory` calls `findTsConfig(dir)` directly, which starts from the directory itself. Use `getProjectForDirectory` whenever you have a workspace root, not a specific file.
+
 **Test helpers are split into three files by concern.**
 `tests/helpers.ts` — fixture I/O only (`copyFixture`, `cleanup`, `readFile`, `fileExists`, `PROJECT_ROOT`). `tests/process-helpers.ts` — CLI spawn and daemon helpers (`spawnAndWaitForReady`, `waitForDaemon`, `killDaemon`, `callDaemonSocket`, `runCliCommand`). `tests/mcp-helpers.ts` — MCP client (`McpTestClient`, `parseMcpResult`, `useMcpContext`). Import from the appropriate module; `mcp-helpers` imports from both others.
 
