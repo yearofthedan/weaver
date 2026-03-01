@@ -40,7 +40,7 @@ export async function ensureDaemon(absWorkspace: string): Promise<void> {
     // First contact with this daemon process — verify protocol version.
     try {
       const ping = await callDaemon(sockPath, { method: "ping", params: {} }, 10_000);
-      if ((ping as Record<string, unknown>).version !== PROTOCOL_VERSION) {
+      if (ping.version !== PROTOCOL_VERSION) {
         // Stale daemon from a previous session — kill it and fall through to respawn.
         await stopDaemon(absWorkspace);
         versionVerified = false;
@@ -61,7 +61,11 @@ export async function ensureDaemon(absWorkspace: string): Promise<void> {
   versionVerified = true;
 }
 
-export function callDaemon(sockPath: string, req: object, timeoutMs = 30_000): Promise<object> {
+export function callDaemon(
+  sockPath: string,
+  req: object,
+  timeoutMs = 30_000,
+): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection(sockPath);
     let buf = "";

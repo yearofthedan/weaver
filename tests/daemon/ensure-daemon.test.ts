@@ -124,52 +124,38 @@ afterEach(async () => {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe("ensureDaemon", () => {
-  describe("stale socket cleanup", () => {
-    it(
-      "given a socket file exists but the process is dead, " +
-        "when ensureDaemon is called, " +
-        "it removes the stale files and spawns a fresh daemon",
-      async () => {
-        fs.writeFileSync(currentSockPath, ""); // socket file present on disk
-        mockIsDaemonAlive.mockReturnValue(false);
-        mockSpawn.mockReturnValue(makeFakeChild({ ready: true }));
+  describe("stale socket", () => {
+    it("removes stale files and spawns when socket exists but process is dead", async () => {
+      fs.writeFileSync(currentSockPath, ""); // socket file present on disk
+      mockIsDaemonAlive.mockReturnValue(false);
+      mockSpawn.mockReturnValue(makeFakeChild({ ready: true }));
 
-        await ensureDaemon(WORKSPACE);
+      await ensureDaemon(WORKSPACE);
 
-        expect(mockRemoveDaemonFiles).toHaveBeenCalledWith(WORKSPACE);
-        expect(mockSpawn).toHaveBeenCalled();
-      },
-    );
+      expect(mockRemoveDaemonFiles).toHaveBeenCalledWith(WORKSPACE);
+      expect(mockSpawn).toHaveBeenCalled();
+    });
 
-    it(
-      "given no socket file on disk and no live daemon, " +
-        "when ensureDaemon is called, " +
-        "it spawns without calling removeDaemonFiles",
-      async () => {
-        // existsSync returns false (no file written) so clean path
-        mockIsDaemonAlive.mockReturnValue(false);
-        mockSpawn.mockReturnValue(makeFakeChild({ ready: true }));
+    it("spawns directly without cleanup when no socket file exists", async () => {
+      mockIsDaemonAlive.mockReturnValue(false);
+      mockSpawn.mockReturnValue(makeFakeChild({ ready: true }));
 
-        await ensureDaemon(WORKSPACE);
+      await ensureDaemon(WORKSPACE);
 
-        expect(mockRemoveDaemonFiles).not.toHaveBeenCalled();
-        expect(mockSpawn).toHaveBeenCalled();
-      },
-    );
+      expect(mockRemoveDaemonFiles).not.toHaveBeenCalled();
+      expect(mockSpawn).toHaveBeenCalled();
+    });
   });
 
-  describe("alive daemon — already verified this session", () => {
-    it(
-      "given versionVerified is already true from a prior call, " +
-        "when ensureDaemon is called again, " +
-        "it returns without pinging (a mismatched-version server is untouched)",
-      async () => {
-        // First call: no server → ENOENT → catch block sets versionVerified = true
+  describe("live daemon", () => {
+    describe("already version-verified this session", () => {
+      it("returns immediately without pinging", async () => {
+        // First call: no server → connection error → catch sets versionVerified = true
         mockIsDaemonAlive.mockReturnValue(true);
         await ensureDaemon(WORKSPACE);
 
-        // Create a server that would return a wrong version — if pinged, stopDaemon
-        // would be called. The absence of stopDaemon proves no ping was attempted.
+        // Tripwire: if a second ping were attempted against this wrong-version server,
+        // stopDaemon would be called and reveal it.
         const tripwire = await createPingServer(currentSockPath, 99);
         activeServers.push(tripwire);
 
@@ -177,16 +163,11 @@ describe("ensureDaemon", () => {
 
         expect(mockStopDaemon).not.toHaveBeenCalled();
         expect(mockSpawn).not.toHaveBeenCalled();
-      },
-    );
-  });
+      });
+    });
 
-  describe("alive daemon — version matches", () => {
-    it(
-      "given a live daemon whose ping returns the current protocol version, " +
-        "when ensureDaemon is called, " +
-        "it marks the session as verified and returns without spawning",
-      async () => {
+    describe("version matches", () => {
+      it("returns without stopping or spawning", async () => {
         const server = await createPingServer(currentSockPath, 1); // PROTOCOL_VERSION = 1
         activeServers.push(server);
         mockIsDaemonAlive.mockReturnValue(true);
@@ -196,39 +177,28 @@ describe("ensureDaemon", () => {
         expect(mockSpawn).not.toHaveBeenCalled();
         expect(mockStopDaemon).not.toHaveBeenCalled();
         expect(mockRemoveDaemonFiles).not.toHaveBeenCalled();
-      },
-    );
-  });
+      });
+    });
 
-  describe("alive daemon — version mismatch", () => {
-    it(
-      "given a live daemon with a stale protocol version, " +
-        "when ensureDaemon is called, " +
-        "it stops the old daemon then spawns a fresh one",
-      async () => {
+    describe("version mismatch", () => {
+      it("stops the old daemon and spawns a fresh one", async () => {
         const server = await createPingServer(currentSockPath, 0); // version 0 ≠ 1
         activeServers.push(server);
         mockIsDaemonAlive.mockReturnValue(true);
-        // mockImplementation (not mockReturnValue) so the fake child and its
-        // setTimeout(0) are created at spawn() call time, not test-setup time.
-        // The async ping means a pre-created child's timer would fire before
-        // child.stderr.on("data") is registered.
+        // mockImplementation so the fake child and its setTimeout(0) are created
+        // at spawn() call time, not test-setup time — the async ping would cause
+        // a pre-created child's timer to fire before stderr.on("data") is registered.
         mockSpawn.mockImplementation(() => makeFakeChild({ ready: true }));
 
         await ensureDaemon(WORKSPACE);
 
         expect(mockStopDaemon).toHaveBeenCalledWith(WORKSPACE);
         expect(mockSpawn).toHaveBeenCalled();
-      },
-    );
-  });
+      });
+    });
 
-  describe("alive daemon — ping throws unexpectedly", () => {
-    it(
-      "given the daemon is alive but ping fails with a connection error, " +
-        "when ensureDaemon is called, " +
-        "it marks the session as verified and returns without spawning (preserves in-flight callers)",
-      async () => {
+    describe("ping fails unexpectedly", () => {
+      it("marks as verified and returns without spawning", async () => {
         // No server at sockPath → ECONNREFUSED / ENOENT → callDaemon rejects
         mockIsDaemonAlive.mockReturnValue(true);
 
@@ -236,98 +206,72 @@ describe("ensureDaemon", () => {
 
         expect(mockSpawn).not.toHaveBeenCalled();
         expect(mockStopDaemon).not.toHaveBeenCalled();
-      },
-    );
+      });
+    });
   });
 
-  describe("daemon not alive — fresh spawn", () => {
-    it(
-      "given no daemon is running, " +
-        "when ensureDaemon is called, " +
-        "it spawns the daemon subprocess with the correct workspace argument and detached stdio options",
-      async () => {
-        mockIsDaemonAlive.mockReturnValue(false);
-        mockSpawn.mockReturnValue(makeFakeChild({ ready: true }));
+  describe("no daemon running", () => {
+    it("spawns with daemon command, workspace arg, and detached stdio options", async () => {
+      mockIsDaemonAlive.mockReturnValue(false);
+      mockSpawn.mockReturnValue(makeFakeChild({ ready: true }));
 
-        await ensureDaemon(WORKSPACE);
+      await ensureDaemon(WORKSPACE);
 
-        expect(mockSpawn).toHaveBeenCalledOnce();
-        const [, spawnArgs, spawnOpts] = mockSpawn.mock.calls[0] as [
-          string,
-          string[],
-          Record<string, unknown>,
-        ];
-        expect(spawnArgs).toContain("daemon");
-        expect(spawnArgs).toContain("--workspace");
-        expect(spawnArgs).toContain(WORKSPACE);
-        expect(spawnOpts).toMatchObject({
-          stdio: ["ignore", "ignore", "pipe"],
-          detached: true,
-        });
-      },
-    );
+      expect(mockSpawn).toHaveBeenCalledOnce();
+      const [, spawnArgs, spawnOpts] = mockSpawn.mock.calls[0] as [
+        string,
+        string[],
+        Record<string, unknown>,
+      ];
+      expect(spawnArgs).toContain("daemon");
+      expect(spawnArgs).toContain("--workspace");
+      expect(spawnArgs).toContain(WORKSPACE);
+      expect(spawnOpts).toMatchObject({
+        stdio: ["ignore", "ignore", "pipe"],
+        detached: true,
+      });
+    });
 
-    it(
-      "given the spawned daemon process exits before signalling ready, " +
-        "when ensureDaemon is called, " +
-        "it rejects with a descriptive error",
-      async () => {
-        mockIsDaemonAlive.mockReturnValue(false);
-        mockSpawn.mockReturnValue(makeFakeChild({ exitCode: 1 }));
+    it("rejects when the daemon exits before signalling ready", async () => {
+      mockIsDaemonAlive.mockReturnValue(false);
+      mockSpawn.mockReturnValue(makeFakeChild({ exitCode: 1 }));
 
-        await expect(ensureDaemon(WORKSPACE)).rejects.toThrow(/exited unexpectedly/i);
-      },
-    );
+      await expect(ensureDaemon(WORKSPACE)).rejects.toThrow(/exited unexpectedly/i);
+    });
 
-    it(
-      "given the spawned process emits a non-ready status JSON line then exits, " +
-        "when ensureDaemon is called, " +
-        "it rejects rather than resolving on the non-ready line",
-      async () => {
-        mockIsDaemonAlive.mockReturnValue(false);
+    it("rejects rather than resolving on a non-ready stderr line before crash", async () => {
+      mockIsDaemonAlive.mockReturnValue(false);
 
-        const stderr = new EventEmitter();
-        const child = new EventEmitter() as EventEmitter & {
-          stderr: EventEmitter;
-          unref: ReturnType<typeof vi.fn>;
-        };
-        child.stderr = stderr;
-        child.unref = vi.fn();
-        setTimeout(() => {
-          // Non-ready status line first — must not resolve the promise
-          stderr.emit("data", Buffer.from(`${JSON.stringify({ status: "starting" })}\n`));
-          // Crash before ever emitting ready
-          child.emit("exit", 1);
-        }, 0);
-        mockSpawn.mockImplementation(() => child);
+      const stderr = new EventEmitter();
+      const child = new EventEmitter() as EventEmitter & {
+        stderr: EventEmitter;
+        unref: ReturnType<typeof vi.fn>;
+      };
+      child.stderr = stderr;
+      child.unref = vi.fn();
+      setTimeout(() => {
+        stderr.emit("data", Buffer.from(`${JSON.stringify({ status: "starting" })}\n`));
+        child.emit("exit", 1);
+      }, 0);
+      mockSpawn.mockImplementation(() => child);
 
-        await expect(ensureDaemon(WORKSPACE)).rejects.toThrow(/exited unexpectedly/i);
-      },
-    );
+      await expect(ensureDaemon(WORKSPACE)).rejects.toThrow(/exited unexpectedly/i);
+    });
 
-    it(
-      "given a daemon was just spawned successfully, " +
-        "when ensureDaemon is called again with a live daemon, " +
-        "it returns without pinging (versionVerified persists across calls)",
-      async () => {
-        // Call 1: no live daemon → spawns
-        mockIsDaemonAlive.mockReturnValue(false);
-        mockSpawn.mockImplementation(() => makeFakeChild({ ready: true }));
-        await ensureDaemon(WORKSPACE);
+    it("skips ping on the next call after a successful spawn", async () => {
+      mockIsDaemonAlive.mockReturnValue(false);
+      mockSpawn.mockImplementation(() => makeFakeChild({ ready: true }));
+      await ensureDaemon(WORKSPACE);
 
-        expect(mockSpawn).toHaveBeenCalledOnce();
+      // Tripwire: if a ping were attempted, the wrong version would trigger stopDaemon.
+      mockIsDaemonAlive.mockReturnValue(true);
+      const tripwire = await createPingServer(currentSockPath, 99);
+      activeServers.push(tripwire);
 
-        // Call 2: daemon now alive; wrong-version tripwire server — if versionVerified
-        // were not set after spawn, a ping would be attempted and stopDaemon called.
-        mockIsDaemonAlive.mockReturnValue(true);
-        const tripwire = await createPingServer(currentSockPath, 99);
-        activeServers.push(tripwire);
+      await ensureDaemon(WORKSPACE);
 
-        await ensureDaemon(WORKSPACE);
-
-        expect(mockStopDaemon).not.toHaveBeenCalled();
-        expect(mockSpawn).toHaveBeenCalledOnce(); // still only one spawn total
-      },
-    );
+      expect(mockStopDaemon).not.toHaveBeenCalled();
+      expect(mockSpawn).toHaveBeenCalledOnce();
+    });
   });
 });

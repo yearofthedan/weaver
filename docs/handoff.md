@@ -26,17 +26,16 @@ An agent discovering new work should add a `[needs design]` entry and move on �
 
 **Finishing a task?** Before committing, verify:
 1. Remove the task from the backlog below (or move to P5 if accepted/deferred)
-2. Update the test count in "Current state" (`pnpm test` for a fresh count)
-3. If you added/removed MCP tools, changed CLI commands, or changed error codes: update `README.md`
-4. If the feature spec changed: update the relevant `docs/features/*.md`
-5. Write any new gotchas or decisions to `docs/agent-memory.md`
-6. Commit with a conventional commit message (see `CLAUDE.md`)
+2. If you added/removed MCP tools, changed CLI commands, or changed error codes: update `README.md`
+3. If the feature spec changed: update the relevant `docs/features/*.md`
+4. Write any new gotchas or decisions to `docs/agent-memory.md`
+5. Commit with a conventional commit message (see `CLAUDE.md`)
 
 ---
 
 ## Current state
 
-**332/332 tests passing. Mutation score: 80.46% overall (full run as of 322 tests); `src/daemon/ensure-daemon.ts` 81.36% (scoped run). Per-module highlights: `getDefinition.ts` 93.33%, `searchText.ts` 80.77%, `moveSymbol.ts` 80.58%, `file-walk.ts` 86.67%, `vue-scan.ts` 88.75% (all above threshold), `volar.ts` 76.52% (below 80%; 6 NoCoverage items remain — all ObjectLiteral returns inside Volar-internals defensive null checks that require edge-case `.vue` structures to trigger). Coverage: operations 95.68% lines / 84.49% branches; providers 91.61% / 66.04%; utils 98.70% / 96.55%; security 94.11% / 100%; daemon folder at threshold; mcp.ts subprocess-level gap shrunk (startMcpServer still uncovered).** Security controls (sensitive file blocklist), all seven operations, provider separation, data-driven dispatch, filesystem watcher, `stop` CLI command, action-centric architecture, protocol version check in `ensureDaemon`, mutation testing across `src/operations/`, `src/utils/`, `src/security.ts`, `src/providers/`, and `src/daemon/ensure-daemon.ts`, portable `.mcp.json` defaults, npm distribution (`@yearofthedan/light-bridge`), and response contract consistency (success/failure semantics locked in docs and code) are complete. Directory layout matches domain boundaries:
+Directory layout matches domain boundaries:
 
 ```
 src/
@@ -94,7 +93,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 Feature doc: [`quality.md`](quality.md) — covers mutation testing strategy, coverage targets by module, surviving mutants table, and what not to do.
 
-Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/operations/`, `src/utils/`, `src/security.ts`, and `src/providers/` in ~13 minutes. Overall score: **80.46% (full run as of 322 tests)**. See [`quality.md`](quality.md) for the full per-module breakdown, surviving mutants table, and hard-won lessons (including why TypeScript `strict` mode does not kill any surviving mutants).
+Stryker mutation testing is operational: `pnpm test:mutate` runs across `src/operations/`, `src/utils/`, `src/security.ts`, `src/providers/`, and `src/daemon/ensure-daemon.ts`. See [`quality.md`](quality.md) for the full per-module breakdown, surviving mutants table, and hard-won lessons (including why TypeScript `strict` mode does not kill any surviving mutants).
 
 **11. Scope an Agent+MCP eval approach with the owner before building**
 Feature docs: [`quality.md`](quality.md), [`features/mcp-transport.md`](features/mcp-transport.md), [`README.md`](../README.md)
@@ -190,8 +189,3 @@ Each concern has a dedicated doc. Read those — don't rely on handoff for desig
 | Implementation gotchas, hard-won decisions (MCP naming, read-only `workspace` convention, etc.) | [`docs/agent-memory.md`](agent-memory.md) |
 | Known structural issues and their fixes | [`docs/tech/tech-debt.md`](tech/tech-debt.md) |
 
----
-
-## Completed: agent tool adoption improvements
-
-The MCP server includes server-level `instructions` (via `McpServer` constructor) providing orientation about supported file types, the compiler reference graph advantage, and token savings over manual file reading. Tool descriptions lead with triggers ("when renaming an identifier", "before modifying a symbol") rather than capabilities. No skill file yet — revisit if dogfooding reveals workflow gaps the descriptions can't cover.
