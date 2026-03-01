@@ -1,0 +1,102 @@
+description: "light-bridge tool-description smoke test"
+
+prompts:
+  - "{{task}}"
+
+providers:
+  - id: anthropic:claude-haiku-4-5-20251001
+    config:
+      mcp:
+        enabled: true
+        server:
+          command: ./node_modules/.bin/tsx
+          args:
+            - src/cli.ts
+            - serve
+            - --workspace
+            - /tmp/light-bridge-eval
+          name: light-bridge
+        timeout: 60000
+
+tests:
+  # ── Positive cases ──────────────────────────────────────────────────────────
+  # Each task should unambiguously map to exactly one light-bridge tool.
+
+  - description: "rename - should select rename tool for project-wide symbol rename"
+    vars:
+      task: >
+        Rename the TypeScript variable `userId` to `accountId` everywhere in the
+        project. It is defined at line 12, column 8 of
+        /tmp/light-bridge-eval/src/auth.ts. Update every reference across all files.
+    assert:
+      - type: tool-call-f1
+        value:
+          - rename
+        threshold: 0.8
+
+  - description: "findReferences - should select findReferences before deleting a symbol"
+    vars:
+      task: >
+        Before I delete the `authenticate` function, I need to see every file and
+        line that calls it. The function is defined at line 5, column 17 of
+        /tmp/light-bridge-eval/src/auth.ts.
+    assert:
+      - type: tool-call-f1
+        value:
+          - findReferences
+        threshold: 0.8
+
+  - description: "getTypeErrors - should select getTypeErrors to check a file"
+    vars:
+      task: >
+        Check /tmp/light-bridge-eval/src/auth.ts for TypeScript type errors. I want
+        to see each error with its file location and error code before I start
+        refactoring.
+    assert:
+      - type: tool-call-f1
+        value:
+          - getTypeErrors
+        threshold: 0.8
+
+  - description: "moveSymbol - should select moveSymbol to reorganise an export"
+    vars:
+      task: >
+        Move the exported function `parseToken` from
+        /tmp/light-bridge-eval/src/auth.ts into a new file at
+        /tmp/light-bridge-eval/src/utils/token.ts and update every file that
+        imports it.
+    assert:
+      - type: tool-call-f1
+        value:
+          - moveSymbol
+        threshold: 0.8
+
+  - description: "searchText - should select searchText to locate text patterns"
+    vars:
+      task: >
+        Find all TODO comments in the project source files. I want the file name,
+        line number, and the surrounding lines for each match so I can work through
+        them.
+    assert:
+      - type: tool-call-f1
+        value:
+          - searchText
+        threshold: 0.8
+
+  # ── Negative case ───────────────────────────────────────────────────────────
+  # A task that sounds like text search but should use the compiler-aware tool.
+  # searchText finds literal text; findReferences uses the compiler's reference
+  # graph and handles re-exports, barrel files, and type-only imports correctly.
+
+  - description: "negative - compiler-aware lookup should prefer findReferences over searchText"
+    vars:
+      task: >
+        Show me every place in the project that uses the `fetchUser` function
+        exported from /tmp/light-bridge-eval/src/api.ts (line 3, column 17). I
+        need a complete list including imports through barrel files, not just
+        literal text matches.
+    assert:
+      - type: tool-call-f1
+        value:
+          - findReferences
+        threshold: 0.8

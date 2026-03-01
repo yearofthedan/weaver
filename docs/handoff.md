@@ -37,6 +37,12 @@ An agent discovering new work should add a `[needs design]` entry and move on �
 Directory layout matches domain boundaries:
 
 ```
+eval/
+  fixture-server.ts    ← socket server that impersonates the daemon for eval runs; exports startFixtureServer
+  run-eval.ts          ← entry point: starts fixture server, runs promptfoo, tears down
+  promptfooconfig.yaml ← PromptFoo config; 5 positive cases + 1 negative case; inline test definitions
+  fixtures/            ← pre-recorded daemon JSON responses keyed by method name
+  cases/               ← (reserved for per-tool case files if extracted in future)
 src/
   cli.ts          ← registers only: daemon, serve, stop
   schema.ts
@@ -98,7 +104,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](quality.md) for per-module breakdown and surviving mutants.
 
-- **Agent+MCP eval implementation** ([spec](specs/20260301-agent-mcp-eval-impl.md)) — PromptFoo-based tool-description smoke test; fixture daemon, `claude-haiku-4-5`, local-only; see eval-design.md for case structure and iteration path
+
 - Agent triage on mutation score warning `[needs design]` — when quality feedback warns (score below threshold), trigger an agent run to inspect surviving mutants and either open an issue or attempt a fix branch
 
 ---

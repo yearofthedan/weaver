@@ -23,6 +23,7 @@
     "coverage": "vitest run --coverage",
     "clean": "rm -rf dist .stryker-tmp",
     "test:mutate": "rm -rf .stryker-tmp && stryker run",
+    "eval": "tsx eval/run-eval.ts",
     "check": "biome check . && pnpm build && pnpm test",
     "prepare": "tsc",
     "prepublishOnly": "pnpm run build"
@@ -53,6 +54,7 @@
     "@types/node": "22.19.11",
     "@vitest/coverage-v8": "4.0.18",
     "@volar/language-core": "2.4.28",
+    "promptfoo": "0.120.25",
     "tsx": "4.21.0",
     "vitest": "4.0.18"
   }

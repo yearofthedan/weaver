@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "symbolName": "userId",
+  "newName": "accountId",
+  "locationCount": 4,
+  "filesModified": [
+    "/tmp/light-bridge-eval/src/auth.ts",
+    "/tmp/light-bridge-eval/src/api.ts",
+    "/tmp/light-bridge-eval/src/types.ts"
+  ],
+  "filesSkipped": []
+}

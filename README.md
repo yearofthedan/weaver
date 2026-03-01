@@ -322,8 +322,15 @@ tests/
 ├── daemon/                # Daemon lifecycle + protocol tests
 ├── security/              # Boundary and sensitive-file tests
 ├── utils/                 # Shared utility tests
+├── eval/                  # Fixture server unit tests
 ├── helpers.ts             # Test utilities
 └── fixtures/              # Fixture projects
+
+eval/
+├── fixture-server.ts      # In-process daemon impersonator; exports startFixtureServer
+├── run-eval.ts            # Entry point: starts fixture server, runs promptfoo, tears down
+├── promptfooconfig.yaml   # PromptFoo config; 5 positive + 1 negative case
+└── fixtures/              # Pre-recorded daemon JSON responses keyed by method name
 ```
 
 ## License
