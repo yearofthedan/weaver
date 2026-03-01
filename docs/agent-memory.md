@@ -137,6 +137,9 @@ The `McpServer` constructor takes an optional `instructions` string (part of the
 **Tool descriptions should lead with triggers, not capabilities.**
 "Before modifying a symbol, call this" is more effective than "Find all references to a symbol" because it matches the agent's situation at the point of decision. Avoid naming specific agent tools (grep, shell mv, search-and-replace) — frame the consequence of not using the tool instead ("leaves broken imports", "text search would find the re-export, not the actual definition").
 
+**Feature specs must describe each output field's content and bounds, not just its type.**
+For fields that wrap compiler or external-API output, "string" as a type is not enough. The spec must state: what the string contains, whether it is bounded (and if so, how), and at least one example. This is especially important for fields that could balloon (e.g. message text from a `DiagnosticMessageChain`) — the spec is where the "top-level node only" decision is recorded and justified, so implementors don't rediscover the question mid-implementation. When writing ACs for a new operation, walk each output field and ask: "could this be unbounded? what does it actually contain?" If the answer isn't obvious, probe the API first.
+
 **Do not record test-run scores in docs — they go stale immediately.**
 Tracking per-module mutation scores in `docs/quality.md` caused real harm: a doc-update commit copied stale round-3 numbers (80.46%) into the round-4 section, then a rebase conflict resolver chose the "newer" (wrong) main-branch version, silently discarding the actual round-4 result (76.80%). The `break` threshold in `stryker.config.mjs` is the only authoritative, machine-verified floor. Everything else belongs to the "Worth fixing" and "Accepted survivors" sections, which describe *why* a gap exists and *how* to fix it — information that doesn't go stale between runs.
 

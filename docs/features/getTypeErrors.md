@@ -44,9 +44,19 @@ Vue SFC (`.vue`) diagnostics are not yet supported — see handoff.md P4 item 16
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `diagnostics` | `TypeDiagnostic[]` | Errors found, capped at 100 |
-| `errorCount` | `number` | Total errors found (may exceed `diagnostics.length` when `truncated` is true) |
-| `truncated` | `boolean` | True when results were capped; narrow the scope by providing `file` |
+| `diagnostics` | `TypeDiagnostic[]` | Errors found, capped at 100. |
+| `errorCount` | `number` | Total errors found (may exceed `diagnostics.length` when `truncated` is true). |
+| `truncated` | `boolean` | True when results were capped; narrow the scope by providing `file`. |
+
+**`TypeDiagnostic` fields:**
+
+| Field | Type | Constraints | Example |
+|-------|------|-------------|---------|
+| `file` | `string` | Absolute path; empty string if the diagnostic has no associated file. | `"/project/src/auth.ts"` |
+| `line` | `number` | 1-based. | `10` |
+| `col` | `number` | 1-based. | `5` |
+| `code` | `number` | TypeScript error number. | `2322` |
+| `message` | `string` | Top-level `DiagnosticMessageChain` node only — **not** `flattenDiagnosticMessageText`. For simple mismatches this is a short, self-contained sentence. For deeply nested generic mismatches the chain can be 4–5 levels; returning the full chain would produce hundreds of characters of concatenated context. The top node is always the most specific description of *what* is wrong (e.g. `"Type '(x: number) => string' is not assignable to type '(x: string) => number'."`). Nested "why" context (`"Types of parameters 'x' and 'x' are incompatible."`) is omitted. | `"Type 'string' is not assignable to type 'number'."` |
 
 ## Behaviour
 
