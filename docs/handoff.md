@@ -43,6 +43,11 @@ eval/
   promptfooconfig.yaml ← PromptFoo config; 5 positive cases + 1 negative case; inline test definitions
   fixtures/            ← pre-recorded daemon JSON responses keyed by method name
   cases/               ← (reserved for per-tool case files if extracted in future)
+.github/workflows/
+  ci.yml               ← lint + build + test on push/PR
+  quality-feedback.yml ← mutation testing (weekly + on push to main); Claude Code triage step on score < 75
+.claude/skills/
+  mutate-triage/       ← /mutate-triage skill: classify survivors, open issues for noise, fix PRs for fixable gaps
 src/
   cli.ts          ← registers only: daemon, serve, stop
   schema.ts
@@ -105,7 +110,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](quality.md) for per-module breakdown and surviving mutants.
 
 
-- Agent triage on mutation score warning → [`docs/specs/20260301-mutation-triage-ci.md`](specs/20260301-mutation-triage-ci.md)
+- Agent triage on mutation score warning ✓ shipped — [`docs/specs/archive/20260301-mutation-triage-ci.md`](specs/archive/20260301-mutation-triage-ci.md)
 
 ---
 

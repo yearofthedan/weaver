@@ -40,9 +40,12 @@ const config = {
   mutator: {
     excludedMutations: ["StringLiteral", "ArrayDeclaration"],
   },
-  reporters: ["html", "clear-text", "progress"],
+  reporters: ["html", "json", "clear-text", "progress"],
   htmlReporter: {
     fileName: "reports/mutation/mutation.html",
+  },
+  jsonReporter: {
+    fileName: "reports/mutation/mutation.json",
   },
   thresholds: {
     high: 80,

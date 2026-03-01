@@ -331,6 +331,15 @@ eval/
 ├── run-eval.ts            # Entry point: starts fixture server, runs promptfoo, tears down
 ├── promptfooconfig.yaml   # PromptFoo config; 5 positive + 1 negative case
 └── fixtures/              # Pre-recorded daemon JSON responses keyed by method name
+
+.github/workflows/
+├── ci.yml                 # lint + build + test on push/PR
+└── quality-feedback.yml   # mutation testing (weekly + on push to main); triggers Claude Code triage on score < 75
+
+.claude/skills/
+├── slice/                 # /slice — pick up and implement the next task
+├── spec/                  # /spec — create a spec from a handoff entry
+└── mutate-triage/         # /mutate-triage — classify survivors, open issues or fix PRs
 ```
 
 ## License
