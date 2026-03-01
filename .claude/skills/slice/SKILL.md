@@ -25,13 +25,9 @@ description: Pick up the next task — if it needs a spec, create one first; if 
 
 6. **Run `pnpm test:mutate`** scoped to the files changed in this slice. If the score is below threshold, add tests — do not adjust the threshold or add survivors to `docs/quality.md` without explaining why the gap is accepted.
 
-7. **Complete the spec's Done-when checklist.** Walk through each item in the spec's Done-when section, plus:
+7. **Complete the spec's Done-when checklist.** Walk through every item in the spec's Done-when section (defined by the template — see `docs/specs/templates/change.md` or `bug.md`). Additionally:
    - [ ] Remove or update the handoff.md entry; update the "Current state" section (test count, layout changes)
-   - [ ] **MCP tool added/renamed/removed** → update `README.md` tool table and `docs/features/mcp-transport.md` tool table
-   - [ ] **CLI command added/renamed/removed** → update `README.md` CLI Commands section and `docs/features/cli.md`
-   - [ ] **Error code added/removed** → update `README.md` Error codes section
-   - [ ] **Source layout changed** (new file, renamed/moved file) → update `README.md` Project structure and `docs/handoff.md` "Current state" layout
-   - [ ] **Feature doc** — create or update the doc linked in the spec's `tracks:` field
+   - [ ] If public surfaces changed, follow `CLAUDE.md` Rule 11 for which docs to update
 
 8. **Archive the spec.** Move the spec file from `docs/specs/` to `docs/specs/archive/`. Append an `## Outcome` section with:
    - Actual test count added
