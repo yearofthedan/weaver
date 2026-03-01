@@ -105,7 +105,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](quality.md) for per-module breakdown and surviving mutants.
 
 
-- Agent triage on mutation score warning `[needs design]` — when quality feedback warns (score below threshold), trigger an agent run to inspect surviving mutants and either open an issue or attempt a fix branch
+- Agent triage on mutation score warning → [`docs/specs/20260301-mutation-triage-ci.md`](specs/20260301-mutation-triage-ci.md)
 
 ---
 
