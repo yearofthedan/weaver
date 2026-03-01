@@ -83,6 +83,42 @@ tests:
           - searchText
         threshold: 0.8
 
+  - description: "moveFile - should select moveFile to relocate a source file"
+    vars:
+      task: >
+        Move /tmp/light-bridge-eval/src/auth.ts to
+        /tmp/light-bridge-eval/src/authentication/auth.ts and update all
+        imports across the project that reference the old path.
+    assert:
+      - type: tool-call-f1
+        value:
+          - moveFile
+        threshold: 0.8
+
+  - description: "getDefinition - should select getDefinition to navigate to a declaration"
+    vars:
+      task: >
+        I'm looking at a reference to `User` at line 8, column 12 of
+        /tmp/light-bridge-eval/src/api.ts. Take me to where it is actually
+        declared, not where it is re-exported.
+    assert:
+      - type: tool-call-f1
+        value:
+          - getDefinition
+        threshold: 0.8
+
+  - description: "replaceText - should select replaceText to apply a bulk text replacement"
+    vars:
+      task: >
+        Replace the string literal "v1" with "v2" in all TypeScript files
+        under /tmp/light-bridge-eval/src/. Apply the change everywhere it
+        appears across the project.
+    assert:
+      - type: tool-call-f1
+        value:
+          - replaceText
+        threshold: 0.8
+
   # ── Negative case ───────────────────────────────────────────────────────────
   # A task that sounds like text search but should use the compiler-aware tool.
   # searchText finds literal text; findReferences uses the compiler's reference

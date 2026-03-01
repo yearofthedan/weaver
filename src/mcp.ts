@@ -222,6 +222,9 @@ const TOOLS: ToolDefinition[] = [
   },
 ];
 
+/** Tool names derived from the TOOLS table — the single source of truth. Exported for testing only. */
+export const TOOL_NAMES: string[] = TOOLS.map((t) => t.name);
+
 // ─── MCP server ────────────────────────────────────────────────────────────
 
 async function startMcpServer(absWorkspace: string): Promise<void> {
