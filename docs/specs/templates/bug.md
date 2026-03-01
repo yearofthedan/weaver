@@ -10,6 +10,17 @@
 
 What's happening. Exact error message or wrong output.
 
+## Value / Effort
+
+> **Prompt:** Use this to decide whether the fix is worth doing *now*.
+> If the bug is cosmetic or the fix is high-risk, consider deferring.
+
+- **Value:** How often does this bite users? What's the workaround cost?
+  A bug with no workaround is higher value than one easily sidestepped.
+- **Effort:** Is the root cause clear? Is the fix localised or does it
+  ripple through many call sites? Flag anything that requires new
+  infrastructure vs. a targeted patch.
+
 Include a reproduction if possible — the most useful format is:
 
 ```

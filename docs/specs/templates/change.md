@@ -10,6 +10,19 @@
 
 Why this change exists. One paragraph max — the feature doc has the background.
 
+## Value / Effort
+
+> **Prompt:** Use this to decide whether the task is worth doing *now*.
+> If value is low or effort is high, consider deferring or splitting.
+
+- **Value:** What does this save the caller from having to do themselves?
+  What failure mode does it prevent? ("Saves a round-trip" is weak;
+  "agents catch type errors at the point of change instead of discovering
+  them three steps later" is strong.)
+- **Effort:** What's the implementation surface? Count the files touched,
+  new concepts introduced, and interactions with existing code. Flag anything
+  that requires new infrastructure vs. plumbing through existing patterns.
+
 ## Behaviour
 
 Acceptance criteria as concrete **input → output** statements.
