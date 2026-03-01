@@ -9,8 +9,14 @@
 ## Context
 
 The eval design was approved in `docs/eval-design.md`. This spec drives v1: a PromptFoo-based
-eval that checks whether `claude-haiku-4-5` selects the correct light-bridge MCP tool given a
-natural-language refactoring task, and produces a sensible summary of the fixture response.
+**tool-description smoke test** — does `claude-haiku-4-5` pick the right light-bridge tool in a
+clean, neutral context (no system prompt, no competing built-in tools)?
+
+This is deliberately a low bar. It catches broken descriptions (e.g. the model reaching for
+`search_text` when it should call `find_references`) but does not replicate the full Claude Code
+harness. Real-world quality signal for Claude Code compatibility comes from dogfooding (Rule 9) —
+the tools are live in `.mcp.json` and any gap that PromptFoo misses will surface during normal
+agent use of this repo.
 
 ## Behaviour
 
