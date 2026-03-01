@@ -111,6 +111,30 @@ When the Quality Feedback workflow warns (score below threshold), trigger a Clau
 
 ### P3 — High-value features
 
+**8. `getTypeErrors` — standalone tool + post-write diagnostics**
+
+Two parts:
+1. **Standalone `getTypeErrors` MCP tool** — check a specific file or the whole project for type errors. Optional `file` param (absolute path); if omitted, checks all project files. Returns `{ diagnostics: [{ file, line, col, code, message }], errorCount, truncated }`. Errors only (no warnings). Cap at 100 results.
+2. **Post-write type diagnostics** — after every write operation (rename, moveFile, moveSymbol, replaceText), refresh modified files in the provider cache and check them for type errors. Append `typeErrors` array to the result. Cap at 20.
+
+Both use the same diagnostic extraction logic via TsProvider. TS/TSX files only (Vue `.vue` SFC diagnostics are a follow-on — see P4 item 16).
+
+Implementation notes:
+- New `src/operations/getTypeErrors.ts` — shared diagnostic extraction
+- `src/daemon/dispatcher.ts` — post-write hook after write ops; calls `invalidateFile()` then extracts diagnostics for `filesModified`
+- `src/mcp.ts` — new tool entry (after `getDefinition`, before `searchText`)
+- `src/schema.ts` / `src/types.ts` — schema + result types
+
+Acceptance criteria:
+- Standalone `getTypeErrors` tool returns type errors for a single file when `file` is provided
+- Standalone `getTypeErrors` tool returns project-wide errors when `file` is omitted, capped at 100 with `truncated: true` when exceeded
+- Write operations (rename, moveFile, moveSymbol, replaceText) include a `typeErrors` array in their response, containing errors from `filesModified` files only, capped at 20
+- Dispatcher refreshes modified files in the provider cache before extracting diagnostics (no stale AST)
+- Each diagnostic includes: `file` (absolute path), `line` (1-based), `col` (1-based), `code` (TS error number), `message`
+- Errors only — warnings/suggestions are excluded
+- `README.md` tool table updated, `docs/features/getTypeErrors.md` created
+- Tests cover: single-file errors, project-wide with cap, post-write diagnostics on rename, clean file returns empty array
+
 **9. `findReferences` by file path** `[needs design]`
 Feature doc: [`features/findReferences.md`](features/findReferences.md) — covers the symbol-position variant; the file-path variant needs a design section added.
 "Who imports this file?" is a different question from "who uses this symbol?". Options: union references across all exports (expensive), use `getEditsForFileRename` as a dry-run proxy (already available from `moveFile`), or scan import strings with the compiler's module resolver. Worth a separate design pass — keep separate from the symbol-position variant.
@@ -139,6 +163,9 @@ Scaffold a file with correct import paths inferred from its location.
 
 **14. `extractFunction`** `[needs design]`
 Pull a selection into a named function, updating the call site. High potential value but AST-level code generation is complex across all call-site shapes; wait until P1–P3 are stable.
+
+**16. `getTypeErrors` Volar support for `.vue` files** `[needs design]`
+Extend type error detection to `.vue` SFC `<script>` blocks via VolarProvider. Requires the same virtual-to-real path translation used by `findReferences` and `getDefinition` in Volar. Depends on P3 item 8 (TS-only `getTypeErrors`) shipping first. Design questions: whether to use `@volar/typescript` proxy's `getSemanticDiagnostics` or Volar's own diagnostic API, and how to map virtual-file positions back to SFC line numbers.
 
 **15. Claude Code plugin distribution**
 Feature docs: [`architecture.md`](architecture.md), [`features/daemon.md`](features/daemon.md)
