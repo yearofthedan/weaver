@@ -1,6 +1,6 @@
 import { findReferences } from "../operations/findReferences.js";
 import { getDefinition } from "../operations/getDefinition.js";
-import { getTypeErrors } from "../operations/getTypeErrors.js";
+import { getTypeErrors, getTypeErrorsForFiles } from "../operations/getTypeErrors.js";
 import { moveFile } from "../operations/moveFile.js";
 import { rename } from "../operations/rename.js";
 import { replaceText } from "../operations/replaceText.js";
@@ -255,5 +255,18 @@ export async function dispatchRequest(
     string,
     unknown
   >;
+
+  if (
+    parsed.data.checkTypeErrors === true &&
+    Array.isArray(result.filesModified) &&
+    (result.filesModified as string[]).length > 0
+  ) {
+    const tsProvider = await registry.tsProvider();
+    const diagnostics = getTypeErrorsForFiles(tsProvider, result.filesModified as string[]);
+    result.typeErrors = diagnostics.typeErrors;
+    result.typeErrorCount = diagnostics.typeErrorCount;
+    result.typeErrorsTruncated = diagnostics.typeErrorsTruncated;
+  }
+
   return { ok: true, ...result };
 }

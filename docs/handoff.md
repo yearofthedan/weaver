@@ -113,7 +113,6 @@ Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](
 
 ### P3 — High-value features
 
-- `getTypeErrors` post-write diagnostics → [spec](specs/20260301-post-write-diagnostics.md)
 - `moveSymbol` for class methods `[needs design]` — extract a method to a standalone exported function; see [moveSymbol.md](features/moveSymbol.md)
 - `extractFunction` `[needs design]` — pull a selection into a named function, updating the call site
 - `deleteFile` `[needs design]` — remove a file and clean up imports in referencing files

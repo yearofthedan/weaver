@@ -3,8 +3,10 @@ import * as path from "node:path";
 import { ts } from "ts-morph";
 import type { TsProvider } from "../providers/ts.js";
 import { isWithinWorkspace } from "../security.js";
-import type { GetTypeErrorsResult, TypeDiagnostic } from "../types.js";
+import type { GetTypeErrorsResult, PostWriteDiagnostics, TypeDiagnostic } from "../types.js";
 import { EngineError } from "../utils/errors.js";
+
+const TS_FILE_EXTENSIONS = new Set([".ts", ".tsx"]);
 
 const MAX_DIAGNOSTICS = 100;
 
@@ -24,6 +26,46 @@ export async function getTypeErrors(
     return getForFile(provider, absPath);
   }
   return getForProject(provider, workspace);
+}
+
+/**
+ * Check type errors only in the given files and return the three post-write
+ * diagnostic fields. Non-TS files are silently skipped. Results are capped at
+ * MAX_DIAGNOSTICS total across all files; typeErrorCount reflects the true total.
+ */
+export function getTypeErrorsForFiles(provider: TsProvider, files: string[]): PostWriteDiagnostics {
+  const tsFiles = files.filter((f) => TS_FILE_EXTENSIONS.has(path.extname(f)));
+
+  let totalCount = 0;
+  const allDiagnostics: TypeDiagnostic[] = [];
+
+  for (const file of tsFiles) {
+    if (!fs.existsSync(file)) continue;
+
+    const project = provider.getProjectForFile(file);
+    const existing = project.getSourceFile(file);
+    if (!existing) {
+      project.addSourceFileAtPath(file);
+    } else {
+      existing.refreshFromFileSystemSync();
+    }
+
+    const ls = project.getLanguageService().compilerObject;
+    const raw = ls.getSemanticDiagnostics(file);
+    const errors = raw.filter((d) => d.category === ts.DiagnosticCategory.Error);
+    totalCount += errors.length;
+    for (const d of errors) {
+      if (allDiagnostics.length < MAX_DIAGNOSTICS) {
+        allDiagnostics.push(toDiagnostic(d));
+      }
+    }
+  }
+
+  return {
+    typeErrors: allDiagnostics,
+    typeErrorCount: totalCount,
+    typeErrorsTruncated: totalCount > MAX_DIAGNOSTICS,
+  };
 }
 
 function getForFile(provider: TsProvider, absPath: string): GetTypeErrorsResult {

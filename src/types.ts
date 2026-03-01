@@ -97,6 +97,19 @@ export interface GetTypeErrorsResult {
   truncated: boolean;
 }
 
+/**
+ * Optional post-write diagnostic fields added to write operation results when
+ * `checkTypeErrors: true` is passed. All three fields are absent when the param
+ * is omitted or false.
+ */
+export interface PostWriteDiagnostics {
+  typeErrors: TypeDiagnostic[];
+  /** True total error count across modified files (may exceed typeErrors.length). */
+  typeErrorCount: number;
+  /** True when results were capped at the internal limit. */
+  typeErrorsTruncated: boolean;
+}
+
 // ─── Provider-level types ──────────────────────────────────────────────────
 
 export interface SpanLocation {

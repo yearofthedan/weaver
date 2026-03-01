@@ -83,6 +83,12 @@ The Volar proxy TS language service registers `.vue` files as `.vue.ts` virtual 
 **Template-only `.vue` files (no `<script>` block) exercise `toVirtualLocation` fallback branches.**
 A `.vue` file with only a `<template>` block has `sourceScript.generated.languagePlugin.typescript?.getServiceScript()` return null (no TypeScript service script generated). This triggers the `if (!serviceScript) return { fileName: virtualPath, pos }` fallback in `toVirtualLocation`. Useful for mutation testing coverage of those branches. Create via `fs.mkdtempSync` with a minimal tsconfig; the `buildVolarService` directory scan picks up all `.vue` files in the project root automatically.
 
+**`getTypeErrorsForFiles` must call `refreshFromFileSystemSync()` before checking diagnostics.**
+When post-write diagnostics run against a file that the TsProvider project already has cached (e.g. from a previous operation in the same daemon lifetime), ts-morph will see stale content unless `refreshFromFileSystemSync()` is called first. `getTypeErrorsForFiles` always does this. For fresh TsProvider instances (new projects loaded for the first time), the file is read directly from disk and no refresh is needed — but calling `refreshFromFileSystemSync()` on a newly-added source file is a safe no-op.
+
+**Stryker run scoped to a single file: use `--mutate` flag.**
+`stryker run --mutate 'src/operations/getTypeErrors.ts'` overrides the `mutate` array from the config and runs mutation tests only for that file. Useful when you want to check mutation score for touched files without running the full suite. The `--testFiles` equivalent is runner-specific; for vitest, the config-level `testFiles` filter is the only supported path.
+
 **`getTypeErrors` uses `TsProvider` directly, not `LanguageProvider`.**
 Vue SFC diagnostics via Volar are deferred (handoff P4 item 16). The operation signature takes `TsProvider` instead of the generic `LanguageProvider` interface. The dispatcher calls `registry.tsProvider()` (always returns `TsProvider`, even in Vue projects). This matches the pattern used by `moveSymbol`.
 
