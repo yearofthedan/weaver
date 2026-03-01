@@ -85,10 +85,16 @@ pnpm eval --case find_references  # run a single case
 A run prints: cases passed / total, any failed tool selections, any failed summaries.
 No threshold enforcement in v1 — results are informational.
 
-## Where to add new cases
+## Adding a new tool
 
-Cases live in `eval/cases/`. Each file is a PromptFoo test config targeting one tool.
-Fixtures live in `eval/fixtures/`. Adding a new tool means: one fixture file + one case file.
+When a new MCP tool is registered in `src/mcp.ts`, add both of the following or `pnpm test` will fail (the fixture-coverage test in `tests/eval/fixture-coverage.test.ts` enforces the invariant):
+
+1. **`eval/fixtures/<toolName>.json`** — a realistic pre-recorded daemon response for that tool.
+   Model the shape on an existing fixture (e.g. `rename.json`, `findReferences.json`).
+2. **A case in `eval/promptfooconfig.yaml`** — one positive test under the `tests:` key.
+   Give the task a natural-language prompt that unambiguously targets the new tool, and assert with `tool-call-f1` at threshold 0.8.
+
+The fixture name must exactly match the tool name registered in the `TOOLS` table in `mcp.ts` (camelCase, e.g. `moveFile.json`, not `move-file.json`).
 
 ## Iteration path
 

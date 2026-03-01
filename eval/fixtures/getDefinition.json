@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "definitions": [
+    {
+      "file": "/tmp/light-bridge-eval/src/types.ts",
+      "line": 3,
+      "col": 13,
+      "length": 4
+    }
+  ]
+}
