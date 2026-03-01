@@ -51,8 +51,8 @@ This project runs in a dev container. The home directory is deleted on every reb
 
 Update both at the end of every session.
 
-**Rule 10: ACs are required before implementation, not before backlog entry.**
-Tasks in `docs/handoff.md` are either `[needs design]` (problem known, solution not yet agreed) or ready (has acceptance criteria). When adding new work discovered during a session, add a `[needs design]` entry and move on — do not design it in the same session. When picking up a `[needs design]` task, the first move is to propose ACs to the user; do not write code until they are agreed. Do not add ACs to feature docs (`docs/features/*.md`) — those are reference specs, not task tracking. ACs belong to the task entry and are deleted when the task ships.
+**Rule 10: Every task gets a spec before implementation.**
+Tasks in `docs/handoff.md` are either `[needs design]` (no spec yet) or linked to a spec file in `docs/specs/`. Use `/spec` to create a spec from a `[needs design]` entry — it picks the right template, walks through ACs with the user, and produces a ready-to-implement file. Use `/slice` to implement a spec. When adding new work discovered during a session, add a `[needs design]` entry to handoff.md and move on — do not spec it in the same session. Do not add ACs to feature docs (`docs/features/*.md`) — those are reference docs for shipped behaviour, not task tracking. ACs live in spec files and are archived (with an Outcome section) when the task ships.
 
 **Rule 11: Doc updates are mandatory when public surfaces change — optional otherwise.**
 When any of the following change, update the corresponding docs in the same commit:
