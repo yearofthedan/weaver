@@ -39,5 +39,5 @@ Do not log per-session "fixed X" history here; keep durable process guidance onl
 **Do not use `~/.claude/` for memory.** That path is wiped on container rebuild.
 Write here or to `docs/agent-memory.md` instead.
 
-**Task workflow: `/spec` then `/slice`.**
-`/spec` creates a spec file from a handoff.md `[needs design]` entry. `/slice` implements a ready spec. Handoff.md is an index — specs hold the ACs. Completed specs are archived to `docs/specs/archive/` with an Outcome section.
+**Task workflow: `/slice` is the default entry point.**
+`/slice` picks up the next task. If it needs a spec, it creates one first (using the `/spec` workflow), then implements. `/spec` standalone is for design-only sessions. Handoff.md is an index — specs hold the ACs. Completed specs are archived to `docs/specs/archive/` with an Outcome section.

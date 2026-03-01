@@ -1,11 +1,14 @@
 ---
 name: slice
-description: Execute the next ready spec — confirms the task, writes failing tests first, implements, runs tests + lint, commits, archives the spec, and updates docs.
+description: Pick up the next task — if it needs a spec, create one first; if it has a spec, implement it. The default entry point for getting work done.
 ---
 
 # Slice Workflow
 
-1. **Find the spec.** Read `docs/handoff.md` — look for the first entry that links to a spec file in `docs/specs/`. If no ready spec exists, tell the user and suggest running `/spec` first. If the task has no spec file (legacy `[needs design]` entry or inline ACs), ask the user whether to create a spec first or proceed with inline ACs.
+1. **Find the task.** Read `docs/handoff.md` — identify the first task by priority.
+   - **Has a spec link** → go to step 2.
+   - **`[needs design]` (no spec)** → switch to the `/spec` workflow: create a spec file from the appropriate template, walk through ACs with the user, update handoff.md with the spec link. Then return here at step 2.
+   - **Legacy inline ACs (no spec file, no `[needs design]` tag)** → ask the user: create a spec first, or proceed with inline ACs?
 
 2. **Read the spec.** Open the linked spec file. Confirm the task and its ACs with the user BEFORE writing any code.
 
