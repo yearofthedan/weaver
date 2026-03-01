@@ -1,27 +1,43 @@
 ---
 name: slice
-description: Execute the next vertical slice from handoff.md — confirms the task, writes failing tests first, implements, runs tests + lint, commits, and updates docs.
+description: Execute the next ready spec — confirms the task, writes failing tests first, implements, runs tests + lint, commits, archives the spec, and updates docs.
 ---
 
-# Next Slice Workflow
+# Slice Workflow
 
-1. Read `docs/handoff.md` — identify the FIRST uncompleted task
-2. Confirm the exact task with the user BEFORE writing any code. If the task has no acceptance criteria, draft them with the user before proceeding.
-3. **Write failing tests first.** For each test:
+1. **Find the spec.** Read `docs/handoff.md` — look for the first entry that links to a spec file in `docs/specs/`. If no ready spec exists, tell the user and suggest running `/spec` first. If the task has no spec file (legacy `[needs design]` entry or inline ACs), ask the user whether to create a spec first or proceed with inline ACs.
+
+2. **Read the spec.** Open the linked spec file. Confirm the task and its ACs with the user BEFORE writing any code.
+
+3. **Write failing tests first.** For each AC in the spec's Behaviour/Fix section:
    - State in the `it`/`describe` label what specific behaviour is being specified
    - Ask: "What would have to be wrong in the implementation for this test to still pass?" Add at least one assertion that answers that — pin exact values, boundary conditions, or the absence of something
    - A test that only verifies a result exists is incomplete — assert the shape, a boundary case, and at least one error/edge path
+   - Use the spec's **Interface** section to inform bounds testing and the **Edges** section for regression tests
    - Before moving to implementation: review the test file as a whole. Would a logic inversion (`>` → `>=`, `+` → `-`, a null guard flipped) survive undetected? If yes, add a test that would catch it.
-4. Implement the minimum code to make each test pass, one at a time
-5. Run `pnpm check` (biome check + build + test) — all must pass before continuing
-6. Run `pnpm test:mutate` scoped to the files changed in this slice. If the score is below threshold, add tests — do not adjust the threshold or add survivors to `docs/quality.md` without explaining why the gap is accepted.
-7. **Doc sync** — run through this checklist before committing:
-   - [ ] Remove the completed slice from `docs/handoff.md`; update the "Current state" section (test count, layout changes)
+
+4. **Implement** the minimum code to make each test pass, one at a time.
+
+5. **Run `pnpm check`** (biome check + build + test) — all must pass before continuing.
+
+6. **Run `pnpm test:mutate`** scoped to the files changed in this slice. If the score is below threshold, add tests — do not adjust the threshold or add survivors to `docs/quality.md` without explaining why the gap is accepted.
+
+7. **Complete the spec's Done-when checklist.** Walk through each item in the spec's Done-when section, plus:
+   - [ ] Remove or update the handoff.md entry; update the "Current state" section (test count, layout changes)
    - [ ] **MCP tool added/renamed/removed** → update `README.md` tool table and `docs/features/mcp-transport.md` tool table
    - [ ] **CLI command added/renamed/removed** → update `README.md` CLI Commands section and `docs/features/cli.md`
    - [ ] **Error code added/removed** → update `README.md` Error codes section
    - [ ] **Source layout changed** (new file, renamed/moved file) → update `README.md` Project structure and `docs/handoff.md` "Current state" layout
-   - [ ] **Any other feature doc** that references changed code: update it
-8. Update `docs/agent-memory.md` with any architectural decisions or non-obvious gotchas discovered
-9. Commit with a conventional commit message (see `CLAUDE.md`)
-10. Do NOT proceed to the next slice without explicit user approval
+   - [ ] **Feature doc** — create or update the doc linked in the spec's `tracks:` field
+
+8. **Archive the spec.** Move the spec file from `docs/specs/` to `docs/specs/archive/`. Append an `## Outcome` section with:
+   - Actual test count added
+   - Mutation score for touched files
+   - Any architectural decisions or discoveries worth preserving
+   - Anything surprising that came up during implementation
+
+9. **Update `docs/agent-memory.md`** with any non-obvious gotchas discovered.
+
+10. **Commit** with a conventional commit message (see `CLAUDE.md`).
+
+11. Do NOT proceed to the next slice without explicit user approval.

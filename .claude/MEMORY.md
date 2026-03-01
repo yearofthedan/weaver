@@ -20,13 +20,15 @@ Do not log per-session "fixed X" history here; keep durable process guidance onl
 
 | Doc | Purpose |
 |-----|---------|
-| `docs/handoff.md` | Current state, source layout, next work, technical context |
+| `docs/handoff.md` | Current state, source layout, task index (links to specs) |
+| `docs/specs/` | Task specifications — one file per task; templates in `templates/` |
+| `docs/specs/archive/` | Completed specs with Outcome sections |
 | `docs/agent-memory.md` | Technical gotchas and non-obvious implementation decisions |
 | `docs/architecture.md` | Provider/operation architecture — read before touching `src/` |
 | `docs/quality.md` | Testing strategy, mutation scores, hard-won test lessons |
 | `docs/tech/volar-v3.md` | How the Vue provider works — read before touching `providers/volar.ts` |
 | `docs/tech/tech-debt.md` | Known structural issues |
-| `docs/features/` | Per-operation docs |
+| `docs/features/` | Per-operation reference docs (shipped behaviour) |
 
 ---
 
@@ -36,3 +38,6 @@ Do not log per-session "fixed X" history here; keep durable process guidance onl
 
 **Do not use `~/.claude/` for memory.** That path is wiped on container rebuild.
 Write here or to `docs/agent-memory.md` instead.
+
+**Task workflow: `/spec` then `/slice`.**
+`/spec` creates a spec file from a handoff.md `[needs design]` entry. `/slice` implements a ready spec. Handoff.md is an index — specs hold the ACs. Completed specs are archived to `docs/specs/archive/` with an Outcome section.
