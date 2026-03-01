@@ -18,13 +18,13 @@ description: Create or refine a task specification from a handoff.md entry — p
 5. **Draft the Behaviour / Fix section with the user.** This is the core of the spec.
    - Write concrete ACs as input → output pairs wherever possible
    - For each AC, apply the template prompts: "what's the laziest wrong implementation?", "what's the narrowest fix that leaves siblings broken?"
-   - If you reach 6+ ACs, stop and discuss splitting with the user
+   - If you have more than 5 ACs, stop and discuss splitting with the user (see template guidance)
    - Do NOT proceed past this step without user agreement on the ACs
 
-6. **Fill in Interface (change only).** Walk each parameter and return field:
+6. **Fill in Interface (change only).** See `docs/specs/templates/change.md` for the full walkthrough. For every parameter and return field, answer:
    - What does it contain? (not just the type — the actual information)
-   - What are the bounds? What's an example value?
-   - What's the empty case? The adversarial case?
+   - What are the realistic bounds? What's an example value?
+   - What's the zero/empty case? The adversarial case?
    - If the operation wraps a compiler/external API, read the API source to answer these — don't guess
 
 7. **Fill in Edges.** Ask: "what must NOT change?" and "what assumptions are we making?" These become regression tests during implementation.
