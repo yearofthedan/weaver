@@ -68,6 +68,6 @@ function toDiagnostic(
     line = lc.line + 1;
     col = lc.character + 1;
   }
-  const message = ts.flattenDiagnosticMessageText(d.messageText, " ");
+  const message = typeof d.messageText === "string" ? d.messageText : d.messageText.messageText;
   return { file, line, col, code: d.code, message };
 }
