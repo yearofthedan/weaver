@@ -52,6 +52,7 @@ All tools use position-based parameters where applicable, consistent with LSP co
 | `rename` | `file`, `line`, `col`, `newName`, `checkTypeErrors?` |
 | `moveFile` | `oldPath`, `newPath`, `checkTypeErrors?` |
 | `moveSymbol` | `sourceFile`, `symbolName`, `destFile`, `checkTypeErrors?` |
+| `extractFunction` | `file`, `startLine`, `startCol`, `endLine`, `endCol`, `functionName`, `checkTypeErrors?` |
 | `findReferences` | `file`, `line`, `col` |
 | `getDefinition` | `file`, `line`, `col` |
 | `searchText` | `pattern`, `glob?`, `context?`, `maxResults?` |

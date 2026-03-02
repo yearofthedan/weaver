@@ -4,6 +4,7 @@ import { z } from "zod";
 import { callDaemon, ensureDaemon } from "./daemon/ensure-daemon.js";
 import { socketPath } from "./daemon/paths.js";
 import {
+  ExtractFunctionArgsSchema,
   FindReferencesArgsSchema,
   GetDefinitionArgsSchema,
   GetTypeErrorsArgsSchema,
@@ -76,6 +77,41 @@ const TOOLS: ToolDefinition[] = [
       col: RenameArgsSchema.shape.col.describe("Column number (1-based)"),
       newName: RenameArgsSchema.shape.newName.describe("New name for the symbol"),
       checkTypeErrors: RenameArgsSchema.shape.checkTypeErrors.describe(
+        "When false, skip the post-write type check; defaults to on",
+      ),
+    },
+  },
+  {
+    name: "extractFunction",
+    description:
+      "Pull a block of selected statements out of a function and into a new named function. " +
+      "Use this when a function is getting too long, or when a block of code is worth naming for clarity. " +
+      "The compiler infers which variables from the enclosing scope become parameters, " +
+      "which variables need to be returned, and whether the extracted function should be async. " +
+      "The extracted function is placed at module scope (not exported — use moveSymbol to relocate it). " +
+      "TypeScript (.ts/.tsx) files only; returns NOT_SUPPORTED for .vue files. " +
+      "Type errors in the modified file are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress. " +
+      "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+    inputSchema: {
+      file: ExtractFunctionArgsSchema.shape.file.describe(
+        "Absolute path to the .ts or .tsx file containing the code to extract",
+      ),
+      startLine: ExtractFunctionArgsSchema.shape.startLine.describe(
+        "Start line of the selection (1-based)",
+      ),
+      startCol: ExtractFunctionArgsSchema.shape.startCol.describe(
+        "Start column of the selection (1-based)",
+      ),
+      endLine: ExtractFunctionArgsSchema.shape.endLine.describe(
+        "End line of the selection (1-based)",
+      ),
+      endCol: ExtractFunctionArgsSchema.shape.endCol.describe(
+        "End column of the selection (1-based)",
+      ),
+      functionName: ExtractFunctionArgsSchema.shape.functionName.describe(
+        "Name for the extracted function (must be a valid identifier)",
+      ),
+      checkTypeErrors: ExtractFunctionArgsSchema.shape.checkTypeErrors.describe(
         "When false, skip the post-write type check; defaults to on",
       ),
     },

@@ -1,0 +1,7 @@
+{
+  "ok": true,
+  "filesModified": ["/tmp/light-bridge-eval/src/auth.ts"],
+  "filesSkipped": [],
+  "functionName": "hashPassword",
+  "parameterCount": 1
+}

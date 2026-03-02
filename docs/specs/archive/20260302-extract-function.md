@@ -97,13 +97,28 @@ These are constraints that become regression tests, not features:
 
 ## Done-when
 
-- [ ] All ACs verified by tests
+- [x] All ACs verified by tests
 - [ ] Mutation score ≥ threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated if public surface changed:
+- [x] `pnpm check` passes (lint + build + test)
+- [x] Docs updated if public surface changed:
       - README.md (tool table, CLI commands, error codes, project structure)
       - Feature doc created or updated
       - handoff.md current-state section
-- [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Agent insights captured in docs/agent-memory.md
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Tech debt discovered during implementation added to handoff.md as [needs design]
+- [x] Agent insights captured in docs/agent-memory.md
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Shipped:** 2026-03-02
+
+**Implementation:** `src/operations/extractFunction.ts` — delegates to TypeScript's built-in `getApplicableRefactors`/`getEditsForRefactor` with the "Extract Symbol" refactor. Selects the outermost (`function_scope_N`) action, replaces the compiler's auto-generated name with the caller-provided name across all edits before writing to disk, then counts parameters by reloading the file via a fresh project.
+
+**Tests added:** 8 tests in `tests/operations/extractFunction.test.ts` covering all four ACs plus error paths (FILE_NOT_FOUND, NOT_SUPPORTED for empty range and .vue files).
+
+**Gotcha — endCol must include the semicolon:** For multi-statement selections, TypeScript's `getApplicableRefactors` returns no refactors if the `end` offset falls before the `;` that terminates the last statement. `endCol` must point at the `;` or past it; pointing at the last expression character (e.g., `)` in `console.log(msg)`) silently returns nothing. This is a quirk of the TS compiler's refactor API, not of our offset encoding. Document in agent-memory.md.
+
+**Architectural decisions:**
+- Uses `tsProvider.getProjectForFile` directly (same pattern as `moveSymbol`) — no provider polymorphism needed since Vue is explicitly not supported in v1.
+- Outermost scope action (`function_scope_N`) is selected by sorting on the numeric suffix descending — this consistently extracts to module scope rather than an inner function scope.
+- Name replacement uses `String.replaceAll(generatedName, functionName)` on the raw edit text — this is safe because the generated name (from `renameLocation`) is a compiler-generated identifier that does not appear in user code.

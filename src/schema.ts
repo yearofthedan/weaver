@@ -66,6 +66,19 @@ export const GetTypeErrorsArgsSchema = z.object({
   file: z.string().min(1, "file path must not be empty").optional(),
 });
 
+export const ExtractFunctionArgsSchema = z.object({
+  file: z.string().min(1, "file path is required"),
+  startLine: z.coerce.number().int().positive("startLine must be a positive integer (1-based)"),
+  startCol: z.coerce.number().int().positive("startCol must be a positive integer (1-based)"),
+  endLine: z.coerce.number().int().positive("endLine must be a positive integer (1-based)"),
+  endCol: z.coerce.number().int().positive("endCol must be a positive integer (1-based)"),
+  functionName: z
+    .string()
+    .min(1, "functionName is required")
+    .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/, "functionName must be a valid identifier"),
+  checkTypeErrors: z.boolean().optional(),
+});
+
 export const ReplaceTextArgsSchema = ReplaceTextBaseSchema.refine(
   (d) => {
     const hasPattern = d.pattern !== undefined && d.replacement !== undefined;
@@ -83,3 +96,4 @@ export type FindReferencesArgs = z.infer<typeof FindReferencesArgsSchema>;
 export type GetDefinitionArgs = z.infer<typeof GetDefinitionArgsSchema>;
 export type SearchTextArgs = z.infer<typeof SearchTextArgsSchema>;
 export type ReplaceTextArgs = z.infer<typeof ReplaceTextArgsSchema>;
+export type ExtractFunctionArgs = z.infer<typeof ExtractFunctionArgsSchema>;
