@@ -43,6 +43,10 @@ is wrong."
 
 ## Fix
 
+> **Prompt:** If this bug affects a tool interface, response shape, or error path,
+> review [`docs/agent-users.md`](../../agent-users.md) — the fix should respect
+> agent-user constraints (structured errors, distinct codes, bounded output).
+
 Acceptance criteria for the fix:
 
 - [ ] [reproduction case] now produces [expected output]
