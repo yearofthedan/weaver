@@ -89,6 +89,8 @@ const TOOLS: ToolDefinition[] = [
       "The compiler infers which variables from the enclosing scope become parameters, " +
       "which variables need to be returned, and whether the extracted function should be async. " +
       "The extracted function is placed at module scope (not exported — use moveSymbol to relocate it). " +
+      "The selection must cover complete statements including their trailing semicolons — " +
+      "for example, to extract `console.log(msg);`, endCol must point at the `;`, not the `)`. " +
       "TypeScript (.ts/.tsx) files only; returns NOT_SUPPORTED for .vue files. " +
       "Type errors in the modified file are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
@@ -106,7 +108,7 @@ const TOOLS: ToolDefinition[] = [
         "End line of the selection (1-based)",
       ),
       endCol: ExtractFunctionArgsSchema.shape.endCol.describe(
-        "End column of the selection (1-based)",
+        "End column of the selection (1-based, inclusive). Must include the semicolon of the last statement.",
       ),
       functionName: ExtractFunctionArgsSchema.shape.functionName.describe(
         "Name for the extracted function (must be a valid identifier)",
