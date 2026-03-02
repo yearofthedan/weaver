@@ -46,8 +46,6 @@ export async function replaceText(
   );
 }
 
-// ─── Pattern mode ────────────────────────────────────────────────────────────
-
 function applyPatternReplace(
   workspace: string,
   pattern: string,
@@ -102,8 +100,6 @@ function applyPatternReplace(
 
   return { filesModified, replacementCount };
 }
-
-// ─── Surgical mode ────────────────────────────────────────────────────────────
 
 function applySurgicalEdits(workspace: string, edits: TextEdit[]): ReplaceTextResult {
   // Validate all inputs up front before touching any file

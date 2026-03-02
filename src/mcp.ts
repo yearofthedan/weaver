@@ -53,8 +53,6 @@ export async function runServe(opts: { workspace: string }): Promise<void> {
   await startMcpServer(absWorkspace);
 }
 
-// ─── Tool definition table ─────────────────────────────────────────────────
-
 interface ToolDefinition {
   name: string;
   description: string;
@@ -278,8 +276,6 @@ const TOOLS: ToolDefinition[] = [
 
 /** Tool names derived from the TOOLS table — the single source of truth. Exported for testing only. */
 export const TOOL_NAMES: string[] = TOOLS.map((t) => t.name);
-
-// ─── MCP server ────────────────────────────────────────────────────────────
 
 async function startMcpServer(absWorkspace: string): Promise<void> {
   const sockPath = socketPath(absWorkspace);

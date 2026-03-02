@@ -23,8 +23,6 @@ describe("walkFiles", () => {
     return full;
   }
 
-  // ── non-git fallback ──────────────────────────────────────────────────────
-
   describe("non-git fallback (no .git dir)", () => {
     it("returns empty array when the directory does not exist", () => {
       // Exercises the walkRecursive try/catch path: readdirSync fails → []
@@ -108,8 +106,6 @@ describe("walkFiles", () => {
       expect(path.isAbsolute(result[0])).toBe(true);
     });
   });
-
-  // ── git repo ──────────────────────────────────────────────────────────────
 
   describe("git repo", () => {
     function initGit() {

@@ -21,8 +21,6 @@ describe("extractFunction", () => {
     return dir;
   }
 
-  // ─── AC1: extracts statements to a module-scope function ──────────────────
-
   it("creates a new function and replaces the selection with a call", async () => {
     const dir = makeTempDir();
     // Write a file with a block of code to extract
@@ -83,8 +81,6 @@ describe("extractFunction", () => {
     expect(result.filesSkipped).toEqual([]);
   });
 
-  // ─── AC2: infers parameters from the enclosing scope ──────────────────────
-
   it("parameterCount reflects the number of parameters inferred by the compiler", async () => {
     const dir = makeTempDir();
     // Selection references two outer-scope variables → extracted fn should have 2 params
@@ -138,8 +134,6 @@ describe("extractFunction", () => {
 
     expect(result.parameterCount).toBe(0);
   });
-
-  // ─── AC3: applies the caller-provided function name ────────────────────────
 
   it("extracted function uses the provided name, not a compiler-generated default", async () => {
     const dir = makeTempDir();
@@ -199,8 +193,6 @@ describe("extractFunction", () => {
     const occurrences = (written.match(/printSum/g) ?? []).length;
     expect(occurrences).toBeGreaterThanOrEqual(2);
   });
-
-  // ─── AC4: rejects un-extractable selections ────────────────────────────────
 
   it("throws NOT_SUPPORTED when no extractable code exists at the given range", async () => {
     const dir = copyFixture("simple-ts");

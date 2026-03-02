@@ -31,8 +31,6 @@ export class VolarProvider implements LanguageProvider {
     this.services.delete(this.cacheKey(tsConfigPath, filePath));
   }
 
-  // ─── Virtual ↔ real path helpers ──────────────────────────────────────────
-
   private toVirtualLocation(
     realPath: string,
     pos: number,
@@ -93,8 +91,6 @@ export class VolarProvider implements LanguageProvider {
       .map((loc) => this.translateSingleLocation(loc, service))
       .filter((loc): loc is SpanLocation => loc !== null);
   }
-
-  // ─── LanguageProvider ─────────────────────────────────────────────────────
 
   resolveOffset(file: string, line: number, col: number): number {
     const content = fs.readFileSync(file, "utf8");
