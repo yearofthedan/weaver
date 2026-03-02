@@ -17,7 +17,7 @@ Feature docs exist for 7 of 9 operations (searchText and replaceText have none).
 
 ## Behaviour
 
-- [ ] **AC1: Standard structure.** Every feature doc in `docs/features/` follows this section order:
+- [x] **AC1: Standard structure.** Every feature doc in `docs/features/` follows this section order:
   1. `# Operation: <name>` — title
   2. `## Why use this` — when to reach for it; what it gives you over doing the same thing manually or with a different tool
   3. `## What it does` — one paragraph + MCP tool call example + response example (keep existing examples where accurate)
@@ -27,9 +27,9 @@ Feature docs exist for 7 of 9 operations (searchText and replaceText have none).
   7. `## Security & workspace boundary` — input validation, output filtering, cross-boundary behaviour; link to `docs/security.md`
   8. `## Technical decisions` — non-obvious tradeoffs (keep existing entries where still accurate)
 
-- [ ] **AC2: Missing docs created.** `docs/features/searchText.md` and `docs/features/replaceText.md` exist and follow the standard structure from AC1. Content sourced from the MCP tool descriptions, operation source, and schema.
+- [x] **AC2: Missing docs created.** `docs/features/searchText.md` and `docs/features/replaceText.md` exist and follow the standard structure from AC1. Content sourced from the MCP tool descriptions, operation source, and schema.
 
-- [ ] **AC3: Existing docs rewritten.** All 7 existing operation docs (rename, moveFile, moveSymbol, extractFunction, findReferences, getDefinition, getTypeErrors) rewritten to follow the standard structure. Specifically:
+- [x] **AC3: Existing docs rewritten.** All 7 existing operation docs (rename, moveFile, moveSymbol, extractFunction, findReferences, getDefinition, getTypeErrors) rewritten to follow the standard structure. Specifically:
   - Each gains a `## Why use this` section
   - `## How it works` replaced by `## Key concepts` (trimmed to concepts, not code walkthrough)
   - getTypeErrors restructured: metadata header removed, section names and order match the standard
@@ -49,9 +49,13 @@ No public interface changes. This is a docs-only change.
 
 ## Done-when
 
-- [ ] All 9 operation docs exist and follow the standard structure (AC1)
-- [ ] searchText.md and replaceText.md created (AC2)
-- [ ] All 7 existing docs rewritten (AC3)
-- [ ] `pnpm check` passes
-- [ ] handoff.md entry updated (link replaces `[needs design]`)
-- [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+- [x] All 9 operation docs exist and follow the standard structure (AC1)
+- [x] searchText.md and replaceText.md created (AC2)
+- [x] All 7 existing docs rewritten (AC3)
+- [x] `pnpm check` passes
+- [x] handoff.md entry updated (link replaces `[needs design]`)
+- [x] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+## Outcome
+
+All 9 operation feature docs now follow a consistent 8-section structure. Each leads with "Why use this" explaining when to reach for the tool. "How it works" code walkthroughs replaced with "Key concepts" sections. getTypeErrors brought into line with the other docs. searchText and replaceText docs created from source and MCP descriptions. Security section preserved in all docs per project requirement.
