@@ -19,11 +19,11 @@ const config = {
     "!src/types.ts",
     // MCP + daemon files that spawn CLI binaries: integration tests only,
     // not available in Stryker's sandbox — surviving mutants would confirm
-    // test absence. ensure-daemon.ts has a pure unit-test suite and IS included.
+    // test absence. ensure-daemon.ts and dispatcher.ts have direct unit-test
+    // suites (no subprocess spawning) and ARE included.
     "!src/mcp.ts",
     "!src/daemon/daemon.ts",
     "!src/daemon/paths.ts",
-    "!src/daemon/dispatcher.ts",
     "!src/daemon/watcher.ts",
   ],
   // Exclude MCP/daemon integration tests — they spawn CLI binaries that
@@ -35,6 +35,8 @@ const config = {
     "tests/providers/**/*.test.ts",
     // ensure-daemon unit tests: mock-based, no subprocess spawning
     "tests/daemon/ensure-daemon.test.ts",
+    // dispatcher unit tests: call dispatchRequest directly, no subprocess spawning
+    "tests/daemon/dispatcher.test.ts",
     "tests/mcp/call-daemon-timeout.test.ts",
   ],
   mutator: {

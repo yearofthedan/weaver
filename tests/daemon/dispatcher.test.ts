@@ -255,4 +255,176 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
       expect(d.message.length).toBeGreaterThan(0);
     }
   }, 15_000);
+
+  // Kills L260 mutations: omitting checkTypeErrors must suppress diagnostics even when files ARE modified
+  it("AC3 — omitting checkTypeErrors produces no typeErrors fields even when files are modified", async () => {
+    const dir = copyFixture("ts-errors");
+    dirs.push(dir);
+
+    // This pattern matches something, so filesModified will be non-empty
+    const result = (await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          pattern: "export function multiply",
+          replacement: "// comment\nexport function multiply",
+          glob: "**/clean.ts",
+          // intentionally no checkTypeErrors
+        },
+      },
+      dir,
+    )) as Record<string, unknown>;
+
+    expect(result.ok).toBe(true);
+    expect((result.filesModified as string[]).length).toBeGreaterThan(0);
+    expect(result).not.toHaveProperty("typeErrors");
+    expect(result).not.toHaveProperty("typeErrorCount");
+    expect(result).not.toHaveProperty("typeErrorsTruncated");
+  }, 15_000);
+
+  // Kills L262 mutations: checkTypeErrors:true with empty filesModified must suppress diagnostics
+  it("AC3 — checkTypeErrors:true produces no typeErrors fields when no files are modified", async () => {
+    const dir = copyFixture("ts-errors");
+    dirs.push(dir);
+
+    // Pattern matches nothing → filesModified will be []
+    const result = (await dispatchRequest(
+      {
+        method: "replaceText",
+        params: { pattern: "__no_match_xyz__", replacement: "x", checkTypeErrors: true },
+      },
+      dir,
+    )) as Record<string, unknown>;
+
+    expect(result.ok).toBe(true);
+    expect((result.filesModified as string[]).length).toBe(0);
+    expect(result).not.toHaveProperty("typeErrors");
+    expect(result).not.toHaveProperty("typeErrorCount");
+    expect(result).not.toHaveProperty("typeErrorsTruncated");
+  }, 15_000);
+});
+
+describe("dispatchRequest invoke() body coverage", () => {
+  const dirs: string[] = [];
+  afterEach(() => dirs.splice(0).forEach(cleanup));
+
+  // Covers L170: getTypeErrors invoke()
+  it("dispatches getTypeErrors and returns diagnostics shape", async () => {
+    const dir = copyFixture("ts-errors");
+    dirs.push(dir);
+    const result = (await dispatchRequest(
+      { method: "getTypeErrors", params: {} },
+      dir,
+    )) as Record<string, unknown>;
+    expect(result.ok).toBe(true);
+    // Must have the diagnostic shape — not just ok:true from a blanked-out invoke()
+    expect(result).toHaveProperty("diagnostics");
+    expect(result).toHaveProperty("errorCount");
+    expect(result).toHaveProperty("truncated");
+  }, 15_000);
+
+  // Covers L150: findReferences invoke()
+  it("dispatches findReferences and returns references shape", async () => {
+    const dir = copyFixture("ts-errors");
+    dirs.push(dir);
+    const file = path.join(dir, "src/clean.ts");
+    const result = (await dispatchRequest(
+      { method: "findReferences", params: { file, line: 1, col: 17 } },
+      dir,
+    )) as Record<string, unknown>;
+    expect(typeof result.ok).toBe("boolean");
+    // Either ok:true with references array, or ok:false with error code
+    // Both differ from a blanked-out invoke() returning { ok:true } with no fields
+    if (result.ok) {
+      expect(result).toHaveProperty("references");
+    } else {
+      expect(result).toHaveProperty("error");
+    }
+  }, 15_000);
+
+  // Covers L160: getDefinition invoke()
+  it("dispatches getDefinition and returns definition shape", async () => {
+    const dir = copyFixture("ts-errors");
+    dirs.push(dir);
+    const file = path.join(dir, "src/clean.ts");
+    const result = (await dispatchRequest(
+      { method: "getDefinition", params: { file, line: 1, col: 17 } },
+      dir,
+    )) as Record<string, unknown>;
+    expect(typeof result.ok).toBe("boolean");
+    if (result.ok) {
+      expect(result).toHaveProperty("definitions");
+    } else {
+      expect(result).toHaveProperty("error");
+    }
+  }, 15_000);
+
+  // Covers L109: rename invoke()
+  it("dispatches rename and returns result shape", async () => {
+    const dir = copyFixture("ts-errors");
+    dirs.push(dir);
+    const file = path.join(dir, "src/clean.ts");
+    const result = (await dispatchRequest(
+      { method: "rename", params: { file, line: 1, col: 17, newName: "multiplied" } },
+      dir,
+    )) as Record<string, unknown>;
+    expect(typeof result.ok).toBe("boolean");
+    if (result.ok) {
+      expect(result).toHaveProperty("filesModified");
+    } else {
+      expect(result).toHaveProperty("error");
+    }
+  }, 15_000);
+
+  // Covers L124: moveFile invoke()
+  it("dispatches moveFile and returns result shape", async () => {
+    const dir = copyFixture("ts-errors");
+    dirs.push(dir);
+    const oldPath = path.join(dir, "src/clean.ts");
+    const newPath = path.join(dir, "src/relocated.ts");
+    const result = (await dispatchRequest(
+      { method: "moveFile", params: { oldPath, newPath } },
+      dir,
+    )) as Record<string, unknown>;
+    expect(typeof result.ok).toBe("boolean");
+    if (result.ok) {
+      expect(result).toHaveProperty("filesModified");
+    } else {
+      expect(result).toHaveProperty("error");
+    }
+  }, 15_000);
+
+  // Covers L134: moveSymbol invoke()
+  it("dispatches moveSymbol and returns result shape", async () => {
+    const dir = copyFixture("ts-errors");
+    dirs.push(dir);
+    const sourceFile = path.join(dir, "src/clean.ts");
+    const destFile = path.join(dir, "src/multiply.ts");
+    const result = (await dispatchRequest(
+      { method: "moveSymbol", params: { sourceFile, symbolName: "multiply", destFile } },
+      dir,
+    )) as Record<string, unknown>;
+    expect(typeof result.ok).toBe("boolean");
+    if (result.ok) {
+      expect(result).toHaveProperty("filesModified");
+    } else {
+      expect(result).toHaveProperty("error");
+    }
+  }, 15_000);
+});
+
+describe("dispatchRequest workspace boundary enforcement", () => {
+  // Covers L235-239: workspace violation path in dispatchRequest
+  it("returns WORKSPACE_VIOLATION when a path param is outside the workspace", async () => {
+    const result = (await dispatchRequest(
+      {
+        method: "rename",
+        params: { file: "/outside-workspace/file.ts", line: 1, col: 1, newName: "x" },
+      },
+      "/tmp/workspace",
+    )) as Record<string, unknown>;
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("WORKSPACE_VIOLATION");
+    expect(result).toHaveProperty("message");
+  });
 });
