@@ -54,15 +54,6 @@ Update both at the end of every session.
 **Rule 10: Every task gets a spec before implementation.**
 Tasks in `docs/handoff.md` are either `[needs design]` (no spec yet) or linked to a spec file in `docs/specs/`. Use `/spec` to create a spec from a `[needs design]` entry — it picks the right template, walks through ACs with the user, and produces a ready-to-implement file. Use `/slice` to implement a spec. When adding new work discovered during a session, add a `[needs design]` entry to handoff.md and move on — do not spec it in the same session. Do not add ACs to feature docs (`docs/features/*.md`) — those are reference docs for shipped behaviour, not task tracking. ACs live in spec files and are archived (with an Outcome section) when the task ships.
 
-**Rule 11: Doc updates are mandatory when public surfaces change — optional otherwise.**
-When any of the following change, update the corresponding docs in the same commit:
-- MCP tool added/renamed/removed → `README.md` tool table + `docs/features/mcp-transport.md` tool table
-- CLI command added/renamed/removed → `README.md` CLI Commands + `docs/features/cli.md`
-- Error code added/removed → `README.md` Error codes section
-- Source layout changed (new/renamed/moved file in `src/`) → `README.md` Project structure + `docs/handoff.md` "Current state" layout
-
-Description changes, implementation details, and internal refactoring do not require doc updates unless they affect a public interface.
-
 **Rule 9: Dogfood the tools — you are the target user.**
 The `mcp__light-bridge__*` tools are always available (configured in `.mcp.json`; daemon auto-spawns on first use). Every user of this tool gets the same MCP tool descriptions you do. If those descriptions aren't compelling enough to make you reach for the tools naturally during development, they aren't good enough for users either — improve the description, don't add a private agent rule. Shareable skills (`.claude/skills/`) are fine — they ship with the tool and any consumer can load them. Private memories and rules that only exist in this repo's config are not a substitute for good descriptions. If a tool can't do what you need at all, add it to `docs/handoff.md`.
 
