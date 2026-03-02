@@ -68,8 +68,7 @@ const TOOLS: ToolDefinition[] = [
       "Scope-aware — won't touch unrelated identifiers that share the same name. " +
       "The response lists every file modified; no need to read them to verify. " +
       "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
-      "Pass checkTypeErrors:true to receive type errors in the modified files immediately — " +
-      "saves a separate getTypeErrors call and catches breakage at the point of change. " +
+      "Type errors in every modified file are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
       file: RenameArgsSchema.shape.file.describe("Absolute path to the file"),
@@ -77,7 +76,7 @@ const TOOLS: ToolDefinition[] = [
       col: RenameArgsSchema.shape.col.describe("Column number (1-based)"),
       newName: RenameArgsSchema.shape.newName.describe("New name for the symbol"),
       checkTypeErrors: RenameArgsSchema.shape.checkTypeErrors.describe(
-        "When true, run type diagnostics on modified files and include typeErrors, typeErrorCount, typeErrorsTruncated in the response",
+        "When false, skip the post-write type check; defaults to on",
       ),
     },
   },
@@ -89,14 +88,13 @@ const TOOLS: ToolDefinition[] = [
       "Also use for non-source files (tests, scripts, config) — creates the destination directory and moves the file even when there are no imports to rewrite. " +
       "The response lists every file modified; no need to read them to verify. " +
       "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
-      "Pass checkTypeErrors:true to receive type errors in the modified files immediately — " +
-      "saves a separate getTypeErrors call and catches breakage at the point of change. " +
+      "Type errors in every modified file are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
       oldPath: MoveArgsSchema.shape.oldPath.describe("Absolute path to the file to move"),
       newPath: MoveArgsSchema.shape.newPath.describe("Absolute destination path"),
       checkTypeErrors: MoveArgsSchema.shape.checkTypeErrors.describe(
-        "When true, run type diagnostics on modified files and include typeErrors, typeErrorCount, typeErrorsTruncated in the response",
+        "When false, skip the post-write type check; defaults to on",
       ),
     },
   },
@@ -110,8 +108,7 @@ const TOOLS: ToolDefinition[] = [
       "does not support class methods or re-exports via `export { }`. " +
       "The response lists every file modified; no need to read them to verify. " +
       "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
-      "Pass checkTypeErrors:true to receive type errors in the modified files immediately — " +
-      "saves a separate getTypeErrors call and catches breakage at the point of change. " +
+      "Type errors in every modified file are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress. " +
       "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
     inputSchema: {
       sourceFile: MoveSymbolArgsSchema.shape.sourceFile.describe(
@@ -124,7 +121,7 @@ const TOOLS: ToolDefinition[] = [
         "Absolute path of the destination file (created if it does not exist)",
       ),
       checkTypeErrors: MoveSymbolArgsSchema.shape.checkTypeErrors.describe(
-        "When true, run type diagnostics on modified files and include typeErrors, typeErrorCount, typeErrorsTruncated in the response",
+        "When false, skip the post-write type check; defaults to on",
       ),
     },
   },
@@ -208,8 +205,7 @@ const TOOLS: ToolDefinition[] = [
       "oldText is verified before writing, so stale edits are caught. " +
       "Both modes skip sensitive files and enforce the workspace boundary. " +
       "Returns filesModified and replacementCount. " +
-      "Pass checkTypeErrors:true to receive type errors in the modified files immediately — " +
-      "saves a separate getTypeErrors call and catches breakage at the point of change. " +
+      "Type errors in every modified file are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress. " +
       "Use searchText first to locate targets, then replaceText to apply changes.",
     inputSchema: {
       pattern: ReplaceTextBaseSchema.shape.pattern.describe(
@@ -236,7 +232,7 @@ const TOOLS: ToolDefinition[] = [
         .optional()
         .describe("Surgical edits array (surgical mode)"),
       checkTypeErrors: ReplaceTextBaseSchema.shape.checkTypeErrors.describe(
-        "When true, run type diagnostics on modified files and include typeErrors, typeErrorCount, typeErrorsTruncated in the response",
+        "When false, skip the post-write type check; defaults to on",
       ),
     },
   },

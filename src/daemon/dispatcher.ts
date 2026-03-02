@@ -257,7 +257,7 @@ export async function dispatchRequest(
   >;
 
   if (
-    parsed.data.checkTypeErrors === true &&
+    parsed.data.checkTypeErrors !== false &&
     Array.isArray(result.filesModified) &&
     (result.filesModified as string[]).length > 0
   ) {

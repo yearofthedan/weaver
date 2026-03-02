@@ -68,7 +68,7 @@ Vue SFC (`.vue`) diagnostics are not yet supported — see handoff.md P4 item 16
 
 ## Post-write diagnostics (`checkTypeErrors`)
 
-Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) accept an optional `checkTypeErrors: true` parameter. When set, type diagnostics are run against `filesModified` immediately after the write completes and appended to the response:
+Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) run type diagnostics against `filesModified` immediately after every write and append them to the response by default:
 
 ```json
 {
@@ -82,7 +82,7 @@ Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) accept an o
 }
 ```
 
-When omitted or `false`, none of the three fields (`typeErrors`, `typeErrorCount`, `typeErrorsTruncated`) appear in the response.
+Pass `checkTypeErrors: false` to suppress. When suppressed, or when no files are modified, none of the three fields (`typeErrors`, `typeErrorCount`, `typeErrorsTruncated`) appear in the response.
 
 **Constraints:**
 - TS/TSX files only. `.vue` or other file types in `filesModified` are silently skipped.
