@@ -114,7 +114,7 @@ Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](
 
 ### P3 — High-value features
 
-- `extractFunction` `[needs design]` — pull a selection into a named function, updating the call site
+- [`extractFunction`](specs/20260302-extract-function.md) — pull a selection into a named function, updating the call site
 - `deleteFile` `[needs design]` — remove a file and clean up imports in referencing files
 
 ---
