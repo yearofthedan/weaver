@@ -290,10 +290,10 @@ describe("dispatchRequest per-operation dispatch", () => {
   it("dispatches getTypeErrors and returns diagnostics shape", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
-    const result = (await dispatchRequest(
-      { method: "getTypeErrors", params: {} },
-      dir,
-    )) as Record<string, unknown>;
+    const result = (await dispatchRequest({ method: "getTypeErrors", params: {} }, dir)) as Record<
+      string,
+      unknown
+    >;
     expect(result.ok).toBe(true);
     expect(result).toHaveProperty("diagnostics");
     expect(result).toHaveProperty("errorCount");
