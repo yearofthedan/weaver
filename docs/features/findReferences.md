@@ -1,5 +1,9 @@
 # Operation: findReferences
 
+## Why use this
+
+Use `findReferences` to discover every usage of a symbol before changing or removing it. It answers "who calls this function?", "who reads this variable?", "who implements this interface?" — questions that `searchText` can approximate by name but can't answer precisely (it would match unrelated identifiers with the same name in other scopes). This is a read-only operation; pair it with `rename`, `replaceText`, or manual edits to act on the results.
+
 ## What it does
 
 Returns all references to a symbol at a given file position. Read-only — does not modify any files.
@@ -33,16 +37,12 @@ Returns all references to a symbol at a given file position. Read-only — does 
 
 `line` and `col` are 1-based. The declaration site itself is included in the results. If no symbol is found at the given position, `references` is empty.
 
-## How it works
+## Key concepts
 
-1. The MCP layer validates the request (Zod schema).
-2. The dispatcher validates that `file` is within the workspace.
-3. `operations/findReferences.ts` calls `LanguageProvider.getReferencesAtPosition(file, offset)`.
-   - **TsProvider:** delegates to `ts.LanguageService.getReferencesAtPosition`.
-   - **VolarProvider:** delegates to the same method on the Volar-decorated language service, then translates virtual `.vue.ts` positions back to real `.vue` positions via source-map.
-4. Results are returned as an array of `{ file, line, col }` objects.
-
-Note: unlike mutating operations, `findReferences` does not take a `workspace` parameter at the engine interface level. The engine returns all references including those outside the workspace. Input validation (the `file` parameter) still happens at the dispatcher.
+- **Scope-aware via language service.** Uses TypeScript's `getReferencesAtPosition`, so results are semantically correct — not string matches.
+- **Vue virtual-path translation.** Same mechanism as `rename`: Volar returns references in virtual `.vue.ts` coordinates, the provider translates them back to real `.vue` positions.
+- **No workspace filtering on output.** Unlike mutating operations, references outside the workspace are returned as-is. Read-only results carry no security risk, and filtering them would silently hide valid cross-package references.
+- **Debounce window.** Results reflect the in-memory project graph. The daemon watcher keeps it fresh, but there can be a short debounce window (~200ms) before out-of-band file changes are visible.
 
 ## Supported file types
 
@@ -53,9 +53,8 @@ Note: unlike mutating operations, `findReferences` does not take a `workspace` p
 
 ## Constraints & limitations
 
-- Results reflect the in-memory project graph at the time of the call. The daemon watcher keeps it fresh for out-of-band edits, but there can be a short debounce window before changes are visible.
-- "Find references by file path" (who imports this file?) is a separate capability not yet implemented. See `docs/handoff.md` for design notes.
-- Results may include references in files outside the workspace if those files are in the project graph (via tsconfig `include`). This is intentional — `findReferences` is read-only and cross-boundary reads are not a security concern in the same way writes are.
+- "Find references by file path" (who imports this file?) is a separate capability not yet implemented. See `docs/handoff.md`.
+- Results may include references in files outside the workspace if those files are in the project graph (via tsconfig `include`). This is intentional for read-only operations.
 
 ## Security & workspace boundary
 

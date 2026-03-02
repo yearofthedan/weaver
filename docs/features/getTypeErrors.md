@@ -1,100 +1,91 @@
-**Purpose:** Specification for the `getTypeErrors` MCP tool.
-**Audience:** Engineers implementing or extending the tool.
-**Status:** Shipped (standalone tool, TS/TSX only)
-**Related docs:** [Architecture](../architecture.md), [MCP transport](mcp-transport.md)
+# Operation: getTypeErrors
 
----
+## Why use this
 
-# `getTypeErrors`
+Use `getTypeErrors` to check whether your changes introduced type errors — either in a single file or across the whole project. Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) already return type errors for modified files automatically, but `getTypeErrors` is useful when you want to check a file you didn't just modify, or scan the entire project for pre-existing issues before starting work.
 
-Check a TypeScript file or whole project for type errors using the ts-morph compiler API.
+## What it does
 
-## Overview
+Returns TypeScript semantic errors for a single file or all project files. Warnings and suggestions are excluded — only errors (`DiagnosticCategory.Error`) are reported.
 
-Returns TypeScript semantic errors for a single file or all project files. Warnings and suggestions are excluded — only errors (TypeScript `DiagnosticCategory.Error`) are reported.
+**MCP tool call (single file):**
 
-Vue SFC (`.vue`) diagnostics are not yet supported — see handoff.md P4 item 16.
+```json
+{
+  "name": "getTypeErrors",
+  "arguments": {
+    "file": "/path/to/project/src/utils.ts"
+  }
+}
+```
 
-## MCP tool signature
+**MCP tool call (whole project):**
 
-**Input:**
+```json
+{
+  "name": "getTypeErrors",
+  "arguments": {}
+}
+```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file` | `string` | no | Absolute path to a `.ts`/`.tsx` file. If omitted, checks the whole project. |
-
-**Output:**
+**Response:**
 
 ```json
 {
   "ok": true,
   "diagnostics": [
     {
-      "file": "/abs/path/to/file.ts",
+      "file": "/path/to/project/src/utils.ts",
       "line": 10,
       "col": 5,
       "code": 2322,
       "message": "Type 'string' is not assignable to type 'number'."
     }
   ],
-  "errorCount": 3,
+  "errorCount": 1,
   "truncated": false
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `diagnostics` | `TypeDiagnostic[]` | Errors found, capped at 100. |
-| `errorCount` | `number` | Total errors found (may exceed `diagnostics.length` when `truncated` is true). |
-| `truncated` | `boolean` | True when results were capped; narrow the scope by providing `file`. |
+`line` and `col` are 1-based. `errorCount` is the true total; when `truncated` is true, narrow the scope by providing `file`.
 
-**`TypeDiagnostic` fields:**
+## Key concepts
 
-| Field | Type | Constraints | Example |
-|-------|------|-------------|---------|
-| `file` | `string` | Absolute path; empty string if the diagnostic has no associated file. | `"/project/src/auth.ts"` |
-| `line` | `number` | 1-based. | `10` |
-| `col` | `number` | 1-based. | `5` |
-| `code` | `number` | TypeScript error number. | `2322` |
-| `message` | `string` | Top-level `DiagnosticMessageChain` node only — **not** `flattenDiagnosticMessageText`. For simple mismatches this is a short, self-contained sentence. For deeply nested generic mismatches the chain can be 4–5 levels; returning the full chain would produce hundreds of characters of concatenated context. The top node is always the most specific description of *what* is wrong (e.g. `"Type '(x: number) => string' is not assignable to type '(x: string) => number'."`). Nested "why" context (`"Types of parameters 'x' and 'x' are incompatible."`) is omitted. | `"Type 'string' is not assignable to type 'number'."` |
+- **Errors only.** `DiagnosticCategory.Warning`, `Suggestion`, and `Message` are excluded.
+- **Cap at 100 diagnostics.** `errorCount` always reflects the true total even when results are capped. `truncated` tells you when this happens.
+- **Top-level message only.** For deeply nested generic mismatches, TypeScript produces a diagnostic chain 4–5 levels deep. Only the top node is returned — it's always the most specific description of *what* is wrong. Nested "why" context is omitted to keep responses concise.
+- **Single-file vs project-wide.** With `file`, checks only that file. Without `file`, iterates all source files in the tsconfig project rooted at the workspace.
+- **Post-write diagnostics on other operations.** Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) run type diagnostics against `filesModified` after every write and append `typeErrors`, `typeErrorCount`, `typeErrorsTruncated` to the response. Pass `checkTypeErrors: false` to suppress.
 
-## Behaviour
+## Supported file types
 
-- **Single-file mode** (`file` provided): checks only that file. Throws `FILE_NOT_FOUND` if the file doesn't exist; throws `WORKSPACE_VIOLATION` if it's outside the workspace.
-- **Project-wide mode** (`file` omitted): iterates all source files in the tsconfig project rooted at the workspace. Results are ordered by file iteration order (tsconfig-driven).
-- **Cap**: at most 100 diagnostics are returned. `errorCount` always reflects the true total.
-- **Errors only**: `DiagnosticCategory.Warning`, `Suggestion`, and `Message` are excluded.
-- **No stale AST**: the project is loaded fresh from disk on first access; subsequent calls reuse the daemon's cached project.
+| Scenario | Supported |
+|----------|-----------|
+| `.ts` / `.tsx` | Yes |
+| `.vue` | No — pending Volar support (see handoff.md) |
+| `.js` / `.jsx` | Yes when in project graph via `allowJs` |
 
-## Post-write diagnostics (`checkTypeErrors`)
+## Constraints & limitations
 
-Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) run type diagnostics against `filesModified` immediately after every write and append them to the response by default:
+- Vue SFC (`.vue`) diagnostics are not yet supported.
+- Post-write diagnostics only cover `.ts`/`.tsx` files — `.vue` or other file types in `filesModified` are silently skipped.
+- The project is loaded fresh from disk on first access; subsequent calls reuse the daemon's cached project.
 
-```json
-{
-  "ok": true,
-  "filesModified": ["src/utils.ts"],
-  "typeErrors": [
-    { "file": "/abs/src/utils.ts", "line": 5, "col": 3, "code": 2322, "message": "Type 'number' is not assignable to type 'string'." }
-  ],
-  "typeErrorCount": 1,
-  "typeErrorsTruncated": false
-}
-```
+## Security & workspace boundary
 
-Pass `checkTypeErrors: false` to suppress. When suppressed, or when no files are modified, none of the three fields (`typeErrors`, `typeErrorCount`, `typeErrorsTruncated`) appear in the response.
+- Single-file mode: `file` is validated against the workspace root. Invalid paths return `WORKSPACE_VIOLATION`; non-existent files return `FILE_NOT_FOUND`.
+- Project-wide mode: iterates files in the tsconfig project rooted at the workspace. No files outside the project graph are checked.
+- Diagnostics are read-only — no files are written.
 
-**Constraints:**
-- TS/TSX files only. `.vue` or other file types in `filesModified` are silently skipped.
-- Same 100-diagnostic cap and `TypeDiagnostic` shape as standalone `getTypeErrors`.
-- `typeErrorCount` is the true total; `typeErrorsTruncated` is `true` when capped.
-- `filesSkipped` files are not checked — only `filesModified` (files actually written within the workspace).
-- Cache freshness: the write operation refreshes each modified file before diagnostics run.
+See `docs/security.md` for the full threat model.
 
-## Implementation notes
+## Technical decisions
 
-- `src/operations/getTypeErrors.ts` — core logic; uses `TsProvider` directly (not `LanguageProvider`) because Vue diagnostics are out of scope.
-- `src/providers/ts.ts` — `getProjectForFile(absPath)` for single-file mode; `getProjectForDirectory(workspace)` for project-wide mode.
-- `src/daemon/dispatcher.ts` — `getTypeErrors` entry in `OPERATIONS`; `pathParams: []` (workspace boundary enforced inside the operation).
-- `src/schema.ts` — `GetTypeErrorsArgsSchema` (optional `file` string).
-- `src/types.ts` — `TypeDiagnostic` and `GetTypeErrorsResult` interfaces.
+**Why errors only, not warnings?**
+Agents act on diagnostics. Warnings are informational and rarely actionable in an automated workflow — including them would add noise and consume context window for no benefit.
+
+**Why cap at 100?**
+A project with hundreds of type errors is usually in a broken state where individual diagnostics are less useful. The cap keeps response size bounded. `errorCount` preserves the signal that more exist.
+
+**Why top-level message only?**
+For simple mismatches, the top-level message is a short, self-contained sentence. For deeply nested generic mismatches, the chain can be 4–5 levels; returning the full chain would produce hundreds of characters of concatenated context. The top node is always the most specific description of *what* is wrong.
