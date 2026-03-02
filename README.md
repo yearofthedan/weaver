@@ -106,6 +106,7 @@ All refactoring operations are exposed as MCP tools via `light-bridge serve`. Th
 | `rename` | ✓ | ✓ | no | Renames a symbol at a given position; updates every reference project-wide |
 | `moveFile` | ✓ | ✓ | no | Moves a file; rewrites all import paths that reference it |
 | `moveSymbol` | ✓ | ✓* | no | Moves a named export to another file; updates all importers |
+| `extractFunction` | ✓ | — | no | Extracts a selected block of statements into a new named function at module scope |
 | `findReferences` | ✓ | ✓ | yes | Returns every reference to the symbol at a given position |
 | `getDefinition` | ✓ | ✓ | yes | Returns definition location(s) for the symbol at a given position |
 | `getTypeErrors` | ✓ | — | yes | Returns type errors for a single file or whole project (capped at 100) |
@@ -217,6 +218,7 @@ light-bridge MCP tools are connected. Use them for all structural refactors:
 - `mcp__light-bridge__rename` — rename any symbol and update all references (not search-and-replace)
 - `mcp__light-bridge__moveFile` — move a file and rewrite all import paths (not `mv` + manual fixes)
 - `mcp__light-bridge__moveSymbol` — move a named export between files
+- `mcp__light-bridge__extractFunction` — pull a block of statements into a new named function (compiler infers params and return)
 - `mcp__light-bridge__findReferences` — find all usages of a symbol before deciding how to refactor
 - `mcp__light-bridge__getDefinition` — jump from a symbol usage to its declaration
 - `mcp__light-bridge__searchText` / `mcp__light-bridge__replaceText` — safe text search/replace operations with workspace and sensitive-file protections
@@ -297,6 +299,7 @@ src/
 │   ├── rename.ts
 │   ├── moveFile.ts
 │   ├── moveSymbol.ts
+│   ├── extractFunction.ts
 │   ├── findReferences.ts
 │   ├── getDefinition.ts
 │   ├── getTypeErrors.ts

@@ -1,3 +1,4 @@
+import { extractFunction } from "../operations/extractFunction.js";
 import { findReferences } from "../operations/findReferences.js";
 import { getDefinition } from "../operations/getDefinition.js";
 import { getTypeErrors, getTypeErrorsForFiles } from "../operations/getTypeErrors.js";
@@ -6,6 +7,7 @@ import { rename } from "../operations/rename.js";
 import { replaceText } from "../operations/replaceText.js";
 import { searchText } from "../operations/searchText.js";
 import {
+  ExtractFunctionArgsSchema,
   FindReferencesArgsSchema,
   GetDefinitionArgsSchema,
   GetTypeErrorsArgsSchema,
@@ -141,6 +143,32 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
       const projectProvider = await registry.projectProvider();
       const { moveSymbol } = await import("../operations/moveSymbol.js");
       return moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace);
+    },
+  },
+
+  extractFunction: {
+    pathParams: ["file"],
+    schema: ExtractFunctionArgsSchema,
+    async invoke(registry, params, workspace) {
+      const { file, startLine, startCol, endLine, endCol, functionName } = params as {
+        file: string;
+        startLine: number;
+        startCol: number;
+        endLine: number;
+        endCol: number;
+        functionName: string;
+      };
+      const tsProvider = await registry.tsProvider();
+      return extractFunction(
+        tsProvider,
+        file,
+        startLine,
+        startCol,
+        endLine,
+        endCol,
+        functionName,
+        workspace,
+      );
     },
   },
 

@@ -62,14 +62,15 @@ src/
     dispatcher.ts     ← dispatchRequest; provider singletons; invalidateFile/invalidateAll
     watcher.ts        ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
   operations/
-    rename.ts        ← rename(provider, filePath, line, col, newName, workspace)
-    findReferences.ts← findReferences(provider, filePath, line, col)
-    getDefinition.ts ← getDefinition(provider, filePath, line, col)
-    getTypeErrors.ts ← getTypeErrors(tsProvider, file?, workspace) — errors-only, cap 100
-    moveFile.ts      ← moveFile(provider, oldPath, newPath, workspace)
-    moveSymbol.ts    ← moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace)
-    searchText.ts    ← searchText(pattern, workspace, { glob, context, maxResults })
-    replaceText.ts   ← replaceText(workspace, { pattern, replacement, glob } | { edits })
+    rename.ts          ← rename(provider, filePath, line, col, newName, workspace)
+    findReferences.ts  ← findReferences(provider, filePath, line, col)
+    getDefinition.ts   ← getDefinition(provider, filePath, line, col)
+    getTypeErrors.ts   ← getTypeErrors(tsProvider, file?, workspace) — errors-only, cap 100
+    moveFile.ts        ← moveFile(provider, oldPath, newPath, workspace)
+    moveSymbol.ts      ← moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace)
+    extractFunction.ts ← extractFunction(tsProvider, file, startLine, startCol, endLine, endCol, functionName, workspace)
+    searchText.ts      ← searchText(pattern, workspace, { glob, context, maxResults })
+    replaceText.ts     ← replaceText(workspace, { pattern, replacement, glob } | { edits })
   providers/
     ts.ts         ← TsProvider: compiler calls via ts-morph Project; refreshFile() for selective invalidation
     volar.ts      ← VolarProvider: compiler calls via Volar proxy + virtual↔real translation; afterSymbolMove scans .vue files
@@ -86,6 +87,7 @@ src/
 - `rename` — TS + Vue
 - `moveFile` — TS + Vue
 - `moveSymbol` — TS + Vue
+- `extractFunction` — TS only; extracts a selected block of statements into a new named function at module scope; compiler infers parameters and return value
 - `findReferences` — TS + Vue; read-only, returns all references to a symbol by position
 - `getDefinition` — TS + Vue; read-only, returns definition location(s) for a symbol by position
 - `getTypeErrors` — TS only; read-only, returns type errors for a single file or whole project; capped at 100
@@ -114,7 +116,6 @@ Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](
 
 ### P3 — High-value features
 
-- [`extractFunction`](specs/20260302-extract-function.md) — pull a selection into a named function, updating the call site
 - `deleteFile` `[needs design]` — remove a file and clean up imports in referencing files
 
 ---
