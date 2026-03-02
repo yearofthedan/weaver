@@ -12,6 +12,8 @@ import { isDaemonAlive, removeDaemonFiles, runDaemon, runStop } from "../../src/
 import { cleanup, copyFixture } from "../helpers.js";
 import { killDaemon, spawnAndWaitForReady } from "../process-helpers.js";
 
+// ─── runStop ─────────────────────────────────────────────────────────────────
+
 describe("runStop", () => {
   const dirs: string[] = [];
   const procs: import("node:child_process").ChildProcess[] = [];
@@ -69,6 +71,8 @@ describe("runStop", () => {
     expect(isDaemonAlive(dir)).toBe(false);
   }, 15_000);
 });
+
+// ─── runDaemon ───────────────────────────────────────────────────────────────
 
 describe("runDaemon validation", () => {
   let writeSpy: ReturnType<typeof vi.spyOn>;

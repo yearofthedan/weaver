@@ -15,6 +15,8 @@ describe("replaceText operation", () => {
     return dir;
   }
 
+  // ─── Pattern mode ───────────────────────────────────────────────────────
+
   describe("pattern mode", () => {
     it("replaces all occurrences across workspace files", async () => {
       const dir = setup();
@@ -131,6 +133,8 @@ describe("replaceText operation", () => {
       ).rejects.toMatchObject({ code: "WORKSPACE_VIOLATION" });
     });
   });
+
+  // ─── Surgical mode ──────────────────────────────────────────────────────
 
   describe("surgical mode", () => {
     it("applies exact text edits at specified locations", async () => {

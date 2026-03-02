@@ -13,6 +13,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// ─── Mutable stubs referenced by vi.mock factories ──────────────────────────
+
 const mockIsDaemonAlive = vi.fn<() => boolean>();
 const mockRemoveDaemonFiles = vi.fn<() => void>();
 const mockStopDaemon = vi.fn<() => Promise<void>>();
@@ -36,6 +38,8 @@ vi.mock("node:child_process", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:child_process")>();
   return { ...actual, spawn: (...args: unknown[]) => mockSpawn(...args) };
 });
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const WORKSPACE = "/test/workspace";
 
@@ -85,6 +89,8 @@ function makeFakeChild(opts: { ready?: boolean; exitCode?: number } = { ready: t
   return child;
 }
 
+// ─── Per-test setup / teardown ───────────────────────────────────────────────
+
 let ensureDaemon: (workspace: string) => Promise<void>;
 const activeServers: net.Server[] = [];
 
@@ -114,6 +120,8 @@ afterEach(async () => {
   }
   vi.restoreAllMocks();
 });
+
+// ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe("ensureDaemon", () => {
   describe("stale socket", () => {
