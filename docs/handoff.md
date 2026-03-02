@@ -125,6 +125,7 @@ Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
 - `buildVolarService` refactoring `[needs design]` — extract named sub-functions from the ~176-line monolith; prerequisite for more Vue operations
+- Tool description standard `[needs design]` — add a "Writing tool descriptions" section to `agent-users.md` that codifies description structure (lead with when/why, then capability, then gotchas). Review and rewrite all MCP tool descriptions in `src/mcp.ts` against the standard.
 - Feature docs audit `[needs design]` — `searchText` and `replaceText` have no feature docs; existing feature docs describe the "what" but not the "why" (when to reach for each tool, what value it provides over alternatives). Review all `docs/features/*.md` and rewrite to lead with value.
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks; depends on buildVolarService refactoring
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; depends on buildVolarService refactoring; see [moveSymbol.md](features/moveSymbol.md)
