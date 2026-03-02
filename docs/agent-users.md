@@ -9,17 +9,25 @@
 
 light-bridge's primary users are AI coding agents — LLMs operating inside tool-use loops. They are not humans with a terminal. The differences matter for every interface decision: parameter design, defaults, response shapes, error messages, and what information to include or omit.
 
+## The core principle: prefer guardrails over assumptions
+
+Agents are poor at optimising and planning their own workflows. They won't anticipate that they'll need type errors after a rename, discover an opt-in flag and decide to use it, or batch related calls for efficiency. If the right workflow requires foresight, agents won't do it.
+
+**Build the foresight into the tool.** The tool should do the right thing by default — return the useful information, enforce the safe boundary, choose the sensible mode. Let agents opt *out* when they have a specific reason, but never require them to opt *in* to the obviously correct behaviour.
+
+This principle shows up in every section below. Each characteristic is a specific way agents lack foresight, and each design rule is a guardrail that compensates.
+
 ## How agents differ from humans
 
 ### They read the tool description, nothing else
 
 An agent discovers light-bridge through MCP tool descriptions. It will never browse a README, search a docs site, or read a changelog. If a capability isn't surfaced in the tool description the agent sees at call time, it doesn't exist. Opt-in flags that require the agent to know about a feature before using it are effectively invisible.
 
-### They don't reason about whether to ask for information — give it to them
+### They won't plan the optimal sequence of calls
 
-Every decision an agent makes costs reasoning tokens and risks a wrong choice. If type errors after a rename are useful (they are), return them by default — don't make the agent decide whether to request them. The useful default should be on; let agents opt *out* if they have a specific reason.
+A human might think "I'll rename this symbol, then check for type errors to make sure nothing broke." An agent operates one tool call at a time — it won't anticipate what information it will need after a mutation completes. If type errors after a rename are useful (they are), return them automatically. Don't expect the agent to plan a two-step workflow when the tool can just do it.
 
-**Design rule:** if you're adding a boolean flag, ask "would a competent human always turn this on?" If yes, it shouldn't be a flag.
+**Design rule:** if you're adding a boolean flag, ask "would a competent human always turn this on?" If yes, it shouldn't be a flag — it should be the default behaviour.
 
 ### They consume structured data, not prose
 
@@ -56,9 +64,10 @@ Each agent session starts fresh. Anything the agent learned in a previous sessio
 
 When speccing a feature, run through these questions:
 
-1. **Defaults:** Would a competent user always want this? → Make it the default, not a flag.
-2. **Response shape:** Is every field in the response immediately actionable? → If not, restructure or remove it.
-3. **Response size:** Could this response blow up for a large project? → Cap it, summarise it.
-4. **Parameters:** Is there exactly one obvious way to provide each value? → If not, tighten the description.
-5. **Errors:** Can the agent programmatically distinguish every failure mode? → If not, add an error code.
-6. **Discoverability:** Would an agent know this feature exists from the tool description alone? → If not, it won't be used.
+1. **Guardrails over assumptions:** Does any part of this design require the agent to have foresight about its own workflow? → Build that foresight into the tool instead.
+2. **Defaults:** Would a competent user always want this? → Make it the default, not a flag.
+3. **Response shape:** Is every field in the response immediately actionable? → If not, restructure or remove it.
+4. **Response size:** Could this response blow up for a large project? → Cap it, summarise it.
+5. **Parameters:** Is there exactly one obvious way to provide each value? → If not, tighten the description.
+6. **Errors:** Can the agent programmatically distinguish every failure mode? → If not, add an error code.
+7. **Discoverability:** Would an agent know this feature exists from the tool description alone? → If not, it won't be used.
