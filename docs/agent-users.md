@@ -71,3 +71,27 @@ When speccing a feature, run through these questions:
 5. **Parameters:** Is there exactly one obvious way to provide each value? → If not, tighten the description.
 6. **Errors:** Can the agent programmatically distinguish every failure mode? → If not, add an error code.
 7. **Discoverability:** Would an agent know this feature exists from the tool description alone? → If not, it won't be used.
+
+## Writing tool descriptions
+
+Tool descriptions are the only interface between agents and light-bridge. Every description is loaded into context on every request, so verbosity has a direct cost. These principles guide what to include and how to say it.
+
+### Lead with when to use, not what it does
+
+An agent deciding which tool to call needs to match its intent to a tool. "Rename a symbol at a given position" describes the mechanic — "When renaming an identifier, use this to update every reference project-wide" tells the agent when to reach for it. Start with the situation, then the mechanic.
+
+### Say what the compiler gives you that alternatives don't
+
+Every tool competes with "just use searchText + replaceText" or "just read the file." If the compiler provides scope-awareness, cross-file tracking through re-exports, or automatic parameter inference, say so — that's why the agent should pick this tool over a text-based alternative.
+
+### Surface constraints that prevent failed calls
+
+If a parameter has a non-obvious format requirement (endCol is inclusive, selection must cover complete statements, only top-level exports are supported), put it in the description. A failed call wastes a round-trip and context tokens. A constraint in the description prevents it.
+
+### Describe what the agent gets back
+
+Agents need to know what fields to expect so they can act on the response. For mutating tools, mention filesModified, filesSkipped, and typeErrors. For read-only tools, mention the result shape (references array, definitions array). Don't enumerate every field — focus on the ones the agent needs to branch on.
+
+### Keep shared conventions in server instructions
+
+Information that applies to all tools — DAEMON_STARTING retry behaviour, workspace boundary enforcement, project graph caching — belongs in the server `instructions` field, not repeated in each description. Per-tool descriptions should only contain what's unique to that tool.
