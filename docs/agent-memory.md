@@ -176,6 +176,9 @@ The real daemon writes `{ pid: process.pid, ... }` to the lockfile. The fixture 
 **PromptFoo MCP provider config key is `mcp.server`, not `mcp.servers`.**
 When configuring a single MCP server, use `mcp.server: { command, args, name }`. Using `mcp.servers` (plural) is a different config shape for multiple servers — mixing the two silently fails to connect.
 
+**Evaluate "does this update call sites?" before speccing any write operation.**
+The high-value operations (`moveSymbol`, `moveFile`, `rename`) all share one property: they update every reference project-wide. A refactoring that extracts/moves code but can't rewrite callers always leaves broken code — the agent still has to fix call sites manually, which it could have done with `searchText` + `replaceText` in the first place. Before speccing a new write operation, ask: "does this do something the agent can't chain together from existing tools?" If the answer is "it saves AST extraction but leaves broken callers," the value is probably too low to justify the implementation.
+
 ---
 
 ## Memory storage
