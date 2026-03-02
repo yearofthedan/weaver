@@ -13,7 +13,7 @@ description: Pick up the next task — if it needs a spec, create one first; if 
 2. **Read the spec.** Open the linked spec file. Confirm the task and its ACs with the user BEFORE writing any code.
 
 3. **Write failing tests first.** For each AC in the spec's Behaviour/Fix section:
-   - State in the `it`/`describe` label what specific behaviour is being specified
+   - State in the `it`/`describe` label what specific behaviour is being specified — never reference AC numbers or spec identifiers in code or test labels (specs are changesets; they get archived)
    - Ask: "What would have to be wrong in the implementation for this test to still pass?" Add at least one assertion that answers that — pin exact values, boundary conditions, or the absence of something
    - A test that only verifies a result exists is incomplete — assert the shape, a boundary case, and at least one error/edge path
    - Use the spec's **Interface** section to inform bounds testing and the **Edges** section for regression tests
@@ -27,7 +27,7 @@ description: Pick up the next task — if it needs a spec, create one first; if 
 
 7. **Complete the spec's Done-when checklist.** Walk through every item in the spec's Done-when section (defined by the template — see `docs/specs/templates/change.md` or `bug.md`). Additionally:
    - [ ] **Remove** the handoff.md task entry entirely — handoff.md is a work queue, not a history. Do not mark it shipped, do not leave a link to the archive. Just delete the line. Update the "Current state" section (test count, layout changes) if needed.
-   - [ ] If public surfaces changed, follow `CLAUDE.md` Rule 11 for which docs to update
+   - [ ] If public surfaces changed, update the corresponding docs (the spec's Done-when checklist specifies which)
 
 8. **Archive the spec.** Move the spec file from `docs/specs/` to `docs/specs/archive/`. Append an `## Outcome` section with:
    - Actual test count added

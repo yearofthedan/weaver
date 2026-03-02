@@ -119,6 +119,8 @@ export interface PostWriteDiagnostics {
   typeErrorsTruncated: boolean;
 }
 
+// ─── Provider-level types ──────────────────────────────────────────────────
+
 export interface SpanLocation {
   fileName: string;
   textSpan: { start: number; length: number };
@@ -195,6 +197,8 @@ export interface LanguageProvider {
     workspace: string,
   ): Promise<{ modified: string[]; skipped: string[] }>;
 }
+
+// ─── Registry ──────────────────────────────────────────────────────────────
 
 /**
  * Lazy accessor for compiler providers scoped to a single workspace request.
