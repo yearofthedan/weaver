@@ -120,95 +120,81 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  it("AC3 — omitting checkTypeErrors produces no typeErrors fields in the result", async () => {
+  // Default-on: type errors are returned without any opt-in
+  it("returns typeErrors fields by default when files are modified", async () => {
+    const dir = copyFixture("ts-errors");
+    dirs.push(dir);
+
+    const result = (await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          pattern: "export function multiply",
+          replacement: "// comment\nexport function multiply",
+          glob: "**/clean.ts",
+          // checkTypeErrors omitted — default is on
+        },
+      },
+      dir,
+    )) as Record<string, unknown>;
+
+    expect(result.ok).toBe(true);
+    expect((result.filesModified as string[]).length).toBeGreaterThan(0);
+    expect(result).toHaveProperty("typeErrors");
+    expect(result).toHaveProperty("typeErrorCount");
+    expect(result).toHaveProperty("typeErrorsTruncated");
+  }, 15_000);
+
+  // Explicit opt-out suppresses diagnostics even when files are written
+  it("checkTypeErrors:false suppresses typeErrors even when files are modified", async () => {
+    const dir = copyFixture("ts-errors");
+    dirs.push(dir);
+
+    const result = (await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          pattern: "export function multiply",
+          replacement: "// comment\nexport function multiply",
+          glob: "**/clean.ts",
+          checkTypeErrors: false,
+        },
+      },
+      dir,
+    )) as Record<string, unknown>;
+
+    expect(result.ok).toBe(true);
+    expect((result.filesModified as string[]).length).toBeGreaterThan(0);
+    expect(result).not.toHaveProperty("typeErrors");
+    expect(result).not.toHaveProperty("typeErrorCount");
+    expect(result).not.toHaveProperty("typeErrorsTruncated");
+  }, 15_000);
+
+  // Guard: when nothing is written, the diagnostic block is skipped entirely
+  it("produces no typeErrors fields when no files are modified", async () => {
+    const dir = copyFixture("ts-errors");
+    dirs.push(dir);
+
     const result = (await dispatchRequest(
       {
         method: "replaceText",
         params: { pattern: "__no_match_xyz__", replacement: "x" },
       },
-      "/tmp",
-    )) as Record<string, unknown>;
-
-    expect(result.ok).toBe(true);
-    expect(result).not.toHaveProperty("typeErrors");
-    expect(result).not.toHaveProperty("typeErrorCount");
-    expect(result).not.toHaveProperty("typeErrorsTruncated");
-  });
-
-  it("AC3 — checkTypeErrors:false produces no typeErrors fields", async () => {
-    const result = (await dispatchRequest(
-      {
-        method: "replaceText",
-        params: { pattern: "__no_match_xyz__", replacement: "x", checkTypeErrors: false },
-      },
-      "/tmp",
-    )) as Record<string, unknown>;
-
-    expect(result.ok).toBe(true);
-    expect(result).not.toHaveProperty("typeErrors");
-    expect(result).not.toHaveProperty("typeErrorCount");
-    expect(result).not.toHaveProperty("typeErrorsTruncated");
-  });
-
-  it("AC2 — checkTypeErrors:true with clean modified files produces empty typeErrors array", async () => {
-    const dir = copyFixture("ts-errors");
-    dirs.push(dir);
-
-    // Add a harmless comment to clean.ts (no type errors introduced)
-    const result = (await dispatchRequest(
-      {
-        method: "replaceText",
-        params: {
-          pattern: "export function multiply",
-          replacement: "// type-safe\nexport function multiply",
-          glob: "**/clean.ts",
-          checkTypeErrors: true,
-        },
-      },
       dir,
     )) as Record<string, unknown>;
 
     expect(result.ok).toBe(true);
-    expect(result).toHaveProperty("filesModified");
-    // The three diagnostic fields must all be present
-    expect(result).toHaveProperty("typeErrors");
-    expect(result).toHaveProperty("typeErrorCount");
-    expect(result).toHaveProperty("typeErrorsTruncated");
-    expect(result.typeErrors).toEqual([]);
-    expect(result.typeErrorCount).toBe(0);
-    expect(result.typeErrorsTruncated).toBe(false);
+    expect((result.filesModified as string[]).length).toBe(0);
+    expect(result).not.toHaveProperty("typeErrors");
+    expect(result).not.toHaveProperty("typeErrorCount");
+    expect(result).not.toHaveProperty("typeErrorsTruncated");
   }, 15_000);
 
-  it("AC4 — errors in unmodified files are not included in typeErrors", async () => {
+  // Type errors introduced by a write are reported with correct shape
+  it("type errors introduced by a write are returned", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
 
-    // broken.ts has 3 pre-existing errors; we only modify clean.ts (harmlessly)
-    const result = (await dispatchRequest(
-      {
-        method: "replaceText",
-        params: {
-          pattern: "export function multiply",
-          replacement: "// type-safe\nexport function multiply",
-          glob: "**/clean.ts",
-          checkTypeErrors: true,
-        },
-      },
-      dir,
-    )) as Record<string, unknown>;
-
-    expect(result.ok).toBe(true);
-    // Only clean.ts was modified — broken.ts errors must not appear
-    expect(result.typeErrorCount).toBe(0);
-    const typeErrors = result.typeErrors as Array<{ file: string }>;
-    expect(typeErrors.every((d) => d.file.endsWith("clean.ts"))).toBe(true);
-  }, 15_000);
-
-  it("AC1 — checkTypeErrors:true returns type errors introduced by the write operation", async () => {
-    const dir = copyFixture("ts-errors");
-    dirs.push(dir);
-
-    // Prepend a type-incorrect statement to clean.ts: `const _: string = 123;`
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -216,7 +202,6 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
           pattern: "export function multiply",
           replacement: "const _bad: string = 123;\nexport function multiply",
           glob: "**/clean.ts",
-          checkTypeErrors: true,
         },
       },
       dir,
@@ -234,14 +219,9 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
       code: number;
       message: string;
     }>;
-    // At least one error must be reported
     expect(typeErrors.length).toBeGreaterThanOrEqual(1);
     expect(result.typeErrorCount as number).toBeGreaterThanOrEqual(1);
-
-    // All errors must be in clean.ts (the only modified file)
     expect(typeErrors.every((d) => d.file.endsWith("clean.ts"))).toBe(true);
-
-    // Each diagnostic must have the required shape
     for (const d of typeErrors) {
       expect(d.line).toBeGreaterThan(0);
       expect(d.col).toBeGreaterThan(0);
@@ -251,7 +231,32 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     }
   }, 15_000);
 
-  it("AC3 — omitting checkTypeErrors produces no typeErrors fields even when files are modified", async () => {
+  // Only the files actually written are checked — pre-existing errors elsewhere are excluded
+  it("errors in unmodified files are excluded from typeErrors", async () => {
+    const dir = copyFixture("ts-errors");
+    dirs.push(dir);
+
+    // broken.ts has pre-existing errors; we only modify clean.ts (harmlessly)
+    const result = (await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          pattern: "export function multiply",
+          replacement: "// type-safe\nexport function multiply",
+          glob: "**/clean.ts",
+        },
+      },
+      dir,
+    )) as Record<string, unknown>;
+
+    expect(result.ok).toBe(true);
+    expect(result.typeErrorCount).toBe(0);
+    const typeErrors = result.typeErrors as Array<{ file: string }>;
+    expect(typeErrors.every((d) => d.file.endsWith("clean.ts"))).toBe(true);
+  }, 15_000);
+
+  // Clean writes produce an empty array — all three fields present, none populated
+  it("clean modified files produce an empty typeErrors array", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
 
@@ -260,38 +265,21 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
         method: "replaceText",
         params: {
           pattern: "export function multiply",
-          replacement: "// comment\nexport function multiply",
+          replacement: "// type-safe\nexport function multiply",
           glob: "**/clean.ts",
-          // checkTypeErrors omitted — no diagnostic fields should appear even though files changed
         },
       },
       dir,
     )) as Record<string, unknown>;
 
     expect(result.ok).toBe(true);
-    expect((result.filesModified as string[]).length).toBeGreaterThan(0);
-    expect(result).not.toHaveProperty("typeErrors");
-    expect(result).not.toHaveProperty("typeErrorCount");
-    expect(result).not.toHaveProperty("typeErrorsTruncated");
-  }, 15_000);
-
-  it("AC3 — checkTypeErrors:true produces no typeErrors fields when no files are modified", async () => {
-    const dir = copyFixture("ts-errors");
-    dirs.push(dir);
-
-    const result = (await dispatchRequest(
-      {
-        method: "replaceText",
-        params: { pattern: "__no_match_xyz__", replacement: "x", checkTypeErrors: true },
-      },
-      dir,
-    )) as Record<string, unknown>;
-
-    expect(result.ok).toBe(true);
-    expect((result.filesModified as string[]).length).toBe(0);
-    expect(result).not.toHaveProperty("typeErrors");
-    expect(result).not.toHaveProperty("typeErrorCount");
-    expect(result).not.toHaveProperty("typeErrorsTruncated");
+    expect(result).toHaveProperty("filesModified");
+    expect(result).toHaveProperty("typeErrors");
+    expect(result).toHaveProperty("typeErrorCount");
+    expect(result).toHaveProperty("typeErrorsTruncated");
+    expect(result.typeErrors).toEqual([]);
+    expect(result.typeErrorCount).toBe(0);
+    expect(result.typeErrorsTruncated).toBe(false);
   }, 15_000);
 });
 

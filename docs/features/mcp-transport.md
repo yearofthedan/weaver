@@ -57,7 +57,7 @@ All tools use position-based parameters where applicable, consistent with LSP co
 | `searchText` | `pattern`, `glob?`, `context?`, `maxResults?` |
 | `replaceText` | `pattern` + `replacement` + `glob?` (pattern mode) or `edits[]` (surgical mode); `checkTypeErrors?` |
 
-`checkTypeErrors` (optional boolean, default `false`): when `true`, type diagnostics are run against `filesModified` immediately after the write and returned as `typeErrors`, `typeErrorCount`, `typeErrorsTruncated`. Same cap and shape as standalone `getTypeErrors`. TS/TSX files only; `.vue` files in `filesModified` are silently skipped.
+`checkTypeErrors` (optional boolean, default `true`): type diagnostics are run against `filesModified` immediately after every write and returned as `typeErrors`, `typeErrorCount`, `typeErrorsTruncated`. Pass `false` to suppress. Same cap and shape as standalone `getTypeErrors`. TS/TSX files only; `.vue` files in `filesModified` are silently skipped.
 
 ## Response contract
 
