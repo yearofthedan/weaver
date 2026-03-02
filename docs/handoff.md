@@ -124,6 +124,7 @@ Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
 - `buildVolarService` refactoring `[needs design]` — extract named sub-functions from the ~176-line monolith; prerequisite for more Vue operations
+- `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks; depends on buildVolarService refactoring
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; depends on buildVolarService refactoring; see [moveSymbol.md](features/moveSymbol.md)
 - `createFile` `[needs design]` — scaffold a file with correct import paths
 - Claude Code plugin distribution `[needs design]` — `.claude-plugin/plugin.json`, `--write-only` flag, dual language server evaluation; see [daemon.md](features/daemon.md)
