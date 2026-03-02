@@ -21,7 +21,6 @@ import { isWithinWorkspace } from "../security.js";
 import type { LanguageProvider, ProviderRegistry } from "../types.js";
 import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
 
-// ─── Provider singletons ───────────────────────────────────────────────────
 // Lazy-loaded and cached for the daemon lifetime. Providers hold the stateful
 // project graphs (ts-morph Projects, Volar services) — engines are thin wrappers.
 
@@ -82,8 +81,6 @@ export function invalidateAll(): void {
   tsProviderSingleton = undefined;
   volarProviderSingleton = undefined;
 }
-
-// ─── Operation descriptor table ───────────────────────────────────────────
 
 interface OperationDescriptor {
   /** Param keys that hold file paths requiring workspace validation. */
@@ -240,8 +237,6 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     },
   },
 };
-
-// ─── Dispatcher ────────────────────────────────────────────────────────────
 
 export async function dispatchRequest(
   req: { method: string; params: Record<string, unknown> },
