@@ -120,7 +120,6 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  // Default-on: type errors are returned without any opt-in
   it("returns typeErrors fields by default when files are modified", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
@@ -132,7 +131,6 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
           pattern: "export function multiply",
           replacement: "// comment\nexport function multiply",
           glob: "**/clean.ts",
-          // checkTypeErrors omitted — default is on
         },
       },
       dir,
@@ -145,7 +143,6 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(result).toHaveProperty("typeErrorsTruncated");
   }, 15_000);
 
-  // Explicit opt-out suppresses diagnostics even when files are written
   it("checkTypeErrors:false suppresses typeErrors even when files are modified", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
@@ -170,7 +167,6 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(result).not.toHaveProperty("typeErrorsTruncated");
   }, 15_000);
 
-  // Guard: when nothing is written, the diagnostic block is skipped entirely
   it("produces no typeErrors fields when no files are modified", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
@@ -190,7 +186,6 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(result).not.toHaveProperty("typeErrorsTruncated");
   }, 15_000);
 
-  // Type errors introduced by a write are reported with correct shape
   it("type errors introduced by a write are returned", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
@@ -231,12 +226,10 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     }
   }, 15_000);
 
-  // Only the files actually written are checked — pre-existing errors elsewhere are excluded
   it("errors in unmodified files are excluded from typeErrors", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
 
-    // broken.ts has pre-existing errors; we only modify clean.ts (harmlessly)
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -255,7 +248,6 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(typeErrors.every((d) => d.file.endsWith("clean.ts"))).toBe(true);
   }, 15_000);
 
-  // Clean writes produce an empty array — all three fields present, none populated
   it("clean modified files produce an empty typeErrors array", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
