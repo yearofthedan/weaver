@@ -1,5 +1,9 @@
 # Operation: moveSymbol
 
+## Why use this
+
+Use `moveSymbol` when you need to move an exported declaration (function, class, constant) from one file to another and have all importers updated automatically. This is more precise than `moveFile` (which moves the whole file) and safer than a manual cut-paste + `replaceText` (which requires you to find and rewrite every importer yourself). In Vue workspaces, it also patches `.vue` SFC imports that aren't in the TypeScript project graph.
+
 ## What it does
 
 Moves a named export from one file to another and updates all importers project-wide.
@@ -30,34 +34,24 @@ Moves a named export from one file to another and updates all importers project-
 
 The declaration is removed from `sourceFile` and added to `destFile`. All files that imported `calculateTotal` from the old path are updated to import from the new path. If `destFile` does not exist, it is created.
 
-## How it works
+## Key concepts
 
-`moveSymbol` uses ts-morph AST edits plus a provider post-step:
-
-1. Locate the export declaration in `sourceFile` by name.
-2. Snapshot all importers of that symbol from `sourceFile`.
-3. Remove the declaration from `sourceFile`.
-4. Create/load `destFile`, append the declaration text.
-5. Rewrite importer declarations to reference `destFile`.
-6. Save dirty TS files within workspace and return out-of-workspace importers in `filesSkipped`.
-7. Run `projectProvider.afterSymbolMove(...)` to patch non-TS importers (notably `.vue` SFC imports in Vue workspaces).
-
-This operation is AST surgery; it does not use TypeScript language-service rename/move APIs.
+- **AST surgery, not language-service refactor.** TypeScript has no "move symbol" refactoring in its public API. This operation uses ts-morph AST manipulation: locate the declaration, snapshot importers, splice the declaration text to the destination, rewrite import paths. The tradeoff is more manual bookkeeping but full control over what moves.
+- **Vue importer post-step.** After TS files are updated, `afterSymbolMove()` runs a regex scan over `.vue` SFC files to patch import paths that ts-morph doesn't track. This catches `<script setup>` imports that are outside the TypeScript project graph.
+- **Post-write type errors.** Type errors in modified files are returned automatically (pass `checkTypeErrors: false` to suppress).
 
 ## Supported file types
 
 | Scenario | Supported |
 |----------|-----------|
-| `.ts` source, `.ts` dest | ✓ |
-| `.ts` source, `.tsx` dest | ✓ |
-| `.tsx` source, `.ts` dest | ✓ |
-| Vue workspace, `.ts`/`.tsx` source | ✓ (includes `.vue` importer rewrites via post-step) |
-| `.vue` source | — pending |
-| `.ts` → `.vue` dest | — not applicable; TypeScript module can't move into a Vue SFC |
+| `.ts` source, `.ts` dest | Yes |
+| `.ts` source, `.tsx` dest | Yes |
+| `.tsx` source, `.ts` dest | Yes |
+| Vue workspace, `.ts`/`.tsx` source | Yes (includes `.vue` importer rewrites via post-step) |
+| `.vue` source | Pending |
+| `.ts` → `.vue` dest | Not applicable — TypeScript module can't move into a Vue SFC |
 
 ## Constraints & limitations
-
-**Current constraints**
 
 - `symbolName` must be a valid JavaScript/TypeScript identifier (validated at MCP input).
 - The symbol must be a direct exported declaration in `sourceFile` (`export function`, `export const`, `export class`, etc.).
@@ -76,7 +70,7 @@ See `docs/security.md` for the full threat model.
 ## Technical decisions
 
 **Why AST surgery instead of language service APIs?**
-The TypeScript language service has no "move symbol" refactoring in its public API (unlike rename and file-move, which are both first-class operations). ts-morph's AST manipulation API is the practical path. The tradeoff: ts-morph gives direct AST access at the cost of more manual bookkeeping (finding the declaration, splicing text, updating imports explicitly).
+The TypeScript language service has no "move symbol" refactoring in its public API (unlike rename and file-move, which are both first-class operations). ts-morph's AST manipulation API is the practical path. The tradeoff: direct AST access at the cost of more manual bookkeeping (finding the declaration, splicing text, updating imports explicitly).
 
 **Why is `.vue` source still pending?**
 The shipped path moves TS exports and then patches Vue importers. Moving declarations *from* `.vue` `<script>` / `<script setup>` blocks requires SFC-aware block parsing and splicing (e.g. via `@vue/compiler-sfc` parse output) before doing importer updates.

@@ -1,8 +1,12 @@
 # Operation: extractFunction
 
+## Why use this
+
+Use `extractFunction` when a function body has grown too long and you want to pull a block of statements into a new named function. The compiler infers parameters, return values, type annotations, and async propagation — you just select the range and name the function. This is the same "Extract Function" refactoring IDEs offer, but available as an MCP tool call.
+
 ## What it does
 
-Extracts a block of statements from within a function and places them into a new named function at module scope. The compiler infers parameters, return values, type annotations, and async propagation automatically.
+Extracts a block of statements from within a function and places them into a new named function at module scope.
 
 **MCP tool call:**
 
@@ -39,24 +43,13 @@ Extracts a block of statements from within a function and places them into a new
 
 The extracted function is placed at module scope and is **not exported**. Use `moveSymbol` to relocate it to another file if needed.
 
-## Selection rules
+## Key concepts
 
-The selection must cover **complete statements**. The compiler silently returns no applicable refactors when the selection ends mid-statement.
-
-- In semicolon-using code: `endCol` must point at the `;`, not the `)` before it.
-- In no-semi code: `endCol` must point at the last token of the statement (e.g. the closing `)` of a call expression).
-- For single-statement selections the compiler is more lenient, but following the same rule avoids surprises.
-
-## How it works
-
-1. The MCP layer validates the request (Zod schema; `functionName` must be a valid identifier).
-2. The daemon dispatcher validates that `file` is within the workspace.
-3. `operations/extractFunction.ts` converts line/col to byte offsets, then calls TypeScript's `getApplicableRefactors` on the selection range.
-4. The "Extract Symbol" refactor is selected, targeting the outermost applicable function scope (`function_scope_N`) to place the new function at module level.
-5. `getEditsForRefactor` produces text edits including the new function definition and a call-site replacement.
-6. The auto-generated function name (from `renameLocation`) is replaced with the caller-provided `functionName` throughout all edits.
-7. Edits are applied to disk; each file is boundary-checked before writing.
-8. The project is invalidated and the new function's parameter count is read from the fresh AST.
+- **Selection must cover complete statements.** The compiler silently returns no applicable refactors when the selection ends mid-statement. In semicolon-using code, `endCol` must point at the `;`. In no-semi code, `endCol` must point at the last token (e.g. closing `)` of a call).
+- **Always extracts to module scope.** The TS language service offers multiple extraction targets (innermost scope through module scope). This operation always picks the outermost `function_scope` — it produces a standalone, testable function rather than a nested closure.
+- **Name replacement via rename location.** The TS `getEditsForRefactor` API doesn't accept a custom name — it generates one (e.g. `newFunction`). The implementation applies the edits, reads the generated name from `renameLocation`, and replaces it with the caller-provided `functionName`.
+- **Parameter count from fresh AST.** `parameterCount` is read from a fresh parse of the written file, not inferred from the edit text — the compiler's parameter inference is the source of truth.
+- **Post-write type errors.** Type errors in the modified file are returned automatically (pass `checkTypeErrors: false` to suppress).
 
 ## Supported file types
 

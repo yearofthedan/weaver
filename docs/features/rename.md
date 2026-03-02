@@ -1,5 +1,9 @@
 # Operation: rename
 
+## Why use this
+
+Use `rename` when you need to change a symbol's name and have every reference updated automatically — across imports, call sites, type annotations, and even `.vue` files. It is scope-aware: renaming a local variable won't touch an unrelated identifier with the same name in another scope. This is the safest way to rename; `replaceText` can do a textual find-and-replace but has no understanding of scope or binding.
+
 ## What it does
 
 Renames a symbol at a given file position and updates all references to it project-wide, including across `.ts` and `.vue` file boundaries.
@@ -30,17 +34,12 @@ Renames a symbol at a given file position and updates all references to it proje
 
 `line` and `col` are 1-based, consistent with LSP convention. The symbol under the cursor at that position is renamed. If no renameable symbol is found, the operation returns `SYMBOL_NOT_FOUND`.
 
-## How it works
+## Key concepts
 
-1. The MCP layer validates the request (Zod schema; `newName` must match `/^[a-zA-Z_$][a-zA-Z0-9_$]*$/`).
-2. The daemon dispatcher validates that `file` is within the workspace (`isWithinWorkspace`).
-3. `operations/rename.ts` calls `LanguageProvider.getRenameLocations(file, offset)`.
-   - **TsProvider:** delegates to `ts.LanguageService.findRenameLocations`.
-   - **VolarProvider:** delegates to the same method on the Volar-decorated language service, then translates virtual `.vue.ts` positions back to real `.vue` positions via source-map.
-4. Each edit is applied via `applyTextEdits` (`src/utils/text-utils.ts`).
-5. Each file is boundary-checked before writing. Out-of-workspace files are added to `filesSkipped` and not written.
-
-Provider selection (TS vs Vue) is determined per request in the dispatcher via `findTsConfigForFile()` + `isVueProject()`.
+- **Scope-aware via language service.** Uses TypeScript's `findRenameLocations` (not text search), so it only touches references that bind to the same symbol.
+- **Vue virtual-path translation.** In Vue workspaces, Volar exposes `.vue` files as virtual `.vue.ts` files. Rename locations come back in virtual coordinates; the provider translates them back to real `.vue` positions via Volar's source-map.
+- **Per-file boundary check.** Each edit is checked against the workspace boundary before writing. Out-of-workspace files land in `filesSkipped`, not written.
+- **Post-write type errors.** Type errors in modified files are returned automatically (pass `checkTypeErrors: false` to suppress).
 
 ## Supported file types
 
