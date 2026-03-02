@@ -66,11 +66,9 @@ const TOOLS: ToolDefinition[] = [
     name: "rename",
     description:
       "When renaming an identifier, use this to update every reference project-wide. " +
-      "Scope-aware — won't touch unrelated identifiers that share the same name. " +
-      "The response lists every file modified; no need to read them to verify. " +
-      "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
-      "Type errors in every modified file are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress. " +
-      "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+      "Scope-aware — won't touch unrelated identifiers that share the same name in other scopes. " +
+      "Returns filesModified (no need to read them to verify) and filesSkipped (outside workspace, not written — surface to user). " +
+      "Type errors in modified files are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress.",
     inputSchema: {
       file: RenameArgsSchema.shape.file.describe("Absolute path to the file"),
       line: RenameArgsSchema.shape.line.describe("Line number (1-based)"),
@@ -84,16 +82,13 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "extractFunction",
     description:
-      "Pull a block of selected statements out of a function and into a new named function. " +
-      "Use this when a function is getting too long, or when a block of code is worth naming for clarity. " +
-      "The compiler infers which variables from the enclosing scope become parameters, " +
-      "which variables need to be returned, and whether the extracted function should be async. " +
+      "When a function is too long or a block of code is worth naming, use this to extract it into a new function. " +
+      "The compiler infers parameters, return values, type annotations, and async propagation automatically. " +
       "The extracted function is placed at module scope (not exported — use moveSymbol to relocate it). " +
-      "The selection must cover complete statements — endCol should point at the last character " +
-      "of the last statement (the `;` if present, or the last token if the codebase uses no-semi style). " +
-      "TypeScript (.ts/.tsx) files only; returns NOT_SUPPORTED for .vue files. " +
-      "Type errors in the modified file are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress. " +
-      "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+      "The selection must cover complete statements — endCol must point at the last character " +
+      "of the last statement (the `;` if present, or the last token in no-semi style). " +
+      ".ts/.tsx only; returns NOT_SUPPORTED for .vue files. " +
+      "Type errors in the modified file are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress.",
     inputSchema: {
       file: ExtractFunctionArgsSchema.shape.file.describe(
         "Absolute path to the .ts or .tsx file containing the code to extract",
@@ -121,13 +116,10 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "moveFile",
     description:
-      "Move a file to a new path. Use this for all file moves — do not use shell mv. " +
-      "Rewrites every import that references the file, project-wide, whether or not you expect import changes. " +
-      "Also use for non-source files (tests, scripts, config) — creates the destination directory and moves the file even when there are no imports to rewrite. " +
-      "The response lists every file modified; no need to read them to verify. " +
-      "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
-      "Type errors in every modified file are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress. " +
-      "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+      "When relocating a file, use this instead of shell mv — it rewrites every import that references the file, project-wide. " +
+      "Creates the destination directory if needed. Works for non-source files (tests, scripts, config) too. " +
+      "Returns filesModified and filesSkipped (outside workspace, not written — surface to user). " +
+      "Type errors in modified files are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress.",
     inputSchema: {
       oldPath: MoveArgsSchema.shape.oldPath.describe("Absolute path to the file to move"),
       newPath: MoveArgsSchema.shape.newPath.describe("Absolute destination path"),
@@ -139,15 +131,12 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "moveSymbol",
     description:
-      "Move a named export from one file to another and update every importer project-wide. " +
-      "Use this when reorganising modules — it keeps the symbol's identity intact and rewrites all import paths. " +
-      "The destination file is created if it does not already exist. " +
-      "Only works on top-level exported declarations (export function, export const, export class, etc.); " +
+      "When reorganising modules, use this to move a named export to another file and update every importer project-wide. " +
+      "Creates the destination file if it does not exist. " +
+      "Only top-level exported declarations (export function, export const, export class, etc.); " +
       "does not support class methods or re-exports via `export { }`. " +
-      "The response lists every file modified; no need to read them to verify. " +
-      "If filesSkipped is non-empty, those files are outside the workspace and were not written — surface this to the user. " +
-      "Type errors in every modified file are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress. " +
-      "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+      "Returns filesModified and filesSkipped (outside workspace, not written — surface to user). " +
+      "Type errors in modified files are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress.",
     inputSchema: {
       sourceFile: MoveSymbolArgsSchema.shape.sourceFile.describe(
         "Absolute path to the file containing the symbol",
@@ -166,12 +155,10 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "findReferences",
     description:
-      "Before modifying, moving, or deleting a symbol, call this to see every file that depends on it. " +
-      "This replaces reading files to trace call sites — the compiler already tracks every reference " +
-      "through re-exports, barrel files, type-only imports, and Vue SFCs. " +
-      "Also use after a change to verify no callers were missed. " +
-      "Scope-aware: ignores identically-named symbols in unrelated scopes and string literals that happen to match. " +
-      "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+      "Before modifying, moving, or deleting a symbol, use this to see every file that depends on it. " +
+      "The compiler tracks references through re-exports, barrel files, type-only imports, and Vue SFCs — " +
+      "scope-aware, so it ignores unrelated identifiers with the same name. " +
+      "Returns a references array of {file, line, col} including the declaration site.",
     inputSchema: {
       file: FindReferencesArgsSchema.shape.file.describe("Absolute path to the file"),
       line: FindReferencesArgsSchema.shape.line.describe("Line number (1-based)"),
@@ -181,10 +168,9 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "getDefinition",
     description:
-      "When you need to find where a symbol is declared, call this. " +
-      "Resolves through re-exports, barrel files, and declaration files " +
-      "where text search would find the re-export, not the actual definition. " +
-      "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+      "When you need to find where a symbol is declared, use this instead of text search. " +
+      "Resolves through re-exports, barrel files, and declaration files to the actual definition. " +
+      "Returns a definitions array of {file, line, col}.",
     inputSchema: {
       file: GetDefinitionArgsSchema.shape.file.describe("Absolute path to the file"),
       line: GetDefinitionArgsSchema.shape.line.describe("Line number (1-based)"),
@@ -194,15 +180,11 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "getTypeErrors",
     description:
-      "Check a TypeScript file or whole project for type errors. " +
-      "Use this after making changes to verify you haven't introduced type errors, " +
-      "or before starting a refactor to understand the existing error baseline. " +
-      "Omit 'file' to check the whole project (capped at 100 errors); provide 'file' for a single-file check. " +
-      "Returns each error with its file, line, col, TypeScript error code, and message. " +
-      "Only type errors are returned — warnings and suggestions are excluded. " +
-      "TS/TSX files only; Vue SFC diagnostics are not yet supported. " +
-      "If truncated is true, narrow the scope by providing a specific file. " +
-      "If the response contains error DAEMON_STARTING the project graph is still loading — retry the call.",
+      "Check for type errors after making changes, or before a refactor to understand the existing baseline. " +
+      "Omit 'file' to check the whole project (capped at 100); provide 'file' for a single-file check. " +
+      "Returns diagnostics array with file, line, col, TypeScript error code, and message. Errors only — no warnings or suggestions. " +
+      ".ts/.tsx only; Vue SFC diagnostics are not yet supported. " +
+      "If truncated is true, narrow the scope by providing a specific file.",
     inputSchema: {
       file: GetTypeErrorsArgsSchema.shape.file.describe(
         "Absolute path to a single .ts/.tsx file to check (omit to check the whole project)",
@@ -212,12 +194,10 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "searchText",
     description:
-      "Search for a regex pattern across all workspace files. " +
-      "Results are structured JSON (file, line, col, matchText) that feed directly into replaceText's surgical edit mode. " +
-      "Sensitive files (.env, keys, certificates) are never scanned, and the workspace boundary is enforced. " +
-      "Use this to discover where a string literal, import path, configuration value, or any text pattern appears before editing it. " +
-      "Returns match locations with optional surrounding context lines. " +
-      "If truncated is true, results were capped at the internal limit — narrow the search with a more specific pattern or glob.",
+      "Find where a string literal, import path, or any text pattern appears across the workspace. " +
+      "Returns structured matches (file, line, col, matchText) that feed directly into replaceText's surgical edit mode. " +
+      "Sensitive files (.env, keys, certificates) are never scanned. " +
+      "If truncated is true, results were capped — narrow with a more specific pattern or glob.",
     inputSchema: {
       pattern: SearchTextArgsSchema.shape.pattern.describe(
         "ECMAScript regex pattern to search for",
@@ -236,15 +216,13 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "replaceText",
     description:
-      "Replace text across workspace files. Two modes: " +
-      "(1) Pattern mode — provide 'pattern' (regex) and 'replacement' to replace all matches across the workspace, " +
-      "optionally narrowed by 'glob'. Supports $1, $2, ... backreferences in replacement. " +
-      "(2) Surgical mode — provide 'edits' array of {file, line, col, oldText, newText} to replace exact locations; " +
-      "oldText is verified before writing, so stale edits are caught. " +
-      "Both modes skip sensitive files and enforce the workspace boundary. " +
-      "Returns filesModified and replacementCount. " +
-      "Type errors in every modified file are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress. " +
-      "Use searchText first to locate targets, then replaceText to apply changes.",
+      "Edit text across workspace files. Use searchText first to locate targets, then replaceText to apply changes. " +
+      "Two modes: (1) Pattern mode — 'pattern' (regex) + 'replacement' replaces all matches, optionally narrowed by 'glob'; " +
+      "supports $1, $2, ... backreferences. " +
+      "(2) Surgical mode — 'edits' array of {file, line, col, oldText, newText} for exact position-verified replacements; " +
+      "oldText is checked before writing, so stale edits fail rather than corrupt. " +
+      "Both modes skip sensitive files. Returns filesModified and replacementCount. " +
+      "Type errors in modified files are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress.",
     inputSchema: {
       pattern: ReplaceTextBaseSchema.shape.pattern.describe(
         "Regex pattern to replace (pattern mode)",
@@ -292,7 +270,8 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
         "A persistent daemon keeps the project graph in memory — " +
         "tool calls are fast and use far fewer tokens than reading files to trace dependencies manually. " +
         "These tools use the compiler's reference graph, which tracks dependencies through " +
-        "re-exports, barrel files, type-only imports, and Vue SFCs that text-based approaches miss.",
+        "re-exports, barrel files, type-only imports, and Vue SFCs that text-based approaches miss. " +
+        "If any tool returns error DAEMON_STARTING, the project graph is still loading — retry after a short delay.",
     },
   );
 
