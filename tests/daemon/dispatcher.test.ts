@@ -120,7 +120,6 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  // AC3: no checkTypeErrors param → no type error fields in response
   it("AC3 — omitting checkTypeErrors produces no typeErrors fields in the result", async () => {
     const result = (await dispatchRequest(
       {
@@ -136,7 +135,6 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(result).not.toHaveProperty("typeErrorsTruncated");
   });
 
-  // AC3: explicit checkTypeErrors:false → no type error fields
   it("AC3 — checkTypeErrors:false produces no typeErrors fields", async () => {
     const result = (await dispatchRequest(
       {
@@ -152,7 +150,6 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(result).not.toHaveProperty("typeErrorsTruncated");
   });
 
-  // AC2: checkTypeErrors:true, operation modifies a clean file → typeErrors:[], count:0
   it("AC2 — checkTypeErrors:true with clean modified files produces empty typeErrors array", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
@@ -182,7 +179,6 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(result.typeErrorsTruncated).toBe(false);
   }, 15_000);
 
-  // AC4: clean.ts modified, broken.ts has pre-existing errors but is NOT in filesModified
   it("AC4 — errors in unmodified files are not included in typeErrors", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
@@ -208,7 +204,6 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(typeErrors.every((d) => d.file.endsWith("clean.ts"))).toBe(true);
   }, 15_000);
 
-  // AC1: checkTypeErrors:true, operation introduces a type error → typeErrors populated
   it("AC1 — checkTypeErrors:true returns type errors introduced by the write operation", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
@@ -256,12 +251,10 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     }
   }, 15_000);
 
-  // Kills L260 mutations: omitting checkTypeErrors must suppress diagnostics even when files ARE modified
   it("AC3 — omitting checkTypeErrors produces no typeErrors fields even when files are modified", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
 
-    // This pattern matches something, so filesModified will be non-empty
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -269,7 +262,7 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
           pattern: "export function multiply",
           replacement: "// comment\nexport function multiply",
           glob: "**/clean.ts",
-          // intentionally no checkTypeErrors
+          // checkTypeErrors omitted — no diagnostic fields should appear even though files changed
         },
       },
       dir,
@@ -282,12 +275,10 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(result).not.toHaveProperty("typeErrorsTruncated");
   }, 15_000);
 
-  // Kills L262 mutations: checkTypeErrors:true with empty filesModified must suppress diagnostics
   it("AC3 — checkTypeErrors:true produces no typeErrors fields when no files are modified", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
 
-    // Pattern matches nothing → filesModified will be []
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -304,11 +295,10 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
   }, 15_000);
 });
 
-describe("dispatchRequest invoke() body coverage", () => {
+describe("dispatchRequest per-operation dispatch", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  // Covers L170: getTypeErrors invoke()
   it("dispatches getTypeErrors and returns diagnostics shape", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
@@ -317,13 +307,11 @@ describe("dispatchRequest invoke() body coverage", () => {
       dir,
     )) as Record<string, unknown>;
     expect(result.ok).toBe(true);
-    // Must have the diagnostic shape — not just ok:true from a blanked-out invoke()
     expect(result).toHaveProperty("diagnostics");
     expect(result).toHaveProperty("errorCount");
     expect(result).toHaveProperty("truncated");
   }, 15_000);
 
-  // Covers L150: findReferences invoke()
   it("dispatches findReferences and returns references shape", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
@@ -333,8 +321,6 @@ describe("dispatchRequest invoke() body coverage", () => {
       dir,
     )) as Record<string, unknown>;
     expect(typeof result.ok).toBe("boolean");
-    // Either ok:true with references array, or ok:false with error code
-    // Both differ from a blanked-out invoke() returning { ok:true } with no fields
     if (result.ok) {
       expect(result).toHaveProperty("references");
     } else {
@@ -342,7 +328,6 @@ describe("dispatchRequest invoke() body coverage", () => {
     }
   }, 15_000);
 
-  // Covers L160: getDefinition invoke()
   it("dispatches getDefinition and returns definition shape", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
@@ -359,7 +344,6 @@ describe("dispatchRequest invoke() body coverage", () => {
     }
   }, 15_000);
 
-  // Covers L109: rename invoke()
   it("dispatches rename and returns result shape", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
@@ -376,7 +360,6 @@ describe("dispatchRequest invoke() body coverage", () => {
     }
   }, 15_000);
 
-  // Covers L124: moveFile invoke()
   it("dispatches moveFile and returns result shape", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
@@ -394,7 +377,6 @@ describe("dispatchRequest invoke() body coverage", () => {
     }
   }, 15_000);
 
-  // Covers L134: moveSymbol invoke()
   it("dispatches moveSymbol and returns result shape", async () => {
     const dir = copyFixture("ts-errors");
     dirs.push(dir);
@@ -414,7 +396,6 @@ describe("dispatchRequest invoke() body coverage", () => {
 });
 
 describe("dispatchRequest workspace boundary enforcement", () => {
-  // Covers L235-239: workspace violation path in dispatchRequest
   it("returns WORKSPACE_VIOLATION when a path param is outside the workspace", async () => {
     const result = (await dispatchRequest(
       {
