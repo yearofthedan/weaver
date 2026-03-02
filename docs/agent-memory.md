@@ -179,8 +179,8 @@ When configuring a single MCP server, use `mcp.server: { command, args, name }`.
 **Evaluate "does this update call sites?" before speccing any write operation.**
 The high-value operations (`moveSymbol`, `moveFile`, `rename`) all share one property: they update every reference project-wide. A refactoring that extracts/moves code but can't rewrite callers always leaves broken code — the agent still has to fix call sites manually, which it could have done with `searchText` + `replaceText` in the first place. Before speccing a new write operation, ask: "does this do something the agent can't chain together from existing tools?" If the answer is "it saves AST extraction but leaves broken callers," the value is probably too low to justify the implementation.
 
-**`extractFunction`: `endCol` must cover the semicolon of the last selected statement.**
-TypeScript's `getApplicableRefactors` returns an empty array (no "Extract Symbol" refactor) when the selection's `end` offset falls before the `;` that terminates the last statement in a multi-statement selection. Pointing `endCol` at the last expression character (e.g., `)` in `console.log(msg)`) silently yields no applicable refactors; pointing it at or past the `;` works. This is not a bug in our offset encoding — it's a quirk of how the TS compiler considers a statement "selected". For single-statement selections the compiler is more lenient and works even without the `;` in range.
+**`extractFunction`: `endCol` must cover the last character of the last selected statement.**
+TypeScript's `getApplicableRefactors` returns an empty array (no "Extract Symbol" refactor) when the selection's `end` offset falls before the end of the last statement in a multi-statement selection. For example, pointing `endCol` at `)` in `console.log(msg);` silently yields no refactors — it must point at the `;` (or the last token if the codebase uses no-semi style). This is a quirk of how the TS compiler considers a statement "selected". For single-statement selections the compiler is more lenient.
 
 ---
 
