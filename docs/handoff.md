@@ -114,7 +114,6 @@ Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](
 
 ### P3 — High-value features
 
-- `moveSymbol` for class methods `[needs design]` — extract a method to a standalone exported function; see [moveSymbol.md](features/moveSymbol.md)
 - `extractFunction` `[needs design]` — pull a selection into a named function, updating the call site
 - `deleteFile` `[needs design]` — remove a file and clean up imports in referencing files
 
@@ -133,6 +132,7 @@ Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](
 
 ### P5 — Low priority / accepted
 
+- **`moveSymbol` for class methods** — extract a method to a standalone exported function. Deferred: the only safe subset (static methods / no-`this` instance methods) doesn't update call sites, so it always leaves broken code. Without call-site rewriting, the value over manual `searchText` + `replaceText` is low. Revisit if call-site rewriting becomes tractable.
 - **`inlineVariable` / `inlineFunction`** — less common refactoring pattern; complex to implement safely
 - **Rollback / `--dry-run`** — multi-file operations have no all-or-nothing guarantee; documented precondition (clean git working tree) is workable for now
 - **Watcher own-writes redundant invalidation** — safe as-is; only adds one extra rebuild per write-heavy op (see tech-debt.md)
