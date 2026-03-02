@@ -30,6 +30,11 @@ Acceptance criteria as concrete **input → output** statements.
 
 What changes on the public surface. Sketch the types — parameter names, return shape, error codes.
 
+> **Prompt:** Review [`docs/agent-users.md`](../../agent-users.md) before filling this section.
+> Agents are our primary users — run through the design checklist there:
+> defaults on, structured responses, capped output, unambiguous parameters,
+> distinct error codes, discoverable from the tool description alone.
+
 For every field and parameter, answer:
 
 - **What does it contain?** "string" is not enough. What information does it hold?

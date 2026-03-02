@@ -13,10 +13,11 @@ Context that isn't in the feature docs — things you need to know before pickin
 
 **New to the codebase?** Read in this order:
 1. [`docs/why.md`](why.md) — what this is and why it exists
-2. [`docs/features/daemon.md`](features/daemon.md) — understand the daemon before touching `serve`
-3. [`docs/features/mcp-transport.md`](features/mcp-transport.md) — how `serve` connects to the daemon
-4. [`docs/architecture.md`](architecture.md) — provider/operation architecture; read before touching anything in `src/`
-5. [`docs/quality.md`](quality.md) — testing and reliability expectations
+2. [`docs/agent-users.md`](agent-users.md) — how agents differ from human users; read before speccing any feature
+3. [`docs/features/daemon.md`](features/daemon.md) — understand the daemon before touching `serve`
+4. [`docs/features/mcp-transport.md`](features/mcp-transport.md) — how `serve` connects to the daemon
+5. [`docs/architecture.md`](architecture.md) — provider/operation architecture; read before touching anything in `src/`
+6. [`docs/quality.md`](quality.md) — testing and reliability expectations
 
 **Picking up a task?** Tasks have one of two states:
 - **Has a spec link** → ready to implement. Read the spec, then run `/slice`.
@@ -157,6 +158,7 @@ Each concern has a dedicated doc. Read those — don't rely on handoff for desig
 
 | Topic | Doc |
 |-------|-----|
+| Agent user characteristics — design constraints for tool interfaces | [`docs/agent-users.md`](agent-users.md) |
 | Provider/operation architecture, dispatcher design, `ProviderRegistry` | [`docs/architecture.md`](architecture.md) |
 | MCP wire protocol, tool interface, `DAEMON_STARTING`, `filesSkipped` | [`docs/features/mcp-transport.md`](features/mcp-transport.md) |
 | Daemon lifecycle, auto-spawn, socket protocol | [`docs/features/daemon.md`](features/daemon.md) |

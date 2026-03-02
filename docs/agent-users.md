@@ -1,0 +1,64 @@
+**Purpose:** Characteristics of AI coding agents that should inform every design decision in light-bridge.
+**Audience:** Anyone designing or speccing a feature. Read this before writing a spec.
+**Status:** Current
+**Related docs:** [Why](why.md) (product rationale), [MCP transport](features/mcp-transport.md) (tool interface)
+
+---
+
+# Designing for agent users
+
+light-bridge's primary users are AI coding agents — LLMs operating inside tool-use loops. They are not humans with a terminal. The differences matter for every interface decision: parameter design, defaults, response shapes, error messages, and what information to include or omit.
+
+## How agents differ from humans
+
+### They read the tool description, nothing else
+
+An agent discovers light-bridge through MCP tool descriptions. It will never browse a README, search a docs site, or read a changelog. If a capability isn't surfaced in the tool description the agent sees at call time, it doesn't exist. Opt-in flags that require the agent to know about a feature before using it are effectively invisible.
+
+### They don't reason about whether to ask for information — give it to them
+
+Every decision an agent makes costs reasoning tokens and risks a wrong choice. If type errors after a rename are useful (they are), return them by default — don't make the agent decide whether to request them. The useful default should be on; let agents opt *out* if they have a specific reason.
+
+**Design rule:** if you're adding a boolean flag, ask "would a competent human always turn this on?" If yes, it shouldn't be a flag.
+
+### They consume structured data, not prose
+
+Agents parse JSON fields. A response like `{ filesModified: ["a.ts", "b.ts"], typeErrors: [...] }` is immediately actionable. A paragraph explaining what happened forces the agent to extract facts from natural language — slow, token-expensive, and error-prone.
+
+Return structured data. Use prose only in `description` fields that help the agent understand *what a tool does*, not in response payloads that tell it *what happened*.
+
+### They are literal interpreters
+
+Vague descriptions produce wrong usage. "The file path" doesn't tell the agent whether it wants absolute or relative, workspace-relative or cwd-relative. "Absolute path to the file within the workspace" does. Every parameter description should be specific enough that there's one obvious way to provide the value.
+
+### They have bounded context
+
+Every token in a response competes with the agent's reasoning capacity. Over-large responses — full file contents, verbose diffs, hundreds of type errors — push useful context out of the window and increase hallucination risk.
+
+Return summaries by default. Cap unbounded lists. Never return raw file contents when a structured summary would do.
+
+### They can't do interactive flows
+
+No confirmations, no multi-step wizards, no "did you mean X?" prompts. Every tool call must be a complete intent that produces a complete result. If an operation needs disambiguation, fail with a structured error that tells the agent exactly what to provide differently — don't ask it a question.
+
+### They retry mechanically on failure
+
+When a tool call fails, agents typically retry with slight variations. This means:
+- **Idempotency matters.** A rename that already happened should not fail on retry — or if it does, the error should make clear "this was already done" rather than "symbol not found."
+- **Error codes matter more than error messages.** Agents branch on structured error codes, not on parsing English sentences. Every distinct failure mode needs its own code.
+- **Transient vs permanent must be obvious.** `DAEMON_STARTING` is retriable; `SYMBOL_NOT_FOUND` is not. The agent shouldn't have to guess.
+
+### They don't remember across sessions
+
+Each agent session starts fresh. Anything the agent learned in a previous session — which tools are available, what parameters work best, which patterns to avoid — is gone. The tool interface must be self-describing every time: good tool descriptions, clear parameter docs, informative error messages. Don't design for a user who "learns" the tool over time.
+
+## Applying this to design
+
+When speccing a feature, run through these questions:
+
+1. **Defaults:** Would a competent user always want this? → Make it the default, not a flag.
+2. **Response shape:** Is every field in the response immediately actionable? → If not, restructure or remove it.
+3. **Response size:** Could this response blow up for a large project? → Cap it, summarise it.
+4. **Parameters:** Is there exactly one obvious way to provide each value? → If not, tighten the description.
+5. **Errors:** Can the agent programmatically distinguish every failure mode? → If not, add an error code.
+6. **Discoverability:** Would an agent know this feature exists from the tool description alone? → If not, it won't be used.
