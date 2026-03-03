@@ -1,7 +1,7 @@
 **Purpose:** Current state, source layout, and prioritised next work items. Each task either links to a spec file (ready to implement) or is marked `[needs design]` (needs a `/spec` pass first).
 **Audience:** Engineers implementing features, AI agents working on the codebase.
 **Status:** Current
-**Related docs:** [Why](why.md) (product rationale), [Features](features/) (operations), [Tech Debt](tech/tech-debt.md) (known issues), [Specs](specs/) (task specifications)
+**Related docs:** [Why](why.md) (product rationale), [Features](features/) (features & tools), [Tech Debt](tech/tech-debt.md) (known issues), [Specs](specs/) (task specifications)
 
 ---
 
@@ -83,7 +83,7 @@ src/
     ts-project.ts ← findTsConfig, findTsConfigForFile, isVueProject
 ```
 
-**Operations shipped:**
+**Features shipped:**
 - `rename` — TS + Vue
 - `moveFile` — TS + Vue
 - `moveSymbol` — TS + Vue
@@ -121,6 +121,8 @@ Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](
 ---
 
 ### P4 — Medium-value features and tech debt
+
+- Deepen tool feature docs to match infrastructure doc quality `[needs design]` — the tool docs (rename, moveFile, moveSymbol, etc.) describe the interface well but lack implementation depth compared to daemon.md and watcher.md. Gaps: no call-chain traces or flow diagrams for multi-phase tools (moveSymbol, extractFunction); response-contract details duplicated across docs instead of referencing mcp-transport.md; "Supported file types" tables are mostly padding; some "Key concepts" entries are usage tips rather than architectural notes. Goal: make each doc useful for debugging and extending, not just for calling the tool.
 
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
