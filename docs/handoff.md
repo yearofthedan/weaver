@@ -116,7 +116,7 @@ Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](
 
 ### P3 — High-value features
 
-- `deleteFile` `[needs design]` — remove a file and clean up imports in referencing files
+- `deleteFile` → [`docs/specs/20260303-delete-file.md`](specs/20260303-delete-file.md) — remove a file and clean up imports in referencing files
 
 ---
 
