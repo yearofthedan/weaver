@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "deletedFile": "/tmp/light-bridge-eval/src/old-helper.ts",
+  "filesModified": [
+    "/tmp/light-bridge-eval/src/api.ts",
+    "/tmp/light-bridge-eval/src/middleware.ts"
+  ],
+  "filesSkipped": [],
+  "importRefsRemoved": 3
+}

@@ -7,6 +7,7 @@ import { rename } from "../operations/rename.js";
 import { replaceText } from "../operations/replaceText.js";
 import { searchText } from "../operations/searchText.js";
 import {
+  DeleteFileArgsSchema,
   ExtractFunctionArgsSchema,
   FindReferencesArgsSchema,
   GetDefinitionArgsSchema,
@@ -216,6 +217,17 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         maxResults?: number;
       };
       return searchText(pattern, workspace, { glob, context, maxResults });
+    },
+  },
+
+  deleteFile: {
+    pathParams: ["file"],
+    schema: DeleteFileArgsSchema,
+    async invoke(registry, params, workspace) {
+      const { file } = params as { file: string };
+      const tsProvider = await registry.tsProvider();
+      const { deleteFile } = await import("../operations/deleteFile.js");
+      return deleteFile(tsProvider, file, workspace);
     },
   },
 
