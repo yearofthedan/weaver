@@ -193,6 +193,12 @@ In a per-file in-memory ts-morph project, the target file isn't in the project g
 
 ---
 
+**`ts-project.ts` module-level caches survive across tests — use unique `mkdtempSync` paths per test.**
+`findTsConfig` and `isVueProject` store results in module-level `Map`s that persist for the process lifetime. Tests that exercise the cache must use unique temporary directories (from `fs.mkdtempSync`) so earlier test runs don't pre-populate the cache for later ones. To test that the cache is *used*, mutate the filesystem between the two calls (delete the tsconfig or `.vue` file after the first call) — the second call should still return the cached value.
+
+**Mutation timeouts from infinite-loop mutations are counted as kills.**
+`if (parent === dir) → if (false)` turns `findTsConfig`'s walk-up loop into an infinite loop. Stryker treats these as `Timeout` (not `Survived`), so they count toward the kill score and do not need separate test coverage.
+
 ## Memory storage
 
 - `.claude/MEMORY.md` — project state and agent behaviour notes

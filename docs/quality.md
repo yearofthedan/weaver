@@ -30,7 +30,7 @@ Fixtures should be minimal but realistic — a small app with enough complexity 
 
 ### Coverage targets by module
 
-Numbers from `pnpm coverage` (vitest v8) as of 316 tests.
+Numbers from `pnpm coverage` (vitest v8) as of 413 tests.
 
 | Module | Lines | Branches | Target | Notes |
 |--------|-------|----------|--------|-------|
@@ -107,7 +107,6 @@ Fixed gaps are removed. Remaining survivors by category:
 | Area | Gap |
 |------|-----|
 | `providers/volar.ts` | 6 NoCoverage ObjectLiteral mutations (`return {}`) in defensive null-check early returns inside `toVirtualLocation` and `translateSingleLocation` (lines 44, 47, 52, 59, 67, 72). Triggering them requires edge-case `.vue` structures deep in Volar internals: a `.vue` file absent from the virtual map (line 44), `sourceScript.generated === null` for a file that IS in the map (lines 47, 67), and `getServiceScript()` returning null with non-null `generated` (lines 52, 72). Template-only `.vue` files hit line 47 (not 52), because `sourceScript` itself is null for files without any Volar-processable block. |
-| `utils/ts-project.ts` | 8 no-coverage mutants; score is well below threshold. Unblocked — add tests for `findTsConfig` walk-up loop and `isVueProject` cache. |
 | `operations/rename.ts` | Near threshold; one more round may push it over. |
 | `operations/findReferences.ts` | Near threshold. |
 
