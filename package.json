@@ -33,7 +33,7 @@
     "@volar/typescript": "2.4.28",
     "@vue/language-core": "3.2.4",
     "chokidar": "5.0.0",
-    "commander": "12.1.0",
+    "commander": "14.0.3",
     "safe-regex2": "5.0.0",
     "ts-morph": "23.0.0",
     "typescript": "5.9.3",
