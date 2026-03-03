@@ -1,12 +1,10 @@
-# Operation: replaceText
+# Feature: replaceText
 
-## Why use this
-
-Use `replaceText` when you need to edit text across multiple files in a single operation — renaming a configuration key, updating import paths after a manual move, or applying a set of precise edits that `searchText` located. It has two modes: pattern mode for broad find-and-replace, and surgical mode for exact position-verified edits. Unlike `rename`, it works on arbitrary text (not just language-level symbols), and unlike a shell `sed`, it enforces workspace boundaries, skips sensitive files, and returns post-write type errors so you know immediately if the change broke something.
+**Purpose:** Edit text across workspace files — pattern mode for broad find-and-replace, surgical mode for exact position-verified edits.
 
 ## What it does
 
-Replaces text across workspace files in one of two modes.
+Replaces text across workspace files in one of two modes. Works on arbitrary text (not just language-level symbols like `rename`). Enforces workspace boundaries, skips sensitive files, and returns post-write type errors.
 
 **Pattern mode** — regex replace-all across the workspace:
 

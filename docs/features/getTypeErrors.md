@@ -1,12 +1,10 @@
-# Operation: getTypeErrors
+# Feature: getTypeErrors
 
-## Why use this
-
-Use `getTypeErrors` to check whether your changes introduced type errors — either in a single file or across the whole project. Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) already return type errors for modified files automatically, but `getTypeErrors` is useful when you want to check a file you didn't just modify, or scan the entire project for pre-existing issues before starting work.
+**Purpose:** Check for TypeScript type errors in a single file or across the whole project.
 
 ## What it does
 
-Returns TypeScript semantic errors for a single file or all project files. Warnings and suggestions are excluded — only errors (`DiagnosticCategory.Error`) are reported.
+Returns TypeScript semantic errors for a single file or all project files. Warnings and suggestions are excluded — only errors (`DiagnosticCategory.Error`) are reported. Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) already return type errors for modified files automatically; `getTypeErrors` covers files that weren't just modified and project-wide baseline checks.
 
 **MCP tool call (single file):**
 

@@ -1,20 +1,22 @@
 # Features
 
-Reference documentation for light-bridge operations and infrastructure.
+Reference documentation for light-bridge features and infrastructure.
 
-## Operations
+## Tools
 
-All operations are invoked through the MCP server (`light-bridge serve`). There are no direct CLI subcommands for refactoring operations.
+All tools are invoked through the MCP server (`light-bridge serve`). There are no direct CLI subcommands for refactoring.
 
-| Operation | Doc | TS | Vue | Mutating |
-|-----------|-----|----|-----|----------|
+| Tool | Doc | TS | Vue | Mutating |
+|------|-----|----|-----|----------|
 | `rename` | [rename.md](./rename.md) | ✓ | ✓ | yes |
 | `moveFile` | [moveFile.md](./moveFile.md) | ✓ | ✓ | yes |
 | `moveSymbol` | [moveSymbol.md](./moveSymbol.md) | ✓ | ✓* | yes |
+| `extractFunction` | [extractFunction.md](./extractFunction.md) | ✓ | — | yes |
 | `findReferences` | [findReferences.md](./findReferences.md) | ✓ | ✓ | no |
 | `getDefinition` | [getDefinition.md](./getDefinition.md) | ✓ | ✓ | no |
-| `searchText` | [mcp-transport.md](./mcp-transport.md) | n/a | n/a | no |
-| `replaceText` | [mcp-transport.md](./mcp-transport.md) | n/a | n/a | yes |
+| `getTypeErrors` | [getTypeErrors.md](./getTypeErrors.md) | ✓ | — | no |
+| `searchText` | [searchText.md](./searchText.md) | n/a | n/a | no |
+| `replaceText` | [replaceText.md](./replaceText.md) | n/a | n/a | yes |
 
 \* `moveSymbol` supports moving exported symbols from `.ts`/`.tsx` sources inside Vue workspaces and updates `.vue` importers in a post-step. Moving symbols from a `.vue` source file is still pending; see [moveSymbol.md](./moveSymbol.md).
 

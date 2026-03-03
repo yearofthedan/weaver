@@ -1,12 +1,10 @@
-# Operation: rename
+# Feature: rename
 
-## Why use this
-
-Use `rename` when you need to change a symbol's name and have every reference updated automatically — across imports, call sites, type annotations, and even `.vue` files. It is scope-aware: renaming a local variable won't touch an unrelated identifier with the same name in another scope. This is the safest way to rename; `replaceText` can do a textual find-and-replace but has no understanding of scope or binding.
+**Purpose:** Scope-aware symbol rename across the project — updates imports, call sites, type annotations, and Vue SFCs without touching unrelated identifiers.
 
 ## What it does
 
-Renames a symbol at a given file position and updates all references to it project-wide, including across `.ts` and `.vue` file boundaries.
+Renames a symbol at a given file position and updates all references to it project-wide, including across `.ts` and `.vue` file boundaries. Unlike `replaceText`, which does textual find-and-replace with no understanding of scope or binding, `rename` uses the compiler's reference graph to change only the references that bind to the same symbol.
 
 **MCP tool call:**
 
