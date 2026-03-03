@@ -11,6 +11,7 @@ All tools are invoked through the MCP server (`light-bridge serve`). There are n
 | `rename` | [rename.md](./rename.md) | ✓ | ✓ | yes |
 | `moveFile` | [moveFile.md](./moveFile.md) | ✓ | ✓ | yes |
 | `moveSymbol` | [moveSymbol.md](./moveSymbol.md) | ✓ | ✓* | yes |
+| `deleteFile` | [deleteFile.md](./deleteFile.md) | ✓ | ✓† | yes |
 | `extractFunction` | [extractFunction.md](./extractFunction.md) | ✓ | — | yes |
 | `findReferences` | [findReferences.md](./findReferences.md) | ✓ | ✓ | no |
 | `getDefinition` | [getDefinition.md](./getDefinition.md) | ✓ | ✓ | no |
@@ -19,6 +20,8 @@ All tools are invoked through the MCP server (`light-bridge serve`). There are n
 | `replaceText` | [replaceText.md](./replaceText.md) | n/a | n/a | yes |
 
 \* `moveSymbol` supports moving exported symbols from `.ts`/`.tsx` sources inside Vue workspaces and updates `.vue` importers in a post-step. Moving symbols from a `.vue` source file is still pending; see [moveSymbol.md](./moveSymbol.md).
+
+† `deleteFile` removes imports and re-exports from TS/JS files (via ts-morph) and Vue SFC `<script>` blocks (via regex scan).
 
 ## Supported file types summary
 

@@ -30,8 +30,16 @@ Deletes the target file from disk after removing all `import` and `export … fr
   ],
   "filesSkipped": [],
   "importRefsRemoved": 4,
-  "typeErrors": [],
-  "typeErrorCount": 0,
+  "typeErrors": [
+    {
+      "file": "/path/to/project/src/api.ts",
+      "line": 12,
+      "col": 3,
+      "code": 2304,
+      "message": "Cannot find name 'oldHelper'."
+    }
+  ],
+  "typeErrorCount": 1,
   "typeErrorsTruncated": false
 }
 ```
@@ -40,7 +48,7 @@ Deletes the target file from disk after removing all `import` and `export … fr
 - `filesModified` — files whose import/re-export declarations were cleaned. Does not include `deletedFile` itself.
 - `filesSkipped` — importers outside the workspace boundary that were found but not written. Surface these to the user.
 - `importRefsRemoved` — count of individual `import`/`export` declarations removed across all modified files.
-- `typeErrors` / `typeErrorCount` / `typeErrorsTruncated` — type errors in modified files after the deletion. Pass `checkTypeErrors: false` to suppress.
+- `typeErrors` / `typeErrorCount` / `typeErrorsTruncated` — type errors in modified files after the deletion; injected automatically by the dispatcher (same as all mutating operations). Expect errors here: removing an import leaves any code that *used* those symbols broken. Pass `checkTypeErrors: false` to suppress.
 
 ## Key concepts
 
