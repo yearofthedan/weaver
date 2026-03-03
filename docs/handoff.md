@@ -108,23 +108,27 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ---
 
-### P2 — Test quality (before adding more features)
+### P2 — Distribution (ship what exists)
+
+- **Stage 1: npm publish + install docs** — [spec](specs/20260303-distribution-stage1.md)
+- **Stage 2: Claude Code plugin** `[needs design]` — package as a Claude Code plugin (`.claude-plugin/plugin.json`); complements existing `typescript-lsp` code intelligence plugin with refactoring tools; one-command install via `/plugin install`
+- **Stage 3: Marketplace submission** `[needs design]` — submit to official Anthropic marketplace; position alongside LSP code intelligence plugins
 
 ---
 
 ### P3 — High-value features
 
+- `buildVolarService` refactoring `[needs design]` — extract named sub-functions from the ~176-line monolith; prerequisite for more Vue operations
+- `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
+
 ---
 
 ### P4 — Medium-value features and tech debt
 
-- `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
-- `buildVolarService` refactoring `[needs design]` — extract named sub-functions from the ~176-line monolith; prerequisite for more Vue operations
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks; depends on buildVolarService refactoring
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; depends on buildVolarService refactoring; see [moveSymbol.md](features/moveSymbol.md)
 - `createFile` `[needs design]` — scaffold a file with correct import paths
-- Claude Code plugin distribution `[needs design]` — `.claude-plugin/plugin.json`, `--write-only` flag, dual language server evaluation; see [daemon.md](features/daemon.md)
 
 ---
 
