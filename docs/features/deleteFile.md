@@ -2,10 +2,6 @@
 
 **Purpose:** Remove a file and clean up every import and re-export that references it, across the whole workspace, in one compiler-backed operation.
 
-## What it does
-
-Deletes the target file from disk after removing all `import` and `export … from` declarations that reference it. Covers TypeScript/JavaScript files in the compiler project, files outside `tsconfig.include` (test files, scripts), and Vue SFC `<script>` blocks.
-
 **MCP tool call:**
 
 ```json
@@ -17,74 +13,81 @@ Deletes the target file from disk after removing all `import` and `export … fr
 }
 ```
 
-**Response:**
+The response includes tool-specific fields beyond the standard contract:
 
 ```json
 {
   "ok": true,
   "deletedFile": "/path/to/project/src/old-helper.ts",
-  "filesModified": [
-    "/path/to/project/src/api.ts",
-    "/path/to/project/src/barrel.ts",
-    "/path/to/project/tests/helper.test.ts"
-  ],
+  "filesModified": ["src/api.ts", "src/barrel.ts", "tests/helper.test.ts"],
   "filesSkipped": [],
   "importRefsRemoved": 4,
-  "typeErrors": [
-    {
-      "file": "/path/to/project/src/api.ts",
-      "line": 12,
-      "col": 3,
-      "code": 2304,
-      "message": "Cannot find name 'oldHelper'."
-    }
-  ],
-  "typeErrorCount": 1,
-  "typeErrorsTruncated": false
+  "typeErrors": [...]
 }
 ```
 
-- `deletedFile` — echo of the absolute path removed. Useful to confirm the right file was targeted.
+- `deletedFile` — echo of the absolute path removed.
 - `filesModified` — files whose import/re-export declarations were cleaned. Does not include `deletedFile` itself.
-- `filesSkipped` — importers outside the workspace boundary that were found but not written. Surface these to the user.
+- `filesSkipped` — importers outside the workspace boundary that were found but not written.
 - `importRefsRemoved` — count of individual `import`/`export` declarations removed across all modified files.
-- `typeErrors` / `typeErrorCount` / `typeErrorsTruncated` — type errors in modified files after the deletion; injected automatically by the dispatcher (same as all mutating operations). Expect errors here: removing an import leaves any code that *used* those symbols broken. Pass `checkTypeErrors: false` to suppress.
 
-## Key concepts
+Type errors are expected after deletion: removing an import leaves any code that used those symbols broken. Pass `checkTypeErrors: false` to suppress. See [mcp-transport.md](./mcp-transport.md) for the full response contract.
 
-**Three-phase cleanup before physical deletion.** The file is only deleted from disk after all importer edits are written, because ts-morph needs the file present to resolve module specifiers during the scan.
+## How it works
 
-**Phase 1 — in-project scan (ts-morph).** Iterates the compiler project and uses `getModuleSpecifierSourceFile()` to find every `import` and `export … from` declaration that resolves to the target. Handles named imports, type-only imports, namespace imports, default imports, re-exports (`export *`, `export { }`), and side-effect imports.
+The file must be present on disk during the scan phases — ts-morph needs it to resolve module specifiers. Physical deletion happens last.
 
-**Phase 2 — out-of-project TS/JS scan.** Walks workspace files not in `tsconfig.include` (test files, scripts) using an in-memory ts-morph project per file. Module specifier resolution is done manually via `path.resolve` + extension stripping — this correctly handles bare specifiers (`'./foo'`), `.ts`, `.tsx`, `.js`, and `.jsx` extensions.
+```
+tool call
+  │
+  ▼ dispatcher (src/daemon/dispatcher.ts)
+  │   validates file against workspace boundary
+  ▼ deleteFile() (src/operations/deleteFile.ts)
+  │   ├─ Phase 1 — in-project scan (ts-morph)
+  │   │     iterate compiler project source files
+  │   │     for each ImportDeclaration / ExportDeclaration:
+  │   │       getModuleSpecifierSourceFile() === target → remove the declaration
+  │   │     handles: named imports, type-only imports, namespace imports, default imports,
+  │   │              re-exports (export *, export { }), side-effect imports
+  │   │     safe re-query loop: re-fetch declarations after each removal to avoid
+  │   │     stale AST node references
+  │   ├─ Phase 2 — out-of-project TS/JS scan
+  │   │     walk workspace files outside tsconfig.include (test files, scripts)
+  │   │     per-file in-memory ts-morph project for each file
+  │   │     module specifier resolved via path.resolve + extension stripping
+  │   │     (handles bare specifiers './foo', and .ts/.tsx/.js/.jsx extensions)
+  │   ├─ Phase 3 — Vue SFC scan (regex)
+  │   │     walk .vue files; regex removes matching import/export lines from
+  │   │     <script> and <script setup> blocks
+  │   │     consistent with updateVueImportsAfterMove; does not parse template import()
+  │   ├─ unlinkSync(file) — physical deletion (after all importer edits written)
+  │   └─ tsProvider.invalidateProject(file) — drop cached project
+  │         (watcher's unlink event also fires invalidateAll independently ~200ms later)
+  ▼ dispatcher appends type errors for filesModified (unless checkTypeErrors: false)
+  ▼ result { ok, deletedFile, filesModified, filesSkipped, importRefsRemoved, typeErrors }
+```
 
-**Phase 3 — Vue SFC scan (regex).** TypeScript's compiler is blind to imports inside Vue `<script>` blocks. The scanner walks `.vue` files and removes matching import/export lines with regex, consistent with how `updateVueImportsAfterMove` works. Covers `<script>` and `<script setup>` blocks; does not parse template-level `import()` expressions.
+## Security
 
-**Safe re-query loop.** Removing a ts-morph AST node invalidates sibling node references captured before the removal. The implementation re-queries a source file's declarations after each removal so stale references are never used.
+- **Input:** `file` is validated against the workspace root by the dispatcher before the operation runs. Paths outside the workspace return `WORKSPACE_VIOLATION`.
+- **Output writes:** only files inside the workspace boundary are written. Importers found outside the workspace appear in `filesSkipped` and are not modified.
 
-**Provider cache invalidation.** After deletion, `tsProvider.invalidateProject(file)` drops the cached project so the next request rebuilds without the deleted file. The file-system watcher's `unlink` event also triggers `invalidateAll` independently.
+See [security.md](../security.md) for the full threat model.
 
-## Supported file types
+## Constraints
 
-- `.ts`, `.tsx`, `.js`, `.jsx` as the deleted file — full support
-- `.vue` as the deleted file — physical deletion works; TS/JS importers that reference it by path are cleaned in Phase 2
-- `.vue` files as importers — cleaned in Phase 3 regardless of the deleted file's type
-
-## Constraints & limitations
-
-- Multi-line import declarations in Vue SFCs are not cleaned (regex is line-based). In practice, Vue SFC imports are nearly always single-line.
+- The file must exist at call time. If already deleted, `FILE_NOT_FOUND` is returned.
+- Multi-line import declarations in Vue SFCs are not cleaned (Phase 3 regex is line-based). In practice, Vue SFC imports are nearly always single-line.
 - Template-level `import()` calls in Vue SFCs are not detected.
-- The file must exist at call time; if already deleted, `FILE_NOT_FOUND` is returned.
+- Phase 2 covers TypeScript/JavaScript files outside `tsconfig.include`. Other file types (e.g. `.json` that import by path) are not scanned.
 
-## Security & workspace boundary
+## Technical decisions
 
-- **Input:** `file` is validated against the workspace root by the dispatcher (`pathParams: ["file"]`). Paths outside the workspace return `WORKSPACE_VIOLATION` before the operation runs.
-- **Output writes:** Only files inside the workspace boundary are written. Importers found outside the workspace appear in `filesSkipped` and are not modified.
+**Why three separate scan phases instead of one unified pass?**
+Each phase accesses a different population of files through a different API. ts-morph's compiler project (Phase 1) gives semantic module resolution but only sees files in `tsconfig.include`. A per-file in-memory project (Phase 2) extends coverage to test files and scripts at the cost of a fresh project per file. Regex (Phase 3) covers Vue SFCs, which TypeScript's compiler can't parse. Unifying them would require either expanding tsconfig (fragile) or giving up semantic resolution everywhere.
 
-## Error codes
+**Why delete last?**
+ts-morph needs the target file present to resolve module specifiers during Phase 1. If the file is deleted first, `getModuleSpecifierSourceFile()` returns `undefined` for all importers and Phase 1 finds nothing.
 
-| Code | When |
-|------|------|
-| `FILE_NOT_FOUND` | Target file does not exist on disk |
-| `WORKSPACE_VIOLATION` | Target path is outside the workspace (dispatcher layer) |
-| `VALIDATION_ERROR` | Schema validation failed (e.g. empty `file` string) |
+**Why the safe re-query loop?**
+Removing a ts-morph AST node (an `ImportDeclaration`) invalidates sibling node references captured before the removal — the AST is mutated in-place. Re-querying the source file's declarations after each removal guarantees fresh references for the next iteration.

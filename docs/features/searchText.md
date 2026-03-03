@@ -2,9 +2,7 @@
 
 **Purpose:** Find where a text pattern appears across the workspace — returns structured matches that feed directly into `replaceText`'s surgical edit mode.
 
-## What it does
-
-Searches all text files in the workspace for an ECMAScript regex pattern and returns match locations as structured JSON (file, line, col, matched text). Enforces workspace boundaries, skips sensitive files automatically, and provides machine-readable output without parsing.
+Enforces workspace boundaries, skips sensitive files automatically, and provides machine-readable output without parsing.
 
 **MCP tool call:**
 
@@ -20,7 +18,7 @@ Searches all text files in the workspace for an ECMAScript regex pattern and ret
 }
 ```
 
-**Response:**
+Response:
 
 ```json
 {
@@ -33,10 +31,7 @@ Searches all text files in the workspace for an ECMAScript regex pattern and ret
       "matchText": "calculateTotal",
       "context": [
         { "line": 10, "text": "// Compute the order total", "isMatch": false },
-        { "line": 11, "text": "export function calculateTotal(items: Item[]): number {", "isMatch": false },
-        { "line": 12, "text": "  return calculateTotal(items);", "isMatch": true },
-        { "line": 13, "text": "}", "isMatch": false },
-        { "line": 14, "text": "", "isMatch": false }
+        { "line": 12, "text": "  return calculateTotal(items);", "isMatch": true }
       ]
     }
   ],
@@ -44,38 +39,42 @@ Searches all text files in the workspace for an ECMAScript regex pattern and ret
 }
 ```
 
-`line` and `col` are 1-based. When `truncated` is true, results were capped — narrow the search with a more specific pattern or glob.
+`line` and `col` are 1-based. When `truncated` is true, narrow the search with a more specific pattern or glob. Default cap is 500 matches; pass `maxResults` to adjust.
 
-## Key concepts
+## How it works
 
-- **File discovery** uses `git ls-files` when available (respects `.gitignore`); falls back to recursive readdir that skips standard directories (`node_modules`, `.git`, etc.).
-- **Glob filtering** supports `*`, `**`, and `?`. Patterns without a `/` match against the basename only (e.g. `*.ts` matches any `.ts` file at any depth).
-- **ReDoS protection** — patterns are checked with `safe-regex2` before execution. Patterns with catastrophic backtracking potential are rejected with `REDOS`.
-- **Binary files** are skipped automatically (detected by null-byte check on the first 512 bytes).
-- **Default cap** is 500 matches. Pass `maxResults` to adjust.
+```
+tool call
+  │
+  ▼ dispatcher (src/daemon/dispatcher.ts)
+  ▼ searchText() (src/operations/searchText.ts)
+  │   ├─ validate pattern with safe-regex2 — reject catastrophic-backtracking patterns (REDOS)
+  │   ├─ file discovery
+  │   │     git ls-files --cached --others --exclude-standard (respects .gitignore)
+  │   │     fallback: recursive readdir skipping SKIP_DIRS (non-git workspaces)
+  │   │     apply glob filter; skip binary files (null-byte check on first 512 bytes)
+  │   │     skip sensitive files via isSensitiveFile()
+  │   └─ per-file: split into lines, apply regex per line, collect matches + context lines
+  ▼ result { ok, matches[], truncated }
+```
 
-## Supported file types
-
-| Scenario | Supported |
-|----------|-----------|
-| Any text file in the workspace | Yes |
-| Binary files | Skipped automatically |
-| Sensitive files (`.env`, keys, certs) | Skipped automatically |
-
-## Constraints & limitations
-
-- Pattern is ECMAScript regex syntax, not PCRE. Named groups and lookbehinds work; atomic groups and possessive quantifiers do not.
-- Matches are found per-line. Multi-line patterns (matching across `\n`) are not supported.
-- The glob filter is a simplified subset — `{a,b}` alternation and `[abc]` character classes in the glob itself are not supported (regex character classes in the *pattern* are fine).
-- No `--fixed-string` mode; literal dots, brackets, etc. in the pattern must be escaped.
-
-## Security & workspace boundary
+## Security
 
 - All searched files are within the workspace root. `git ls-files` is run with `cwd` set to the workspace; the recursive fallback only descends from the workspace root.
 - Sensitive files are skipped via `isSensitiveFile()` — `.env`, private keys, certificates, and similar files are never read.
 - Symlinks that resolve outside the workspace are included by `git ls-files` but their content is still read from disk (the resolved path). Workspace boundary is enforced at the file-discovery level, not per-byte.
+- ReDoS protection: `safe-regex2` rejects star-height > 1 patterns before execution.
 
-See `docs/security.md` for the full threat model.
+See [security.md](../security.md) for the full threat model.
+
+## Constraints
+
+- Pattern is ECMAScript regex syntax, not PCRE. Named groups and lookbehinds work; atomic groups and possessive quantifiers do not.
+- Matches are found per-line — multi-line patterns (matching across `\n`) are not supported.
+- The glob filter is a simplified subset — `{a,b}` alternation and `[abc]` character classes in the glob are not supported (regex character classes in the *pattern* are fine).
+- No `--fixed-string` mode; literal dots, brackets, etc. in the pattern must be escaped.
+- Binary files are skipped automatically.
+- Sensitive files are skipped automatically.
 
 ## Technical decisions
 

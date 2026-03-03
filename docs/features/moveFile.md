@@ -2,9 +2,7 @@
 
 **Purpose:** Move a file and rewrite every import that references it, project-wide — including relative path depth changes and Vue SFC imports.
 
-## What it does
-
-Moves a file from one path to another and rewrites all import statements that reference it, project-wide. The TypeScript language service computes the exact set of import paths that need updating. In Vue workspaces, a post-scan patches `.vue` SFC imports that the language service doesn't track.
+The TypeScript language service computes the exact set of import paths that need updating. In Vue workspaces, a post-scan patches `.vue` SFC imports that the language service doesn't track.
 
 **MCP tool call:**
 
@@ -18,52 +16,43 @@ Moves a file from one path to another and rewrites all import statements that re
 }
 ```
 
-**Response:**
+`filesModified` includes the moved file itself plus every file with updated imports. See [mcp-transport.md](./mcp-transport.md) for the full response contract.
 
-```json
-{
-  "ok": true,
-  "filesModified": ["src/utils/helpers.ts", "src/App.vue", "src/components/Button.ts"],
-  "filesSkipped": [],
-  "message": "Moved src/utils/helpers.ts → src/lib/helpers.ts, updated 3 files"
-}
+## How it works
+
+```
+tool call
+  │
+  ▼ dispatcher (src/daemon/dispatcher.ts)
+  │   validates oldPath and newPath against workspace boundary; selects provider
+  ▼ moveFile() (src/operations/moveFile.ts)
+  │   ├─ ls.getEditsForFileRename(oldPath, newPath)
+  │   │     language service computes per-file text spans for all import path rewrites
+  │   ├─ boundary-check each rewrite target → write passing files; add others to filesSkipped
+  │   ├─ renameSync(oldPath → newPath) — physical file move on disk
+  │   └─ afterFileRename() — provider hook
+  │         TsProvider: explicit project cache invalidation (keyed by old path)
+  │         VolarProvider: updateVueImportsAfterMove() regex scan patches .vue SFC imports
+  │                        (Volar edits use virtual .vue.ts names; can't be written directly)
+  ▼ dispatcher appends type errors for filesModified (unless checkTypeErrors: false)
+  ▼ result { ok, filesModified, filesSkipped, typeErrors }
 ```
 
-The moved file itself is included in `filesModified`. All files with import paths that referenced the old location are updated to point to the new location. The file is physically moved on disk.
-
-## Key concepts
-
-- **Language-service edits, not ts-morph `sourceFile.move()`.** Uses `getEditsForFileRename()` which returns per-file text spans. This allows boundary-checking each file before writing, rather than atomically writing everything and hoping nothing escapes the workspace.
-- **Vue post-scan.** Volar's `getEditsForFileRename` returns edits with virtual `.vue.ts` filenames that can't be written to disk directly. A separate regex scan (`updateVueImportsAfterMove`) patches `.vue` SFC import strings. This runs via the provider `afterFileRename` hook.
-- **Explicit invalidation after move.** ts-morph and Volar cache project state keyed by file path. After the physical rename, the engine explicitly invalidates its project cache so the next operation sees the new path.
-- **Post-write type errors.** Type errors in modified files are returned automatically (pass `checkTypeErrors: false` to suppress).
-
-## Supported file types
-
-| Scenario | Supported |
-|----------|-----------|
-| `.ts` → `.ts` | Yes |
-| `.ts` ↔ `.tsx` | Yes |
-| `.vue` → `.vue` | Yes |
-| `.js` / `.jsx` ↔ `.js` / `.jsx` | Yes (when in project graph via `allowJs`) |
-| `.ts` ↔ `.vue` | No — semantic mismatch; TypeScript module can't become a Vue SFC or vice versa |
-
-Moving a file does not change the file's content or type. The engine only rewrites import paths in referencing files.
-
-## Constraints & limitations
-
-- `newPath` must not already exist. The operation does not overwrite existing files.
-- Both `oldPath` and `newPath` must be within the workspace boundary.
-- Import rewrites are computed from the project graph. Imports in files outside the project graph (e.g. files not covered by tsconfig `include`) may not be updated. The Vue post-scan mitigates this for `.vue` files but uses regex, not semantic binding.
-- Dynamic `import()` calls with computed paths are not updated.
-
-## Security & workspace boundary
+## Security
 
 - Both `oldPath` and `newPath` are validated at the dispatcher before the engine is called.
-- The TypeScript language service computes import rewrites for all files in the project graph, which may include files physically outside the workspace (e.g. via tsconfig `include` paths that escape the workspace). These are skipped per-file and reported in `filesSkipped`.
-- Vue post-scan enforces workspace boundaries per file before write. Out-of-workspace files are skipped.
+- The language service computes import rewrites for all files in the project graph, which may include files physically outside the workspace (via tsconfig `include` paths). These are boundary-checked per-file and skipped to `filesSkipped` if they fail.
+- The Vue post-scan enforces workspace boundaries per file before writing.
 
-See `docs/security.md` for the full threat model.
+See [security.md](../security.md) for the full threat model.
+
+## Constraints
+
+- `newPath` must not already exist. The operation does not overwrite existing files.
+- Both paths must be within the workspace boundary.
+- Import rewrites are computed from the project graph. Imports in files outside the project graph (e.g. files not covered by tsconfig `include`) may not be updated. The Vue post-scan mitigates this for `.vue` files but uses regex, not semantic binding.
+- Dynamic `import()` calls with computed paths are not updated.
+- Moving a `.ts` file to a `.vue` path (or vice versa) is not supported — semantic mismatch; TypeScript modules can't become Vue SFCs or vice versa.
 
 ## Technical decisions
 

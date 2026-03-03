@@ -2,9 +2,7 @@
 
 **Purpose:** Scope-aware symbol rename across the project — updates imports, call sites, type annotations, and Vue SFCs without touching unrelated identifiers.
 
-## What it does
-
-Renames a symbol at a given file position and updates all references to it project-wide, including across `.ts` and `.vue` file boundaries. Unlike `replaceText`, which does textual find-and-replace with no understanding of scope or binding, `rename` uses the compiler's reference graph to change only the references that bind to the same symbol.
+Unlike `replaceText`, which does textual find-and-replace with no understanding of scope or binding, `rename` uses the compiler's reference graph to change only the references that bind to the same symbol.
 
 **MCP tool call:**
 
@@ -20,44 +18,42 @@ Renames a symbol at a given file position and updates all references to it proje
 }
 ```
 
-**Response:**
+`line` and `col` are 1-based, consistent with LSP convention. `filesModified` lists every file rewritten; `filesSkipped` lists files the language service targeted that fell outside the workspace boundary. See [mcp-transport.md](./mcp-transport.md) for the full response contract.
 
-```json
-{
-  "ok": true,
-  "filesModified": ["src/utils.ts", "src/App.vue", "src/components/Summary.ts"],
-  "filesSkipped": []
-}
+## How it works
+
+```
+tool call
+  │
+  ▼ dispatcher (src/daemon/dispatcher.ts)
+  │   validates file against workspace boundary; selects TS or Vue provider
+  ▼ rename() (src/operations/rename.ts)
+  │   ├─ TsProvider path
+  │   │     ls.findRenameLocations(file, offset) → spans in TS/TSX files
+  │   │     boundary-check each target file → write passing files
+  │   └─ VolarProvider path (Vue project)
+  │         ls.findRenameLocations(virtualFile, offset) → spans in virtual .vue.ts coords
+  │         translateLocations() → real .vue line/col via Volar source-map
+  │         boundary-check each target file → write passing files
+  ▼ result { ok, filesModified, filesSkipped }
 ```
 
-`line` and `col` are 1-based, consistent with LSP convention. The symbol under the cursor at that position is renamed. If no renameable symbol is found, the operation returns `SYMBOL_NOT_FOUND`.
+The symbol under the cursor at (line, col) is renamed. If no renameable symbol is found at that position, the operation returns `SYMBOL_NOT_FOUND`.
 
-## Key concepts
+## Security
 
-- **Scope-aware via language service.** Uses TypeScript's `findRenameLocations` (not text search), so it only touches references that bind to the same symbol.
-- **Vue virtual-path translation.** In Vue workspaces, Volar exposes `.vue` files as virtual `.vue.ts` files. Rename locations come back in virtual coordinates; the provider translates them back to real `.vue` positions via Volar's source-map.
-- **Per-file boundary check.** Each edit is checked against the workspace boundary before writing. Out-of-workspace files land in `filesSkipped`, not written.
-- **Post-write type errors.** Type errors in modified files are returned automatically (pass `checkTypeErrors: false` to suppress).
+- **Input:** `file` is validated against the workspace root at the dispatcher before the engine is called. Invalid paths return `WORKSPACE_VIOLATION`.
+- **Output:** the language service may compute rewrites for files that are in the project graph but physically outside the workspace (via tsconfig `include`). These are skipped per-file and reported in `filesSkipped`.
 
-## Supported file types
+See [security.md](../security.md) for the full threat model.
 
-- `.ts`, `.tsx` as source or reference — full support
-- `.vue` as source or reference — full support (Volar provides the project graph)
-- `.js`, `.jsx` — supported when in the TypeScript project graph (via tsconfig `allowJs`)
-- Cross-type: a rename in a `.ts` file will update references in `.vue` files and vice versa (Vue engine only; both must be in the same Volar project)
-
-## Constraints & limitations
+## Constraints
 
 - The symbol must be at a renameable position. Built-in identifiers, string literals, and template expressions are not renameable.
 - `newName` must be a valid JavaScript/TypeScript identifier (validated at MCP input; non-identifiers are rejected before reaching the engine).
 - Rename does not detect naming collisions with existing symbols in scope.
-
-## Security & workspace boundary
-
-- Input: `file` is validated against the workspace root at the dispatcher before the engine is called. Invalid paths return `WORKSPACE_VIOLATION`.
-- Output: the language service may compute rewrites for files that are in the project graph (via tsconfig `include`) but physically outside the workspace. These are skipped per-file and reported in `filesSkipped`.
-
-See `docs/security.md` for the full threat model.
+- `.js`/`.jsx` files are updated only when they are part of the project graph (tsconfig `allowJs`).
+- Cross-type reference tracking (a rename in a `.ts` file updating `.vue` references) requires the Vue engine — both files must be in the same Volar project.
 
 ## Technical decisions
 
@@ -65,4 +61,4 @@ See `docs/security.md` for the full threat model.
 `target.rename()` is an AST mutation API that applies all edits atomically and saves every dirty file. It has no per-file whitelist, so workspace boundary enforcement would require reverting writes after the fact. Language-service rename locations return text spans — boundary-check each file, then write only the ones that pass.
 
 **Why does the Vue engine need virtual `.vue.ts` translation?**
-TypeScript's program builder ignores non-`.ts`/`.tsx` filenames. Volar works around this by exposing `.vue` files as `.vue.ts` virtual files in the host. `findRenameLocations` returns positions in the virtual coordinate space; `VolarProvider.translateLocations` maps them back to real `.vue` line/col using Volar's source-map. See `docs/tech/volar-v3.md` for details.
+TypeScript's program builder ignores non-`.ts`/`.tsx` filenames. Volar works around this by exposing `.vue` files as `.vue.ts` virtual files in the host. `findRenameLocations` returns positions in the virtual coordinate space; `VolarProvider.translateLocations` maps them back to real `.vue` line/col using Volar's source-map. See [volar-v3.md](../tech/volar-v3.md) for details.

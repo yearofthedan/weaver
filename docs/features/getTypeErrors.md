@@ -2,9 +2,7 @@
 
 **Purpose:** Check for TypeScript type errors in a single file or across the whole project.
 
-## What it does
-
-Returns TypeScript semantic errors for a single file or all project files. Warnings and suggestions are excluded — only errors (`DiagnosticCategory.Error`) are reported. Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) already return type errors for modified files automatically; `getTypeErrors` covers files that weren't just modified and project-wide baseline checks.
+Warnings and suggestions are excluded — only errors (`DiagnosticCategory.Error`) are reported. Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) already return type errors for modified files automatically; `getTypeErrors` covers files that weren't just modified and project-wide baseline checks.
 
 **MCP tool call (single file):**
 
@@ -26,7 +24,7 @@ Returns TypeScript semantic errors for a single file or all project files. Warni
 }
 ```
 
-**Response:**
+Response:
 
 ```json
 {
@@ -45,37 +43,42 @@ Returns TypeScript semantic errors for a single file or all project files. Warni
 }
 ```
 
-`line` and `col` are 1-based. `errorCount` is the true total; when `truncated` is true, narrow the scope by providing `file`.
+`line` and `col` are 1-based. `errorCount` is the true total even when results are capped at 100. When `truncated` is true, narrow the scope by providing `file`.
 
-## Key concepts
+## How it works
 
-- **Errors only.** `DiagnosticCategory.Warning`, `Suggestion`, and `Message` are excluded.
-- **Cap at 100 diagnostics.** `errorCount` always reflects the true total even when results are capped. `truncated` tells you when this happens.
-- **Top-level message only.** For deeply nested generic mismatches, TypeScript produces a diagnostic chain 4–5 levels deep. Only the top node is returned — it's always the most specific description of *what* is wrong. Nested "why" context is omitted to keep responses concise.
-- **Single-file vs project-wide.** With `file`, checks only that file. Without `file`, iterates all source files in the tsconfig project rooted at the workspace.
-- **Post-write diagnostics on other operations.** Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) run type diagnostics against `filesModified` after every write and append `typeErrors`, `typeErrorCount`, `typeErrorsTruncated` to the response. Pass `checkTypeErrors: false` to suppress.
+```
+tool call
+  │
+  ▼ dispatcher (src/daemon/dispatcher.ts)
+  │   if file provided: validates against workspace boundary
+  ▼ getTypeErrors() (src/operations/getTypeErrors.ts)
+  │   ├─ single-file mode (file provided)
+  │   │     tsProvider.getSemanticDiagnostics(file) → errors for that file only
+  │   └─ project-wide mode (no file)
+  │         tsProvider.getSourceFiles() → iterate all files in tsconfig project
+  │         getSemanticDiagnostics() per file → collect all errors
+  │   filter: DiagnosticCategory.Error only; take first 100; set truncated if more exist
+  │   for each diagnostic: top-level message only (chain[0]); convert to 1-based line/col
+  ▼ result { ok, diagnostics[], errorCount, truncated }
+```
 
-## Supported file types
+`.vue` files are not supported — the TS provider cannot check Vue SFC `<script>` blocks directly.
 
-| Scenario | Supported |
-|----------|-----------|
-| `.ts` / `.tsx` | Yes |
-| `.vue` | No — pending Volar support (see handoff.md) |
-| `.js` / `.jsx` | Yes when in project graph via `allowJs` |
-
-## Constraints & limitations
-
-- Vue SFC (`.vue`) diagnostics are not yet supported.
-- Post-write diagnostics only cover `.ts`/`.tsx` files — `.vue` or other file types in `filesModified` are silently skipped.
-- The project is loaded fresh from disk on first access; subsequent calls reuse the daemon's cached project.
-
-## Security & workspace boundary
+## Security
 
 - Single-file mode: `file` is validated against the workspace root. Invalid paths return `WORKSPACE_VIOLATION`; non-existent files return `FILE_NOT_FOUND`.
 - Project-wide mode: iterates files in the tsconfig project rooted at the workspace. No files outside the project graph are checked.
 - Diagnostics are read-only — no files are written.
 
-See `docs/security.md` for the full threat model.
+See [security.md](../security.md) for the full threat model.
+
+## Constraints
+
+- Vue SFC (`.vue`) diagnostics are not yet supported. See `docs/handoff.md` for the pending Volar extension.
+- Post-write type checking on other operations only covers `.ts`/`.tsx` files — `.vue` or other file types in `filesModified` are silently skipped.
+- `.js`/`.jsx` files are checked only when in the project graph via `allowJs`.
+- The project is loaded fresh from disk on first access; subsequent calls reuse the daemon's cached project.
 
 ## Technical decisions
 

@@ -79,7 +79,7 @@ Examples of what belongs here:
 - [ ] `pnpm check` passes (lint + build + test)
 - [ ] Docs updated if public surface changed:
       - README.md (tool table, CLI commands, error codes, project structure)
-      - Feature doc created or updated (use `docs/specs/templates/feature.md` for new docs)
+      - Feature doc created or updated (use `docs/features/_template.md` for new docs)
       - handoff.md current-state section
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Agent insights captured in docs/agent-memory.md

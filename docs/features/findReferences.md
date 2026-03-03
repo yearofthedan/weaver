@@ -2,9 +2,7 @@
 
 **Purpose:** Discover every usage of a symbol — who calls this function, who reads this variable, who implements this interface — through the compiler's reference graph rather than text matching.
 
-## What it does
-
-Returns all references to a symbol at a given file position. Read-only — does not modify any files. Unlike `searchText`, which matches by name and can't distinguish scopes, `findReferences` is semantically precise: it only returns references that bind to the same symbol.
+Read-only. Unlike `searchText`, which matches by name and can't distinguish scopes, `findReferences` is semantically precise: it only returns references that bind to the same symbol.
 
 **MCP tool call:**
 
@@ -19,7 +17,7 @@ Returns all references to a symbol at a given file position. Read-only — does 
 }
 ```
 
-**Response:**
+Response:
 
 ```json
 {
@@ -33,33 +31,40 @@ Returns all references to a symbol at a given file position. Read-only — does 
 }
 ```
 
-`line` and `col` are 1-based. The declaration site itself is included in the results. If no symbol is found at the given position, `references` is empty.
+`line` and `col` are 1-based. The declaration site is included in the results. If no symbol is found at the given position, `references` is empty.
 
-## Key concepts
+## How it works
 
-- **Scope-aware via language service.** Uses TypeScript's `getReferencesAtPosition`, so results are semantically correct — not string matches.
-- **Vue virtual-path translation.** Same mechanism as `rename`: Volar returns references in virtual `.vue.ts` coordinates, the provider translates them back to real `.vue` positions.
-- **No workspace filtering on output.** Unlike mutating operations, references outside the workspace are returned as-is. Read-only results carry no security risk, and filtering them would silently hide valid cross-package references.
-- **Debounce window.** Results reflect the in-memory project graph. The daemon watcher keeps it fresh, but there can be a short debounce window (~200ms) before out-of-band file changes are visible.
+`findReferences` is a thin wrapper around the compiler's reference API. The same virtual-path translation used by `rename` applies here for Vue files.
 
-## Supported file types
+```
+tool call
+  │
+  ▼ dispatcher (src/daemon/dispatcher.ts)
+  │   validates file against workspace boundary; selects TS or Vue provider
+  ▼ findReferences() (src/operations/findReferences.ts)
+  │   ├─ TsProvider path
+  │   │     ls.getReferencesAtPosition(file, offset) → spans in TS/TSX files
+  │   └─ VolarProvider path (Vue project)
+  │         ls.getReferencesAtPosition(virtualFile, offset) → spans in virtual .vue.ts coords
+  │         translateLocations() → real .vue line/col via Volar source-map
+  ▼ result { ok, references[] }
+```
 
-- `.ts`, `.tsx` as source — full support
-- `.vue` as source — full support (Volar handles `.vue` → virtual `.vue.ts` translation)
-- References in `.vue` files are found regardless of the source file type
-- `.js`, `.jsx` — supported when in the TypeScript project graph (via `allowJs`)
+Results reflect the in-memory project graph. The daemon watcher keeps it fresh, but there can be a short debounce window (~200ms) before out-of-band file changes are visible.
 
-## Constraints & limitations
+## Security
+
+- **Input:** `file` is validated against the workspace root at the dispatcher. Invalid paths return `WORKSPACE_VIOLATION`.
+- **Output:** references in files outside the workspace are returned as-is. No filtering is applied — read-only results carry no security risk, and filtering them would silently hide valid cross-package references.
+
+See [security.md](../security.md) for the full threat model.
+
+## Constraints
 
 - "Find references by file path" (who imports this file?) is a separate capability not yet implemented. See `docs/handoff.md`.
 - Results may include references in files outside the workspace if those files are in the project graph (via tsconfig `include`). This is intentional for read-only operations.
-
-## Security & workspace boundary
-
-- Input: `file` is validated against the workspace root at the dispatcher. Invalid paths return `WORKSPACE_VIOLATION`.
-- Output: references in files outside the workspace are returned as-is. No filtering is applied to read-only results.
-
-See `docs/security.md` for the full threat model.
+- `.js`/`.jsx` references are found only when those files are in the project graph (tsconfig `allowJs`).
 
 ## Technical decisions
 

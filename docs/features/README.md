@@ -42,6 +42,10 @@ Cross-type reference tracking (e.g. a rename in a `.ts` file updates references 
 | [mcp-transport.md](./mcp-transport.md) | MCP wire protocol, tool interface, response contract |
 | [architecture.md](../architecture.md) | Provider/operation architecture, `ProviderRegistry`, dispatcher design |
 
+## Writing feature docs
+
+Use [`_template.md`](./_template.md) when adding a new feature doc. It defines the required sections (How it works, Security, Constraints, Technical decisions) and includes prompts for each.
+
 ## Other docs
 
 | Doc | Purpose |

@@ -106,24 +106,17 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-*(none)*
-
 ---
 
 ### P2 — Test quality (before adding more features)
-
-Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](quality.md) for per-module breakdown and surviving mutants.
 
 ---
 
 ### P3 — High-value features
 
-
 ---
 
 ### P4 — Medium-value features and tech debt
-
-- Deepen tool feature docs to match infrastructure doc quality `[needs design]` — the tool docs (rename, moveFile, moveSymbol, etc.) describe the interface well but lack implementation depth compared to daemon.md and watcher.md. Gaps: no call-chain traces or flow diagrams for multi-phase tools (moveSymbol, extractFunction); response-contract details duplicated across docs instead of referencing mcp-transport.md; "Supported file types" tables are mostly padding; some "Key concepts" entries are usage tips rather than architectural notes. Goal: make each doc useful for debugging and extending, not just for calling the tool.
 
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
