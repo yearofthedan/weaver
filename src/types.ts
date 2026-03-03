@@ -90,6 +90,15 @@ export interface ReplaceTextResult {
   replacementCount: number;
 }
 
+export interface DeleteFileResult {
+  deletedFile: string;
+  filesModified: string[];
+  /** Importers outside the workspace boundary — found but not written. */
+  filesSkipped: string[];
+  /** Total import/export declarations removed across all modified files. */
+  importRefsRemoved: number;
+}
+
 export interface TypeDiagnostic {
   file: string;
   line: number;

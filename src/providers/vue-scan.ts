@@ -151,6 +151,92 @@ function rewriteNamedSymbolImport(
   );
 }
 
+/**
+ * After a file deletion, scan all .vue files under searchRoot and remove any
+ * import or re-export lines whose module specifier resolves to deletedFile.
+ *
+ * Covers: named imports, type-only imports, namespace imports, default imports,
+ * bare side-effect imports (`import './foo'`), and re-exports (`export * from`,
+ * `export { } from`).
+ *
+ * Returns modified file paths, paths skipped due to workspace boundary, and
+ * the total count of import/export declarations removed.
+ */
+export function removeVueImportsOfDeletedFile(
+  deletedFile: string,
+  searchRoot: string,
+  workspace: string,
+): { modified: string[]; skipped: string[]; refsRemoved: number } {
+  const deletedNoExt = stripExt(deletedFile);
+  const vueFiles = walkFiles(searchRoot, [".vue"]);
+  const modified: string[] = [];
+  const skipped: string[] = [];
+  let refsRemoved = 0;
+
+  for (const vueFile of vueFiles) {
+    if (!isWithinWorkspace(vueFile, workspace)) {
+      skipped.push(vueFile);
+      continue;
+    }
+
+    let content: string;
+    try {
+      content = fs.readFileSync(vueFile, "utf8");
+    } catch {
+      continue;
+    }
+
+    const { content: updated, removed } = removeImportLines(content, vueFile, deletedNoExt);
+    if (removed > 0) {
+      fs.writeFileSync(vueFile, updated, "utf8");
+      modified.push(vueFile);
+      refsRemoved += removed;
+    }
+  }
+
+  return { modified, skipped, refsRemoved };
+}
+
+/**
+ * Remove lines containing `import … from 'rel'`, `export … from 'rel'`, or
+ * bare `import 'rel'` where `rel` resolves to `targetNoExt`.
+ *
+ * Line-based regex — does not parse template-level import() expressions.
+ * Consistent with how updateVueImportsAfterMove works.
+ */
+function removeImportLines(
+  source: string,
+  fromFile: string,
+  targetNoExt: string,
+): { content: string; removed: number } {
+  let removed = 0;
+  const fromDir = path.dirname(fromFile);
+
+  // Match import/export lines that contain `from 'relative-path'`
+  let result = source.replace(
+    /^[^\S\r\n]*(?:import|export)\b[^\r\n]*?\bfrom\s+(['"])(\.\.?\/[^'"]+)\1[^\r\n]*[\r\n]*/gm,
+    (match, _q, specifier) => {
+      const absImport = stripExt(path.resolve(fromDir, specifier as string));
+      if (absImport !== targetNoExt) return match;
+      removed++;
+      return "";
+    },
+  );
+
+  // Match bare side-effect imports: `import './foo'` (no `from` keyword)
+  result = result.replace(
+    /^[^\S\r\n]*import\s+(['"])(\.\.?\/[^'"]+)\1[^\r\n]*[\r\n]*/gm,
+    (match, _q, specifier) => {
+      const absImport = stripExt(path.resolve(fromDir, specifier as string));
+      if (absImport !== targetNoExt) return match;
+      removed++;
+      return "";
+    },
+  );
+
+  return { content: result, removed };
+}
+
 function stripExt(filePath: string): string {
   return filePath.replace(/\.(ts|tsx|js|jsx|mts|cts)$/, "");
 }

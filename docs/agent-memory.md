@@ -182,6 +182,15 @@ The high-value operations (`moveSymbol`, `moveFile`, `rename`) all share one pro
 **`extractFunction`: `endCol` must cover the last character of the last selected statement.**
 TypeScript's `getApplicableRefactors` returns an empty array (no "Extract Symbol" refactor) when the selection's `end` offset falls before the end of the last statement in a multi-statement selection. For example, pointing `endCol` at `)` in `console.log(msg);` silently yields no refactors — it must point at the `;` (or the last token if the codebase uses no-semi style). This is a quirk of how the TS compiler considers a statement "selected". For single-statement selections the compiler is more lenient.
 
+**`deleteFile` deletes the file AFTER writing all importer edits — never before.**
+ts-morph's `getModuleSpecifierSourceFile()` needs the file present on disk to resolve module specifiers during the in-project scan. Deleting first would make Phase 1 blind to importers. The implementation follows: Phase 1 (in-project ts-morph scan) → Phase 2 (out-of-project walk) → Phase 3 (Vue SFC regex) → Phase 4 (physical delete) → Phase 5 (cache invalidation).
+
+**ts-morph: re-query declarations after each `remove()` call on the same SourceFile.**
+After calling `node.remove()`, sibling node references captured before the removal may be stale. Iterating `[...getImportDeclarations(), ...getExportDeclarations()]`, calling `remove()` on the first match, then `break`-ing and re-querying is the safe pattern. O(n²) per file, but safe; import counts per file are small.
+
+**`deleteFile` out-of-project scan uses manual path resolution, not `getModuleSpecifierSourceFile()`.**
+In a per-file in-memory ts-morph project, the target file isn't in the project graph, so `getModuleSpecifierSourceFile()` always returns `undefined`. Instead: `stripExt(path.resolve(fromDir, specifier)) === targetNoExt`. This correctly handles bare specifiers (`'./foo'`), `.ts`, `.js`, `.tsx`, `.jsx` extensions.
+
 ---
 
 ## Memory storage

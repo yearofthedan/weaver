@@ -66,6 +66,11 @@ export const GetTypeErrorsArgsSchema = z.object({
   file: z.string().min(1, "file path must not be empty").optional(),
 });
 
+export const DeleteFileArgsSchema = z.object({
+  file: z.string().min(1, "file path is required"),
+  checkTypeErrors: z.boolean().optional(),
+});
+
 export const ExtractFunctionArgsSchema = z.object({
   file: z.string().min(1, "file path is required"),
   startLine: z.coerce.number().int().positive("startLine must be a positive integer (1-based)"),
@@ -88,6 +93,7 @@ export const ReplaceTextArgsSchema = ReplaceTextBaseSchema.refine(
   { message: "Provide either 'pattern'+'replacement' or 'edits', not both" },
 );
 
+export type DeleteFileArgs = z.infer<typeof DeleteFileArgsSchema>;
 export type GetTypeErrorsArgs = z.infer<typeof GetTypeErrorsArgsSchema>;
 export type RenameArgs = z.infer<typeof RenameArgsSchema>;
 export type MoveArgs = z.infer<typeof MoveArgsSchema>;

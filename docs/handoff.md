@@ -71,6 +71,7 @@ src/
     extractFunction.ts ← extractFunction(tsProvider, file, startLine, startCol, endLine, endCol, functionName, workspace)
     searchText.ts      ← searchText(pattern, workspace, { glob, context, maxResults })
     replaceText.ts     ← replaceText(workspace, { pattern, replacement, glob } | { edits })
+    deleteFile.ts      ← deleteFile(tsProvider, file, workspace)
   providers/
     ts.ts         ← TsProvider: compiler calls via ts-morph Project; refreshFile() for selective invalidation
     volar.ts      ← VolarProvider: compiler calls via Volar proxy + virtual↔real translation; afterSymbolMove scans .vue files
@@ -93,6 +94,7 @@ src/
 - `getTypeErrors` — TS only; read-only, returns type errors for a single file or whole project; capped at 100
 - `searchText` — regex search across workspace files; glob filter, context lines, max-results cap; skips sensitive files
 - `replaceText` — pattern mode (regex replace-all + optional glob) or surgical mode (edits array with oldText verification); skips sensitive files
+- `deleteFile` — removes a file and cleans every import/re-export of it from in-project TS/JS files, out-of-project TS/JS files, and Vue SFCs
 
 ---
 
@@ -116,7 +118,6 @@ Stryker mutation testing is operational: `pnpm test:mutate`. See [`quality.md`](
 
 ### P3 — High-value features
 
-- `deleteFile` → [`docs/specs/20260303-delete-file.md`](specs/20260303-delete-file.md) — remove a file and clean up imports in referencing files
 
 ---
 
