@@ -74,7 +74,7 @@ the reported symptom.
 - [ ] All fix criteria verified by tests
 - [ ] Mutation score ≥ threshold for touched files
 - [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated if public surface changed
+- [ ] Docs updated if public surface changed (use `docs/specs/templates/feature.md` for new feature docs)
 - [ ] Tech debt discovered during investigation added to handoff.md as [needs design]
 - [ ] Agent insights captured in docs/agent-memory.md
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
