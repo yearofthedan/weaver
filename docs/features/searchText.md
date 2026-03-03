@@ -1,12 +1,10 @@
-# Operation: searchText
+# Feature: searchText
 
-## Why use this
-
-Use `searchText` to find where a string literal, import path, configuration value, or any text pattern appears across the workspace. It returns structured JSON — file, line, col, matched text — that feeds directly into `replaceText`'s surgical edit mode. Unlike shell `grep`, it enforces workspace boundaries, skips sensitive files automatically, and returns machine-readable output an agent can act on without parsing.
+**Purpose:** Find where a text pattern appears across the workspace — returns structured matches that feed directly into `replaceText`'s surgical edit mode.
 
 ## What it does
 
-Searches all text files in the workspace for an ECMAScript regex pattern and returns match locations.
+Searches all text files in the workspace for an ECMAScript regex pattern and returns match locations as structured JSON (file, line, col, matched text). Enforces workspace boundaries, skips sensitive files automatically, and provides machine-readable output without parsing.
 
 **MCP tool call:**
 

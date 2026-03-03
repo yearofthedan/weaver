@@ -1,12 +1,10 @@
-# Operation: moveSymbol
+# Feature: moveSymbol
 
-## Why use this
-
-Use `moveSymbol` when you need to move an exported declaration (function, class, constant) from one file to another and have all importers updated automatically. This is more precise than `moveFile` (which moves the whole file) and safer than a manual cut-paste + `replaceText` (which requires you to find and rewrite every importer yourself). In Vue workspaces, it also patches `.vue` SFC imports that aren't in the TypeScript project graph.
+**Purpose:** Move a named export from one file to another and update all importers project-wide — more precise than `moveFile` (whole file), safer than manual cut-paste + `replaceText` (no missed importers).
 
 ## What it does
 
-Moves a named export from one file to another and updates all importers project-wide.
+Moves a named export from one file to another and updates all importers project-wide. In Vue workspaces, a post-step patches `.vue` SFC imports that aren't in the TypeScript project graph. The destination file is created if it does not already exist.
 
 **MCP tool call:**
 

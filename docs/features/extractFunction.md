@@ -1,12 +1,10 @@
-# Operation: extractFunction
+# Feature: extractFunction
 
-## Why use this
-
-Use `extractFunction` when a function body has grown too long and you want to pull a block of statements into a new named function. The compiler infers parameters, return values, type annotations, and async propagation — you just select the range and name the function. This is the same "Extract Function" refactoring IDEs offer, but available as an MCP tool call.
+**Purpose:** Pull a block of statements out of a function body into a new named function — the compiler infers parameters, return values, type annotations, and async propagation.
 
 ## What it does
 
-Extracts a block of statements from within a function and places them into a new named function at module scope.
+Extracts a block of statements from within a function and places them into a new named function at module scope. Same as the "Extract Function" refactoring IDEs offer, exposed as an MCP tool call.
 
 **MCP tool call:**
 

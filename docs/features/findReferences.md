@@ -1,12 +1,10 @@
-# Operation: findReferences
+# Feature: findReferences
 
-## Why use this
-
-Use `findReferences` to discover every usage of a symbol before changing or removing it. It answers "who calls this function?", "who reads this variable?", "who implements this interface?" — questions that `searchText` can approximate by name but can't answer precisely (it would match unrelated identifiers with the same name in other scopes). This is a read-only operation; pair it with `rename`, `replaceText`, or manual edits to act on the results.
+**Purpose:** Discover every usage of a symbol — who calls this function, who reads this variable, who implements this interface — through the compiler's reference graph rather than text matching.
 
 ## What it does
 
-Returns all references to a symbol at a given file position. Read-only — does not modify any files.
+Returns all references to a symbol at a given file position. Read-only — does not modify any files. Unlike `searchText`, which matches by name and can't distinguish scopes, `findReferences` is semantically precise: it only returns references that bind to the same symbol.
 
 **MCP tool call:**
 

@@ -1,12 +1,10 @@
-# Operation: moveFile
+# Feature: moveFile
 
-## Why use this
-
-Use `moveFile` when you need to relocate a file and have every import that references it rewritten automatically. A manual `mv` + `replaceText` can achieve the same result, but `moveFile` uses the TypeScript language service to compute the exact set of import paths that need updating — including relative path depth changes that are easy to get wrong by hand. In Vue workspaces, it also patches `.vue` SFC imports that the language service doesn't track.
+**Purpose:** Move a file and rewrite every import that references it, project-wide — including relative path depth changes and Vue SFC imports.
 
 ## What it does
 
-Moves a file from one path to another and rewrites all import statements that reference it, project-wide.
+Moves a file from one path to another and rewrites all import statements that reference it, project-wide. The TypeScript language service computes the exact set of import paths that need updating. In Vue workspaces, a post-scan patches `.vue` SFC imports that the language service doesn't track.
 
 **MCP tool call:**
 

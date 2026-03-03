@@ -1,12 +1,10 @@
-# Operation: getDefinition
+# Feature: getDefinition
 
-## Why use this
-
-Use `getDefinition` to jump from a usage to its declaration — the same "go to definition" you'd use in an IDE. It answers "where is this function defined?", "which file declares this type?" without searching by name. This is especially useful before a `moveSymbol` or `rename` — you need the definition location, not just a text match.
+**Purpose:** Jump from a usage to its declaration — resolves through re-exports, barrel files, and declaration files to the actual definition site.
 
 ## What it does
 
-Returns the definition location(s) for a symbol at a given file position. Read-only — does not modify any files.
+Returns the definition location(s) for a symbol at a given file position. Read-only — does not modify any files. Same as "go to definition" in an IDE: answers "where is this function defined?" and "which file declares this type?" without text-searching by name.
 
 **MCP tool call:**
 
