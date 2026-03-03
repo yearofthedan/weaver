@@ -7,9 +7,10 @@ description: Create or refine a task specification from a handoff.md entry — p
 
 1. **Identify the task.** Read `docs/handoff.md` — find the entry the user wants to spec. If no entry is specified, show the `[needs design]` entries and ask which one.
 
-2. **Pick the template.** Read both templates in `docs/specs/templates/`. Choose:
+2. **Pick the template.** Read the spec templates in `docs/specs/templates/`. Choose:
    - `change.md` — new capability, enhancement, refactoring, or tech debt
    - `bug.md` — something is broken and needs fixing
+   - (`feature.md` is not a spec template — it's the template for feature reference docs, used when shipping, not when planning)
 
 3. **Create the spec file.** Name it `docs/specs/YYYYMMDD-short-slug.md` using today's date and a 2-4 word slug (lowercase, hyphens). Copy the template content.
 
