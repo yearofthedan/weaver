@@ -106,6 +106,7 @@ All refactoring operations are exposed as MCP tools via `light-bridge serve`. Th
 | `rename` | ✓ | ✓ | no | Renames a symbol at a given position; updates every reference project-wide |
 | `moveFile` | ✓ | ✓ | no | Moves a file; rewrites all import paths that reference it |
 | `moveSymbol` | ✓ | ✓* | no | Moves a named export to another file; updates all importers |
+| `deleteFile` | ✓ | ✓† | no | Deletes a file; removes every import and re-export of it across the workspace |
 | `extractFunction` | ✓ | — | no | Extracts a selected block of statements into a new named function at module scope |
 | `findReferences` | ✓ | ✓ | yes | Returns every reference to the symbol at a given position |
 | `getDefinition` | ✓ | ✓ | yes | Returns definition location(s) for the symbol at a given position |
@@ -116,6 +117,8 @@ All refactoring operations are exposed as MCP tools via `light-bridge serve`. Th
 All tools take absolute paths. Write operations return `filesModified` and `filesSkipped` (files outside the workspace boundary that were not touched). Write operations also accept `checkTypeErrors: true` to return type diagnostics for modified files in the same response — see `getTypeErrors` for the diagnostic shape.
 
 \* `moveSymbol` supports moving exports from `.ts`/`.tsx` sources inside Vue workspaces and updates `.vue` importers in a post-step. Moving symbols from a `.vue` source file is still pending.
+
+† `deleteFile` removes imports and re-exports from `.ts`/`.tsx`/`.js`/`.jsx` files (via ts-morph) and Vue SFC `<script>` blocks (via regex scan).
 
 ## Response format
 
@@ -299,6 +302,7 @@ src/
 │   ├── rename.ts
 │   ├── moveFile.ts
 │   ├── moveSymbol.ts
+│   ├── deleteFile.ts
 │   ├── extractFunction.ts
 │   ├── findReferences.ts
 │   ├── getDefinition.ts

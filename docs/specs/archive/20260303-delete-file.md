@@ -113,3 +113,17 @@ interface DeleteFileResult {
 - [ ] Tech debt discovered during implementation added to handoff.md as `[needs design]`
 - [ ] Agent insights captured in `docs/agent-memory.md`
 - [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+## Outcome
+
+**Tests added:** 16 tests across `tests/operations/deleteFile.test.ts` covering all 6 ACs. New fixture `tests/fixtures/delete-file-ts/` with in-project importers (named import, type-only import, barrel re-exports) and an out-of-project importer. Workspace boundary tested using the existing `cross-boundary` fixture whose tsconfig includes an out-of-workspace consumer directory.
+
+**Mutation score:** 76.02% overall (deleteFile.ts: 75.28%, vue-scan.ts: 76.52%) — above the 75% break threshold. One survivor fixed during the run: the `removeImportLines` side-effect branch condition (killing it required a test asserting that side-effect imports from *other* paths are not removed).
+
+**Architecture:** Three-phase cleanup before physical deletion: (1) in-project ts-morph scan using `getModuleSpecifierSourceFile()`, (2) out-of-project TS/JS walk with manual `path.resolve + stripExt` resolution, (3) Vue SFC regex scan. File deleted in Phase 4, cache invalidated in Phase 5.
+
+**Key discovery — safe ts-morph multi-removal:** After `node.remove()`, sibling node references from the same SourceFile may be stale. Pattern: collect one match, remove, break, re-query from scratch. This is O(n²) but safe and fast for typical import counts.
+
+**Key discovery — out-of-project module resolution:** `getModuleSpecifierSourceFile()` returns `undefined` in an in-memory ts-morph project because the target file isn't in the graph. Manual resolution (`stripExt(path.resolve(fromDir, specifier)) === targetNoExt`) handles all extension variants correctly.
+
+**Slice skill improvement:** Added a concrete before/after example for `describe`/`it` labeling to `SKILL.md` step 3, replacing the abstract rule with a pattern showing `describe(capability) > describe(grouping) > it(behaviour)`. The failure mode was copying spec AC section headers directly into `describe` labels.

@@ -13,7 +13,22 @@ description: Pick up the next task — if it needs a spec, create one first; if 
 2. **Read the spec.** Open the linked spec file. Confirm the task and its ACs with the user BEFORE writing any code.
 
 3. **Write failing tests first.** For each AC in the spec's Behaviour/Fix section:
-   - State in the `it`/`describe` label what specific behaviour is being specified — never reference AC numbers or spec identifiers in code or test labels (specs are changesets; they get archived)
+   - Structure labels as `describe(capability) > describe(logical grouping) > it(behaviour)`. Never reference AC numbers or spec identifiers — specs are changesets that get archived; test labels are permanent.
+     ```
+     // ✗ copies the spec's task-tracking structure into permanent code
+     describe("AC1 — in-project cleanup") { ... }
+
+     // ✓ describes the operation's natural shape
+     describe("deleteFile") {
+       describe("in-project TS/JS files") {
+         it("removes named imports and type-only import declarations")
+         it("removes re-export declarations (export * and named re-exports)")
+       }
+       describe("out-of-project TS/JS files") {
+         it("removes imports from files outside tsconfig include")
+       }
+     }
+     ```
    - Ask: "What would have to be wrong in the implementation for this test to still pass?" Add at least one assertion that answers that — pin exact values, boundary conditions, or the absence of something
    - A test that only verifies a result exists is incomplete — assert the shape, a boundary case, and at least one error/edge path
    - Use the spec's **Interface** section to inform bounds testing and the **Edges** section for regression tests

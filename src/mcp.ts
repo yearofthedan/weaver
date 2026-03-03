@@ -4,6 +4,7 @@ import { z } from "zod";
 import { callDaemon, ensureDaemon } from "./daemon/ensure-daemon.js";
 import { socketPath } from "./daemon/paths.js";
 import {
+  DeleteFileArgsSchema,
   ExtractFunctionArgsSchema,
   FindReferencesArgsSchema,
   GetDefinitionArgsSchema,
@@ -149,6 +150,22 @@ const TOOLS: ToolDefinition[] = [
       ),
       checkTypeErrors: MoveSymbolArgsSchema.shape.checkTypeErrors.describe(
         "When false, skip the post-write type check; defaults to on",
+      ),
+    },
+  },
+  {
+    name: "deleteFile",
+    description:
+      "When deleting a file, use this instead of shell rm — it removes every import and re-export of the file from other project files before deleting it. " +
+      "Covers in-project source files, out-of-project files (tests, scripts), and Vue SFC script blocks. " +
+      "Returns deletedFile (echo of the path deleted), filesModified (imports cleaned), filesSkipped (outside workspace, not written — surface to user), and importRefsRemoved. " +
+      "Type errors in modified files are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress.",
+    inputSchema: {
+      file: DeleteFileArgsSchema.shape.file.describe(
+        "Absolute path to the .ts, .tsx, .js, .jsx, or .vue file to delete",
+      ),
+      checkTypeErrors: DeleteFileArgsSchema.shape.checkTypeErrors.describe(
+        "When false, skip the post-write type check on modified files; defaults to on",
       ),
     },
   },

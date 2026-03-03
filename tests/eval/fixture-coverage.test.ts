@@ -8,7 +8,7 @@ const FIXTURES_DIR = join(import.meta.dirname, "../../eval/fixtures");
 describe("eval fixture coverage", () => {
   it("TOOL_NAMES is non-empty and has the expected count", () => {
     // Pinning the count means silently dropping a tool is caught here.
-    expect(TOOL_NAMES.length).toBe(9);
+    expect(TOOL_NAMES.length).toBe(10);
     expect(TOOL_NAMES).toContain("rename");
     expect(TOOL_NAMES).toContain("replaceText");
   });
