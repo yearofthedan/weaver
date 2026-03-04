@@ -82,3 +82,13 @@ If a `tsconfig.json` is created, deleted, moved, or `.vue` files are added to a 
 **Fix:** `Pick<ts.LanguageService, 'findRenameLocations' | 'getReferencesAtPosition' | 'getEditsForFileRename'>`. Compile-time safety against upstream changes.
 
 **Priority:** low. Will be resolved as part of further provider refactoring since `VolarProvider` should type its dependency on the real `ts.LanguageService`.
+
+---
+
+## User feedback: rename / findReferences / getDefinition "Could not find source file"
+
+External user (working-title workspace) reports all three tools fail with `PARSE_ERROR: Could not find source file` for both `.ts` and `.vue` files. The daemon surfaces uncaught TypeScript/Volar errors as `PARSE_ERROR` with the original message.
+
+**Vue path:** `getDefinition` was fixed with `toVirtualLocation`; `findRenameLocations` and `getReferencesAtPosition` are documented as auto-translating at the Volar proxy layer, but failures suggest they may need explicit `toVirtualLocation` on input (same pattern as `getDefinition`).
+
+**TS path:** No known cause yet. Investigate: path resolution when workspace differs from process cwd; ts-morph project loading for cross-workspace usage; tsconfig `include` / path alias mismatches.

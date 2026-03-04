@@ -11,7 +11,7 @@ Keep this file as a signpost — details live in the docs.
 
 ## Current state
 
-See `docs/handoff.md` for the current test count, feature status, and next things to build.
+See `docs/handoff.md` for the current test count, feature status, and next things to build. First user feedback (Mar 2025): rename/findReferences/getDefinition fail with "Could not find source file" in some workspaces — P1 in handoff.
 Do not log per-session "fixed X" history here; keep durable process guidance only.
 
 ---

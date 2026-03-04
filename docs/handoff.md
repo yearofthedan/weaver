@@ -102,6 +102,8 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
+- **`rename`, `findReferences`, `getDefinition` fail with "Could not find source file"** `[needs design]` — User feedback (working-title workspace): all three return `PARSE_ERROR: Could not find source file` for both `.ts` and `.vue` files. Likely causes: (a) Vue projects — `getDefinition` uses `toVirtualLocation`; `findRenameLocations` and `getReferencesAtPosition` may need the same input translation (docs claim proxy auto-translates, but failures suggest otherwise); (b) TS projects — path resolution (workspace vs cwd), project loading, or tsconfig mismatch. These are high-value tools; fixing would raise user rating from ~5/10 to ~8.5/10.
+
 ---
 
 ### P2 — Distribution (ship what exists)
