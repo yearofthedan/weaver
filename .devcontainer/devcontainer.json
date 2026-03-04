@@ -43,7 +43,7 @@
   ],
   "onCreateCommand": "/usr/local/bin/onCreate.sh https://github.com/yearofthedan/light-bridge.git",
   "postCreateCommand": "pnpm install",
-  "postStartCommand": "npm install -g @anthropic-ai/claude-code@latest",
+  "postStartCommand": "curl -fsSL https://claude.ai/install.sh | bash",
   "containerEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "GIT_CONFIG_COUNT": "1",
