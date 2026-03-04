@@ -118,6 +118,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P3 — High-value features
 
+- **Plugin architecture foundation (operations + language plugins)** — [spec](specs/20260304-plugin-architecture-foundation.md)
 - `buildVolarService` refactoring `[needs design]` — extract named sub-functions from the ~176-line monolith; prerequisite for more Vue operations
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
 
