@@ -170,6 +170,15 @@ Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) run post-wr
 **Do not record test-run scores in docs — they go stale immediately.**
 Tracking per-module mutation scores in `docs/quality.md` caused real harm: a doc-update commit copied stale round-3 numbers (80.46%) into the round-4 section, then a rebase conflict resolver chose the "newer" (wrong) main-branch version, silently discarding the actual round-4 result (76.80%). The `break` threshold in `stryker.config.mjs` is the only authoritative, machine-verified floor. Everything else belongs to the "Worth fixing" and "Accepted survivors" sections, which describe *why* a gap exists and *how* to fix it — information that doesn't go stale between runs.
 
+**PromptFoo eval step-2 tests use a JSON messages array in `vars.task`, not a plain string.**
+When `vars.task` renders to a valid JSON array, promptfoo submits it as a full conversation history (multi-turn). Use this for two-step eval tests: seed step-1's tool call and fixture response, then assert step-2 tool selection. The fixture JSON in `tool_result` must match the corresponding `eval/fixtures/{method}.json` so the model sees realistic output to act on. If `task` is a plain string, promptfoo wraps it in a single user message (single-turn).
+
+**`tool-call-f1` penalises extra tool calls — an F1 of 0.67 fails the 0.8 threshold.**
+`tool-call-f1` measures precision × recall. If the expected set is `[rename]` but the model calls `[searchText, rename]`, precision = 0.5, recall = 1.0, F1 = 0.67 — a test failure. When a model adds a sensible-but-unexpected precursor call, either (a) add the precursor to the expected set, or (b) split into two tests (step-1 asserts precursor, step-2 seeds the result and asserts the action). Don't set thresholds below 0.8 to paper over the mismatch — fix the expected set or the tool description.
+
+**`--filter-pattern` for single eval tests: call the runner directly, not via `pnpm eval`.**
+Use `node_modules/.bin/tsx eval/run-eval.ts --filter-pattern "test name"`. Do NOT use `pnpm eval -- --filter-pattern` — pnpm intercepts `eval` as a built-in subcommand and errors with "too many arguments". The `pnpm run eval` form works for a full run only.
+
 **PromptFoo requires `better-sqlite3` native bindings — build scripts are blocked by default in this dev container.**
 `pnpm install` silently ignores build scripts for `better-sqlite3`. After installing promptfoo, run `node /home/user/light-bridge/node_modules/.pnpm/prebuild-install@7.1.3/node_modules/prebuild-install/bin.js` from the project root to download the pre-built binary. Without this step, `promptfoo --version` fails with "Could not locate the bindings file". Add to container setup docs if adding more native dependencies.
 

@@ -41,7 +41,7 @@ Directory layout matches domain boundaries:
 eval/
   fixture-server.ts    ← socket server that impersonates the daemon for eval runs; exports startFixtureServer
   run-eval.ts          ← entry point: starts fixture server, runs promptfoo, tears down
-  promptfooconfig.yaml ← PromptFoo config; 5 positive cases + 1 negative case; inline test definitions
+  promptfooconfig.yaml ← PromptFoo config; 15 tests across two providers (light-bridge-only + with-shell-alternatives); inline test definitions
   fixtures/            ← pre-recorded daemon JSON responses keyed by method name
   cases/               ← (reserved for per-tool case files if extracted in future)
 .github/workflows/
@@ -84,17 +84,7 @@ src/
     ts-project.ts ← findTsConfig, findTsConfigForFile, isVueProject
 ```
 
-**Features shipped:**
-- `rename` — TS + Vue
-- `moveFile` — TS + Vue
-- `moveSymbol` — TS + Vue
-- `extractFunction` — TS only; extracts a selected block of statements into a new named function at module scope; compiler infers parameters and return value
-- `findReferences` — TS + Vue; read-only, returns all references to a symbol by position
-- `getDefinition` — TS + Vue; read-only, returns definition location(s) for a symbol by position
-- `getTypeErrors` — TS only; read-only, returns type errors for a single file or whole project; capped at 100
-- `searchText` — regex search across workspace files; glob filter, context lines, max-results cap; skips sensitive files
-- `replaceText` — pattern mode (regex replace-all + optional glob) or surgical mode (edits array with oldText verification); skips sensitive files
-- `deleteFile` — removes a file and cleans every import/re-export of it from in-project TS/JS files, out-of-project TS/JS files, and Vue SFCs
+**Features shipped:** see [`docs/features/README.md`](features/README.md) for the full tool index.
 
 ---
 

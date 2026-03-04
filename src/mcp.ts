@@ -132,7 +132,8 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "moveSymbol",
     description:
-      "When reorganising modules, use this to move a named export to another file and update every importer project-wide. " +
+      "When reorganising modules, use this to move a named export to another file — " +
+      "it finds and updates every importer project-wide automatically; no need to call findReferences first. " +
       "Creates the destination file if it does not exist. " +
       "Only top-level exported declarations (export function, export const, export class, etc.); " +
       "does not support class methods or re-exports via `export { }`. " +
@@ -233,11 +234,11 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "replaceText",
     description:
-      "Edit text across workspace files. Use searchText first to locate targets, then replaceText to apply changes. " +
-      "Two modes: (1) Pattern mode — 'pattern' (regex) + 'replacement' replaces all matches, optionally narrowed by 'glob'; " +
-      "supports $1, $2, ... backreferences. " +
+      "Edit text across workspace files. " +
+      "Two modes: " +
+      "(1) Pattern mode — 'pattern' (regex) + 'replacement' applies the substitution directly across all matching files, optionally narrowed by 'glob'; supports $1, $2, ... backreferences. " +
       "(2) Surgical mode — 'edits' array of {file, line, col, oldText, newText} for exact position-verified replacements; " +
-      "oldText is checked before writing, so stale edits fail rather than corrupt. " +
+      "run searchText first to locate targets and get coordinates; oldText is checked before writing, so stale edits fail rather than corrupt. " +
       "Both modes skip sensitive files. Returns filesModified and replacementCount. " +
       "Type errors in modified files are returned automatically (typeErrors, typeErrorCount, typeErrorsTruncated); pass checkTypeErrors:false to suppress.",
     inputSchema: {
