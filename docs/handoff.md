@@ -117,6 +117,12 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ---
 
+### P3.5 — Quality tooling
+
+- **Stryker `coverageAnalysis: "perTest"`** `[needs design]` — switch from `"off"` to `"perTest"` so Stryker instruments which tests cover which lines and only runs relevant tests per mutant; faster runs and immediate signal when new code has zero coverage rather than a misleading low score; requires validating Vitest's Istanbul provider works correctly in the Stryker sandbox
+
+---
+
 ### P4 — Medium-value features and tech debt
 
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks

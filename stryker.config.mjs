@@ -9,7 +9,9 @@ const config = {
   disableTypeChecks: false,
   vitest: {
     configFile: "vitest.config.ts",
-    related: false,
+    // CI: run all configured tests per mutant (deterministic).
+    // Local: let Vitest use its import graph to find only related tests (faster).
+    related: !process.env.CI,
   },
   mutate: [
     "src/**/*.ts",
@@ -34,20 +36,30 @@ const config = {
     // to check the new-code score in isolation.
     "!src/daemon/dispatcher.ts",
   ],
-  // Exclude MCP/daemon integration tests — they spawn CLI binaries that
-  // aren't available in Stryker's sandbox.
+  // Exclude tests that spawn CLI subprocesses — those binaries aren't available
+  // in Stryker's sandbox. New test files work by default; only add an exclusion
+  // here if the test spawns a daemon, CLI process, or MCP server.
   testFiles: [
-    "tests/security/**/*.test.ts",
-    "tests/utils/**/*.test.ts",
-    "tests/operations/**/*.test.ts",
-    "tests/providers/**/*.test.ts",
-    // ensure-daemon unit tests: mock-based, no subprocess spawning
-    "tests/daemon/ensure-daemon.test.ts",
-    // dispatcher unit tests: call dispatchRequest directly, no subprocess spawning
-    "tests/daemon/dispatcher.test.ts",
-    // language plugin registry unit tests: direct module calls, no subprocess spawning
-    "tests/daemon/language-plugin-registry.test.ts",
-    "tests/mcp/call-daemon-timeout.test.ts",
+    "tests/**/*.test.ts",
+    // Spawn real daemon/CLI processes — not available in Stryker's sandbox
+    "!tests/daemon/daemon.test.ts",
+    "!tests/daemon/protocol-version.test.ts",
+    "!tests/daemon/run-functions.test.ts",
+    "!tests/daemon/serve.test.ts",
+    "!tests/daemon/stop.test.ts",
+    "!tests/daemon/stop-daemon.test.ts",
+    "!tests/daemon/watcher.test.ts",
+    "!tests/mcp/find-references.test.ts",
+    "!tests/mcp/get-definition.test.ts",
+    "!tests/mcp/move-file.test.ts",
+    "!tests/mcp/move-symbol.test.ts",
+    "!tests/mcp/rename.test.ts",
+    "!tests/mcp/run-serve.test.ts",
+    "!tests/mcp/security.test.ts",
+    "!tests/cli-workspace-default.test.ts",
+    "!tests/eval/**/*.test.ts",
+    // Fixture-internal test — not relevant to src/ mutations
+    "!tests/fixtures/**/*.test.ts",
   ],
   mutator: {
     excludedMutations: ["StringLiteral", "ArrayDeclaration"],
