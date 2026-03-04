@@ -1,11 +1,16 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { DefinitionLocation, FileTextEdit, LanguageProvider, SpanLocation } from "../types.js";
-import { EngineError } from "../utils/errors.js";
-import { lineColToOffset } from "../utils/text-utils.js";
-import { findTsConfigForFile } from "../utils/ts-project.js";
-import { updateVueImportsAfterMove, updateVueNamedImportAfterSymbolMove } from "./vue-scan.js";
-import { buildVolarService, type CachedService } from "./vue-service.js";
+import type {
+  DefinitionLocation,
+  FileTextEdit,
+  LanguageProvider,
+  SpanLocation,
+} from "../../types.js";
+import { EngineError } from "../../utils/errors.js";
+import { lineColToOffset } from "../../utils/text-utils.js";
+import { findTsConfigForFile } from "../../utils/ts-project.js";
+import { updateVueImportsAfterMove, updateVueNamedImportAfterSymbolMove } from "./scan.js";
+import { buildVolarService, type CachedService } from "./service.js";
 
 export class VolarProvider implements LanguageProvider {
   private services = new Map<string, CachedService>();

@@ -22,6 +22,7 @@ import { isWithinWorkspace } from "../security.js";
 import type { ProviderRegistry } from "../types.js";
 import { makeRegistry } from "./language-plugin-registry.js";
 
+export { createVueLanguagePlugin } from "../plugins/vue/plugin.js";
 export type { LanguagePlugin } from "../types.js";
 export {
   clearLanguagePlugins,
@@ -30,7 +31,6 @@ export {
   makeRegistry,
   registerLanguagePlugin,
 } from "./language-plugin-registry.js";
-export { createVueLanguagePlugin } from "./vue-language-plugin.js";
 
 // ─── Operation descriptor table ───────────────────────────────────────────
 

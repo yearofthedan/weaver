@@ -63,8 +63,13 @@ src/
     paths.ts                     ← socketPath, lockfilePath, ensureCacheDir only
     dispatcher.ts                ← dispatchRequest; OPERATIONS table; re-exports registry functions
     language-plugin-registry.ts  ← LanguagePlugin registry; makeRegistry; invalidateFile/invalidateAll; registers built-in Vue plugin
-    vue-language-plugin.ts       ← createVueLanguagePlugin(); Vue/Volar LanguagePlugin factory
     watcher.ts                   ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
+  plugins/
+    vue/
+      plugin.ts   ← createVueLanguagePlugin(); Vue/Volar LanguagePlugin factory (project detection, lifecycle)
+      provider.ts ← VolarProvider: compiler calls via Volar proxy + virtual↔real translation; afterSymbolMove scans .vue files
+      scan.ts     ← updateVueImportsAfterMove + updateVueNamedImportAfterSymbolMove (regex scans; enforces workspace boundary)
+      service.ts  ← buildVolarService() — Volar service factory
   operations/
     rename.ts          ← rename(provider, filePath, line, col, newName, workspace)
     findReferences.ts  ← findReferences(provider, filePath, line, col)
@@ -78,9 +83,6 @@ src/
     deleteFile.ts      ← deleteFile(tsProvider, file, workspace)
   providers/
     ts.ts         ← TsProvider: compiler calls via ts-morph Project; refreshFile() for selective invalidation
-    volar.ts      ← VolarProvider: compiler calls via Volar proxy + virtual↔real translation; afterSymbolMove scans .vue files
-    vue-scan.ts   ← updateVueImportsAfterMove + updateVueNamedImportAfterSymbolMove (regex scans; enforces workspace boundary)
-    vue-service.ts← buildVolarService() — Volar service factory
   utils/
     errors.ts     ← EngineError class + ErrorCode union
     text-utils.ts ← applyTextEdits(), offsetToLineCol()
@@ -104,13 +106,14 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P2 — Distribution (ship what exists)
 
+- **`moveFile` does not update imports in files outside `tsconfig.include`** `[needs design]` — tool description says "Works for non-source files (tests, scripts, config) too" but imports within moved test files are not rewritten when directory depth changes, and test files that import a moved source file are not updated. Two failure modes: (a) source file moved → test imports to it break; (b) test file moved to different depth → its own `src/` imports break. Both require manual fixes today. Fix likely requires a second pass using text-based rewriting (outside ts-morph) for files not in `tsconfig.include`.
+
 - **Stage 2: Claude Code plugin** `[needs design]` — package as a Claude Code plugin (`.claude-plugin/plugin.json`); complements existing `typescript-lsp` code intelligence plugin with refactoring tools; one-command install via `/plugin install`
 
 ---
 
 ### P3 — High-value features
 
-- **Move Vue provider files into `src/plugins/vue/` feature folder** `[needs design]` — co-locate VolarProvider, vue-scan, vue-service, and vue-language-plugin; template for adding Svelte/Angular plugins; use `moveFile` to dogfood
 - `buildVolarService` refactoring `[needs design]` — extract named sub-functions from the ~176-line monolith; prerequisite for more Vue operations
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
 - **Stage 3: Claude Code Marketplace submission** `[needs design]` — submit to official Anthropic marketplace; position alongside LSP code intelligence plugins
@@ -150,7 +153,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - **`docs/tech/volar-v3.md`** — how the Vue provider works around TypeScript's refusal to process `.vue` files. Read this before touching `src/providers/volar.ts`.
 - **`docs/tech/tech-debt.md`** — known structural issues. Includes the `ensureDaemon` one-shot bug.
 - **`@volar/language-core` version skew** — `@vue/language-core` and `@volar/typescript` previously depended on different patch versions of `@volar/language-core`, causing type mismatches. Fixed via `pnpm.overrides` in `package.json` pinning to 2.4.28. `@volar/language-core` is also a direct `devDependency` so TypeScript can resolve the `Language<string>` type import in `volar.ts`.
-- **`moveFile` does not update imports in files outside `tsconfig.include`** — `tsconfig.json` includes only `src/`; test files are not in the ts-morph project. Two failure modes: (a) if a source file is moved, any test files that import it will not have their import paths updated; (b) if a test file itself is moved to a different directory depth, its own imports to `src/` will not be rewritten. Both require manual `replaceText` fixes. If tests are added outside `src/` for a new operation, remember to update their paths by hand. Tracked in tech-debt.md.
+- **`moveFile` import gap for files outside `tsconfig.include`** — test files and scripts are not in the ts-morph project; imports in/to them are not rewritten on move. See P2 backlog for details. Workaround: use `replaceText` to fix paths manually after moving.
 
 ---
 

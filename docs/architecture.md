@@ -21,11 +21,17 @@ src/operations/          ← standalone action functions (one per operation)
   replaceText.ts
 
 src/providers/           ← stateful compiler wrappers
-  ts.ts                 ← TsProvider  — ts-morph Project; per-tsconfig cache
-  volar.ts              ← VolarProvider — Volar proxy; virtual↔real translation; afterSymbolMove
-  vue-scan.ts           ← updateVueImportsAfterMove, updateVueNamedImportAfterSymbolMove
-  vue-service.ts        ← buildVolarService() factory
+  ts.ts                 ← TsProvider — ts-morph Project; per-tsconfig cache; always-available TS fallback
+
+src/plugins/             ← language plugin feature folders (one per framework)
+  vue/
+    plugin.ts           ← createVueLanguagePlugin() — LanguagePlugin factory (project detection, lifecycle)
+    provider.ts         ← VolarProvider — Volar proxy; virtual↔real path translation; afterSymbolMove
+    scan.ts             ← updateVueImportsAfterMove, updateVueNamedImportAfterSymbolMove
+    service.ts          ← buildVolarService() factory
 ```
+
+Each plugin folder is a self-contained unit: project detection, provider implementation, and any framework-specific helpers. When adding a new framework (Svelte, Angular), add a new `src/plugins/<name>/` folder following the same shape.
 
 ---
 
@@ -169,4 +175,4 @@ The watcher (`src/daemon/watcher.ts`) calls into the language plugin registry:
 | `src/utils/text-utils.ts` | `applyTextEdits()`, `offsetToLineCol()` — used by all operations |
 | `src/utils/file-walk.ts` | `walkFiles(dir, extensions)`, `SKIP_DIRS` — git-aware file collection |
 | `src/utils/ts-project.ts` | `findTsConfig`, `findTsConfigForFile`, `isVueProject` — project discovery |
-| `src/providers/vue-scan.ts` | `updateVueImportsAfterMove`, `updateVueNamedImportAfterSymbolMove` — regex scans for `.vue` SFC import strings |
+| `src/plugins/vue/scan.ts` | `updateVueImportsAfterMove`, `updateVueNamedImportAfterSymbolMove` — regex scans for `.vue` SFC import strings |

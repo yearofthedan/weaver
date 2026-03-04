@@ -1,6 +1,6 @@
+import { createVueLanguagePlugin } from "../plugins/vue/plugin.js";
 import type { LanguagePlugin, LanguageProvider, ProviderRegistry } from "../types.js";
 import { findTsConfigForFile } from "../utils/ts-project.js";
-import { createVueLanguagePlugin } from "./vue-language-plugin.js";
 
 const languagePlugins: LanguagePlugin[] = [];
 const pluginProviders = new Map<string, LanguageProvider>();

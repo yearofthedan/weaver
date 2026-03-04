@@ -3,8 +3,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { moveSymbol } from "../../src/operations/moveSymbol.js";
+import { VolarProvider } from "../../src/plugins/vue/provider.js";
 import { TsProvider } from "../../src/providers/ts.js";
-import { VolarProvider } from "../../src/providers/volar.js";
 import { cleanup, copyFixture, readFile } from "../helpers.js";
 
 describe("moveSymbol action", () => {

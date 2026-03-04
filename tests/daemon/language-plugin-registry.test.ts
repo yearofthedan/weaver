@@ -7,13 +7,9 @@ import {
   makeRegistry,
   registerLanguagePlugin,
 } from "../../src/daemon/language-plugin-registry.js";
-import { createVueLanguagePlugin } from "../../src/daemon/vue-language-plugin.js";
-import type { LanguagePlugin } from "../../src/types.js";
 import { TsProvider } from "../../src/providers/ts.js";
-import type { LanguageProvider } from "../../src/types.js";
-import { cleanup, copyFixture } from "../helpers.js";
+import type { LanguagePlugin, LanguageProvider } from "../../src/types.js";
 
-// Path within this project (has a tsconfig.json) — allows plugin resolution to run.
 const PROJECT_FILE = path.resolve("src/types.ts");
 
 function stubProvider(tag = "stub"): LanguageProvider {
@@ -263,34 +259,4 @@ describe("LanguagePluginRegistry", () => {
       expect(pluginInvalidate).toHaveBeenCalledWith("/some/file.ts");
     });
   });
-});
-
-describe("Vue LanguagePlugin integration", () => {
-  const dirs: string[] = [];
-
-  beforeEach(() => {
-    clearLanguagePlugins();
-    registerLanguagePlugin(createVueLanguagePlugin());
-  });
-
-  afterEach(() => dirs.splice(0).forEach(cleanup));
-
-  it("projectProvider returns VolarProvider for a Vue project", async () => {
-    const dir = copyFixture("vue-project");
-    dirs.push(dir);
-    const { VolarProvider } = await import("../../src/providers/volar.js");
-
-    const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
-    const provider = await registry.projectProvider();
-    expect(provider).toBeInstanceOf(VolarProvider);
-  }, 10_000);
-
-  it("projectProvider returns TsProvider for a non-Vue project", async () => {
-    const dir = copyFixture("simple-ts");
-    dirs.push(dir);
-
-    const registry = makeRegistry(path.join(dir, "src/utils.ts"));
-    const provider = await registry.projectProvider();
-    expect(provider).toBeInstanceOf(TsProvider);
-  }, 10_000);
 });

@@ -238,6 +238,15 @@ Operations like `moveSymbol`, `extractFunction`, and `deleteFile` need direct ts
 **Language plugin invalidation hooks must be error-isolated.**
 `invalidateFile` and `invalidateAll` iterate all registered plugins. Each plugin's hook is wrapped in try/catch so a crash in one plugin (e.g. Volar service bug) doesn't prevent other plugins from refreshing their state. The TS provider is invalidated separately (before the plugin loop) since it's not a plugin.
 
+**`CI=1` is always set in the dev container — don't use `!process.env.CI` to detect "local".**
+The dev container sets `CI=1`, so expressions like `!process.env.CI` evaluate to `false` everywhere, including during local development. Never use `process.env.CI` to decide between "fast local" and "deterministic CI" behaviour. Use an explicit env var (e.g. `STRYKER_RELATED=false`) and two named scripts (`test:mutate` / `test:mutate:ci`) instead.
+
+**`vitest.related: true` doesn't meaningfully speed up an integration-heavy mutation run.**
+When most tests transitively import most of `src/` (as in light-bridge's integration tests), Vitest's import-graph filter barely narrows the per-mutant test set. `related: true` is harmless and may help slightly for isolated utilities, but the real fix for slow mutation runs is `coverageAnalysis: "perTest"` (backlog item).
+
+**Kill stryker processes before cleaning `.stryker-tmp`.**
+Stryker's sandbox directories (`.stryker-tmp/sandbox-*`) can't be removed by `rm -rf` while the worker processes still have them open. Run `pkill -f stryker` and wait a moment before cleaning. Also use `pnpm test:mutate` (not `npx stryker run`) — the pnpm script handles the cleanup step and ensures the project config is used.
+
 ---
 
 ## Memory storage

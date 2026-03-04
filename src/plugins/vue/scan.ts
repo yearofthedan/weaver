@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { isWithinWorkspace } from "../security.js";
-import { walkFiles } from "../utils/file-walk.js";
-import { computeRelativeImportPath } from "../utils/relative-path.js";
+import { isWithinWorkspace } from "../../security.js";
+import { walkFiles } from "../../utils/file-walk.js";
+import { computeRelativeImportPath } from "../../utils/relative-path.js";
 
 /**
  * After a file move, scan all .vue files under searchRoot and rewrite any

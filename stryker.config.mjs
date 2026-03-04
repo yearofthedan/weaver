@@ -9,9 +9,7 @@ const config = {
   disableTypeChecks: false,
   vitest: {
     configFile: "vitest.config.ts",
-    // CI: run all configured tests per mutant (deterministic).
-    // Local: let Vitest use its import graph to find only related tests (faster).
-    related: !process.env.CI,
+    related: false,
   },
   mutate: [
     "src/**/*.ts",
