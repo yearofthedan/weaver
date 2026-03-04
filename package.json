@@ -42,7 +42,18 @@
   "pnpm": {
     "overrides": {
       "@volar/language-core": "2.4.28"
-    }
+    },
+    "ignoredBuiltDependencies": [
+      "@playwright/browser-chromium",
+      "@swc/core",
+      "esbuild",
+      "onnxruntime-node",
+      "protobufjs",
+      "sharp"
+    ],
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
   },
   "publishConfig": {
     "access": "public"
