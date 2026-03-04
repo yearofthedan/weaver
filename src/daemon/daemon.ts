@@ -203,7 +203,7 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
 
 const RequestEnvelopeSchema = z.object({
   method: z.string().min(1, "method is required"),
-  params: z.record(z.unknown()).default({}),
+  params: z.record(z.string(), z.unknown()).default({}),
 });
 
 async function handleSocketRequest(

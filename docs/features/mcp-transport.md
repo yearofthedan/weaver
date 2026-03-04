@@ -104,7 +104,6 @@ Error codes include: `DAEMON_STARTING`, `INTERNAL_ERROR`, `VALIDATION_ERROR`, `W
 
 - **Agent-facing (stdio):** `@modelcontextprotocol/sdk` (`StdioServerTransport`). Wire format is newline-delimited JSON — `JSON.stringify(msg) + '\n'`. No `Content-Length` framing.
 - **Internal (serve ↔ daemon):** plain newline-delimited JSON over a Unix socket. One connection per tool call — `serve` opens a fresh connection, writes one JSON line, reads one JSON line, closes.
-- **SDK is Zod v3/v4 agnostic** — pass Zod v3 schemas from `src/schema.ts` directly to `registerTool`.
 
 ## Data-driven tool registration
 

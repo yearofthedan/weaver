@@ -127,9 +127,6 @@ Extracted from the inline loop in `rename`; reused by `findReferences` and `getD
 **SDK wire format is newline-delimited JSON, not Content-Length framed.**
 `StdioServerTransport` sends/reads `JSON.stringify(msg) + '\n'`. There is no `Content-Length` header. `McpTestClient` in `tests/mcp-helpers.ts` must match this format.
 
-**SDK is Zod v3/v4 agnostic.**
-The SDK ships `zod-compat` and accepts both Zod v3 and v4 schemas. Pass Zod v3 schemas from `src/schema.ts` directly to `registerTool` — no version conflict.
-
 **Daemon socket: one connection per call.**
 `serve` opens a fresh Unix socket connection per tool call, writes one JSON line, reads one JSON line, then closes. No persistent connection.
 
