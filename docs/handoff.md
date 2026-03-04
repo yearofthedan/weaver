@@ -41,7 +41,7 @@ Directory layout matches domain boundaries:
 eval/
   fixture-server.ts    ← socket server that impersonates the daemon for eval runs; exports startFixtureServer
   run-eval.ts          ← entry point: starts fixture server, runs promptfoo, tears down
-  promptfooconfig.yaml ← PromptFoo config; 8 tests (single-tool + two-step + competing-tool negative cases); inline test definitions
+  promptfooconfig.yaml ← PromptFoo config; 13 tests across two providers (light-bridge-only + with-shell-alternatives); inline test definitions
   fixtures/            ← pre-recorded daemon JSON responses keyed by method name
   cases/               ← (reserved for per-tool case files if extracted in future)
 .github/workflows/
@@ -105,8 +105,6 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 ---
 
 ### P1 — Fix now (bugs / correctness)
-
-- **Eval: realistic prompts and competing-tool tests** — [spec](specs/20260304-eval-realistic-tests.md)
 
 ---
 
