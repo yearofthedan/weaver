@@ -109,12 +109,35 @@ tests:
           - getTypeErrors
         threshold: 0.8
 
-  - description: "moveSymbol - should select moveSymbol to reorganise an export"
+  # moveSymbol is a two-step flow: model naturally checks scope first, then moves.
+  # step 1 — should call a discovery tool (findReferences or getDefinition) before moving
+  - description: "moveSymbol step-1 - should check scope before moving, not jump straight to moveSymbol"
     providers: [light-bridge-only]
     vars:
       task: >
         Move `parseToken` from /tmp/light-bridge-eval/src/auth.ts to
         /tmp/light-bridge-eval/src/utils/token.ts.
+    assert:
+      - type: javascript
+        value: >
+          output.includes('"name":"findReferences"') ||
+          output.includes('"name":"getDefinition"')
+
+  # step 2 — given reference results in context, should call moveSymbol
+  - description: "moveSymbol step-2 - should call moveSymbol after findReferences results in context"
+    providers: [light-bridge-only]
+    vars:
+      task: |
+        [
+          {"role": "user", "content": "Move `parseToken` from /tmp/light-bridge-eval/src/auth.ts to /tmp/light-bridge-eval/src/utils/token.ts."},
+          {"role": "assistant", "content": [
+            {"type": "text", "text": "Let me first check what depends on `parseToken` before moving it."},
+            {"type": "tool_use", "id": "toolu_r1", "name": "findReferences", "input": {"file": "/tmp/light-bridge-eval/src/auth.ts", "line": 10, "col": 17}}
+          ]},
+          {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "toolu_r1", "content": "{\"ok\":true,\"references\":[{\"file\":\"/tmp/light-bridge-eval/src/auth.ts\",\"line\":10,\"col\":17},{\"file\":\"/tmp/light-bridge-eval/src/api.ts\",\"line\":5,\"col\":9}]}"}
+          ]}
+        ]
     assert:
       - type: tool-call-f1
         value:
@@ -158,9 +181,13 @@ tests:
         threshold: 0.8
 
   # ── Two-step flows ───────────────────────────────────────────────────────────
-  # Tasks where the natural workflow requires two tool calls in sequence.
+  # Each two-step flow is split into two tests:
+  #   Step 1 — plain user message; assert the correct first tool is selected.
+  #   Step 2 — conversation pre-seeded with step-1 call + fixture response;
+  #             assert the model selects the correct follow-up tool.
 
-  - description: "replaceText - two-step: search then replace across project"
+  # replace v1→v2: step 1 — should go straight to pattern-mode replaceText
+  - description: "replaceText step-1 - should use pattern mode directly, no search needed"
     providers: [light-bridge-only]
     vars:
       task: >
@@ -169,11 +196,11 @@ tests:
     assert:
       - type: tool-call-f1
         value:
-          - searchText
           - replaceText
         threshold: 0.8
 
-  - description: "rename - two-step: locate symbol then rename when line number unknown"
+  # rename without coords: step 1 — should search to find the position
+  - description: "rename step-1 - should search to locate symbol when line number unknown"
     providers: [light-bridge-only]
     vars:
       task: >
@@ -183,6 +210,26 @@ tests:
       - type: tool-call-f1
         value:
           - searchText
+        threshold: 0.8
+
+  # rename without coords: step 2 — given search results in context, should rename
+  - description: "rename step-2 - should call rename after searchText results in context"
+    providers: [light-bridge-only]
+    vars:
+      task: |
+        [
+          {"role": "user", "content": "Rename `userId` to `accountId` everywhere in the project. It's in /tmp/light-bridge-eval/src/auth.ts but I don't have the line number."},
+          {"role": "assistant", "content": [
+            {"type": "text", "text": "Let me find where `userId` is defined first."},
+            {"type": "tool_use", "id": "toolu_s1", "name": "searchText", "input": {"pattern": "userId", "glob": "**/*.ts"}}
+          ]},
+          {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "toolu_s1", "content": "{\"ok\":true,\"matches\":[{\"file\":\"/tmp/light-bridge-eval/src/auth.ts\",\"line\":12,\"col\":9,\"matchText\":\"userId\",\"context\":[{\"line\":12,\"text\":\"  const userId = verifyJwt(token);\",\"isMatch\":true}]}],\"truncated\":false}"}
+          ]}
+        ]
+    assert:
+      - type: tool-call-f1
+        value:
           - rename
         threshold: 0.8
 

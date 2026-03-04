@@ -132,7 +132,8 @@ const TOOLS: ToolDefinition[] = [
   {
     name: "moveSymbol",
     description:
-      "When reorganising modules, use this to move a named export to another file and update every importer project-wide. " +
+      "When reorganising modules, use this to move a named export to another file — " +
+      "it finds and updates every importer project-wide automatically; no need to call findReferences first. " +
       "Creates the destination file if it does not exist. " +
       "Only top-level exported declarations (export function, export const, export class, etc.); " +
       "does not support class methods or re-exports via `export { }`. " +
