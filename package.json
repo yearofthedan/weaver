@@ -12,7 +12,7 @@
   ],
   "main": "./dist/cli.js",
   "scripts": {
-    "build": "rm -rf dist && tsc",
+    "build": "rm -rf dist && tsc && chmod +x dist/cli.js",
     "dev": "tsx src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -26,7 +26,7 @@
     "test:mutate": "rm -rf .stryker-tmp && stryker run",
     "eval": "tsx eval/run-eval.ts",
     "check": "biome check . && pnpm build && pnpm test",
-    "prepare": "tsc",
+    "prepare": "tsc && chmod +x dist/cli.js",
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
