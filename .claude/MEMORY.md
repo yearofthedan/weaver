@@ -47,3 +47,6 @@ requested, create it in `docs/specs/` and add a linked entry in
 
 **Task workflow: `/slice` is the default entry point.**
 See `docs/handoff.md` § "Start here" and the `/slice` skill for the full procedure.
+
+**When the user asks a question, answer it before touching any tools.**
+Reaching for tools while a question is unanswered is acting instead of listening. Answer first, confirm the user wants the change, then act.

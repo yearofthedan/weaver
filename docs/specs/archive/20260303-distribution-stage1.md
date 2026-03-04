@@ -73,12 +73,28 @@ Three comparisons, each answering: "use that instead when…"
 
 ## Done-when
 
-- [ ] All ACs verified by tests (CLI default: at minimum one test asserting `serve`/`daemon`/`stop` accept no `--workspace` flag without error)
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] README updated: Cursor snippet added, comparison section added, Development section removed and linked to CONTRIBUTING.md
-- [ ] CONTRIBUTING.md created with the extracted Development content
-- [ ] `docs/why.md` cross-linked from the comparison section (no duplication)
-- [ ] Package published to npm (`pnpm publish` or `npm publish`)
-- [ ] handoff.md Stage 1 entry removed
-- [ ] Agent insights captured in docs/agent-memory.md
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] All ACs verified by tests (CLI default: at minimum one test asserting `serve`/`daemon`/`stop` accept no `--workspace` flag without error)
+- [x] `pnpm check` passes (lint + build + test)
+- [x] README updated: Cursor snippet added, comparison section added, Development section removed and linked to CONTRIBUTING.md
+- [x] CONTRIBUTING.md created with the extracted Development content
+- [x] `docs/why.md` cross-linked from the comparison section (no duplication)
+- [ ] Package published to npm (`pnpm publish` or `npm publish`) — user action required
+- [x] handoff.md Stage 1 entry removed
+- [x] Agent insights captured in docs/agent-memory.md
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Tests added:** 5 (in `tests/cli-workspace-default.test.ts`)
+- `stop` accepts no `--workspace`, uses cwd, exits cleanly
+- `stop` with no `--workspace` stops a running daemon
+- `daemon` accepts no `--workspace`, becomes ready using cwd
+- `serve` accepts no `--workspace`, becomes ready using cwd
+- explicit `--workspace` still takes precedence
+
+**Mutation coverage:** `src/cli.ts` is excluded from Stryker (`stryker.config.mjs` marks it as a declarative entry-point). CLI behaviour is covered by subprocess integration tests that cannot run inside Stryker's sandbox. Accepted.
+
+**Discoveries:**
+- `spawnAndWaitForReady` and `runCliCommand` needed a `cwd` option — added to `tests/process-helpers.ts`.
+- The initial test was placed in `tests/daemon/` by habit; moved to `tests/` root (using `moveFile`) since it covers all three CLI subcommands, not daemon internals.
+- `moveFile` correctly moved the test file but could not rewrite the imports (test files are outside `tsconfig.include`/`src/`); fixed manually — consistent with the known tech-debt entry on this topic.

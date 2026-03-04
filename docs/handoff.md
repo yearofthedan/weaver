@@ -100,7 +100,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P2 — Distribution (ship what exists)
 
-- **Stage 1: npm publish + install docs** — [spec](specs/20260303-distribution-stage1.md)
+- **Agent adoption: skill file vs other approach** `[needs design]` — agents don't naturally reach for light-bridge tools. `docs/agent-memory.md` is invisible to external users; the CLAUDE.md snippet in the README helps but only if the user adds it. Should we ship a skill file (`.claude/skills/`) with the package so agents get guidance automatically? Or is there a better mechanism? Decide before Stage 2 (Claude Code plugin) since the plugin is another distribution vector for this guidance.
 - **Stage 2: Claude Code plugin** `[needs design]` — package as a Claude Code plugin (`.claude-plugin/plugin.json`); complements existing `typescript-lsp` code intelligence plugin with refactoring tools; one-command install via `/plugin install`
 - **Stage 3: Marketplace submission** `[needs design]` — submit to official Anthropic marketplace; position alongside LSP code intelligence plugins
 
@@ -120,6 +120,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks; depends on buildVolarService refactoring
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; depends on buildVolarService refactoring; see [moveSymbol.md](features/moveSymbol.md)
 - `createFile` `[needs design]` — scaffold a file with correct import paths
+- **Agent guidance on type errors in tool responses** `[needs design]` — all write operations return `typeErrors`; agents need to know this is an action item (something wasn't fully updated) and follow up with `replaceText`. Currently nothing teaches this pattern. Decision needed: shipped skill file, tool description addition, CLAUDE.md guidance snippet, or combination?
 
 ---
 

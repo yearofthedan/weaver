@@ -25,7 +25,7 @@ program
 program
   .command("daemon")
   .description("Start a long-lived daemon process for a workspace")
-  .requiredOption("--workspace <path>", "Root directory of the project to serve")
+  .option("--workspace <path>", "Root directory of the project to serve", process.cwd())
   .exitOverride(commanderExitOverride)
   .action(async (opts) => {
     await runDaemon(opts);
@@ -34,7 +34,7 @@ program
 program
   .command("stop")
   .description("Stop a running daemon process for a workspace")
-  .requiredOption("--workspace <path>", "Root directory of the project to stop")
+  .option("--workspace <path>", "Root directory of the project to stop", process.cwd())
   .exitOverride(commanderExitOverride)
   .action(async (opts) => {
     await runStop(opts);
@@ -43,7 +43,7 @@ program
 program
   .command("serve")
   .description("Start a server for refactoring operations")
-  .requiredOption("--workspace <path>", "Root directory of the project to serve")
+  .option("--workspace <path>", "Root directory of the project to serve", process.cwd())
   .exitOverride(commanderExitOverride)
   .action(async (opts) => {
     await runServe(opts);

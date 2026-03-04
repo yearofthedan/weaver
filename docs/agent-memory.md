@@ -214,6 +214,15 @@ In a per-file in-memory ts-morph project, the target file isn't in the project g
 **Mutation timeouts from infinite-loop mutations are counted as kills.**
 `if (parent === dir) → if (false)` turns `findTsConfig`'s walk-up loop into an infinite loop. Stryker treats these as `Timeout` (not `Survived`), so they count toward the kill score and do not need separate test coverage.
 
+**`src/cli.ts` is excluded from mutation testing — use subprocess integration tests instead.**
+`cli.ts` is declared as a declarative entry-point with no logic to mutate in `stryker.config.mjs`. CLI behaviour changes (like making `--workspace` optional) are covered by integration tests that spawn the actual process (`spawnAndWaitForReady` / `runCliCommand` with a `cwd` option). Those tests cannot run inside Stryker's sandbox (no subprocess spawning), so there is no mutation coverage for `cli.ts` — that's intentional and accepted.
+
+**`spawnAndWaitForReady` and `runCliCommand` accept a `cwd` option.**
+Pass `{ cwd: dir }` to spawn the CLI process with a different working directory. Required when testing the `--workspace` default (which falls back to `process.cwd()`).
+
+**`moveFile` updates import paths but not test file imports when test files are outside `tsconfig.include`.**
+After moving a test file with `moveFile`, always check the type errors in the tool response — the moved file's own imports will not be rewritten if it is outside the ts-morph project (which only includes `src/`). Fix them manually.
+
 ## Memory storage
 
 - `.claude/MEMORY.md` — project state and agent behaviour notes

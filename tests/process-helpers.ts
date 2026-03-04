@@ -15,13 +15,14 @@ const CLI_ENTRY = path.join(PROJECT_ROOT, "src", "cli.ts");
  */
 export function spawnAndWaitForReady(
   args: string[],
-  opts: { timeoutMs?: number; pipeStdin?: boolean } = {},
+  opts: { timeoutMs?: number; pipeStdin?: boolean; cwd?: string } = {},
 ): Promise<ChildProcess> {
-  const { timeoutMs = 30_000, pipeStdin = false } = opts;
+  const { timeoutMs = 30_000, pipeStdin = false, cwd } = opts;
   return new Promise((resolve, reject) => {
     const child = spawn(TSX_BIN, [CLI_ENTRY, ...args], {
       stdio: [pipeStdin ? "pipe" : "ignore", "pipe", "pipe"],
       env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" },
+      ...(cwd ? { cwd } : {}),
     });
 
     let stderrBuf = "";
@@ -145,11 +146,13 @@ export function callDaemonSocket(
 export function runCliCommand(
   args: string[],
   timeoutMs = 10_000,
+  opts: { cwd?: string } = {},
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(TSX_BIN, [CLI_ENTRY, ...args], {
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" },
+      ...(opts.cwd ? { cwd: opts.cwd } : {}),
     });
     let stdout = "";
     let stderr = "";
