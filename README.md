@@ -174,7 +174,21 @@ See [docs/why.md](docs/why.md) for a broader look at where light-bridge fits in 
 
 ### Claude Code
 
-Add a `.mcp.json` to your project root (checked into version control):
+Add a `.mcp.json` to your project root (checked into version control). **Using `npx` is the easiest option** — it avoids path resolution issues that can occur when the MCP host spawns the process from a different working directory:
+
+```json
+{
+  "mcpServers": {
+    "light-bridge": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@yearofthedan/light-bridge", "serve", "--workspace", "."]
+    }
+  }
+}
+```
+
+Alternatively, if light-bridge is installed as a dependency, you can use the `light-bridge` bin directly (requires `node_modules/.bin` to be on the host's PATH when it spawns the process):
 
 ```json
 {
@@ -188,8 +202,6 @@ Add a `.mcp.json` to your project root (checked into version control):
 }
 ```
 
-This uses the `light-bridge` bin from `node_modules/.bin/` and works across different checkout roots (cloud runners, devcontainers) because it avoids hardcoded absolute paths.
-
 For machine-local overrides, add an entry with the Claude CLI instead of editing the committed `.mcp.json`:
 
 ```bash
@@ -198,14 +210,14 @@ claude mcp add light-bridge -- light-bridge serve --workspace /absolute/path/to/
 
 ### Cursor
 
-Add to `.cursor/mcp.json` in your project root, or to Cursor's global MCP settings:
+Add to `.cursor/mcp.json` in your project root, or to Cursor's global MCP settings. **Using `npx` avoids path issues** when Cursor spawns the process:
 
 ```json
 {
   "mcpServers": {
     "light-bridge": {
-      "command": "light-bridge",
-      "args": ["serve", "--workspace", "${workspaceFolder}"]
+      "command": "npx",
+      "args": ["-y", "@yearofthedan/light-bridge", "serve", "--workspace", "${workspaceFolder}"]
     }
   }
 }
@@ -215,14 +227,14 @@ Add to `.cursor/mcp.json` in your project root, or to Cursor's global MCP settin
 
 ### Roo
 
-Open the Roo MCP settings (gear icon → MCP Servers) and add:
+Open the Roo MCP settings (gear icon → MCP Servers) and add. **Using `npx` avoids path issues**:
 
 ```json
 {
   "mcpServers": {
     "light-bridge": {
-      "command": "light-bridge",
-      "args": ["serve", "--workspace", "/absolute/path/to/your/project"],
+      "command": "npx",
+      "args": ["-y", "@yearofthedan/light-bridge", "serve", "--workspace", "/absolute/path/to/your/project"],
       "disabled": false,
       "alwaysAllow": [
         "rename",

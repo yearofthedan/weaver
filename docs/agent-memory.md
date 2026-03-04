@@ -28,6 +28,9 @@ The architecture reference was renamed for clarity. Update links/searches that s
 **Keep committed `.mcp.json` path-portable; put machine-local paths in user-level config.**
 Hardcoded workspace roots in repo config (for example `/workspace/...` or `/workspaces/...`) break MCP startup on other hosts. Keep the committed config root-relative (for example `--workspace .`), and store machine-specific absolute-path overrides in user-level MCP settings (`claude mcp add ...`) rather than version-controlled files.
 
+**`npx` is the easiest MCP config option when path issues occur.**
+Users report that `command: "npx"` with `args: ["-y", "@yearofthedan/light-bridge", "serve", "--workspace", "."]` avoids path resolution problems. The MCP host may spawn the process from a different working directory, so `light-bridge` from `node_modules/.bin` can fail to resolve. npx handles finding and running the package regardless of cwd.
+
 **Use `pnpm agent:check` for policy and `pnpm agent:doctor` for runtime setup checks.**
 `agent:check` is a static conventions check (safe for CI): validates committed MCP config shape and portability policy. `agent:doctor` is a local runtime liveness check (spawn + initialize + tools/list) and should be run during environment setup/debugging, not on every push.
 
@@ -88,6 +91,8 @@ When post-write diagnostics run against a file that the TsProvider project alrea
 
 **Stryker run scoped to a single file: use `--mutate` flag.**
 `stryker run --mutate 'src/operations/getTypeErrors.ts'` overrides the `mutate` array from the config and runs mutation tests only for that file. Useful when you want to check mutation score for touched files without running the full suite. The `--testFiles` equivalent is runner-specific; for vitest, the config-level `testFiles` filter is the only supported path.
+
+**User feedback (Mar 2025):** rename, findReferences, getDefinition fail with "Could not find source file" for both .ts and .vue in some workspaces (e.g. working-title). High impact — user rates 5/10 now, 8.5/10 if fixed. See handoff P1 and tech-debt.md.
 
 **`getTypeErrors` uses `TsProvider` directly, not `LanguageProvider`.**
 Vue SFC diagnostics via Volar are deferred (handoff P4 item 16). The operation signature takes `TsProvider` instead of the generic `LanguageProvider` interface. The dispatcher calls `registry.tsProvider()` (always returns `TsProvider`, even in Vue projects). This matches the pattern used by `moveSymbol`.
