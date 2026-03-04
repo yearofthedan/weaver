@@ -223,6 +223,12 @@ Pass `{ cwd: dir }` to spawn the CLI process with a different working directory.
 **`moveFile` updates import paths but not test file imports when test files are outside `tsconfig.include`.**
 After moving a test file with `moveFile`, always check the type errors in the tool response — the moved file's own imports will not be rewritten if it is outside the ts-morph project (which only includes `src/`). Fix them manually.
 
+**Skill files ship in the npm package at `skills/` — update `package.json` `files` array when adding new ones.**
+The `files` field controls what npm publishes. The `dist` and `skills` directories are both included. If a new skill file directory is added outside `skills/`, it won't ship unless `files` is updated. Skill files are markdown — no build step needed.
+
+**Skill file tests are static content assertions, not unit tests of behaviour.**
+The tests in `tests/scripts/skill-file.test.ts` verify file existence, packaging config, frontmatter format, tool name coverage, response-handling keyword presence, host-agnosticism, and dogfooding references. They're fast (~4ms) but brittle to exact wording. If the skill file is rewritten substantially, update the test assertions to match the new content rather than fighting them.
+
 ## Memory storage
 
 - `.claude/MEMORY.md` — project state and agent behaviour notes

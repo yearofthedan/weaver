@@ -238,26 +238,24 @@ Open the Roo MCP settings (gear icon → MCP Servers) and add:
 }
 ```
 
-### Guiding the agent (CLAUDE.md)
+### Guiding the agent (skill file)
 
-The MCP tool descriptions tell Claude what each tool does, but not when to reach for them. Add this to your project's `CLAUDE.md` so Claude uses light-bridge instead of manual edits:
+The MCP tool descriptions tell agents what each tool does, but not when to reach for them. light-bridge ships a skill file that provides workflow guidance — when to use compiler-aware tools vs manual editing, how to handle responses, and common refactoring sequences.
 
-````markdown
-## Refactoring tools
+The skill file is at `skills/refactoring/SKILL.md` in the installed package. Reference it from your agent configuration:
 
-light-bridge MCP tools are connected. Use them for all structural refactors:
+**Claude Code** — add to your project's `CLAUDE.md`:
 
-- `mcp__light-bridge__rename` — rename any symbol and update all references (not search-and-replace)
-- `mcp__light-bridge__moveFile` — move a file and rewrite all import paths (not `mv` + manual fixes)
-- `mcp__light-bridge__moveSymbol` — move a named export between files
-- `mcp__light-bridge__extractFunction` — pull a block of statements into a new named function (compiler infers params and return)
-- `mcp__light-bridge__findReferences` — find all usages of a symbol before deciding how to refactor
-- `mcp__light-bridge__getDefinition` — jump from a symbol usage to its declaration
-- `mcp__light-bridge__searchText` / `mcp__light-bridge__replaceText` — safe text search/replace operations with workspace and sensitive-file protections
+```markdown
+## Refactoring
 
-If a tool returns `DAEMON_STARTING`, retry once — the daemon is still loading the project graph.
-Do not read files to verify results; the response lists exactly what changed.
-````
+Load the light-bridge refactoring skill for cross-file refactoring guidance:
+see `node_modules/@yearofthedan/light-bridge/skills/refactoring/SKILL.md`
+```
+
+**Roo** — reference the skill file from your Roo skill configuration, pointing to `node_modules/@yearofthedan/light-bridge/skills/refactoring/SKILL.md`.
+
+The skill file covers decision heuristics (rename vs search-and-replace, moveFile vs shell mv), response patterns (act on `typeErrors`, surface `filesSkipped`), common sequences, and error handling.
 
 ### Notes
 
