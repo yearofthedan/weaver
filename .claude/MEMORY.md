@@ -39,5 +39,11 @@ Do not log per-session "fixed X" history here; keep durable process guidance onl
 **Do not use `~/.claude/` for memory.** That path is wiped on container rebuild.
 Write here or to `docs/agent-memory.md` instead.
 
+**Do not auto-create specs during exploratory conversation.**
+Architecture Q&A stays conversational unless the user explicitly asks for a spec
+or confirms they want to move into implementation workflow. When a spec is
+requested, create it in `docs/specs/` and add a linked entry in
+`docs/handoff.md` in the same pass.
+
 **Task workflow: `/slice` is the default entry point.**
 See `docs/handoff.md` § "Start here" and the `/slice` skill for the full procedure.
