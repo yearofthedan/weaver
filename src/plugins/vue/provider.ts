@@ -115,7 +115,8 @@ export class VolarProvider implements LanguageProvider {
     // Refresh content so the language service sees any recent edits.
     service.fileContents.set(file, fs.readFileSync(file, "utf8"));
 
-    const rawLocs = service.languageService.findRenameLocations(file, offset, false, false, {});
+    const { fileName, pos } = this.toVirtualLocation(file, offset, service);
+    const rawLocs = service.languageService.findRenameLocations(fileName, pos, false, false, {});
     if (!rawLocs || rawLocs.length === 0) return null;
 
     return this.translateLocations(rawLocs, service);
@@ -125,7 +126,8 @@ export class VolarProvider implements LanguageProvider {
     const service = await this.getService(file);
     service.fileContents.set(file, fs.readFileSync(file, "utf8"));
 
-    const rawRefs = service.languageService.getReferencesAtPosition(file, offset);
+    const { fileName, pos } = this.toVirtualLocation(file, offset, service);
+    const rawRefs = service.languageService.getReferencesAtPosition(fileName, pos);
     if (!rawRefs || rawRefs.length === 0) return null;
 
     return this.translateLocations(rawRefs, service);
@@ -138,8 +140,6 @@ export class VolarProvider implements LanguageProvider {
     const service = await this.getService(file);
     service.fileContents.set(file, fs.readFileSync(file, "utf8"));
 
-    // getDefinitionAtPosition does not auto-translate .vue → .vue.ts the way
-    // findRenameLocations / getReferencesAtPosition do, so we translate first.
     const { fileName: queryFile, pos: queryPos } = this.toVirtualLocation(file, offset, service);
 
     const rawDefs = service.languageService.getDefinitionAtPosition(queryFile, queryPos);

@@ -102,8 +102,6 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-- **`rename` / `findReferences` fail with "Could not find source file" on `.vue` inputs** → [`docs/specs/20260304-fix-source-file-not-found.md`](specs/20260304-fix-source-file-not-found.md) — `VolarProvider.getRenameLocations` and `getReferencesAtPosition` pass the real `.vue` path to Volar without `toVirtualLocation` translation; fix mirrors the existing `getDefinitionAtPosition` patch.
-
 - **`rename` / `findReferences` / `getDefinition` fail with "Could not find source file" on `.ts` inputs** `[needs design]` — Separate from the Vue `.vue`-path bug above. Suspected cause: caller-supplied path differs from ts-morph's internally normalized path (e.g. symlinked workspace root); fix likely requires using `sourceFile.getFilePath()` when calling TS language service methods in `TsProvider`. Root cause not yet reproduced in a test.
 
 ---

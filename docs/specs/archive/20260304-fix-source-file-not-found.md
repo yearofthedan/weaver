@@ -83,13 +83,20 @@ unconditionally (it already handles the non-`.vue` passthrough).
 
 ## Done-when
 
-- [ ] All fix criteria verified by tests
-- [ ] `rename` on a symbol in `App.vue` of the vue-project fixture completes
+- [x] All fix criteria verified by tests
+- [x] `rename` on a symbol in `App.vue` of the vue-project fixture completes
       without error; `App.vue` appears in `filesModified`
-- [ ] `findReferences` on a symbol in `App.vue` returns references including
+- [x] `findReferences` on a symbol in `App.vue` returns references including
       the `.vue` path
-- [ ] Mutation score ≥ threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] `docs/tech/tech-debt.md` Vue-path entry updated/removed
-- [ ] Agent insights captured in `docs/agent-memory.md`
-- [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+- [x] Mutation score ≥ threshold for touched files
+- [x] `pnpm check` passes (lint + build + test)
+- [x] `docs/tech/tech-debt.md` Vue-path entry updated/removed
+- [x] Agent insights captured in `docs/agent-memory.md`
+- [x] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+## Outcome
+
+- **Tests added:** 4 new tests in `tests/plugins/vue/provider.test.ts` (getRenameLocations on .vue, getReferencesAtPosition on .vue, template-only .vue for each)
+- **Mutation score:** 76.11% for `src/plugins/vue/provider.ts` (threshold 75%)
+- **Fix:** Two-line change in `VolarProvider` — call `toVirtualLocation` before `findRenameLocations` and `getReferencesAtPosition`, matching the existing `getDefinitionAtPosition` pattern. Removed the misleading "auto-translate" comment.
+- **Discovery:** Tests should live in `tests/plugins/vue/` (not `tests/mcp/`) and test `VolarProvider` directly — same confidence, no MCP overhead. The existing `provider.test.ts` was already well-structured for this.

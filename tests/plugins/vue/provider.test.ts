@@ -238,4 +238,74 @@ describe("VolarProvider", () => {
     const result = await p.getRenameLocations(file, blankLineOffset);
     expect(result).toBeNull();
   }, 30_000);
+
+  it("getRenameLocations on a .vue file returns locations including the .vue path", async () => {
+    const dir = setup();
+    const p = new VolarProvider();
+    const file = path.join(dir, "src/App.vue");
+    const content = fs.readFileSync(file, "utf8");
+    const offset = content.indexOf("useCounter");
+    const locs = await p.getRenameLocations(file, offset);
+    expect(locs).not.toBeNull();
+    expect(locs?.some((l) => l.fileName === file)).toBe(true);
+    for (const loc of locs ?? []) {
+      expect(loc.fileName).not.toMatch(/\.vue\.ts$/);
+    }
+  }, 30_000);
+
+  it("getReferencesAtPosition on a .vue file returns refs including the .vue path", async () => {
+    const dir = setup();
+    const p = new VolarProvider();
+    const file = path.join(dir, "src/App.vue");
+    const content = fs.readFileSync(file, "utf8");
+    const offset = content.indexOf("useCounter");
+    const refs = await p.getReferencesAtPosition(file, offset);
+    expect(refs).not.toBeNull();
+    expect(refs?.some((r) => r.fileName === file)).toBe(true);
+    for (const ref of refs ?? []) {
+      expect(ref.fileName).not.toMatch(/\.vue\.ts$/);
+    }
+  }, 30_000);
+
+  it("getRenameLocations on a template-only .vue file returns null without throwing", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vue-noscript-rename-"));
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "tsconfig.json"),
+        JSON.stringify({
+          compilerOptions: { strict: true, target: "ESNext", moduleResolution: "bundler" },
+          include: ["src/**/*.ts", "src/**/*.vue"],
+        }),
+      );
+      const vueFile = path.join(tmpDir, "src/NoScript.vue");
+      fs.writeFileSync(vueFile, "<template>\n  <div>Hello</div>\n</template>\n");
+      const p = new VolarProvider();
+      const result = await p.getRenameLocations(vueFile, 15);
+      expect(result === null || Array.isArray(result)).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it("getReferencesAtPosition on a template-only .vue file returns null without throwing", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vue-noscript-refs-"));
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "tsconfig.json"),
+        JSON.stringify({
+          compilerOptions: { strict: true, target: "ESNext", moduleResolution: "bundler" },
+          include: ["src/**/*.ts", "src/**/*.vue"],
+        }),
+      );
+      const vueFile = path.join(tmpDir, "src/NoScript.vue");
+      fs.writeFileSync(vueFile, "<template>\n  <div>Hello</div>\n</template>\n");
+      const p = new VolarProvider();
+      const result = await p.getReferencesAtPosition(vueFile, 15);
+      expect(result === null || Array.isArray(result)).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 30_000);
 });

@@ -85,10 +85,8 @@ If a `tsconfig.json` is created, deleted, moved, or `.vue` files are added to a 
 
 ---
 
-## User feedback: rename / findReferences / getDefinition "Could not find source file"
+## User feedback: rename / findReferences / getDefinition "Could not find source file" (TS path)
 
-External user (working-title workspace) reports all three tools fail with `PARSE_ERROR: Could not find source file` for both `.ts` and `.vue` files. The daemon surfaces uncaught TypeScript/Volar errors as `PARSE_ERROR` with the original message.
-
-**Vue path:** `getDefinition` was fixed with `toVirtualLocation`; `findRenameLocations` and `getReferencesAtPosition` are documented as auto-translating at the Volar proxy layer, but failures suggest they may need explicit `toVirtualLocation` on input (same pattern as `getDefinition`).
+External user (working-title workspace) reports tools fail with `PARSE_ERROR: Could not find source file` for `.ts` files. The Vue path (`.vue` inputs) was fixed by calling `toVirtualLocation` before `findRenameLocations` and `getReferencesAtPosition`.
 
 **TS path:** No known cause yet. Investigate: path resolution when workspace differs from process cwd; ts-morph project loading for cross-workspace usage; tsconfig `include` / path alias mismatches.
