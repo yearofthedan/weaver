@@ -86,3 +86,6 @@ Per-line matching makes context lines trivial to compute (just index into the li
 
 **Why `safe-regex2` for ReDoS detection?**
 An agent-supplied pattern runs against every file in the workspace. A catastrophic-backtracking pattern could lock the daemon for minutes. `safe-regex2` rejects star-height > 1 patterns before execution.
+
+**`globToRegex` splits on `**` before replacing `*`.**
+Naive single-pass replacement (`**` → placeholder → `.*`, `*` → `[^/]*`) requires a control character placeholder, which Biome rejects. Instead, split the pattern string on `**`, convert each part independently, then join with `.*`. This avoids any placeholder characters and is cleaner.

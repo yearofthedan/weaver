@@ -102,3 +102,17 @@ toSourceLocation(generatedOffset: number): Generator<readonly [number, Mapping<C
 It patches `getScriptSnapshot` and `getScriptKind` so that when TypeScript asks for a registered source script (e.g. `App.vue`) it gets the generated TypeScript snapshot back. It also decorates module resolution.
 
 **It does NOT modify `getScriptFileNames`.** That is why the virtual `.vue.ts` trick is necessary — the decorator alone does not make TypeScript include Vue files in its program.
+
+## Implementation notes
+
+**`@volar/language-core` version skew requires a pnpm override.**
+`@vue/language-core` and `@volar/typescript` can depend on different patch versions of `@volar/language-core`, making `Language<string>` a different nominal type in each. Fix with a `pnpm.overrides` entry in `package.json` pinning to the same version. Also add `@volar/language-core` as a direct `devDependency` so TypeScript can resolve the `import type { Language }` in `volar.ts`.
+
+**Template-only `.vue` files (no `<script>` block) exercise `toVirtualLocation` fallback branches.**
+A `.vue` file with only a `<template>` block has `sourceScript.generated.languagePlugin.typescript?.getServiceScript()` return null (no TypeScript service script generated). This triggers the `if (!serviceScript) return { fileName: virtualPath, pos }` fallback in `toVirtualLocation`. Useful for mutation testing coverage of those branches. Create via `fs.mkdtempSync` with a minimal tsconfig; the `buildVolarService` directory scan picks up all `.vue` files in the project root automatically.
+
+**`VolarProvider.translateLocations` is the shared virtual→real mapping helper.**
+Extracted from the inline loop in `rename`; reused by `findReferences` and `getDefinition`. Any future operation that reads positions from a Vue project should call this method rather than duplicating the source-map traversal.
+
+**`dist/` and other build dirs must be excluded from `readDirectory`.**
+The Vue service calls `ts.sys.readDirectory()` to find `.vue` files. Without filtering, it picks up files under `dist/`, `node_modules/`, etc., which breaks type resolution. `SKIP_DIRS` is exported from `src/utils/file-walk.ts` and applied in `buildVolarService()`.

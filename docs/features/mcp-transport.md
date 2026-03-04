@@ -109,6 +109,20 @@ Error codes include: `DAEMON_STARTING`, `INTERNAL_ERROR`, `VALIDATION_ERROR`, `W
 
 `mcp.ts` uses a `TOOLS` table to drive all `registerTool` calls. Each entry has `name`, `description`, and `inputSchema`. The loop handler passes params directly to `callDaemon` with no per-operation destructuring. Adding a new operation requires one entry in the `TOOLS` table and one in `dispatcher.ts`'s `OPERATIONS` table.
 
+## Implementation notes
+
+**MCP tool names and daemon method names are intentionally 1:1.**
+The MCP handler passes `tool.name` directly as the daemon method. There is no translation layer. A proposal to split naming (e.g. "file rename" vs "symbol rename") was rejected: the daemon is an internal IPC detail with no independent users, and "file rename" is already `moveFile`. Splitting would add a translation table for no benefit.
+
+**MCP server `instructions` field for tool adoption.**
+The `McpServer` constructor takes an optional `instructions` string (part of the MCP spec's `InitializeResult`). Clients like Cursor and Claude Desktop surface this as a system prompt hint. Keep it short — it's injected on every turn alongside all tool descriptions. Per-tool trigger guidance ("when to use this") belongs in individual tool descriptions, not here.
+
+**Tool descriptions should lead with triggers, not capabilities.**
+"Before modifying a symbol, call this" is more effective than "Find all references to a symbol" because it matches the agent's situation at the point of decision. Avoid naming specific agent tools (grep, shell mv, search-and-replace) — frame the consequence of not using the tool instead ("leaves broken imports", "text search would find the re-export, not the actual definition").
+
+**`checkTypeErrors` defaults to ON — the guard is `!== false`, not `=== true`.**
+Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) run post-write type diagnostics by default. The `checkTypeErrors` param is enabled unless explicitly set to `false`. The primary users are AI coding agents who need immediate compiler feedback after every write. `checkTypeErrors: false` is an explicit opt-out for callers that want to batch type-checking separately.
+
 ## Assumptions
 
 - One `serve` process per agent session

@@ -23,7 +23,6 @@ Do not log per-session "fixed X" history here; keep durable process guidance onl
 | `docs/handoff.md` | Current state, source layout, task index (links to specs) |
 | `docs/specs/` | Task specifications — one file per task; templates in `templates/` |
 | `docs/specs/archive/` | Completed specs with Outcome sections |
-| `docs/agent-memory.md` | Technical gotchas and non-obvious implementation decisions |
 | `docs/architecture.md` | Provider/operation architecture — read before touching `src/` |
 | `docs/quality.md` | Testing strategy, mutation scores, hard-won test lessons |
 | `docs/tech/volar-v3.md` | How the Vue provider works — read before touching `providers/volar.ts` |
@@ -37,7 +36,7 @@ Do not log per-session "fixed X" history here; keep durable process guidance onl
 **Commit body explains WHY, not WHAT.** Split commits at logical boundaries.
 
 **Do not use `~/.claude/` for memory.** That path is wiped on container rebuild.
-Write here or to `docs/agent-memory.md` instead.
+Write here instead. Technical gotchas belong in `docs/features/` or `docs/tech/`.
 
 **Do not auto-create specs during exploratory conversation.**
 Architecture Q&A stays conversational unless the user explicitly asks for a spec

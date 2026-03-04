@@ -77,6 +77,29 @@ Implemented in `src/daemon/watcher.ts` using chokidar.
 
 The watcher keeps provider state fresh when files are edited outside light-bridge (editor saves, generators, branch switches). Full behavior and invalidation strategy are documented in [watcher.md](watcher.md).
 
+## Implementation notes
+
+**MCP server must start before the daemon auto-spawns.**
+In `serve`, bring the MCP server up before triggering daemon auto-spawn. If the daemon starts first and the socket connect happens before the MCP server is listening, the call times out.
+
+**Test race: daemon socket not yet open when test connects.**
+After spawning the daemon process, the socket file may not exist yet. Use `waitForDaemon` (or equivalent retry logic) before sending the first socket request in tests.
+
+**`child.pid` is the tsx wrapper PID, not the script's PID.**
+When you spawn a process with `spawn('tsx', ...)`, `child.pid` is the PID of the tsx wrapper, not `process.pid` inside the script. To check if a lockfile PID is alive, use `process.kill(pid, 0)` — don't compare to `child.pid`.
+
+**`callDaemon` failure returns `DAEMON_STARTING`.**
+If the socket connection fails (daemon not yet ready), return `{ ok: false, error: "DAEMON_STARTING", message: "..." }` to the agent rather than throwing.
+
+**`stopDaemon` is the canonical way to kill a daemon from `ensure-daemon.ts`.**
+Exported from `daemon.ts`. Reads the lockfile PID, sends SIGTERM, polls until `isDaemonAlive` returns false (up to 5s), then calls `removeDaemonFiles`. Avoids duplicating the kill-and-wait logic from `runStop`.
+
+**`ping` is a meta-operation handled before `dispatchRequest`.**
+`handleSocketRequest` in `daemon.ts` intercepts `method === "ping"` before calling `dispatchRequest`, returning `{ ok: true, version: PROTOCOL_VERSION }` directly. This avoids adding `ping` to the `OPERATIONS` table and keeps the dispatcher clean of protocol-level concerns.
+
+**`PROTOCOL_VERSION` lives in `daemon.ts`; increment it whenever the operation set changes.**
+Both the daemon (ping handler) and `ensure-daemon.ts` (`ensureDaemon`) import it from there. `ensureDaemon` uses a `versionVerified` module-level flag so the ping check runs only once per daemon process lifetime. Reset the flag whenever the daemon is detected as dead so the next spawn is re-verified.
+
 ## Out of scope
 
 - Multiple workspaces per daemon — one daemon per workspace keeps state isolated

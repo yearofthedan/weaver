@@ -173,6 +173,17 @@ The watcher (`src/daemon/watcher.ts`) calls into the language plugin registry:
 | File | Purpose |
 |------|---------|
 | `src/utils/text-utils.ts` | `applyTextEdits()`, `offsetToLineCol()` — used by all operations |
-| `src/utils/file-walk.ts` | `walkFiles(dir, extensions)`, `SKIP_DIRS` — git-aware file collection |
+| `src/utils/file-walk.ts` | `walkFiles(dir, extensions)`, `SKIP_DIRS` — in git workspaces shells out to `git ls-files` (respects gitignore); falls back to recursive readdir + `SKIP_DIRS` elsewhere |
 | `src/utils/ts-project.ts` | `findTsConfig`, `findTsConfigForFile`, `isVueProject` — project discovery |
 | `src/plugins/vue/scan.ts` | `updateVueImportsAfterMove`, `updateVueNamedImportAfterSymbolMove` — regex scans for `.vue` SFC import strings |
+
+## Implementation notes
+
+**Language plugin invalidation hooks must be error-isolated.**
+`invalidateFile` and `invalidateAll` iterate all registered plugins. Each plugin's hook is wrapped in try/catch so a crash in one plugin (e.g. a Volar service bug) doesn't prevent other plugins from refreshing their state. The TS provider is invalidated separately (before the plugin loop) since it's not a plugin.
+
+**`isWithinWorkspace` and `isSensitiveFile` are both in `src/security.ts`.**
+`isWithinWorkspace` enforces the workspace boundary at two points: the dispatcher (input path validation) and each operation's output loop (write filtering). It resolves symlinks via `fs.realpathSync` for existing paths to prevent symlink escape. `isSensitiveFile` is called by `searchText` (silently skips) and `replaceText` surgical mode (throws `SENSITIVE_FILE` before touching any file).
+
+**ts-morph internals — see [`docs/tech/ts-morph.md`](tech/ts-morph.md).**
+Bundled TypeScript instance, `getProjectForDirectory` vs `getProjectForFile`, and module-level cache gotchas are documented there.

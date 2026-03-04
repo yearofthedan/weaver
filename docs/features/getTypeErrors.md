@@ -90,3 +90,11 @@ A project with hundreds of type errors is usually in a broken state where indivi
 
 **Why top-level message only?**
 For simple mismatches, the top-level message is a short, self-contained sentence. For deeply nested generic mismatches, the chain can be 4–5 levels; returning the full chain would produce hundreds of characters of concatenated context. The top node is always the most specific description of *what* is wrong.
+
+## Implementation notes
+
+**`getTypeErrors` uses `TsProvider` directly, not `LanguageProvider`.**
+Vue SFC diagnostics via Volar are deferred (handoff P4 item 16). The operation signature takes `TsProvider` instead of the generic `LanguageProvider` interface. The dispatcher calls `registry.tsProvider()` (always returns `TsProvider`, even in Vue projects). This matches the pattern used by `moveSymbol`.
+
+**`getTypeErrorsForFiles` must call `refreshFromFileSystemSync()` before checking diagnostics.**
+When post-write diagnostics run against a file that the TsProvider project already has cached (e.g. from a previous operation in the same daemon lifetime), ts-morph will see stale content unless `refreshFromFileSystemSync()` is called first. `getTypeErrorsForFiles` always does this. For fresh TsProvider instances (new projects loaded for the first time), the file is read directly from disk and no refresh is needed — but calling `refreshFromFileSystemSync()` on a newly-added source file is a safe no-op.

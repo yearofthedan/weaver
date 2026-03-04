@@ -44,12 +44,8 @@ Finish the test for a unit before moving to the next. The test is part of the im
 
 **Rule 7: Commit messages must not mention things you're NOT doing.** "Does not use X" is meaningless to someone reading the log without the conversation's context.
 
-**Rule 8: Write durable memory to `.claude/MEMORY.md` and `docs/agent-memory.md` — never to `~/.claude/`.**
-This project runs in a dev container. The home directory is deleted on every rebuild, taking `~/.claude/projects/` with it. Do NOT use the auto-memory system there. Instead:
-- `.claude/MEMORY.md` — project state and agent behaviour notes (git-tracked)
-- `docs/agent-memory.md` — technical gotchas and decisions useful to humans too (git-tracked)
-
-Update both at the end of every session.
+**Rule 8: Write durable memory to `.claude/MEMORY.md` — never to `~/.claude/`.**
+This project runs in a dev container. The home directory is deleted on every rebuild, taking `~/.claude/projects/` with it. Do NOT use the auto-memory system there. Use `.claude/MEMORY.md` (git-tracked) instead. Technical gotchas belong in the relevant `docs/features/` or `docs/tech/` doc, not in MEMORY.md.
 
 **Rule 10: Every task gets a spec before implementation.**
 Tasks in `docs/handoff.md` are either `[needs design]` (no spec yet) or linked to a spec file in `docs/specs/`. Use `/spec` to create a spec from a `[needs design]` entry — it picks the right template, walks through ACs with the user, and produces a ready-to-implement file. Use `/slice` to implement a spec. When adding new work discovered during a session, add a `[needs design]` entry to handoff.md and move on — do not spec it in the same session. Do not add ACs to feature docs (`docs/features/*.md`) — those are reference docs for shipped behaviour, not task tracking. ACs live in spec files and are archived (with an Outcome section) when the task ships.

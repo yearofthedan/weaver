@@ -99,3 +99,14 @@ If no daemon is running for that workspace:
 - Direct CLI invocation of refactoring operations (rename, moveFile, etc.) — use `serve` + an MCP client
 - Interactive/TUI mode
 - Config file
+
+## Implementation notes
+
+**Keep committed `.mcp.json` path-portable; put machine-local paths in user-level config.**
+Hardcoded workspace roots in the repo config (e.g. `/workspace/...` or `/workspaces/...`) break MCP startup on other hosts. Keep the committed config root-relative (`--workspace .`), and store machine-specific absolute-path overrides in user-level MCP settings (`claude mcp add ...`) rather than version-controlled files.
+
+**`npx` is the most portable MCP config option when path resolution fails.**
+Users report that `command: "npx"` with `args: ["-y", "@yearofthedan/light-bridge", "serve", "--workspace", "."]` avoids path resolution problems. The MCP host may spawn the process from a different working directory, so `light-bridge` from `node_modules/.bin` can fail to resolve. npx handles finding the package regardless of cwd.
+
+**`pnpm agent:check` for policy, `pnpm agent:doctor` for runtime setup.**
+`agent:check` is a static conventions check (safe for CI): validates committed MCP config shape and portability policy. `agent:doctor` is a local runtime liveness check (spawn + initialize + tools/list) and should be run during environment setup/debugging, not on every push.
