@@ -13,8 +13,6 @@ Keep this file as a signpost — details live in the docs.
 
 See `docs/handoff.md` for the current test count, feature status, and next things to build.
 Do not log per-session "fixed X" history here; keep durable process guidance only.
-The `app` + `tooling` (`conventions` + `evals`) workspace split is tracked as a
-`[needs design]` handoff item; do not implement it without a spec.
 
 ---
 

@@ -113,12 +113,6 @@ a spec (or confirms moving to implementation workflow). When requested, create a
 changeset spec under `docs/specs/` and add a linked `docs/handoff.md` entry.
 Keep acceptance criteria in specs, not in `docs/features/*` reference docs.
 
-**Workspace split path: track first, spec next, implement last.**
-The proposed split (`app` + `tooling`, with `tooling` containing conventions and
-eval scripts) should enter `docs/handoff.md` as `[needs design]` first. Keep app
-unit tests and mutation testing in app initially unless a spec explicitly changes
-that boundary.
-
 **MCP tool names and daemon method names are intentionally 1:1.**
 The MCP handler passes `tool.name` directly as the daemon method. There is no translation layer. A proposal to split naming (e.g. "file rename" vs "symbol rename") was rejected: the daemon is an internal IPC detail with no independent users, and "file rename" is already `moveFile`. Splitting would add a translation table for no benefit.
 
