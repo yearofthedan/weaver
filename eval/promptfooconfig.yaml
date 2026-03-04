@@ -4,8 +4,10 @@ prompts:
   - "{{task}}"
 
 providers:
+  # Default: only light-bridge tools available
   - id: anthropic:claude-haiku-4-5-20251001
-    config:
+    label: light-bridge-only
+    config: &mcp_config
       mcp:
         enabled: true
         server:
@@ -18,27 +20,76 @@ providers:
           name: light-bridge
         timeout: 60000
 
+  # Competing-tool variant: light-bridge + generic shell alternatives.
+  # Tests that target this provider verify that the model prefers light-bridge
+  # tools even when bash, grep, and sed are available as options.
+  - id: anthropic:claude-haiku-4-5-20251001
+    label: with-shell-alternatives
+    config:
+      <<: *mcp_config
+      tools:
+        - type: function
+          function:
+            name: bash
+            description: Run a shell command and return its stdout
+            parameters:
+              type: object
+              properties:
+                command:
+                  type: string
+                  description: The shell command to execute
+              required: [command]
+        - type: function
+          function:
+            name: grep
+            description: Search files for lines matching a text pattern
+            parameters:
+              type: object
+              properties:
+                pattern:
+                  type: string
+                  description: Pattern to search for
+                path:
+                  type: string
+                  description: File or directory to search in
+              required: [pattern]
+        - type: function
+          function:
+            name: sed
+            description: Apply a substitution expression to a file in-place
+            parameters:
+              type: object
+              properties:
+                expression:
+                  type: string
+                  description: sed substitution expression (e.g. s/old/new/g)
+                file:
+                  type: string
+                  description: File to modify
+              required: [expression, file]
+
 tests:
-  # ── Positive cases ──────────────────────────────────────────────────────────
-  # Each task should unambiguously map to exactly one light-bridge tool.
+  # ── Single-tool positive cases ───────────────────────────────────────────────
+  # Each task maps to exactly one light-bridge tool. Prompts are natural human
+  # language — no domain jargon, no workflow hints.
 
   - description: "rename - should select rename tool for project-wide symbol rename"
+    providers: [light-bridge-only]
     vars:
       task: >
-        Rename the TypeScript variable `userId` to `accountId` everywhere in the
-        project. It is defined at line 12, column 8 of
-        /tmp/light-bridge-eval/src/auth.ts. Update every reference across all files.
+        `userId` is at line 12, column 8 of /tmp/light-bridge-eval/src/auth.ts
+        — rename it to `accountId` everywhere in the project.
     assert:
       - type: tool-call-f1
         value:
           - rename
         threshold: 0.8
 
-  - description: "findReferences - should select findReferences before deleting a symbol"
+  - description: "findReferences - should select findReferences before modifying a symbol"
+    providers: [light-bridge-only]
     vars:
       task: >
-        Before I delete the `authenticate` function, I need to see every file and
-        line that calls it. The function is defined at line 5, column 17 of
+        What's calling `authenticate`? It's at line 5, column 17 of
         /tmp/light-bridge-eval/src/auth.ts.
     assert:
       - type: tool-call-f1
@@ -47,11 +98,11 @@ tests:
         threshold: 0.8
 
   - description: "getTypeErrors - should select getTypeErrors to check a file"
+    providers: [light-bridge-only]
     vars:
       task: >
-        Check /tmp/light-bridge-eval/src/auth.ts for TypeScript type errors. I want
-        to see each error with its file location and error code before I start
-        refactoring.
+        Are there any TypeScript errors in /tmp/light-bridge-eval/src/auth.ts?
+        I want to check before I start refactoring.
     assert:
       - type: tool-call-f1
         value:
@@ -59,12 +110,11 @@ tests:
         threshold: 0.8
 
   - description: "moveSymbol - should select moveSymbol to reorganise an export"
+    providers: [light-bridge-only]
     vars:
       task: >
-        Move the exported function `parseToken` from
-        /tmp/light-bridge-eval/src/auth.ts into a new file at
-        /tmp/light-bridge-eval/src/utils/token.ts and update every file that
-        imports it.
+        Move `parseToken` from /tmp/light-bridge-eval/src/auth.ts to
+        /tmp/light-bridge-eval/src/utils/token.ts.
     assert:
       - type: tool-call-f1
         value:
@@ -72,11 +122,11 @@ tests:
         threshold: 0.8
 
   - description: "searchText - should select searchText to locate text patterns"
+    providers: [light-bridge-only]
     vars:
       task: >
-        Find all TODO comments in the project source files. I want the file name,
-        line number, and the surrounding lines for each match so I can work through
-        them.
+        Find all the TODO comments in the source files — file, line, and a bit
+        of context around each one.
     assert:
       - type: tool-call-f1
         value:
@@ -84,11 +134,11 @@ tests:
         threshold: 0.8
 
   - description: "moveFile - should select moveFile to relocate a source file"
+    providers: [light-bridge-only]
     vars:
       task: >
         Move /tmp/light-bridge-eval/src/auth.ts to
-        /tmp/light-bridge-eval/src/authentication/auth.ts and update all
-        imports across the project that reference the old path.
+        /tmp/light-bridge-eval/src/authentication/auth.ts.
     assert:
       - type: tool-call-f1
         value:
@@ -96,43 +146,108 @@ tests:
         threshold: 0.8
 
   - description: "getDefinition - should select getDefinition to navigate to a declaration"
+    providers: [light-bridge-only]
     vars:
       task: >
-        I'm looking at a reference to `User` at line 8, column 12 of
-        /tmp/light-bridge-eval/src/api.ts. Take me to where it is actually
-        declared, not where it is re-exported.
+        Where is `User` actually defined? I'm looking at line 8, column 12 of
+        /tmp/light-bridge-eval/src/api.ts.
     assert:
       - type: tool-call-f1
         value:
           - getDefinition
         threshold: 0.8
 
-  - description: "replaceText - should select replaceText to apply a bulk text replacement"
+  # ── Two-step flows ───────────────────────────────────────────────────────────
+  # Tasks where the natural workflow requires two tool calls in sequence.
+
+  - description: "replaceText - two-step: search then replace across project"
+    providers: [light-bridge-only]
     vars:
       task: >
-        Replace the string literal "v1" with "v2" in all TypeScript files
-        under /tmp/light-bridge-eval/src/. Apply the change everywhere it
-        appears across the project.
+        I need to replace all occurrences of "v1" with "v2" across the project,
+        including in comments.
     assert:
       - type: tool-call-f1
         value:
+          - searchText
           - replaceText
         threshold: 0.8
 
-  # ── Negative case ───────────────────────────────────────────────────────────
-  # A task that sounds like text search but should use the compiler-aware tool.
-  # searchText finds literal text; findReferences uses the compiler's reference
-  # graph and handles re-exports, barrel files, and type-only imports correctly.
-
-  - description: "negative - compiler-aware lookup should prefer findReferences over searchText"
+  - description: "rename - two-step: locate symbol then rename when line number unknown"
+    providers: [light-bridge-only]
     vars:
       task: >
-        Show me every place in the project that uses the `fetchUser` function
-        exported from /tmp/light-bridge-eval/src/api.ts (line 3, column 17). I
-        need a complete list including imports through barrel files, not just
-        literal text matches.
+        Rename `userId` to `accountId` everywhere in the project. It's in
+        /tmp/light-bridge-eval/src/auth.ts but I don't have the line number.
+    assert:
+      - type: tool-call-f1
+        value:
+          - searchText
+          - rename
+        threshold: 0.8
+
+  # ── Negative cases ───────────────────────────────────────────────────────────
+  # Tasks that could be satisfied by a simpler tool but should use the
+  # compiler-aware alternative.
+
+  - description: "negative - compiler-aware lookup should prefer findReferences over searchText"
+    providers: [light-bridge-only]
+    vars:
+      task: >
+        Where is `fetchUser` used? It's exported from
+        /tmp/light-bridge-eval/src/api.ts at line 3, column 17.
     assert:
       - type: tool-call-f1
         value:
           - findReferences
         threshold: 0.8
+
+  - description: "negative - intent to delete should use findReferences not searchText"
+    providers: [light-bridge-only]
+    vars:
+      task: >
+        I want to delete `parseToken` — it's at line 10, column 17 of
+        /tmp/light-bridge-eval/src/auth.ts. What's using it?
+    assert:
+      - type: tool-call-f1
+        value:
+          - findReferences
+        threshold: 0.8
+      - type: javascript
+        value: 'output.indexOf("\"name\":\"searchText\"") === -1'
+
+  # ── Competing-tool tests ─────────────────────────────────────────────────────
+  # Run against the provider that includes bash, grep, and sed alongside
+  # light-bridge. Verify that light-bridge tools win the selection.
+
+  - description: "competing tools - searchText preferred over grep for pattern search"
+    providers: [with-shell-alternatives]
+    vars:
+      task: >
+        Find all the TODO comments in the source files — file, line, and a bit
+        of context around each one.
+    assert:
+      - type: tool-call-f1
+        value:
+          - searchText
+        threshold: 0.8
+      - type: javascript
+        value: >
+          output.indexOf('"name":"grep"') === -1 &&
+          output.indexOf('"name":"bash"') === -1
+
+  - description: "competing tools - replaceText preferred over sed for bulk substitution"
+    providers: [with-shell-alternatives]
+    vars:
+      task: >
+        I need to replace all occurrences of "v1" with "v2" across the project,
+        including in comments.
+    assert:
+      - type: tool-call-f1
+        value:
+          - replaceText
+        threshold: 0.8
+      - type: javascript
+        value: >
+          output.indexOf('"name":"sed"') === -1 &&
+          output.indexOf('"name":"bash"') === -1
