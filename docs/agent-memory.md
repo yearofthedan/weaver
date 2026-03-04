@@ -229,6 +229,17 @@ The `files` field controls what npm publishes. The `dist` and `skills` directori
 **Skill file tests are static content assertions, not unit tests of behaviour.**
 The tests in `tests/scripts/skill-file.test.ts` verify file existence, packaging config, frontmatter format, tool name coverage, response-handling keyword presence, host-agnosticism, and dogfooding references. They're fast (~4ms) but brittle to exact wording. If the skill file is rewritten substantially, update the test assertions to match the new content rather than fighting them.
 
+**`LanguagePlugin.supportsProject()` is project-level, not file-level.**
+In a Vue project, even `.ts` file operations go through VolarProvider because Volar's language service sees `.vue` importers that ts-morph doesn't. The detection checks the project's tsconfig (does this project contain `.vue` files?), not the input file's extension. A file-level `supports(file)` would break this pattern — a `.ts` file rename would bypass Volar and miss `.vue` importer updates.
+
+**`registry.tsProvider()` is not subject to plugin resolution — it always returns TsProvider.**
+Operations like `moveSymbol`, `extractFunction`, and `deleteFile` need direct ts-morph AST access that framework-specific providers (Volar, future Svelte) can't offer. The `tsProvider()` accessor on `ProviderRegistry` bypasses the plugin registry entirely and returns the built-in TsProvider singleton. Don't route it through plugin resolution.
+
+**Language plugin invalidation hooks must be error-isolated.**
+`invalidateFile` and `invalidateAll` iterate all registered plugins. Each plugin's hook is wrapped in try/catch so a crash in one plugin (e.g. Volar service bug) doesn't prevent other plugins from refreshing their state. The TS provider is invalidated separately (before the plugin loop) since it's not a plugin.
+
+---
+
 ## Memory storage
 
 - `.claude/MEMORY.md` — project state and agent behaviour notes

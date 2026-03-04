@@ -19,70 +19,18 @@ import {
   SearchTextArgsSchema,
 } from "../schema.js";
 import { isWithinWorkspace } from "../security.js";
-import type { LanguageProvider, ProviderRegistry } from "../types.js";
-import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
+import type { ProviderRegistry } from "../types.js";
+import { makeRegistry } from "./language-plugin-registry.js";
 
-// ─── Provider singletons ───────────────────────────────────────────────────
-// Lazy-loaded and cached for the daemon lifetime. Providers hold the stateful
-// project graphs (ts-morph Projects, Volar services) — engines are thin wrappers.
-
-let tsProviderSingleton: import("../providers/ts.js").TsProvider | undefined;
-let volarProviderSingleton: import("../providers/volar.js").VolarProvider | undefined;
-
-async function getTsProvider(): Promise<import("../providers/ts.js").TsProvider> {
-  if (!tsProviderSingleton) {
-    const { TsProvider } = await import("../providers/ts.js");
-    tsProviderSingleton = new TsProvider();
-  }
-  return tsProviderSingleton;
-}
-
-async function getVolarProvider(): Promise<import("../providers/volar.js").VolarProvider> {
-  if (!volarProviderSingleton) {
-    const { VolarProvider } = await import("../providers/volar.js");
-    volarProviderSingleton = new VolarProvider();
-  }
-  return volarProviderSingleton;
-}
-
-/**
- * Create a `ProviderRegistry` scoped to the project containing `filePath`.
- * `projectProvider` returns TsProvider or VolarProvider based on project type.
- * `tsProvider` always returns TsProvider for AST-level operations (e.g. moveSymbol).
- */
-export function makeRegistry(filePath: string): ProviderRegistry {
-  return {
-    async projectProvider(): Promise<LanguageProvider> {
-      const tsConfigPath = findTsConfigForFile(filePath);
-      if (tsConfigPath && isVueProject(tsConfigPath)) {
-        return getVolarProvider();
-      }
-      return getTsProvider();
-    },
-    async tsProvider() {
-      return getTsProvider();
-    },
-  };
-}
-
-/**
- * Refresh a single file in whichever provider(s) are loaded.
- * Called by the watcher on `change` events — cheaper than full rebuild.
- */
-export function invalidateFile(filePath: string): void {
-  tsProviderSingleton?.refreshFile(filePath);
-  volarProviderSingleton?.invalidateService(filePath);
-}
-
-/**
- * Drop all loaded providers so they rebuild lazily on the next request.
- * Called by the watcher on `add` and `unlink` events — structural changes
- * that require the full project graph to be refreshed.
- */
-export function invalidateAll(): void {
-  tsProviderSingleton = undefined;
-  volarProviderSingleton = undefined;
-}
+export type { LanguagePlugin } from "../types.js";
+export {
+  clearLanguagePlugins,
+  invalidateAll,
+  invalidateFile,
+  makeRegistry,
+  registerLanguagePlugin,
+} from "./language-plugin-registry.js";
+export { createVueLanguagePlugin } from "./vue-language-plugin.js";
 
 // ─── Operation descriptor table ───────────────────────────────────────────
 
@@ -204,9 +152,6 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
   },
 
   searchText: {
-    // No path params — operates on the whole workspace, not a specific file.
-    // Workspace boundary is enforced by the operation itself (files are walked
-    // from the workspace root and sensitive files are skipped).
     pathParams: [],
     schema: SearchTextArgsSchema,
     async invoke(_registry, params, workspace) {
@@ -232,7 +177,6 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
   },
 
   replaceText: {
-    // No path params — workspace boundary is enforced by the operation itself.
     pathParams: [],
     schema: ReplaceTextArgsSchema,
     async invoke(_registry, params, workspace) {
@@ -264,14 +208,12 @@ export async function dispatchRequest(
     return { ok: false, error: "UNKNOWN_METHOD", message: `Unknown method: ${req.method}` };
   }
 
-  // Validate params against the operation's schema before touching any files
   const parsed = descriptor.schema.safeParse(req.params);
   if (!parsed.success) {
     const message = parsed.error.issues.map((i) => i.message).join("; ");
     return { ok: false, error: "VALIDATION_ERROR", message };
   }
 
-  // Validate all path params are within the workspace
   for (const paramKey of descriptor.pathParams) {
     const value = req.params[paramKey] as string;
     if (!isWithinWorkspace(value, workspace)) {
@@ -283,9 +225,6 @@ export async function dispatchRequest(
     }
   }
 
-  // Operations with path params use the first param to select the right provider
-  // (e.g. which tsconfig covers that file). Operations with no path params
-  // (searchText, replaceText) receive a stub registry — they don't use it.
   const registry =
     descriptor.pathParams.length > 0
       ? makeRegistry(req.params[descriptor.pathParams[0]] as string)

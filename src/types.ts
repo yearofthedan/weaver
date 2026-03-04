@@ -207,14 +207,39 @@ export interface LanguageProvider {
   ): Promise<{ modified: string[]; skipped: string[] }>;
 }
 
+// ─── Language Plugin ───────────────────────────────────────────────────────
+
+/**
+ * Contract for adding language/framework support. Each plugin provides
+ * project-level detection and a `LanguageProvider` factory. The registry
+ * iterates plugins in registration order; first match wins.
+ *
+ * Built-in plugins (e.g. Vue/Volar) are registered at module load time.
+ * The TS provider is always available as the default fallback and is not
+ * modelled as a plugin.
+ */
+export interface LanguagePlugin {
+  /** Stable identifier, e.g. `"vue-volar"`. Unique among registered plugins. */
+  id: string;
+  /** Project-level detection. Receives the resolved tsconfig path. */
+  supportsProject(tsconfigPath: string): boolean;
+  /** Lazy factory — called once per plugin lifetime, result cached by the registry. */
+  createProvider(): Promise<LanguageProvider>;
+  /** Selective cache refresh (watcher `change` events). */
+  invalidateFile?(filePath: string): void;
+  /** Full cache drop (watcher `add`/`unlink` events). */
+  invalidateAll?(): void;
+}
+
 // ─── Registry ──────────────────────────────────────────────────────────────
 
 /**
  * Lazy accessor for compiler providers scoped to a single workspace request.
  *
- * `projectProvider` returns the right provider for the project type — Volar for
- * Vue projects, TsProvider otherwise. `tsProvider` always returns TsProvider for
- * operations that need ts-morph AST access (e.g. moveSymbol).
+ * `projectProvider` returns the right provider for the project type — iterates
+ * registered language plugins, first match wins, TsProvider as fallback.
+ * `tsProvider` always returns TsProvider for operations that need ts-morph
+ * AST access (e.g. moveSymbol).
  *
  * Both providers are lazy singletons: first call initialises, subsequent calls
  * return the cached instance.

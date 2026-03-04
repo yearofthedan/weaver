@@ -45,6 +45,8 @@ const config = {
     "tests/daemon/ensure-daemon.test.ts",
     // dispatcher unit tests: call dispatchRequest directly, no subprocess spawning
     "tests/daemon/dispatcher.test.ts",
+    // language plugin registry unit tests: direct module calls, no subprocess spawning
+    "tests/daemon/language-plugin-registry.test.ts",
     "tests/mcp/call-daemon-timeout.test.ts",
   ],
   mutator: {

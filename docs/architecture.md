@@ -51,24 +51,50 @@ interface LanguageProvider {
 
 ---
 
+## Language plugin contract
+
+The `LanguagePlugin` interface (defined in `src/types.ts`) is the contract for adding language/framework support. Each plugin provides project-level detection and a `LanguageProvider` factory:
+
+```typescript
+interface LanguagePlugin {
+  id: string;                                      // stable identifier, e.g. "vue-volar"
+  supportsProject(tsconfigPath: string): boolean;  // project-level detection
+  createProvider(): Promise<LanguageProvider>;      // lazy factory, result cached by registry
+  invalidateFile?(filePath: string): void;         // selective cache refresh
+  invalidateAll?(): void;                          // full cache drop
+}
+```
+
+**Resolution:** `makeRegistry(filePath)` finds the tsconfig for the input file, then iterates registered plugins in order. The first plugin whose `supportsProject()` returns true provides the `projectProvider`. If no plugin matches (or no tsconfig exists), TsProvider is used as the default fallback.
+
+**Detection is project-level, not file-level.** In a Vue project, even `.ts` file operations go through VolarProvider because Volar's language service sees both `.ts` and `.vue` importers. The detection checks the project (does this tsconfig cover a Vue project?), not the file extension.
+
+**Built-in plugins:** Vue/Volar is registered at module load time (`src/daemon/vue-language-plugin.ts`). The TS provider is the always-available fallback — it's not modelled as a plugin.
+
+**Adding a new language plugin:** Implement `LanguagePlugin` with project detection logic, create a `LanguageProvider` for your framework's compiler, and call `registerLanguagePlugin()`. See `src/daemon/vue-language-plugin.ts` as a template.
+
+---
+
 ## Provider registry
 
-The dispatcher creates a `ProviderRegistry` per request, scoped to the project that contains the input file:
+The registry creates a `ProviderRegistry` per request, scoped to the project that contains the input file:
 
 ```typescript
 interface ProviderRegistry {
-  projectProvider(): Promise<LanguageProvider>  // VolarProvider for Vue projects, TsProvider otherwise
+  projectProvider(): Promise<LanguageProvider>  // first matching plugin, or TsProvider fallback
   tsProvider(): Promise<TsProvider>             // always TsProvider — for AST-level operations
 }
 ```
 
-Provider selection uses `findTsConfigForFile(inputFile)` to locate the right tsconfig, then `isVueProject(tsconfig)` to choose the provider. In a monorepo each package resolves to its own tsconfig and gets the right provider automatically. Both providers are lazy singletons at the daemon level; each manages a per-tsconfig cache internally.
+`projectProvider` resolution iterates registered `LanguagePlugin` entries (see above). `tsProvider` is not subject to plugin resolution — it always returns TsProvider for operations needing direct ts-morph AST access (e.g. `moveSymbol`, `extractFunction`).
+
+In a monorepo each package resolves to its own tsconfig and gets the right provider automatically. Providers are lazy singletons; each manages a per-tsconfig cache internally.
 
 ---
 
 ## Operation dispatch
 
-`src/daemon/dispatcher.ts` uses an `OPERATIONS` descriptor table. Each entry owns:
+`src/daemon/dispatcher.ts` uses an `OPERATIONS` descriptor table (operation dispatch only — language plugin registration and provider resolution live in `src/daemon/language-plugin-registry.ts`). Each entry owns:
 
 - `pathParams` — which params are file paths (first entry is used for provider selection and workspace validation)
 - `schema` — Zod schema for input validation at the socket boundary
@@ -129,10 +155,10 @@ Input validation is at the dispatcher layer; output filtering is at the operatio
 
 ## Provider invalidation
 
-The watcher (`src/daemon/watcher.ts`) calls into the dispatcher:
+The watcher (`src/daemon/watcher.ts`) calls into the language plugin registry:
 
-- `invalidateFile(path)` — on file change; cheaper than full rebuild. Calls `TsProvider.refreshFile` and `VolarProvider.invalidateService`.
-- `invalidateAll()` — on file add/remove; drops both provider singletons so they rebuild lazily on the next request.
+- `invalidateFile(path)` — on file change; cheaper than full rebuild. Refreshes the TS provider, then iterates all registered language plugins calling `plugin.invalidateFile()`. Errors in one plugin do not block others.
+- `invalidateAll()` — on file add/remove; drops the TS provider singleton and all cached plugin providers, then calls `plugin.invalidateAll()` on each plugin. Errors are isolated per plugin.
 
 ---
 

@@ -54,15 +54,17 @@ skills/
 src/
   cli.ts          ← registers only: daemon, serve, stop
   schema.ts
-  types.ts        ← result types + LanguageProvider + ProviderRegistry interfaces
+  types.ts        ← result types + LanguagePlugin + LanguageProvider + ProviderRegistry interfaces
   security.ts     ← isWithinWorkspace() + isSensitiveFile() — boundary + sensitive file blocklist
   mcp.ts          ← MCP server (connects to daemon)
   daemon/
-    daemon.ts         ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher
-    ensure-daemon.ts  ← ensureDaemon (version check + auto-spawn); callDaemon (socket client); spawnDaemon
-    paths.ts          ← socketPath, lockfilePath, ensureCacheDir only
-    dispatcher.ts     ← dispatchRequest; provider singletons; invalidateFile/invalidateAll
-    watcher.ts        ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
+    daemon.ts                    ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher
+    ensure-daemon.ts             ← ensureDaemon (version check + auto-spawn); callDaemon (socket client); spawnDaemon
+    paths.ts                     ← socketPath, lockfilePath, ensureCacheDir only
+    dispatcher.ts                ← dispatchRequest; OPERATIONS table; re-exports registry functions
+    language-plugin-registry.ts  ← LanguagePlugin registry; makeRegistry; invalidateFile/invalidateAll; registers built-in Vue plugin
+    vue-language-plugin.ts       ← createVueLanguagePlugin(); Vue/Volar LanguagePlugin factory
+    watcher.ts                   ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
   operations/
     rename.ts          ← rename(provider, filePath, line, col, newName, workspace)
     findReferences.ts  ← findReferences(provider, filePath, line, col)
@@ -108,7 +110,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P3 — High-value features
 
-- **Plugin architecture foundation (operations + language plugins)** — [spec](specs/20260304-plugin-architecture-foundation.md)
+- **Move Vue provider files into `src/plugins/vue/` feature folder** `[needs design]` — co-locate VolarProvider, vue-scan, vue-service, and vue-language-plugin; template for adding Svelte/Angular plugins; use `moveFile` to dogfood
 - `buildVolarService` refactoring `[needs design]` — extract named sub-functions from the ~176-line monolith; prerequisite for more Vue operations
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
 - **Stage 3: Claude Code Marketplace submission** `[needs design]` — submit to official Anthropic marketplace; position alongside LSP code intelligence plugins
