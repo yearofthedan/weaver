@@ -102,7 +102,9 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-- **`rename`, `findReferences`, `getDefinition` fail with "Could not find source file"** `[needs design]` — User feedback (working-title workspace): all three return `PARSE_ERROR: Could not find source file` for both `.ts` and `.vue` files. Likely causes: (a) Vue projects — `getDefinition` uses `toVirtualLocation`; `findRenameLocations` and `getReferencesAtPosition` may need the same input translation (docs claim proxy auto-translates, but failures suggest otherwise); (b) TS projects — path resolution (workspace vs cwd), project loading, or tsconfig mismatch. These are high-value tools; fixing would raise user rating from ~5/10 to ~8.5/10.
+- **`rename` / `findReferences` fail with "Could not find source file" on `.vue` inputs** → [`docs/specs/20260304-fix-source-file-not-found.md`](specs/20260304-fix-source-file-not-found.md) — `VolarProvider.getRenameLocations` and `getReferencesAtPosition` pass the real `.vue` path to Volar without `toVirtualLocation` translation; fix mirrors the existing `getDefinitionAtPosition` patch.
+
+- **`rename` / `findReferences` / `getDefinition` fail with "Could not find source file" on `.ts` inputs** `[needs design]` — Separate from the Vue `.vue`-path bug above. Suspected cause: caller-supplied path differs from ts-morph's internally normalized path (e.g. symlinked workspace root); fix likely requires using `sourceFile.getFilePath()` when calling TS language service methods in `TsProvider`. Root cause not yet reproduced in a test.
 
 ---
 
