@@ -1,8 +1,6 @@
 name: Quality Feedback
 
 on:
-  push:
-    branches: [main]
   schedule:
     # Run weekly on Monday at 06:00 UTC
     - cron: "0 6 * * 1"
@@ -12,6 +10,7 @@ jobs:
   mutation:
     name: Mutation Testing
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v6
 
