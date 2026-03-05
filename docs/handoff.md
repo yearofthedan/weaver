@@ -138,6 +138,9 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; depends on buildVolarService refactoring; see [moveSymbol.md](features/moveSymbol.md)
 - `createFile` `[needs design]` — scaffold a file with correct import paths
 - **Agent guidance on type errors in tool responses** `[needs design]` — all write operations return `typeErrors`; agents need to know this is an action item (something wasn't fully updated) and follow up with `replaceText`. Currently nothing teaches this pattern. Decision needed: shipped skill file, tool description addition, CLAUDE.md guidance snippet, or combination?
+- **`moveFile` type error return contract** `[needs design]` — currently returns `ok: true` even when `typeErrorCount > 0`. Callers must check both status and `typeErrors` separately. Consider: return `ok: false` when type errors present, add `warnings` field, or change contract to be clearer about semantic vs. structural success. Low priority, usability improvement.
+- **Batch file operations** `[needs design]` — `moveFile` requires N sequential calls for N files; no atomicity. Offer `moveFiles(oldPaths[], newPath)` and `moveDirectory(oldPath, newPath)`. Low priority, quality-of-life improvement for agents.
+- **`searchText` output optimization** `[needs design]` — context array adds ~70% JSON overhead (~150-200 bytes/match). Consider: (a) return `line`/`col` only; (b) only include context when explicitly requested; (c) sparse representation for non-matching lines. Low priority, large-result-set efficiency.
 
 ---
 
