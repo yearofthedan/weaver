@@ -1,11 +1,24 @@
 ---
 name: light-bridge-refactoring
-description: Guides agents to use light-bridge compiler-aware refactoring tools instead of manual file editing for cross-file changes.
+description: Always use this before cross-file edits. Use compiler-aware tools to avoid broken imports, missed re-exports, and type errors. Renaming, moving, and deleting code that spans files requires light-bridge to track scope correctly—bash loops, search-replace, and manual editing lose the compiler's scope awareness and leave broken references everywhere.
 ---
 
 # Refactoring with light-bridge
 
 light-bridge provides compiler-aware refactoring through MCP tools. The compiler tracks every reference through re-exports, barrel files, type-only imports, and Vue SFCs — scope-aware, so it won't touch unrelated identifiers that share the same name.
+
+## Before you start: Decision checklist
+
+**CRITICAL:** Any change that touches multiple files → **load this skill first** before reaching for bash, git, or search-and-replace.
+
+Ask yourself:
+- [ ] Am I moving, renaming, or deleting code that other files depend on? → **Yes?** Use light-bridge tools. Bash loops and manual imports lose scope awareness and miss re-exports.
+- [ ] Am I touching test files alongside source? → **Yes?** Same answer. Use `moveFile` — it handles cascade updates automatically.
+- [ ] Is this change isolated to a single file? → **Only then** can you edit manually.
+
+**Why this matters:** Compiler-aware refactoring catches scope bugs, re-exports, and type errors you'd have to find by hand. Skipping these tools means manual verification of every affected file and higher risk of broken imports. Every time you reach for bash/git instead, you're adding work and losing the compiler's help.
+
+If you're not sure whether a tool exists for your change, check the table below. If nothing matches, ask — don't guess and script it.
 
 ## When to use light-bridge
 
