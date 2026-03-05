@@ -172,9 +172,9 @@ See [docs/why.md](docs/why.md) for a broader look at where light-bridge fits in 
 
 `light-bridge serve` is a stdio MCP server. Configure your agent host to launch it for the workspace you want to refactor.
 
-### Claude Code
+### Installing the MCP server
 
-Add a `.mcp.json` to your project root (checked into version control). **Using `npx` is the easiest option** — it avoids path resolution issues that can occur when the MCP host spawns the process from a different working directory:
+Add a `.mcp.json` according to your project root. The location depends upon your agent framework (eg. Claude Code, Cursor, Roo Code). **Using `npx` is the easiest option** — it avoids path resolution issues that can occur when the MCP host spawns the process from a different working directory:
 
 ```json
 {
@@ -202,86 +202,25 @@ Alternatively, if light-bridge is installed as a dependency, you can use the `li
 }
 ```
 
-For machine-local overrides, add an entry with the Claude CLI instead of editing the committed `.mcp.json`:
-
-```bash
-claude mcp add light-bridge -- light-bridge serve --workspace /absolute/path/to/your/project
-```
-
-### Cursor
-
-Add to `.cursor/mcp.json` in your project root, or to Cursor's global MCP settings. **Using `npx` avoids path issues** when Cursor spawns the process:
-
-```json
-{
-  "mcpServers": {
-    "light-bridge": {
-      "command": "npx",
-      "args": ["-y", "@yearofthedan/light-bridge", "serve", "--workspace", "${workspaceFolder}"]
-    }
-  }
-}
-```
-
-`${workspaceFolder}` is resolved by Cursor to the open workspace root before the process is spawned.
-
-### Roo
-
-Open the Roo MCP settings (gear icon → MCP Servers) and add. **Using `npx` avoids path issues**:
-
-```json
-{
-  "mcpServers": {
-    "light-bridge": {
-      "command": "npx",
-      "args": ["-y", "@yearofthedan/light-bridge", "serve", "--workspace", "/absolute/path/to/your/project"],
-      "disabled": false,
-      "alwaysAllow": [
-        "rename",
-        "moveFile",
-        "moveSymbol",
-        "findReferences",
-        "getDefinition",
-        "searchText",
-        "replaceText"
-      ]
-    }
-  }
-}
-```
-
 ### Guiding the agent (skill file)
 
 The MCP tool descriptions tell agents what each tool does, but not when to reach for them. light-bridge ships a skill file that provides workflow guidance — when to use compiler-aware tools vs manual editing, how to handle responses, and common refactoring sequences.
 
-The skill file is at `skills/refactoring/SKILL.md` in the installed package. Reference it from your agent configuration:
+The skill file covers decision heuristics (rename vs search-and-replace, moveFile vs shell mv), response patterns (act on `typeErrors`, surface `filesSkipped`), common sequences, and error handling.
 
-**Claude Code** — add to your project's `CLAUDE.md`:
+The file is at `.claude/skills/light-bridge-refactoring` in the installed package. Reference it from your agent configuration, or write your own tailored to your use case. Similar to your MCP config, the correct location for skills files will depend upon your agent framework.
 
 ```markdown
 ## Refactoring
 
 Load the light-bridge refactoring skill for cross-file refactoring guidance:
-see `node_modules/@yearofthedan/light-bridge/skills/refactoring/SKILL.md`
+see `node_modules/@yearofthedan/light-bridge/.claude/skills/light-bridge-refactoring`
 ```
 
-**Roo** — reference the skill file from your Roo skill configuration, pointing to `node_modules/@yearofthedan/light-bridge/skills/refactoring/SKILL.md`.
-
-The skill file covers decision heuristics (rename vs search-and-replace, moveFile vs shell mv), response patterns (act on `typeErrors`, surface `filesSkipped`), common sequences, and error handling.
-
 ### Notes
-
-- Keep the committed `.mcp.json` portable (no single-machine absolute paths).
-- Put machine-local path overrides in your user-level MCP config via `claude mcp add ...` so team config stays portable.
-- Run `pnpm agent:check` to enforce MCP config conventions in committed files.
-- Run `pnpm agent:doctor` as an optional local liveness check if MCP tools are missing or fail to start (it does not enforce a fixed tool contract).
 - The daemon auto-spawns on first tool call if not already running. For faster first-call response, start it manually: `light-bridge daemon --workspace /path/to/project`.
 - One `serve` instance per agent session; one daemon per workspace. The daemon keeps running between sessions.
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, build, test, and project structure.
-
-## License
-
-MIT

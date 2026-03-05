@@ -3,19 +3,18 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
-const SKILL_FILE = path.join(PROJECT_ROOT, "skills/refactoring/SKILL.md");
+const SKILL_FILE = path.join(PROJECT_ROOT, ".claude/skills/light-bridge-refactoring/SKILL.md");
 const PACKAGE_JSON = path.join(PROJECT_ROOT, "package.json");
-const CLAUDE_MD = path.join(PROJECT_ROOT, "CLAUDE.md");
 
 describe("shipped skill file", () => {
   describe("packaging", () => {
-    it("exists at skills/refactoring/SKILL.md", () => {
+    it(`exists at ${SKILL_FILE} to be dogfooded by claude`, () => {
       expect(fs.existsSync(SKILL_FILE)).toBe(true);
     });
 
     it("is included in package.json files for npm distribution", () => {
       const pkg = JSON.parse(fs.readFileSync(PACKAGE_JSON, "utf-8"));
-      expect(pkg.files).toContain("skills");
+      expect(pkg.files).toContain(".claude/skills/light-bridge-refactoring");
     });
   });
 
@@ -87,13 +86,6 @@ describe("shipped skill file", () => {
       const content = fs.readFileSync(SKILL_FILE, "utf-8");
       expect(content).not.toContain("mcp__light-bridge__");
       expect(content).not.toContain("mcp__");
-    });
-  });
-
-  describe("dogfooding", () => {
-    it("is referenced from the project CLAUDE.md", () => {
-      const content = fs.readFileSync(CLAUDE_MD, "utf-8");
-      expect(content).toContain("skills/refactoring/SKILL.md");
     });
   });
 });

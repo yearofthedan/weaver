@@ -49,8 +49,7 @@ eval/
   quality-feedback.yml ← mutation testing (weekly + on push to main); Claude Code triage step on score < 75
 .claude/skills/
   mutate-triage/       ← /mutate-triage skill: classify survivors, open issues for noise, fix PRs for fixable gaps
-skills/
-  refactoring/SKILL.md ← shipped with npm; agent workflow guidance for light-bridge tools (when to use, response handling, sequences)
+  light-bridge-refactoring/ ← shipped with npm; agent workflow guidance for light-bridge tools (when to use, response handling, sequences)
 src/
   cli.ts          ← registers only: daemon, serve, stop
   schema.ts
