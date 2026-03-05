@@ -127,7 +127,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P3.5 — Quality tooling
 
-- **Stryker `coverageAnalysis: "perTest"`** `[needs design]` — switch from `"off"` to `"perTest"` so Stryker instruments which tests cover which lines and only runs relevant tests per mutant; faster runs and immediate signal when new code has zero coverage rather than a misleading low score; requires validating Vitest's Istanbul provider works correctly in the Stryker sandbox
+- **Stryker `coverageAnalysis: "perTest"`** → [`docs/specs/20260305-pertest-coverage.md`](specs/20260305-pertest-coverage.md)
 
 ---
 
