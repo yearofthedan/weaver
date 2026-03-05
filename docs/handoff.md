@@ -127,6 +127,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P3.5 — Quality tooling
 
+- **Test colocation and mutation speed** → [`docs/specs/20260305-colocate-tests.md`](specs/20260305-colocate-tests.md) — Two-stage refactor: (1) move unit tests next to source, integration tests to `__tests__/`; (2) refactor source files mixing concerns (`searchText` utilities, `security` concerns, `getTypeErrors` dispatcher plumbing) and optimize fixture copying for `perTest` coverage analysis.
 
 ---
 
