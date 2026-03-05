@@ -127,7 +127,6 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P3.5 — Quality tooling
 
-- **Stryker `coverageAnalysis: "perTest"`** → [`docs/specs/20260305-pertest-coverage.md`](specs/20260305-pertest-coverage.md)
 
 ---
 

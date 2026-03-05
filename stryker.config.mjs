@@ -8,7 +8,9 @@ const config = {
   // line/col positions (searchText, replaceText surgical mode, rename).
   disableTypeChecks: false,
   vitest: {
-    configFile: "vitest.config.ts",
+    // Separate config that excludes subprocess-spawning tests (those tests need
+    // the compiled dist/ binary which is not present in Stryker's sandbox).
+    configFile: "vitest.stryker.config.ts",
     related: false,
   },
   mutate: [
@@ -34,31 +36,6 @@ const config = {
     // to check the new-code score in isolation.
     "!src/daemon/dispatcher.ts",
   ],
-  // Exclude tests that spawn CLI subprocesses — those binaries aren't available
-  // in Stryker's sandbox. New test files work by default; only add an exclusion
-  // here if the test spawns a daemon, CLI process, or MCP server.
-  testFiles: [
-    "tests/**/*.test.ts",
-    // Spawn real daemon/CLI processes — not available in Stryker's sandbox
-    "!tests/daemon/daemon.test.ts",
-    "!tests/daemon/protocol-version.test.ts",
-    "!tests/daemon/run-functions.test.ts",
-    "!tests/daemon/serve.test.ts",
-    "!tests/daemon/stop.test.ts",
-    "!tests/daemon/stop-daemon.test.ts",
-    "!tests/daemon/watcher.test.ts",
-    "!tests/mcp/find-references.test.ts",
-    "!tests/mcp/get-definition.test.ts",
-    "!tests/mcp/move-file.test.ts",
-    "!tests/mcp/move-symbol.test.ts",
-    "!tests/mcp/rename.test.ts",
-    "!tests/mcp/run-serve.test.ts",
-    "!tests/mcp/security.test.ts",
-    "!tests/cli-workspace-default.test.ts",
-    "!tests/eval/**/*.test.ts",
-    // Fixture-internal test — not relevant to src/ mutations
-    "!tests/fixtures/**/*.test.ts",
-  ],
   mutator: {
     excludedMutations: ["StringLiteral", "ArrayDeclaration"],
   },
@@ -74,7 +51,7 @@ const config = {
     low: 60,
     break: 75,
   },
-  coverageAnalysis: "off",
+  coverageAnalysis: "perTest",
   timeoutMS: 120_000,
   concurrency: 2,
 };

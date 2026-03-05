@@ -1,7 +1,7 @@
 # Mutation testing
 
 **Purpose:** Stryker config, known surviving mutants, and hard-won lessons for light-bridge's mutation test suite.
-**Run:** `pnpm test:mutate` (full run, ~22 min) or `pnpm test:mutate:ci` for CI.
+**Run:** `pnpm test:mutate` (full run).
 **See also:** [quality.md](../quality.md) for overall testing strategy.
 
 ---
@@ -24,7 +24,10 @@ stryker run --mutate 'src/operations/getTypeErrors.ts'
 This overrides the `mutate` array from the config. Useful when checking mutation score for touched files without running the full suite.
 
 **`vitest.related: true` doesn't meaningfully speed up an integration-heavy run.**
-When most tests transitively import most of `src/` (as in light-bridge's integration tests), Vitest's import-graph filter barely narrows the per-mutant test set. `related: true` is harmless and may help slightly for isolated utilities, but the real fix for slow mutation runs is `coverageAnalysis: "perTest"` (backlog item).
+When most tests transitively import most of `src/` (as in light-bridge's integration tests), Vitest's import-graph filter barely narrows the per-mutant test set. `related: true` is harmless and may help slightly for isolated utilities.
+
+**Stryker `testFiles` negation patterns (`!`) are silently broken.**
+`FileMatcher` calls `path.resolve(pattern)`, turning `!tests/foo.test.ts` into `/abs/path/!tests/foo.test.ts` — the `!` becomes a literal filename character, so the exclusion never fires. Use a separate vitest config (`vitest.stryker.config.ts`) with `exclude:` arrays instead. Vitest's glob processing handles negation correctly.
 
 **`CI=1` is always set in the dev container — don't use it to detect "local".**
 Use an explicit env var (e.g. `STRYKER_RELATED=false`) and two named scripts (`test:mutate` / `test:mutate:ci`) instead.
