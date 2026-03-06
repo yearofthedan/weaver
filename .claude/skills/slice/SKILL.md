@@ -7,12 +7,12 @@ description: Pick up the next task — if it needs a spec, create one first; if 
 
 ## Agent model
 
-This workflow uses two agents split by mode of work:
+This workflow delegates to two custom subagents defined in `.claude/agents/`:
 
-- **Spec agent** (Opus) — reasoning work: creates specs, reviews architecture, security, and documentation. One agent, different prompts depending on the review type.
-- **Execution agent** (Sonnet) — implementation work: writes code against a spec, runs tests, commits. Faster and cheaper for mechanical changes.
+- **`spec-agent`** (Opus) — reasoning work: creates specs, reviews architecture, security, and documentation.
+- **`execution-agent`** (Sonnet) — implementation work: writes code against a spec, runs tests, commits.
 
-When `/slice` is run in a user context, confirm which agent model to use before proceeding. For fully autonomous runs, default to: Opus for steps 1-2, Sonnet for steps 3-6, Opus for steps 7-9.
+Delegate steps 1-2 to `spec-agent`, steps 3-6 to `execution-agent`, and steps 7-9 to `spec-agent`.
 
 ---
 

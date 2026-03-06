@@ -7,6 +7,7 @@ coverage/
 *.log
 .claude/*
 !.claude/MEMORY.md
+!.claude/agents/
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/*/
