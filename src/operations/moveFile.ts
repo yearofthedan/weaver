@@ -39,10 +39,13 @@ export async function moveFile(
   fs.renameSync(absOld, absNew);
 
   // Provider cleanup (cache invalidation, post-move scans, etc.).
+  // Pass the already-modified set so the fallback scan can skip files that were
+  // already rewritten by getEditsForFileRename.
   const { modified: extraModified, skipped: extraSkipped } = await provider.afterFileRename(
     absOld,
     absNew,
     workspace,
+    filesModified,
   );
 
   for (const f of extraModified) {

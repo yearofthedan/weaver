@@ -133,11 +133,13 @@ export function isWithinWorkspace(filePath: string, workspace: string): boolean 
   const abs = path.resolve(filePath);
   const rel = path.relative(workspace, abs);
   if (rel.startsWith("..")) return false;
-  // For existing paths, also check the real path to catch symlink escapes.
+  // For existing paths, also resolve symlinks on both sides so that a symlinked
+  // workspace root or a symlinked file path don't produce a false "outside" result.
   if (fs.existsSync(abs)) {
     try {
       const real = fs.realpathSync(abs);
-      if (path.relative(workspace, real).startsWith("..")) return false;
+      const realWorkspace = fs.realpathSync(workspace);
+      if (path.relative(realWorkspace, real).startsWith("..")) return false;
     } catch {
       return false;
     }

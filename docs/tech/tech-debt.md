@@ -85,6 +85,16 @@ If a `tsconfig.json` is created, deleted, moved, or `.vue` files are added to a 
 
 ---
 
+## `rewriteSpecifier` in `src/providers/ts.ts` has elevated cyclomatic complexity
+
+The module-level `rewriteSpecifier` function (introduced with the import-rewrite fallback scan) has CC ~6: a bare-match branch, a pair loop, two branches per pair, and a coexisting-file `existsSync` guard. It is correct and tested, but harder to extend safely than it should be.
+
+**Candidate fix:** replace the pair-loop dispatch with a lookup map from specifier suffix to rewrite rule, collapsing the two per-pair branches into a single handler. The `existsSync` guard would become a predicate attached to the JS-family rule.
+
+**Priority:** low. The function is pure, fully covered by tests, and does not contribute to the hot path.
+
+---
+
 ## User feedback: rename / findReferences / getDefinition "Could not find source file" (TS path)
 
 External user (working-title workspace) reports tools fail with `PARSE_ERROR: Could not find source file` for `.ts` files. The Vue path (`.vue` inputs) was fixed by calling `toVirtualLocation` before `findRenameLocations` and `getReferencesAtPosition`.

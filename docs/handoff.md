@@ -101,7 +101,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-- **`moveFile` does not reliably update import references** `[needs design]` — When moving test files (and possibly source files), import paths in referencing files are not always rewritten. This is the most common source of manual cleanup after a move. Root cause not yet isolated — may overlap with the tsconfig.include gap (see P2) or be a separate ts-morph issue. Needs reproduction and investigation.
+- **`moveFile` does not reliably update import references** → [`docs/specs/20260306-movefile-import-rewrite.md`](specs/20260306-movefile-import-rewrite.md) — Three root causes identified: stale project cache in daemon mode, symlink path mismatch, and .js extension resolution failure.
 
 - **`rename` / `findReferences` / `getDefinition` fail with "Could not find source file" on `.ts` inputs** `[needs design]` — Separate from the Vue `.vue`-path bug above. Suspected cause: caller-supplied path differs from ts-morph's internally normalized path (e.g. symlinked workspace root); fix likely requires using `sourceFile.getFilePath()` when calling TS language service methods in `TsProvider`. Root cause not yet reproduced in a test.
 
@@ -164,6 +164,20 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - **`docs/tech/tech-debt.md`** — known structural issues. Includes the `ensureDaemon` one-shot bug.
 - **`@volar/language-core` version skew** — `@vue/language-core` and `@volar/typescript` previously depended on different patch versions of `@volar/language-core`, causing type mismatches. Fixed via `pnpm.overrides` in `package.json` pinning to 2.4.28. `@volar/language-core` is also a direct `devDependency` so TypeScript can resolve the `Language<string>` type import in `volar.ts`.
 - **`moveFile` import gap for files outside `tsconfig.include`** — test files and scripts are not in the ts-morph project; imports in/to them are not rewritten on move. See P2 backlog for details. Workaround: use `replaceText` to fix paths manually after moving.
+
+---
+
+## Agent reflection: light-bridge tool usage during the moveFile import-rewrite slice
+
+The execution agent implementing the `20260306-movefile-import-rewrite` spec did not use the `mcp__light-bridge__*` tools at any point during the session, despite multiple opportunities:
+
+- Moving `toRelBase` from `ts.ts` to `src/utils/relative-path.ts` was done with manual `Edit` + import fixups — `moveSymbol` exists precisely for this.
+- Splitting extension constants to `src/utils/extensions.ts` required manually hunting importers with `Grep` — `findReferences` would have given a compiler-accurate list.
+- Before touching `JS_TS_PAIRS` the agent should have called `findReferences` to understand blast radius; it used text search instead.
+
+The agent defaulted to direct file editing for every structural change. The skill file (`CLAUDE.md` Rule 9, `.claude/skills/light-bridge-refactoring/SKILL.md`) states: "Any change that touches multiple files → load this skill first before reaching for bash, git, or search-and-replace." That rule was not followed.
+
+**Action for next agent:** before any multi-file structural change (move, rename, extract), reach for `mcp__light-bridge__moveSymbol`, `mcp__light-bridge__findReferences`, or `mcp__light-bridge__rename` first. If the tool can't do what's needed, log it in handoff — don't silently fall back to manual edits.
 
 ---
 

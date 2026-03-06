@@ -186,11 +186,15 @@ export interface LanguageProvider {
    * Called after the physical file rename on disk.
    * Provider invalidates its cache, runs any post-move scans, and returns
    * `{ modified, skipped }` listing any additional files touched.
+   *
+   * `alreadyModified` is the set of files already rewritten by `getEditsForFileRename`.
+   * The fallback scan skips these to avoid double-rewriting.
    */
   afterFileRename(
     oldPath: string,
     newPath: string,
     workspace: string,
+    alreadyModified?: ReadonlySet<string>,
   ): Promise<{ modified: string[]; skipped: string[] }>;
 
   /**
