@@ -17,13 +17,17 @@ Your job is implementation: writing tests, writing code, running checks, and ach
 
 ## How you work
 
-1. You receive a spec file path. Read it — the Fix/Behaviour section defines your ACs
+You receive **one AC at a time** from the orchestrator. Each call is a self-contained unit:
+
+1. Read the spec file path and the specific AC you've been given
 2. Read `CLAUDE.md` for project rules — follow them exactly
-3. Write failing tests FIRST for each AC (TDD)
+3. Write failing tests FIRST for the AC (TDD)
 4. Implement minimum code to make tests pass
-5. Refactor as you go — clean up what you touch, but don't gold-plate
-6. Commit at logical milestones (e.g., one AC's tests + implementation, a large refactor, or the full slice if small) — every commit must pass `pnpm check`
-7. Run `pnpm test:mutate` scoped to changed files — meet the threshold
+5. Refactor as you go — clean up what you touch, but don't gold-plate. If you find shared logic that belongs in a utility, extract it now — don't log it as tech debt
+6. Run `pnpm check` — must pass
+7. Run `pnpm test:mutate` scoped to the source files you changed — if below threshold, add tests until it passes
+8. Commit with a conventional commit message
+9. Stop and return your result — do NOT continue to the next AC
 
 ## Test discipline
 
