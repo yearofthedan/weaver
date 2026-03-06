@@ -101,7 +101,11 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
+- **`moveFile` does not reliably update import references** `[needs design]` — When moving test files (and possibly source files), import paths in referencing files are not always rewritten. This is the most common source of manual cleanup after a move. Root cause not yet isolated — may overlap with the tsconfig.include gap (see P2) or be a separate ts-morph issue. Needs reproduction and investigation.
+
 - **`rename` / `findReferences` / `getDefinition` fail with "Could not find source file" on `.ts` inputs** `[needs design]` — Separate from the Vue `.vue`-path bug above. Suspected cause: caller-supplied path differs from ts-morph's internally normalized path (e.g. symlinked workspace root); fix likely requires using `sourceFile.getFilePath()` when calling TS language service methods in `TsProvider`. Root cause not yet reproduced in a test.
+
+- **`getTypeErrors` / write operations: add `warn` status level** `[needs design]` — Currently status is binary (`ok: true/false`). Type errors after a write operation (e.g. `moveFile` returns `ok: true` with `typeErrorCount > 0`) should surface as `status: "warn"` so agents know the operation succeeded structurally but left unresolved references. Supersedes the P4 "moveFile type error return contract" entry.
 
 ---
 
@@ -137,7 +141,6 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; depends on buildVolarService refactoring; see [moveSymbol.md](features/moveSymbol.md)
 - `createFile` `[needs design]` — scaffold a file with correct import paths
 - **Agent guidance on type errors in tool responses** `[needs design]` — all write operations return `typeErrors`; agents need to know this is an action item (something wasn't fully updated) and follow up with `replaceText`. Currently nothing teaches this pattern. Decision needed: shipped skill file, tool description addition, CLAUDE.md guidance snippet, or combination?
-- **`moveFile` type error return contract** `[needs design]` — currently returns `ok: true` even when `typeErrorCount > 0`. Callers must check both status and `typeErrors` separately. Consider: return `ok: false` when type errors present, add `warnings` field, or change contract to be clearer about semantic vs. structural success. Low priority, usability improvement.
 - **Batch file operations** `[needs design]` — `moveFile` requires N sequential calls for N files; no atomicity. Offer `moveFiles(oldPaths[], newPath)` and `moveDirectory(oldPath, newPath)`. Low priority, quality-of-life improvement for agents.
 - **`searchText` output optimization** `[needs design]` — context array adds ~70% JSON overhead (~150-200 bytes/match). Consider: (a) return `line`/`col` only; (b) only include context when explicitly requested; (c) sparse representation for non-matching lines. Low priority, large-result-set efficiency.
 

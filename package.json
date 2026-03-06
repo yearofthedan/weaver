@@ -26,7 +26,7 @@
     "test:mutate": "rm -rf .stryker-tmp && stryker run",
     "eval": "tsx eval/run-eval.ts",
     "check": "biome check . && pnpm build && pnpm test",
-    "prepare": "tsc && chmod +x dist/cli.js",
+    "prepare": "husky",
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
@@ -66,6 +66,7 @@
     "@types/node": "24.11.0",
     "@vitest/coverage-v8": "4.0.18",
     "@volar/language-core": "2.4.28",
+    "husky": "9.1.7",
     "promptfoo": "0.120.26",
     "tsx": "4.21.0",
     "vitest": "4.0.18"

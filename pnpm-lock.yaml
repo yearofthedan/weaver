@@ -57,6 +57,9 @@ importers:
       '@volar/language-core':
         specifier: 2.4.28
         version: 2.4.28
+      husky:
+        specifier: 9.1.7
+        version: 9.1.7
       promptfoo:
         specifier: 0.120.26
         version: 0.120.26(@types/json-schema@7.0.15)(@types/node@24.11.0)(pg@8.19.0)(playwright-core@1.58.2)(socks@2.8.7)
@@ -3224,6 +3227,11 @@ packages:
   human-signals@8.0.1:
     resolution: {integrity: sha512-eKCa6bwnJhvxj14kZk5NCPc6Hb6BdsU9DZcOnmQKSnO1VKrfV0zCvtttPZUsBvjmNDn8rpcJfpwSYnHBjc95MQ==}
     engines: {node: '>=18.18.0'}
+
+  husky@9.1.7:
+    resolution: {integrity: sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   ibm-cloud-sdk-core@5.4.8:
     resolution: {integrity: sha512-tLMlZv13cV6S1UPj/bhv8XfV9Z1BDDs/4DxHKWnCw7QlJMzmGdHLPX386x9nrFMQMPZ48eAH+Thsa06tzUZkaA==}
@@ -8861,6 +8869,8 @@ snapshots:
       - supports-color
 
   human-signals@8.0.1: {}
+
+  husky@9.1.7: {}
 
   ibm-cloud-sdk-core@5.4.8:
     dependencies:

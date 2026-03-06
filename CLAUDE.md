@@ -57,6 +57,9 @@ The `mcp__light-bridge__*` tools are always available (configured in `.mcp.json`
 
 The shipped skill file at `.claude/skills/light-bridge-refactoring/SKILL.md` is the canonical refactoring guidance — the same file external users load.
 
+**Rule 11: Pin exact dependency versions. Never use `^` or `~` ranges.**
+Ranges let a compromised patch release auto-install on the next `pnpm install`, turning a single package takeover into a supply-chain attack across every consumer. All versions in `package.json` must be exact (e.g. `"1.2.3"`, not `"^1.2.3"`). Only install actively maintained packages — check for deprecation warnings before adding a dependency.
+
 ---
 
 ## Commits
