@@ -6,7 +6,8 @@ import type { TsProvider } from "../providers/ts.js";
 import { isWithinWorkspace } from "../security.js";
 import type { DeleteFileResult } from "../types.js";
 import { assertFileExists } from "../utils/assert-file.js";
-import { TS_EXTENSIONS, walkFiles } from "../utils/file-walk.js";
+import { TS_EXTENSIONS } from "../utils/extensions.js";
+import { walkFiles } from "../utils/file-walk.js";
 
 export async function deleteFile(
   tsProvider: TsProvider,

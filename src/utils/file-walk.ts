@@ -8,12 +8,6 @@ import * as path from "node:path";
  */
 export const SKIP_DIRS = new Set(["node_modules", ".git", "dist", ".nuxt", ".output", ".vite"]);
 
-/** Source file extensions for a plain TypeScript/JavaScript project. */
-export const TS_EXTENSIONS: ReadonlySet<string> = new Set([".ts", ".tsx", ".js", ".jsx"]);
-
-/** Source file extensions for a Vue project (superset of TS_EXTENSIONS). */
-export const VUE_EXTENSIONS: ReadonlySet<string> = new Set([".ts", ".tsx", ".js", ".jsx", ".vue"]);
-
 /**
  * Collect all files under `dir` whose extension is in `extensions`.
  *

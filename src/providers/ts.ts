@@ -4,7 +4,9 @@ import { Project } from "ts-morph";
 import { isWithinWorkspace } from "../security.js";
 import type { DefinitionLocation, FileTextEdit, LanguageProvider, SpanLocation } from "../types.js";
 import { EngineError } from "../utils/errors.js";
-import { TS_EXTENSIONS, walkFiles } from "../utils/file-walk.js";
+import { JS_EXTENSIONS, JS_TS_PAIRS, TS_EXTENSIONS } from "../utils/extensions.js";
+import { walkFiles } from "../utils/file-walk.js";
+import { toRelBase } from "../utils/relative-path.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 
 export class TsProvider implements LanguageProvider {
@@ -151,23 +153,49 @@ export class TsProvider implements LanguageProvider {
   }
 
   async getEditsForFileRename(oldPath: string, newPath: string): Promise<FileTextEdit[]> {
+    // Invalidate and rebuild the project so files added after the initial load are included.
+    this.invalidateProject(oldPath);
     const project = this.getProject(oldPath);
     if (!project.getSourceFile(oldPath)) {
       project.addSourceFileAtPath(oldPath);
     }
 
+    // Resolve symlinks so paths match ts-morph's internal canonical paths.
+    // Use real paths only for the TS language service call; preserve originals for
+    // the physical rename and response paths.
+    let realOldPath = oldPath;
+    let realNewPath = newPath;
+    try {
+      realOldPath = fs.realpathSync(oldPath);
+      // newPath does not exist yet; resolve its directory and reconstruct.
+      const newDir = fs.realpathSync(path.dirname(newPath));
+      realNewPath = path.join(newDir, path.basename(newPath));
+    } catch {
+      // If realpathSync fails (e.g. directory doesn't exist), fall back to originals.
+      realOldPath = oldPath;
+      realNewPath = newPath;
+    }
+
+    // Ensure the source file under the real path is in the project.
+    if (realOldPath !== oldPath && !project.getSourceFile(realOldPath)) {
+      project.addSourceFileAtPath(realOldPath);
+    }
+
     const ls = project.getLanguageService().compilerObject;
-    const edits = ls.getEditsForFileRename(oldPath, newPath, {}, {});
+    const edits = ls.getEditsForFileRename(realOldPath, realNewPath, {}, {});
 
     return edits
       .filter((e) => e.textChanges.length > 0)
       .map((e) => ({
         fileName: e.fileName,
-        textChanges: e.textChanges.map((c) => ({
-          span: { start: c.span.start, length: c.span.length },
-          newText: c.newText,
-        })),
-      }));
+        textChanges: e.textChanges
+          .filter((c) => !isCoexistingJsFileEdit(e.fileName, c.span.start, c.span.length))
+          .map((c) => ({
+            span: { start: c.span.start, length: c.span.length },
+            newText: c.newText,
+          })),
+      }))
+      .filter((e) => e.textChanges.length > 0);
   }
 
   readFile(filePath: string): string {
@@ -188,44 +216,46 @@ export class TsProvider implements LanguageProvider {
     return { modified: [], skipped: [] };
   }
 
+  /**
+   * Fallback scan run after the physical rename.
+   *
+   * Invalidates the project so subsequent operations see the file at its new
+   * location, then walks all workspace files to rewrite any import/export
+   * specifier still pointing at the old path. This catches cases the TS language
+   * service misses — e.g. `.js` extension imports under `moduleResolution: "node"`,
+   * or files added to disk after the project was loaded.
+   *
+   * `alreadyModified` skips files already rewritten by `getEditsForFileRename`
+   * to prevent double-rewrites. Matching is exact (full specifier), not substring,
+   * so `./utils` never matches `./my-utils`. For specifiers with a JS-family
+   * extension (`.js`, `.jsx`, `.mjs`, `.cjs`), the rewrite is skipped if a real
+   * file with that extension exists on disk alongside the moved `.ts` file —
+   * that import refers to the JS file, not the TypeScript source.
+   */
   async afterFileRename(
     oldPath: string,
     newPath: string,
     workspace: string,
+    alreadyModified: ReadonlySet<string> = new Set(),
   ): Promise<{ modified: string[]; skipped: string[] }> {
-    // Capture project file paths before invalidation (for the post-scan skip list).
-    const project = this.getProject(oldPath);
-    const projectFilePaths = new Set(
-      project.getSourceFiles().map((sf) => sf.getFilePath() as string),
-    );
-    this.invalidateProject(oldPath);
+    this.invalidateProject(newPath);
 
-    // Scan out-of-project files that the TS language service doesn't see.
-    // (The language service only processes files listed in tsconfig `include`.)
     const workspaceRoot = path.resolve(workspace);
     const modified: string[] = [];
     const skipped: string[] = [];
 
     for (const filePath of walkFiles(workspaceRoot, [...TS_EXTENSIONS])) {
-      if (projectFilePaths.has(filePath)) continue;
+      if (alreadyModified.has(filePath)) continue;
       if (!isWithinWorkspace(filePath, workspace)) {
         skipped.push(filePath);
         continue;
       }
 
       const fromDir = path.dirname(filePath);
-      const relOldBase = (() => {
-        const r = path.relative(fromDir, oldPath.replace(/\.(ts|tsx)$/, ""));
-        return r.startsWith(".") ? r : `./${r}`;
-      })();
-      const relNewBase = (() => {
-        const r = path.relative(fromDir, newPath.replace(/\.(ts|tsx)$/, ""));
-        return r.startsWith(".") ? r : `./${r}`;
-      })();
+      const relOldBase = toRelBase(fromDir, oldPath);
+      const relNewBase = toRelBase(fromDir, newPath);
 
       const raw = fs.readFileSync(filePath, "utf8");
-
-      // Use ts-morph to update only import/export specifiers, not comments or strings.
       const tmpProject = new Project({ useInMemoryFileSystem: true });
       const sf = tmpProject.createSourceFile(filePath, raw);
       let hasChanges = false;
@@ -233,12 +263,10 @@ export class TsProvider implements LanguageProvider {
       for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {
         const specifier = decl.getModuleSpecifierValue();
         if (specifier === undefined) continue;
-        for (const ext of ["", ".js", ".ts", ".tsx"]) {
-          if (specifier === relOldBase + ext) {
-            decl.setModuleSpecifier(relNewBase + ext);
-            hasChanges = true;
-            break;
-          }
+        const replacement = rewriteSpecifier(specifier, relOldBase, relNewBase, fromDir);
+        if (replacement !== null) {
+          decl.setModuleSpecifier(replacement);
+          hasChanges = true;
         }
       }
 
@@ -250,4 +278,54 @@ export class TsProvider implements LanguageProvider {
 
     return { modified, skipped };
   }
+}
+
+/**
+ * Returns true if `specifier` has a JS-family extension and resolves to a real
+ * file on disk at `fromDir`. Used to suppress rewrites of imports that genuinely
+ * target a `.js` file rather than aliasing a `.ts` source.
+ */
+function isCoexistingJsFile(specifier: string, fromDir: string): boolean {
+  if (!JS_EXTENSIONS.has(path.extname(specifier))) return false;
+  return fs.existsSync(path.resolve(fromDir, specifier));
+}
+
+/**
+ * Returns true if the text span at `start`/`length` in `fileName` is a JS-family
+ * import specifier that resolves to a real file on disk — the edit must be suppressed.
+ */
+function isCoexistingJsFileEdit(fileName: string, start: number, length: number): boolean {
+  let content: string;
+  try {
+    content = fs.readFileSync(fileName, "utf8");
+  } catch {
+    return false;
+  }
+  return isCoexistingJsFile(content.slice(start, start + length), path.dirname(fileName));
+}
+
+/**
+ * Given a parsed import specifier, return the rewritten specifier if it matches
+ * the old path base, or `null` if no rewrite is needed.
+ *
+ * JS-family extensions (`.js`, `.jsx`, `.mjs`, `.cjs`) are only rewritten when
+ * no real file with that extension exists at `fromDir`.
+ */
+function rewriteSpecifier(
+  specifier: string,
+  relOldBase: string,
+  relNewBase: string,
+  fromDir: string,
+): string | null {
+  if (specifier === relOldBase) return relNewBase;
+
+  for (const [jsExt, tsExt] of JS_TS_PAIRS) {
+    if (specifier === relOldBase + jsExt) {
+      if (isCoexistingJsFile(specifier, fromDir)) return null;
+      return relNewBase + jsExt;
+    }
+    if (specifier === relOldBase + tsExt) return relNewBase + tsExt;
+  }
+
+  return null;
 }

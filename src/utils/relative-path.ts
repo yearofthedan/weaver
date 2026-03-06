@@ -1,6 +1,19 @@
 import * as path from "node:path";
 
 /**
+ * Strip the TypeScript source extension from `absPath` and return a
+ * `./`-prefixed relative specifier base from `fromDir`.
+ *
+ * Used by the import-rewrite fallback scan to compute the bare specifier that
+ * would appear in an import statement before any extension suffix.
+ */
+export function toRelBase(fromDir: string, absPath: string): string {
+  const stripped = absPath.replace(/\.(ts|tsx|mts|cts)$/, "");
+  const r = path.relative(fromDir, stripped);
+  return r.startsWith(".") ? r : `./${r}`;
+}
+
+/**
  * Compute a relative import specifier from `fromFile` to `toFile`.
  *
  * TypeScript source extensions are replaced with their runtime equivalents

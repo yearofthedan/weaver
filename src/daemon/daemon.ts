@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { z } from "zod";
 import { validateWorkspace } from "../security.js";
 import { EngineError } from "../utils/errors.js";
-import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../utils/file-walk.js";
+import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../utils/extensions.js";
 import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
 import { dispatchRequest, invalidateAll, invalidateFile } from "./dispatcher.js";
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
