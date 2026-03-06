@@ -31,6 +31,24 @@ Do not log per-session "fixed X" history here; keep durable process guidance onl
 
 ---
 
+## Hard-won rules
+
+**Never reference AC numbers or spec identifiers in code comments or test labels.**
+Comments and tests describe behaviour; specs are transitory and get archived.
+
+**Always use light-bridge tools for multi-file structural changes.**
+Before moving a symbol, renaming across files, or checking blast radius: use `moveSymbol`, `rename`, or `findReferences` first. Direct `Edit` + `Grep` loops miss re-exports and defeat the purpose of the tool. If a tool can't do what's needed, log it in `docs/handoff.md`.
+
+**`moveSymbol` appends to dest file — pre-written declarations cause duplicates.**
+If the destination file already contains the symbol, `moveSymbol` appends a second declaration. Read the dest file after calling it and remove any duplicate.
+
+**`moveSymbol` does not update test files outside the TS project graph.**
+Files not in `tsconfig.include` (e.g. `tests/`) are not rewritten. Check for and fix those imports manually after the move.
+
+**Commit at every logical milestone — do not let changes accumulate.**
+
+---
+
 ## Agent behaviour
 
 **Commit body explains WHY, not WHAT.** Split commits at logical boundaries.
