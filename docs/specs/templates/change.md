@@ -36,6 +36,12 @@ Why this change exists. One paragraph max — the feature doc has the background
 > Code smells in the target area that should be fixed before or during this work,
 > not extended. Examples: oversized files, duplicated logic, missing abstractions.
 > The spec agent can dispatch cleanup as a sub-slice before the feature ACs.
+>
+> **Test hotspots:** Check the test files that will be touched. If any are at or
+> near threshold, assess using the test refactoring hierarchy in
+> `docs/code-standards.md` (push down to units → decompose source → extract
+> fixtures → parameterise → split by area as last resort). Include a prep step
+> if refactoring is needed before adding new tests.
 
 - (none, or list smells found during exploration)
 

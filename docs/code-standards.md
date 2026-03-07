@@ -35,6 +35,22 @@ Comments exist to provide context that cannot be gathered from names, types, and
 - Do not add comments like `// Verify X` or `// Check that Y` above assertions. The assertion *is* the verification. If the intent is unclear, improve the test structure: use descriptive `it()` names, extract setup into named helpers, or use custom matchers.
 - Group related assertions naturally with blank lines rather than comment headers.
 
+## Tests
+
+The same file-size thresholds apply to test files. A large test file is usually a symptom — diagnose the cause before splitting.
+
+**Refactoring hierarchy** (work top to bottom):
+
+1. **Push integration tests down.** If an integration test is large because it exercises lots of internal logic, extract that logic into units with their own tests. Keep the integration test narrow — it should verify the integration point, not re-test the units.
+2. **Decompose the source.** If a unit test is large because the unit under test is complex, the source itself probably needs decomposition. Split the source; tests follow naturally.
+3. **Extract shared fixtures and setup.** Repeated project scaffolding (`mkdirSync`, `writeFileSync`, tsconfig boilerplate) belongs in shared helpers. Co-locate in `tests/helpers/` or a `__helpers__` file next to the tests.
+4. **Use parameterised tests.** When multiple cases test the same behaviour with different inputs, use `it.each` / `describe.each` rather than duplicating test bodies.
+5. **Split by feature area (last resort).** If the above steps aren't enough, split the file along feature boundaries. This is a last resort because it can obscure which tests cover which code paths.
+
+**Avoid:**
+
+- Extracting assertion helpers that hide what's being checked. Indirection in assertions makes test failures harder to diagnose. Prefer inline assertions with clear variable names.
+
 ## Refactoring triggers
 
 These are signals to pause and refactor before continuing:

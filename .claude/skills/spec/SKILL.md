@@ -26,7 +26,11 @@ description: Create or refine a task specification from a handoff.md entry — p
    - If you have more than 5 ACs, stop and discuss splitting with the user (see template guidance)
    - Do NOT proceed past this step without user agreement on the ACs
 
-8. **Populate Relevant files and Red flags.** As you explored the codebase to draft ACs, you read files containing reusable logic, similar patterns, and shared types. List them in the `Relevant files` section with a brief note on why each matters. Also note any code smells in the target area (oversized files, duplication, missing abstractions) under `Red flags`. Reference `docs/code-standards.md` for thresholds. If red flags are severe enough to warrant cleanup before feature work, note that a cleanup sub-slice should be dispatched to the execution agent first.
+8. **Populate Relevant files and Red flags.** As you explored the codebase to draft ACs, you read files containing reusable logic, similar patterns, and shared types. List them in the `Relevant files` section with a brief note on why each matters. Also note any code smells in the target area (oversized files, duplication, missing abstractions) under `Red flags`. Reference `docs/code-standards.md` for thresholds.
+
+   **Test hotspot assessment:** Check the test files that will be touched by this spec. If any are at or near threshold, assess them using the test refactoring hierarchy in `docs/code-standards.md` and include a prep step in the spec to refactor them before adding new tests.
+
+   If red flags are severe enough to warrant cleanup before feature work, note that a cleanup sub-slice should be dispatched to the execution agent first.
 
 9. **Fill in Interface (change only).** See `docs/specs/templates/change.md` for the full walkthrough. For every parameter and return field, answer:
    - What does it contain? (not just the type — the actual information)
