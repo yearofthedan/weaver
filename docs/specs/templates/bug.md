@@ -60,6 +60,22 @@ Acceptance criteria for the fix:
 > depth, a collection with 0 or 1 elements instead of N. If the bug is in a
 > boundary condition, the adjacent inputs often reveal siblings.
 
+## Security
+
+> **Prompt:** Review [`docs/security.md`](../../security.md) for the full threat model.
+> Every fix must explicitly state whether it affects these surfaces.
+> Write "N/A" with a one-line reason when a category does not apply —
+> a blank section means the analysis was skipped, not that the fix is safe.
+
+- **Workspace boundary:** Does the fix change how files are read or written?
+  Could the fix bypass `isWithinWorkspace` or weaken an existing boundary check?
+- **Sensitive file exposure:** Does the fix touch code that reads file content?
+  Could it expose secrets that were previously blocked?
+- **Input injection:** Does the fix change how user-supplied strings are handled?
+  Could a crafted input reach the filesystem or shell through the new code path?
+- **Response leakage:** Does the fix change error messages or response fields?
+  Could file content or user-controlled strings leak into agent-visible output?
+
 ## Edges
 
 Related cases to verify — the fix shouldn't be so narrow it only covers

@@ -15,6 +15,20 @@
 }
 ```
 
+If the destination already exports a symbol with the same name, the operation returns a `SYMBOL_EXISTS` error. Pass `force: true` to replace the destination declaration with the source version:
+
+```json
+{
+  "name": "moveSymbol",
+  "arguments": {
+    "sourceFile": "/path/to/project/src/utils.ts",
+    "symbolName": "calculateTotal",
+    "destFile": "/path/to/project/src/math/totals.ts",
+    "force": true
+  }
+}
+```
+
 `filesModified` lists every file written (sourceFile, destFile, and all importers updated). See [mcp-transport.md](./mcp-transport.md) for the full response contract.
 
 ## How it works
@@ -66,6 +80,7 @@ See [security.md](../security.md) for the full threat model.
 - Re-exports via `export { foo }` are rejected with `NOT_SUPPORTED`.
 - Class methods are not supported — top-level exports only.
 - `destFile` must be within the workspace boundary.
+- If the destination file already exports a declaration with the same name as `symbolName`, the operation returns a `SYMBOL_EXISTS` error and makes no changes to any file. Pass `force: true` to replace the destination declaration with the source version ("source wins", like `mv -f`). The conflict check only considers exported declarations; a non-exported same-name declaration in the destination does not trigger the error.
 - Moving symbols *from* a `.vue` source file is not yet supported. The shipped path moves TS exports and then patches Vue importers; moving declarations from `<script setup>` blocks requires SFC-aware block parsing (e.g. via `@vue/compiler-sfc`).
 
 ## Technical decisions

@@ -38,14 +38,14 @@ The fix is not a simple deduplication. The caller's intent is ambiguous: they ma
 
 ## Behaviour
 
-- [ ] **AC1: Error when destination already exports the symbol (no `force`).**
+- [x] **AC1: Error when destination already exports the symbol (no `force`).**
   Input: `src/a.ts` exports `export const FOO = 1;`. `src/b.ts` contains `export const FOO = 42;`. Call `moveSymbol({ sourceFile: "src/a.ts", symbolName: "FOO", destFile: "src/b.ts" })`.
   Expected: Returns `EngineError` with code `SYMBOL_EXISTS` and a message naming both the symbol and the destination file. Neither file is modified. No importers are changed.
 
   _Laziest wrong impl:_ Throw the error but still remove from source first. The source file loses the declaration even though the move was rejected.
   _Narrowest broken sibling:_ Only check `const` declarations; miss `export function FOO` or `export class FOO` in the destination.
 
-- [ ] **AC2: With `force: true`, source declaration replaces dest declaration, importers rewritten.**
+- [x] **AC2: With `force: true`, source declaration replaces dest declaration, importers rewritten.**
   Input: Same setup as AC1. Call `moveSymbol({ sourceFile: "src/a.ts", symbolName: "FOO", destFile: "src/b.ts", force: true })`.
   `src/c.ts` contains `import { FOO } from "./a";`.
   Expected: The existing `FOO` declaration in `src/b.ts` is removed and the source `FOO` declaration is appended. `FOO` is removed from `src/a.ts`. `src/c.ts` import is rewritten to point to `src/b.ts`. `filesModified` includes `src/a.ts`, `src/b.ts`, and `src/c.ts`.
@@ -53,13 +53,13 @@ The fix is not a simple deduplication. The caller's intent is ambiguous: they ma
   _Laziest wrong impl:_ Append the source declaration without removing the existing dest declaration -- produces the same `Cannot redeclare` error this spec is meant to fix.
   _Narrowest broken sibling:_ Only handle the case where `force` is explicitly `true`; crash or ignore when `force` is `false` (should behave same as omitted).
 
-- [ ] **AC3: Normal move (dest does not have the symbol) is unaffected by the `force` flag.**
+- [x] **AC3: Normal move (dest does not have the symbol) is unaffected by the `force` flag.**
   Input: `src/a.ts` exports `BAR`. `src/b.ts` exists but does not export `BAR`. Call `moveSymbol({ sourceFile: "src/a.ts", symbolName: "BAR", destFile: "src/b.ts" })` (no `force`).
   Expected: `BAR` is removed from `src/a.ts`, appended to `src/b.ts`, importers rewritten. Same behaviour as before this change.
 
   _Why needed:_ The duplicate-detection guard must not accidentally block normal moves. Also verifies that `force: true` on a non-conflicting move is a no-op (accepted but ignored).
 
-- [ ] **AC4: Non-exported same-name declaration in dest is not treated as a conflict.**
+- [x] **AC4: Non-exported same-name declaration in dest is not treated as a conflict.**
   Input: `src/a.ts` exports `export const FOO = 1;`. `src/b.ts` contains `const FOO = 42;` (not exported). Call `moveSymbol({ sourceFile: "src/a.ts", symbolName: "FOO", destFile: "src/b.ts" })`.
   Expected: The operation proceeds with the append (no `SYMBOL_EXISTS` error). The `SYMBOL_EXISTS` check only considers exported declarations, matching the same `getExportedDeclarations()` API used to find the symbol in the source file. The resulting `Cannot redeclare` type error surfaces via the `typeErrors` response field -- that is a conflict in the user's code, not something `moveSymbol` should intercept.
 
@@ -130,12 +130,20 @@ No changes to `MoveSymbolResult`. When `force: true` is used, the return shape i
 
 ## Done-when
 
-- [ ] All ACs (1-4) verified by tests
-- [ ] Mutation score >= threshold for `src/operations/moveSymbol.ts`
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated:
+- [x] All ACs (1-4) verified by tests
+- [x] Mutation score >= threshold for `src/operations/moveSymbol.ts`
+- [x] `pnpm check` passes (lint + build + test)
+- [x] Docs updated:
       - `docs/features/moveSymbol.md` updated with `force` parameter and `SYMBOL_EXISTS` behaviour
       - `docs/handoff.md` current-state section updated if needed
-- [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas captured in docs/agent-memory.md (skip if nothing worth recording)
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Tech debt discovered during implementation added to handoff.md as [needs design]
+- [x] Non-obvious gotchas captured in docs/agent-memory.md (skip if nothing worth recording)
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Shipped:** 2026-03-07
+
+- **Tests:** 480 total passing (added ~10 new tests for this feature)
+- **Mutation score:** 83.19% for `src/operations/moveSymbol.ts` (above threshold)
+- **Key decision:** `force` uses "source replaces dest" semantics, reversed from the initial spec draft which had "keep dest" semantics. The User intent statement ("I want to move a symbol") made the correct semantics obvious -- if the user says "move X to Y", the moved symbol should be the one that survives. This led to adding a "User intent" section to the change spec template as a standard practice.
