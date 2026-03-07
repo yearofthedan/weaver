@@ -10,6 +10,23 @@
 
 Why this change exists. One paragraph max — the feature doc has the background.
 
+## Relevant files
+
+> Files the executor should read before starting. The spec agent populates
+> this during exploration — it's nearly free since you already read these files.
+> Include files with reusable logic, similar patterns, shared types, or code
+> that will be directly modified.
+
+- `path/to/file.ts` — why it matters
+
+### Red flags
+
+> Code smells in the target area that should be fixed before or during this work,
+> not extended. Examples: oversized files, duplicated logic, missing abstractions.
+> The spec agent can dispatch cleanup as a sub-slice before the feature ACs.
+
+- (none, or list smells found during exploration)
+
 ## Value / Effort
 
 > **Prompt:** Use this to decide whether the task is worth doing *now*.

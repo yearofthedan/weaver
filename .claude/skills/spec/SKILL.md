@@ -24,22 +24,24 @@ description: Create or refine a task specification from a handoff.md entry — p
    - If you have more than 5 ACs, stop and discuss splitting with the user (see template guidance)
    - Do NOT proceed past this step without user agreement on the ACs
 
-7. **Fill in Interface (change only).** See `docs/specs/templates/change.md` for the full walkthrough. For every parameter and return field, answer:
+7. **Populate Relevant files and Red flags.** As you explored the codebase to draft ACs, you read files containing reusable logic, similar patterns, and shared types. List them in the `Relevant files` section with a brief note on why each matters. Also note any code smells in the target area (oversized files, duplication, missing abstractions) under `Red flags`. Reference `docs/code-standards.md` for thresholds. If red flags are severe enough to warrant cleanup before feature work, note that a cleanup sub-slice should be dispatched to the execution agent first.
+
+8. **Fill in Interface (change only).** See `docs/specs/templates/change.md` for the full walkthrough. For every parameter and return field, answer:
    - What does it contain? (not just the type — the actual information)
    - What are the realistic bounds? What's an example value?
    - What's the zero/empty case? The adversarial case?
    - If the operation wraps a compiler/external API, read the API source to answer these — don't guess
 
-8. **Fill in Edges.** Ask: "what must NOT change?" and "what assumptions are we making?" These become regression tests during implementation.
+9. **Fill in Edges.** Ask: "what must NOT change?" and "what assumptions are we making?" These become regression tests during implementation.
 
-9. **Review the Done-when checklist.** Add any task-specific verification steps (e.g., "works via both MCP and CLI", "mutation score for this file specifically").
+10. **Review the Done-when checklist.** Add any task-specific verification steps (e.g., "works via both MCP and CLI", "mutation score for this file specifically").
 
-10. **Update handoff.md.** Change the entry from `[needs design]` to a link to the new spec file. Remove inline ACs or description that moved to the spec — the handoff entry becomes one line.
+11. **Update handoff.md.** Change the entry from `[needs design]` to a link to the new spec file. Remove inline ACs or description that moved to the spec — the handoff entry becomes one line.
 
-11. **Confirm with the user.** Show a summary of the spec before finishing:
+12. **Confirm with the user.** Show a summary of the spec before finishing:
     - Number of ACs
     - Key interface decisions
     - Anything flagged for the Edges section
     - Ask: "Ready to implement, or want to revise?"
 
-12. **Commit.** Use `docs(specs): add spec for [short-title]` as the commit message.
+13. **Commit.** Use `docs(specs): add spec for [short-title]` as the commit message.

@@ -20,14 +20,16 @@ Your job is implementation: writing tests, writing code, running checks, and ach
 You receive **one AC at a time** from the orchestrator. Each call is a self-contained unit:
 
 1. Read the spec file path and the specific AC you've been given
-2. Read `CLAUDE.md` for project rules — follow them exactly
-3. Write failing tests FIRST for the AC (TDD)
-4. Implement minimum code to make tests pass
-5. Refactor as you go — clean up what you touch, but don't gold-plate. If you find shared logic that belongs in a utility, extract it now — don't log it as tech debt
-6. Run `pnpm check` — must pass
-7. Run `pnpm test:mutate` scoped to the source files you changed — if below threshold, add tests until it passes
-8. Commit with a conventional commit message
-9. Stop and return your result — do NOT continue to the next AC
+2. Read `CLAUDE.md` for project rules and `docs/code-standards.md` for coding standards — follow them exactly
+3. **Pre-implementation check:** Read the spec's `Relevant files` section and the target files you'll modify. Assess file sizes and complexity against the thresholds in `docs/code-standards.md`. If a target file is already near or over 300 lines, extract before extending. Search for existing utilities before writing new ones.
+4. Address any `Red flags` from the spec — if the spec notes cleanup is needed first, do that before the feature work
+5. Write failing tests FIRST for the AC (TDD)
+6. Implement minimum code to make tests pass
+7. Refactor as you go — clean up what you touch, but don't gold-plate. If you find shared logic that belongs in a utility, extract it now — don't log it as tech debt
+8. Run `pnpm check` — must pass
+9. Run `pnpm test:mutate` scoped to the source files you changed — if below threshold, add tests until it passes
+10. Commit with a conventional commit message
+11. Stop and return your result — do NOT continue to the next AC
 
 ## Test discipline
 

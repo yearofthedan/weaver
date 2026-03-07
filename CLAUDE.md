@@ -60,6 +60,9 @@ The shipped skill file at `.claude/skills/light-bridge-refactoring/SKILL.md` is 
 **Rule 11: Pin exact dependency versions. Never use `^` or `~` ranges.**
 Ranges let a compromised patch release auto-install on the next `pnpm install`, turning a single package takeover into a supply-chain attack across every consumer. All versions in `package.json` must be exact (e.g. `"1.2.3"`, not `"^1.2.3"`). Only install actively maintained packages — check for deprecation warnings before adding a dependency.
 
+**Rule 13: Follow `docs/code-standards.md` for file size and reuse.**
+Read target files before extending them. Ideal file length is 150 lines; review at 300; hard flag at 500. Search for existing utilities before writing new ones. See `docs/code-standards.md` for the full set of refactoring triggers.
+
 **Rule 12: When you need to re-read command output, use `tee` — don't re-run the command.**
 If a command's output is long enough that you want to `head` or `tail` it, pipe through `tee` on the first run: `command 2>&1 | tee /tmp/cmd.log`. Then use `Read` on `/tmp/cmd.log` to inspect any section. This avoids wasteful re-runs just to see a different part of the output.
 
