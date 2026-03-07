@@ -566,6 +566,46 @@ describe("moveSymbol action", () => {
       expect(fs.readFileSync(path.join(dir, "src/utils.ts"), "utf8")).not.toContain("greetUser");
     });
 
+    it("move to existing dest without conflict (no force) removes from source, appends to dest, rewrites importers", async () => {
+      // Verifies that the duplicate-detection guard does not accidentally block moves
+      // where the dest file exists but does not export the symbol being moved.
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      // Dest exists with a different export — BAR is not present in dest
+      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const OTHER = 99;\n");
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const BAR = 7;\n");
+      // Importer references BAR from src/a.ts
+      fs.writeFileSync(
+        path.join(dir, "src/c.ts"),
+        'import { BAR } from "./a";\nexport const x = BAR;\n',
+      );
+      const tsProvider = new TsProvider();
+
+      const result = await moveSymbol(
+        tsProvider,
+        tsProvider,
+        `${dir}/src/a.ts`,
+        "BAR",
+        `${dir}/src/b.ts`,
+        dir,
+      );
+
+      // Symbol is removed from source
+      expect(fs.readFileSync(path.join(dir, "src/a.ts"), "utf8")).not.toContain("BAR");
+      // Symbol is appended to dest; original dest content is preserved
+      const bContent = fs.readFileSync(path.join(dir, "src/b.ts"), "utf8");
+      expect(bContent).toContain("BAR");
+      expect(bContent).toContain("OTHER");
+      // Importer is rewritten to point at dest
+      const cContent = fs.readFileSync(path.join(dir, "src/c.ts"), "utf8");
+      expect(cContent).toContain('"./b.js"');
+      expect(cContent).not.toContain('"./a"');
+      // filesModified covers source, dest, and importer
+      expect(result.filesModified).toContain(`${dir}/src/a.ts`);
+      expect(result.filesModified).toContain(`${dir}/src/b.ts`);
+      expect(result.filesModified).toContain(`${dir}/src/c.ts`);
+    });
+
     it("source const replaces a function declaration of the same name in dest when force is true", async () => {
       const dir = copyFixture("simple-ts");
       dirs.push(dir);
