@@ -50,7 +50,7 @@ See [security.md](../security.md) for the full threat model.
 
 - `newPath` must not already exist. The operation does not overwrite existing files.
 - Both paths must be within the workspace boundary.
-- Import rewrites are computed from the project graph. Imports in files outside the project graph (e.g. files not covered by tsconfig `include`) may not be updated. The Vue post-scan mitigates this for `.vue` files but uses regex, not semantic binding.
+- Import rewrites are computed from the project graph, with a fallback scan that catches imports the TS language service misses (e.g. `.js` extension imports under `moduleResolution: "node"`, or files added after project load). Imports in files outside `tsconfig.include` (tests, scripts) are also rewritten by the fallback. The Vue post-scan handles `.vue` SFC imports separately using regex.
 - Dynamic `import()` calls with computed paths are not updated.
 - Moving a `.ts` file to a `.vue` path (or vice versa) is not supported — semantic mismatch; TypeScript modules can't become Vue SFCs or vice versa.
 

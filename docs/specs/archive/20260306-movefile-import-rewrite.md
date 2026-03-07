@@ -144,12 +144,34 @@ Acceptance criteria:
 
 ## Done-when
 
-- [ ] All fix criteria (AC1-AC5) verified by tests
-- [ ] Existing moveFile tests still pass (no regression)
-- [ ] Mutation score >= threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated if public surface changed (use `docs/specs/templates/feature.md` for new feature docs)
-- [ ] `docs/features/moveFile.md` Constraints section updated to remove or soften the "imports in files outside the project graph may not be updated" caveat for in-project files
-- [ ] Tech debt discovered during investigation added to handoff.md as [needs design]
-- [ ] Agent insights captured in docs/agent-memory.md
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] All fix criteria (AC1-AC5) verified by tests
+- [x] Existing moveFile tests still pass (no regression)
+- [x] Mutation score >= threshold for touched files
+- [x] `pnpm check` passes (lint + build + test)
+- [x] Docs updated if public surface changed (use `docs/specs/templates/feature.md` for new feature docs)
+- [x] `docs/features/moveFile.md` Constraints section updated to remove or soften the "imports in files outside the project graph may not be updated" caveat for in-project files
+- [x] Tech debt discovered during investigation added to handoff.md as [needs design]
+- [x] Agent insights captured in docs/agent-memory.md
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Implemented in:** `4cb655a fix(operations): reliably rewrite imports after moveFile`
+
+**Tests added:** 8 new test cases in `tests/operations/moveFile.test.ts` (173 lines) covering:
+- Stale project cache (file added after project load)
+- Symlink path resolution
+- `.js` extension imports with `moduleResolution: "node"`
+- Coexisting `.js` file guard (no false rewrite)
+- Substring false positive prevention
+- `filesModified` completeness (includes fallback-rewritten files)
+- No duplicate entries in `filesModified`
+
+**Key implementation decisions:**
+- `getEditsForFileRename` invalidates and rebuilds the project inline before computing edits (AC1)
+- `realpathSync` resolves symlinks for the TS language service call only; physical rename uses original paths (AC2)
+- `afterFileRename` fallback extended to all workspace files (not just out-of-project), with an `alreadyModified` skip set to prevent double-rewrites (AC3)
+- `isCoexistingJsFileEdit` guard filters edits from `getEditsForFileRename` that target real `.js` files
+- `rewriteSpecifier` does exact specifier matching (not substring) via `toRelBase` comparison
+
+**Files changed:** `src/providers/ts.ts`, `src/operations/moveFile.ts`, `src/security.ts`, `src/types.ts`, `tests/operations/moveFile.test.ts`

@@ -99,5 +99,5 @@ Examples of what belongs here:
       - Feature doc created or updated (use `docs/features/_template.md` for new docs)
       - handoff.md current-state section
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Agent insights captured in docs/agent-memory.md
+- [ ] Non-obvious gotchas captured in docs/agent-memory.md (skip if nothing worth recording)
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended

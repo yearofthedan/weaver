@@ -101,8 +101,6 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-- **`moveFile` does not reliably update import references** → [`docs/specs/20260306-movefile-import-rewrite.md`](specs/20260306-movefile-import-rewrite.md) — Three root causes identified: stale project cache in daemon mode, symlink path mismatch, and .js extension resolution failure.
-
 - **`moveSymbol` appends a duplicate declaration when the symbol already exists in the destination file** `[needs design]` — If the dest file already contains the symbol (e.g. pre-written manually), `moveSymbol` appends a second declaration rather than deduplicating. Causes a `Cannot redeclare block-scoped variable` type error. Observed during `extensions.ts` extraction.
 
 - **`moveSymbol` does not rewrite imports in files outside `tsconfig.include`** `[needs design]` — Test files and scripts not covered by `tsconfig.include` are invisible to the compiler walk, so their imports are not updated. Observed with `tests/daemon/watcher.test.ts` importing from `file-walk.ts` after `TS_EXTENSIONS` was moved to `extensions.ts`. Related to the existing P2 `moveFile` out-of-project gap.
