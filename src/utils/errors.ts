@@ -1,6 +1,7 @@
 export type ErrorCode =
   | "FILE_NOT_FOUND"
   | "SYMBOL_NOT_FOUND"
+  | "SYMBOL_EXISTS"
   | "RENAME_NOT_ALLOWED"
   | "NOT_SUPPORTED"
   | "WORKSPACE_VIOLATION"

@@ -469,6 +469,124 @@ describe("moveSymbol action", () => {
     });
   });
 
+  describe("conflict detection when destination already exports the symbol", () => {
+    it("detects conflict in an existing dest file not yet registered in the ts-morph project", async () => {
+      // Uses a fresh TsProvider so the dest file has never been added to the project graph,
+      // exercising the addSourceFileAtPath fallback in the dest-file loading branch.
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
+      const freshProvider = new TsProvider();
+
+      await expect(
+        moveSymbol(freshProvider, freshProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
+      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
+    });
+
+    it("throws SYMBOL_EXISTS when dest exports a const with the same name", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
+      const tsProvider = new TsProvider();
+
+      await expect(
+        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
+      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
+    });
+
+    it("error message names both the symbol and the destination file", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
+      const tsProvider = new TsProvider();
+
+      await expect(
+        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
+      ).rejects.toMatchObject({
+        message: expect.stringContaining("FOO"),
+      });
+
+      await expect(
+        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
+      ).rejects.toMatchObject({
+        message: expect.stringContaining(`${dir}/src/b.ts`),
+      });
+    });
+
+    it("throws SYMBOL_EXISTS when dest exports a function with the same name", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      fs.writeFileSync(path.join(dir, "src/b.ts"), "export function FOO(): void {}\n");
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
+      const tsProvider = new TsProvider();
+
+      await expect(
+        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
+      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
+    });
+
+    it("throws SYMBOL_EXISTS when dest exports a class with the same name", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      fs.writeFileSync(path.join(dir, "src/b.ts"), "export class FOO {}\n");
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
+      const tsProvider = new TsProvider();
+
+      await expect(
+        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
+      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
+    });
+
+    it("leaves the source file unmodified when SYMBOL_EXISTS is thrown", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const srcContent = "export const FOO = 1;\n";
+      fs.writeFileSync(path.join(dir, "src/a.ts"), srcContent);
+      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
+      const tsProvider = new TsProvider();
+
+      await expect(
+        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
+      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
+
+      expect(fs.readFileSync(path.join(dir, "src/a.ts"), "utf8")).toBe(srcContent);
+    });
+
+    it("leaves the destination file unmodified when SYMBOL_EXISTS is thrown", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const destContent = "export const FOO = 42;\n";
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
+      fs.writeFileSync(path.join(dir, "src/b.ts"), destContent);
+      const tsProvider = new TsProvider();
+
+      await expect(
+        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
+      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
+
+      expect(fs.readFileSync(path.join(dir, "src/b.ts"), "utf8")).toBe(destContent);
+    });
+
+    it("does not rewrite importers when SYMBOL_EXISTS is thrown", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const importerContent = 'import { FOO } from "./a";\nexport const x = FOO;\n';
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
+      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
+      fs.writeFileSync(path.join(dir, "src/importer.ts"), importerContent);
+      const tsProvider = new TsProvider();
+
+      await expect(
+        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
+      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
+
+      expect(fs.readFileSync(path.join(dir, "src/importer.ts"), "utf8")).toBe(importerContent);
+    });
+  });
+
   describe("with VolarProvider (Vue project)", () => {
     it("moves a composable and updates .vue SFC imports", async () => {
       const dir = copyFixture("vue-project");

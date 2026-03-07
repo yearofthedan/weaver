@@ -65,6 +65,29 @@ export async function moveSymbol(
     );
   }
 
+  // Load the destination source file before any mutations so we can check for conflicts
+  const destDir = path.dirname(absDest);
+  if (!fs.existsSync(destDir)) {
+    fs.mkdirSync(destDir, { recursive: true });
+  }
+
+  let dstSF: SourceFile;
+  if (fs.existsSync(absDest)) {
+    dstSF = project.getSourceFile(absDest) ?? project.addSourceFileAtPath(absDest);
+  } else {
+    dstSF = project.createSourceFile(absDest, "");
+  }
+
+  // Only exported declarations are checked — a private same-named declaration in dest is allowed
+  // through and surfaces as a type error the caller must resolve manually.
+  const destExportedDecls = dstSF.getExportedDeclarations().get(symbolName);
+  if (destExportedDecls) {
+    throw new EngineError(
+      `Symbol '${symbolName}' already exists as an export in ${destFile}. Pass overwrite: true to keep the existing declaration and remove the source copy.`,
+      "SYMBOL_EXISTS",
+    );
+  }
+
   // Snapshot importers before any mutations
   type ImporterEntry = {
     sf: SourceFile;
@@ -93,19 +116,6 @@ export async function moveSymbol(
 
   // Remove the declaration from the source file
   stmt.remove();
-
-  // Create or load the destination source file
-  const destDir = path.dirname(absDest);
-  if (!fs.existsSync(destDir)) {
-    fs.mkdirSync(destDir, { recursive: true });
-  }
-
-  let dstSF: SourceFile;
-  if (fs.existsSync(absDest)) {
-    dstSF = project.getSourceFile(absDest) ?? project.addSourceFileAtPath(absDest);
-  } else {
-    dstSF = project.createSourceFile(absDest, "");
-  }
 
   // Append the declaration to the destination file
   const existingText = dstSF.getText();

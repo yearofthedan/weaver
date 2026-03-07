@@ -158,6 +158,12 @@ The guard `if (filePath === absDest) continue` in the importer loop fires only w
 **`moveSymbol` dirty-files-loop filesSkipped requires the source to be outside the workspace.**
 The `else { filesSkipped.add(fp) }` branch in the dirty-files loop fires when a ts-morph-dirtied file is outside the declared workspace. Set the workspace to `src/` only, put the source file in `lib/`, and use a tsconfig with `include: ["**/*.ts"]` so ts-morph loads both. Assert the source file is in `filesSkipped` AND its on-disk content is unchanged (proving the save loop also respected the boundary).
 
+**Meeting the mutation threshold is not enough — read every survived mutant in new code.**
+The threshold catches regressions but does not certify correctness. After each mutation run, check each survived mutant in code you wrote this session:
+- A mutant that survives because the API contract makes a branch structurally unreachable (e.g. `Map.get()` never returns an empty array, only `undefined` or a non-empty array) means the condition should be simplified to remove the dead branch — not accepted as-is. Example: `if (decls && decls.length > 0)` → simplify to `if (decls)`.
+- A mutant that survives because a fallback path is never exercised in tests means a test is missing. Example: `getSourceFile(path) ?? addSourceFileAtPath(path)` survives the `??` → `&&` mutation if no test uses a fresh provider that hasn't seen the dest file.
+Both cases require action. Accepted survivors belong in the "Known surviving mutants" table with an explicit rationale — an unexplained survivor in new code is not acceptable.
+
 **`specifiers.length > 0` needs an importer with non-matching symbols.**
 Mutation `> 0 → >= 0` includes importers with 0 matching specifiers. These "false positives" then gain a wrong import from the dest file. To kill this, add a file that imports OTHER symbols from the source (but not the moved symbol) and assert it does not gain an import from the dest.
 
