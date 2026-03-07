@@ -83,15 +83,18 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     pathParams: ["sourceFile", "destFile"],
     schema: MoveSymbolArgsSchema,
     async invoke(registry, params, workspace) {
-      const { sourceFile, symbolName, destFile } = params as {
+      const { sourceFile, symbolName, destFile, force } = params as {
         sourceFile: string;
         symbolName: string;
         destFile: string;
+        force?: boolean;
       };
       const tsProvider = await registry.tsProvider();
       const projectProvider = await registry.projectProvider();
       const { moveSymbol } = await import("../operations/moveSymbol.js");
-      return moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace);
+      return moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace, {
+        force,
+      });
     },
   },
 

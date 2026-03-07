@@ -24,6 +24,7 @@ export const MoveSymbolArgsSchema = z.object({
     .min(1, "symbolName is required")
     .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/, "symbolName must be a valid identifier"),
   destFile: z.string().min(1, "destFile is required"),
+  force: z.boolean().optional(),
   checkTypeErrors: z.boolean().optional(),
 });
 

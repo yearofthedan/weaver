@@ -135,6 +135,8 @@ const TOOLS: ToolDefinition[] = [
       "When reorganising modules, use this to move a named export to another file — " +
       "it finds and updates every importer project-wide automatically; no need to call findReferences first. " +
       "Creates the destination file if it does not exist. " +
+      "If the destination already exports a symbol with the same name, returns SYMBOL_EXISTS — " +
+      "pass force: true to replace the existing declaration with the source version and rewrite importers. " +
       "Only top-level exported declarations (export function, export const, export class, etc.); " +
       "does not support class methods or re-exports via `export { }`. " +
       "Returns filesModified and filesSkipped (outside workspace, not written — surface to user). " +
@@ -148,6 +150,9 @@ const TOOLS: ToolDefinition[] = [
       ),
       destFile: MoveSymbolArgsSchema.shape.destFile.describe(
         "Absolute path of the destination file (created if it does not exist)",
+      ),
+      force: MoveSymbolArgsSchema.shape.force.describe(
+        "When true and the destination already exports a symbol with the same name, replace the existing declaration with the source version. When false or omitted, returns SYMBOL_EXISTS error on conflict.",
       ),
       checkTypeErrors: MoveSymbolArgsSchema.shape.checkTypeErrors.describe(
         "When false, skip the post-write type check; defaults to on",
