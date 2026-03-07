@@ -469,6 +469,122 @@ describe("moveSymbol action", () => {
     });
   });
 
+  describe("force flag — source replaces dest declaration, removes from source, rewrites importers", () => {
+    it("source declaration replaces dest declaration when force is true and conflict exists", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
+      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
+      fs.writeFileSync(
+        path.join(dir, "src/c.ts"),
+        'import { FOO } from "./a";\nexport const x = FOO;\n',
+      );
+      const tsProvider = new TsProvider();
+
+      const result = await moveSymbol(
+        tsProvider,
+        tsProvider,
+        `${dir}/src/a.ts`,
+        "FOO",
+        `${dir}/src/b.ts`,
+        dir,
+        { force: true },
+      );
+
+      // Source declaration is removed
+      expect(fs.readFileSync(path.join(dir, "src/a.ts"), "utf8")).not.toContain("FOO");
+      // Dest file contains exactly the source version (FOO = 1); original dest (FOO = 42) is gone
+      // Pin exact content: if only the VariableDeclaration (not VariableStatement) were removed,
+      // the file would contain a bare "export const;" before the appended source declaration.
+      const bContent = fs.readFileSync(path.join(dir, "src/b.ts"), "utf8");
+      expect(bContent).toBe("export const FOO = 1;\n");
+      expect(bContent).not.toContain("FOO = 42");
+      // Importer is rewritten to point at dest
+      const cContent = fs.readFileSync(path.join(dir, "src/c.ts"), "utf8");
+      expect(cContent).toContain('"./b.js"');
+      expect(cContent).not.toContain('"./a"');
+      // filesModified covers source, dest, and importer
+      expect(result.filesModified).toContain(`${dir}/src/a.ts`);
+      expect(result.filesModified).toContain(`${dir}/src/b.ts`);
+      expect(result.filesModified).toContain(`${dir}/src/c.ts`);
+    });
+
+    it("dest file is included in filesModified when force replaces the existing declaration", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
+      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
+      const tsProvider = new TsProvider();
+
+      const result = await moveSymbol(
+        tsProvider,
+        tsProvider,
+        `${dir}/src/a.ts`,
+        "FOO",
+        `${dir}/src/b.ts`,
+        dir,
+        { force: true },
+      );
+
+      // dest is written with the source version — it must appear in filesModified
+      expect(result.filesModified).toContain(`${dir}/src/b.ts`);
+      // Verify the source version was written
+      expect(fs.readFileSync(path.join(dir, "src/b.ts"), "utf8")).toContain("FOO = 1");
+    });
+
+    it("force false with conflict returns SYMBOL_EXISTS error — same as omitted", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
+      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
+      const tsProvider = new TsProvider();
+
+      await expect(
+        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir, {
+          force: false,
+        }),
+      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
+    });
+
+    it("force true with no conflict performs a normal move", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const tsProvider = new TsProvider();
+
+      const result = await moveSymbol(
+        tsProvider,
+        tsProvider,
+        `${dir}/src/utils.ts`,
+        "greetUser",
+        `${dir}/src/helpers.ts`,
+        dir,
+        { force: true },
+      );
+
+      expect(result.symbolName).toBe("greetUser");
+      expect(fs.readFileSync(path.join(dir, "src/helpers.ts"), "utf8")).toContain("greetUser");
+      expect(fs.readFileSync(path.join(dir, "src/utils.ts"), "utf8")).not.toContain("greetUser");
+    });
+
+    it("source const replaces a function declaration of the same name in dest when force is true", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
+      // Dest has a function (not a const) with the same name — exercises the non-VariableDeclaration removal path
+      fs.writeFileSync(path.join(dir, "src/b.ts"), "export function FOO(): void {}\n");
+      const tsProvider = new TsProvider();
+
+      await moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir, {
+        force: true,
+      });
+
+      const bContent = fs.readFileSync(path.join(dir, "src/b.ts"), "utf8");
+      // Source const replaces the dest function — the function form must be gone
+      expect(bContent).toContain("export const FOO = 1");
+      expect(bContent).not.toContain("function FOO");
+    });
+  });
+
   describe("conflict detection when destination already exports the symbol", () => {
     it("detects conflict in an existing dest file not yet registered in the ts-morph project", async () => {
       // Uses a fresh TsProvider so the dest file has never been added to the project graph,

@@ -23,7 +23,9 @@ export async function moveSymbol(
   symbolName: string,
   destFile: string,
   workspace: string,
+  options?: { force?: boolean },
 ): Promise<MoveSymbolResult> {
+  const force = options?.force === true;
   const absSource = assertFileExists(sourceFile);
   const absDest = path.resolve(destFile);
 
@@ -81,9 +83,10 @@ export async function moveSymbol(
   // Only exported declarations are checked — a private same-named declaration in dest is allowed
   // through and surfaces as a type error the caller must resolve manually.
   const destExportedDecls = dstSF.getExportedDeclarations().get(symbolName);
-  if (destExportedDecls) {
+  const symbolExistsInDest = Boolean(destExportedDecls);
+  if (symbolExistsInDest && !force) {
     throw new EngineError(
-      `Symbol '${symbolName}' already exists as an export in ${destFile}. Pass overwrite: true to keep the existing declaration and remove the source copy.`,
+      `Symbol '${symbolName}' already exists as an export in ${destFile}. Pass force: true to replace the existing declaration with the source version.`,
       "SYMBOL_EXISTS",
     );
   }
@@ -116,6 +119,20 @@ export async function moveSymbol(
 
   // Remove the declaration from the source file
   stmt.remove();
+
+  // When force is true and the symbol already exists in dest, remove the existing
+  // dest declaration before appending the source version (source wins, like mv -f).
+  // destExportedDecls is always truthy when symbolExistsInDest is true.
+  if (force && symbolExistsInDest) {
+    const destDecl = destExportedDecls![0];
+    let destStmt: Removable;
+    if (Node.isVariableDeclaration(destDecl)) {
+      destStmt = destDecl.getParent().getParent() as unknown as Removable;
+    } else {
+      destStmt = destDecl as unknown as Removable;
+    }
+    destStmt.remove();
+  }
 
   // Append the declaration to the destination file
   const existingText = dstSF.getText();
