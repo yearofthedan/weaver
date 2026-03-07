@@ -741,6 +741,38 @@ describe("moveSymbol action", () => {
 
       expect(fs.readFileSync(path.join(dir, "src/importer.ts"), "utf8")).toBe(importerContent);
     });
+
+    it("proceeds when dest has a non-exported same-name declaration", async () => {
+      // The SYMBOL_EXISTS check only considers exported declarations.
+      // A private (non-exported) same-named declaration in dest is not a conflict —
+      // the move proceeds and any resulting type error surfaces in typeErrors.
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      // dest has `const FOO` without `export` — not a conflict
+      fs.writeFileSync(path.join(dir, "src/b.ts"), "const FOO = 42;\n");
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
+      const tsProvider = new TsProvider();
+
+      const result = await moveSymbol(
+        tsProvider,
+        tsProvider,
+        `${dir}/src/a.ts`,
+        "FOO",
+        `${dir}/src/b.ts`,
+        dir,
+      );
+
+      // The move succeeds — no SYMBOL_EXISTS error
+      expect(result.symbolName).toBe("FOO");
+      expect(result.destFile).toBe(`${dir}/src/b.ts`);
+      // Source no longer exports FOO
+      expect(fs.readFileSync(path.join(dir, "src/a.ts"), "utf8")).not.toContain("FOO");
+      // Dest now contains the exported FOO appended after the private one
+      const bContent = fs.readFileSync(path.join(dir, "src/b.ts"), "utf8");
+      expect(bContent).toContain("export const FOO = 1");
+      // The private const is still there (not touched by the move)
+      expect(bContent).toContain("const FOO = 42");
+    });
   });
 
   describe("with VolarProvider (Vue project)", () => {
