@@ -1,6 +1,10 @@
 # Agent Memory
 
-Implementation gotchas, hard-won decisions, and non-obvious discoveries.
+Cross-cutting principles, gotchas, and hard-won decisions that apply across multiple features.
+
+**What belongs here:** Architectural patterns, API quirks, conventions that aren't obvious from the code. Things you'd tell a new contributor before they touch any file.
+
+**What does NOT belong here:** Feature-specific behaviour, parameter semantics, or implementation details — those belong in `docs/features/`. If the entry only matters for one tool or operation, it goes in that tool's feature doc.
 
 ---
 
