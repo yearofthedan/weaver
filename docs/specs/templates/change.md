@@ -10,6 +10,18 @@
 
 Why this change exists. One paragraph max — the feature doc has the background.
 
+## User intent
+
+> **Prompt:** State the core intent — not the edge case, not the mechanism.
+> Write it as: *As a [user type], I want [action], so that [outcome].*
+> This must describe what the user is trying to achieve, not how the
+> implementation handles a particular scenario. Edge cases are handled
+> by ACs in service of this intent. Every design decision in the spec
+> should trace back to this statement — if a proposed behaviour contradicts
+> the intent, the behaviour is wrong.
+
+*As a …, I want …, so that …*
+
 ## Relevant files
 
 > Files the executor should read before starting. The spec agent populates
@@ -78,13 +90,32 @@ For every field and parameter, answer:
 
 If a parameter or field has no answer here, the spec isn't ready.
 
+## Security
+
+> **Prompt:** Review [`docs/security.md`](../../security.md) for the full threat model.
+> Every change must explicitly state whether it affects these surfaces.
+> Write "N/A" with a one-line reason when a category does not apply —
+> a blank section means the analysis was skipped, not that the change is safe.
+
+- **Workspace boundary:** Does this change read or write files? Could any new
+  code path bypass `isWithinWorkspace`? Are all output paths boundary-checked
+  before write?
+- **Sensitive file exposure:** Does this change read file content that could
+  include secrets (`.env`, private keys, credentials)? Does it need to call
+  `isSensitiveFile`?
+- **Input injection:** Does the change introduce new string parameters that
+  reach the filesystem, shell, or are interpolated into paths? Could a crafted
+  value escape the intended scope?
+- **Response leakage:** Does the change put file content or user-controlled
+  strings into error messages or response fields? Could an agent receive
+  secrets or prompt-injection payloads through the response?
+
 ## Edges
 
 Constraints that aren't acceptance criteria but bound the implementation.
 These become regression tests or guard assertions, not features.
 
 Examples of what belongs here:
-- Security boundaries ("must not touch files outside workspace")
 - Performance expectations ("must handle 500-export files")
 - Compatibility constraints ("must work with both resolved and unresolved tsconfig paths")
 - Interactions with existing operations ("rename after moveFile must still work")
