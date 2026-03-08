@@ -30,6 +30,7 @@ src/operations/          ← standalone action functions (one per operation)
 
 src/providers/           ← stateful compiler wrappers
   ts.ts                 ← TsProvider — ts-morph Project; per-tsconfig cache; always-available TS fallback
+  ts-move-symbol.ts     ← tsMoveSymbol() — compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
 
 src/plugins/             ← language plugin feature folders (one per framework)
   vue/
@@ -61,7 +62,7 @@ interface LanguageProvider {
 }
 ```
 
-`afterFileRename` and `afterSymbolMove` are post-step hooks. `TsProvider.afterSymbolMove` is a no-op — ts-morph AST edits handle TS importers directly. `VolarProvider.afterSymbolMove` scans `.vue` SFC script blocks for imports of the moved symbol and rewrites them.
+`afterFileRename` and `afterSymbolMove` are post-step hooks. `TsProvider.afterSymbolMove` is a fallback scan — it walks workspace TS/JS files outside `tsconfig.include` (test files, scripts) and rewrites imports of the moved symbol that ts-morph's AST pass missed. `VolarProvider.afterSymbolMove` scans `.vue` SFC script blocks for imports of the moved symbol and rewrites them.
 
 ---
 
@@ -138,7 +139,7 @@ Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and on
 |-----------|---------------|-------|
 | `rename` | `projectProvider` | Calls `getRenameLocations`; applies edits; returns `filesModified`, `filesSkipped` |
 | `moveFile` | `projectProvider` | Calls `getEditsForFileRename`; renames file; calls `afterFileRename` post-hook |
-| `moveSymbol` | `tsProvider` + `projectProvider` | ts-morph AST for source/importers; `afterSymbolMove` hook for Vue SFC importers |
+| `moveSymbol` | `tsProvider` + `projectProvider` | Thin orchestrator using `WorkspaceScope`; compiler work in `TsProvider.moveSymbol()` (impl: `src/providers/ts-move-symbol.ts`); `afterSymbolMove` hook for Vue SFC importers |
 
 ### Read-only
 
@@ -175,7 +176,7 @@ Input validation is at the dispatcher layer; output filtering is at the operatio
 - `recordModified(path)` / `recordSkipped(path)` — modification tracking
 - `modified` / `skipped` getters — return tracked paths
 
-The dispatcher constructs a `WorkspaceScope` from the workspace string and a `NodeFileSystem` instance, then passes it to the operation. Currently `rename` and `moveFile` use `WorkspaceScope`; other operations still receive `workspace: string` and are migrated in subsequent slices.
+The dispatcher constructs a `WorkspaceScope` from the workspace string and a `NodeFileSystem` instance, then passes it to the operation. Currently `rename`, `moveFile`, and `moveSymbol` use `WorkspaceScope`; other operations still receive `workspace: string` and are migrated in subsequent slices.
 
 ---
 

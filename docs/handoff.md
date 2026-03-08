@@ -81,13 +81,15 @@ src/
     getDefinition.ts   ← getDefinition(provider, filePath, line, col)
     getTypeErrors.ts   ← getTypeErrors(tsProvider, file?, workspace) — errors-only, cap 100
     moveFile.ts        ← moveFile(provider, oldPath, newPath, scope: WorkspaceScope)
-    moveSymbol.ts      ← moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace)
+    moveSymbol.ts      ← moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, scope: WorkspaceScope)
     extractFunction.ts ← extractFunction(tsProvider, file, startLine, startCol, endLine, endCol, functionName, workspace)
     searchText.ts      ← searchText(pattern, workspace, { glob, context, maxResults })
     replaceText.ts     ← replaceText(workspace, { pattern, replacement, glob } | { edits })
     deleteFile.ts      ← deleteFile(tsProvider, file, workspace)
   providers/
-    ts.ts         ← TsProvider: compiler calls via ts-morph Project; refreshFile() for selective invalidation
+    ts.ts              ← TsProvider: compiler calls via ts-morph Project; refreshFile() for selective invalidation
+    ts-move-file.ts    ← tsMoveFile(): compiler work for moveFile (import rewriting via ts-morph edits)
+    ts-move-symbol.ts  ← tsMoveSymbol(): compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
   utils/
     errors.ts     ← EngineError class + ErrorCode union
     text-utils.ts ← applyTextEdits(), offsetToLineCol()
@@ -107,7 +109,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-- **Target architecture: compiler adapter restructure** — Seven-step strangler migration. Steps 1-2 complete: Step 1 (FileSystem port + WorkspaceScope + `rename` proof) archived: [`docs/specs/archive/20260308-filesystem-port-and-workspace-scope.md`](specs/archive/20260308-filesystem-port-and-workspace-scope.md). Step 2 (`moveFile` migration to WorkspaceScope) archived: [`docs/specs/archive/20260308-movefile-workspace-scope.md`](specs/archive/20260308-movefile-workspace-scope.md). Step 3 is next `[needs design]` — move `moveSymbol` compiler work into adapter. Remaining steps `[needs design]` — spec each before starting: (4) extract `ImportRewriter`, (5) rename `providers/` → `compilers/`, (6) extract `SymbolRef`, (7) document hexagonal architecture with mermaid diagrams. See [`docs/target-architecture.md`](target-architecture.md) for rationale, layer diagram, and migration sequence.
+- **Target architecture: compiler adapter restructure** — Seven-step strangler migration. Steps 1-3 complete: Step 1 (FileSystem port + WorkspaceScope + `rename` proof) archived: [`docs/specs/archive/20260308-filesystem-port-and-workspace-scope.md`](specs/archive/20260308-filesystem-port-and-workspace-scope.md). Step 2 (`moveFile` migration to WorkspaceScope) archived: [`docs/specs/archive/20260308-movefile-workspace-scope.md`](specs/archive/20260308-movefile-workspace-scope.md). Step 3 (`moveSymbol` migration to WorkspaceScope) archived: [`docs/specs/archive/20260308-movesymbol-workspace-scope.md`](specs/archive/20260308-movesymbol-workspace-scope.md). Next: step 4 `[needs design]` — extract `ImportRewriter`. Remaining steps `[needs design]` — spec each before starting: (5) rename `providers/` → `compilers/`, (6) extract `SymbolRef`, (7) document hexagonal architecture with mermaid diagrams. See [`docs/target-architecture.md`](target-architecture.md) for rationale, layer diagram, and migration sequence.
 
 - **`rename` / `findReferences` / `getDefinition` fail with "Could not find source file" on `.ts` inputs** `[needs design]` — Separate from the Vue `.vue`-path bug above. Suspected cause: caller-supplied path differs from ts-morph's internally normalized path (e.g. symlinked workspace root); fix likely requires using `sourceFile.getFilePath()` when calling TS language service methods in `TsProvider`. Root cause not yet reproduced in a test.
 
@@ -147,6 +149,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks; depends on buildVolarService refactoring
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; depends on buildVolarService refactoring; see [moveSymbol.md](features/moveSymbol.md)
+- **`TsProvider.afterSymbolMove` fallback scan tests are in the wrong layer** `[needs design]` — Tests live in `tests/operations/moveSymbol-fallback.test.ts` but should be in `tests/providers/ts-after-symbol-move.test.ts` calling `afterSymbolMove` directly. The "no-op" test formerly in `ts.test.ts` was a smoke test, not real coverage. The integration path (`moveSymbol` operation -> `tsMoveSymbol` -> `afterSymbolMove`) also needs a proper integration test in `moveSymbol_tsProvider.test.ts`.
 - **`moveSymbol` cannot move non-exported local functions** `[needs design]` — `moveSymbol` only handles top-level exported declarations. Attempting to move an unexported helper returns `SYMBOL_NOT_FOUND`. Workaround: manually create the destination file with the symbol exported, remove from source, add import. See handoff.md "Agent reflection" section for context.
 - `createFile` `[needs design]` — scaffold a file with correct import paths
 - **Agent guidance on type errors in tool responses** `[needs design]` — all write operations return `typeErrors`; agents need to know this is an action item (something wasn't fully updated) and follow up with `replaceText`. Currently nothing teaches this pattern. Decision needed: shipped skill file, tool description addition, CLAUDE.md guidance snippet, or combination?

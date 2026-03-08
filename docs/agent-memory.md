@@ -46,6 +46,18 @@ When a spec says "move function X to file Y", do not prescribe manual steps (cre
 
 ---
 
+## Test layer must match the code layer
+
+When restructuring tests, audit every test file: does its test target match the directory it lives in? A test in `tests/operations/` should call the operation function; a test in `tests/providers/` should call the provider method directly. If a test in `tests/operations/` is really exercising provider logic through the operation, it belongs in `tests/providers/`. "Stays as-is" in a spec is a decision that needs justification, not a default.
+
+---
+
+## Fix discovered tech debt in the same session
+
+If you discover misplaced tests, incorrect docs, or small structural problems during a migration, fix them now. Don't defer to handoff — that turns a 10-minute fix into a task that takes a full session to pick up, spec, and execute. The girl guides principle: leave the campsite cleaner than you found it.
+
+---
+
 ## `assertFileExists` bypasses the `FileSystem` port
 
 `assertFileExists` (`src/utils/assert-file.ts`) calls `fs.existsSync` directly — it is not yet behind the `FileSystem` port. Unit tests using `InMemoryFileSystem` must pass a path that physically exists on disk (e.g. `import.meta.url`) to satisfy this guard. This will resolve when `assertFileExists` is migrated in a future architecture slice.
