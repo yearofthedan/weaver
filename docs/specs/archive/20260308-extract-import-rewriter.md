@@ -40,15 +40,15 @@ Import rewriting for symbol moves is implemented three times: in `ts-move-symbol
 
 ## Behaviour
 
-- [ ] **AC1: `ImportRewriter` domain service with unit tests.** `ImportRewriter.rewrite(files, symbolName, oldSource, newSource, scope)` is a standalone domain service in `src/domain/import-rewriter.ts`. It has its own unit test file using `InMemoryFileSystem` — no temp dirs, no tsconfig, no ts-morph project boot. The unit tests cover the full rewrite matrix: (a) full-move (all named imports match → repoint specifier), (b) partial-move (split: remove symbol from old import, add new import from dest), (c) merge with existing destination import, (d) `export { symbolName } from` re-exports (same full/partial logic), (e) no-op when file doesn't import the symbol, (f) no-op when file imports oldSource but not symbolName, (g) out-of-workspace file recorded as skipped. These are the cases currently scattered across three test files behind heavyweight setup; they become direct assertions on the rewriter.
+- [x] **AC1: `ImportRewriter` domain service with unit tests.** `ImportRewriter.rewrite(files, symbolName, oldSource, newSource, scope)` is a standalone domain service in `src/domain/import-rewriter.ts`. It has its own unit test file using `InMemoryFileSystem` — no temp dirs, no tsconfig, no ts-morph project boot. The unit tests cover the full rewrite matrix: (a) full-move (all named imports match → repoint specifier), (b) partial-move (split: remove symbol from old import, add new import from dest), (c) merge with existing destination import, (d) `export { symbolName } from` re-exports (same full/partial logic), (e) no-op when file doesn't import the symbol, (f) no-op when file imports oldSource but not symbolName, (g) out-of-workspace file recorded as skipped. These are the cases currently scattered across three test files behind heavyweight setup; they become direct assertions on the rewriter.
 
-- [ ] **AC2: Wire `ImportRewriter` into `tsMoveSymbol` and `afterSymbolMove`.** `rewriteImporters()` in `ts-move-symbol.ts` and the file-walking rewrite loop in `TsProvider.afterSymbolMove` are replaced by calls to `ImportRewriter.rewrite()`. The `afterSymbolMove` signature on `LanguageProvider` changes from `(sourceFile, symbolName, destFile, workspace, alreadyModified)` returning `{ modified, skipped }` to `(sourceFile, symbolName, destFile, scope: WorkspaceScope)` returning `void`. The `moveSymbol` operation passes `scope` directly.
+- [x] **AC2: Wire `ImportRewriter` into `tsMoveSymbol` and `afterSymbolMove`.** `rewriteImporters()` in `ts-move-symbol.ts` and the file-walking rewrite loop in `TsProvider.afterSymbolMove` are replaced by calls to `ImportRewriter.rewrite()`. The `afterSymbolMove` signature on `LanguageProvider` changes from `(sourceFile, symbolName, destFile, workspace, alreadyModified)` returning `{ modified, skipped }` to `(sourceFile, symbolName, destFile, scope: WorkspaceScope)` returning `void`. The `moveSymbol` operation passes `scope` directly.
 
-- [ ] **AC3: Wire `ImportRewriter` into Vue symbol-move scan.** `rewriteNamedSymbolImport()` in `scan.ts` is replaced by a call to `ImportRewriter.rewrite()` for the symbol-move case. `updateVueImportsAfterMove` and `removeVueImportsOfDeletedFile` are not touched.
+- [x] **AC3: Wire `ImportRewriter` into Vue symbol-move scan.** `rewriteNamedSymbolImport()` in `scan.ts` is replaced by a call to `ImportRewriter.rewrite()` for the symbol-move case. `updateVueImportsAfterMove` and `removeVueImportsOfDeletedFile` are not touched.
 
-- [ ] **AC4: Thin out integration tests.** `ts-move-symbol.test.ts` and `ts-after-symbol-move.test.ts` are refactored: import-rewrite edge cases (partial move, merge, re-export, extension variants) that are now covered by `ImportRewriter` unit tests are removed from the integration layer. The integration tests keep only what they uniquely verify — orchestration: symbol lookup, AST surgery, file saving, scope tracking, fallback-scan triggering. `moveSymbol_tsProvider.test.ts` end-to-end tests remain unchanged. No assertion weakened; coverage of rewrite logic improves because it moves from indirect integration paths to direct unit tests.
+- [x] **AC4: Thin out integration tests.** `ts-move-symbol.test.ts` and `ts-after-symbol-move.test.ts` are refactored: import-rewrite edge cases (partial move, merge, re-export, extension variants) that are now covered by `ImportRewriter` unit tests are removed from the integration layer. The integration tests keep only what they uniquely verify — orchestration: symbol lookup, AST surgery, file saving, scope tracking, fallback-scan triggering. `moveSymbol_tsProvider.test.ts` end-to-end tests remain unchanged. No assertion weakened; coverage of rewrite logic improves because it moves from indirect integration paths to direct unit tests.
 
-- [ ] **AC5: Observable behaviour unchanged.** `pnpm check` passes. No existing integration test assertion is weakened — tests may be restructured (moved to unit layer, setup simplified) but every behaviour previously asserted is still asserted somewhere.
+- [x] **AC5: Observable behaviour unchanged.** `pnpm check` passes. No existing integration test assertion is weakened — tests may be restructured (moved to unit layer, setup simplified) but every behaviour previously asserted is still asserted somewhere.
 
 ## Interface
 
@@ -84,6 +84,25 @@ class ImportRewriter {
     newSource: string,
     scope: WorkspaceScope,
   ): void;
+
+  /**
+   * Rewrite import/export declarations in a single script string.
+   *
+   * `filePath` is used only for computing relative specifiers — the content
+   * does not need to exist on disk. Returns the rewritten text, or `null`
+   * if no matching declarations were found.
+   *
+   * This is the public entry point for callers that handle SFC extraction
+   * themselves (e.g. Vue/Svelte plugins).
+   */
+  rewriteScript(
+    filePath: string,
+    content: string,
+    symbolName: string,
+    oldSource: string,
+    newSource: string,
+    scope: WorkspaceScope,
+  ): string | null;
 }
 ```
 
@@ -151,15 +170,61 @@ The return type changes to `void` because `scope` now tracks modified/skipped in
 
 ## Done-when
 
-- [ ] All ACs verified by tests
-- [ ] `ImportRewriter` unit tests use `InMemoryFileSystem` — no temp dirs, no tsconfig, no cleanup
-- [ ] Unit tests cover the full rewrite matrix (AC1 items a-g)
-- [ ] Integration tests (`ts-move-symbol.test.ts`, `ts-after-symbol-move.test.ts`) thinned: no import-rewrite edge cases that duplicate unit coverage
-- [ ] Integration tests still verify orchestration paths (symbol lookup, AST surgery, fallback-scan triggering)
-- [ ] `moveSymbol_tsProvider.test.ts` end-to-end tests pass unchanged
-- [ ] Mutation score >= threshold for `src/domain/import-rewriter.ts`
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated if public surface changed: N/A (internal refactoring)
-- [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas captured in docs/agent-memory.md (skip if nothing worth recording)
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] All ACs verified by tests
+- [x] `ImportRewriter` unit tests use `InMemoryFileSystem` — no temp dirs, no tsconfig, no cleanup
+- [x] Unit tests cover the full rewrite matrix (AC1 items a-g)
+- [x] Integration tests (`ts-move-symbol.test.ts`, `ts-after-symbol-move.test.ts`) thinned: no import-rewrite edge cases that duplicate unit coverage
+- [x] Integration tests still verify orchestration paths (symbol lookup, AST surgery, fallback-scan triggering)
+- [x] `moveSymbol_tsProvider.test.ts` end-to-end tests pass unchanged
+- [x] Mutation score >= threshold for `src/domain/import-rewriter.ts`
+- [x] `pnpm check` passes (lint + build + test)
+- [x] Docs updated if public surface changed: N/A (internal refactoring)
+- [x] Tech debt discovered during implementation added to handoff.md as [needs design]
+- [x] Non-obvious gotchas captured in docs/agent-memory.md
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+---
+
+## Outcome
+
+**Shipped:** 2026-03-08 across 4 commits.
+
+**Files created:**
+- `src/domain/import-rewriter.ts` (193 lines) — `ImportRewriter` domain service with `rewrite()` and `rewriteScript()` methods
+- `tests/domain/import-rewriter.test.ts` (374 lines) — 22 unit tests using `InMemoryFileSystem`
+
+**Files modified:**
+- `src/providers/ts-move-symbol.ts` — removed `snapshotImporters`/`rewriteImporters`, replaced with `ImportRewriter.rewrite()`
+- `src/providers/ts.ts` — removed file-walk rewrite loop from `afterSymbolMove`, replaced with `ImportRewriter.rewrite()`
+- `src/plugins/vue/scan.ts` — removed `updateVueNamedImportAfterSymbolMove` and `rewriteNamedSymbolImport`
+- `src/plugins/vue/provider.ts` — `VolarProvider.afterSymbolMove` now extracts `<script>` blocks and calls `rewriteScript()`
+- `src/types.ts` — `LanguageProvider.afterSymbolMove` signature: takes `WorkspaceScope`, returns `void`
+- `src/operations/moveSymbol.ts` — passes `scope` directly to `afterSymbolMove`
+
+**Deleted from integration tests:** 9 tests that duplicated ImportRewriter unit coverage.
+
+**Net line change:** approximately -334 lines across source and tests.
+
+**Mutation scores:** `import-rewriter.ts` 92.11%. `ts.ts` 67.19% (pre-existing — survivors are in `getProject` duplication, `getEditsForFileRename`, and `afterFileRename`, not in new code).
+
+**Test count:** 570 (all passing).
+
+**Architectural decision made during implementation:** The spec originally had `ImportRewriter` switching on file extensions for SFC support (`.vue`). This was identified as an architectural violation during implementation — domain services must not know about file formats. The implementation was revised: `ImportRewriter` exposes `rewriteScript(filePath, content, ...)` which operates on raw script content. The Vue plugin extracts `<script>` blocks, calls `rewriteScript()`, and splices results back. No `ScriptBlockExtractor` interface needed in the domain layer. This pattern scales to future SFC formats (Svelte, Astro) without touching the domain service. The spec's Interface section was updated to reflect both methods.
+
+## Reflection
+
+**What went well:**
+- The two-method design (`rewrite` for file iteration, `rewriteScript` for raw content) emerged cleanly once the hexagonal boundary was enforced. It required zero compromises.
+- Unit tests with `InMemoryFileSystem` were dramatically faster and simpler than the integration-test setup they replaced. 22 tests cover more cases than the 9 integration tests they replaced.
+- Thinning integration tests to orchestration-only made them clearer about what they actually verify.
+
+**What did not go well:**
+- The domain/plugin boundary for SFC support was violated three times before the correct pattern stuck. The spec should have explicitly stated "no file-format awareness in the domain service" as a constraint, not left it as an implicit architectural principle.
+- The execution agent got stuck trying to raise mutation scores for pre-existing low-scoring code (`ts.ts` at 67%). Needed explicit guidance to scope mutation work to new code only.
+
+**What took longer than it should have:**
+- Iterating on where Vue/SFC awareness belongs. The spec's Open Decisions section resolved AST vs regex but didn't resolve the SFC extraction boundary. That was the harder design question and should have been the first open decision resolved.
+
+**Recommendation for next agent:**
+- When a spec involves domain services that could touch multiple file formats, resolve the format-awareness boundary as an explicit open decision before dispatching to the execution agent. The execution agent optimizes for mechanical correctness, not architectural judgment — it will implement whatever the spec says, including violations.
+- Pre-existing mutation score gaps in files you're modifying are not your problem. Note them and move on — don't add tests at the wrong layer to compensate.

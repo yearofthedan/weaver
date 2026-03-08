@@ -18,6 +18,7 @@ src/ports/               ← I/O abstractions (hexagonal ports)
 
 src/domain/              ← domain logic independent of I/O
   workspace-scope.ts    ← WorkspaceScope — boundary enforcement + modification tracking
+  import-rewriter.ts    ← ImportRewriter — rewrites named imports/re-exports of a moved symbol
 
 src/operations/          ← standalone action functions (one per operation)
   rename.ts
@@ -177,6 +178,12 @@ Input validation is at the dispatcher layer; output filtering is at the operatio
 - `modified` / `skipped` getters — return tracked paths
 
 The dispatcher constructs a `WorkspaceScope` from the workspace string and a `NodeFileSystem` instance, then passes it to the operation. Currently `rename`, `moveFile`, and `moveSymbol` use `WorkspaceScope`; other operations still receive `workspace: string` and are migrated in subsequent slices.
+
+`ImportRewriter` (`src/domain/import-rewriter.ts`) rewrites named imports and re-exports of a moved symbol across a set of files. It provides:
+- `rewrite(files, symbolName, oldSource, newSource, scope)` — scan files, rewrite matching import/export declarations, write via `scope.writeFile()`
+- `rewriteScript(filePath, content, symbolName, oldSource, newSource, scope)` — rewrite a single script string (used by SFC plugins that extract `<script>` blocks themselves)
+
+The rewriter uses throwaway in-memory ts-morph projects for AST-based rewriting. It handles full-move (repoint specifier), partial-move (split and add new import), and merge (combine with existing destination import). Domain services do not know about file formats — SFC extraction is the plugin layer's responsibility.
 
 ---
 

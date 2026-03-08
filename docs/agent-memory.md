@@ -61,3 +61,21 @@ If you discover misplaced tests, incorrect docs, or small structural problems du
 ## `assertFileExists` bypasses the `FileSystem` port
 
 `assertFileExists` (`src/utils/assert-file.ts`) calls `fs.existsSync` directly — it is not yet behind the `FileSystem` port. Unit tests using `InMemoryFileSystem` must pass a path that physically exists on disk (e.g. `import.meta.url`) to satisfy this guard. This will resolve when `assertFileExists` is migrated in a future architecture slice.
+
+---
+
+## Domain services must not know about file formats
+
+`ImportRewriter` operates on script content only. The plugin layer (Vue, Svelte, etc.) is responsible for extracting script blocks from SFCs before calling the domain service and splicing results back. If a framework name (`.vue`, `.svelte`, `.astro`) appears in an import or condition outside the `plugins/` directory, the abstraction is leaking. This principle applies to all domain services, not just `ImportRewriter`.
+
+---
+
+## Don't fix pre-existing mutation scores by adding tests at the wrong layer
+
+If mutation survivors are in code you didn't change, note them and move on. Adding integration tests to kill unit-level mutants is test duplication — the fix belongs in unit tests for the unchanged code, as a separate task. Only add tests at the layer where the logic lives.
+
+---
+
+## `scope.modified` returns a new array on every call
+
+`WorkspaceScope.modified` creates a fresh array each invocation. Snapshot it before a loop (`const alreadyModified = new Set(scope.modified)`) to avoid O(n^2) behaviour when checking membership repeatedly inside an iteration.
