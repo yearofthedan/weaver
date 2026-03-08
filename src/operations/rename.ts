@@ -1,5 +1,4 @@
-import * as fs from "node:fs";
-import { isWithinWorkspace } from "../security.js";
+import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { LanguageProvider, RenameResult } from "../types.js";
 import { assertFileExists } from "../utils/assert-file.js";
 import { EngineError } from "../utils/errors.js";
@@ -11,7 +10,7 @@ export async function rename(
   line: number,
   col: number,
   newName: string,
-  workspace: string,
+  scope: WorkspaceScope,
 ): Promise<RenameResult> {
   const absPath = assertFileExists(filePath);
 
@@ -19,7 +18,7 @@ export async function rename(
   // getRenameLocations throws RENAME_NOT_ALLOWED when appropriate.
   const locs = await provider.getRenameLocations(absPath, offset);
 
-  if (!locs || locs.length === 0) {
+  if (!locs) {
     throw new EngineError(
       `No renameable symbol at line ${line}, col ${col} in ${filePath}`,
       "SYMBOL_NOT_FOUND",
@@ -40,28 +39,28 @@ export async function rename(
     { span: { start: number; length: number }; newText: string }[]
   >();
   for (const loc of locs) {
-    if (!editsByFile.has(loc.fileName)) editsByFile.set(loc.fileName, []);
-    editsByFile.get(loc.fileName)?.push({ span: loc.textSpan, newText: newName });
+    let fileEdits = editsByFile.get(loc.fileName);
+    if (!fileEdits) {
+      fileEdits = [];
+      editsByFile.set(loc.fileName, fileEdits);
+    }
+    fileEdits.push({ span: loc.textSpan, newText: newName });
   }
 
-  const filesModified = new Set<string>();
-  const filesSkipped = new Set<string>();
-
   for (const [fileName, edits] of editsByFile) {
-    if (!isWithinWorkspace(fileName, workspace)) {
-      filesSkipped.add(fileName);
+    if (!scope.contains(fileName)) {
+      scope.recordSkipped(fileName);
       continue;
     }
     const original = provider.readFile(fileName);
     const updated = applyTextEdits(original, edits);
-    fs.writeFileSync(fileName, updated, "utf8");
+    scope.writeFile(fileName, updated);
     provider.notifyFileWritten(fileName, updated);
-    filesModified.add(fileName);
   }
 
   return {
-    filesModified: Array.from(filesModified),
-    filesSkipped: Array.from(filesSkipped),
+    filesModified: scope.modified,
+    filesSkipped: scope.skipped,
     symbolName: oldName,
     newName,
     locationCount: locs.length,

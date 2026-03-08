@@ -1,9 +1,39 @@
 import * as fs from "node:fs";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { rename } from "../../src/operations/rename.js";
 import { VolarProvider } from "../../src/plugins/vue/provider.js";
+import { InMemoryFileSystem } from "../../src/ports/in-memory-filesystem.js";
+import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
 import { TsProvider } from "../../src/providers/ts.js";
+import type { LanguageProvider, SpanLocation } from "../../src/types.js";
 import { cleanup, copyFixture, readFile } from "../helpers.js";
+
+// assertFileExists (called inside rename) still uses the real filesystem — it is not yet
+// migrated to the FileSystem port. In unit tests that mock the provider, we pass a path
+// that is guaranteed to exist on disk so that guard passes without creating extra files.
+const EXISTING_FILE = new URL(import.meta.url).pathname;
+
+function makeScope(workspace: string): WorkspaceScope {
+  return new WorkspaceScope(workspace, new NodeFileSystem());
+}
+
+// TODO: replace with a shared TestProvider class once one exists — a class
+// with injectable stubs would be cleaner than vi.fn() mocks here.
+function makeMockProvider(overrides: Partial<LanguageProvider> = {}): LanguageProvider {
+  return {
+    resolveOffset: vi.fn().mockReturnValue(0),
+    getRenameLocations: vi.fn().mockResolvedValue(null),
+    getReferencesAtPosition: vi.fn().mockResolvedValue(null),
+    getDefinitionAtPosition: vi.fn().mockResolvedValue(null),
+    getEditsForFileRename: vi.fn().mockResolvedValue([]),
+    readFile: vi.fn().mockReturnValue(""),
+    notifyFileWritten: vi.fn(),
+    afterFileRename: vi.fn().mockResolvedValue({ filesModified: [], filesSkipped: [] }),
+    afterSymbolMove: vi.fn().mockResolvedValue({ filesModified: [], filesSkipped: [] }),
+    ...overrides,
+  };
+}
 
 describe("rename action", () => {
   const dirs: string[] = [];
@@ -20,7 +50,14 @@ describe("rename action", () => {
       const dir = setup();
       const provider = new TsProvider();
 
-      const result = await rename(provider, `${dir}/src/utils.ts`, 1, 17, "greetPerson", dir);
+      const result = await rename(
+        provider,
+        `${dir}/src/utils.ts`,
+        1,
+        17,
+        "greetPerson",
+        makeScope(dir),
+      );
 
       expect(result.symbolName).toBe("greetUser");
       expect(result.newName).toBe("greetPerson");
@@ -34,7 +71,14 @@ describe("rename action", () => {
       const dir = setup();
       const provider = new TsProvider();
 
-      const result = await rename(provider, `${dir}/src/main.ts`, 3, 13, "sayHello", dir);
+      const result = await rename(
+        provider,
+        `${dir}/src/main.ts`,
+        3,
+        13,
+        "sayHello",
+        makeScope(dir),
+      );
 
       expect(result.symbolName).toBe("greetUser");
       expect(result.newName).toBe("sayHello");
@@ -48,7 +92,7 @@ describe("rename action", () => {
       const dir = setup("multi-importer");
       const provider = new TsProvider();
 
-      const result = await rename(provider, `${dir}/src/utils.ts`, 1, 17, "sum", dir);
+      const result = await rename(provider, `${dir}/src/utils.ts`, 1, 17, "sum", makeScope(dir));
 
       expect(result.symbolName).toBe("add");
       expect(result.newName).toBe("sum");
@@ -64,7 +108,7 @@ describe("rename action", () => {
       const provider = new TsProvider();
 
       await expect(
-        rename(provider, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", dir),
+        rename(provider, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", makeScope(dir)),
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
@@ -73,7 +117,7 @@ describe("rename action", () => {
       const provider = new TsProvider();
 
       await expect(
-        rename(provider, `${dir}/src/utils.ts`, 999, 1, "foo", dir),
+        rename(provider, `${dir}/src/utils.ts`, 999, 1, "foo", makeScope(dir)),
       ).rejects.toMatchObject({ code: "SYMBOL_NOT_FOUND" });
     });
   });
@@ -90,7 +134,7 @@ describe("rename action", () => {
       const provider = new VolarProvider();
 
       const filePath = `${dir}/src/composables/useCounter.ts`;
-      const result = await rename(provider, filePath, 1, 17, "useCount", dir);
+      const result = await rename(provider, filePath, 1, 17, "useCount", makeScope(dir));
 
       expect(result.symbolName).toBe("useCounter");
       expect(result.newName).toBe("useCount");
@@ -108,7 +152,14 @@ describe("rename action", () => {
       const dir = vueSetup("vue-ts-boundary");
       const provider = new VolarProvider();
 
-      const result = await rename(provider, `${dir}/src/utils.ts`, 1, 17, "welcomeUser", dir);
+      const result = await rename(
+        provider,
+        `${dir}/src/utils.ts`,
+        1,
+        17,
+        "welcomeUser",
+        makeScope(dir),
+      );
 
       expect(result.symbolName).toBe("greetUser");
       expect(result.newName).toBe("welcomeUser");
@@ -131,7 +182,7 @@ describe("rename action", () => {
       );
 
       const filePath = `${dir}/src/composables/useCounter.ts`;
-      const result = await rename(provider, filePath, 1, 17, "useCount", dir);
+      const result = await rename(provider, filePath, 1, 17, "useCount", makeScope(dir));
 
       expect(result.filesModified).not.toContain(`${dir}/dist/App.vue`);
       const distContent = fs.readFileSync(`${dir}/dist/App.vue`, "utf8");
@@ -143,8 +194,60 @@ describe("rename action", () => {
       const provider = new VolarProvider();
 
       await expect(
-        rename(provider, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", dir),
+        rename(provider, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", makeScope(dir)),
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
+    });
+  });
+
+  describe("workspace boundary and scope tracking", () => {
+    it("throws SYMBOL_NOT_FOUND when provider returns null locations", async () => {
+      const workspace = new URL("../..", import.meta.url).pathname;
+      const provider = makeMockProvider({
+        resolveOffset: vi.fn().mockReturnValue(17),
+        getRenameLocations: vi.fn().mockResolvedValue(null),
+        readFile: vi.fn().mockReturnValue("export function greetUser() {}"),
+      });
+
+      const scope = new WorkspaceScope(workspace, new InMemoryFileSystem());
+
+      await expect(rename(provider, EXISTING_FILE, 1, 17, "newName", scope)).rejects.toMatchObject({
+        code: "SYMBOL_NOT_FOUND",
+      });
+
+      expect(scope.modified).toHaveLength(0);
+      expect(scope.skipped).toHaveLength(0);
+    });
+
+    it("writes in-workspace files and skips out-of-workspace files", async () => {
+      const workspace = new URL("../..", import.meta.url).pathname;
+      const outFile = "/outside/consumer.ts";
+      const originalContent = "export function greetUser() {}";
+
+      // "greetUser" starts at index 16 and is 9 chars long
+      const locs: SpanLocation[] = [
+        { fileName: EXISTING_FILE, textSpan: { start: 16, length: 9 } },
+        { fileName: outFile, textSpan: { start: 16, length: 9 } },
+      ];
+
+      const provider = makeMockProvider({
+        resolveOffset: vi.fn().mockReturnValue(17),
+        getRenameLocations: vi.fn().mockResolvedValue(locs),
+        readFile: vi.fn().mockReturnValue(originalContent),
+      });
+
+      const memFs = new InMemoryFileSystem();
+      const scope = new WorkspaceScope(workspace, memFs);
+      const result = await rename(provider, EXISTING_FILE, 1, 17, "greetPerson", scope);
+
+      expect(result.filesModified).toContain(EXISTING_FILE);
+      expect(result.filesModified).not.toContain(outFile);
+      expect(memFs.readFile(EXISTING_FILE)).toContain("greetPerson");
+
+      expect(result.filesSkipped).toContain(outFile);
+      expect(() => memFs.readFile(outFile)).toThrow();
+
+      expect(provider.notifyFileWritten).toHaveBeenCalledWith(EXISTING_FILE, expect.any(String));
+      expect(provider.notifyFileWritten).not.toHaveBeenCalledWith(outFile, expect.any(String));
     });
   });
 });

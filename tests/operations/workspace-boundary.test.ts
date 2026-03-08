@@ -1,8 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveFile } from "../../src/operations/moveFile.js";
 import { rename } from "../../src/operations/rename.js";
+import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
 import { TsProvider } from "../../src/providers/ts.js";
 import { cleanup, copyFixture, readFile } from "../helpers.js";
 
@@ -31,7 +33,14 @@ describe("workspace boundary enforcement", () => {
     const provider = new TsProvider();
     // greetUser starts at col 17: "export function greetUser"
     //                                               ^ col 17
-    const result = await rename(provider, utilsFile, 1, 17, "greetPerson", workspace);
+    const result = await rename(
+      provider,
+      utilsFile,
+      1,
+      17,
+      "greetPerson",
+      new WorkspaceScope(workspace, new NodeFileSystem()),
+    );
 
     // In-workspace file updated
     expect(result.filesModified.some((f) => f.includes("utils.ts"))).toBe(true);

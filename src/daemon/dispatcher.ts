@@ -1,3 +1,4 @@
+import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { extractFunction } from "../operations/extractFunction.js";
 import { findReferences } from "../operations/findReferences.js";
 import { getDefinition } from "../operations/getDefinition.js";
@@ -6,6 +7,7 @@ import { moveFile } from "../operations/moveFile.js";
 import { rename } from "../operations/rename.js";
 import { replaceText } from "../operations/replaceText.js";
 import { searchText } from "../operations/searchText.js";
+import { NodeFileSystem } from "../ports/node-filesystem.js";
 import {
   DeleteFileArgsSchema,
   ExtractFunctionArgsSchema,
@@ -65,7 +67,8 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         newName: string;
       };
       const provider = await registry.projectProvider();
-      return rename(provider, file, line, col, newName, workspace);
+      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      return rename(provider, file, line, col, newName, scope);
     },
   },
 
