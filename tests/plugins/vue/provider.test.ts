@@ -147,6 +147,56 @@ describe("VolarProvider", () => {
     expect(scope.skipped).toEqual([]);
   });
 
+  it("afterSymbolMove rewrites a matching named import in a .vue file", async () => {
+    const dir = copyFixture("vue-project");
+    dirs.push(dir);
+    const p = new VolarProvider();
+    const scope = makeScope(dir);
+    // App.vue imports useCounter from composables/useCounter
+    const sourceFile = path.join(dir, "src/composables/useCounter.ts");
+    const destFile = path.join(dir, "src/composables/useTimer.ts");
+    await p.afterSymbolMove(sourceFile, "useCounter", destFile, scope);
+
+    const appVue = path.join(dir, "src/App.vue");
+    expect(scope.modified).toContain(appVue);
+    const content = fs.readFileSync(appVue, "utf8");
+    expect(content).toContain("useTimer");
+    expect(content).not.toContain("useCounter.js");
+    expect(content).not.toContain('from "./composables/useCounter"');
+  });
+
+  it("afterSymbolMove does not rewrite a .vue file already in scope.modified", async () => {
+    const dir = copyFixture("vue-project");
+    dirs.push(dir);
+    const p = new VolarProvider();
+    const scope = makeScope(dir);
+    const appVue = path.join(dir, "src/App.vue");
+    // Pre-mark App.vue as already modified
+    scope.writeFile(appVue, fs.readFileSync(appVue, "utf8"));
+    const contentBefore = fs.readFileSync(appVue, "utf8");
+
+    const sourceFile = path.join(dir, "src/composables/useCounter.ts");
+    const destFile = path.join(dir, "src/composables/useTimer.ts");
+    await p.afterSymbolMove(sourceFile, "useCounter", destFile, scope);
+
+    // App.vue was already modified; afterSymbolMove must skip it
+    const contentAfter = fs.readFileSync(appVue, "utf8");
+    expect(contentAfter).toBe(contentBefore);
+  });
+
+  it("afterSymbolMove does not modify .vue files that do not import the symbol", async () => {
+    const dir = copyFixture("vue-project");
+    dirs.push(dir);
+    const p = new VolarProvider();
+    const scope = makeScope(dir);
+    // Move a symbol that App.vue does not import
+    const sourceFile = path.join(dir, "src/composables/useCounter.ts");
+    const destFile = path.join(dir, "src/composables/useTimer.ts");
+    await p.afterSymbolMove(sourceFile, "nonExistentSymbol", destFile, scope);
+
+    expect(scope.modified).toEqual([]);
+  });
+
   it("resolveOffset throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", () => {
     const dir = setup();
     const p = new VolarProvider();

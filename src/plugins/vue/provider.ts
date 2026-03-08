@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { ImportRewriter } from "../../domain/import-rewriter.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type {
   DefinitionLocation,
@@ -8,9 +9,10 @@ import type {
   SpanLocation,
 } from "../../types.js";
 import { EngineError } from "../../utils/errors.js";
+import { walkFiles } from "../../utils/file-walk.js";
 import { lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
-import { updateVueImportsAfterMove, updateVueNamedImportAfterSymbolMove } from "./scan.js";
+import { updateVueImportsAfterMove } from "./scan.js";
 import { buildVolarService, type CachedService } from "./service.js";
 
 export class VolarProvider implements LanguageProvider {
@@ -188,14 +190,33 @@ export class VolarProvider implements LanguageProvider {
   ): Promise<void> {
     const tsConfig = findTsConfigForFile(sourceFile);
     const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
-    const modified = updateVueNamedImportAfterSymbolMove(
-      sourceFile,
-      symbolName,
-      destFile,
-      searchRoot,
-      scope.root,
-    );
-    for (const f of modified) scope.recordModified(f);
+    const rewriter = new ImportRewriter();
+    const SCRIPT_BLOCK = /(<script[^>]*>)([\s\S]*?)(<\/script>)/;
+
+    const alreadyModified = new Set(scope.modified);
+    for (const vueFile of walkFiles(searchRoot, [".vue"])) {
+      if (alreadyModified.has(vueFile)) continue;
+
+      const fileContent = scope.fs.readFile(vueFile);
+      const match = SCRIPT_BLOCK.exec(fileContent);
+      if (!match) continue;
+
+      const [, openTag, scriptContent, closeTag] = match;
+      const rewritten = rewriter.rewriteScript(
+        vueFile,
+        scriptContent,
+        symbolName,
+        sourceFile,
+        destFile,
+        scope,
+      );
+      if (rewritten !== null) {
+        scope.writeFile(
+          vueFile,
+          fileContent.replace(SCRIPT_BLOCK, `${openTag}${rewritten}${closeTag}`),
+        );
+      }
+    }
   }
 
   async afterFileRename(
