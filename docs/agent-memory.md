@@ -22,6 +22,12 @@ The MCP tool names (`rename`, `findReferences`, `getDefinition`, etc.) use camel
 
 ---
 
+## Specs: don't frame internal changes as "backward-compatible"
+
+"Backward-compatible" implies external consumers. All interfaces in this codebase (`LanguageProvider`, `LanguagePlugin`, etc.) are internal with a fixed set of implementers — BC language is noise. Say *why* a parameter is optional (e.g. "so the Vue provider doesn't need changes"), not that it's "backward-compatible".
+
+---
+
 ## `workspace` parameter is read-only
 
 Operations receive `workspace` as a string path for security boundary checks. They must never write to it as a config object or mutate it. The boundary check is `isWithinWorkspace(file, workspace)` in `src/security.ts`.

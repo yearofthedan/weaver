@@ -101,7 +101,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-- **`moveSymbol` does not rewrite imports in files outside `tsconfig.include`** `[needs design]` — Test files and scripts not covered by `tsconfig.include` are invisible to the compiler walk, so their imports are not updated. Observed with `tests/daemon/watcher.test.ts` importing from `file-walk.ts` after `TS_EXTENSIONS` was moved to `extensions.ts`. Related to the existing P2 `moveFile` out-of-project gap.
+- **`moveSymbol` does not rewrite imports in files outside `tsconfig.include`** → [`docs/specs/20260307-movesymbol-out-of-project.md`](specs/20260307-movesymbol-out-of-project.md)
 
 - **`rename` / `findReferences` / `getDefinition` fail with "Could not find source file" on `.ts` inputs** `[needs design]` — Separate from the Vue `.vue`-path bug above. Suspected cause: caller-supplied path differs from ts-morph's internally normalized path (e.g. symlinked workspace root); fix likely requires using `sourceFile.getFilePath()` when calling TS language service methods in `TsProvider`. Root cause not yet reproduced in a test.
 
