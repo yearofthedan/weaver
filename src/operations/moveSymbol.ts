@@ -202,12 +202,13 @@ export async function moveSymbol(
   tsProvider.invalidateProject(absSource);
 
   // Post-step: let the project provider handle any files ts-morph didn't see
-  // (e.g. .vue SFC script blocks in a Vue project).
+  // (e.g. .vue SFC script blocks in a Vue project, or TS files outside tsconfig.include).
   const { modified: extraModified, skipped: extraSkipped } = await projectProvider.afterSymbolMove(
     absSource,
     symbolName,
     absDest,
     workspace,
+    filesModified,
   );
   for (const f of extraModified) filesModified.add(f);
   for (const f of extraSkipped) filesSkipped.add(f);

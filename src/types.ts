@@ -200,14 +200,18 @@ export interface LanguageProvider {
   /**
    * Called after a named export has been moved from `sourceFile` to `destFile`.
    * Providers may scan for imports of the specific symbol and rewrite them.
-   * `TsProvider` is a no-op (ts-morph AST edits handle TS importers directly).
-   * `VolarProvider` will scan `.vue` files in Phase 3.
+   * `TsProvider` walks workspace TS files to catch out-of-project importers.
+   * `VolarProvider` scans `.vue` SFC script blocks.
+   *
+   * `alreadyModified` is the set of files already rewritten by the ts-morph
+   * AST pass. The fallback scan skips these to avoid double-rewriting.
    */
   afterSymbolMove(
     sourceFile: string,
     symbolName: string,
     destFile: string,
     workspace: string,
+    alreadyModified?: ReadonlySet<string>,
   ): Promise<{ modified: string[]; skipped: string[] }>;
 }
 

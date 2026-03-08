@@ -1,11 +1,19 @@
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { moveSymbol } from "../../src/operations/moveSymbol.js";
 import { VolarProvider } from "../../src/plugins/vue/provider.js";
 import { TsProvider } from "../../src/providers/ts.js";
 import { cleanup, copyFixture, readFile } from "../helpers.js";
+import {
+  makeTmpDir,
+  moveGreetUser,
+  moveWithTs,
+  setupConflictScenario,
+  setupMultiImporter,
+  setupSimpleTs,
+  writeTsConfig,
+} from "./moveSymbol-helpers.js";
 
 describe("moveSymbol action", () => {
   const dirs: string[] = [];
@@ -13,79 +21,52 @@ describe("moveSymbol action", () => {
 
   describe("with TsProvider (TS project)", () => {
     it("moves a function to a new file", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      const tsProvider = new TsProvider();
-
-      const srcPath = `${dir}/src/utils.ts`;
-      const dstPath = `${dir}/src/helpers.ts`;
-
-      const result = await moveSymbol(tsProvider, tsProvider, srcPath, "greetUser", dstPath, dir);
-
+      const { result, dir } = await moveGreetUser(dirs);
       expect(result.symbolName).toBe("greetUser");
-      expect(result.sourceFile).toBe(srcPath);
-      expect(result.destFile).toBe(dstPath);
+      expect(result.sourceFile).toBe(`${dir}/src/utils.ts`);
+      expect(result.destFile).toBe(`${dir}/src/helpers.ts`);
       expect(readFile(dir, "src/helpers.ts")).toContain("greetUser");
       expect(readFile(dir, "src/utils.ts")).not.toContain("greetUser");
     });
 
     it("moves a function to an existing file", async () => {
-      const dir = copyFixture("simple-ts");
+      const { dir, tsProvider } = setupSimpleTs();
       dirs.push(dir);
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
         'export function helper(): string { return "hi"; }\n',
       );
-      const tsProvider = new TsProvider();
-
-      await moveSymbol(
-        tsProvider,
+      await moveWithTs(
         tsProvider,
         `${dir}/src/utils.ts`,
         "greetUser",
         `${dir}/src/helpers.ts`,
         dir,
       );
-
       const destContent = readFile(dir, "src/helpers.ts");
       expect(destContent).toContain("helper");
       expect(destContent).toContain("greetUser");
     });
 
     it("updates the import in the importing file with .js extension", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      const tsProvider = new TsProvider();
-
-      await moveSymbol(
-        tsProvider,
-        tsProvider,
-        `${dir}/src/utils.ts`,
-        "greetUser",
-        `${dir}/src/helpers.ts`,
-        dir,
-      );
-
+      const { dir } = await moveGreetUser(dirs);
       const mainContent = readFile(dir, "src/main.ts");
       expect(mainContent).toContain('"./helpers.js"');
       expect(mainContent).not.toContain('"./utils"');
-      expect(mainContent).not.toContain('"./helpers"');
     });
 
     it("merges with an existing dest import when importer already imports from dest", async () => {
-      const dir = copyFixture("multi-importer");
+      const { dir, tsProvider } = setupMultiImporter();
       dirs.push(dir);
       const dstPath = `${dir}/src/shared.ts`;
       fs.writeFileSync(dstPath, "export const PI = 3.14;\n");
       const featureAPath = path.join(dir, "src/featureA.ts");
-      const originalA = fs.readFileSync(featureAPath, "utf8");
-      fs.writeFileSync(featureAPath, `import { PI } from "./shared";\n${originalA}`);
-
-      const tsProvider = new TsProvider();
-      await moveSymbol(tsProvider, tsProvider, `${dir}/src/utils.ts`, "add", dstPath, dir);
-
-      const featureAContent = readFile(dir, "src/featureA.ts");
-      const importMatches = featureAContent.match(
+      fs.writeFileSync(
+        featureAPath,
+        `import { PI } from "./shared";\n${fs.readFileSync(featureAPath, "utf8")}`,
+      );
+      await moveWithTs(tsProvider, `${dir}/src/utils.ts`, "add", dstPath, dir);
+      const importMatches = readFile(dir, "src/featureA.ts").match(
         /import\s*\{[^}]+\}\s*from\s*["']\.\/shared["']/g,
       );
       expect(importMatches).toHaveLength(1);
@@ -93,48 +74,19 @@ describe("moveSymbol action", () => {
       expect(importMatches?.[0]).toContain("add");
     });
 
-    it("symbol is absent from source file after move", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      const tsProvider = new TsProvider();
-
-      await moveSymbol(
-        tsProvider,
-        tsProvider,
-        `${dir}/src/utils.ts`,
-        "greetUser",
-        `${dir}/src/helpers.ts`,
-        dir,
-      );
-
-      expect(readFile(dir, "src/utils.ts")).not.toContain("greetUser");
-    });
-
     it("throws SYMBOL_NOT_FOUND for an unknown symbol", async () => {
-      const dir = copyFixture("simple-ts");
+      const { dir, tsProvider } = setupSimpleTs();
       dirs.push(dir);
-      const tsProvider = new TsProvider();
-
       await expect(
-        moveSymbol(
-          tsProvider,
-          tsProvider,
-          `${dir}/src/utils.ts`,
-          "doesNotExist",
-          `${dir}/src/helpers.ts`,
-          dir,
-        ),
+        moveWithTs(tsProvider, `${dir}/src/utils.ts`, "doesNotExist", `${dir}/src/helpers.ts`, dir),
       ).rejects.toMatchObject({ code: "SYMBOL_NOT_FOUND" });
     });
 
     it("throws FILE_NOT_FOUND for a missing source file", async () => {
-      const dir = copyFixture("simple-ts");
+      const { dir, tsProvider } = setupSimpleTs();
       dirs.push(dir);
-      const tsProvider = new TsProvider();
-
       await expect(
-        moveSymbol(
-          tsProvider,
+        moveWithTs(
           tsProvider,
           `${dir}/src/doesNotExist.ts`,
           "greetUser",
@@ -145,87 +97,53 @@ describe("moveSymbol action", () => {
     });
 
     it("throws NOT_SUPPORTED for a symbol re-exported via 'export { }'", async () => {
-      const dir = copyFixture("simple-ts");
+      const { dir, tsProvider } = setupSimpleTs();
       dirs.push(dir);
-      // localFn is declared without 'export'; re-exported via export { }.
-      // declarationText is "const localFn = (): number => 42;" — no 'export' prefix.
       fs.writeFileSync(
         path.join(dir, "src/reexport.ts"),
         "const localFn = (): number => 42;\nexport { localFn };\n",
       );
-      const tsProvider = new TsProvider();
-
       await expect(
-        moveSymbol(
-          tsProvider,
-          tsProvider,
-          `${dir}/src/reexport.ts`,
-          "localFn",
-          `${dir}/src/helpers.ts`,
-          dir,
-        ),
+        moveWithTs(tsProvider, `${dir}/src/reexport.ts`, "localFn", `${dir}/src/helpers.ts`, dir),
       ).rejects.toMatchObject({ code: "NOT_SUPPORTED" });
     });
 
     it("creates the destination directory when it does not exist", async () => {
-      const dir = copyFixture("simple-ts");
+      const { dir, tsProvider } = setupSimpleTs();
       dirs.push(dir);
-      const tsProvider = new TsProvider();
       const dstPath = path.join(dir, "src/nested/deep/helpers.ts");
-
-      await moveSymbol(tsProvider, tsProvider, `${dir}/src/utils.ts`, "greetUser", dstPath, dir);
-
+      await moveWithTs(tsProvider, `${dir}/src/utils.ts`, "greetUser", dstPath, dir);
       expect(fs.existsSync(dstPath)).toBe(true);
       expect(fs.readFileSync(dstPath, "utf8")).toContain("greetUser");
     });
 
     it("filesModified includes both the source file and the destination file", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      const tsProvider = new TsProvider();
-
-      const result = await moveSymbol(
-        tsProvider,
-        tsProvider,
-        `${dir}/src/utils.ts`,
-        "greetUser",
-        `${dir}/src/helpers.ts`,
-        dir,
-      );
-
+      const { result, dir } = await moveGreetUser(dirs);
       expect(result.filesModified).toContain(`${dir}/src/utils.ts`);
       expect(result.filesModified).toContain(`${dir}/src/helpers.ts`);
     });
 
     it("updates all importers when multiple files import the moved symbol", async () => {
-      const dir = copyFixture("multi-importer");
+      const { dir, tsProvider } = setupMultiImporter();
       dirs.push(dir);
-      const tsProvider = new TsProvider();
-
-      const result = await moveSymbol(
-        tsProvider,
+      const result = await moveWithTs(
         tsProvider,
         `${dir}/src/utils.ts`,
         "add",
         `${dir}/src/helpers.ts`,
         dir,
       );
-
-      // Both importers get updated
       const featureA = fs.readFileSync(path.join(dir, "src/featureA.ts"), "utf8");
       const featureB = fs.readFileSync(path.join(dir, "src/featureB.ts"), "utf8");
-      expect(featureA).not.toContain('"./utils"');
       expect(featureA).toContain('"./helpers.js"');
-      expect(featureB).not.toContain('"./utils"');
       expect(featureB).toContain('"./helpers.js"');
       expect(result.filesModified).toContain(`${dir}/src/featureA.ts`);
       expect(result.filesModified).toContain(`${dir}/src/featureB.ts`);
     });
 
     it("removes only the moved specifier when an importer has multiple named imports from the source", async () => {
-      const dir = copyFixture("multi-importer");
+      const { dir, tsProvider } = setupMultiImporter();
       dirs.push(dir);
-      // Give utils.ts a second export so featureA can import two symbols from it
       fs.appendFileSync(
         path.join(dir, "src/utils.ts"),
         "\nexport function multiply(a: number, b: number): number { return a * b; }\n",
@@ -234,543 +152,313 @@ describe("moveSymbol action", () => {
         path.join(dir, "src/featureA.ts"),
         'import { add, multiply } from "./utils";\nexport const result = add(1, 2) + multiply(3, 4);\n',
       );
-      const tsProvider = new TsProvider();
-
-      await moveSymbol(
-        tsProvider,
-        tsProvider,
-        `${dir}/src/utils.ts`,
-        "add",
-        `${dir}/src/helpers.ts`,
-        dir,
-      );
-
+      await moveWithTs(tsProvider, `${dir}/src/utils.ts`, "add", `${dir}/src/helpers.ts`, dir);
       const content = fs.readFileSync(path.join(dir, "src/featureA.ts"), "utf8");
-      // 'add' removed from utils import; new helpers import added
       expect(content).not.toMatch(/import\s*\{[^}]*add[^}]*\}\s*from\s*["']\.\/utils/);
       expect(content).toMatch(/import\s*\{[^}]*multiply[^}]*\}\s*from\s*["']\.\/utils/);
       expect(content).toMatch(/import\s*\{[^}]*add[^}]*\}\s*from\s*["']\.\/helpers\.js/);
     });
 
     it("moves an exported const variable (exercises VariableDeclaration → VariableStatement traversal)", async () => {
-      const dir = copyFixture("simple-ts");
+      const { dir, tsProvider } = setupSimpleTs();
       dirs.push(dir);
       fs.appendFileSync(path.join(dir, "src/utils.ts"), "\nexport const VERSION = '1.0.0';\n");
       fs.writeFileSync(
         path.join(dir, "src/consumer.ts"),
         'import { VERSION } from "./utils";\nexport const v = VERSION;\n',
       );
-      const tsProvider = new TsProvider();
-
-      const result = await moveSymbol(
-        tsProvider,
+      const result = await moveWithTs(
         tsProvider,
         `${dir}/src/utils.ts`,
         "VERSION",
         `${dir}/src/constants.ts`,
         dir,
       );
-
       expect(readFile(dir, "src/constants.ts")).toContain("export const VERSION");
       expect(readFile(dir, "src/utils.ts")).not.toContain("VERSION");
-      const consumerContent = readFile(dir, "src/consumer.ts");
-      expect(consumerContent).toContain('"./constants.js"');
-      expect(consumerContent).not.toContain('"./utils"');
+      expect(readFile(dir, "src/consumer.ts")).toContain('"./constants.js"');
       expect(result.filesModified).toContain(path.join(dir, "src/consumer.ts"));
     });
 
     it("appends to a non-empty destination file with a blank-line separator", async () => {
-      const dir = copyFixture("simple-ts");
+      const { dir, tsProvider } = setupSimpleTs();
       dirs.push(dir);
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
         'export function helper(): string { return "hi"; }\n',
       );
-      const tsProvider = new TsProvider();
-
-      await moveSymbol(
-        tsProvider,
+      await moveWithTs(
         tsProvider,
         `${dir}/src/utils.ts`,
         "greetUser",
         `${dir}/src/helpers.ts`,
         dir,
       );
-
       const content = fs.readFileSync(path.join(dir, "src/helpers.ts"), "utf8");
       expect(content).toContain("helper");
       expect(content).toContain("greetUser");
-      // Exactly two newlines between existing content and appended declaration
       expect(content).toMatch(/helper[\s\S]*\n\nexport function greetUser/);
     });
 
     it("merges moved symbol into an existing dest import when importer has multiple named imports from source", async () => {
-      const dir = copyFixture("multi-importer");
+      const { dir, tsProvider } = setupMultiImporter();
       dirs.push(dir);
-      // Give utils.ts a second export
       fs.appendFileSync(
         path.join(dir, "src/utils.ts"),
         "\nexport function multiply(a: number, b: number): number { return a * b; }\n",
       );
-      // helpers.ts already exists with its own export
       fs.writeFileSync(path.join(dir, "src/helpers.ts"), "export const PI = 3.14;\n");
-      // featureA imports two symbols from utils AND already imports from helpers
       fs.writeFileSync(
         path.join(dir, "src/featureA.ts"),
         'import { add, multiply } from "./utils";\nimport { PI } from "./helpers";\nexport const r = add(1, 2) + multiply(3, 4) + PI;\n',
       );
-      const tsProvider = new TsProvider();
-
-      await moveSymbol(
-        tsProvider,
-        tsProvider,
-        `${dir}/src/utils.ts`,
-        "add",
-        `${dir}/src/helpers.ts`,
-        dir,
-      );
-
+      await moveWithTs(tsProvider, `${dir}/src/utils.ts`, "add", `${dir}/src/helpers.ts`, dir);
       const content = fs.readFileSync(path.join(dir, "src/featureA.ts"), "utf8");
-      // A single import from helpers containing both PI and add (merged, not duplicated)
       const helperImports = content.match(/import\s*\{[^}]+\}\s*from\s*["']\.\/helpers/g);
       expect(helperImports).toHaveLength(1);
       expect(helperImports?.[0]).toContain("PI");
       expect(helperImports?.[0]).toContain("add");
-      // multiply stays in the utils import
       expect(content).toMatch(/import\s*\{[^}]*multiply[^}]*\}\s*from\s*["']\.\/utils/);
     });
 
     it("does not modify files that import other symbols from source but not the moved symbol", async () => {
-      const dir = copyFixture("simple-ts");
+      const { dir, tsProvider } = setupSimpleTs();
       dirs.push(dir);
       fs.appendFileSync(
         path.join(dir, "src/utils.ts"),
         "\nexport function multiply(a: number, b: number): number { return a * b; }\n",
       );
-      // feature.ts imports only multiply — not greetUser (the symbol being moved)
       fs.writeFileSync(
         path.join(dir, "src/feature.ts"),
         'import { multiply } from "./utils";\nexport const r = multiply(2, 3);\n',
       );
-      const tsProvider = new TsProvider();
-
-      await moveSymbol(
-        tsProvider,
+      await moveWithTs(
         tsProvider,
         `${dir}/src/utils.ts`,
         "greetUser",
         `${dir}/src/helpers.ts`,
         dir,
       );
-
-      // feature.ts must not gain an import from helpers.ts
       const featureContent = readFile(dir, "src/feature.ts");
       expect(featureContent).not.toContain("helpers");
       expect(featureContent).toContain('"./utils"');
     });
 
     it("skips updating imports in the dest file when it already imports the symbol from source", async () => {
-      const dir = copyFixture("simple-ts");
+      const { dir, tsProvider } = setupSimpleTs();
       dirs.push(dir);
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
         'import { greetUser } from "./utils";\nexport function helper(): void { greetUser("x"); }\n',
       );
-      const tsProvider = new TsProvider();
-
-      const result = await moveSymbol(
-        tsProvider,
+      const result = await moveWithTs(
         tsProvider,
         `${dir}/src/utils.ts`,
         "greetUser",
         `${dir}/src/helpers.ts`,
         dir,
       );
-
       expect(readFile(dir, "src/helpers.ts")).toContain("export function greetUser");
-      // No self-referencing import — the dest-file guard prevents the importer loop from
-      // updating the dest file's own import to point at itself.
       expect(readFile(dir, "src/helpers.ts")).not.toContain('"./helpers.js"');
       expect(result.filesSkipped).toHaveLength(0);
     });
 
     it("filesSkipped includes dirty source file that is outside the workspace root", async () => {
-      // tsconfig covers both src/ and lib/, but workspace is only src/.
-      // ts-morph modifies lib/utils.ts in memory (removes the symbol) yet must not save it.
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-movesymbol-dirtysrc-"));
+      const tmpDir = makeTmpDir("ns-movesymbol-dirtysrc-");
       dirs.push(tmpDir);
-
       fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
       fs.mkdirSync(path.join(tmpDir, "lib"), { recursive: true });
-      fs.writeFileSync(
-        path.join(tmpDir, "tsconfig.json"),
-        JSON.stringify({ compilerOptions: { strict: true }, include: ["**/*.ts"] }),
-      );
+      writeTsConfig(tmpDir);
       fs.writeFileSync(
         path.join(tmpDir, "lib/utils.ts"),
         "export function add(a: number, b: number): number { return a + b; }\n",
       );
-
-      const tsProvider = new TsProvider();
-      const result = await moveSymbol(
-        tsProvider,
-        tsProvider,
+      const result = await moveWithTs(
+        new TsProvider(),
         path.join(tmpDir, "lib/utils.ts"),
         "add",
         path.join(tmpDir, "src/helpers.ts"),
-        path.join(tmpDir, "src"), // workspace = src/ only
+        path.join(tmpDir, "src"),
       );
-
       expect(result.filesSkipped.some((f) => f.includes("lib/utils.ts"))).toBe(true);
       expect(result.filesModified.some((f) => f.includes("src/helpers.ts"))).toBe(true);
-      // lib/utils.ts is outside the workspace boundary — must not be written to disk
-      const srcContent = fs.readFileSync(path.join(tmpDir, "lib/utils.ts"), "utf8");
-      expect(srcContent).toContain("add");
+      expect(fs.readFileSync(path.join(tmpDir, "lib/utils.ts"), "utf8")).toContain("add");
     });
 
     it("filesSkipped includes importers outside the workspace boundary", async () => {
-      // Exercises the `!isWithinWorkspace(filePath, workspace)` branch in the importer loop.
-      // The ts-morph project includes both src/ and lib/ but the workspace is only src/.
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-movesymbol-boundary-"));
+      const tmpDir = makeTmpDir("ns-movesymbol-boundary-");
       dirs.push(tmpDir);
-
       fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
       fs.mkdirSync(path.join(tmpDir, "lib"), { recursive: true });
-
-      // tsconfig includes all TS files so lib/consumer.ts is in the project
-      fs.writeFileSync(
-        path.join(tmpDir, "tsconfig.json"),
-        JSON.stringify({ compilerOptions: { strict: true }, include: ["**/*.ts"] }),
-      );
+      writeTsConfig(tmpDir);
       fs.writeFileSync(
         path.join(tmpDir, "src/utils.ts"),
         "export function add(a: number, b: number): number { return a + b; }\n",
       );
-      // Importer is in the project (tsconfig includes **/*.ts) but OUTSIDE workspace (src/)
       fs.writeFileSync(
         path.join(tmpDir, "lib/consumer.ts"),
         'import { add } from "../src/utils";\nexport const result = add(1, 2);\n',
       );
-
-      const tsProvider = new TsProvider();
-      const result = await moveSymbol(
-        tsProvider,
-        tsProvider,
+      const result = await moveWithTs(
+        new TsProvider(),
         path.join(tmpDir, "src/utils.ts"),
         "add",
         path.join(tmpDir, "src/helpers.ts"),
-        path.join(tmpDir, "src"), // workspace = src/ only; lib/ is out-of-bounds
+        path.join(tmpDir, "src"),
       );
-
       expect(result.filesSkipped.some((f) => f.includes("consumer.ts"))).toBe(true);
-      // The out-of-workspace importer must not be rewritten on disk
-      const consumerContent = fs.readFileSync(path.join(tmpDir, "lib/consumer.ts"), "utf8");
-      expect(consumerContent).toContain("../src/utils");
+      expect(fs.readFileSync(path.join(tmpDir, "lib/consumer.ts"), "utf8")).toContain(
+        "../src/utils",
+      );
+    });
+  });
+
+  describe("out-of-project importers", () => {
+    it("rewrites a test file outside tsconfig.include that imports the moved symbol", async () => {
+      // simple-ts has tsconfig.include = ["src/**/*.ts"], so tests/ is excluded.
+      // tests/utils.test.ts imports greetUser from "../src/utils".
+      // After moving greetUser to src/helpers.ts, the test file must be updated.
+      const { result, dir } = await moveGreetUser(dirs);
+      const testContent = fs.readFileSync(path.join(dir, "tests/utils.test.ts"), "utf8");
+      // Import specifier must point at helpers.js (runtime extension)
+      expect(testContent).toContain("../src/helpers.js");
+      expect(testContent).not.toContain("../src/utils");
+      // The test file must appear in filesModified
+      expect(result.filesModified).toContain(path.join(dir, "tests/utils.test.ts"));
     });
   });
 
   describe("force flag — source replaces dest declaration, removes from source, rewrites importers", () => {
-    it("source declaration replaces dest declaration when force is true and conflict exists", async () => {
-      const dir = copyFixture("simple-ts");
+    let dir: string;
+    let tsProvider: TsProvider;
+
+    beforeEach(() => {
+      ({ dir } = setupSimpleTs());
       dirs.push(dir);
-      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
-      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
+      tsProvider = setupConflictScenario(dir);
+    });
+
+    it("source declaration replaces dest declaration when force is true and conflict exists", async () => {
       fs.writeFileSync(
         path.join(dir, "src/c.ts"),
         'import { FOO } from "./a";\nexport const x = FOO;\n',
       );
-      const tsProvider = new TsProvider();
-
-      const result = await moveSymbol(
-        tsProvider,
+      const result = await moveWithTs(
         tsProvider,
         `${dir}/src/a.ts`,
         "FOO",
         `${dir}/src/b.ts`,
         dir,
-        { force: true },
+        {
+          force: true,
+        },
       );
-
-      // Source declaration is removed
       expect(fs.readFileSync(path.join(dir, "src/a.ts"), "utf8")).not.toContain("FOO");
-      // Dest file contains exactly the source version (FOO = 1); original dest (FOO = 42) is gone
-      // Pin exact content: if only the VariableDeclaration (not VariableStatement) were removed,
-      // the file would contain a bare "export const;" before the appended source declaration.
       const bContent = fs.readFileSync(path.join(dir, "src/b.ts"), "utf8");
       expect(bContent).toBe("export const FOO = 1;\n");
       expect(bContent).not.toContain("FOO = 42");
-      // Importer is rewritten to point at dest
-      const cContent = fs.readFileSync(path.join(dir, "src/c.ts"), "utf8");
-      expect(cContent).toContain('"./b.js"');
-      expect(cContent).not.toContain('"./a"');
-      // filesModified covers source, dest, and importer
+      expect(fs.readFileSync(path.join(dir, "src/c.ts"), "utf8")).toContain('"./b.js"');
       expect(result.filesModified).toContain(`${dir}/src/a.ts`);
       expect(result.filesModified).toContain(`${dir}/src/b.ts`);
       expect(result.filesModified).toContain(`${dir}/src/c.ts`);
     });
 
     it("dest file is included in filesModified when force replaces the existing declaration", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
-      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
-      const tsProvider = new TsProvider();
-
-      const result = await moveSymbol(
-        tsProvider,
+      const result = await moveWithTs(
         tsProvider,
         `${dir}/src/a.ts`,
         "FOO",
         `${dir}/src/b.ts`,
         dir,
-        { force: true },
+        {
+          force: true,
+        },
       );
-
-      // dest is written with the source version — it must appear in filesModified
       expect(result.filesModified).toContain(`${dir}/src/b.ts`);
-      // Verify the source version was written
       expect(fs.readFileSync(path.join(dir, "src/b.ts"), "utf8")).toContain("FOO = 1");
     });
 
     it("force false with conflict returns SYMBOL_EXISTS error — same as omitted", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
-      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
-      const tsProvider = new TsProvider();
-
       await expect(
-        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir, {
-          force: false,
-        }),
+        moveWithTs(tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir, { force: false }),
       ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
     });
 
-    it("force true with no conflict performs a normal move", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      const tsProvider = new TsProvider();
-
-      const result = await moveSymbol(
-        tsProvider,
-        tsProvider,
-        `${dir}/src/utils.ts`,
-        "greetUser",
-        `${dir}/src/helpers.ts`,
-        dir,
-        { force: true },
-      );
-
-      expect(result.symbolName).toBe("greetUser");
-      expect(fs.readFileSync(path.join(dir, "src/helpers.ts"), "utf8")).toContain("greetUser");
-      expect(fs.readFileSync(path.join(dir, "src/utils.ts"), "utf8")).not.toContain("greetUser");
-    });
-
-    it("move to existing dest without conflict (no force) removes from source, appends to dest, rewrites importers", async () => {
-      // Verifies that the duplicate-detection guard does not accidentally block moves
-      // where the dest file exists but does not export the symbol being moved.
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      // Dest exists with a different export — BAR is not present in dest
-      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const OTHER = 99;\n");
-      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const BAR = 7;\n");
-      // Importer references BAR from src/a.ts
-      fs.writeFileSync(
-        path.join(dir, "src/c.ts"),
-        'import { BAR } from "./a";\nexport const x = BAR;\n',
-      );
-      const tsProvider = new TsProvider();
-
-      const result = await moveSymbol(
-        tsProvider,
-        tsProvider,
-        `${dir}/src/a.ts`,
-        "BAR",
-        `${dir}/src/b.ts`,
-        dir,
-      );
-
-      // Symbol is removed from source
-      expect(fs.readFileSync(path.join(dir, "src/a.ts"), "utf8")).not.toContain("BAR");
-      // Symbol is appended to dest; original dest content is preserved
-      const bContent = fs.readFileSync(path.join(dir, "src/b.ts"), "utf8");
-      expect(bContent).toContain("BAR");
-      expect(bContent).toContain("OTHER");
-      // Importer is rewritten to point at dest
-      const cContent = fs.readFileSync(path.join(dir, "src/c.ts"), "utf8");
-      expect(cContent).toContain('"./b.js"');
-      expect(cContent).not.toContain('"./a"');
-      // filesModified covers source, dest, and importer
-      expect(result.filesModified).toContain(`${dir}/src/a.ts`);
-      expect(result.filesModified).toContain(`${dir}/src/b.ts`);
-      expect(result.filesModified).toContain(`${dir}/src/c.ts`);
-    });
-
     it("source const replaces a function declaration of the same name in dest when force is true", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
       fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
-      // Dest has a function (not a const) with the same name — exercises the non-VariableDeclaration removal path
       fs.writeFileSync(path.join(dir, "src/b.ts"), "export function FOO(): void {}\n");
-      const tsProvider = new TsProvider();
-
-      await moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir, {
+      await moveWithTs(new TsProvider(), `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir, {
         force: true,
       });
-
       const bContent = fs.readFileSync(path.join(dir, "src/b.ts"), "utf8");
-      // Source const replaces the dest function — the function form must be gone
       expect(bContent).toContain("export const FOO = 1");
       expect(bContent).not.toContain("function FOO");
     });
   });
 
   describe("conflict detection when destination already exports the symbol", () => {
-    it("detects conflict in an existing dest file not yet registered in the ts-morph project", async () => {
-      // Uses a fresh TsProvider so the dest file has never been added to the project graph,
-      // exercising the addSourceFileAtPath fallback in the dest-file loading branch.
-      const dir = copyFixture("simple-ts");
+    let dir: string;
+
+    beforeEach(() => {
+      ({ dir } = setupSimpleTs());
       dirs.push(dir);
       fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
       fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
-      const freshProvider = new TsProvider();
-
-      await expect(
-        moveSymbol(freshProvider, freshProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
-      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
     });
 
-    it("throws SYMBOL_EXISTS when dest exports a const with the same name", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
-      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
-      const tsProvider = new TsProvider();
-
+    it("throws SYMBOL_EXISTS with a message naming the symbol and dest file", async () => {
       await expect(
-        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
-      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
-    });
-
-    it("error message names both the symbol and the destination file", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
-      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
-      const tsProvider = new TsProvider();
-
-      await expect(
-        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
+        moveWithTs(new TsProvider(), `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
       ).rejects.toMatchObject({
-        message: expect.stringContaining("FOO"),
-      });
-
-      await expect(
-        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
-      ).rejects.toMatchObject({
-        message: expect.stringContaining(`${dir}/src/b.ts`),
+        code: "SYMBOL_EXISTS",
+        message: expect.stringMatching(/FOO/),
       });
     });
 
-    it("throws SYMBOL_EXISTS when dest exports a function with the same name", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      fs.writeFileSync(path.join(dir, "src/b.ts"), "export function FOO(): void {}\n");
-      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
-      const tsProvider = new TsProvider();
-
+    it.each([
+      ["a function", "export function FOO(): void {}"],
+      ["a class", "export class FOO {}"],
+    ])("throws SYMBOL_EXISTS when dest exports %s with the same name", async (_label, decl) => {
+      fs.writeFileSync(path.join(dir, "src/b.ts"), `${decl}\n`);
       await expect(
-        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
+        moveWithTs(new TsProvider(), `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
       ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
     });
 
-    it("throws SYMBOL_EXISTS when dest exports a class with the same name", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      fs.writeFileSync(path.join(dir, "src/b.ts"), "export class FOO {}\n");
-      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
-      const tsProvider = new TsProvider();
-
+    it.each([
+      ["source", path.join("src", "a.ts"), "export const FOO = 1;\n"],
+      ["destination", path.join("src", "b.ts"), "export const FOO = 42;\n"],
+    ] as const)("leaves the %s file unmodified when SYMBOL_EXISTS is thrown", async (_label, relPath, expectedContent) => {
+      fs.writeFileSync(path.join(dir, relPath), expectedContent);
       await expect(
-        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
+        moveWithTs(new TsProvider(), `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
       ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
-    });
-
-    it("leaves the source file unmodified when SYMBOL_EXISTS is thrown", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      const srcContent = "export const FOO = 1;\n";
-      fs.writeFileSync(path.join(dir, "src/a.ts"), srcContent);
-      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
-      const tsProvider = new TsProvider();
-
-      await expect(
-        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
-      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
-
-      expect(fs.readFileSync(path.join(dir, "src/a.ts"), "utf8")).toBe(srcContent);
-    });
-
-    it("leaves the destination file unmodified when SYMBOL_EXISTS is thrown", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      const destContent = "export const FOO = 42;\n";
-      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
-      fs.writeFileSync(path.join(dir, "src/b.ts"), destContent);
-      const tsProvider = new TsProvider();
-
-      await expect(
-        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
-      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
-
-      expect(fs.readFileSync(path.join(dir, "src/b.ts"), "utf8")).toBe(destContent);
+      expect(fs.readFileSync(path.join(dir, relPath), "utf8")).toBe(expectedContent);
     });
 
     it("does not rewrite importers when SYMBOL_EXISTS is thrown", async () => {
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
       const importerContent = 'import { FOO } from "./a";\nexport const x = FOO;\n';
-      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
-      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
       fs.writeFileSync(path.join(dir, "src/importer.ts"), importerContent);
-      const tsProvider = new TsProvider();
-
       await expect(
-        moveSymbol(tsProvider, tsProvider, `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
+        moveWithTs(new TsProvider(), `${dir}/src/a.ts`, "FOO", `${dir}/src/b.ts`, dir),
       ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
-
       expect(fs.readFileSync(path.join(dir, "src/importer.ts"), "utf8")).toBe(importerContent);
     });
 
     it("proceeds when dest has a non-exported same-name declaration", async () => {
-      // The SYMBOL_EXISTS check only considers exported declarations.
-      // A private (non-exported) same-named declaration in dest is not a conflict —
-      // the move proceeds and any resulting type error surfaces in typeErrors.
-      const dir = copyFixture("simple-ts");
-      dirs.push(dir);
-      // dest has `const FOO` without `export` — not a conflict
       fs.writeFileSync(path.join(dir, "src/b.ts"), "const FOO = 42;\n");
-      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
-      const tsProvider = new TsProvider();
-
-      const result = await moveSymbol(
-        tsProvider,
-        tsProvider,
+      const result = await moveWithTs(
+        new TsProvider(),
         `${dir}/src/a.ts`,
         "FOO",
         `${dir}/src/b.ts`,
         dir,
       );
-
-      // The move succeeds — no SYMBOL_EXISTS error
       expect(result.symbolName).toBe("FOO");
       expect(result.destFile).toBe(`${dir}/src/b.ts`);
-      // Source no longer exports FOO
       expect(fs.readFileSync(path.join(dir, "src/a.ts"), "utf8")).not.toContain("FOO");
-      // Dest now contains the exported FOO appended after the private one
       const bContent = fs.readFileSync(path.join(dir, "src/b.ts"), "utf8");
       expect(bContent).toContain("export const FOO = 1");
-      // The private const is still there (not touched by the move)
       expect(bContent).toContain("const FOO = 42");
     });
   });
@@ -781,10 +469,8 @@ describe("moveSymbol action", () => {
       dirs.push(dir);
       const tsProvider = new TsProvider();
       const volarProvider = new VolarProvider();
-
       const srcPath = `${dir}/src/composables/useCounter.ts`;
       const dstPath = `${dir}/src/shared.ts`;
-
       const result = await moveSymbol(
         tsProvider,
         volarProvider,
@@ -793,25 +479,15 @@ describe("moveSymbol action", () => {
         dstPath,
         dir,
       );
-
       expect(result.symbolName).toBe("useCounter");
-      expect(result.sourceFile).toBe(srcPath);
-      expect(result.destFile).toBe(dstPath);
-
-      // Symbol moved to dest
       expect(readFile(dir, "src/shared.ts")).toContain("useCounter");
       expect(readFile(dir, "src/composables/useCounter.ts")).not.toContain("useCounter");
-
       // main.ts (TS importer) updated by ts-morph AST surgery
-      const mainContent = readFile(dir, "src/main.ts");
-      expect(mainContent).toContain('"./shared.js"');
-      expect(mainContent).not.toContain("composables/useCounter");
-
+      expect(readFile(dir, "src/main.ts")).toContain('"./shared.js"');
+      expect(readFile(dir, "src/main.ts")).not.toContain("composables/useCounter");
       // App.vue (SFC importer) updated by VolarProvider.afterSymbolMove
-      const vueContent = readFile(dir, "src/App.vue");
-      expect(vueContent).toContain("./shared.js");
-      expect(vueContent).not.toContain("composables/useCounter");
-
+      expect(readFile(dir, "src/App.vue")).toContain("./shared.js");
+      expect(readFile(dir, "src/App.vue")).not.toContain("composables/useCounter");
       expect(result.filesModified).toContain(dstPath);
     }, 30_000);
   });

@@ -6,7 +6,7 @@ import type { DefinitionLocation, FileTextEdit, LanguageProvider, SpanLocation }
 import { EngineError } from "../utils/errors.js";
 import { JS_EXTENSIONS, JS_TS_PAIRS, TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
-import { toRelBase } from "../utils/relative-path.js";
+import { computeRelativeImportPath, toRelBase } from "../utils/relative-path.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 
 export class TsProvider implements LanguageProvider {
@@ -206,14 +206,104 @@ export class TsProvider implements LanguageProvider {
     // ts-morph reads from disk; no in-memory cache to update.
   }
 
+  /**
+   * Fallback scan run after a named symbol has been moved from `sourceFile` to `destFile`.
+   *
+   * The ts-morph project only covers files in `tsconfig.include`. This scan walks
+   * all workspace TS/JS files and rewrites any named import or re-export of
+   * `symbolName` from `sourceFile` that ts-morph missed — most commonly test
+   * files and scripts excluded from the project by tsconfig.
+   *
+   * `alreadyModified` lists files already updated by the ts-morph AST pass so
+   * they are not rewritten a second time.
+   */
   async afterSymbolMove(
-    _sourceFile: string,
-    _symbolName: string,
-    _destFile: string,
-    _workspace: string,
+    sourceFile: string,
+    symbolName: string,
+    destFile: string,
+    workspace: string,
+    alreadyModified: ReadonlySet<string> = new Set(),
   ): Promise<{ modified: string[]; skipped: string[] }> {
-    // ts-morph AST edits in TsEngine.moveSymbol handle TS importers directly.
-    return { modified: [], skipped: [] };
+    const workspaceRoot = path.resolve(workspace);
+    const modified: string[] = [];
+    const skipped: string[] = [];
+
+    for (const filePath of walkFiles(workspaceRoot, [...TS_EXTENSIONS])) {
+      if (alreadyModified.has(filePath)) continue;
+      if (!isWithinWorkspace(filePath, workspace)) {
+        skipped.push(filePath);
+        continue;
+      }
+
+      const fromDir = path.dirname(filePath);
+      const relOldBase = toRelBase(fromDir, sourceFile);
+
+      const raw = fs.readFileSync(filePath, "utf8");
+      const tmpProject = new Project({ useInMemoryFileSystem: true });
+      const sf = tmpProject.createSourceFile(filePath, raw);
+      let hasChanges = false;
+
+      for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {
+        const specifier = decl.getModuleSpecifierValue();
+        if (specifier === undefined) continue;
+
+        // Resolve the specifier to an absolute path (extension-stripped) to check
+        // whether it actually points at sourceFile.
+        if (!matchesSourceFile(specifier, relOldBase, fromDir)) continue;
+
+        // Check whether this declaration references the moved symbol.
+        if ("getNamedImports" in decl) {
+          // ImportDeclaration
+          const named = decl.getNamedImports();
+          const matching = named.filter((s) => s.getName() === symbolName);
+          if (matching.length === 0) continue;
+
+          const destSpecifier = computeRelativeImportPath(filePath, destFile);
+
+          if (named.length === matching.length) {
+            // All named imports are being moved — repoint the whole declaration.
+            decl.setModuleSpecifier(destSpecifier);
+          } else {
+            // Partial move: remove the symbol from the old import, add a new one.
+            for (const spec of matching) {
+              spec.remove();
+            }
+            sf.addImportDeclaration({
+              namedImports: [symbolName],
+              moduleSpecifier: destSpecifier,
+            });
+          }
+          hasChanges = true;
+        } else {
+          // ExportDeclaration — check named exports
+          const named = decl.getNamedExports();
+          const matching = named.filter((s) => s.getName() === symbolName);
+          if (matching.length === 0) continue;
+
+          const destSpecifier = computeRelativeImportPath(filePath, destFile);
+
+          if (named.length === matching.length) {
+            decl.setModuleSpecifier(destSpecifier);
+          } else {
+            for (const spec of matching) {
+              spec.remove();
+            }
+            sf.addExportDeclaration({
+              namedExports: [symbolName],
+              moduleSpecifier: destSpecifier,
+            });
+          }
+          hasChanges = true;
+        }
+      }
+
+      if (!hasChanges) continue;
+
+      fs.writeFileSync(filePath, sf.getFullText(), "utf8");
+      modified.push(filePath);
+    }
+
+    return { modified, skipped };
   }
 
   /**
@@ -328,4 +418,27 @@ function rewriteSpecifier(
   }
 
   return null;
+}
+
+/**
+ * Returns true when `specifier` refers to the source file being moved.
+ * Handles all specifier forms: bare (`./utils`), JS-extension (`./utils.js`),
+ * and TS-extension (`./utils.ts`). `relOldBase` is the extension-stripped
+ * path relative to `fromDir`.
+ *
+ * JS-family extension specifiers that resolve to a real JS file on disk
+ * are excluded — those are genuine JS imports, not TS-source aliases.
+ */
+function matchesSourceFile(specifier: string, relOldBase: string, fromDir: string): boolean {
+  if (specifier === relOldBase) return true;
+
+  for (const [jsExt, tsExt] of JS_TS_PAIRS) {
+    if (specifier === relOldBase + jsExt) {
+      if (isCoexistingJsFile(specifier, fromDir)) return false;
+      return true;
+    }
+    if (specifier === relOldBase + tsExt) return true;
+  }
+
+  return false;
 }
