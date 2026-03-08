@@ -53,6 +53,12 @@ eval/
 src/
   cli.ts          ← registers only: daemon, serve, stop
   schema.ts
+  ports/
+    filesystem.ts         ← FileSystem interface + barrel re-exports
+    node-filesystem.ts    ← NodeFileSystem wrapping node:fs (production)
+    in-memory-filesystem.ts ← InMemoryFileSystem Map-backed (unit tests)
+  domain/
+    workspace-scope.ts    ← WorkspaceScope boundary tracking + modification recording
   types.ts        ← result types + LanguagePlugin + LanguageProvider + ProviderRegistry interfaces
   security.ts     ← isWithinWorkspace() + isSensitiveFile() — boundary + sensitive file blocklist
   mcp.ts          ← MCP server (connects to daemon)
@@ -70,7 +76,7 @@ src/
       scan.ts     ← updateVueImportsAfterMove + updateVueNamedImportAfterSymbolMove (regex scans; enforces workspace boundary)
       service.ts  ← buildVolarService() — Volar service factory
   operations/
-    rename.ts          ← rename(provider, filePath, line, col, newName, workspace)
+    rename.ts          ← rename(provider, filePath, line, col, newName, scope: WorkspaceScope)
     findReferences.ts  ← findReferences(provider, filePath, line, col)
     getDefinition.ts   ← getDefinition(provider, filePath, line, col)
     getTypeErrors.ts   ← getTypeErrors(tsProvider, file?, workspace) — errors-only, cap 100
@@ -101,9 +107,11 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-- **Target architecture: FileSystem port, WorkspaceScope, compiler adapter restructure** — Six-step strangler migration. Step 1 (FileSystem port + WorkspaceScope + `rename` proof) is specced: [`docs/specs/20260308-filesystem-port-and-workspace-scope.md`](specs/20260308-filesystem-port-and-workspace-scope.md). Remaining steps `[needs design]` — spec after step 1 ships: (2) migrate `moveFile`, (3) move `moveSymbol` compiler work into adapter, (4) extract `ImportRewriter`, (5) rename `providers/` → `compilers/`, (6) extract `SymbolRef`. See [`docs/target-architecture.md`](target-architecture.md) for rationale, layer diagram, and migration sequence. (7) document how this app implements hexagonal architecture with mermaid diagrams
+- **Target architecture: compiler adapter restructure** — Six-step strangler migration. Step 1 (FileSystem port + WorkspaceScope + `rename` proof) is complete (archived: [`docs/specs/archive/20260308-filesystem-port-and-workspace-scope.md`](specs/archive/20260308-filesystem-port-and-workspace-scope.md)). Remaining steps `[needs design]` — spec each before starting: (2) migrate `moveFile`, (3) move `moveSymbol` compiler work into adapter, (4) extract `ImportRewriter`, (5) rename `providers/` → `compilers/`, (6) extract `SymbolRef`, (7) document hexagonal architecture with mermaid diagrams. See [`docs/target-architecture.md`](target-architecture.md) for rationale, layer diagram, and migration sequence.
 
 - **`rename` / `findReferences` / `getDefinition` fail with "Could not find source file" on `.ts` inputs** `[needs design]` — Separate from the Vue `.vue`-path bug above. Suspected cause: caller-supplied path differs from ts-morph's internally normalized path (e.g. symlinked workspace root); fix likely requires using `sourceFile.getFilePath()` when calling TS language service methods in `TsProvider`. Root cause not yet reproduced in a test.
+
+- **Reject control characters and URI fragments in file paths** `[needs design]` — `isWithinWorkspace()` guards against `..` traversal and symlink escapes, but does not reject control characters (`\x00`–`\x1f`) or URI-style fragments (`?`, `#`) in path strings. Control characters can corrupt logs and confuse downstream tools; query params / fragments suggest the caller passed a URI instead of a plain path. Fix: add an early rejection in the path validation layer before `path.resolve()`.
 
 - **`getTypeErrors` / write operations: add `warn` status level** `[needs design]` — Currently status is binary (`ok: true/false`). Type errors after a write operation (e.g. `moveFile` returns `ok: true` with `typeErrorCount > 0`) should surface as `status: "warn"` so agents know the operation succeeded structurally but left unresolved references. Supersedes the P4 "moveFile type error return contract" entry.
 

@@ -8,9 +8,17 @@ See also: `docs/tech/volar-v3.md` (Vue provider internals), `docs/tech/tech-debt
 
 ## Overview
 
-The engine layer has two tiers: **providers** hold the stateful compiler objects, and **operations** are standalone functions that call into providers. There are no engine classes.
+The engine layer has three tiers: **ports** define I/O abstractions, **domain** holds boundary/tracking logic, **providers** hold the stateful compiler objects, and **operations** are standalone functions that call into providers and domain objects. There are no engine classes.
 
 ```
+src/ports/               ← I/O abstractions (hexagonal ports)
+  filesystem.ts         ← FileSystem interface + barrel re-exports
+  node-filesystem.ts    ← NodeFileSystem — wraps node:fs (production)
+  in-memory-filesystem.ts ← InMemoryFileSystem — Map-backed (unit tests)
+
+src/domain/              ← domain logic independent of I/O
+  workspace-scope.ts    ← WorkspaceScope — boundary enforcement + modification tracking
+
 src/operations/          ← standalone action functions (one per operation)
   rename.ts
   moveFile.ts
@@ -155,7 +163,19 @@ Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and on
 - **Inputs:** the dispatcher validates all `pathParams` against `isWithinWorkspace` before calling the operation
 - **Outputs (collateral writes):** each operation checks files before writing; out-of-workspace files are skipped and returned in `filesSkipped`. Agents should surface `filesSkipped` to the user.
 
-Input validation is at the dispatcher layer; output filtering is at the operation layer. Both call `isWithinWorkspace` from `src/security.ts`.
+Input validation is at the dispatcher layer; output filtering is at the operation layer.
+
+### FileSystem port and WorkspaceScope
+
+`FileSystem` (`src/ports/filesystem.ts`) is a synchronous I/O interface with two implementations: `NodeFileSystem` (wraps `node:fs`) for production and `InMemoryFileSystem` (Map-backed) for unit tests. Both pass the same conformance test suite.
+
+`WorkspaceScope` (`src/domain/workspace-scope.ts`) combines a workspace root with a `FileSystem` instance. It provides:
+- `contains(path)` — delegates to `isWithinWorkspace` (preserves symlink-resolution security)
+- `writeFile(path, content)` — writes via `FileSystem`, records as modified, throws `WORKSPACE_VIOLATION` if outside workspace
+- `recordModified(path)` / `recordSkipped(path)` — modification tracking
+- `modified` / `skipped` getters — return tracked paths
+
+The dispatcher constructs a `WorkspaceScope` from the workspace string and a `NodeFileSystem` instance, then passes it to the operation. Currently only `rename` uses `WorkspaceScope`; other operations still receive `workspace: string` and are migrated in subsequent slices.
 
 ---
 

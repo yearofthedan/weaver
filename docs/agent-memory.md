@@ -31,3 +31,9 @@ The MCP tool names (`rename`, `findReferences`, `getDefinition`, etc.) use camel
 ## `workspace` parameter is read-only
 
 Operations receive `workspace` as a string path for security boundary checks. They must never write to it as a config object or mutate it. The boundary check is `isWithinWorkspace(file, workspace)` in `src/security.ts`.
+
+---
+
+## `assertFileExists` bypasses the `FileSystem` port
+
+`assertFileExists` (`src/utils/assert-file.ts`) calls `fs.existsSync` directly — it is not yet behind the `FileSystem` port. Unit tests using `InMemoryFileSystem` must pass a path that physically exists on disk (e.g. `import.meta.url`) to satisfy this guard. This will resolve when `assertFileExists` is migrated in a future architecture slice.
