@@ -101,6 +101,8 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
+- **Target architecture: FileSystem port, WorkspaceScope, compiler adapter restructure** — Six-step strangler migration. Step 1 (FileSystem port + WorkspaceScope + `rename` proof) is specced: [`docs/specs/20260308-filesystem-port-and-workspace-scope.md`](specs/20260308-filesystem-port-and-workspace-scope.md). Remaining steps `[needs design]` — spec after step 1 ships: (2) migrate `moveFile`, (3) move `moveSymbol` compiler work into adapter, (4) extract `ImportRewriter`, (5) rename `providers/` → `compilers/`, (6) extract `SymbolRef`. See [`docs/target-architecture.md`](target-architecture.md) for rationale, layer diagram, and migration sequence. (7) document how this app implements hexagonal architecture with mermaid diagrams
+
 - **`rename` / `findReferences` / `getDefinition` fail with "Could not find source file" on `.ts` inputs** `[needs design]` — Separate from the Vue `.vue`-path bug above. Suspected cause: caller-supplied path differs from ts-morph's internally normalized path (e.g. symlinked workspace root); fix likely requires using `sourceFile.getFilePath()` when calling TS language service methods in `TsProvider`. Root cause not yet reproduced in a test.
 
 - **`getTypeErrors` / write operations: add `warn` status level** `[needs design]` — Currently status is binary (`ok: true/false`). Type errors after a write operation (e.g. `moveFile` returns `ok: true` with `typeErrorCount > 0`) should surface as `status: "warn"` so agents know the operation succeeded structurally but left unresolved references. Supersedes the P4 "moveFile type error return contract" entry.
