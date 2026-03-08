@@ -1,3 +1,5 @@
+import type { WorkspaceScope } from "./domain/workspace-scope.js";
+
 export interface RenameResult {
   filesModified: string[];
   /** Impacted files outside workspace that were not written. */
@@ -199,20 +201,19 @@ export interface LanguageProvider {
 
   /**
    * Called after a named export has been moved from `sourceFile` to `destFile`.
-   * Providers may scan for imports of the specific symbol and rewrite them.
+   * Providers scan for imports of the specific symbol and rewrite them.
    * `TsProvider` walks workspace TS files to catch out-of-project importers.
    * `VolarProvider` scans `.vue` SFC script blocks.
    *
-   * `alreadyModified` is the set of files already rewritten by the ts-morph
-   * AST pass. The fallback scan skips these to avoid double-rewriting.
+   * Files already in `scope.modified` are skipped to avoid double-rewriting.
+   * Modified and skipped files are recorded directly into `scope`.
    */
   afterSymbolMove(
     sourceFile: string,
     symbolName: string,
     destFile: string,
-    workspace: string,
-    alreadyModified?: ReadonlySet<string>,
-  ): Promise<{ modified: string[]; skipped: string[] }>;
+    scope: WorkspaceScope,
+  ): Promise<void>;
 }
 
 // ─── Language Plugin ───────────────────────────────────────────────────────

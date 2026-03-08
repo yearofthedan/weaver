@@ -2,8 +2,14 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { WorkspaceScope } from "../../../src/domain/workspace-scope.js";
 import { VolarProvider } from "../../../src/plugins/vue/provider.js";
+import { NodeFileSystem } from "../../../src/ports/node-filesystem.js";
 import { cleanup, copyFixture } from "../../helpers.js";
+
+function makeScope(root: string): WorkspaceScope {
+  return new WorkspaceScope(root, new NodeFileSystem());
+}
 
 describe("VolarProvider", () => {
   const dirs: string[] = [];
@@ -28,10 +34,23 @@ describe("VolarProvider", () => {
     expect(typeof p.afterSymbolMove).toBe("function");
   });
 
-  it("afterSymbolMove is a no-op that returns empty lists", async () => {
-    const p = new VolarProvider();
-    const result = await p.afterSymbolMove("/a.vue", "foo", "/b.ts", "/workspace");
-    expect(result).toEqual({ modified: [], skipped: [] });
+  it("afterSymbolMove is a no-op when no matching .vue files exist", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vue-noop-"));
+    fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+    try {
+      const p = new VolarProvider();
+      const scope = makeScope(tmpDir);
+      await p.afterSymbolMove(
+        path.join(tmpDir, "src/a.ts"),
+        "foo",
+        path.join(tmpDir, "src/b.ts"),
+        scope,
+      );
+      expect(scope.modified).toEqual([]);
+      expect(scope.skipped).toEqual([]);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   it("resolveOffset converts 1-based line/col to 0-based offset", () => {
@@ -112,19 +131,20 @@ describe("VolarProvider", () => {
     expect(result.skipped).toEqual([]);
   });
 
-  it("afterSymbolMove returns empty modified and skipped arrays when no .vue files match", async () => {
+  it("afterSymbolMove records nothing into scope when no .vue files match", async () => {
     // Use a plain TS fixture (no .vue files) so nothing is modified or skipped.
     const tsDir = copyFixture("simple-ts");
     dirs.push(tsDir);
     const p = new VolarProvider();
-    const result = await p.afterSymbolMove(
+    const scope = makeScope(tsDir);
+    await p.afterSymbolMove(
       path.join(tsDir, "src/utils.ts"),
       "greetUser",
       path.join(tsDir, "src/helpers.ts"),
-      tsDir,
+      scope,
     );
-    expect(result.modified).toEqual([]);
-    expect(result.skipped).toEqual([]);
+    expect(scope.modified).toEqual([]);
+    expect(scope.skipped).toEqual([]);
   });
 
   it("resolveOffset throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", () => {

@@ -13,7 +13,7 @@ export function makeMockProvider(overrides: Partial<LanguageProvider> = {}): Lan
     readFile: vi.fn().mockReturnValue(""),
     notifyFileWritten: vi.fn(),
     afterFileRename: vi.fn().mockResolvedValue({ modified: [], skipped: [] }),
-    afterSymbolMove: vi.fn().mockResolvedValue({ modified: [], skipped: [] }),
+    afterSymbolMove: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }

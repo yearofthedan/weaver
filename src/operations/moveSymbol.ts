@@ -28,15 +28,8 @@ export async function moveSymbol(
 
   // Post-step: let the project provider handle any files ts-morph didn't see
   // (e.g. .vue SFC script blocks in a Vue project, or TS files outside tsconfig.include).
-  const { modified: extraModified, skipped: extraSkipped } = await projectProvider.afterSymbolMove(
-    absSource,
-    symbolName,
-    absDest,
-    scope.root,
-    new Set(scope.modified),
-  );
-  for (const f of extraModified) scope.recordModified(f);
-  for (const f of extraSkipped) scope.recordSkipped(f);
+  // scope.modified already contains files rewritten by the ts-morph AST pass.
+  await projectProvider.afterSymbolMove(absSource, symbolName, absDest, scope);
 
   return {
     filesModified: scope.modified,

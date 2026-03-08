@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type {
   DefinitionLocation,
   FileTextEdit,
@@ -183,18 +184,18 @@ export class VolarProvider implements LanguageProvider {
     sourceFile: string,
     symbolName: string,
     destFile: string,
-    workspace: string,
-  ): Promise<{ modified: string[]; skipped: string[] }> {
+    scope: WorkspaceScope,
+  ): Promise<void> {
     const tsConfig = findTsConfigForFile(sourceFile);
-    const searchRoot = tsConfig ? path.dirname(tsConfig) : workspace;
+    const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
     const modified = updateVueNamedImportAfterSymbolMove(
       sourceFile,
       symbolName,
       destFile,
       searchRoot,
-      workspace,
+      scope.root,
     );
-    return { modified, skipped: [] };
+    for (const f of modified) scope.recordModified(f);
   }
 
   async afterFileRename(

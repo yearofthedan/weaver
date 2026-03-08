@@ -81,12 +81,30 @@ describe("moveSymbol operation (thin orchestrator)", () => {
     });
   });
 
-  describe("after-hook result merging", () => {
-    it("merges modified files from afterSymbolMove into scope", async () => {
+  describe("after-hook invocation", () => {
+    it("calls afterSymbolMove with absSource, symbol, absDest, and scope", async () => {
+      const tsProvider = makeMockTsProvider();
+      const projectProvider = makeMockProvider();
+
+      await moveSymbol(tsProvider as never, projectProvider, source, SYMBOL, dest, scope);
+
+      expect(projectProvider.afterSymbolMove).toHaveBeenCalledWith(
+        path.resolve(source),
+        SYMBOL,
+        path.resolve(dest),
+        scope,
+      );
+    });
+
+    it("files recorded into scope by afterSymbolMove appear in the result", async () => {
       const extraFile = path.join(dir, "src/extra.ts");
       const tsProvider = makeMockTsProvider();
       const projectProvider = makeMockProvider({
-        afterSymbolMove: vi.fn().mockResolvedValue({ modified: [extraFile], skipped: [] }),
+        afterSymbolMove: vi
+          .fn()
+          .mockImplementation((_src: string, _sym: string, _dst: string, s: WorkspaceScope) => {
+            s.recordModified(extraFile);
+          }),
       });
 
       const result = await moveSymbol(
@@ -101,11 +119,15 @@ describe("moveSymbol operation (thin orchestrator)", () => {
       expect(result.filesModified).toContain(extraFile);
     });
 
-    it("merges skipped files from afterSymbolMove into scope", async () => {
+    it("skipped files recorded into scope by afterSymbolMove appear in the result", async () => {
       const skippedFile = "/outside/workspace/file.vue";
       const tsProvider = makeMockTsProvider();
       const projectProvider = makeMockProvider({
-        afterSymbolMove: vi.fn().mockResolvedValue({ modified: [], skipped: [skippedFile] }),
+        afterSymbolMove: vi
+          .fn()
+          .mockImplementation((_src: string, _sym: string, _dst: string, s: WorkspaceScope) => {
+            s.recordSkipped(skippedFile);
+          }),
       });
 
       const result = await moveSymbol(
@@ -118,28 +140,6 @@ describe("moveSymbol operation (thin orchestrator)", () => {
       );
 
       expect(result.filesSkipped).toContain(skippedFile);
-    });
-
-    it("calls afterSymbolMove with absSource, symbol, absDest, scope.root, and already-modified set", async () => {
-      const capturedSource = source;
-      const tsProvider = makeMockTsProvider({
-        moveSymbol: vi
-          .fn()
-          .mockImplementation((_src: string, _sym: string, _dst: string, s: WorkspaceScope) => {
-            s.recordModified(capturedSource);
-          }),
-      });
-      const projectProvider = makeMockProvider();
-
-      await moveSymbol(tsProvider as never, projectProvider, source, SYMBOL, dest, scope);
-
-      expect(projectProvider.afterSymbolMove).toHaveBeenCalledWith(
-        path.resolve(source),
-        SYMBOL,
-        path.resolve(dest),
-        dir,
-        new Set([source]),
-      );
     });
   });
 

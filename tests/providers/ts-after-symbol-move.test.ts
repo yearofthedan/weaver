@@ -10,6 +10,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
+import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
 import { TsProvider } from "../../src/providers/ts.js";
 import { cleanup } from "../helpers.js";
 
@@ -51,6 +53,10 @@ function setupPostMoveWorkspace(prefix: string) {
   };
 }
 
+function makeScope(dir: string): WorkspaceScope {
+  return new WorkspaceScope(dir, new NodeFileSystem());
+}
+
 describe("TsProvider.afterSymbolMove", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
@@ -64,12 +70,13 @@ describe("TsProvider.afterSymbolMove", () => {
     );
 
     const provider = new TsProvider();
-    const result = await provider.afterSymbolMove(sourceFile, "add", destFile, dir);
+    const scope = makeScope(dir);
+    await provider.afterSymbolMove(sourceFile, "add", destFile, scope);
 
     const content = fs.readFileSync(path.join(dir, "tests/consumer.ts"), "utf8");
     expect(content).toContain("../src/helpers.js");
     expect(content).not.toContain("../src/utils");
-    expect(result.modified).toContain(path.join(dir, "tests/consumer.ts"));
+    expect(scope.modified).toContain(path.join(dir, "tests/consumer.ts"));
   });
 
   it("rewrites a .js-extension specifier in an out-of-project file", async () => {
@@ -81,12 +88,13 @@ describe("TsProvider.afterSymbolMove", () => {
     );
 
     const provider = new TsProvider();
-    const result = await provider.afterSymbolMove(sourceFile, "add", destFile, dir);
+    const scope = makeScope(dir);
+    await provider.afterSymbolMove(sourceFile, "add", destFile, scope);
 
     const content = fs.readFileSync(path.join(dir, "tests/consumer.ts"), "utf8");
     expect(content).toContain("../src/helpers.js");
     expect(content).not.toContain("../src/utils.js");
-    expect(result.modified).toContain(path.join(dir, "tests/consumer.ts"));
+    expect(scope.modified).toContain(path.join(dir, "tests/consumer.ts"));
   });
 
   it("splits a multi-named-import when only one symbol was moved", async () => {
@@ -98,13 +106,14 @@ describe("TsProvider.afterSymbolMove", () => {
     );
 
     const provider = new TsProvider();
-    const result = await provider.afterSymbolMove(sourceFile, "add", destFile, dir);
+    const scope = makeScope(dir);
+    await provider.afterSymbolMove(sourceFile, "add", destFile, scope);
 
     const content = fs.readFileSync(path.join(dir, "tests/consumer.ts"), "utf8");
     expect(content).toMatch(/import\s*\{[^}]*mul[^}]*\}\s*from\s*["']\.\.\/src\/utils/);
     expect(content).toMatch(/import\s*\{[^}]*add[^}]*\}\s*from\s*["']\.\.\/src\/helpers\.js/);
     expect(content).not.toMatch(/import\s*\{[^}]*add[^}]*\}\s*from\s*["']\.\.\/src\/utils/);
-    expect(result.modified).toContain(path.join(dir, "tests/consumer.ts"));
+    expect(scope.modified).toContain(path.join(dir, "tests/consumer.ts"));
   });
 
   it("rewrites a re-export declaration in an out-of-project file", async () => {
@@ -113,12 +122,13 @@ describe("TsProvider.afterSymbolMove", () => {
     fs.writeFileSync(path.join(dir, "tests/barrel.ts"), 'export { add } from "../src/utils";\n');
 
     const provider = new TsProvider();
-    const result = await provider.afterSymbolMove(sourceFile, "add", destFile, dir);
+    const scope = makeScope(dir);
+    await provider.afterSymbolMove(sourceFile, "add", destFile, scope);
 
     const content = fs.readFileSync(path.join(dir, "tests/barrel.ts"), "utf8");
     expect(content).toContain("../src/helpers.js");
     expect(content).not.toContain("../src/utils");
-    expect(result.modified).toContain(path.join(dir, "tests/barrel.ts"));
+    expect(scope.modified).toContain(path.join(dir, "tests/barrel.ts"));
   });
 
   it("does not rewrite a file that imports a different symbol from the same source", async () => {
@@ -128,12 +138,14 @@ describe("TsProvider.afterSymbolMove", () => {
     fs.writeFileSync(path.join(dir, "tests/consumer.ts"), originalContent);
 
     const provider = new TsProvider();
-    await provider.afterSymbolMove(sourceFile, "add", destFile, dir);
+    const scope = makeScope(dir);
+    await provider.afterSymbolMove(sourceFile, "add", destFile, scope);
 
     expect(fs.readFileSync(path.join(dir, "tests/consumer.ts"), "utf8")).toBe(originalContent);
+    expect(scope.modified).not.toContain(path.join(dir, "tests/consumer.ts"));
   });
 
-  it("skips files already in alreadyModified set", async () => {
+  it("skips files already in scope.modified", async () => {
     const { dir, sourceFile, destFile } = setupPostMoveWorkspace("asm-skip-already-");
     dirs.push(dir);
     const consumerPath = path.join(dir, "tests/consumer.ts");
@@ -141,28 +153,24 @@ describe("TsProvider.afterSymbolMove", () => {
     fs.writeFileSync(consumerPath, originalContent);
 
     const provider = new TsProvider();
-    const result = await provider.afterSymbolMove(
-      sourceFile,
-      "add",
-      destFile,
-      dir,
-      new Set([consumerPath]),
-    );
+    const scope = makeScope(dir);
+    scope.recordModified(consumerPath);
+    await provider.afterSymbolMove(sourceFile, "add", destFile, scope);
 
-    // File must be unchanged — it was in alreadyModified
+    // File must be unchanged — it was already in scope.modified
     expect(fs.readFileSync(consumerPath, "utf8")).toBe(originalContent);
-    expect(result.modified).not.toContain(consumerPath);
   });
 
-  it("returns empty lists when no out-of-project files import the symbol", async () => {
+  it("records nothing when no out-of-project files import the symbol", async () => {
     const { dir, sourceFile, destFile } = setupPostMoveWorkspace("asm-empty-");
     dirs.push(dir);
     // No test files importing add
 
     const provider = new TsProvider();
-    const result = await provider.afterSymbolMove(sourceFile, "add", destFile, dir);
+    const scope = makeScope(dir);
+    await provider.afterSymbolMove(sourceFile, "add", destFile, scope);
 
-    expect(result.modified).toEqual([]);
-    expect(result.skipped).toEqual([]);
+    expect(scope.modified).toEqual([]);
+    expect(scope.skipped).toEqual([]);
   });
 });

@@ -34,7 +34,6 @@ describe("TsProvider", () => {
     expect(typeof p.afterSymbolMove).toBe("function");
   });
 
-
   it("resolveOffset converts 1-based line/col to 0-based offset", () => {
     const dir = setup();
     const p = new TsProvider();
@@ -187,5 +186,58 @@ describe("TsProvider", () => {
     const result = await p.afterFileRename(oldPath, newPath, workspace);
     expect(result).toHaveProperty("modified");
     expect(result).toHaveProperty("skipped");
+  });
+
+  it("afterFileRename does not rewrite files that do not import the old path", async () => {
+    const dir = setup();
+    const p = new TsProvider();
+    const mainPath = path.join(dir, "src/main.ts");
+    const originalContent = fs.readFileSync(mainPath, "utf8");
+    // Moving a file that main.ts doesn't import — main.ts must not be touched.
+    const unrelatedOld = path.join(dir, "src/unrelated.ts");
+    const unrelatedNew = path.join(dir, "src/other.ts");
+    const result = await p.afterFileRename(unrelatedOld, unrelatedNew, dir);
+    expect(fs.readFileSync(mainPath, "utf8")).toBe(originalContent);
+    expect(result.modified).not.toContain(mainPath);
+  });
+
+  it("afterFileRename skips files listed in alreadyModified", async () => {
+    const dir = setup();
+    const p = new TsProvider();
+    const mainPath = path.join(dir, "src/main.ts");
+    const originalContent = fs.readFileSync(mainPath, "utf8");
+    const utils = path.join(dir, "src/utils.ts");
+    const helpers = path.join(dir, "src/helpers.ts");
+    // main.ts imports from utils — normally would be rewritten. Pass it as already modified.
+    const result = await p.afterFileRename(utils, helpers, dir, new Set([mainPath]));
+    // File content unchanged — it was skipped.
+    expect(fs.readFileSync(mainPath, "utf8")).toBe(originalContent);
+    expect(result.modified).not.toContain(mainPath);
+  });
+
+  it("afterFileRename returns the modified file in the result list", async () => {
+    const dir = setup();
+    const p = new TsProvider();
+    const utils = path.join(dir, "src/utils.ts");
+    const helpers = path.join(dir, "src/helpers.ts");
+    // Physically rename the file so the new path exists for the project refresh.
+    fs.renameSync(utils, helpers);
+    const result = await p.afterFileRename(utils, helpers, dir);
+    const mainPath = path.join(dir, "src/main.ts");
+    expect(result.modified).toContain(mainPath);
+    expect(result.modified.length).toBeGreaterThan(0);
+    expect(result.skipped).toEqual([]);
+  });
+
+  it("getProjectForDirectory falls back to no-tsconfig project when no tsconfig found", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-notconfig-dir-"));
+    try {
+      const p = new TsProvider();
+      // Must not throw — returns a bare Project without tsconfig.
+      const project = p.getProjectForDirectory(tmpDir);
+      expect(project).toBeTruthy();
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });

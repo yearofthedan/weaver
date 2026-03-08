@@ -266,13 +266,7 @@ describe("ImportRewriter", () => {
     it("handles an empty files iterable without error", () => {
       const scope = makeScope();
       expect(() =>
-        rewriter.rewrite(
-          [],
-          "MyFn",
-          "/project/src/utils.ts",
-          "/project/src/helpers.ts",
-          scope,
-        ),
+        rewriter.rewrite([], "MyFn", "/project/src/utils.ts", "/project/src/helpers.ts", scope),
       ).not.toThrow();
       expect(scope.modified).toHaveLength(0);
     });
