@@ -23,7 +23,17 @@ Delegate steps 1-2 to `spec-agent`. Steps 3-6 are dispatched **one AC at a time*
 
 2. **Read the spec.** Open the linked spec file. Confirm the task and its ACs with the user BEFORE writing any code.
 
-3. **Implement one AC at a time.** For each AC in the spec's Fix/Behaviour section, dispatch a **single** `execution-agent` call with:
+3. **Resolve open decisions.** Check the spec for an `## Open decisions` section or any language deferring implementation choices (e.g. "the executor should choose", "either approach works"). These are architectural forks that must be resolved before dispatching to the execution agent.
+
+   For each unresolved decision:
+   - Read the relevant source files to understand the current architecture
+   - Evaluate the approaches against the system's existing patterns and constraints
+   - If the user is in the loop, present the tradeoffs and get their call
+   - If autonomous, choose the approach that prioritises correctness over convenience
+
+   **Document the decision** in the spec file: replace the open question with the chosen approach, the reasoning, and the consequences (what this enables, what it rules out, what to watch for). This becomes the implementation instruction for the execution agent. Never forward an unresolved architectural fork to the execution agent — it is optimised for mechanical code changes, not design judgment.
+
+4. **Implement one AC at a time.** For each AC in the spec's Fix/Behaviour section, dispatch a **single** `execution-agent` call with:
    - The spec file path
    - Which AC to implement (quote the AC text)
    - Explicit instruction: "Write failing tests, implement, run `pnpm check`, run `pnpm test:mutate` on the source files you changed (add tests if below threshold), commit, then stop."

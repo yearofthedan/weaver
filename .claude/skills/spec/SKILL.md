@@ -26,28 +26,36 @@ description: Create or refine a task specification from a handoff.md entry — p
    - If you have more than 5 ACs, stop and discuss splitting with the user (see template guidance)
    - Do NOT proceed past this step without user agreement on the ACs
 
-8. **Populate Relevant files and Red flags.** As you explored the codebase to draft ACs, you read files containing reusable logic, similar patterns, and shared types. List them in the `Relevant files` section with a brief note on why each matters. Also note any code smells in the target area (oversized files, duplication, missing abstractions) under `Red flags`. Reference `docs/code-standards.md` for thresholds.
+8. **Flag open implementation decisions.** As you explored the codebase, you may have found places where the implementation has a meaningful fork — e.g. AST vs regex, sync vs async, new abstraction vs inline. For each fork where the approaches have **different correctness or risk profiles**, add an `## Open decisions` section to the spec with:
+   - The decision to make (framed as a question)
+   - The viable approaches
+   - The tradeoffs (especially correctness, maintainability, and risk — not just effort)
+   - A recommendation if you have one, with reasoning
+
+   These are **not** implementation details the executor can figure out. They are architectural forks that affect what gets built. The spec cannot be picked up for implementation until every open decision is resolved. Never write "the executor should choose" — that defers a design decision to an agent that isn't equipped to make it.
+
+9. **Populate Relevant files and Red flags.** As you explored the codebase to draft ACs, you read files containing reusable logic, similar patterns, and shared types. List them in the `Relevant files` section with a brief note on why each matters. Also note any code smells in the target area (oversized files, duplication, missing abstractions) under `Red flags`. Reference `docs/code-standards.md` for thresholds.
 
    **Test hotspot assessment:** Check the test files that will be touched by this spec. If any are at or near threshold, assess them using the test refactoring hierarchy in `docs/code-standards.md` and include a prep step in the spec to refactor them before adding new tests.
 
    If red flags are severe enough to warrant cleanup before feature work, note that a cleanup sub-slice should be dispatched to the execution agent first.
 
-9. **Fill in Interface (change only).** See `docs/specs/templates/change.md` for the full walkthrough. For every parameter and return field, answer:
-   - What does it contain? (not just the type — the actual information)
-   - What are the realistic bounds? What's an example value?
-   - What's the zero/empty case? The adversarial case?
-   - If the operation wraps a compiler/external API, read the API source to answer these — don't guess
+10. **Fill in Interface (change only).** See `docs/specs/templates/change.md` for the full walkthrough. For every parameter and return field, answer:
+    - What does it contain? (not just the type — the actual information)
+    - What are the realistic bounds? What's an example value?
+    - What's the zero/empty case? The adversarial case?
+    - If the operation wraps a compiler/external API, read the API source to answer these — don't guess
 
-10. **Fill in Edges.** Ask: "what must NOT change?" and "what assumptions are we making?" These become regression tests during implementation.
+11. **Fill in Edges.** Ask: "what must NOT change?" and "what assumptions are we making?" These become regression tests during implementation.
 
-11. **Review the Done-when checklist.** Add any task-specific verification steps (e.g., "works via both MCP and CLI", "mutation score for this file specifically").
+12. **Review the Done-when checklist.** Add any task-specific verification steps (e.g., "works via both MCP and CLI", "mutation score for this file specifically").
 
-12. **Update handoff.md.** Change the entry from `[needs design]` to a link to the new spec file. Remove inline ACs or description that moved to the spec — the handoff entry becomes one line.
+13. **Update handoff.md.** Change the entry from `[needs design]` to a link to the new spec file. Remove inline ACs or description that moved to the spec — the handoff entry becomes one line.
 
-13. **Confirm with the user.** Show a summary of the spec before finishing:
+14. **Confirm with the user.** Show a summary of the spec before finishing:
     - Number of ACs
     - Key interface decisions
-    - Anything flagged for the Edges section
+    - Any open decisions flagged in step 8
     - Ask: "Ready to implement, or want to revise?"
 
-14. **Commit.** Use `docs(specs): add spec for [short-title]` as the commit message.
+15. **Commit.** Use `docs(specs): add spec for [short-title]` as the commit message.

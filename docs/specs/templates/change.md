@@ -96,6 +96,28 @@ For every field and parameter, answer:
 
 If a parameter or field has no answer here, the spec isn't ready.
 
+## Open decisions
+
+> **Prompt:** If the implementation has a meaningful fork — multiple viable
+> approaches with different correctness, risk, or maintainability profiles —
+> list each one here. Do NOT write "the executor should choose" or defer the
+> decision. Each entry needs:
+>
+> - **Decision:** The question, framed as a choice (e.g. "AST parsing vs regex")
+> - **Options:** The viable approaches (2-3 max)
+> - **Tradeoffs:** What each option risks or enables — focus on correctness and
+>   maintainability, not just effort
+> - **Recommendation:** Your pick and why, or "needs user input" if the tradeoffs
+>   are genuinely balanced
+>
+> Implementation cannot start until every decision here is resolved. Once
+> resolved, replace the open question with the chosen approach, the reasoning,
+> and the consequences (what it enables, what it rules out, what to watch for).
+> This record persists in the archived spec so future readers understand *why*,
+> not just *what*.
+
+(none, or list decisions found during exploration)
+
 ## Security
 
 > **Prompt:** Review [`docs/security.md`](../../security.md) for the full threat model.

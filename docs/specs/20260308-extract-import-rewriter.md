@@ -99,14 +99,6 @@ class ImportRewriter {
 - File that doesn't import from `oldSource`: no-op for that file.
 - File that imports `oldSource` but not `symbolName`: no-op for that file.
 
-**Implementation strategy decision — AST vs regex:**
-
-The executor must decide between two approaches:
-1. **AST-only:** Use temporary in-memory ts-morph projects for all files (TS and Vue `<script>` blocks). Consistent, handles edge cases, but heavier.
-2. **AST for TS, regex for Vue:** Keep the regex approach for `.vue` files since parsing SFC script blocks with ts-morph requires extracting the `<script>` content first.
-
-The spec does not prescribe which approach — the executor should choose based on implementation complexity. The key constraint is: the rewrite logic (full-move vs partial-move, merge with existing, handle re-exports) must be shared, not duplicated.
-
 ### `LanguageProvider.afterSymbolMove` signature change
 
 ```typescript
@@ -144,6 +136,18 @@ The return type changes to `void` because `scope` now tracks modified/skipped in
 - **`alreadyModified` filtering must be preserved.** The current `afterSymbolMove` skips files in `alreadyModified`. After migration, the same filtering must happen — either by checking `scope.modified` before rewriting, or by passing a pre-filtered file list. Double-rewriting a file must not occur.
 - **Extension matching must be preserved.** The `afterSymbolMove` fallback uses `matchesSourceFile` / `toRelBase` to match specifiers with or without extensions (`.js`, `.ts`, bare). The ImportRewriter must handle the same specifier forms. The `isCoexistingJsFile` check (suppress rewrite when a real `.js` file exists) must also be preserved.
 - **`removeVueImportsOfDeletedFile` and `updateVueImportsAfterMove` are not touched.** These are file-move and file-delete operations in `scan.ts`, not symbol-move. They remain as-is.
+
+## Open decisions
+
+### Resolved: AST (ts-morph) for rewrite logic, not regex
+
+- **Decision:** Should `ImportRewriter` use regex or AST parsing to rewrite import/export declarations?
+- **Chosen approach:** Throwaway in-memory ts-morph projects (`new Project({ useInMemoryFileSystem: true })`), same pattern as `TsProvider.afterSymbolMove` today. For `.vue` files, extract the `<script>` block content with a simple regex, run the same ts-morph rewrite on it, then splice the result back into the SFC.
+- **Reasoning:** Regex cannot distinguish import statements from identical text inside comments or string literals — this is a correctness bug, not a cosmetic issue. The existing `scan.ts` regex already has known gaps (doesn't handle `export { }`, doesn't handle multi-line imports). Building a regex robust enough to handle full-move, partial-move, merge, and re-exports across formatting variants means reinventing a parser. ts-morph's in-memory project is lightweight (no tsconfig, no disk I/O — just string → AST → mutate → string) and handles all formatting variants, quote styles, and whitespace automatically.
+- **Consequences:**
+  - **Enables:** Single code path for all rewrite cases (TS and Vue). Structural operations (split, merge) are tree mutations, not string surgery. Future enhancements (aliased imports, type-only imports) are single-site changes.
+  - **Rules out:** Zero-dependency rewriter. `ImportRewriter` depends on `ts-morph` as a peer of the rest of the project — acceptable since ts-morph is already a core dependency.
+  - **Watch for:** The `.vue` script-block extraction regex must only isolate block boundaries (`<script>` open/close tags), not parse import syntax. Keep that regex trivial — all import logic goes through ts-morph.
 
 ## Done-when
 
