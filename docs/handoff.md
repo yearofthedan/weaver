@@ -107,7 +107,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-- **Target architecture: compiler adapter restructure** — Six-step strangler migration. Step 1 (FileSystem port + WorkspaceScope + `rename` proof) is complete (archived: [`docs/specs/archive/20260308-filesystem-port-and-workspace-scope.md`](specs/archive/20260308-filesystem-port-and-workspace-scope.md)). Remaining steps `[needs design]` — spec each before starting: (2) migrate `moveFile`, (3) move `moveSymbol` compiler work into adapter, (4) extract `ImportRewriter`, (5) rename `providers/` → `compilers/`, (6) extract `SymbolRef`, (7) document hexagonal architecture with mermaid diagrams. See [`docs/target-architecture.md`](target-architecture.md) for rationale, layer diagram, and migration sequence.
+- **Target architecture: compiler adapter restructure** — Six-step strangler migration. Step 1 (FileSystem port + WorkspaceScope + `rename` proof) is complete (archived: [`docs/specs/archive/20260308-filesystem-port-and-workspace-scope.md`](specs/archive/20260308-filesystem-port-and-workspace-scope.md)). Step 2 (migrate `moveFile`) → [`docs/specs/20260308-movefile-workspace-scope.md`](specs/20260308-movefile-workspace-scope.md). Remaining steps `[needs design]` — spec each before starting: (3) move `moveSymbol` compiler work into adapter, (4) extract `ImportRewriter`, (5) rename `providers/` → `compilers/`, (6) extract `SymbolRef`, (7) document hexagonal architecture with mermaid diagrams. See [`docs/target-architecture.md`](target-architecture.md) for rationale, layer diagram, and migration sequence.
 
 - **`rename` / `findReferences` / `getDefinition` fail with "Could not find source file" on `.ts` inputs** `[needs design]` — Separate from the Vue `.vue`-path bug above. Suspected cause: caller-supplied path differs from ts-morph's internally normalized path (e.g. symlinked workspace root); fix likely requires using `sourceFile.getFilePath()` when calling TS language service methods in `TsProvider`. Root cause not yet reproduced in a test.
 
@@ -173,6 +173,19 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - **`docs/tech/tech-debt.md`** — known structural issues. Includes the `ensureDaemon` one-shot bug.
 - **`@volar/language-core` version skew** — `@vue/language-core` and `@volar/typescript` previously depended on different patch versions of `@volar/language-core`, causing type mismatches. Fixed via `pnpm.overrides` in `package.json` pinning to 2.4.28. `@volar/language-core` is also a direct `devDependency` so TypeScript can resolve the `Language<string>` type import in `volar.ts`.
 - **`moveFile` import gap for files outside `tsconfig.include`** — test files and scripts are not in the ts-morph project; imports in/to them are not rewritten on move. See P2 backlog for details. Workaround: use `replaceText` to fix paths manually after moving.
+
+---
+
+## Agent reflection: `moveSymbol` limitation — only exported declarations
+
+During AC3 of the `moveFile` workspace-scope spec, the spec directed the agent to try `mcp__light-bridge__moveSymbol` to move `makeMockProvider` from `tests/operations/rename.test.ts` to `tests/providers/__helpers__/mock-provider.ts`. The call returned `SYMBOL_NOT_FOUND` because `makeMockProvider` is a local (non-exported) function.
+
+`moveSymbol` only handles **top-level exported declarations** (`export function`, `export const`, `export class`, etc.). It cannot move unexported helpers. When a symbol needs to be extracted and made public for the first time, the workflow is:
+
+1. Try `moveSymbol` — if it returns `SYMBOL_NOT_FOUND`, the symbol is not exported.
+2. Fall back to: create the destination file manually with the symbol exported, then remove it from the source and add the import.
+
+There is no light-bridge tool for "add export keyword + move". This is a known gap — if it becomes a recurring friction point, add a `[needs design]` entry.
 
 ---
 

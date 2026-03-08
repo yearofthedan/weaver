@@ -6,8 +6,9 @@ import { VolarProvider } from "../../src/plugins/vue/provider.js";
 import { InMemoryFileSystem } from "../../src/ports/in-memory-filesystem.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
 import { TsProvider } from "../../src/providers/ts.js";
-import type { LanguageProvider, SpanLocation } from "../../src/types.js";
+import type { SpanLocation } from "../../src/types.js";
 import { cleanup, copyFixture, readFile } from "../helpers.js";
+import { makeMockProvider } from "../providers/__helpers__/mock-provider.js";
 
 // assertFileExists (called inside rename) still uses the real filesystem — it is not yet
 // migrated to the FileSystem port. In unit tests that mock the provider, we pass a path
@@ -16,23 +17,6 @@ const EXISTING_FILE = new URL(import.meta.url).pathname;
 
 function makeScope(workspace: string): WorkspaceScope {
   return new WorkspaceScope(workspace, new NodeFileSystem());
-}
-
-// TODO: replace with a shared TestProvider class once one exists — a class
-// with injectable stubs would be cleaner than vi.fn() mocks here.
-function makeMockProvider(overrides: Partial<LanguageProvider> = {}): LanguageProvider {
-  return {
-    resolveOffset: vi.fn().mockReturnValue(0),
-    getRenameLocations: vi.fn().mockResolvedValue(null),
-    getReferencesAtPosition: vi.fn().mockResolvedValue(null),
-    getDefinitionAtPosition: vi.fn().mockResolvedValue(null),
-    getEditsForFileRename: vi.fn().mockResolvedValue([]),
-    readFile: vi.fn().mockReturnValue(""),
-    notifyFileWritten: vi.fn(),
-    afterFileRename: vi.fn().mockResolvedValue({ filesModified: [], filesSkipped: [] }),
-    afterSymbolMove: vi.fn().mockResolvedValue({ filesModified: [], filesSkipped: [] }),
-    ...overrides,
-  };
 }
 
 describe("rename action", () => {
