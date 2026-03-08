@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Project } from "ts-morph";
+import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { isWithinWorkspace } from "../security.js";
 import type { DefinitionLocation, FileTextEdit, LanguageProvider, SpanLocation } from "../types.js";
 import { EngineError } from "../utils/errors.js";
@@ -8,6 +9,7 @@ import { JS_EXTENSIONS, JS_TS_PAIRS, TS_EXTENSIONS } from "../utils/extensions.j
 import { walkFiles } from "../utils/file-walk.js";
 import { computeRelativeImportPath, toRelBase } from "../utils/relative-path.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
+import { tsMoveSymbol } from "./ts-move-symbol.js";
 
 export class TsProvider implements LanguageProvider {
   private projects = new Map<string, Project>();
@@ -61,6 +63,24 @@ export class TsProvider implements LanguageProvider {
   invalidateProject(filePath: string): void {
     const tsConfigPath = findTsConfigForFile(filePath);
     this.projects.delete(tsConfigPath ?? "__no_tsconfig__");
+  }
+
+  /**
+   * Move a named export from `sourceFile` to `destFile`, updating all importers
+   * within the workspace boundary defined by `scope`.
+   *
+   * Performs: symbol lookup, destination prep, importer snapshot, AST surgery,
+   * import rewriting, dirty-file tracking, and file saving. Calls
+   * `invalidateProject` internally after saving.
+   */
+  async moveSymbol(
+    sourceFile: string,
+    symbolName: string,
+    destFile: string,
+    scope: WorkspaceScope,
+    options?: { force?: boolean },
+  ): Promise<void> {
+    return tsMoveSymbol(this, sourceFile, symbolName, destFile, scope, options);
   }
 
   /**
