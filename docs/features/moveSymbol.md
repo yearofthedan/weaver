@@ -59,9 +59,9 @@ tool call
   │   ├─ save dirty files within workspace boundary; add out-of-workspace to filesSkipped
   │   ├─ invalidateProject(sourceFile) — drop provider cache
   │   └─ afterSymbolMove() — provider post-step
-  │         VolarProvider: updateVueNamedImportAfterSymbolMove() regex scan patches
-  │         .vue SFC <script> imports that ts-morph doesn't see
-  │         TsProvider: no-op
+  │         VolarProvider: regex scan patches .vue SFC <script> imports
+  │         TsProvider: workspace-wide fallback scan rewrites imports in
+  │         files outside tsconfig.include (tests, scripts, config)
   ▼ dispatcher appends type errors for filesModified (unless checkTypeErrors: false)
   ▼ result { ok, filesModified, filesSkipped, typeErrors }
 ```

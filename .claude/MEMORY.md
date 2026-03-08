@@ -42,8 +42,8 @@ Before moving a symbol, renaming across files, or checking blast radius: use `mo
 **`moveSymbol` appends to dest file — pre-written declarations cause duplicates.**
 If the destination file already contains the symbol, `moveSymbol` appends a second declaration. Read the dest file after calling it and remove any duplicate.
 
-**`moveSymbol` does not update test files outside the TS project graph.**
-Files not in `tsconfig.include` (e.g. `tests/`) are not rewritten. Check for and fix those imports manually after the move.
+**`moveSymbol` now updates test files outside the TS project graph.**
+The `afterSymbolMove` fallback scan walks all workspace TS files and rewrites imports in files outside `tsconfig.include`. No manual fixup needed.
 
 **Commit at every logical milestone — do not let changes accumulate.**
 
