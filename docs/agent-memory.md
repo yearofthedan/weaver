@@ -34,6 +34,18 @@ Operations receive `workspace` as a string path for security boundary checks. Th
 
 ---
 
+## Specs must say *what* to move, not *how*
+
+When a spec says "move function X to file Y", do not prescribe manual steps (create file, copy code, update imports). That competes with the light-bridge skill guidance and causes agents to ignore `moveSymbol`/`moveFile`. Describe the *what* and *where* — the execution agent's refactoring skill handles the *how*.
+
+---
+
+## Colocate test helpers with their domain, not in a generic folder
+
+`makeMockProvider` mocks the `LanguageProvider` interface — it belongs in `tests/providers/__helpers__/`, not `tests/helpers/`. Place test doubles near the concept they mock, using `__helpers__/` subfolders per code-standards.md.
+
+---
+
 ## `assertFileExists` bypasses the `FileSystem` port
 
 `assertFileExists` (`src/utils/assert-file.ts`) calls `fs.existsSync` directly — it is not yet behind the `FileSystem` port. Unit tests using `InMemoryFileSystem` must pass a path that physically exists on disk (e.g. `import.meta.url`) to satisfy this guard. This will resolve when `assertFileExists` is migrated in a future architecture slice.

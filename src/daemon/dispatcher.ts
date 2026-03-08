@@ -78,7 +78,8 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params, workspace) {
       const { oldPath, newPath } = params as { oldPath: string; newPath: string };
       const provider = await registry.projectProvider();
-      return moveFile(provider, oldPath, newPath, workspace);
+      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      return moveFile(provider, oldPath, newPath, scope);
     },
   },
 

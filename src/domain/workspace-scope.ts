@@ -14,7 +14,7 @@ import { EngineError } from "../utils/errors.js";
  */
 export class WorkspaceScope {
   readonly fs: FileSystem;
-  private readonly root: string;
+  readonly root: string;
   private readonly _modified = new Set<string>();
   private readonly _skipped = new Set<string>();
 

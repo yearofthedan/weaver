@@ -66,7 +66,8 @@ describe("workspace boundary enforcement", () => {
     expect(readFile(root, "consumer/main.ts")).toContain("utils");
 
     const provider = new TsProvider();
-    const result = await moveFile(provider, oldFilePath, newFilePath, workspace);
+    const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+    const result = await moveFile(provider, oldFilePath, newFilePath, scope);
 
     // Physical move happened
     expect(fs.existsSync(oldFilePath)).toBe(false);

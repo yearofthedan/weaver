@@ -1,6 +1,4 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { isWithinWorkspace } from "../security.js";
+import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { LanguageProvider, MoveResult } from "../types.js";
 import { assertFileExists } from "../utils/assert-file.js";
 import { applyTextEdits } from "../utils/text-utils.js";
@@ -9,34 +7,30 @@ export async function moveFile(
   provider: LanguageProvider,
   oldPath: string,
   newPath: string,
-  workspace: string,
+  scope: WorkspaceScope,
 ): Promise<MoveResult> {
   const absOld = assertFileExists(oldPath);
-  const absNew = path.resolve(newPath);
+  const absNew = scope.fs.resolve(newPath);
 
   const edits = await provider.getEditsForFileRename(absOld, absNew);
 
-  const filesModified = new Set<string>();
-  const filesSkipped = new Set<string>();
-
   for (const edit of edits) {
-    if (!isWithinWorkspace(edit.fileName, workspace)) {
-      filesSkipped.add(edit.fileName);
+    if (!scope.contains(edit.fileName)) {
+      scope.recordSkipped(edit.fileName);
       continue;
     }
     const original = provider.readFile(edit.fileName);
     const updated = applyTextEdits(original, edit.textChanges);
-    fs.writeFileSync(edit.fileName, updated, "utf8");
+    scope.writeFile(edit.fileName, updated);
     provider.notifyFileWritten(edit.fileName, updated);
-    filesModified.add(edit.fileName);
   }
 
   // Physical move.
-  const destDir = path.dirname(absNew);
-  if (!fs.existsSync(destDir)) {
-    fs.mkdirSync(destDir, { recursive: true });
+  const destDir = scope.fs.resolve(absNew, "..");
+  if (!scope.fs.exists(destDir)) {
+    scope.fs.mkdir(destDir, { recursive: true });
   }
-  fs.renameSync(absOld, absNew);
+  scope.fs.rename(absOld, absNew);
 
   // Provider cleanup (cache invalidation, post-move scans, etc.).
   // Pass the already-modified set so the fallback scan can skip files that were
@@ -44,22 +38,22 @@ export async function moveFile(
   const { modified: extraModified, skipped: extraSkipped } = await provider.afterFileRename(
     absOld,
     absNew,
-    workspace,
-    filesModified,
+    scope.root,
+    new Set(scope.modified),
   );
 
   for (const f of extraModified) {
-    filesModified.add(f);
+    scope.recordModified(f);
   }
   for (const f of extraSkipped) {
-    filesSkipped.add(f);
+    scope.recordSkipped(f);
   }
 
-  filesModified.add(absNew);
+  scope.recordModified(absNew);
 
   return {
-    filesModified: Array.from(filesModified),
-    filesSkipped: Array.from(filesSkipped),
+    filesModified: scope.modified,
+    filesSkipped: scope.skipped,
     oldPath: absOld,
     newPath: absNew,
   };
