@@ -47,6 +47,8 @@ The `afterSymbolMove` fallback scan walks all workspace TS files and rewrites im
 
 **Source extraction = test review.** See `docs/code-standards.md` § "Source extraction = test review". When extracting a new entity, review and restructure tests in the same pass. This is not a follow-up — it goes in the spec as a first-class AC.
 
+**Domain services must not know about file formats.** The plugin architecture exists so framework plugins (Vue, Svelte, etc.) handle their own file format concerns. A domain service like `ImportRewriter` operates on script content only — plugins extract script blocks from SFCs before calling the domain service and splice results back after. Never switch on file extensions or register format-specific extractors inside a domain service. If the word "vue" (or any framework name) appears outside the plugin directory or a single registration point, the abstraction is wrong.
+
 **Commit at every logical milestone — do not let changes accumulate.**
 
 ---
