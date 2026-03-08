@@ -35,14 +35,16 @@ Delegate steps 1-2 to `spec-agent`. Steps 3-6 are dispatched **one AC at a time*
    - [ ] **Remove** the handoff.md task entry entirely — handoff.md is a work queue, not a history. Do not mark it shipped, do not leave a link to the archive. Just delete the line. Update the "Current state" section (test count, layout changes) if needed.
    - [ ] If public surfaces changed, update the corresponding docs (the spec's Done-when checklist specifies which)
 
-5. **Archive the spec.** Move the spec file from `docs/specs/` to `docs/specs/archive/`. Append an `## Outcome` section with:
+5. **Update the spec with a reflection** What went well in the execution? What did not go well? What do you wish you'd known? What took longer than it should have? What would you recommend to the next agent?
+
+6. **Archive the spec.** Move the spec file from `docs/specs/` to `docs/specs/archive/`. Append an `## Outcome` section with:
    - Actual test count added
    - Mutation score for touched files
    - Any architectural decisions or discoveries worth preserving
    - Anything surprising that came up during implementation
 
-6. **Update `docs/agent-memory.md`** with any non-obvious gotchas discovered.
+7. **Update `docs/agent-memory.md`** with any non-obvious gotchas discovered.
 
-7. **Commit** docs changes with a conventional commit message (see `CLAUDE.md`).
+8. **Commit** docs changes with a conventional commit message (see `CLAUDE.md`).
 
-8. Do NOT proceed to the next slice without explicit user approval.
+9. Do NOT proceed to the next slice without explicit user approval.

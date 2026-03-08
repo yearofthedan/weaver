@@ -80,7 +80,7 @@ src/
     findReferences.ts  ← findReferences(provider, filePath, line, col)
     getDefinition.ts   ← getDefinition(provider, filePath, line, col)
     getTypeErrors.ts   ← getTypeErrors(tsProvider, file?, workspace) — errors-only, cap 100
-    moveFile.ts        ← moveFile(provider, oldPath, newPath, workspace)
+    moveFile.ts        ← moveFile(provider, oldPath, newPath, scope: WorkspaceScope)
     moveSymbol.ts      ← moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace)
     extractFunction.ts ← extractFunction(tsProvider, file, startLine, startCol, endLine, endCol, functionName, workspace)
     searchText.ts      ← searchText(pattern, workspace, { glob, context, maxResults })
@@ -107,7 +107,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-- **Target architecture: compiler adapter restructure** — Six-step strangler migration. Step 1 (FileSystem port + WorkspaceScope + `rename` proof) is complete (archived: [`docs/specs/archive/20260308-filesystem-port-and-workspace-scope.md`](specs/archive/20260308-filesystem-port-and-workspace-scope.md)). Step 2 (migrate `moveFile`) → [`docs/specs/20260308-movefile-workspace-scope.md`](specs/20260308-movefile-workspace-scope.md). Remaining steps `[needs design]` — spec each before starting: (3) move `moveSymbol` compiler work into adapter, (4) extract `ImportRewriter`, (5) rename `providers/` → `compilers/`, (6) extract `SymbolRef`, (7) document hexagonal architecture with mermaid diagrams. See [`docs/target-architecture.md`](target-architecture.md) for rationale, layer diagram, and migration sequence.
+- **Target architecture: compiler adapter restructure** — Seven-step strangler migration. Steps 1-2 complete: Step 1 (FileSystem port + WorkspaceScope + `rename` proof) archived: [`docs/specs/archive/20260308-filesystem-port-and-workspace-scope.md`](specs/archive/20260308-filesystem-port-and-workspace-scope.md). Step 2 (`moveFile` migration to WorkspaceScope) archived: [`docs/specs/archive/20260308-movefile-workspace-scope.md`](specs/archive/20260308-movefile-workspace-scope.md). Step 3 is next `[needs design]` — move `moveSymbol` compiler work into adapter. Remaining steps `[needs design]` — spec each before starting: (4) extract `ImportRewriter`, (5) rename `providers/` → `compilers/`, (6) extract `SymbolRef`, (7) document hexagonal architecture with mermaid diagrams. See [`docs/target-architecture.md`](target-architecture.md) for rationale, layer diagram, and migration sequence.
 
 - **`rename` / `findReferences` / `getDefinition` fail with "Could not find source file" on `.ts` inputs** `[needs design]` — Separate from the Vue `.vue`-path bug above. Suspected cause: caller-supplied path differs from ts-morph's internally normalized path (e.g. symlinked workspace root); fix likely requires using `sourceFile.getFilePath()` when calling TS language service methods in `TsProvider`. Root cause not yet reproduced in a test.
 
@@ -147,6 +147,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks; depends on buildVolarService refactoring
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; depends on buildVolarService refactoring; see [moveSymbol.md](features/moveSymbol.md)
+- **`moveSymbol` cannot move non-exported local functions** `[needs design]` — `moveSymbol` only handles top-level exported declarations. Attempting to move an unexported helper returns `SYMBOL_NOT_FOUND`. Workaround: manually create the destination file with the symbol exported, remove from source, add import. See handoff.md "Agent reflection" section for context.
 - `createFile` `[needs design]` — scaffold a file with correct import paths
 - **Agent guidance on type errors in tool responses** `[needs design]` — all write operations return `typeErrors`; agents need to know this is an action item (something wasn't fully updated) and follow up with `replaceText`. Currently nothing teaches this pattern. Decision needed: shipped skill file, tool description addition, CLAUDE.md guidance snippet, or combination?
 - **Batch file operations** `[needs design]` — `moveFile` requires N sequential calls for N files; no atomicity. Offer `moveFiles(oldPaths[], newPath)` and `moveDirectory(oldPath, newPath)`. Low priority, quality-of-life improvement for agents.

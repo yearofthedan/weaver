@@ -175,7 +175,7 @@ Input validation is at the dispatcher layer; output filtering is at the operatio
 - `recordModified(path)` / `recordSkipped(path)` — modification tracking
 - `modified` / `skipped` getters — return tracked paths
 
-The dispatcher constructs a `WorkspaceScope` from the workspace string and a `NodeFileSystem` instance, then passes it to the operation. Currently only `rename` uses `WorkspaceScope`; other operations still receive `workspace: string` and are migrated in subsequent slices.
+The dispatcher constructs a `WorkspaceScope` from the workspace string and a `NodeFileSystem` instance, then passes it to the operation. Currently `rename` and `moveFile` use `WorkspaceScope`; other operations still receive `workspace: string` and are migrated in subsequent slices.
 
 ---
 
