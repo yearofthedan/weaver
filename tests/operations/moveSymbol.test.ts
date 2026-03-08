@@ -1,8 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveSymbol } from "../../src/operations/moveSymbol.js";
 import { VolarProvider } from "../../src/plugins/vue/provider.js";
+import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
 import { TsProvider } from "../../src/providers/ts.js";
 import { cleanup, copyFixture, readFile } from "../helpers.js";
 import {
@@ -471,13 +473,14 @@ describe("moveSymbol action", () => {
       const volarProvider = new VolarProvider();
       const srcPath = `${dir}/src/composables/useCounter.ts`;
       const dstPath = `${dir}/src/shared.ts`;
+      const scope = new WorkspaceScope(dir, new NodeFileSystem());
       const result = await moveSymbol(
         tsProvider,
         volarProvider,
         srcPath,
         "useCounter",
         dstPath,
-        dir,
+        scope,
       );
       expect(result.symbolName).toBe("useCounter");
       expect(readFile(dir, "src/shared.ts")).toContain("useCounter");

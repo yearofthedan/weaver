@@ -1,6 +1,5 @@
 import * as path from "node:path";
-import { WorkspaceScope } from "../domain/workspace-scope.js";
-import { NodeFileSystem } from "../ports/node-filesystem.js";
+import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { TsProvider } from "../providers/ts.js";
 import type { LanguageProvider, MoveSymbolResult } from "../types.js";
 import { assertFileExists } from "../utils/assert-file.js";
@@ -19,12 +18,11 @@ export async function moveSymbol(
   sourceFile: string,
   symbolName: string,
   destFile: string,
-  workspace: string,
+  scope: WorkspaceScope,
   options?: { force?: boolean },
 ): Promise<MoveSymbolResult> {
   const absSource = assertFileExists(sourceFile);
   const absDest = path.resolve(destFile);
-  const scope = new WorkspaceScope(workspace, new NodeFileSystem());
 
   await tsProvider.moveSymbol(absSource, symbolName, absDest, scope, options);
 
@@ -34,7 +32,7 @@ export async function moveSymbol(
     absSource,
     symbolName,
     absDest,
-    workspace,
+    scope.root,
     new Set(scope.modified),
   );
   for (const f of extraModified) scope.recordModified(f);

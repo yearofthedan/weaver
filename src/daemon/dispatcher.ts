@@ -95,8 +95,9 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
       };
       const tsProvider = await registry.tsProvider();
       const projectProvider = await registry.projectProvider();
+      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
       const { moveSymbol } = await import("../operations/moveSymbol.js");
-      return moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, workspace, {
+      return moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, scope, {
         force,
       });
     },
