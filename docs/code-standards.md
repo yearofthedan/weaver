@@ -37,9 +37,26 @@ Comments exist to provide context that cannot be gathered from names, types, and
 
 ## Tests
 
-The same file-size thresholds apply to test files. A large test file is usually a symptom — diagnose the cause before splitting.
+### Quality model
 
-**Refactoring hierarchy** (work top to bottom):
+Line count is one smell detector among several. A short test file can still be unhealthy. Assess test health on these dimensions:
+
+- **Layer fit.** Is each test at the lowest layer that can verify the behaviour? Pure logic belongs at the unit layer with in-memory dependencies. Integration tests verify wiring, not exhaustive input variations.
+- **Setup proportionality.** Is the setup proportional to what's being verified? When the fixture ceremony dwarfs the assertion, the logic under test likely belongs behind a seam that can be tested with lighter dependencies.
+- **Coverage directness.** Is the behaviour asserted through a direct call, or indirectly through a chain of collaborators? Indirect coverage is fragile — a change to an unrelated collaborator can silently break the path that exercises the real logic.
+- **Mutation resilience.** Would a logic inversion in the code under test be caught? Assertions must pin exact output shapes and cover at least one boundary. TypeScript types don't kill mutants — only assertions do.
+
+### Source extraction = test review
+
+Extracting a new entity (service, utility, domain object) changes the testing surface. The test suite must be reviewed in the same pass — not as a follow-up, not as a separate task. If the source moved, the tests move with it.
+
+- Unit tests for the extracted entity using the lightest dependencies that exercise the logic
+- Integration tests thinned to orchestration only — edge cases that the unit layer now covers directly are removed from the integration layer
+- No assertion weakened — every previously-asserted behaviour is still asserted somewhere
+
+### Refactoring hierarchy
+
+The same file-size thresholds apply to test files. A large test file is usually a symptom — diagnose the cause before splitting. Work top to bottom:
 
 1. **Push integration tests down.** If an integration test is large because it exercises lots of internal logic, extract that logic into units with their own tests. Keep the integration test narrow — it should verify the integration point, not re-test the units.
 2. **Decompose the source.** If a unit test is large because the unit under test is complex, the source itself probably needs decomposition. Split the source; tests follow naturally.
@@ -47,7 +64,7 @@ The same file-size thresholds apply to test files. A large test file is usually 
 4. **Use parameterised tests.** When multiple cases test the same behaviour with different inputs, use `it.each` / `describe.each` rather than duplicating test bodies.
 5. **Split by feature area (last resort).** If the above steps aren't enough, split the file along feature boundaries. This is a last resort because it can obscure which tests cover which code paths.
 
-**Avoid:**
+### Avoid
 
 - Extracting assertion helpers that hide what's being checked. Indirection in assertions makes test failures harder to diagnose. Prefer inline assertions with clear variable names.
 

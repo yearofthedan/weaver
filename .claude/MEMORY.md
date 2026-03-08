@@ -45,6 +45,8 @@ If the destination file already contains the symbol, `moveSymbol` appends a seco
 **`moveSymbol` now updates test files outside the TS project graph.**
 The `afterSymbolMove` fallback scan walks all workspace TS files and rewrites imports in files outside `tsconfig.include`. No manual fixup needed.
 
+**Source extraction = test review.** See `docs/code-standards.md` § "Source extraction = test review". When extracting a new entity, review and restructure tests in the same pass. This is not a follow-up — it goes in the spec as a first-class AC.
+
 **Commit at every logical milestone — do not let changes accumulate.**
 
 ---
