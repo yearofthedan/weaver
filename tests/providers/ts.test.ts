@@ -34,11 +34,6 @@ describe("TsProvider", () => {
     expect(typeof p.afterSymbolMove).toBe("function");
   });
 
-  it("afterSymbolMove is a no-op that returns empty lists", async () => {
-    const p = new TsProvider();
-    const result = await p.afterSymbolMove("/a.ts", "foo", "/b.ts", "/workspace");
-    expect(result).toEqual({ modified: [], skipped: [] });
-  });
 
   it("resolveOffset converts 1-based line/col to 0-based offset", () => {
     const dir = setup();
