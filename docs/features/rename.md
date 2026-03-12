@@ -26,12 +26,12 @@ Unlike `replaceText`, which does textual find-and-replace with no understanding 
 tool call
   │
   ▼ dispatcher (src/daemon/dispatcher.ts)
-  │   validates file against workspace boundary; selects TS or Vue provider
+  │   validates file against workspace boundary; selects TS or Vue compiler
   ▼ rename() (src/operations/rename.ts)
-  │   ├─ TsProvider path
+  │   ├─ TsMorphCompiler path
   │   │     ls.findRenameLocations(file, offset) → spans in TS/TSX files
   │   │     boundary-check each target file → write passing files
-  │   └─ VolarProvider path (Vue project)
+  │   └─ VolarCompiler path (Vue project)
   │         ls.findRenameLocations(virtualFile, offset) → spans in virtual .vue.ts coords
   │         translateLocations() → real .vue line/col via Volar source-map
   │         boundary-check each target file → write passing files
@@ -61,7 +61,7 @@ See [security.md](../security.md) for the full threat model.
 `target.rename()` is an AST mutation API that applies all edits atomically and saves every dirty file. It has no per-file whitelist, so workspace boundary enforcement would require reverting writes after the fact. Language-service rename locations return text spans — boundary-check each file, then write only the ones that pass.
 
 **Why does the Vue engine need virtual `.vue.ts` translation?**
-TypeScript's program builder ignores non-`.ts`/`.tsx` filenames. Volar works around this by exposing `.vue` files as `.vue.ts` virtual files in the host. `findRenameLocations` returns positions in the virtual coordinate space; `VolarProvider.translateLocations` maps them back to real `.vue` line/col using Volar's source-map. See [volar-v3.md](../tech/volar-v3.md) for details.
+TypeScript's program builder ignores non-`.ts`/`.tsx` filenames. Volar works around this by exposing `.vue` files as `.vue.ts` virtual files in the host. `findRenameLocations` returns positions in the virtual coordinate space; `VolarCompiler.translateLocations` maps them back to real `.vue` line/col using Volar's source-map. See [volar-v3.md](../tech/volar-v3.md) for details.
 
 ## Implementation notes
 

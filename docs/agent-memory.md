@@ -8,7 +8,7 @@ Cross-cutting principles, gotchas, and hard-won decisions that apply across mult
 
 ---
 
-## VolarProvider: `.vue` inputs require explicit `toVirtualLocation` before every language service call
+## VolarCompiler: `.vue` inputs require explicit `toVirtualLocation` before every language service call
 
 Volar registers `.vue` files internally as `App.vue.ts` (virtual TypeScript path). Every call to the Volar proxy language service must translate the real `.vue` path + offset to the virtual coordinate space first using `toVirtualLocation`. This is true for `findRenameLocations`, `getReferencesAtPosition`, and `getDefinitionAtPosition` — none of them auto-translate. For non-`.vue` paths, `toVirtualLocation` is a passthrough, so calling it unconditionally is safe.
 
@@ -24,7 +24,7 @@ The MCP tool names (`rename`, `findReferences`, `getDefinition`, etc.) use camel
 
 ## Specs: don't frame internal changes as "backward-compatible"
 
-"Backward-compatible" implies external consumers. All interfaces in this codebase (`LanguageProvider`, `LanguagePlugin`, etc.) are internal with a fixed set of implementers — BC language is noise. Say *why* a parameter is optional (e.g. "so the Vue provider doesn't need changes"), not that it's "backward-compatible".
+"Backward-compatible" implies external consumers. All interfaces in this codebase (`Compiler`, `LanguagePlugin`, etc.) are internal with a fixed set of implementers — BC language is noise. Say *why* a parameter is optional (e.g. "so the Vue compiler doesn't need changes"), not that it's "backward-compatible".
 
 ---
 
@@ -48,13 +48,13 @@ Every AC should be a functional unit — the build passes and tests pass after i
 
 ## Colocate test helpers with their domain, not in a generic folder
 
-`makeMockProvider` mocks the `LanguageProvider` interface — it belongs in `tests/providers/__helpers__/`, not `tests/helpers/`. Place test doubles near the concept they mock, using `__helpers__/` subfolders per code-standards.md.
+`makeMockCompiler` mocks the `Compiler` interface — it belongs in `tests/compilers/__helpers__/`, not `tests/helpers/`. Place test doubles near the concept they mock, using `__helpers__/` subfolders per code-standards.md.
 
 ---
 
 ## Test layer must match the code layer
 
-When restructuring tests, audit every test file: does its test target match the directory it lives in? A test in `tests/operations/` should call the operation function; a test in `tests/providers/` should call the provider method directly. If a test in `tests/operations/` is really exercising provider logic through the operation, it belongs in `tests/providers/`. "Stays as-is" in a spec is a decision that needs justification, not a default.
+When restructuring tests, audit every test file: does its test target match the directory it lives in? A test in `tests/operations/` should call the operation function; a test in `tests/compilers/` should call the compiler method directly. If a test in `tests/operations/` is really exercising compiler logic through the operation, it belongs in `tests/compilers/`. "Stays as-is" in a spec is a decision that needs justification, not a default.
 
 ---
 

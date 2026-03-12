@@ -30,9 +30,9 @@ tool call
   │   │     language service computes per-file text spans for all import path rewrites
   │   ├─ boundary-check each rewrite target → write passing files; add others to filesSkipped
   │   ├─ renameSync(oldPath → newPath) — physical file move on disk
-  │   └─ afterFileRename() — provider hook
-  │         TsProvider: explicit project cache invalidation (keyed by old path)
-  │         VolarProvider: updateVueImportsAfterMove() regex scan patches .vue SFC imports
+  │   └─ afterFileRename() — compiler hook
+  │         TsMorphCompiler: explicit project cache invalidation (keyed by old path)
+  │         VolarCompiler: updateVueImportsAfterMove() regex scan patches .vue SFC imports
   │                        (Volar edits use virtual .vue.ts names; can't be written directly)
   ▼ dispatcher appends type errors for filesModified (unless checkTypeErrors: false)
   ▼ result { ok, filesModified, filesSkipped, typeErrors }
@@ -60,7 +60,7 @@ See [security.md](../security.md) for the full threat model.
 `sourceFile.move()` + `project.save()` is an atomic API — it writes all dirty files with no per-file whitelist. Workspace boundary enforcement would require reverting writes after the fact. `getEditsForFileRename()` returns per-file text spans. Boundary-check each file before writing; skip those that fail.
 
 **Why a post-scan for Vue imports?**
-Volar's `getEditsForFileRename` returns edits with virtual `.vue.ts` filenames that can't be written to disk directly. The Vue import string rewriting is done by a separate regex scan in `providers/vue-scan.ts`, invoked by the provider `afterFileRename` hook.
+Volar's `getEditsForFileRename` returns edits with virtual `.vue.ts` filenames that can't be written to disk directly. The Vue import string rewriting is done by a separate regex scan in `plugins/vue/scan.ts`, invoked by the compiler `afterFileRename` hook.
 
 **Why does invalidation happen after the move?**
 ts-morph and Volar both cache project state keyed by file path. After `renameSync`, the old path no longer exists but may still be in the cache. Explicit invalidation forces the engine to rebuild on the next request. Without it, a subsequent operation referencing the moved file would use stale state.

@@ -61,7 +61,7 @@ tool call
   │   │     <script> and <script setup> blocks
   │   │     consistent with updateVueImportsAfterMove; does not parse template import()
   │   ├─ unlinkSync(file) — physical deletion (after all importer edits written)
-  │   └─ tsProvider.invalidateProject(file) — drop cached project
+  │   └─ tsCompiler.invalidateProject(file) — drop cached project
   │         (watcher's unlink event also fires invalidateAll independently ~200ms later)
   ▼ dispatcher appends type errors for filesModified (unless checkTypeErrors: false)
   ▼ result { ok, deletedFile, filesModified, filesSkipped, importRefsRemoved, typeErrors }

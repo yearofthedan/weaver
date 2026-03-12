@@ -41,11 +41,11 @@ Response:
 tool call
   │
   ▼ dispatcher (src/daemon/dispatcher.ts)
-  │   validates file against workspace boundary; selects TS or Vue provider
+  │   validates file against workspace boundary; selects TS or Vue compiler
   ▼ findReferences() (src/operations/findReferences.ts)
-  │   ├─ TsProvider path
+  │   ├─ TsMorphCompiler path
   │   │     ls.getReferencesAtPosition(file, offset) → spans in TS/TSX files
-  │   └─ VolarProvider path (Vue project)
+  │   └─ VolarCompiler path (Vue project)
   │         ls.getReferencesAtPosition(virtualFile, offset) → spans in virtual .vue.ts coords
   │         translateLocations() → real .vue line/col via Volar source-map
   ▼ result { ok, references[] }

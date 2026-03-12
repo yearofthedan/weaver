@@ -16,7 +16,7 @@ Context that isn't in the feature docs — things you need to know before pickin
 2. [`docs/agent-users.md`](agent-users.md) — how agents differ from human users; read before speccing any feature
 3. [`docs/features/daemon.md`](features/daemon.md) — understand the daemon before touching `serve`
 4. [`docs/features/mcp-transport.md`](features/mcp-transport.md) — how `serve` connects to the daemon
-5. [`docs/architecture.md`](architecture.md) — provider/operation architecture; read before touching anything in `src/`
+5. [`docs/architecture.md`](architecture.md) — compiler/operation architecture; read before touching anything in `src/`
 6. [`docs/quality.md`](quality.md) — testing and reliability expectations
 
 **Picking up a task?** Tasks have one of two states:
@@ -60,7 +60,7 @@ src/
   domain/
     workspace-scope.ts    ← WorkspaceScope boundary tracking + modification recording
     import-rewriter.ts    ← ImportRewriter — rewrites named imports/re-exports of a moved symbol across files
-  types.ts        ← result types + LanguagePlugin + LanguageProvider + ProviderRegistry interfaces
+  types.ts        ← result types + LanguagePlugin + Compiler + CompilerRegistry interfaces
   security.ts     ← isWithinWorkspace() + isSensitiveFile() — boundary + sensitive file blocklist
   mcp.ts          ← MCP server (connects to daemon)
   daemon/
@@ -73,23 +73,22 @@ src/
   plugins/
     vue/
       plugin.ts   ← createVueLanguagePlugin(); Vue/Volar LanguagePlugin factory (project detection, lifecycle)
-      provider.ts ← VolarProvider: compiler calls via Volar proxy + virtual↔real translation; afterSymbolMove scans .vue files
+      compiler.ts ← VolarCompiler: compiler calls via Volar proxy + virtual↔real translation; afterSymbolMove scans .vue files
       scan.ts     ← updateVueImportsAfterMove + updateVueNamedImportAfterSymbolMove (regex scans; enforces workspace boundary)
       service.ts  ← buildVolarService() — Volar service factory
   operations/
     rename.ts          ← rename(provider, filePath, line, col, newName, scope: WorkspaceScope)
     findReferences.ts  ← findReferences(provider, filePath, line, col)
     getDefinition.ts   ← getDefinition(provider, filePath, line, col)
-    getTypeErrors.ts   ← getTypeErrors(tsProvider, file?, workspace) — errors-only, cap 100
-    moveFile.ts        ← moveFile(provider, oldPath, newPath, scope: WorkspaceScope)
-    moveSymbol.ts      ← moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, scope: WorkspaceScope)
+    getTypeErrors.ts   ← getTypeErrors(tsCompiler, file?, workspace) — errors-only, cap 100
+    moveFile.ts        ← moveFile(compiler, oldPath, newPath, scope: WorkspaceScope)
+    moveSymbol.ts      ← moveSymbol(tsCompiler, projectCompiler, sourceFile, symbolName, destFile, scope: WorkspaceScope)
     extractFunction.ts ← extractFunction(tsProvider, file, startLine, startCol, endLine, endCol, functionName, workspace)
     searchText.ts      ← searchText(pattern, workspace, { glob, context, maxResults })
     replaceText.ts     ← replaceText(workspace, { pattern, replacement, glob } | { edits })
     deleteFile.ts      ← deleteFile(tsProvider, file, workspace)
-  providers/
-    ts.ts              ← TsProvider: compiler calls via ts-morph Project; refreshFile() for selective invalidation
-    ts-move-file.ts    ← tsMoveFile(): compiler work for moveFile (import rewriting via ts-morph edits)
+  compilers/
+    ts.ts              ← TsMorphCompiler: compiler calls via ts-morph Project; refreshFile() for selective invalidation
     ts-move-symbol.ts  ← tsMoveSymbol(): compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
   utils/
     errors.ts     ← EngineError class + ErrorCode union
@@ -150,7 +149,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks; depends on buildVolarService refactoring
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; depends on buildVolarService refactoring; see [moveSymbol.md](features/moveSymbol.md)
-- **`TsProvider.afterSymbolMove` fallback scan tests are in the wrong layer** `[needs design]` — Tests live in `tests/operations/moveSymbol-fallback.test.ts` but should be in `tests/providers/ts-after-symbol-move.test.ts` calling `afterSymbolMove` directly. The "no-op" test formerly in `ts.test.ts` was a smoke test, not real coverage. The integration path (`moveSymbol` operation -> `tsMoveSymbol` -> `afterSymbolMove`) also needs a proper integration test in `moveSymbol_tsProvider.test.ts`.
+- **`TsMorphCompiler.afterSymbolMove` fallback scan tests are in the wrong layer** `[needs design]` — Tests live in `tests/operations/moveSymbol-fallback.test.ts` but should be in `tests/compilers/ts-after-symbol-move.test.ts` calling `afterSymbolMove` directly. The "no-op" test formerly in `ts.test.ts` was a smoke test, not real coverage. The integration path (`moveSymbol` operation -> `tsMoveSymbol` -> `afterSymbolMove`) also needs a proper integration test in `moveSymbol_tsCompiler.test.ts`.
 - **`moveSymbol` cannot move non-exported local functions** `[needs design]` — `moveSymbol` only handles top-level exported declarations. Attempting to move an unexported helper returns `SYMBOL_NOT_FOUND`. Workaround: manually create the destination file with the symbol exported, remove from source, add import. See handoff.md "Agent reflection" section for context.
 - `createFile` `[needs design]` — scaffold a file with correct import paths
 - **Agent guidance on type errors in tool responses** `[needs design]` — all write operations return `typeErrors`; agents need to know this is an action item (something wasn't fully updated) and follow up with `replaceText`. Currently nothing teaches this pattern. Decision needed: shipped skill file, tool description addition, CLAUDE.md guidance snippet, or combination?
@@ -174,7 +173,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ## Technical context
 
-- **`docs/tech/volar-v3.md`** — how the Vue provider works around TypeScript's refusal to process `.vue` files. Read this before touching `src/providers/volar.ts`.
+- **`docs/tech/volar-v3.md`** — how the Vue compiler works around TypeScript's refusal to process `.vue` files. Read this before touching `src/plugins/vue/compiler.ts`.
 - **`docs/tech/tech-debt.md`** — known structural issues. Includes the `ensureDaemon` one-shot bug.
 - **`@volar/language-core` version skew** — `@vue/language-core` and `@volar/typescript` previously depended on different patch versions of `@volar/language-core`, causing type mismatches. Fixed via `pnpm.overrides` in `package.json` pinning to 2.4.28. `@volar/language-core` is also a direct `devDependency` so TypeScript can resolve the `Language<string>` type import in `volar.ts`.
 - **`moveFile` import gap for files outside `tsconfig.include`** — test files and scripts are not in the ts-morph project; imports in/to them are not rewritten on move. See P2 backlog for details. Workaround: use `replaceText` to fix paths manually after moving.
@@ -183,7 +182,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ## Agent reflection: `moveSymbol` limitation — only exported declarations
 
-During AC3 of the `moveFile` workspace-scope spec, the spec directed the agent to try `mcp__light-bridge__moveSymbol` to move `makeMockProvider` from `tests/operations/rename.test.ts` to `tests/providers/__helpers__/mock-provider.ts`. The call returned `SYMBOL_NOT_FOUND` because `makeMockProvider` is a local (non-exported) function.
+During the `moveFile` workspace-scope spec, the spec directed the agent to try `mcp__light-bridge__moveSymbol` to move `makeMockCompiler` from `tests/operations/rename.test.ts` to `tests/compilers/__helpers__/mock-compiler.ts`. The call returned `SYMBOL_NOT_FOUND` because `makeMockCompiler` is a local (non-exported) function.
 
 `moveSymbol` only handles **top-level exported declarations** (`export function`, `export const`, `export class`, etc.). It cannot move unexported helpers. When a symbol needs to be extracted and made public for the first time, the workflow is:
 
@@ -198,7 +197,7 @@ There is no light-bridge tool for "add export keyword + move". This is a known g
 
 The execution agent implementing the `20260306-movefile-import-rewrite` spec did not use the `mcp__light-bridge__*` tools at any point during the session, despite multiple opportunities:
 
-- Moving `toRelBase` from `ts.ts` to `src/utils/relative-path.ts` was done with manual `Edit` + import fixups — `moveSymbol` exists precisely for this.
+- Moving `toRelBase` from `compilers/ts.ts` to `src/utils/relative-path.ts` was done with manual `Edit` + import fixups — `moveSymbol` exists precisely for this.
 - Splitting extension constants to `src/utils/extensions.ts` required manually hunting importers with `Grep` — `findReferences` would have given a compiler-accurate list.
 - Before touching `JS_TS_PAIRS` the agent should have called `findReferences` to understand blast radius; it used text search instead.
 
@@ -215,10 +214,10 @@ Each concern has a dedicated doc. Read those — don't rely on handoff for desig
 | Topic | Doc |
 |-------|-----|
 | Agent user characteristics — design constraints for tool interfaces | [`docs/agent-users.md`](agent-users.md) |
-| Provider/operation architecture, dispatcher design, `ProviderRegistry` | [`docs/architecture.md`](architecture.md) |
+| Compiler/operation architecture, dispatcher design, `CompilerRegistry` | [`docs/architecture.md`](architecture.md) |
 | MCP wire protocol, tool interface, `DAEMON_STARTING`, `filesSkipped` | [`docs/features/mcp-transport.md`](features/mcp-transport.md) |
 | Daemon lifecycle, auto-spawn, socket protocol | [`docs/features/daemon.md`](features/daemon.md) |
-| Vue provider internals, virtual↔real path translation, `toVirtualLocation` | [`docs/tech/volar-v3.md`](tech/volar-v3.md) |
+| Vue compiler internals, virtual↔real path translation, `toVirtualLocation` | [`docs/tech/volar-v3.md`](tech/volar-v3.md) |
 | Implementation gotchas, hard-won decisions (MCP naming, read-only `workspace` convention, etc.) | [`docs/agent-memory.md`](agent-memory.md) |
 | Known structural issues and their fixes | [`docs/tech/tech-debt.md`](tech/tech-debt.md) |
 | Task specifications (ready and archived) | [`docs/specs/`](specs/) |

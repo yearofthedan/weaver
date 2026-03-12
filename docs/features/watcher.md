@@ -29,9 +29,9 @@ Out-of-band file change (editor, git, codegen…)
          │
          ├─ "change" ──► invalidateFile(path)
          │                   │
-         │                   ├─ TsProvider  → sourceFile.refreshFromFileSystemSync()
+         │                   ├─ TsMorphCompiler → sourceFile.refreshFromFileSystemSync()
          │                   │              (single file; project graph preserved)
-         │                   └─ VolarProvider → volarProvider.invalidateService(path)
+         │                   └─ VolarCompiler → volarCompiler.invalidateService(path)
          │                                  (full service drop; Volar has no incremental API)
          │
          └─ "add" / "unlink" ──► invalidateAll()
@@ -44,7 +44,7 @@ Next tool call arriving at the daemon socket
          ▼ dispatchRequest()
     getEngine(filePath)
          │
-         ├─ provider is undefined  →  create fresh TsProvider / VolarProvider
+         ├─ compiler is undefined  →  create fresh TsMorphCompiler / VolarCompiler
          │                          (project graph rebuilt lazily from tsconfig)
          │
          └─ engine exists  →  use cached instance

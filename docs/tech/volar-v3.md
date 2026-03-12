@@ -111,7 +111,7 @@ It patches `getScriptSnapshot` and `getScriptKind` so that when TypeScript asks 
 **Template-only `.vue` files (no `<script>` block) exercise `toVirtualLocation` fallback branches.**
 A `.vue` file with only a `<template>` block has `sourceScript.generated.languagePlugin.typescript?.getServiceScript()` return null (no TypeScript service script generated). This triggers the `if (!serviceScript) return { fileName: virtualPath, pos }` fallback in `toVirtualLocation`. Useful for mutation testing coverage of those branches. Create via `fs.mkdtempSync` with a minimal tsconfig; the `buildVolarService` directory scan picks up all `.vue` files in the project root automatically.
 
-**`VolarProvider.translateLocations` is the shared virtual→real mapping helper.**
+**`VolarCompiler.translateLocations` is the shared virtual→real mapping helper.**
 Extracted from the inline loop in `rename`; reused by `findReferences` and `getDefinition`. Any future operation that reads positions from a Vue project should call this method rather than duplicating the source-map traversal.
 
 **`dist/` and other build dirs must be excluded from `readDirectory`.**

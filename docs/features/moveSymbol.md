@@ -57,10 +57,10 @@ tool call
   │   │     if importer already imports from destFile: merge named imports
   │   │     if import declaration only contained symbolName: redirect it; else remove specifier
   │   ├─ save dirty files within workspace boundary; add out-of-workspace to filesSkipped
-  │   ├─ invalidateProject(sourceFile) — drop provider cache
-  │   └─ afterSymbolMove() — provider post-step
-  │         VolarProvider: regex scan patches .vue SFC <script> imports
-  │         TsProvider: workspace-wide fallback scan rewrites imports in
+  │   ├─ invalidateProject(sourceFile) — drop compiler cache
+  │   └─ afterSymbolMove() — compiler post-step
+  │         VolarCompiler: regex scan patches .vue SFC <script> imports
+  │         TsMorphCompiler: workspace-wide fallback scan rewrites imports in
   │         files outside tsconfig.include (tests, scripts, config)
   ▼ dispatcher appends type errors for filesModified (unless checkTypeErrors: false)
   ▼ result { ok, filesModified, filesSkipped, typeErrors }

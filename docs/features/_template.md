@@ -18,10 +18,10 @@ which module owns it, and where control passes between them.
 tool call arrives
   │
   ▼ dispatcher (src/daemon/dispatcher.ts)
-  │   → resolves provider, validates workspace
+  │   → resolves compiler, validates workspace
   ▼ operation (src/operations/xxx.ts)
   │   → describe each phase
-  ▼ provider (src/providers/ts.ts or volar.ts)
+  ▼ compiler (src/compilers/ts.ts or plugins/vue/compiler.ts)
       → what compiler API is called and why
 ```
 

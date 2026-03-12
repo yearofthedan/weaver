@@ -37,7 +37,7 @@ light-bridge daemon --workspace /path/to/project
 
 The daemon runs until it receives SIGTERM or SIGINT. It does not exit when all client sessions disconnect.
 
-Engines are loaded lazily on first request. The dispatcher picks `TsProvider` or `VolarProvider` per operation based on project type and request path.
+Engines are loaded lazily on first request. The dispatcher picks `TsMorphCompiler` or `VolarCompiler` per operation based on project type and request path.
 
 ## Daemon discovery
 

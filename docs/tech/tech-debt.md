@@ -28,9 +28,9 @@ Original analysis preserved here: the operation set is growing faster than the e
 
 ---
 
-## Missing provider/engine separation
+## Missing compiler/engine separation
 
-**Addressed in provider/engine separation.** See `docs/agent-memory.md` for the full design decisions including the `LanguageProvider` interface and extraction of `VueEngine.buildService`.
+**Addressed in compiler/engine separation.** See `docs/agent-memory.md` for the full design decisions including the `Compiler` interface and extraction of `VueEngine.buildService`.
 
 ---
 
@@ -77,15 +77,15 @@ If a `tsconfig.json` is created, deleted, moved, or `.vue` files are added to a 
 
 ## VolarLanguageService interface is hand-typed
 
-`src/providers/volar.ts` manually narrows the TypeScript LanguageService surface used by the Vue provider. If an upstream API changes signature, this can compile but fail at runtime.
+`src/plugins/vue/compiler.ts` manually narrows the TypeScript LanguageService surface used by the Vue compiler. If an upstream API changes signature, this can compile but fail at runtime.
 
 **Fix:** `Pick<ts.LanguageService, 'findRenameLocations' | 'getReferencesAtPosition' | 'getEditsForFileRename'>`. Compile-time safety against upstream changes.
 
-**Priority:** low. Will be resolved as part of further provider refactoring since `VolarProvider` should type its dependency on the real `ts.LanguageService`.
+**Priority:** low. Will be resolved as part of further compiler refactoring since `VolarCompiler` should type its dependency on the real `ts.LanguageService`.
 
 ---
 
-## `rewriteSpecifier` in `src/providers/ts.ts` has elevated cyclomatic complexity
+## `rewriteSpecifier` in `src/compilers/ts.ts` has elevated cyclomatic complexity
 
 The module-level `rewriteSpecifier` function (introduced with the import-rewrite fallback scan) has CC ~6: a bare-match branch, a pair loop, two branches per pair, and a coexisting-file `existsSync` guard. It is correct and tested, but harder to extend safely than it should be.
 

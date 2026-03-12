@@ -14,7 +14,7 @@ light-bridge serve --workspace /path
 light-bridge daemon --workspace /path
   │
   ▼
-provider layer (TsProvider or VolarProvider)
+compiler layer (TsMorphCompiler or VolarCompiler)
 ```
 
 1. `light-bridge serve --workspace <path>` is launched by the agent host at session start.

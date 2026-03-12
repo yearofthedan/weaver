@@ -40,7 +40,7 @@ Cross-type reference tracking (e.g. a rename in a `.ts` file updates references 
 | [cli.md](./cli.md) | CLI commands: `daemon`, `serve`, and `stop` |
 | [daemon.md](./daemon.md) | The long-lived engine host: lifecycle, discovery, auto-spawn |
 | [mcp-transport.md](./mcp-transport.md) | MCP wire protocol, tool interface, response contract |
-| [architecture.md](../architecture.md) | Provider/operation architecture, `ProviderRegistry`, dispatcher design |
+| [architecture.md](../architecture.md) | Compiler/operation architecture, `CompilerRegistry`, dispatcher design |
 
 ## Writing feature docs
 
@@ -51,9 +51,9 @@ Use [`_template.md`](./_template.md) when adding a new feature doc. It defines t
 | Doc | Purpose |
 |-----|---------|
 | `docs/handoff.md` | Current state, prioritised next work, finish checklist |
-| `docs/architecture.md` | Provider/operation/dispatcher architecture |
+| `docs/architecture.md` | Compiler/operation/dispatcher architecture |
 | `docs/security.md` | Threat model, controls, known limitations |
 | `docs/agent-memory.md` | Technical gotchas and implementation decisions for agents |
-| `docs/tech/volar-v3.md` | Vue provider internals — read before touching `src/providers/volar.ts` |
+| `docs/tech/volar-v3.md` | Vue compiler internals — read before touching `src/plugins/vue/compiler.ts` |
 | `docs/tech/tech-debt.md` | Known structural issues |
 | `docs/quality.md` | Testing strategy, performance targets, reliability expectations |

@@ -61,7 +61,7 @@ Fixed gaps are removed. Remaining survivors by category:
 | Area | Survivor | Why accepted |
 |------|----------|-------------|
 | `dispatcher.ts` | 9 `static:true` ObjectLiteral mutations on OPERATIONS table entries (L105–L214) | When a full entry like `rename: { schema, invoke, … }` is replaced with `{}`, `descriptor.schema.safeParse` throws a TypeError. Stryker's vitest runner classifies unhandled TypeErrors as errors rather than test failures, leaving these as Survived rather than Killed regardless of test count. The dispatch logic that is actually observable (checkTypeErrors block, workspace boundary enforcement, per-operation invoke bodies) is covered by the killed mutations. Excluded from the full run to prevent the 65% score from breaching the 75% CI threshold. |
-| `dispatcher.ts` | NoCoverage — `getVolarProvider` init and `projectProvider` Vue branch (L37–L54) | Only executed for Vue projects. All dispatcher unit tests use TS-only fixtures. Would need a Vue fixture dispatched via `dispatchRequest` — possible but low value given the Volar provider already has its own mutation tests. |
+| `dispatcher.ts` | NoCoverage — `getVolarCompiler` init and `projectCompiler` Vue branch (L37–L54) | Only executed for Vue projects. All dispatcher unit tests use TS-only fixtures. Would need a Vue fixture dispatched via `dispatchRequest` — possible but low value given the Volar provider already has its own mutation tests. |
 | `dispatcher.ts` | NoCoverage — `invalidateFile` / `invalidateAll` body mutations (L69–L79) | Called by the watcher, not by `dispatchRequest`. Testable with spy-based unit tests; not worth the complexity given the functions are 2-line trivial. |
 
 **Accepted / low-risk (noise):**
@@ -72,26 +72,26 @@ Fixed gaps are removed. Remaining survivors by category:
 | `security.ts` | Regex mutations on `SENSITIVE_BASENAME_PATTERNS[0]` — `^` anchor drop, `$` drop, `.*` → `.` | Even without `^`, `service-account*.json` still matches all real filenames. Minor permissiveness; accepted. |
 | `security.ts` | Regex mutation on `SENSITIVE_BASENAME_PATTERNS[1]` — `$` drop from `/-key\.json$/` | Slightly more permissive without `$`; still blocks all real key files. Accepted. |
 | `relative-path.ts` | Regex `.cts$` → `.cts` (drop `$` anchor) | `.cts` only appears at the end of filenames in practice; functional difference is zero. |
-| `providers/ts.ts` | `if (!project) → if (true)` (caching guard line 17) and `if (tsConfigPath) → if (true)` (branch line 18) | Always rebuilding the project is slower but produces identical results. Caching is a performance concern, not a correctness concern. |
-| `providers/ts.ts` | `new Project({ useInMemoryFileSystem: false }) → new Project({})` (line 24) | The default for ts-morph Project when no tsconfig is given; functionally equivalent for standalone file analysis. |
-| `providers/ts.ts` | `refreshFile` whole-body no-op and related boolean mutations (lines 45–49) | `refreshFile` effects are only visible via subsequent compiler queries. Tests don't assert on post-refresh content; adding such tests would require disk writes and re-queries — a reasonable tradeoff to leave as-is. |
-| `providers/ts.ts` | `if (!sourceFile) → if (true)` at lines 55, 68, 95, 115 | `addSourceFileAtPath` is idempotent; calling it on an already-loaded file is a no-op. The mutation `if (true)` is semantically equivalent when the file is already in the project. `if (false)` variants were killed by the no-tsconfig tests. |
-| `providers/ts.ts` | Null guards `if (!locs \|\| locs.length === 0)`, `if (!refs \|\| ...)`, `if (!defs \|\| ...)` | TypeScript LS always returns non-empty arrays for any position that passes `getRenameInfo`/`canRename`. These are defensive guards that the TS LS never triggers in practice. |
-| `providers/ts.ts` | `findRenameLocations` boolean params (`findInStrings: false → true`, `findInComments: false → true`) | Enabling string/comment search would only add more results to the returned set; no test asserts that rename locations are ABSENT from strings or comments. |
-| `providers/ts.ts` | `allowRenameOfImportPath: false → true` in `getRenameInfo` and `findRenameLocations` | Tests don't attempt to rename an import specifier, so this option is never exercised in a way that distinguishes `true` from `false`. |
-| `providers/ts.ts` | `getEditsForFileRename` filter (`textChanges.length > 0 → true`, `>= 0`) (line 140) | The TS LS never returns file rename edits with zero text changes; defensive guard. |
-| `providers/ts.ts` | `afterFileRename` out-of-project scan survivors (lines 176–222) | Requires a fixture with files outside `tsconfig.include` that import the moved file. The existing moveFile tests use project-internal files only. Accepted for now — the logic is exercised by the moveFile integration tests indirectly. |
-| `providers/volar.ts` | `cacheKey` `?? → &&` (line 14) | All Volar tests use a Vue fixture with a tsconfig; the null-tsconfig branch of `cacheKey` is not exercised. Killing this requires a Vue project without tsconfig — an uncommon scenario. |
-| `providers/volar.ts` | `if (!cached) → if (true)` (line 22) | Always rebuilds Volar service; slower but correct. Same pattern as TsProvider caching guards. |
-| `providers/volar.ts` | `toVirtualLocation` branch survivors (lines 41–59) | Multiple fallback branches triggered when Volar's source map or script generation returns null — edge cases in Volar's internal state that require `.vue` files with non-standard script blocks to exercise. |
-| `providers/volar.ts` | `translateSingleLocation` branch survivors (lines 67–83) | Same as above — fallback paths for Volar glue code. The `if (!next.done) → if (true)` mutation means always taking the mapped position path even when no source mapping exists; would produce wrong offsets, but the one getDefinition test only checks the file name not the exact span. |
-| `providers/volar.ts` | `NoCoverage` — `resolveOffset` catch block (line 103), `toVirtualLocation` ObjectLiteral returns | The catch path requires an out-of-bounds line; `toVirtualLocation` is only called via `getDefinitionAtPosition` which has one test. |
+| `compilers/ts.ts` | `if (!project) → if (true)` (caching guard line 17) and `if (tsConfigPath) → if (true)` (branch line 18) | Always rebuilding the project is slower but produces identical results. Caching is a performance concern, not a correctness concern. |
+| `compilers/ts.ts` | `new Project({ useInMemoryFileSystem: false }) → new Project({})` (line 24) | The default for ts-morph Project when no tsconfig is given; functionally equivalent for standalone file analysis. |
+| `compilers/ts.ts` | `refreshFile` whole-body no-op and related boolean mutations (lines 45–49) | `refreshFile` effects are only visible via subsequent compiler queries. Tests don't assert on post-refresh content; adding such tests would require disk writes and re-queries — a reasonable tradeoff to leave as-is. |
+| `compilers/ts.ts` | `if (!sourceFile) → if (true)` at lines 55, 68, 95, 115 | `addSourceFileAtPath` is idempotent; calling it on an already-loaded file is a no-op. The mutation `if (true)` is semantically equivalent when the file is already in the project. `if (false)` variants were killed by the no-tsconfig tests. |
+| `compilers/ts.ts` | Null guards `if (!locs \|\| locs.length === 0)`, `if (!refs \|\| ...)`, `if (!defs \|\| ...)` | TypeScript LS always returns non-empty arrays for any position that passes `getRenameInfo`/`canRename`. These are defensive guards that the TS LS never triggers in practice. |
+| `compilers/ts.ts` | `findRenameLocations` boolean params (`findInStrings: false → true`, `findInComments: false → true`) | Enabling string/comment search would only add more results to the returned set; no test asserts that rename locations are ABSENT from strings or comments. |
+| `compilers/ts.ts` | `allowRenameOfImportPath: false → true` in `getRenameInfo` and `findRenameLocations` | Tests don't attempt to rename an import specifier, so this option is never exercised in a way that distinguishes `true` from `false`. |
+| `compilers/ts.ts` | `getEditsForFileRename` filter (`textChanges.length > 0 → true`, `>= 0`) (line 140) | The TS LS never returns file rename edits with zero text changes; defensive guard. |
+| `compilers/ts.ts` | `afterFileRename` out-of-project scan survivors (lines 176–222) | Requires a fixture with files outside `tsconfig.include` that import the moved file. The existing moveFile tests use project-internal files only. Accepted for now — the logic is exercised by the moveFile integration tests indirectly. |
+| `plugins/vue/compiler.ts` | `cacheKey` `?? → &&` (line 14) | All Volar tests use a Vue fixture with a tsconfig; the null-tsconfig branch of `cacheKey` is not exercised. Killing this requires a Vue project without tsconfig — an uncommon scenario. |
+| `plugins/vue/compiler.ts` | `if (!cached) → if (true)` (line 22) | Always rebuilds Volar service; slower but correct. Same pattern as TsMorphCompiler caching guards. |
+| `plugins/vue/compiler.ts` | `toVirtualLocation` branch survivors (lines 41–59) | Multiple fallback branches triggered when Volar's source map or script generation returns null — edge cases in Volar's internal state that require `.vue` files with non-standard script blocks to exercise. |
+| `plugins/vue/compiler.ts` | `translateSingleLocation` branch survivors (lines 67–83) | Same as above — fallback paths for Volar glue code. The `if (!next.done) → if (true)` mutation means always taking the mapped position path even when no source mapping exists; would produce wrong offsets, but the one getDefinition test only checks the file name not the exact span. |
+| `plugins/vue/compiler.ts` | `NoCoverage` — `resolveOffset` catch block (line 103), `toVirtualLocation` ObjectLiteral returns | The catch path requires an out-of-bounds line; `toVirtualLocation` is only called via `getDefinitionAtPosition` which has one test. |
 
 **Worth fixing (next quality pass):**
 
 | Area | Gap |
 |------|-----|
-| `providers/volar.ts` | 6 NoCoverage ObjectLiteral mutations (`return {}`) in defensive null-check early returns inside `toVirtualLocation` and `translateSingleLocation` (lines 44, 47, 52, 59, 67, 72). Triggering them requires edge-case `.vue` structures deep in Volar internals: a `.vue` file absent from the virtual map (line 44), `sourceScript.generated === null` for a file that IS in the map (lines 47, 67), and `getServiceScript()` returning null with non-null `generated` (lines 52, 72). Template-only `.vue` files hit line 47 (not 52), because `sourceScript` itself is null for files without any Volar-processable block. |
+| `plugins/vue/compiler.ts` | 6 NoCoverage ObjectLiteral mutations (`return {}`) in defensive null-check early returns inside `toVirtualLocation` and `translateSingleLocation` (lines 44, 47, 52, 59, 67, 72). Triggering them requires edge-case `.vue` structures deep in Volar internals: a `.vue` file absent from the virtual map (line 44), `sourceScript.generated === null` for a file that IS in the map (lines 47, 67), and `getServiceScript()` returning null with non-null `generated` (lines 52, 72). Template-only `.vue` files hit line 47 (not 52), because `sourceScript` itself is null for files without any Volar-processable block. |
 | `operations/rename.ts` | Near threshold; one more round may push it over. |
 | `operations/findReferences.ts` | Near threshold. |
 
@@ -128,7 +128,7 @@ The replacement template always outputs `from ${quote}${rel}${quote}` (single sp
 **Volar `toVirtualLocation` fallback branches need non-setup `.vue` structures.**
 The fallback paths fire when Volar's source map or script generation returns null — this requires `.vue` files using `<script>` (non-setup) blocks or non-standard structures. Standard `<script setup>` fixtures always produce the happy path and leave fallbacks uncovered. A template-only `.vue` file (no `<script>` block) causes `getServiceScript()` to return null, triggering the `!serviceScript` branch. Create it programmatically via `fs.mkdtempSync` — do NOT add it to the shared fixture.
 
-**`VolarProvider.getRenameLocations` and `getReferencesAtPosition` must be called with `.ts` paths, not `.vue` paths.**
+**`VolarCompiler.getRenameLocations` and `getReferencesAtPosition` must be called with `.ts` paths, not `.vue` paths.**
 The Volar proxy TS language service registers `.vue` files as `.vue.ts` virtual paths. Calling either operation with a `.vue` path throws "Could not find source file". Always initiate from a `.ts` file; `.vue` locations appear in the translated output, not the input. To test the `rawLocs.length === 0` null-return path, call from a `.ts` file at a blank-line offset within a Vue project.
 
 **`globToRegex("*.ts")` does NOT match root-level files.**
@@ -140,11 +140,11 @@ Use `Buffer.concat([Buffer.from("text"), Buffer.from([0x00]), Buffer.from("more"
 **`moveSymbol` `filesSkipped` importer-loop path requires resolvable imports.**
 The `if (!isWithinWorkspace(filePath, workspace))` guard only fires when ts-morph's `getModuleSpecifierSourceFile()` successfully resolves the import to a source file in the project. A test for this path needs a tsconfig with explicit `moduleResolution: "node"` or similar, plus an importer with a resolvable import path.
 
-**`VolarProvider.resolveOffset` catch block needs an out-of-bounds line.**
+**`VolarCompiler.resolveOffset` catch block needs an out-of-bounds line.**
 Covered by calling `resolveOffset` with `line: 999` on a real `.vue` file (via `getDefinition`). The `lineColToOffset` call throws `RangeError`, caught and rethrown as `EngineError("SYMBOL_NOT_FOUND")`.
 
 **Covering `translateLocations` requires asserting span length and no `.vue.ts` paths.**
-Adding `getReferencesAtPosition` to VolarProvider tests covers the `translateLocations` code path. Assert that returned spans have non-zero `textSpan.length` and that no paths end in `.vue.ts` — otherwise the path-translation mutants survive.
+Adding `getReferencesAtPosition` to VolarCompiler tests covers the `translateLocations` code path. Assert that returned spans have non-zero `textSpan.length` and that no paths end in `.vue.ts` — otherwise the path-translation mutants survive.
 
 **`filter(Boolean)` in the git path is an equivalent mutant.**
 After `split("\n")`, the subsequent `.filter((line) => extSet.has(path.extname(line)))` also filters empty strings (since `path.extname("")` is `""`, which is never in the extension set). Removing `filter(Boolean)` produces identical output. Accept this survivor.

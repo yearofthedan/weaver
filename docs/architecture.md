@@ -1,14 +1,14 @@
 # Architecture
 
-**Purpose:** Architecture reference for providers, operations, and dispatch. Read before touching anything in `src/operations/`, `src/providers/`, or `src/daemon/dispatcher.ts`.
+**Purpose:** Architecture reference for compilers, operations, and dispatch. Read before touching anything in `src/operations/`, `src/compilers/`, or `src/daemon/dispatcher.ts`.
 
-See also: `docs/tech/volar-v3.md` (Vue provider internals), `docs/tech/tech-debt.md` (known issues).
+See also: `docs/tech/volar-v3.md` (Vue compiler internals), `docs/tech/tech-debt.md` (known issues).
 
 ---
 
 ## Overview
 
-The engine layer has three tiers: **ports** define I/O abstractions, **domain** holds boundary/tracking logic, **providers** hold the stateful compiler objects, and **operations** are standalone functions that call into providers and domain objects. There are no engine classes.
+The engine layer has three tiers: **ports** define I/O abstractions, **domain** holds boundary/tracking logic, **compilers** hold the stateful compiler objects, and **operations** are standalone functions that call into compilers and domain objects. There are no engine classes.
 
 ```
 src/ports/               ← I/O abstractions (hexagonal ports)
@@ -29,28 +29,28 @@ src/operations/          ← standalone action functions (one per operation)
   searchText.ts
   replaceText.ts
 
-src/providers/           ← stateful compiler wrappers
-  ts.ts                 ← TsProvider — ts-morph Project; per-tsconfig cache; always-available TS fallback
+src/compilers/           ← stateful compiler wrappers
+  ts.ts                 ← TsMorphCompiler — ts-morph Project; per-tsconfig cache; always-available TS fallback
   ts-move-symbol.ts     ← tsMoveSymbol() — compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
 
 src/plugins/             ← language plugin feature folders (one per framework)
   vue/
     plugin.ts           ← createVueLanguagePlugin() — LanguagePlugin factory (project detection, lifecycle)
-    provider.ts         ← VolarProvider — Volar proxy; virtual↔real path translation; afterSymbolMove
+    compiler.ts         ← VolarCompiler — Volar proxy; virtual↔real path translation; afterSymbolMove
     scan.ts             ← updateVueImportsAfterMove, updateVueNamedImportAfterSymbolMove
     service.ts          ← buildVolarService() factory
 ```
 
-Each plugin folder is a self-contained unit: project detection, provider implementation, and any framework-specific helpers. When adding a new framework (Svelte, Angular), add a new `src/plugins/<name>/` folder following the same shape.
+Each plugin folder is a self-contained unit: project detection, compiler implementation, and any framework-specific helpers. When adding a new framework (Svelte, Angular), add a new `src/plugins/<name>/` folder following the same shape.
 
 ---
 
-## Provider interface
+## Compiler interface
 
-Both providers implement `LanguageProvider` (defined in `src/types.ts`):
+Both compilers implement `Compiler` (defined in `src/types.ts`):
 
 ```typescript
-interface LanguageProvider {
+interface Compiler {
   resolveOffset(file, line, col): number
   getRenameLocations(file, offset): Promise<SpanLocation[] | null>
   getReferencesAtPosition(file, offset): Promise<SpanLocation[] | null>
@@ -63,58 +63,58 @@ interface LanguageProvider {
 }
 ```
 
-`afterFileRename` and `afterSymbolMove` are post-step hooks. `TsProvider.afterSymbolMove` is a fallback scan — it walks workspace TS/JS files outside `tsconfig.include` (test files, scripts) and rewrites imports of the moved symbol that ts-morph's AST pass missed. `VolarProvider.afterSymbolMove` scans `.vue` SFC script blocks for imports of the moved symbol and rewrites them.
+`afterFileRename` and `afterSymbolMove` are post-step hooks. `TsMorphCompiler.afterSymbolMove` is a fallback scan — it walks workspace TS/JS files outside `tsconfig.include` (test files, scripts) and rewrites imports of the moved symbol that ts-morph's AST pass missed. `VolarCompiler.afterSymbolMove` scans `.vue` SFC script blocks for imports of the moved symbol and rewrites them.
 
 ---
 
 ## Language plugin contract
 
-The `LanguagePlugin` interface (defined in `src/types.ts`) is the contract for adding language/framework support. Each plugin provides project-level detection and a `LanguageProvider` factory:
+The `LanguagePlugin` interface (defined in `src/types.ts`) is the contract for adding language/framework support. Each plugin provides project-level detection and a `Compiler` factory:
 
 ```typescript
 interface LanguagePlugin {
   id: string;                                      // stable identifier, e.g. "vue-volar"
   supportsProject(tsconfigPath: string): boolean;  // project-level detection
-  createProvider(): Promise<LanguageProvider>;      // lazy factory, result cached by registry
+  createCompiler(): Promise<Compiler>;             // lazy factory, result cached by registry
   invalidateFile?(filePath: string): void;         // selective cache refresh
   invalidateAll?(): void;                          // full cache drop
 }
 ```
 
-**Resolution:** `makeRegistry(filePath)` finds the tsconfig for the input file, then iterates registered plugins in order. The first plugin whose `supportsProject()` returns true provides the `projectProvider`. If no plugin matches (or no tsconfig exists), TsProvider is used as the default fallback.
+**Resolution:** `makeRegistry(filePath)` finds the tsconfig for the input file, then iterates registered plugins in order. The first plugin whose `supportsProject()` returns true provides the `projectCompiler`. If no plugin matches (or no tsconfig exists), TsMorphCompiler is used as the default fallback.
 
-**Detection is project-level, not file-level.** In a Vue project, even `.ts` file operations go through VolarProvider because Volar's language service sees both `.ts` and `.vue` importers. The detection checks the project (does this tsconfig cover a Vue project?), not the file extension.
+**Detection is project-level, not file-level.** In a Vue project, even `.ts` file operations go through VolarCompiler because Volar's language service sees both `.ts` and `.vue` importers. The detection checks the project (does this tsconfig cover a Vue project?), not the file extension.
 
-**Built-in plugins:** Vue/Volar is registered at module load time (`src/daemon/vue-language-plugin.ts`). The TS provider is the always-available fallback — it's not modelled as a plugin.
+**Built-in plugins:** Vue/Volar is registered at module load time (`src/daemon/vue-language-plugin.ts`). The TS compiler is the always-available fallback — it's not modelled as a plugin.
 
-**Adding a new language plugin:** Implement `LanguagePlugin` with project detection logic, create a `LanguageProvider` for your framework's compiler, and call `registerLanguagePlugin()`. See `src/daemon/vue-language-plugin.ts` as a template.
+**Adding a new language plugin:** Implement `LanguagePlugin` with project detection logic, create a `Compiler` for your framework's compiler, and call `registerLanguagePlugin()`. See `src/daemon/vue-language-plugin.ts` as a template.
 
 ---
 
-## Provider registry
+## Compiler registry
 
-The registry creates a `ProviderRegistry` per request, scoped to the project that contains the input file:
+The registry creates a `CompilerRegistry` per request, scoped to the project that contains the input file:
 
 ```typescript
-interface ProviderRegistry {
-  projectProvider(): Promise<LanguageProvider>  // first matching plugin, or TsProvider fallback
-  tsProvider(): Promise<TsProvider>             // always TsProvider — for AST-level operations
+interface CompilerRegistry {
+  projectCompiler(): Promise<Compiler>              // first matching plugin, or TsMorphCompiler fallback
+  tsCompiler(): Promise<TsMorphCompiler>            // always TsMorphCompiler — for AST-level operations
 }
 ```
 
-`projectProvider` resolution iterates registered `LanguagePlugin` entries (see above). `tsProvider` is not subject to plugin resolution — it always returns TsProvider for operations needing direct ts-morph AST access (e.g. `moveSymbol`, `extractFunction`).
+`projectCompiler` resolution iterates registered `LanguagePlugin` entries (see above). `tsCompiler` is not subject to plugin resolution — it always returns TsMorphCompiler for operations needing direct ts-morph AST access (e.g. `moveSymbol`, `extractFunction`).
 
-In a monorepo each package resolves to its own tsconfig and gets the right provider automatically. Providers are lazy singletons; each manages a per-tsconfig cache internally.
+In a monorepo each package resolves to its own tsconfig and gets the right compiler automatically. Compilers are lazy singletons; each manages a per-tsconfig cache internally.
 
 ---
 
 ## Operation dispatch
 
-`src/daemon/dispatcher.ts` uses an `OPERATIONS` descriptor table (operation dispatch only — language plugin registration and provider resolution live in `src/daemon/language-plugin-registry.ts`). Each entry owns:
+`src/daemon/dispatcher.ts` uses an `OPERATIONS` descriptor table (operation dispatch only — language plugin registration and compiler resolution live in `src/daemon/language-plugin-registry.ts`). Each entry owns:
 
-- `pathParams` — which params are file paths (first entry is used for provider selection and workspace validation)
+- `pathParams` — which params are file paths (first entry is used for compiler selection and workspace validation)
 - `schema` — Zod schema for input validation at the socket boundary
-- `invoke(registry, params, workspace)` — calls the operation function with the resolved providers
+- `invoke(registry, params, workspace)` — calls the operation function with the resolved compilers
 
 ```
 tool call (MCP)
@@ -123,7 +123,7 @@ tool call (MCP)
   → dispatcher.ts: OPERATIONS[method]
       1. validate params (schema.safeParse)
       2. validate path params against workspace boundary (isWithinWorkspace)
-      3. makeRegistry(firstPathParam) → ProviderRegistry
+      3. makeRegistry(firstPathParam) → CompilerRegistry
       4. descriptor.invoke(registry, params, workspace)
       5. return { ok: true, ...result }
 ```
@@ -136,18 +136,18 @@ Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and on
 
 ### Mutating
 
-| Operation | Providers used | Notes |
+| Operation | Compilers used | Notes |
 |-----------|---------------|-------|
-| `rename` | `projectProvider` | Calls `getRenameLocations`; applies edits; returns `filesModified`, `filesSkipped` |
-| `moveFile` | `projectProvider` | Calls `getEditsForFileRename`; renames file; calls `afterFileRename` post-hook |
-| `moveSymbol` | `tsProvider` + `projectProvider` | Thin orchestrator using `WorkspaceScope`; compiler work in `TsProvider.moveSymbol()` (impl: `src/providers/ts-move-symbol.ts`); `afterSymbolMove` hook for Vue SFC importers |
+| `rename` | `projectCompiler` | Calls `getRenameLocations`; applies edits; returns `filesModified`, `filesSkipped` |
+| `moveFile` | `projectCompiler` | Calls `getEditsForFileRename`; renames file; calls `afterFileRename` post-hook |
+| `moveSymbol` | `tsCompiler` + `projectCompiler` | Thin orchestrator using `WorkspaceScope`; compiler work in `TsMorphCompiler.moveSymbol()` (impl: `src/compilers/ts-move-symbol.ts`); `afterSymbolMove` hook for Vue SFC importers |
 
 ### Read-only
 
-| Operation | Providers used | Notes |
+| Operation | Compilers used | Notes |
 |-----------|---------------|-------|
-| `findReferences` | `projectProvider` | Does not take `workspace` — returns all references, including outside the workspace |
-| `getDefinition` | `projectProvider` | Same — workspace boundary is only enforced on inputs (the query file), not outputs |
+| `findReferences` | `projectCompiler` | Does not take `workspace` — returns all references, including outside the workspace |
+| `getDefinition` | `projectCompiler` | Same — workspace boundary is only enforced on inputs (the query file), not outputs |
 
 ### Filesystem-only (no provider)
 
@@ -187,12 +187,12 @@ The rewriter uses throwaway in-memory ts-morph projects for AST-based rewriting.
 
 ---
 
-## Provider invalidation
+## Compiler invalidation
 
 The watcher (`src/daemon/watcher.ts`) calls into the language plugin registry:
 
-- `invalidateFile(path)` — on file change; cheaper than full rebuild. Refreshes the TS provider, then iterates all registered language plugins calling `plugin.invalidateFile()`. Errors in one plugin do not block others.
-- `invalidateAll()` — on file add/remove; drops the TS provider singleton and all cached plugin providers, then calls `plugin.invalidateAll()` on each plugin. Errors are isolated per plugin.
+- `invalidateFile(path)` — on file change; cheaper than full rebuild. Refreshes the TS compiler, then iterates all registered language plugins calling `plugin.invalidateFile()`. Errors in one plugin do not block others.
+- `invalidateAll()` — on file add/remove; drops the TS compiler singleton and all cached plugin compilers, then calls `plugin.invalidateAll()` on each plugin. Errors are isolated per plugin.
 
 ---
 
@@ -208,7 +208,7 @@ The watcher (`src/daemon/watcher.ts`) calls into the language plugin registry:
 ## Implementation notes
 
 **Language plugin invalidation hooks must be error-isolated.**
-`invalidateFile` and `invalidateAll` iterate all registered plugins. Each plugin's hook is wrapped in try/catch so a crash in one plugin (e.g. a Volar service bug) doesn't prevent other plugins from refreshing their state. The TS provider is invalidated separately (before the plugin loop) since it's not a plugin.
+`invalidateFile` and `invalidateAll` iterate all registered plugins. Each plugin's hook is wrapped in try/catch so a crash in one plugin (e.g. a Volar service bug) doesn't prevent other plugins from refreshing their state. The TS compiler is invalidated separately (before the plugin loop) since it's not a plugin.
 
 **`isWithinWorkspace` and `isSensitiveFile` are both in `src/security.ts`.**
 `isWithinWorkspace` enforces the workspace boundary at two points: the dispatcher (input path validation) and each operation's output loop (write filtering). It resolves symlinks via `fs.realpathSync` for existing paths to prevent symlink escape. `isSensitiveFile` is called by `searchText` (silently skips) and `replaceText` surgical mode (throws `SENSITIVE_FILE` before touching any file).

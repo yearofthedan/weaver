@@ -54,9 +54,9 @@ tool call
   │   if file provided: validates against workspace boundary
   ▼ getTypeErrors() (src/operations/getTypeErrors.ts)
   │   ├─ single-file mode (file provided)
-  │   │     tsProvider.getSemanticDiagnostics(file) → errors for that file only
+  │   │     tsCompiler.getSemanticDiagnostics(file) → errors for that file only
   │   └─ project-wide mode (no file)
-  │         tsProvider.getSourceFiles() → iterate all files in tsconfig project
+  │         tsCompiler.getSourceFiles() → iterate all files in tsconfig project
   │         getSemanticDiagnostics() per file → collect all errors
   │   filter: DiagnosticCategory.Error only; take first 100; set truncated if more exist
   │   for each diagnostic: top-level message only (chain[0]); convert to 1-based line/col
@@ -93,8 +93,8 @@ For simple mismatches, the top-level message is a short, self-contained sentence
 
 ## Implementation notes
 
-**`getTypeErrors` uses `TsProvider` directly, not `LanguageProvider`.**
-Vue SFC diagnostics via Volar are deferred (handoff P4 item 16). The operation signature takes `TsProvider` instead of the generic `LanguageProvider` interface. The dispatcher calls `registry.tsProvider()` (always returns `TsProvider`, even in Vue projects). This matches the pattern used by `moveSymbol`.
+**`getTypeErrors` uses `TsMorphCompiler` directly, not `Compiler`.**
+Vue SFC diagnostics via Volar are deferred (handoff P4 item 16). The operation signature takes `TsMorphCompiler` instead of the generic `Compiler` interface. The dispatcher calls `registry.tsCompiler()` (always returns `TsMorphCompiler`, even in Vue projects). This matches the pattern used by `moveSymbol`.
 
 **`getTypeErrorsForFiles` must call `refreshFromFileSystemSync()` before checking diagnostics.**
-When post-write diagnostics run against a file that the TsProvider project already has cached (e.g. from a previous operation in the same daemon lifetime), ts-morph will see stale content unless `refreshFromFileSystemSync()` is called first. `getTypeErrorsForFiles` always does this. For fresh TsProvider instances (new projects loaded for the first time), the file is read directly from disk and no refresh is needed — but calling `refreshFromFileSystemSync()` on a newly-added source file is a safe no-op.
+When post-write diagnostics run against a file that the TsMorphCompiler project already has cached (e.g. from a previous operation in the same daemon lifetime), ts-morph will see stale content unless `refreshFromFileSystemSync()` is called first. `getTypeErrorsForFiles` always does this. For fresh TsMorphCompiler instances (new projects loaded for the first time), the file is read directly from disk and no refresh is needed — but calling `refreshFromFileSystemSync()` on a newly-added source file is a safe no-op.
