@@ -12,7 +12,7 @@ function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
 }
 
-describe("moveFile action - TS Provider Integration", () => {
+describe("moveFile action - TsMorphCompiler Integration", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 

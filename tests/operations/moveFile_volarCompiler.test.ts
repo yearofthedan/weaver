@@ -12,7 +12,7 @@ function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
 }
 
-describe("moveFile action - Volar Provider Integration", () => {
+describe("moveFile action - VolarCompiler Integration", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 

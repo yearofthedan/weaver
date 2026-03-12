@@ -77,16 +77,16 @@ src/
       scan.ts     ← updateVueImportsAfterMove + updateVueNamedImportAfterSymbolMove (regex scans; enforces workspace boundary)
       service.ts  ← buildVolarService() — Volar service factory
   operations/
-    rename.ts          ← rename(provider, filePath, line, col, newName, scope: WorkspaceScope)
-    findReferences.ts  ← findReferences(provider, filePath, line, col)
-    getDefinition.ts   ← getDefinition(provider, filePath, line, col)
+    rename.ts          ← rename(compiler, filePath, line, col, newName, scope: WorkspaceScope)
+    findReferences.ts  ← findReferences(compiler, filePath, line, col)
+    getDefinition.ts   ← getDefinition(compiler, filePath, line, col)
     getTypeErrors.ts   ← getTypeErrors(tsCompiler, file?, workspace) — errors-only, cap 100
     moveFile.ts        ← moveFile(compiler, oldPath, newPath, scope: WorkspaceScope)
     moveSymbol.ts      ← moveSymbol(tsCompiler, projectCompiler, sourceFile, symbolName, destFile, scope: WorkspaceScope)
-    extractFunction.ts ← extractFunction(tsProvider, file, startLine, startCol, endLine, endCol, functionName, workspace)
+    extractFunction.ts ← extractFunction(tsCompiler, file, startLine, startCol, endLine, endCol, functionName, workspace)
     searchText.ts      ← searchText(pattern, workspace, { glob, context, maxResults })
     replaceText.ts     ← replaceText(workspace, { pattern, replacement, glob } | { edits })
-    deleteFile.ts      ← deleteFile(tsProvider, file, workspace)
+    deleteFile.ts      ← deleteFile(tsCompiler, file, workspace)
   compilers/
     ts.ts              ← TsMorphCompiler: compiler calls via ts-morph Project; refreshFile() for selective invalidation
     ts-move-symbol.ts  ← tsMoveSymbol(): compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
@@ -193,17 +193,15 @@ There is no light-bridge tool for "add export keyword + move". This is a known g
 
 ---
 
-## Agent reflection: light-bridge tool usage during the moveFile import-rewrite slice
+## Agent reflection: providers → compilers rename (2026-03-12)
 
-The execution agent implementing the `20260306-movefile-import-rewrite` spec did not use the `mcp__light-bridge__*` tools at any point during the session, despite multiple opportunities:
+First session where the execution agent actually used `moveFile` and `rename` for a structural change. Two lessons:
 
-- Moving `toRelBase` from `compilers/ts.ts` to `src/utils/relative-path.ts` was done with manual `Edit` + import fixups — `moveSymbol` exists precisely for this.
-- Splitting extension constants to `src/utils/extensions.ts` required manually hunting importers with `Grep` — `findReferences` would have given a compiler-accurate list.
-- Before touching `JS_TS_PAIRS` the agent should have called `findReferences` to understand blast radius; it used text search instead.
+1. **Spec structure drives tool choice.** The first spec split "move files" (AC1) from "fix imports" (AC3) into separate ACs. This made `git mv` look correct — `moveFile` does both atomically and couldn't be used for half the job. The fix: restructured to one AC that does moves + imports together via `moveFile`. **ACs must leave the codebase working; non-functional splits discourage the right tools.**
 
-The agent defaulted to direct file editing for every structural change. The skill file (`CLAUDE.md` Rule 9, `.claude/skills/light-bridge-refactoring/SKILL.md`) states: "Any change that touches multiple files → load this skill first before reaching for bash, git, or search-and-replace." That rule was not followed.
+2. **`rename` handles definitions well; derived names need manual cleanup.** `mcp__light-bridge__rename` correctly renamed `TsProvider` → `TsMorphCompiler` across all references. But derived variable names like `tsProviderSingleton`, `pluginProviders`, `stubProvider` aren't compiler references — they're just strings that happen to contain "provider". These needed `replaceText` or manual edits. This is expected behaviour, not a bug — `rename` follows the compiler's reference graph, which is correct.
 
-**Action for next agent:** before any multi-file structural change (move, rename, extract), reach for `mcp__light-bridge__moveSymbol`, `mcp__light-bridge__findReferences`, or `mcp__light-bridge__rename` first. If the tool can't do what's needed, log it in handoff — don't silently fall back to manual edits.
+**Action for next agent:** Structure specs so each AC uses the natural tool atomically. If you find yourself splitting a tool's atomic operation across ACs, the spec is wrong.
 
 ---
 

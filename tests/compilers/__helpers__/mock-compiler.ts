@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 import type { Compiler } from "../../../src/types.js";
 
-// TODO: replace with a shared TestProvider class once one exists — a class
+// TODO: replace with a shared TestCompiler class once one exists — a class
 // with injectable stubs would be cleaner than vi.fn() mocks here.
 export function makeMockCompiler(overrides: Partial<Compiler> = {}): Compiler {
   return {
