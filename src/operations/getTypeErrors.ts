@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { ts } from "ts-morph";
-import type { TsProvider } from "../compilers/ts.js";
+import type { TsMorphCompiler } from "../compilers/ts.js";
 import { isWithinWorkspace } from "../security.js";
 import type { GetTypeErrorsResult, PostWriteDiagnostics, TypeDiagnostic } from "../types.js";
 import { EngineError } from "../utils/errors.js";
@@ -11,7 +11,7 @@ const TS_FILE_EXTENSIONS = new Set([".ts", ".tsx"]);
 const MAX_DIAGNOSTICS = 100;
 
 export async function getTypeErrors(
-  provider: TsProvider,
+  compiler: TsMorphCompiler,
   file: string | undefined,
   workspace: string,
 ): Promise<GetTypeErrorsResult> {
@@ -23,9 +23,9 @@ export async function getTypeErrors(
     if (!isWithinWorkspace(absPath, workspace)) {
       throw new EngineError(`file is outside the workspace: ${file}`, "WORKSPACE_VIOLATION");
     }
-    return getForFile(provider, absPath);
+    return getForFile(compiler, absPath);
   }
-  return getForProject(provider, workspace);
+  return getForProject(compiler, workspace);
 }
 
 /**
@@ -33,7 +33,10 @@ export async function getTypeErrors(
  * diagnostic fields. Non-TS files are silently skipped. Results are capped at
  * MAX_DIAGNOSTICS total across all files; typeErrorCount reflects the true total.
  */
-export function getTypeErrorsForFiles(provider: TsProvider, files: string[]): PostWriteDiagnostics {
+export function getTypeErrorsForFiles(
+  compiler: TsMorphCompiler,
+  files: string[],
+): PostWriteDiagnostics {
   const tsFiles = files.filter((f) => TS_FILE_EXTENSIONS.has(path.extname(f)));
 
   let totalCount = 0;
@@ -42,7 +45,7 @@ export function getTypeErrorsForFiles(provider: TsProvider, files: string[]): Po
   for (const file of tsFiles) {
     if (!fs.existsSync(file)) continue;
 
-    const project = provider.getProjectForFile(file);
+    const project = compiler.getProjectForFile(file);
     const existing = project.getSourceFile(file);
     if (!existing) {
       project.addSourceFileAtPath(file);
@@ -68,8 +71,8 @@ export function getTypeErrorsForFiles(provider: TsProvider, files: string[]): Po
   };
 }
 
-function getForFile(provider: TsProvider, absPath: string): GetTypeErrorsResult {
-  const project = provider.getProjectForFile(absPath);
+function getForFile(compiler: TsMorphCompiler, absPath: string): GetTypeErrorsResult {
+  const project = compiler.getProjectForFile(absPath);
   if (!project.getSourceFile(absPath)) {
     project.addSourceFileAtPath(absPath);
   }
@@ -81,8 +84,8 @@ function getForFile(provider: TsProvider, absPath: string): GetTypeErrorsResult 
   return { diagnostics, errorCount: errors.length, truncated };
 }
 
-function getForProject(provider: TsProvider, workspace: string): GetTypeErrorsResult {
-  const project = provider.getProjectForDirectory(workspace);
+function getForProject(compiler: TsMorphCompiler, workspace: string): GetTypeErrorsResult {
+  const project = compiler.getProjectForDirectory(workspace);
   const ls = project.getLanguageService().compilerObject;
   const allErrors: ReturnType<typeof ls.getSemanticDiagnostics> = [];
   for (const sf of project.getSourceFiles()) {

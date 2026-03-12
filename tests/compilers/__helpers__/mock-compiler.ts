@@ -1,9 +1,9 @@
 import { vi } from "vitest";
-import type { LanguageProvider } from "../../../src/types.js";
+import type { Compiler } from "../../../src/types.js";
 
 // TODO: replace with a shared TestProvider class once one exists — a class
 // with injectable stubs would be cleaner than vi.fn() mocks here.
-export function makeMockProvider(overrides: Partial<LanguageProvider> = {}): LanguageProvider {
+export function makeMockCompiler(overrides: Partial<Compiler> = {}): Compiler {
   return {
     resolveOffset: vi.fn().mockReturnValue(0),
     getRenameLocations: vi.fn().mockResolvedValue(null),

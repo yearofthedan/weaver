@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { TsProvider } from "../../src/compilers/ts.js";
+import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { findReferences } from "../../src/operations/findReferences.js";
-import { VolarProvider } from "../../src/plugins/vue/compiler.js";
+import { VolarCompiler } from "../../src/plugins/vue/compiler.js";
 import { cleanup, copyFixture } from "../helpers.js";
 
 describe("findReferences action", () => {
@@ -14,12 +14,12 @@ describe("findReferences action", () => {
     return dir;
   }
 
-  describe("with TsProvider", () => {
+  describe("with TsMorphCompiler", () => {
     it("finds all references to a symbol from the declaration site", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      const result = await findReferences(provider, `${dir}/src/utils.ts`, 1, 17);
+      const result = await findReferences(compiler, `${dir}/src/utils.ts`, 1, 17);
 
       expect(result.symbolName).toBe("greetUser");
       expect(result.references.length).toBeGreaterThanOrEqual(2);
@@ -37,9 +37,9 @@ describe("findReferences action", () => {
 
     it("finds the same references from a call site", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      const result = await findReferences(provider, `${dir}/src/main.ts`, 3, 13);
+      const result = await findReferences(compiler, `${dir}/src/main.ts`, 3, 13);
 
       expect(result.symbolName).toBe("greetUser");
       const files = result.references.map((r) => r.file);
@@ -49,29 +49,29 @@ describe("findReferences action", () => {
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
       await expect(
-        findReferences(provider, `${dir}/src/doesNotExist.ts`, 1, 1),
+        findReferences(compiler, `${dir}/src/doesNotExist.ts`, 1, 1),
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
     it("throws SYMBOL_NOT_FOUND for an out-of-range line", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      await expect(findReferences(provider, `${dir}/src/utils.ts`, 999, 1)).rejects.toMatchObject({
+      await expect(findReferences(compiler, `${dir}/src/utils.ts`, 999, 1)).rejects.toMatchObject({
         code: "SYMBOL_NOT_FOUND",
       });
     });
   });
 
-  describe("with VolarProvider", () => {
+  describe("with VolarCompiler", () => {
     it("finds references to a composable across .ts and .vue files", async () => {
       const dir = setup("vue-project");
-      const provider = new VolarProvider();
+      const compiler = new VolarCompiler();
 
-      const result = await findReferences(provider, `${dir}/src/composables/useCounter.ts`, 1, 17);
+      const result = await findReferences(compiler, `${dir}/src/composables/useCounter.ts`, 1, 17);
 
       expect(result.symbolName).toBe("useCounter");
       expect(result.references.length).toBeGreaterThanOrEqual(2);
@@ -89,10 +89,10 @@ describe("findReferences action", () => {
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
       const dir = setup("vue-project");
-      const provider = new VolarProvider();
+      const compiler = new VolarCompiler();
 
       await expect(
-        findReferences(provider, `${dir}/src/doesNotExist.ts`, 1, 1),
+        findReferences(compiler, `${dir}/src/doesNotExist.ts`, 1, 1),
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
   });

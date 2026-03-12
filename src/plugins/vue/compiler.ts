@@ -2,12 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { ImportRewriter } from "../../domain/import-rewriter.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
-import type {
-  DefinitionLocation,
-  FileTextEdit,
-  LanguageProvider,
-  SpanLocation,
-} from "../../types.js";
+import type { Compiler, DefinitionLocation, FileTextEdit, SpanLocation } from "../../types.js";
 import { EngineError } from "../../utils/errors.js";
 import { walkFiles } from "../../utils/file-walk.js";
 import { lineColToOffset } from "../../utils/text-utils.js";
@@ -15,7 +10,7 @@ import { findTsConfigForFile } from "../../utils/ts-project.js";
 import { updateVueImportsAfterMove } from "./scan.js";
 import { buildVolarService, type CachedService } from "./service.js";
 
-export class VolarProvider implements LanguageProvider {
+export class VolarCompiler implements Compiler {
   private services = new Map<string, CachedService>();
 
   private cacheKey(tsConfigPath: string | null, filePath: string): string {
@@ -102,7 +97,7 @@ export class VolarProvider implements LanguageProvider {
       .filter((loc): loc is SpanLocation => loc !== null);
   }
 
-  // ─── LanguageProvider ─────────────────────────────────────────────────────
+  // ─── Compiler ─────────────────────────────────────────────────────
 
   resolveOffset(file: string, line: number, col: number): number {
     const content = fs.readFileSync(file, "utf8");

@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { TsProvider } from "../../../src/compilers/ts.js";
+import { TsMorphCompiler } from "../../../src/compilers/ts.js";
 import {
   clearLanguagePlugins,
   invalidateAll,
@@ -21,45 +21,45 @@ describe("Vue LanguagePlugin integration", () => {
 
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  it("projectProvider returns VolarProvider for a Vue project", async () => {
+  it("projectCompiler returns VolarCompiler for a Vue project", async () => {
     const dir = copyFixture("vue-project");
     dirs.push(dir);
-    const { VolarProvider } = await import("../../../src/plugins/vue/compiler.js");
+    const { VolarCompiler } = await import("../../../src/plugins/vue/compiler.js");
 
     const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
-    const provider = await registry.projectProvider();
-    expect(provider).toBeInstanceOf(VolarProvider);
+    const compiler = await registry.projectCompiler();
+    expect(compiler).toBeInstanceOf(VolarCompiler);
   }, 10_000);
 
-  it("projectProvider returns TsProvider for a non-Vue project", async () => {
+  it("projectCompiler returns TsMorphCompiler for a non-Vue project", async () => {
     const dir = copyFixture("simple-ts");
     dirs.push(dir);
 
     const registry = makeRegistry(path.join(dir, "src/utils.ts"));
-    const provider = await registry.projectProvider();
-    expect(provider).toBeInstanceOf(TsProvider);
+    const compiler = await registry.projectCompiler();
+    expect(compiler).toBeInstanceOf(TsMorphCompiler);
   }, 10_000);
 
-  it("invalidateFile before provider is created does not throw", () => {
+  it("invalidateFile before compiler is created does not throw", () => {
     expect(() => invalidateFile("/any/file.vue")).not.toThrow();
   });
 
-  it("invalidateAll before provider is created does not throw", () => {
+  it("invalidateAll before compiler is created does not throw", () => {
     expect(() => invalidateAll()).not.toThrow();
   });
 
-  it("invalidateAll clears cached provider so next createProvider call rebuilds it", async () => {
+  it("invalidateAll clears cached compiler so next createCompiler call rebuilds it", async () => {
     const dir = copyFixture("vue-project");
     dirs.push(dir);
-    const { VolarProvider } = await import("../../../src/plugins/vue/compiler.js");
+    const { VolarCompiler } = await import("../../../src/plugins/vue/compiler.js");
 
     const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
-    const first = await registry.projectProvider();
+    const first = await registry.projectCompiler();
     invalidateAll();
-    const second = await registry.projectProvider();
+    const second = await registry.projectCompiler();
 
-    expect(first).toBeInstanceOf(VolarProvider);
-    expect(second).toBeInstanceOf(VolarProvider);
+    expect(first).toBeInstanceOf(VolarCompiler);
+    expect(second).toBeInstanceOf(VolarCompiler);
     expect(first).not.toBe(second);
   }, 15_000);
 });

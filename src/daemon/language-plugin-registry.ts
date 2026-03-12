@@ -1,71 +1,71 @@
 import { createVueLanguagePlugin } from "../plugins/vue/plugin.js";
-import type { LanguagePlugin, LanguageProvider, ProviderRegistry } from "../types.js";
+import type { Compiler, CompilerRegistry, LanguagePlugin } from "../types.js";
 import { findTsConfigForFile } from "../utils/ts-project.js";
 
 const languagePlugins: LanguagePlugin[] = [];
-const pluginProviders = new Map<string, LanguageProvider>();
+const pluginCompilers = new Map<string, Compiler>();
 
-let tsProviderSingleton: import("../compilers/ts.js").TsProvider | undefined;
+let tsMorphCompilerSingleton: import("../compilers/ts.js").TsMorphCompiler | undefined;
 
-async function getTsProvider(): Promise<import("../compilers/ts.js").TsProvider> {
-  if (!tsProviderSingleton) {
-    const { TsProvider } = await import("../compilers/ts.js");
-    tsProviderSingleton = new TsProvider();
+async function getTsMorphCompiler(): Promise<import("../compilers/ts.js").TsMorphCompiler> {
+  if (!tsMorphCompilerSingleton) {
+    const { TsMorphCompiler } = await import("../compilers/ts.js");
+    tsMorphCompilerSingleton = new TsMorphCompiler();
   }
-  return tsProviderSingleton;
+  return tsMorphCompilerSingleton;
 }
 
-async function getPluginProvider(plugin: LanguagePlugin): Promise<LanguageProvider> {
-  let provider = pluginProviders.get(plugin.id);
-  if (!provider) {
-    provider = await plugin.createProvider();
-    pluginProviders.set(plugin.id, provider);
+async function getPluginCompiler(plugin: LanguagePlugin): Promise<Compiler> {
+  let compiler = pluginCompilers.get(plugin.id);
+  if (!compiler) {
+    compiler = await plugin.createCompiler();
+    pluginCompilers.set(plugin.id, compiler);
   }
-  return provider;
+  return compiler;
 }
 
 export function registerLanguagePlugin(plugin: LanguagePlugin): void {
   languagePlugins.push(plugin);
 }
 
-/** Clear all registered plugins and cached providers. Exported for testing only. */
+/** Clear all registered plugins and cached compilers. Exported for testing only. */
 export function clearLanguagePlugins(): void {
   languagePlugins.length = 0;
-  pluginProviders.clear();
+  pluginCompilers.clear();
 }
 
 /**
- * Create a `ProviderRegistry` scoped to the project containing `filePath`.
- * `projectProvider` iterates registered language plugins; first match wins,
- * with TsProvider as the default fallback.
- * `tsProvider` always returns TsProvider for AST-level operations (e.g. moveSymbol).
+ * Create a `CompilerRegistry` scoped to the project containing `filePath`.
+ * `projectCompiler` iterates registered language plugins; first match wins,
+ * with TsMorphCompiler as the default fallback.
+ * `tsCompiler` always returns TsMorphCompiler for AST-level operations (e.g. moveSymbol).
  */
-export function makeRegistry(filePath: string): ProviderRegistry {
+export function makeRegistry(filePath: string): CompilerRegistry {
   return {
-    async projectProvider(): Promise<LanguageProvider> {
+    async projectCompiler(): Promise<Compiler> {
       const tsConfigPath = findTsConfigForFile(filePath);
       if (tsConfigPath) {
         for (const plugin of languagePlugins) {
           if (plugin.supportsProject(tsConfigPath)) {
-            return getPluginProvider(plugin);
+            return getPluginCompiler(plugin);
           }
         }
       }
-      return getTsProvider();
+      return getTsMorphCompiler();
     },
-    async tsProvider() {
-      return getTsProvider();
+    async tsCompiler() {
+      return getTsMorphCompiler();
     },
   };
 }
 
 /**
- * Refresh a single file in whichever provider(s) are loaded.
+ * Refresh a single file in whichever compiler(s) are loaded.
  * Called by the watcher on `change` events — cheaper than full rebuild.
  * Errors in individual plugins are caught so one failure doesn't block others.
  */
 export function invalidateFile(filePath: string): void {
-  tsProviderSingleton?.refreshFile(filePath);
+  tsMorphCompilerSingleton?.refreshFile(filePath);
   for (const plugin of languagePlugins) {
     try {
       plugin.invalidateFile?.(filePath);
@@ -76,14 +76,14 @@ export function invalidateFile(filePath: string): void {
 }
 
 /**
- * Drop all loaded providers so they rebuild lazily on the next request.
+ * Drop all loaded compilers so they rebuild lazily on the next request.
  * Called by the watcher on `add` and `unlink` events — structural changes
  * that require the full project graph to be refreshed.
  * Errors in individual plugins are caught so one failure doesn't block others.
  */
 export function invalidateAll(): void {
-  tsProviderSingleton = undefined;
-  pluginProviders.clear();
+  tsMorphCompilerSingleton = undefined;
+  pluginCompilers.clear();
   for (const plugin of languagePlugins) {
     try {
       plugin.invalidateAll?.();

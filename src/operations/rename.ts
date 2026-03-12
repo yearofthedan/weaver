@@ -1,11 +1,11 @@
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import type { LanguageProvider, RenameResult } from "../types.js";
+import type { Compiler, RenameResult } from "../types.js";
 import { assertFileExists } from "../utils/assert-file.js";
 import { EngineError } from "../utils/errors.js";
 import { applyTextEdits } from "../utils/text-utils.js";
 
 export async function rename(
-  provider: LanguageProvider,
+  compiler: Compiler,
   filePath: string,
   line: number,
   col: number,
@@ -14,9 +14,9 @@ export async function rename(
 ): Promise<RenameResult> {
   const absPath = assertFileExists(filePath);
 
-  const offset = provider.resolveOffset(absPath, line, col);
+  const offset = compiler.resolveOffset(absPath, line, col);
   // getRenameLocations throws RENAME_NOT_ALLOWED when appropriate.
-  const locs = await provider.getRenameLocations(absPath, offset);
+  const locs = await compiler.getRenameLocations(absPath, offset);
 
   if (!locs) {
     throw new EngineError(
@@ -27,7 +27,7 @@ export async function rename(
 
   // Determine the original symbol name from the first translated location.
   const firstLoc = locs[0];
-  const firstContent = provider.readFile(firstLoc.fileName);
+  const firstContent = compiler.readFile(firstLoc.fileName);
   const oldName = firstContent.slice(
     firstLoc.textSpan.start,
     firstLoc.textSpan.start + firstLoc.textSpan.length,
@@ -52,10 +52,10 @@ export async function rename(
       scope.recordSkipped(fileName);
       continue;
     }
-    const original = provider.readFile(fileName);
+    const original = compiler.readFile(fileName);
     const updated = applyTextEdits(original, edits);
     scope.writeFile(fileName, updated);
-    provider.notifyFileWritten(fileName, updated);
+    compiler.notifyFileWritten(fileName, updated);
   }
 
   return {

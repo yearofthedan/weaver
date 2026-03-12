@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { TsProvider } from "../../src/compilers/ts.js";
+import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { EngineError } from "../../src/utils/errors.js";
 import { cleanup, copyFixture } from "../helpers.js";
 
@@ -11,7 +11,7 @@ import { cleanup, copyFixture } from "../helpers.js";
 //   src/main.ts   line 1, col 10 → greetUser (import)
 //                 line 3, col 13 → greetUser (call)
 
-describe("TsProvider", () => {
+describe("TsMorphCompiler", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
@@ -21,8 +21,8 @@ describe("TsProvider", () => {
     return dir;
   }
 
-  it("implements LanguageProvider shape", () => {
-    const p = new TsProvider();
+  it("implements Compiler shape", () => {
+    const p = new TsMorphCompiler();
     expect(typeof p.resolveOffset).toBe("function");
     expect(typeof p.getRenameLocations).toBe("function");
     expect(typeof p.getReferencesAtPosition).toBe("function");
@@ -36,7 +36,7 @@ describe("TsProvider", () => {
 
   it("resolveOffset converts 1-based line/col to 0-based offset", () => {
     const dir = setup();
-    const p = new TsProvider();
+    const p = new TsMorphCompiler();
     const file = path.join(dir, "src/utils.ts");
     // line 1, col 1 → offset 0
     expect(p.resolveOffset(file, 1, 1)).toBe(0);
@@ -46,7 +46,7 @@ describe("TsProvider", () => {
 
   it("getRenameLocations returns spans for a symbol", async () => {
     const dir = setup();
-    const p = new TsProvider();
+    const p = new TsMorphCompiler();
     const file = path.join(dir, "src/utils.ts");
     const offset = p.resolveOffset(file, 1, 17); // greetUser
     const locs = await p.getRenameLocations(file, offset);
@@ -61,7 +61,7 @@ describe("TsProvider", () => {
 
   it("getReferencesAtPosition returns spans including definition", async () => {
     const dir = setup();
-    const p = new TsProvider();
+    const p = new TsMorphCompiler();
     const file = path.join(dir, "src/utils.ts");
     const offset = p.resolveOffset(file, 1, 17);
     const refs = await p.getReferencesAtPosition(file, offset);
@@ -71,7 +71,7 @@ describe("TsProvider", () => {
 
   it("getDefinitionAtPosition returns definition location", async () => {
     const dir = setup();
-    const p = new TsProvider();
+    const p = new TsMorphCompiler();
     const file = path.join(dir, "src/main.ts");
     const offset = p.resolveOffset(file, 3, 13); // greetUser call site
     const defs = await p.getDefinitionAtPosition(file, offset);
@@ -82,13 +82,13 @@ describe("TsProvider", () => {
   });
 
   it("refreshFile is a no-op when the project has not been loaded yet", () => {
-    const p = new TsProvider();
+    const p = new TsMorphCompiler();
     expect(() => p.refreshFile("/nonexistent/path.ts")).not.toThrow();
   });
 
   it("refreshFile does not throw after a project has been loaded", () => {
     const dir = setup();
-    const p = new TsProvider();
+    const p = new TsMorphCompiler();
     const file = path.join(dir, "src/utils.ts");
     // Force project load.
     p.resolveOffset(file, 1, 1);
@@ -98,7 +98,7 @@ describe("TsProvider", () => {
 
   it("getRenameLocations throws RENAME_NOT_ALLOWED for a non-renameable token", async () => {
     const dir = setup();
-    const p = new TsProvider();
+    const p = new TsMorphCompiler();
     // main.ts line 1: import { greetUser } from "./utils";
     // The import path string "./utils" at col 27 cannot be renamed
     // because allowRenameOfImportPath:false is passed to the TS LS.
@@ -111,7 +111,7 @@ describe("TsProvider", () => {
 
   it("getDefinitionAtPosition returns null for a whitespace offset", async () => {
     const dir = setup();
-    const p = new TsProvider();
+    const p = new TsMorphCompiler();
     // main.ts line 2 is blank — any position there has no symbol definition
     const file = path.join(dir, "src/main.ts");
     const result = await p.getDefinitionAtPosition(file, 37); // '\n' at end of line 1
@@ -123,7 +123,7 @@ describe("TsProvider", () => {
     const file = path.join(tmpDir, "standalone.ts");
     fs.writeFileSync(file, "export const x = 1;\n");
     try {
-      const p = new TsProvider();
+      const p = new TsMorphCompiler();
       // 'x' starts at column 14 → offset 13
       expect(p.resolveOffset(file, 1, 14)).toBe(13);
     } finally {
@@ -136,7 +136,7 @@ describe("TsProvider", () => {
     const file = path.join(tmpDir, "standalone.ts");
     fs.writeFileSync(file, "export const myVar = 1;\n");
     try {
-      const p = new TsProvider();
+      const p = new TsMorphCompiler();
       // 'myVar' starts at offset 13
       const locs = await p.getRenameLocations(file, 13);
       expect(locs).not.toBeNull();
@@ -151,7 +151,7 @@ describe("TsProvider", () => {
     const file = path.join(tmpDir, "standalone.ts");
     fs.writeFileSync(file, "export const myVar = 1;\n");
     try {
-      const p = new TsProvider();
+      const p = new TsMorphCompiler();
       const refs = await p.getReferencesAtPosition(file, 13);
       expect(refs).not.toBeNull();
     } finally {
@@ -165,7 +165,7 @@ describe("TsProvider", () => {
     // Use a reference expression: x references myVar defined earlier in the file
     fs.writeFileSync(file, "export const myVar = 1;\nexport const x = myVar;\n");
     try {
-      const p = new TsProvider();
+      const p = new TsMorphCompiler();
       // 'myVar' in 'const x = myVar' starts at offset 41
       const content = fs.readFileSync(file, "utf8");
       const offset = content.indexOf("myVar", content.indexOf("const x"));
@@ -178,7 +178,7 @@ describe("TsProvider", () => {
 
   it("afterFileRename skips files outside the workspace boundary", async () => {
     const dir = setup();
-    const p = new TsProvider();
+    const p = new TsMorphCompiler();
     // Workspace is a subdirectory; the fixture root is outside it.
     const workspace = path.join(dir, "src");
     const oldPath = path.join(dir, "src/utils.ts");
@@ -190,7 +190,7 @@ describe("TsProvider", () => {
 
   it("afterFileRename does not rewrite files that do not import the old path", async () => {
     const dir = setup();
-    const p = new TsProvider();
+    const p = new TsMorphCompiler();
     const mainPath = path.join(dir, "src/main.ts");
     const originalContent = fs.readFileSync(mainPath, "utf8");
     // Moving a file that main.ts doesn't import — main.ts must not be touched.
@@ -203,7 +203,7 @@ describe("TsProvider", () => {
 
   it("afterFileRename skips files listed in alreadyModified", async () => {
     const dir = setup();
-    const p = new TsProvider();
+    const p = new TsMorphCompiler();
     const mainPath = path.join(dir, "src/main.ts");
     const originalContent = fs.readFileSync(mainPath, "utf8");
     const utils = path.join(dir, "src/utils.ts");
@@ -217,7 +217,7 @@ describe("TsProvider", () => {
 
   it("afterFileRename returns the modified file in the result list", async () => {
     const dir = setup();
-    const p = new TsProvider();
+    const p = new TsMorphCompiler();
     const utils = path.join(dir, "src/utils.ts");
     const helpers = path.join(dir, "src/helpers.ts");
     // Physically rename the file so the new path exists for the project refresh.
@@ -232,7 +232,7 @@ describe("TsProvider", () => {
   it("getProjectForDirectory falls back to no-tsconfig project when no tsconfig found", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-notconfig-dir-"));
     try {
-      const p = new TsProvider();
+      const p = new TsMorphCompiler();
       // Must not throw — returns a bare Project without tsconfig.
       const project = p.getProjectForDirectory(tmpDir);
       expect(project).toBeTruthy();

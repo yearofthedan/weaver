@@ -1,25 +1,25 @@
-import type { LanguagePlugin, LanguageProvider } from "../../types.js";
+import type { Compiler, LanguagePlugin } from "../../types.js";
 import { isVueProject } from "../../utils/ts-project.js";
 
 export function createVueLanguagePlugin(): LanguagePlugin {
-  let cachedProvider: import("./compiler.js").VolarProvider | undefined;
+  let cachedCompiler: import("./compiler.js").VolarCompiler | undefined;
   return {
     id: "vue-volar",
     supportsProject(tsconfigPath: string): boolean {
       return isVueProject(tsconfigPath);
     },
-    async createProvider(): Promise<LanguageProvider> {
-      if (!cachedProvider) {
-        const { VolarProvider } = await import("./compiler.js");
-        cachedProvider = new VolarProvider();
+    async createCompiler(): Promise<Compiler> {
+      if (!cachedCompiler) {
+        const { VolarCompiler } = await import("./compiler.js");
+        cachedCompiler = new VolarCompiler();
       }
-      return cachedProvider;
+      return cachedCompiler;
     },
     invalidateFile(filePath: string): void {
-      cachedProvider?.invalidateService(filePath);
+      cachedCompiler?.invalidateService(filePath);
     },
     invalidateAll(): void {
-      cachedProvider = undefined;
+      cachedCompiler = undefined;
     },
   };
 }

@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
-import { TsProvider } from "../../src/compilers/ts.js";
+import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { getDefinition } from "../../src/operations/getDefinition.js";
-import { VolarProvider } from "../../src/plugins/vue/compiler.js";
+import { VolarCompiler } from "../../src/plugins/vue/compiler.js";
 import { cleanup, copyFixture } from "../helpers.js";
 
 describe("getDefinition action", () => {
@@ -15,13 +15,13 @@ describe("getDefinition action", () => {
     return dir;
   }
 
-  describe("with TsProvider", () => {
+  describe("with TsMorphCompiler", () => {
     it("returns the definition location from a call site", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
       // main.ts line 3: console.log(greetUser("World")); → col 13
-      const result = await getDefinition(provider, `${dir}/src/main.ts`, 3, 13);
+      const result = await getDefinition(compiler, `${dir}/src/main.ts`, 3, 13);
 
       expect(result.symbolName).toBe("greetUser");
       expect(result.definitions.length).toBeGreaterThanOrEqual(1);
@@ -36,9 +36,9 @@ describe("getDefinition action", () => {
 
     it("returns the definition location from the declaration site itself", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      const result = await getDefinition(provider, `${dir}/src/utils.ts`, 1, 17);
+      const result = await getDefinition(compiler, `${dir}/src/utils.ts`, 1, 17);
 
       expect(result.symbolName).toBe("greetUser");
       expect(result.definitions.some((d) => d.file.endsWith("utils.ts"))).toBe(true);
@@ -46,18 +46,18 @@ describe("getDefinition action", () => {
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
       await expect(
-        getDefinition(provider, `${dir}/src/doesNotExist.ts`, 1, 1),
+        getDefinition(compiler, `${dir}/src/doesNotExist.ts`, 1, 1),
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
     it("throws SYMBOL_NOT_FOUND for an out-of-range line", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      await expect(getDefinition(provider, `${dir}/src/utils.ts`, 999, 1)).rejects.toMatchObject({
+      await expect(getDefinition(compiler, `${dir}/src/utils.ts`, 999, 1)).rejects.toMatchObject({
         code: "SYMBOL_NOT_FOUND",
       });
     });
@@ -66,18 +66,18 @@ describe("getDefinition action", () => {
       // Exercises the `!defs || defs.length === 0` path in getDefinition.ts:
       // line 2 of main.ts is blank — resolveOffset succeeds but getDefinitionAtPosition returns null.
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      await expect(getDefinition(provider, `${dir}/src/main.ts`, 2, 1)).rejects.toMatchObject({
+      await expect(getDefinition(compiler, `${dir}/src/main.ts`, 2, 1)).rejects.toMatchObject({
         code: "SYMBOL_NOT_FOUND",
       });
     });
   });
 
-  describe("with VolarProvider", () => {
+  describe("with VolarCompiler", () => {
     it("resolves a composable definition from a .vue call site", async () => {
       const dir = setup("vue-ts-boundary");
-      const provider = new VolarProvider();
+      const compiler = new VolarCompiler();
 
       const appVue = `${dir}/src/App.vue`;
       const content = fs.readFileSync(appVue, "utf8");
@@ -86,7 +86,7 @@ describe("getDefinition action", () => {
       const line = lineIdx + 1;
       const col = content.split("\n")[lineIdx].indexOf("greetUser") + 1;
 
-      const result = await getDefinition(provider, appVue, line, col);
+      const result = await getDefinition(compiler, appVue, line, col);
 
       expect(result.symbolName).toBe("greetUser");
       expect(result.definitions.length).toBeGreaterThanOrEqual(1);
@@ -101,19 +101,19 @@ describe("getDefinition action", () => {
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
       const dir = setup("vue-project");
-      const provider = new VolarProvider();
+      const compiler = new VolarCompiler();
 
       await expect(
-        getDefinition(provider, `${dir}/src/doesNotExist.ts`, 1, 1),
+        getDefinition(compiler, `${dir}/src/doesNotExist.ts`, 1, 1),
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
     it("throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", async () => {
-      // Exercises the resolveOffset catch block in VolarProvider (volar.ts line 103).
+      // Exercises the resolveOffset catch block in VolarCompiler (volar.ts line 103).
       const dir = setup("vue-ts-boundary");
-      const provider = new VolarProvider();
+      const compiler = new VolarCompiler();
 
-      await expect(getDefinition(provider, `${dir}/src/App.vue`, 999, 1)).rejects.toMatchObject({
+      await expect(getDefinition(compiler, `${dir}/src/App.vue`, 999, 1)).rejects.toMatchObject({
         code: "SYMBOL_NOT_FOUND",
       });
     });

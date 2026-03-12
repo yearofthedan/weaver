@@ -1,11 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { FindReferencesResult, LanguageProvider } from "../types.js";
+import type { Compiler, FindReferencesResult } from "../types.js";
 import { EngineError } from "../utils/errors.js";
 import { offsetToLineCol } from "../utils/text-utils.js";
 
 export async function findReferences(
-  provider: LanguageProvider,
+  compiler: Compiler,
   filePath: string,
   line: number,
   col: number,
@@ -16,8 +16,8 @@ export async function findReferences(
     throw new EngineError(`File not found: ${filePath}`, "FILE_NOT_FOUND");
   }
 
-  const offset = provider.resolveOffset(absPath, line, col);
-  const refs = await provider.getReferencesAtPosition(absPath, offset);
+  const offset = compiler.resolveOffset(absPath, line, col);
+  const refs = await compiler.getReferencesAtPosition(absPath, offset);
 
   if (!refs || refs.length === 0) {
     throw new EngineError(
@@ -27,14 +27,14 @@ export async function findReferences(
   }
 
   const firstRef = refs[0];
-  const firstContent = provider.readFile(firstRef.fileName);
+  const firstContent = compiler.readFile(firstRef.fileName);
   const symbolName = firstContent.slice(
     firstRef.textSpan.start,
     firstRef.textSpan.start + firstRef.textSpan.length,
   );
 
   const references = refs.map((ref) => {
-    const content = provider.readFile(ref.fileName);
+    const content = compiler.readFile(ref.fileName);
     const lc = offsetToLineCol(content, ref.textSpan.start);
     return { file: ref.fileName, line: lc.line, col: lc.col, length: ref.textSpan.length };
   });

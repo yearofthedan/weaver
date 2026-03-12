@@ -1,11 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { GetDefinitionResult, LanguageProvider } from "../types.js";
+import type { Compiler, GetDefinitionResult } from "../types.js";
 import { EngineError } from "../utils/errors.js";
 import { offsetToLineCol } from "../utils/text-utils.js";
 
 export async function getDefinition(
-  provider: LanguageProvider,
+  compiler: Compiler,
   filePath: string,
   line: number,
   col: number,
@@ -16,8 +16,8 @@ export async function getDefinition(
     throw new EngineError(`File not found: ${filePath}`, "FILE_NOT_FOUND");
   }
 
-  const offset = provider.resolveOffset(absPath, line, col);
-  const defs = await provider.getDefinitionAtPosition(absPath, offset);
+  const offset = compiler.resolveOffset(absPath, line, col);
+  const defs = await compiler.getDefinitionAtPosition(absPath, offset);
 
   if (!defs || defs.length === 0) {
     throw new EngineError(
@@ -29,7 +29,7 @@ export async function getDefinition(
   const symbolName = defs[0].name;
 
   const definitions = defs.map((def) => {
-    const content = provider.readFile(def.fileName);
+    const content = compiler.readFile(def.fileName);
     const lc = offsetToLineCol(content, def.textSpan.start);
     return { file: def.fileName, line: lc.line, col: lc.col, length: def.textSpan.length };
   });

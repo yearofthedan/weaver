@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { TsProvider } from "../../src/compilers/ts.js";
+import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { getTypeErrors, getTypeErrorsForFiles } from "../../src/operations/getTypeErrors.js";
 import { cleanup, copyFixture } from "../helpers.js";
 
@@ -16,9 +16,9 @@ describe("getTypeErrors operation", () => {
   describe("single file mode (file param provided)", () => {
     it("returns type errors with correct shape for a file with errors", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(provider, `${dir}/src/broken.ts`, dir);
+      const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, dir);
 
       // broken.ts has exactly 3 deliberate errors
       expect(result.errorCount).toBe(3);
@@ -38,9 +38,9 @@ describe("getTypeErrors operation", () => {
 
     it("pins the exact error codes, positions and messages for broken.ts", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(provider, `${dir}/src/broken.ts`, dir);
+      const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, dir);
 
       const diags = result.diagnostics.slice().sort((a, b) => a.line - b.line);
 
@@ -66,14 +66,14 @@ describe("getTypeErrors operation", () => {
 
     it("returns only the top-level message for chained diagnostics, not the full chain", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
       // chained-error.ts: function argument with wrong property type — produces a
       // DiagnosticMessageChain where d.messageText is an object (not a string):
       //   chain[0]: "Type '(x: number) => string' is not assignable to type '(x: string) => number'."
       //   chain[1]: "Types of parameters 'x' and 'x' are incompatible."
       //   chain[2]: "Type 'string' is not assignable to type 'number'."
-      const result = await getTypeErrors(provider, `${dir}/src/chained-error.ts`, dir);
+      const result = await getTypeErrors(compiler, `${dir}/src/chained-error.ts`, dir);
 
       expect(result.diagnostics).toHaveLength(1);
       const { message } = result.diagnostics[0];
@@ -87,9 +87,9 @@ describe("getTypeErrors operation", () => {
 
     it("returns empty diagnostics for a clean file", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(provider, `${dir}/src/clean.ts`, dir);
+      const result = await getTypeErrors(compiler, `${dir}/src/clean.ts`, dir);
 
       expect(result.diagnostics).toHaveLength(0);
       expect(result.errorCount).toBe(0);
@@ -98,27 +98,27 @@ describe("getTypeErrors operation", () => {
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
       await expect(
-        getTypeErrors(provider, `${dir}/src/doesNotExist.ts`, dir),
+        getTypeErrors(compiler, `${dir}/src/doesNotExist.ts`, dir),
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
     it("throws WORKSPACE_VIOLATION for a file outside the workspace", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      await expect(getTypeErrors(provider, "/etc/hosts", dir)).rejects.toMatchObject({
+      await expect(getTypeErrors(compiler, "/etc/hosts", dir)).rejects.toMatchObject({
         code: "WORKSPACE_VIOLATION",
       });
     });
 
     it("errorCount equals diagnostics.length when not truncated", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(provider, `${dir}/src/broken.ts`, dir);
+      const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, dir);
 
       // When not truncated, errorCount is the true total and equals diagnostics.length
       expect(result.errorCount).toBe(result.diagnostics.length);
@@ -127,10 +127,10 @@ describe("getTypeErrors operation", () => {
 
     it("caps at 100 and sets truncated=true when a single file has more than 100 errors", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
       // many-errors.ts has 105 deliberate type errors
-      const result = await getTypeErrors(provider, `${dir}/src/many-errors.ts`, dir);
+      const result = await getTypeErrors(compiler, `${dir}/src/many-errors.ts`, dir);
 
       expect(result.truncated).toBe(true);
       expect(result.diagnostics).toHaveLength(100);
@@ -139,9 +139,9 @@ describe("getTypeErrors operation", () => {
 
     it("is not truncated and errorCount equals 100 when a file has exactly 100 errors", async () => {
       const dir = setup("ts-100-errors");
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(provider, `${dir}/src/exactly-100.ts`, dir);
+      const result = await getTypeErrors(compiler, `${dir}/src/exactly-100.ts`, dir);
 
       expect(result.truncated).toBe(false);
       expect(result.errorCount).toBe(100);
@@ -152,9 +152,9 @@ describe("getTypeErrors operation", () => {
   describe("project-wide mode (no file param)", () => {
     it("returns errors from all files in the project", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(provider, undefined, dir);
+      const result = await getTypeErrors(compiler, undefined, dir);
 
       // broken.ts (3 errors) + many-errors.ts (105 errors) = 108 total, so truncated
       expect(result.errorCount).toBeGreaterThan(100);
@@ -164,9 +164,9 @@ describe("getTypeErrors operation", () => {
 
     it("caps at 100 and sets truncated=true; errorCount reflects the full total", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(provider, undefined, dir);
+      const result = await getTypeErrors(compiler, undefined, dir);
 
       expect(result.truncated).toBe(true);
       expect(result.diagnostics).toHaveLength(100);
@@ -177,9 +177,9 @@ describe("getTypeErrors operation", () => {
 
     it("is not truncated and errorCount equals 100 when the project has exactly 100 errors", async () => {
       const dir = setup("ts-100-errors");
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(provider, undefined, dir);
+      const result = await getTypeErrors(compiler, undefined, dir);
 
       expect(result.truncated).toBe(false);
       expect(result.errorCount).toBe(100);
@@ -188,9 +188,9 @@ describe("getTypeErrors operation", () => {
 
     it("returns empty result for a project with no errors", async () => {
       const dir = setup("simple-ts");
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(provider, undefined, dir);
+      const result = await getTypeErrors(compiler, undefined, dir);
 
       expect(result.diagnostics).toHaveLength(0);
       expect(result.errorCount).toBe(0);
@@ -199,9 +199,9 @@ describe("getTypeErrors operation", () => {
 
     it("each diagnostic in project-wide results has the correct shape", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(provider, undefined, dir);
+      const result = await getTypeErrors(compiler, undefined, dir);
 
       for (const diag of result.diagnostics) {
         expect(typeof diag.file).toBe("string");
@@ -229,9 +229,9 @@ describe("getTypeErrorsForFiles helper", () => {
 
   it("returns an empty result for an empty file list", () => {
     setup(); // create fixture dir so afterEach cleanup runs
-    const provider = new TsProvider();
+    const compiler = new TsMorphCompiler();
 
-    const result = getTypeErrorsForFiles(provider, []);
+    const result = getTypeErrorsForFiles(compiler, []);
 
     expect(result.typeErrors).toEqual([]);
     expect(result.typeErrorCount).toBe(0);
@@ -240,9 +240,9 @@ describe("getTypeErrorsForFiles helper", () => {
 
   it("silently skips non-.ts files and returns empty", () => {
     const dir = setup();
-    const provider = new TsProvider();
+    const compiler = new TsMorphCompiler();
 
-    const result = getTypeErrorsForFiles(provider, [
+    const result = getTypeErrorsForFiles(compiler, [
       `${dir}/some-component.vue`,
       `${dir}/config.json`,
     ]);
@@ -254,9 +254,9 @@ describe("getTypeErrorsForFiles helper", () => {
 
   it("returns type errors with correct shape for a .ts file with errors", () => {
     const dir = setup();
-    const provider = new TsProvider();
+    const compiler = new TsMorphCompiler();
 
-    const result = getTypeErrorsForFiles(provider, [`${dir}/src/broken.ts`]);
+    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/broken.ts`]);
 
     // broken.ts has exactly 3 deliberate errors
     expect(result.typeErrorCount).toBe(3);
@@ -274,10 +274,10 @@ describe("getTypeErrorsForFiles helper", () => {
 
   it("returns typeErrors:[], typeErrorCount:0, typeErrorsTruncated:false for a clean .ts file", () => {
     const dir = setup();
-    const provider = new TsProvider();
+    const compiler = new TsMorphCompiler();
 
     // AC2 equivalent: clean file → all three fields present but empty/zero/false
-    const result = getTypeErrorsForFiles(provider, [`${dir}/src/clean.ts`]);
+    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/clean.ts`]);
 
     expect(result.typeErrors).toEqual([]);
     expect(result.typeErrorCount).toBe(0);
@@ -286,10 +286,10 @@ describe("getTypeErrorsForFiles helper", () => {
 
   it("only checks the provided files — errors in other files are not included", () => {
     const dir = setup(); // ts-errors fixture: broken.ts has 3 errors, clean.ts has 0
-    const provider = new TsProvider();
+    const compiler = new TsMorphCompiler();
 
     // AC4 equivalent: provide only clean.ts; broken.ts has errors but is not listed
-    const result = getTypeErrorsForFiles(provider, [`${dir}/src/clean.ts`]);
+    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/clean.ts`]);
 
     expect(result.typeErrors).toEqual([]);
     expect(result.typeErrorCount).toBe(0);
@@ -300,10 +300,10 @@ describe("getTypeErrorsForFiles helper", () => {
 
   it("aggregates errors across multiple files with correct total count", () => {
     const dir = setup();
-    const provider = new TsProvider();
+    const compiler = new TsMorphCompiler();
 
     // broken.ts: 3 errors, chained-error.ts: 1 error
-    const result = getTypeErrorsForFiles(provider, [
+    const result = getTypeErrorsForFiles(compiler, [
       `${dir}/src/broken.ts`,
       `${dir}/src/chained-error.ts`,
     ]);
@@ -317,10 +317,10 @@ describe("getTypeErrorsForFiles helper", () => {
 
   it("caps typeErrors at 100 and sets typeErrorsTruncated:true when a file exceeds the limit", () => {
     const dir = setup();
-    const provider = new TsProvider();
+    const compiler = new TsMorphCompiler();
 
     // many-errors.ts has 105 errors
-    const result = getTypeErrorsForFiles(provider, [`${dir}/src/many-errors.ts`]);
+    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/many-errors.ts`]);
 
     expect(result.typeErrorsTruncated).toBe(true);
     expect(result.typeErrors).toHaveLength(100);

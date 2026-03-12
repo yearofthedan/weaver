@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TsProvider } from "../../src/compilers/ts.js";
+import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import {
   clearLanguagePlugins,
   invalidateAll,
@@ -8,11 +8,11 @@ import {
   makeRegistry,
   registerLanguagePlugin,
 } from "../../src/daemon/language-plugin-registry.js";
-import type { LanguagePlugin, LanguageProvider } from "../../src/types.js";
+import type { Compiler, LanguagePlugin } from "../../src/types.js";
 
 const PROJECT_FILE = path.resolve("src/types.ts");
 
-function stubProvider(tag = "stub"): LanguageProvider {
+function stubCompiler(tag = "stub"): Compiler {
   return {
     resolveOffset: () => 0,
     getRenameLocations: async () => null,
@@ -24,7 +24,7 @@ function stubProvider(tag = "stub"): LanguageProvider {
     afterFileRename: async () => ({ modified: [], skipped: [] }),
     afterSymbolMove: async () => ({ modified: [], skipped: [] }),
     _tag: tag,
-  } as LanguageProvider & { _tag: string };
+  } as Compiler & { _tag: string };
 }
 
 describe("LanguagePluginRegistry", () => {
@@ -33,98 +33,98 @@ describe("LanguagePluginRegistry", () => {
   });
 
   describe("plugin resolution via makeRegistry", () => {
-    it("falls back to TsProvider when no plugins are registered", async () => {
+    it("falls back to TsMorphCompiler when no plugins are registered", async () => {
       const registry = makeRegistry(PROJECT_FILE);
-      const provider = await registry.projectProvider();
-      expect(provider).toBeInstanceOf(TsProvider);
+      const compiler = await registry.projectCompiler();
+      expect(compiler).toBeInstanceOf(TsMorphCompiler);
     });
 
-    it("falls back to TsProvider when file has no tsconfig", async () => {
+    it("falls back to TsMorphCompiler when file has no tsconfig", async () => {
       registerLanguagePlugin({
         id: "never-consulted",
         supportsProject: () => true,
-        createProvider: async () => stubProvider("should-not-appear"),
+        createCompiler: async () => stubCompiler("should-not-appear"),
       });
       // Path with no tsconfig — plugins are never consulted
       const registry = makeRegistry("/tmp/no-tsconfig/file.ts");
-      const provider = await registry.projectProvider();
-      expect(provider).toBeInstanceOf(TsProvider);
+      const compiler = await registry.projectCompiler();
+      expect(compiler).toBeInstanceOf(TsMorphCompiler);
     });
 
-    it("falls back to TsProvider when no plugin matches the project", async () => {
+    it("falls back to TsMorphCompiler when no plugin matches the project", async () => {
       registerLanguagePlugin({
         id: "never-matches",
         supportsProject: () => false,
-        createProvider: async () => stubProvider("never"),
+        createCompiler: async () => stubCompiler("never"),
       });
 
       const registry = makeRegistry(PROJECT_FILE);
-      const provider = await registry.projectProvider();
-      expect(provider).toBeInstanceOf(TsProvider);
+      const compiler = await registry.projectCompiler();
+      expect(compiler).toBeInstanceOf(TsMorphCompiler);
     });
 
-    it("uses the first matching plugin's provider", async () => {
+    it("uses the first matching plugin's compiler", async () => {
       const pluginA: LanguagePlugin = {
         id: "plugin-a",
         supportsProject: () => true,
-        createProvider: async () => stubProvider("a"),
+        createCompiler: async () => stubCompiler("a"),
       };
       const pluginB: LanguagePlugin = {
         id: "plugin-b",
         supportsProject: () => true,
-        createProvider: async () => stubProvider("b"),
+        createCompiler: async () => stubCompiler("b"),
       };
       registerLanguagePlugin(pluginA);
       registerLanguagePlugin(pluginB);
 
       const registry = makeRegistry(PROJECT_FILE);
-      const provider = (await registry.projectProvider()) as LanguageProvider & { _tag: string };
-      expect(provider._tag).toBe("a");
+      const compiler = (await registry.projectCompiler()) as Compiler & { _tag: string };
+      expect(compiler._tag).toBe("a");
     });
 
     it("skips non-matching plugins and uses the first match", async () => {
       const noMatch: LanguagePlugin = {
         id: "no-match",
         supportsProject: () => false,
-        createProvider: async () => stubProvider("no"),
+        createCompiler: async () => stubCompiler("no"),
       };
       const match: LanguagePlugin = {
         id: "matches",
         supportsProject: () => true,
-        createProvider: async () => stubProvider("yes"),
+        createCompiler: async () => stubCompiler("yes"),
       };
       registerLanguagePlugin(noMatch);
       registerLanguagePlugin(match);
 
       const registry = makeRegistry(PROJECT_FILE);
-      const provider = (await registry.projectProvider()) as LanguageProvider & { _tag: string };
-      expect(provider._tag).toBe("yes");
+      const compiler = (await registry.projectCompiler()) as Compiler & { _tag: string };
+      expect(compiler._tag).toBe("yes");
     });
 
-    it("tsProvider always returns TsProvider regardless of registered plugins", async () => {
+    it("tsCompiler always returns TsMorphCompiler regardless of registered plugins", async () => {
       registerLanguagePlugin({
         id: "claims-all",
         supportsProject: () => true,
-        createProvider: async () => stubProvider("not-ts"),
+        createCompiler: async () => stubCompiler("not-ts"),
       });
 
       const registry = makeRegistry(PROJECT_FILE);
-      const tsProvider = await registry.tsProvider();
-      expect(tsProvider).toBeInstanceOf(TsProvider);
+      const tsCompiler = await registry.tsCompiler();
+      expect(tsCompiler).toBeInstanceOf(TsMorphCompiler);
     });
 
-    it("caches the provider from createProvider — does not call it twice for the same plugin", async () => {
-      const factory = vi.fn(async () => stubProvider("cached"));
+    it("caches the compiler from createCompiler — does not call it twice for the same plugin", async () => {
+      const factory = vi.fn(async () => stubCompiler("cached"));
       registerLanguagePlugin({
         id: "caching-test",
         supportsProject: () => true,
-        createProvider: factory,
+        createCompiler: factory,
       });
 
       const r1 = makeRegistry(PROJECT_FILE);
-      await r1.projectProvider();
+      await r1.projectCompiler();
       const r2 = makeRegistry(PROJECT_FILE);
-      await r2.projectProvider();
+      await r2.projectCompiler();
 
       expect(factory).toHaveBeenCalledTimes(1);
     });
@@ -138,13 +138,13 @@ describe("LanguagePluginRegistry", () => {
       registerLanguagePlugin({
         id: "plugin-a",
         supportsProject: () => true,
-        createProvider: async () => stubProvider(),
+        createCompiler: async () => stubCompiler(),
         invalidateFile: invalidateA,
       });
       registerLanguagePlugin({
         id: "plugin-b",
         supportsProject: () => false,
-        createProvider: async () => stubProvider(),
+        createCompiler: async () => stubCompiler(),
         invalidateFile: invalidateB,
       });
 
@@ -161,13 +161,13 @@ describe("LanguagePluginRegistry", () => {
       registerLanguagePlugin({
         id: "plugin-a",
         supportsProject: () => true,
-        createProvider: async () => stubProvider(),
+        createCompiler: async () => stubCompiler(),
         invalidateAll: invalidateAllA,
       });
       registerLanguagePlugin({
         id: "plugin-b",
         supportsProject: () => false,
-        createProvider: async () => stubProvider(),
+        createCompiler: async () => stubCompiler(),
         invalidateAll: invalidateAllB,
       });
 
@@ -183,7 +183,7 @@ describe("LanguagePluginRegistry", () => {
       registerLanguagePlugin({
         id: "plugin-throws",
         supportsProject: () => true,
-        createProvider: async () => stubProvider(),
+        createCompiler: async () => stubCompiler(),
         invalidateFile: () => {
           throw new Error("plugin-a exploded");
         },
@@ -191,7 +191,7 @@ describe("LanguagePluginRegistry", () => {
       registerLanguagePlugin({
         id: "plugin-ok",
         supportsProject: () => false,
-        createProvider: async () => stubProvider(),
+        createCompiler: async () => stubCompiler(),
         invalidateFile: invalidateB,
       });
 
@@ -206,7 +206,7 @@ describe("LanguagePluginRegistry", () => {
       registerLanguagePlugin({
         id: "plugin-throws",
         supportsProject: () => true,
-        createProvider: async () => stubProvider(),
+        createCompiler: async () => stubCompiler(),
         invalidateAll: () => {
           throw new Error("plugin-a exploded");
         },
@@ -214,7 +214,7 @@ describe("LanguagePluginRegistry", () => {
       registerLanguagePlugin({
         id: "plugin-ok",
         supportsProject: () => false,
-        createProvider: async () => stubProvider(),
+        createCompiler: async () => stubCompiler(),
         invalidateAll: invalidateAllB,
       });
 
@@ -227,7 +227,7 @@ describe("LanguagePluginRegistry", () => {
       registerLanguagePlugin({
         id: "no-invalidate",
         supportsProject: () => true,
-        createProvider: async () => stubProvider(),
+        createCompiler: async () => stubCompiler(),
         // no invalidateFile
       });
 
@@ -238,23 +238,23 @@ describe("LanguagePluginRegistry", () => {
       registerLanguagePlugin({
         id: "no-invalidate",
         supportsProject: () => true,
-        createProvider: async () => stubProvider(),
+        createCompiler: async () => stubCompiler(),
         // no invalidateAll
       });
 
       expect(() => invalidateAll()).not.toThrow();
     });
 
-    it("built-in TS provider invalidation still works alongside plugin invalidation", () => {
+    it("built-in TS compiler invalidation still works alongside plugin invalidation", () => {
       const pluginInvalidate = vi.fn();
       registerLanguagePlugin({
         id: "test-plugin",
         supportsProject: () => false,
-        createProvider: async () => stubProvider(),
+        createCompiler: async () => stubCompiler(),
         invalidateFile: pluginInvalidate,
       });
 
-      // Should not throw — TS provider invalidation + plugin invalidation both run
+      // Should not throw — TS compiler invalidation + plugin invalidation both run
       expect(() => invalidateFile("/some/file.ts")).not.toThrow();
       expect(pluginInvalidate).toHaveBeenCalledWith("/some/file.ts");
     });

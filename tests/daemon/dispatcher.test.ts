@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { TsProvider } from "../../src/compilers/ts.js";
+import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { dispatchRequest, makeRegistry } from "../../src/daemon/dispatcher.js";
 import { cleanup, copyFixture } from "../helpers.js";
 
@@ -8,28 +8,28 @@ describe("makeRegistry", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  it("returns an object with projectProvider and tsProvider functions", () => {
+  it("returns an object with projectCompiler and tsCompiler functions", () => {
     const registry = makeRegistry("/any/file.ts");
-    expect(typeof registry.projectProvider).toBe("function");
-    expect(typeof registry.tsProvider).toBe("function");
+    expect(typeof registry.projectCompiler).toBe("function");
+    expect(typeof registry.tsCompiler).toBe("function");
   });
 
-  it("tsProvider resolves to a TsProvider with LanguageProvider methods", async () => {
+  it("tsCompiler resolves to a TsMorphCompiler with Compiler methods", async () => {
     const dir = copyFixture("simple-ts");
     dirs.push(dir);
     const registry = makeRegistry(path.join(dir, "src/utils.ts"));
-    const provider = await registry.tsProvider();
-    expect(provider).toBeInstanceOf(TsProvider);
-    expect(typeof provider.resolveOffset).toBe("function");
-    expect(typeof provider.afterSymbolMove).toBe("function");
+    const compiler = await registry.tsCompiler();
+    expect(compiler).toBeInstanceOf(TsMorphCompiler);
+    expect(typeof compiler.resolveOffset).toBe("function");
+    expect(typeof compiler.afterSymbolMove).toBe("function");
   }, 10_000);
 
-  it("projectProvider resolves to a TsProvider for a TS-only project", async () => {
+  it("projectCompiler resolves to a TsMorphCompiler for a TS-only project", async () => {
     const dir = copyFixture("simple-ts");
     dirs.push(dir);
     const registry = makeRegistry(path.join(dir, "src/utils.ts"));
-    const provider = await registry.projectProvider();
-    expect(provider).toBeInstanceOf(TsProvider);
+    const compiler = await registry.projectCompiler();
+    expect(compiler).toBeInstanceOf(TsMorphCompiler);
   }, 10_000);
 });
 

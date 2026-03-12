@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Project } from "ts-morph";
-import type { TsProvider } from "../compilers/ts.js";
+import type { TsMorphCompiler } from "../compilers/ts.js";
 import { removeVueImportsOfDeletedFile } from "../plugins/vue/scan.js";
 import { isWithinWorkspace } from "../security.js";
 import type { DeleteFileResult } from "../types.js";
@@ -10,7 +10,7 @@ import { TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
 
 export async function deleteFile(
-  tsProvider: TsProvider,
+  tsCompiler: TsMorphCompiler,
   targetFile: string,
   workspace: string,
 ): Promise<DeleteFileResult> {
@@ -22,7 +22,7 @@ export async function deleteFile(
   // Phase 1: In-project TS/JS cleanup via ts-morph.
   // ts-morph resolves module specifiers through the compiler, so it correctly
   // handles path aliases, index files, and all extension variants.
-  const project = tsProvider.getProjectForFile(absTarget);
+  const project = tsCompiler.getProjectForFile(absTarget);
   if (!project.getSourceFile(absTarget)) {
     project.addSourceFileAtPath(absTarget);
   }
@@ -142,7 +142,7 @@ export async function deleteFile(
   // Phase 5: Drop the cached project so the next request rebuilds without the
   // deleted file. The watcher's `unlink` event also triggers invalidateAll, but
   // the operation must not rely on that timing.
-  tsProvider.invalidateProject(absTarget);
+  tsCompiler.invalidateProject(absTarget);
 
   return {
     deletedFile: absTarget,

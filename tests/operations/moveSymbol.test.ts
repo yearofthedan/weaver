@@ -5,9 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveSymbol } from "../../src/operations/moveSymbol.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
-import { makeMockProvider } from "../compilers/__helpers__/mock-compiler.js";
+import { makeMockCompiler } from "../compilers/__helpers__/mock-compiler.js";
 
-function makeMockTsProvider(overrides: Record<string, unknown> = {}) {
+function makeMockTsCompiler(overrides: Record<string, unknown> = {}) {
   return {
     moveSymbol: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -48,14 +48,14 @@ describe("moveSymbol operation (thin orchestrator)", () => {
     }
   });
 
-  describe("orchestrator delegates to tsProvider", () => {
-    it("calls tsProvider.moveSymbol with resolved absolute paths, symbol, scope, and options", async () => {
-      const tsProvider = makeMockTsProvider();
-      const projectProvider = makeMockProvider();
+  describe("orchestrator delegates to tsCompiler", () => {
+    it("calls tsCompiler.moveSymbol with resolved absolute paths, symbol, scope, and options", async () => {
+      const tsCompiler = makeMockTsCompiler();
+      const projectCompiler = makeMockCompiler();
 
-      await moveSymbol(tsProvider as never, projectProvider, source, SYMBOL, dest, scope);
+      await moveSymbol(tsCompiler as never, projectCompiler, source, SYMBOL, dest, scope);
 
-      expect(tsProvider.moveSymbol).toHaveBeenCalledWith(
+      expect(tsCompiler.moveSymbol).toHaveBeenCalledWith(
         path.resolve(source),
         SYMBOL,
         path.resolve(dest),
@@ -64,14 +64,14 @@ describe("moveSymbol operation (thin orchestrator)", () => {
       );
     });
 
-    it("forwards options to tsProvider.moveSymbol", async () => {
-      const tsProvider = makeMockTsProvider();
-      const projectProvider = makeMockProvider();
+    it("forwards options to tsCompiler.moveSymbol", async () => {
+      const tsCompiler = makeMockTsCompiler();
+      const projectCompiler = makeMockCompiler();
       const opts = { force: true };
 
-      await moveSymbol(tsProvider as never, projectProvider, source, SYMBOL, dest, scope, opts);
+      await moveSymbol(tsCompiler as never, projectCompiler, source, SYMBOL, dest, scope, opts);
 
-      expect(tsProvider.moveSymbol).toHaveBeenCalledWith(
+      expect(tsCompiler.moveSymbol).toHaveBeenCalledWith(
         path.resolve(source),
         SYMBOL,
         path.resolve(dest),
@@ -83,12 +83,12 @@ describe("moveSymbol operation (thin orchestrator)", () => {
 
   describe("after-hook invocation", () => {
     it("calls afterSymbolMove with absSource, symbol, absDest, and scope", async () => {
-      const tsProvider = makeMockTsProvider();
-      const projectProvider = makeMockProvider();
+      const tsCompiler = makeMockTsCompiler();
+      const projectCompiler = makeMockCompiler();
 
-      await moveSymbol(tsProvider as never, projectProvider, source, SYMBOL, dest, scope);
+      await moveSymbol(tsCompiler as never, projectCompiler, source, SYMBOL, dest, scope);
 
-      expect(projectProvider.afterSymbolMove).toHaveBeenCalledWith(
+      expect(projectCompiler.afterSymbolMove).toHaveBeenCalledWith(
         path.resolve(source),
         SYMBOL,
         path.resolve(dest),
@@ -98,8 +98,8 @@ describe("moveSymbol operation (thin orchestrator)", () => {
 
     it("files recorded into scope by afterSymbolMove appear in the result", async () => {
       const extraFile = path.join(dir, "src/extra.ts");
-      const tsProvider = makeMockTsProvider();
-      const projectProvider = makeMockProvider({
+      const tsCompiler = makeMockTsCompiler();
+      const projectCompiler = makeMockCompiler({
         afterSymbolMove: vi
           .fn()
           .mockImplementation((_src: string, _sym: string, _dst: string, s: WorkspaceScope) => {
@@ -108,8 +108,8 @@ describe("moveSymbol operation (thin orchestrator)", () => {
       });
 
       const result = await moveSymbol(
-        tsProvider as never,
-        projectProvider,
+        tsCompiler as never,
+        projectCompiler,
         source,
         SYMBOL,
         dest,
@@ -121,8 +121,8 @@ describe("moveSymbol operation (thin orchestrator)", () => {
 
     it("skipped files recorded into scope by afterSymbolMove appear in the result", async () => {
       const skippedFile = "/outside/workspace/file.vue";
-      const tsProvider = makeMockTsProvider();
-      const projectProvider = makeMockProvider({
+      const tsCompiler = makeMockTsCompiler();
+      const projectCompiler = makeMockCompiler({
         afterSymbolMove: vi
           .fn()
           .mockImplementation((_src: string, _sym: string, _dst: string, s: WorkspaceScope) => {
@@ -131,8 +131,8 @@ describe("moveSymbol operation (thin orchestrator)", () => {
       });
 
       const result = await moveSymbol(
-        tsProvider as never,
-        projectProvider,
+        tsCompiler as never,
+        projectCompiler,
         source,
         SYMBOL,
         dest,
@@ -147,7 +147,7 @@ describe("moveSymbol operation (thin orchestrator)", () => {
     it("returns correct filesModified, filesSkipped, symbolName, sourceFile, and destFile", async () => {
       const capturedSource = source;
       const capturedDest = dest;
-      const tsProvider = makeMockTsProvider({
+      const tsCompiler = makeMockTsCompiler({
         moveSymbol: vi
           .fn()
           .mockImplementation((_src: string, _sym: string, _dst: string, s: WorkspaceScope) => {
@@ -155,11 +155,11 @@ describe("moveSymbol operation (thin orchestrator)", () => {
             s.recordModified(capturedDest);
           }),
       });
-      const projectProvider = makeMockProvider();
+      const projectCompiler = makeMockCompiler();
 
       const result = await moveSymbol(
-        tsProvider as never,
-        projectProvider,
+        tsCompiler as never,
+        projectCompiler,
         source,
         SYMBOL,
         dest,
@@ -177,12 +177,12 @@ describe("moveSymbol operation (thin orchestrator)", () => {
 
   describe("assertFileExists", () => {
     it("throws FILE_NOT_FOUND when the source file does not exist", async () => {
-      const tsProvider = makeMockTsProvider();
-      const projectProvider = makeMockProvider();
+      const tsCompiler = makeMockTsCompiler();
+      const projectCompiler = makeMockCompiler();
       const missingSource = path.join(dir, "src/doesNotExist.ts");
 
       await expect(
-        moveSymbol(tsProvider as never, projectProvider, missingSource, SYMBOL, dest, scope),
+        moveSymbol(tsCompiler as never, projectCompiler, missingSource, SYMBOL, dest, scope),
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
   });

@@ -21,7 +21,7 @@ import {
   SearchTextArgsSchema,
 } from "../schema.js";
 import { isWithinWorkspace } from "../security.js";
-import type { ProviderRegistry } from "../types.js";
+import type { CompilerRegistry } from "../types.js";
 import { makeRegistry } from "./language-plugin-registry.js";
 
 export { createVueLanguagePlugin } from "../plugins/vue/plugin.js";
@@ -47,9 +47,9 @@ interface OperationDescriptor {
       | { success: true; data: Record<string, unknown> }
       | { success: false; error: { issues: Array<{ message: string }> } };
   };
-  /** Call the appropriate provider method and return the raw result. */
+  /** Call the appropriate compiler method and return the raw result. */
   invoke(
-    registry: ProviderRegistry,
+    registry: CompilerRegistry,
     params: Record<string, unknown>,
     workspace: string,
   ): Promise<unknown>;
@@ -66,9 +66,9 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         col: number;
         newName: string;
       };
-      const provider = await registry.projectProvider();
+      const compiler = await registry.projectCompiler();
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
-      return rename(provider, file, line, col, newName, scope);
+      return rename(compiler, file, line, col, newName, scope);
     },
   },
 
@@ -77,9 +77,9 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     schema: MoveArgsSchema,
     async invoke(registry, params, workspace) {
       const { oldPath, newPath } = params as { oldPath: string; newPath: string };
-      const provider = await registry.projectProvider();
+      const compiler = await registry.projectCompiler();
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
-      return moveFile(provider, oldPath, newPath, scope);
+      return moveFile(compiler, oldPath, newPath, scope);
     },
   },
 
@@ -93,11 +93,11 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         destFile: string;
         force?: boolean;
       };
-      const tsProvider = await registry.tsProvider();
-      const projectProvider = await registry.projectProvider();
+      const tsCompiler = await registry.tsCompiler();
+      const projectCompiler = await registry.projectCompiler();
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
       const { moveSymbol } = await import("../operations/moveSymbol.js");
-      return moveSymbol(tsProvider, projectProvider, sourceFile, symbolName, destFile, scope, {
+      return moveSymbol(tsCompiler, projectCompiler, sourceFile, symbolName, destFile, scope, {
         force,
       });
     },
@@ -115,9 +115,9 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         endCol: number;
         functionName: string;
       };
-      const tsProvider = await registry.tsProvider();
+      const tsCompiler = await registry.tsCompiler();
       return extractFunction(
-        tsProvider,
+        tsCompiler,
         file,
         startLine,
         startCol,
@@ -134,8 +134,8 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     schema: FindReferencesArgsSchema,
     async invoke(registry, params) {
       const { file, line, col } = params as { file: string; line: number; col: number };
-      const provider = await registry.projectProvider();
-      return findReferences(provider, file, line, col);
+      const compiler = await registry.projectCompiler();
+      return findReferences(compiler, file, line, col);
     },
   },
 
@@ -144,8 +144,8 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     schema: GetDefinitionArgsSchema,
     async invoke(registry, params) {
       const { file, line, col } = params as { file: string; line: number; col: number };
-      const provider = await registry.projectProvider();
-      return getDefinition(provider, file, line, col);
+      const compiler = await registry.projectCompiler();
+      return getDefinition(compiler, file, line, col);
     },
   },
 
@@ -154,8 +154,8 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     schema: GetTypeErrorsArgsSchema,
     async invoke(registry, params, workspace) {
       const { file } = params as { file?: string };
-      const tsProvider = await registry.tsProvider();
-      return getTypeErrors(tsProvider, file, workspace);
+      const tsCompiler = await registry.tsCompiler();
+      return getTypeErrors(tsCompiler, file, workspace);
     },
   },
 
@@ -178,9 +178,9 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     schema: DeleteFileArgsSchema,
     async invoke(registry, params, workspace) {
       const { file } = params as { file: string };
-      const tsProvider = await registry.tsProvider();
+      const tsCompiler = await registry.tsCompiler();
       const { deleteFile } = await import("../operations/deleteFile.js");
-      return deleteFile(tsProvider, file, workspace);
+      return deleteFile(tsCompiler, file, workspace);
     },
   },
 
@@ -248,8 +248,8 @@ export async function dispatchRequest(
     Array.isArray(result.filesModified) &&
     (result.filesModified as string[]).length > 0
   ) {
-    const tsProvider = await registry.tsProvider();
-    const diagnostics = getTypeErrorsForFiles(tsProvider, result.filesModified as string[]);
+    const tsCompiler = await registry.tsCompiler();
+    const diagnostics = getTypeErrorsForFiles(tsCompiler, result.filesModified as string[]);
     result.typeErrors = diagnostics.typeErrors;
     result.typeErrorCount = diagnostics.typeErrorCount;
     result.typeErrorsTruncated = diagnostics.typeErrorsTruncated;

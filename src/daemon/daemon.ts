@@ -172,7 +172,7 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
 
   server.listen(sockPath);
 
-  // 6. Watch for out-of-band file changes and invalidate stale provider state.
+  // 6. Watch for out-of-band file changes and invalidate stale compiler state.
   // Extensions are chosen by project type — Vue projects also watch .vue files.
   const sentinelPath = path.join(absWorkspace, "__sentinel__");
   const tsConfigPath = findTsConfigForFile(sentinelPath);

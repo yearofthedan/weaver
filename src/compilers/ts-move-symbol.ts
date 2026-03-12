@@ -3,7 +3,7 @@ import { Node, type SourceFile, type Node as TsMorphNode } from "ts-morph";
 import { ImportRewriter } from "../domain/import-rewriter.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { EngineError } from "../utils/errors.js";
-import type { TsProvider } from "./ts.js";
+import type { TsMorphCompiler } from "./ts.js";
 
 type Removable = { getText(): string; remove(): void };
 
@@ -23,10 +23,10 @@ function toRemovableStatement(decl: TsMorphNode): Removable {
  * Perform all compiler work for a named-symbol move: symbol lookup, destination
  * preparation, importer rewriting, AST surgery, dirty-file tracking, and saving.
  *
- * Called by `TsProvider.moveSymbol`; not intended for direct use by operations.
+ * Called by `TsMorphCompiler.moveSymbol`; not intended for direct use by operations.
  */
 export async function tsMoveSymbol(
-  tsProvider: TsProvider,
+  tsCompiler: TsMorphCompiler,
   absSource: string,
   symbolName: string,
   absDest: string,
@@ -34,7 +34,7 @@ export async function tsMoveSymbol(
   options?: { force?: boolean },
 ): Promise<void> {
   const force = options?.force === true;
-  const project = tsProvider.getProjectForFile(absSource);
+  const project = tsCompiler.getProjectForFile(absSource);
 
   let srcSF = project.getSourceFile(absSource);
   if (!srcSF) {
@@ -120,5 +120,5 @@ export async function tsMoveSymbol(
   // ImportRewriter reads from disk (files already saved above) and writes back via scope.
   new ImportRewriter().rewrite(importerPaths, symbolName, absSource, absDest, scope);
 
-  tsProvider.invalidateProject(absSource);
+  tsCompiler.invalidateProject(absSource);
 }

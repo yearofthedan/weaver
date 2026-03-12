@@ -130,7 +130,7 @@ export interface PostWriteDiagnostics {
   typeErrorsTruncated: boolean;
 }
 
-// ─── Provider-level types ──────────────────────────────────────────────────
+// ─── Compiler-level types ──────────────────────────────────────────────────
 
 export interface SpanLocation {
   fileName: string;
@@ -148,14 +148,13 @@ export interface FileTextEdit {
 }
 
 /**
- * Compiler-facing abstraction implemented by TsProvider (ts-morph) and
- * VolarProvider (@volar/typescript). Methods return normalised, real-path
+ * Compiler-facing abstraction implemented by TsMorphCompiler (ts-morph) and\n * VolarCompiler (@volar/typescript). Methods return normalised, real-path
  * locations — virtual `.vue.ts` paths are never exposed to callers.
  *
- * All methods that invoke the compiler are async because VolarProvider
+ * All methods that invoke the compiler are async because VolarCompiler
  * requires an async initialisation step the first time a project is loaded.
  */
-export interface LanguageProvider {
+export interface Compiler {
   /** Convert 1-based line/col to a 0-based byte offset. Synchronous — no I/O. */
   resolveOffset(file: string, line: number, col: number): number;
 
@@ -181,12 +180,12 @@ export interface LanguageProvider {
    */
   readFile(path: string): string;
 
-  /** Called by the engine layer after writing `path`; providers update caches. */
+  /** Called by the engine layer after writing `path`; compilers update caches. */
   notifyFileWritten(path: string, content: string): void;
 
   /**
    * Called after the physical file rename on disk.
-   * Provider invalidates its cache, runs any post-move scans, and returns
+   * Compiler invalidates its cache, runs any post-move scans, and returns
    * `{ modified, skipped }` listing any additional files touched.
    *
    * `alreadyModified` is the set of files already rewritten by `getEditsForFileRename`.
@@ -201,9 +200,9 @@ export interface LanguageProvider {
 
   /**
    * Called after a named export has been moved from `sourceFile` to `destFile`.
-   * Providers scan for imports of the specific symbol and rewrite them.
-   * `TsProvider` walks workspace TS files to catch out-of-project importers.
-   * `VolarProvider` scans `.vue` SFC script blocks.
+   * Compilers scan for imports of the specific symbol and rewrite them.
+   * `TsMorphCompiler` walks workspace TS files to catch out-of-project importers.
+   * `VolarCompiler` scans `.vue` SFC script blocks.
    *
    * Files already in `scope.modified` are skipped to avoid double-rewriting.
    * Modified and skipped files are recorded directly into `scope`.
@@ -220,11 +219,11 @@ export interface LanguageProvider {
 
 /**
  * Contract for adding language/framework support. Each plugin provides
- * project-level detection and a `LanguageProvider` factory. The registry
+ * project-level detection and a `Compiler` factory. The registry
  * iterates plugins in registration order; first match wins.
  *
  * Built-in plugins (e.g. Vue/Volar) are registered at module load time.
- * The TS provider is always available as the default fallback and is not
+ * TsMorphCompiler is always available as the default fallback and is not
  * modelled as a plugin.
  */
 export interface LanguagePlugin {
@@ -233,7 +232,7 @@ export interface LanguagePlugin {
   /** Project-level detection. Receives the resolved tsconfig path. */
   supportsProject(tsconfigPath: string): boolean;
   /** Lazy factory — called once per plugin lifetime, result cached by the registry. */
-  createProvider(): Promise<LanguageProvider>;
+  createCompiler(): Promise<Compiler>;
   /** Selective cache refresh (watcher `change` events). */
   invalidateFile?(filePath: string): void;
   /** Full cache drop (watcher `add`/`unlink` events). */
@@ -243,17 +242,17 @@ export interface LanguagePlugin {
 // ─── Registry ──────────────────────────────────────────────────────────────
 
 /**
- * Lazy accessor for compiler providers scoped to a single workspace request.
+ * Lazy accessor for compilers scoped to a single workspace request.
  *
- * `projectProvider` returns the right provider for the project type — iterates
- * registered language plugins, first match wins, TsProvider as fallback.
- * `tsProvider` always returns TsProvider for operations that need ts-morph
+ * `projectCompiler` returns the right compiler for the project type — iterates
+ * registered language plugins, first match wins, TsMorphCompiler as fallback.
+ * `tsCompiler` always returns TsMorphCompiler for operations that need ts-morph
  * AST access (e.g. moveSymbol).
  *
- * Both providers are lazy singletons: first call initialises, subsequent calls
+ * Both compilers are lazy singletons: first call initialises, subsequent calls
  * return the cached instance.
  */
-export interface ProviderRegistry {
-  projectProvider(): Promise<LanguageProvider>;
-  tsProvider(): Promise<import("./compilers/ts.js").TsProvider>;
+export interface CompilerRegistry {
+  projectCompiler(): Promise<Compiler>;
+  tsCompiler(): Promise<import("./compilers/ts.js").TsMorphCompiler>;
 }

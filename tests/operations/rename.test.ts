@@ -1,17 +1,17 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TsProvider } from "../../src/compilers/ts.js";
+import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { rename } from "../../src/operations/rename.js";
-import { VolarProvider } from "../../src/plugins/vue/compiler.js";
+import { VolarCompiler } from "../../src/plugins/vue/compiler.js";
 import { InMemoryFileSystem } from "../../src/ports/in-memory-filesystem.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
 import type { SpanLocation } from "../../src/types.js";
-import { makeMockProvider } from "../compilers/__helpers__/mock-compiler.js";
+import { makeMockCompiler } from "../compilers/__helpers__/mock-compiler.js";
 import { cleanup, copyFixture, readFile } from "../helpers.js";
 
 // assertFileExists (called inside rename) still uses the real filesystem — it is not yet
-// migrated to the FileSystem port. In unit tests that mock the provider, we pass a path
+// migrated to the FileSystem port. In unit tests that mock the compiler, we pass a path
 // that is guaranteed to exist on disk so that guard passes without creating extra files.
 const EXISTING_FILE = new URL(import.meta.url).pathname;
 
@@ -29,13 +29,13 @@ describe("rename action", () => {
     return dir;
   }
 
-  describe("with TsProvider", () => {
+  describe("with TsMorphCompiler", () => {
     it("renames a function at its declaration site", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
       const result = await rename(
-        provider,
+        compiler,
         `${dir}/src/utils.ts`,
         1,
         17,
@@ -53,10 +53,10 @@ describe("rename action", () => {
 
     it("renames a function from a call site", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
       const result = await rename(
-        provider,
+        compiler,
         `${dir}/src/main.ts`,
         3,
         13,
@@ -74,9 +74,9 @@ describe("rename action", () => {
 
     it("renames across three files (multi-importer)", async () => {
       const dir = setup("multi-importer");
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
-      const result = await rename(provider, `${dir}/src/utils.ts`, 1, 17, "sum", makeScope(dir));
+      const result = await rename(compiler, `${dir}/src/utils.ts`, 1, 17, "sum", makeScope(dir));
 
       expect(result.symbolName).toBe("add");
       expect(result.newName).toBe("sum");
@@ -89,24 +89,24 @@ describe("rename action", () => {
 
     it("throws FILE_NOT_FOUND for non-existent file", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
       await expect(
-        rename(provider, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", makeScope(dir)),
+        rename(compiler, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", makeScope(dir)),
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
     it("throws SYMBOL_NOT_FOUND for out-of-range line", async () => {
       const dir = setup();
-      const provider = new TsProvider();
+      const compiler = new TsMorphCompiler();
 
       await expect(
-        rename(provider, `${dir}/src/utils.ts`, 999, 1, "foo", makeScope(dir)),
+        rename(compiler, `${dir}/src/utils.ts`, 999, 1, "foo", makeScope(dir)),
       ).rejects.toMatchObject({ code: "SYMBOL_NOT_FOUND" });
     });
   });
 
-  describe("with VolarProvider", () => {
+  describe("with VolarCompiler", () => {
     function vueSetup(fixture = "vue-project") {
       const dir = copyFixture(fixture);
       dirs.push(dir);
@@ -115,10 +115,10 @@ describe("rename action", () => {
 
     it("renames a composable in a .ts file and updates .vue files", async () => {
       const dir = vueSetup();
-      const provider = new VolarProvider();
+      const compiler = new VolarCompiler();
 
       const filePath = `${dir}/src/composables/useCounter.ts`;
-      const result = await rename(provider, filePath, 1, 17, "useCount", makeScope(dir));
+      const result = await rename(compiler, filePath, 1, 17, "useCount", makeScope(dir));
 
       expect(result.symbolName).toBe("useCounter");
       expect(result.newName).toBe("useCount");
@@ -134,10 +134,10 @@ describe("rename action", () => {
 
     it("renames across TypeScript/Vue boundary", async () => {
       const dir = vueSetup("vue-ts-boundary");
-      const provider = new VolarProvider();
+      const compiler = new VolarCompiler();
 
       const result = await rename(
-        provider,
+        compiler,
         `${dir}/src/utils.ts`,
         1,
         17,
@@ -156,7 +156,7 @@ describe("rename action", () => {
 
     it("does not rename symbols in dist/ .vue files", async () => {
       const dir = vueSetup();
-      const provider = new VolarProvider();
+      const compiler = new VolarCompiler();
 
       // dist/ is conventionally gitignored so it can't live in the committed fixture
       fs.mkdirSync(`${dir}/dist`, { recursive: true });
@@ -166,7 +166,7 @@ describe("rename action", () => {
       );
 
       const filePath = `${dir}/src/composables/useCounter.ts`;
-      const result = await rename(provider, filePath, 1, 17, "useCount", makeScope(dir));
+      const result = await rename(compiler, filePath, 1, 17, "useCount", makeScope(dir));
 
       expect(result.filesModified).not.toContain(`${dir}/dist/App.vue`);
       const distContent = fs.readFileSync(`${dir}/dist/App.vue`, "utf8");
@@ -175,18 +175,18 @@ describe("rename action", () => {
 
     it("throws FILE_NOT_FOUND for non-existent file", async () => {
       const dir = vueSetup();
-      const provider = new VolarProvider();
+      const compiler = new VolarCompiler();
 
       await expect(
-        rename(provider, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", makeScope(dir)),
+        rename(compiler, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", makeScope(dir)),
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
   });
 
   describe("workspace boundary and scope tracking", () => {
-    it("throws SYMBOL_NOT_FOUND when provider returns null locations", async () => {
+    it("throws SYMBOL_NOT_FOUND when compiler returns null locations", async () => {
       const workspace = new URL("../..", import.meta.url).pathname;
-      const provider = makeMockProvider({
+      const compiler = makeMockCompiler({
         resolveOffset: vi.fn().mockReturnValue(17),
         getRenameLocations: vi.fn().mockResolvedValue(null),
         readFile: vi.fn().mockReturnValue("export function greetUser() {}"),
@@ -194,7 +194,7 @@ describe("rename action", () => {
 
       const scope = new WorkspaceScope(workspace, new InMemoryFileSystem());
 
-      await expect(rename(provider, EXISTING_FILE, 1, 17, "newName", scope)).rejects.toMatchObject({
+      await expect(rename(compiler, EXISTING_FILE, 1, 17, "newName", scope)).rejects.toMatchObject({
         code: "SYMBOL_NOT_FOUND",
       });
 
@@ -213,7 +213,7 @@ describe("rename action", () => {
         { fileName: outFile, textSpan: { start: 16, length: 9 } },
       ];
 
-      const provider = makeMockProvider({
+      const compiler = makeMockCompiler({
         resolveOffset: vi.fn().mockReturnValue(17),
         getRenameLocations: vi.fn().mockResolvedValue(locs),
         readFile: vi.fn().mockReturnValue(originalContent),
@@ -221,7 +221,7 @@ describe("rename action", () => {
 
       const memFs = new InMemoryFileSystem();
       const scope = new WorkspaceScope(workspace, memFs);
-      const result = await rename(provider, EXISTING_FILE, 1, 17, "greetPerson", scope);
+      const result = await rename(compiler, EXISTING_FILE, 1, 17, "greetPerson", scope);
 
       expect(result.filesModified).toContain(EXISTING_FILE);
       expect(result.filesModified).not.toContain(outFile);
@@ -230,8 +230,8 @@ describe("rename action", () => {
       expect(result.filesSkipped).toContain(outFile);
       expect(() => memFs.readFile(outFile)).toThrow();
 
-      expect(provider.notifyFileWritten).toHaveBeenCalledWith(EXISTING_FILE, expect.any(String));
-      expect(provider.notifyFileWritten).not.toHaveBeenCalledWith(outFile, expect.any(String));
+      expect(compiler.notifyFileWritten).toHaveBeenCalledWith(EXISTING_FILE, expect.any(String));
+      expect(compiler.notifyFileWritten).not.toHaveBeenCalledWith(outFile, expect.any(String));
     });
   });
 });

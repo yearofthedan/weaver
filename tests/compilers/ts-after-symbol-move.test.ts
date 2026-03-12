@@ -1,5 +1,5 @@
 /**
- * Tests for TsProvider.afterSymbolMove — the fallback scan that rewrites
+ * Tests for TsMorphCompiler.afterSymbolMove — the fallback scan that rewrites
  * imports in files outside tsconfig.include (test files, scripts, etc.).
  *
  * These test the method directly, not through the moveSymbol operation.
@@ -14,7 +14,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { TsProvider } from "../../src/compilers/ts.js";
+import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
 import { cleanup } from "../helpers.js";
@@ -61,7 +61,7 @@ function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
 }
 
-describe("TsProvider.afterSymbolMove", () => {
+describe("TsMorphCompiler.afterSymbolMove", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
@@ -71,9 +71,9 @@ describe("TsProvider.afterSymbolMove", () => {
     const originalContent = 'import { mul } from "../src/utils";\nconsole.log(mul(3, 4));\n';
     fs.writeFileSync(path.join(dir, "tests/consumer.ts"), originalContent);
 
-    const provider = new TsProvider();
+    const compiler = new TsMorphCompiler();
     const scope = makeScope(dir);
-    await provider.afterSymbolMove(sourceFile, "add", destFile, scope);
+    await compiler.afterSymbolMove(sourceFile, "add", destFile, scope);
 
     expect(fs.readFileSync(path.join(dir, "tests/consumer.ts"), "utf8")).toBe(originalContent);
     expect(scope.modified).not.toContain(path.join(dir, "tests/consumer.ts"));
@@ -86,10 +86,10 @@ describe("TsProvider.afterSymbolMove", () => {
     const originalContent = 'import { add } from "../src/utils";\nconsole.log(add(1, 2));\n';
     fs.writeFileSync(consumerPath, originalContent);
 
-    const provider = new TsProvider();
+    const compiler = new TsMorphCompiler();
     const scope = makeScope(dir);
     scope.recordModified(consumerPath);
-    await provider.afterSymbolMove(sourceFile, "add", destFile, scope);
+    await compiler.afterSymbolMove(sourceFile, "add", destFile, scope);
 
     // File must be unchanged — it was already in scope.modified
     expect(fs.readFileSync(consumerPath, "utf8")).toBe(originalContent);
@@ -100,9 +100,9 @@ describe("TsProvider.afterSymbolMove", () => {
     dirs.push(dir);
     // No test files importing add
 
-    const provider = new TsProvider();
+    const compiler = new TsMorphCompiler();
     const scope = makeScope(dir);
-    await provider.afterSymbolMove(sourceFile, "add", destFile, scope);
+    await compiler.afterSymbolMove(sourceFile, "add", destFile, scope);
 
     expect(scope.modified).toEqual([]);
     expect(scope.skipped).toEqual([]);

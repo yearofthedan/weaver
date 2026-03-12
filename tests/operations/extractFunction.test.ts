@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { TsProvider } from "../../src/compilers/ts.js";
+import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { extractFunction } from "../../src/operations/extractFunction.js";
 import { cleanup, copyFixture } from "../helpers.js";
 
@@ -35,7 +35,7 @@ describe("extractFunction", () => {
 
     // Extract lines 2-4 (the three body statements)
     const result = await extractFunction(
-      new TsProvider(),
+      new TsMorphCompiler(),
       filePath,
       2,
       3, // startLine, startCol
@@ -66,7 +66,7 @@ describe("extractFunction", () => {
     fs.writeFileSync(filePath, src);
 
     const result = await extractFunction(
-      new TsProvider(),
+      new TsMorphCompiler(),
       filePath,
       2,
       3,
@@ -94,7 +94,7 @@ describe("extractFunction", () => {
 
     // Extract "x + y" expression (line 2, inside the initialiser)
     const result = await extractFunction(
-      new TsProvider(),
+      new TsMorphCompiler(),
       filePath,
       2,
       15, // col of 'x'
@@ -122,7 +122,7 @@ describe("extractFunction", () => {
 
     // Extract "42" (a literal — no outer references)
     const result = await extractFunction(
-      new TsProvider(),
+      new TsMorphCompiler(),
       filePath,
       2,
       15, // col of '4' in '42'
@@ -146,7 +146,7 @@ describe("extractFunction", () => {
     fs.writeFileSync(filePath, src);
 
     const result = await extractFunction(
-      new TsProvider(),
+      new TsMorphCompiler(),
       filePath,
       2,
       19, // col of 'a'
@@ -178,7 +178,7 @@ describe("extractFunction", () => {
     fs.writeFileSync(filePath, src);
 
     await extractFunction(
-      new TsProvider(),
+      new TsMorphCompiler(),
       filePath,
       4,
       3,
@@ -201,7 +201,7 @@ describe("extractFunction", () => {
 
     // Line 1 col 1 to line 1 col 1 — empty range, nothing to extract
     await expect(
-      extractFunction(new TsProvider(), filePath, 1, 1, 1, 1, "myFn", dir),
+      extractFunction(new TsMorphCompiler(), filePath, 1, 1, 1, 1, "myFn", dir),
     ).rejects.toMatchObject({ code: "NOT_SUPPORTED" });
   });
 
@@ -210,7 +210,7 @@ describe("extractFunction", () => {
 
     await expect(
       extractFunction(
-        new TsProvider(),
+        new TsMorphCompiler(),
         path.join(dir, "src/does-not-exist.ts"),
         1,
         1,

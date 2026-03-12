@@ -1,10 +1,10 @@
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import type { LanguageProvider, MoveResult } from "../types.js";
+import type { Compiler, MoveResult } from "../types.js";
 import { assertFileExists } from "../utils/assert-file.js";
 import { applyTextEdits } from "../utils/text-utils.js";
 
 export async function moveFile(
-  provider: LanguageProvider,
+  compiler: Compiler,
   oldPath: string,
   newPath: string,
   scope: WorkspaceScope,
@@ -12,17 +12,17 @@ export async function moveFile(
   const absOld = assertFileExists(oldPath);
   const absNew = scope.fs.resolve(newPath);
 
-  const edits = await provider.getEditsForFileRename(absOld, absNew);
+  const edits = await compiler.getEditsForFileRename(absOld, absNew);
 
   for (const edit of edits) {
     if (!scope.contains(edit.fileName)) {
       scope.recordSkipped(edit.fileName);
       continue;
     }
-    const original = provider.readFile(edit.fileName);
+    const original = compiler.readFile(edit.fileName);
     const updated = applyTextEdits(original, edit.textChanges);
     scope.writeFile(edit.fileName, updated);
-    provider.notifyFileWritten(edit.fileName, updated);
+    compiler.notifyFileWritten(edit.fileName, updated);
   }
 
   // Physical move.
@@ -32,10 +32,10 @@ export async function moveFile(
   }
   scope.fs.rename(absOld, absNew);
 
-  // Provider cleanup (cache invalidation, post-move scans, etc.).
+  // Compiler cleanup (cache invalidation, post-move scans, etc.).
   // Pass the already-modified set so the fallback scan can skip files that were
   // already rewritten by getEditsForFileRename.
-  const { modified: extraModified, skipped: extraSkipped } = await provider.afterFileRename(
+  const { modified: extraModified, skipped: extraSkipped } = await compiler.afterFileRename(
     absOld,
     absNew,
     scope.root,

@@ -2,25 +2,25 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { TsProvider } from "../../src/compilers/ts.js";
+import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveSymbol } from "../../src/operations/moveSymbol.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
 import { cleanup, copyFixture, readFile } from "../helpers.js";
 
-describe("moveSymbol operation — TsProvider integration", () => {
+describe("moveSymbol operation — TsMorphCompiler integration", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
   it("moves a symbol end-to-end: source updated, dest created, importer updated", async () => {
     const dir = copyFixture("simple-ts");
     dirs.push(dir);
-    const tsProvider = new TsProvider();
+    const tsCompiler = new TsMorphCompiler();
     const scope = new WorkspaceScope(dir, new NodeFileSystem());
 
     const result = await moveSymbol(
-      tsProvider,
-      tsProvider,
+      tsCompiler,
+      tsCompiler,
       `${dir}/src/utils.ts`,
       "greetUser",
       `${dir}/src/helpers.ts`,
@@ -58,11 +58,11 @@ describe("moveSymbol operation — TsProvider integration", () => {
     );
     // Workspace is scoped to src/ only — lib/ is outside the boundary
     const scope = new WorkspaceScope(path.join(tmpDir, "src"), new NodeFileSystem());
-    const tsProvider = new TsProvider();
+    const tsCompiler = new TsMorphCompiler();
 
     const result = await moveSymbol(
-      tsProvider,
-      tsProvider,
+      tsCompiler,
+      tsCompiler,
       path.join(tmpDir, "src/utils.ts"),
       "add",
       path.join(tmpDir, "src/helpers.ts"),
@@ -79,12 +79,12 @@ describe("moveSymbol operation — TsProvider integration", () => {
     // After moving greetUser to src/helpers.ts, the fallback scan must rewrite the test file.
     const dir = copyFixture("simple-ts");
     dirs.push(dir);
-    const tsProvider = new TsProvider();
+    const tsCompiler = new TsMorphCompiler();
     const scope = new WorkspaceScope(dir, new NodeFileSystem());
 
     const result = await moveSymbol(
-      tsProvider,
-      tsProvider,
+      tsCompiler,
+      tsCompiler,
       `${dir}/src/utils.ts`,
       "greetUser",
       `${dir}/src/helpers.ts`,

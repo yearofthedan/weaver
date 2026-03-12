@@ -2,7 +2,7 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveFile } from "../../src/operations/moveFile.js";
-import { VolarProvider } from "../../src/plugins/vue/compiler.js";
+import { VolarCompiler } from "../../src/plugins/vue/compiler.js";
 import { updateVueImportsAfterMove } from "../../src/plugins/vue/scan.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
 import { findTsConfigForFile } from "../../src/utils/ts-project.js";
@@ -19,12 +19,12 @@ describe("moveFile action - Volar Provider Integration", () => {
   it("moves a composable file and updates .vue imports", async () => {
     const dir = copyFixture("vue-project");
     dirs.push(dir);
-    const provider = new VolarProvider();
+    const compiler = new VolarCompiler();
 
     const oldPath = `${dir}/src/composables/useCounter.ts`;
     const newPath = `${dir}/src/utils/useCounter.ts`;
 
-    const result = await moveFile(provider, oldPath, newPath, makeScope(dir));
+    const result = await moveFile(compiler, oldPath, newPath, makeScope(dir));
 
     expect(result.oldPath).toBe(oldPath);
     expect(result.newPath).toBe(newPath);
@@ -46,13 +46,13 @@ describe("moveFile action - Volar Provider Integration", () => {
     expect(result.filesModified).toContain(`${dir}/src/App.vue`);
   });
 
-  it("updates imports on move-back with the same provider instance", async () => {
+  it("updates imports on move-back with the same compiler instance", async () => {
     const dir = copyFixture("vue-project");
     dirs.push(dir);
-    const provider = new VolarProvider();
+    const compiler = new VolarCompiler();
 
     await moveFile(
-      provider,
+      compiler,
       `${dir}/src/composables/useCounter.ts`,
       `${dir}/src/utils/useCounter.ts`,
       makeScope(dir),
@@ -60,7 +60,7 @@ describe("moveFile action - Volar Provider Integration", () => {
     expect(readFile(dir, "src/main.ts")).toContain("utils/useCounter");
 
     await moveFile(
-      provider,
+      compiler,
       `${dir}/src/utils/useCounter.ts`,
       `${dir}/src/composables/useCounter.ts`,
       makeScope(dir),
@@ -76,11 +76,11 @@ describe("moveFile action - Volar Provider Integration", () => {
   it("throws FILE_NOT_FOUND for non-existent source", async () => {
     const dir = copyFixture("vue-project");
     dirs.push(dir);
-    const provider = new VolarProvider();
+    const compiler = new VolarCompiler();
 
     await expect(
       moveFile(
-        provider,
+        compiler,
         `${dir}/src/doesNotExist.ts`,
         `${dir}/src/utils/doesNotExist.ts`,
         makeScope(dir),

@@ -4,7 +4,7 @@ import { Project } from "ts-morph";
 import { ImportRewriter } from "../domain/import-rewriter.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { isWithinWorkspace } from "../security.js";
-import type { DefinitionLocation, FileTextEdit, LanguageProvider, SpanLocation } from "../types.js";
+import type { Compiler, DefinitionLocation, FileTextEdit, SpanLocation } from "../types.js";
 import { EngineError } from "../utils/errors.js";
 import { JS_EXTENSIONS, JS_TS_PAIRS, TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
@@ -12,7 +12,7 @@ import { toRelBase } from "../utils/relative-path.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 import { tsMoveSymbol } from "./ts-move-symbol.js";
 
-export class TsProvider implements LanguageProvider {
+export class TsMorphCompiler implements Compiler {
   private projects = new Map<string, Project>();
 
   private getProject(filePath: string): Project {

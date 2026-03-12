@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { WorkspaceScope } from "../../../src/domain/workspace-scope.js";
-import { VolarProvider } from "../../../src/plugins/vue/compiler.js";
+import { VolarCompiler } from "../../../src/plugins/vue/compiler.js";
 import { NodeFileSystem } from "../../../src/ports/node-filesystem.js";
 import { cleanup, copyFixture } from "../../helpers.js";
 
@@ -11,7 +11,7 @@ function makeScope(root: string): WorkspaceScope {
   return new WorkspaceScope(root, new NodeFileSystem());
 }
 
-describe("VolarProvider", () => {
+describe("VolarCompiler", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
@@ -21,8 +21,8 @@ describe("VolarProvider", () => {
     return dir;
   }
 
-  it("implements LanguageProvider shape", () => {
-    const p = new VolarProvider();
+  it("implements Compiler shape", () => {
+    const p = new VolarCompiler();
     expect(typeof p.resolveOffset).toBe("function");
     expect(typeof p.getRenameLocations).toBe("function");
     expect(typeof p.getReferencesAtPosition).toBe("function");
@@ -38,7 +38,7 @@ describe("VolarProvider", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vue-noop-"));
     fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
     try {
-      const p = new VolarProvider();
+      const p = new VolarCompiler();
       const scope = makeScope(tmpDir);
       await p.afterSymbolMove(
         path.join(tmpDir, "src/a.ts"),
@@ -55,7 +55,7 @@ describe("VolarProvider", () => {
 
   it("resolveOffset converts 1-based line/col to 0-based offset", () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     // vue-project: src/composables/useCounter.ts line 1 → "export function useCounter..."
     const file = path.join(dir, "src/composables/useCounter.ts");
     expect(p.resolveOffset(file, 1, 1)).toBe(0);
@@ -64,7 +64,7 @@ describe("VolarProvider", () => {
 
   it("getRenameLocations returns spans for a TS symbol in a Vue project", async () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     // useCounter is declared at line 1, col 17 of useCounter.ts
     const file = path.join(dir, "src/composables/useCounter.ts");
     const offset = p.resolveOffset(file, 1, 17);
@@ -79,7 +79,7 @@ describe("VolarProvider", () => {
 
   it("getRenameLocations translates virtual .vue.ts paths to real .vue paths in results", async () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     // useCounter is used in App.vue; rename locations from useCounter.ts must include
     // the real App.vue path (not the .vue.ts virtual path used internally by Volar)
     const file = path.join(dir, "src/composables/useCounter.ts");
@@ -93,7 +93,7 @@ describe("VolarProvider", () => {
 
   it("readFile reads from disk when no service has been cached yet", () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const file = path.join(dir, "src/composables/useCounter.ts");
     const content = p.readFile(file);
     expect(content).toContain("useCounter");
@@ -101,12 +101,12 @@ describe("VolarProvider", () => {
 
   it("notifyFileWritten: readFile returns updated content from the cache", async () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const file = path.join(dir, "src/composables/useCounter.ts");
     // Load service by calling getRenameLocations (builds and caches the service).
     const offset = p.resolveOffset(file, 1, 17);
     await p.getRenameLocations(file, offset);
-    // Write updated content to the provider's cache (not to disk).
+    // Write updated content to the compiler's cache (not to disk).
     const updatedContent = "export function renamedFn() {}\n";
     p.notifyFileWritten(file, updatedContent);
     // readFile must return the cached content, not the stale disk content.
@@ -115,7 +115,7 @@ describe("VolarProvider", () => {
 
   it("notifyFileWritten does not throw when service not yet cached", () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const file = path.join(dir, "src/composables/useCounter.ts");
     // No service loaded — must be a silent no-op.
     expect(() => p.notifyFileWritten(file, "export const x = 1;\n")).not.toThrow();
@@ -123,7 +123,7 @@ describe("VolarProvider", () => {
 
   it("afterFileRename returns modified list and empty skipped array", async () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const oldPath = path.join(dir, "src/composables/useCounter.ts");
     const newPath = path.join(dir, "src/composables/useTimer.ts");
     const result = await p.afterFileRename(oldPath, newPath, dir);
@@ -135,7 +135,7 @@ describe("VolarProvider", () => {
     // Use a plain TS fixture (no .vue files) so nothing is modified or skipped.
     const tsDir = copyFixture("simple-ts");
     dirs.push(tsDir);
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const scope = makeScope(tsDir);
     await p.afterSymbolMove(
       path.join(tsDir, "src/utils.ts"),
@@ -150,7 +150,7 @@ describe("VolarProvider", () => {
   it("afterSymbolMove rewrites a matching named import in a .vue file", async () => {
     const dir = copyFixture("vue-project");
     dirs.push(dir);
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const scope = makeScope(dir);
     // App.vue imports useCounter from composables/useCounter
     const sourceFile = path.join(dir, "src/composables/useCounter.ts");
@@ -168,7 +168,7 @@ describe("VolarProvider", () => {
   it("afterSymbolMove does not rewrite a .vue file already in scope.modified", async () => {
     const dir = copyFixture("vue-project");
     dirs.push(dir);
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const scope = makeScope(dir);
     const appVue = path.join(dir, "src/App.vue");
     // Pre-mark App.vue as already modified
@@ -187,7 +187,7 @@ describe("VolarProvider", () => {
   it("afterSymbolMove does not modify .vue files that do not import the symbol", async () => {
     const dir = copyFixture("vue-project");
     dirs.push(dir);
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const scope = makeScope(dir);
     // Move a symbol that App.vue does not import
     const sourceFile = path.join(dir, "src/composables/useCounter.ts");
@@ -199,7 +199,7 @@ describe("VolarProvider", () => {
 
   it("resolveOffset throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const file = path.join(dir, "src/App.vue");
     expect(() => p.resolveOffset(file, 999, 1)).toThrow();
     try {
@@ -211,7 +211,7 @@ describe("VolarProvider", () => {
 
   it("getReferencesAtPosition returns translated spans for a symbol in a Vue project", async () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const file = path.join(dir, "src/composables/useCounter.ts");
     const offset = p.resolveOffset(file, 1, 17); // useCounter declaration
     const refs = await p.getReferencesAtPosition(file, offset);
@@ -227,7 +227,7 @@ describe("VolarProvider", () => {
 
   it("getDefinitionAtPosition in a .vue file returns a real path (exercises toVirtualLocation)", async () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const file = path.join(dir, "src/App.vue");
     const content = fs.readFileSync(file, "utf8");
     const useCounterOffset = content.indexOf("useCounter");
@@ -240,7 +240,7 @@ describe("VolarProvider", () => {
 
   it("getReferencesAtPosition returns null for a blank line (no symbol)", async () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const file = path.join(dir, "src/main.ts");
     const content = fs.readFileSync(file, "utf8");
     const blankLineOffset = content.indexOf("\n\n") + 1;
@@ -250,7 +250,7 @@ describe("VolarProvider", () => {
 
   it("getEditsForFileRename returns only real-path edits with non-empty textChanges", async () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const oldPath = path.join(dir, "src/composables/useCounter.ts");
     const newPath = path.join(dir, "src/composables/useTimer.ts");
     const edits = await p.getEditsForFileRename(oldPath, newPath);
@@ -264,7 +264,7 @@ describe("VolarProvider", () => {
 
   it("getDefinitionAtPosition returns null for a whitespace position", async () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const file = path.join(dir, "src/composables/useCounter.ts");
     const content = fs.readFileSync(file, "utf8");
     const closingBraceOffset = content.lastIndexOf("}");
@@ -286,7 +286,7 @@ describe("VolarProvider", () => {
       const vueFile = path.join(tmpDir, "src/NoScript.vue");
       fs.writeFileSync(vueFile, "<template>\n  <div>Hello</div>\n</template>\n");
 
-      const p = new VolarProvider();
+      const p = new VolarCompiler();
       const result = await p.getDefinitionAtPosition(vueFile, 15);
       expect(result === null || Array.isArray(result)).toBe(true);
       if (Array.isArray(result)) {
@@ -301,7 +301,7 @@ describe("VolarProvider", () => {
 
   it("getRenameLocations returns null for a blank-line position in a .ts file (exercises rawLocs.length === 0 guard)", async () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const file = path.join(dir, "src/main.ts");
     const content = fs.readFileSync(file, "utf8");
     const blankLineOffset = content.indexOf("\n\n") + 1;
@@ -311,7 +311,7 @@ describe("VolarProvider", () => {
 
   it("getRenameLocations on a .vue file returns locations including the .vue path", async () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const file = path.join(dir, "src/App.vue");
     const content = fs.readFileSync(file, "utf8");
     const offset = content.indexOf("useCounter");
@@ -325,7 +325,7 @@ describe("VolarProvider", () => {
 
   it("getReferencesAtPosition on a .vue file returns refs including the .vue path", async () => {
     const dir = setup();
-    const p = new VolarProvider();
+    const p = new VolarCompiler();
     const file = path.join(dir, "src/App.vue");
     const content = fs.readFileSync(file, "utf8");
     const offset = content.indexOf("useCounter");
@@ -350,7 +350,7 @@ describe("VolarProvider", () => {
       );
       const vueFile = path.join(tmpDir, "src/NoScript.vue");
       fs.writeFileSync(vueFile, "<template>\n  <div>Hello</div>\n</template>\n");
-      const p = new VolarProvider();
+      const p = new VolarCompiler();
       const result = await p.getRenameLocations(vueFile, 15);
       expect(result === null || Array.isArray(result)).toBe(true);
     } finally {
@@ -371,7 +371,7 @@ describe("VolarProvider", () => {
       );
       const vueFile = path.join(tmpDir, "src/NoScript.vue");
       fs.writeFileSync(vueFile, "<template>\n  <div>Hello</div>\n</template>\n");
-      const p = new VolarProvider();
+      const p = new VolarCompiler();
       const result = await p.getReferencesAtPosition(vueFile, 15);
       expect(result === null || Array.isArray(result)).toBe(true);
     } finally {

@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import type { TsProvider } from "../compilers/ts.js";
+import type { TsMorphCompiler } from "../compilers/ts.js";
 import { isWithinWorkspace } from "../security.js";
 import type { ExtractFunctionResult } from "../types.js";
 import { assertFileExists } from "../utils/assert-file.js";
@@ -18,7 +18,7 @@ import { applyTextEdits, lineColToOffset } from "../utils/text-utils.js";
  * TS/TSX only. Returns `NOT_SUPPORTED` for `.vue` files.
  */
 export async function extractFunction(
-  tsProvider: TsProvider,
+  tsCompiler: TsMorphCompiler,
   file: string,
   startLine: number,
   startCol: number,
@@ -50,7 +50,7 @@ export async function extractFunction(
     );
   }
 
-  const project = tsProvider.getProjectForFile(absFile);
+  const project = tsCompiler.getProjectForFile(absFile);
   if (!project.getSourceFile(absFile)) {
     project.addSourceFileAtPath(absFile);
   }
@@ -139,8 +139,8 @@ export async function extractFunction(
   }
 
   // Count parameters by reloading the file via a fresh project.
-  tsProvider.invalidateProject(absFile);
-  const parameterCount = countParameters(tsProvider, absFile, functionName);
+  tsCompiler.invalidateProject(absFile);
+  const parameterCount = countParameters(tsCompiler, absFile, functionName);
 
   return {
     filesModified,
@@ -150,8 +150,12 @@ export async function extractFunction(
   };
 }
 
-function countParameters(tsProvider: TsProvider, absFile: string, functionName: string): number {
-  const project = tsProvider.getProjectForFile(absFile);
+function countParameters(
+  tsCompiler: TsMorphCompiler,
+  absFile: string,
+  functionName: string,
+): number {
+  const project = tsCompiler.getProjectForFile(absFile);
   let sf = project.getSourceFile(absFile);
   if (!sf) {
     sf = project.addSourceFileAtPath(absFile);

@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { TsProvider } from "../../src/compilers/ts.js";
+import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { tsMoveSymbol } from "../../src/compilers/ts-move-symbol.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
@@ -23,9 +23,9 @@ function makeScope(root: string): WorkspaceScope {
   return new WorkspaceScope(root, new NodeFileSystem());
 }
 
-function setupSimpleTs(): { dir: string; tsProvider: TsProvider; scope: WorkspaceScope } {
+function setupSimpleTs(): { dir: string; tsCompiler: TsMorphCompiler; scope: WorkspaceScope } {
   const dir = copyFixture("simple-ts");
-  return { dir, tsProvider: new TsProvider(), scope: makeScope(dir) };
+  return { dir, tsCompiler: new TsMorphCompiler(), scope: makeScope(dir) };
 }
 
 describe("tsMoveSymbol", () => {
@@ -34,12 +34,12 @@ describe("tsMoveSymbol", () => {
 
   describe("symbol move to new file", () => {
     it("moves a named export to a new file and saves both files", async () => {
-      const { dir, tsProvider, scope } = setupSimpleTs();
+      const { dir, tsCompiler, scope } = setupSimpleTs();
       dirs.push(dir);
       const srcPath = path.join(dir, "src/utils.ts");
       const dstPath = path.join(dir, "src/helpers.ts");
 
-      await tsMoveSymbol(tsProvider, srcPath, "greetUser", dstPath, scope);
+      await tsMoveSymbol(tsCompiler, srcPath, "greetUser", dstPath, scope);
 
       expect(fs.readFileSync(dstPath, "utf8")).toContain("export function greetUser");
       expect(fs.readFileSync(srcPath, "utf8")).not.toContain("greetUser");
@@ -48,11 +48,11 @@ describe("tsMoveSymbol", () => {
     });
 
     it("updates the import in the importing file with .js extension", async () => {
-      const { dir, tsProvider, scope } = setupSimpleTs();
+      const { dir, tsCompiler, scope } = setupSimpleTs();
       dirs.push(dir);
 
       await tsMoveSymbol(
-        tsProvider,
+        tsCompiler,
         path.join(dir, "src/utils.ts"),
         "greetUser",
         path.join(dir, "src/helpers.ts"),
@@ -65,12 +65,12 @@ describe("tsMoveSymbol", () => {
     });
 
     it("filesModified includes both source and destination files", async () => {
-      const { dir, tsProvider, scope } = setupSimpleTs();
+      const { dir, tsCompiler, scope } = setupSimpleTs();
       dirs.push(dir);
       const srcPath = path.join(dir, "src/utils.ts");
       const dstPath = path.join(dir, "src/helpers.ts");
 
-      await tsMoveSymbol(tsProvider, srcPath, "greetUser", dstPath, scope);
+      await tsMoveSymbol(tsCompiler, srcPath, "greetUser", dstPath, scope);
 
       expect(scope.modified).toContain(srcPath);
       expect(scope.modified).toContain(dstPath);
@@ -79,14 +79,14 @@ describe("tsMoveSymbol", () => {
 
   describe("symbol move to existing file", () => {
     it("moves a function to an existing file, preserving existing content", async () => {
-      const { dir, tsProvider, scope } = setupSimpleTs();
+      const { dir, tsCompiler, scope } = setupSimpleTs();
       dirs.push(dir);
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
         'export function helper(): string { return "hi"; }\n',
       );
       await tsMoveSymbol(
-        tsProvider,
+        tsCompiler,
         path.join(dir, "src/utils.ts"),
         "greetUser",
         path.join(dir, "src/helpers.ts"),
@@ -98,14 +98,14 @@ describe("tsMoveSymbol", () => {
     });
 
     it("appends to a non-empty destination file with a blank-line separator", async () => {
-      const { dir, tsProvider, scope } = setupSimpleTs();
+      const { dir, tsCompiler, scope } = setupSimpleTs();
       dirs.push(dir);
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
         'export function helper(): string { return "hi"; }\n',
       );
       await tsMoveSymbol(
-        tsProvider,
+        tsCompiler,
         path.join(dir, "src/utils.ts"),
         "greetUser",
         path.join(dir, "src/helpers.ts"),
@@ -133,7 +133,7 @@ describe("tsMoveSymbol", () => {
         'import { add } from "../src/utils";\nexport const r = add(1, 2);\n',
       );
       const scope = makeScope(path.join(tmpDir, "src"));
-      const p = new TsProvider();
+      const p = new TsMorphCompiler();
 
       await tsMoveSymbol(
         p,
@@ -161,7 +161,7 @@ describe("tsMoveSymbol", () => {
         "export function add(a: number, b: number): number { return a + b; }\n",
       );
       const scope = makeScope(path.join(tmpDir, "src"));
-      const p = new TsProvider();
+      const p = new TsMorphCompiler();
 
       await tsMoveSymbol(
         p,
@@ -179,11 +179,11 @@ describe("tsMoveSymbol", () => {
 
   describe("directory creation", () => {
     it("creates the destination directory when it does not exist", async () => {
-      const { dir, tsProvider, scope } = setupSimpleTs();
+      const { dir, tsCompiler, scope } = setupSimpleTs();
       dirs.push(dir);
       const dstPath = path.join(dir, "src/nested/deep/helpers.ts");
 
-      await tsMoveSymbol(tsProvider, path.join(dir, "src/utils.ts"), "greetUser", dstPath, scope);
+      await tsMoveSymbol(tsCompiler, path.join(dir, "src/utils.ts"), "greetUser", dstPath, scope);
 
       expect(fs.existsSync(dstPath)).toBe(true);
       expect(fs.readFileSync(dstPath, "utf8")).toContain("greetUser");
@@ -192,7 +192,7 @@ describe("tsMoveSymbol", () => {
 
   describe("const variable move", () => {
     it("moves an exported const variable (VariableDeclaration to VariableStatement traversal)", async () => {
-      const { dir, tsProvider, scope } = setupSimpleTs();
+      const { dir, tsCompiler, scope } = setupSimpleTs();
       dirs.push(dir);
       fs.appendFileSync(path.join(dir, "src/utils.ts"), "\nexport const VERSION = '1.0.0';\n");
       fs.writeFileSync(
@@ -200,7 +200,7 @@ describe("tsMoveSymbol", () => {
         'import { VERSION } from "./utils";\nexport const v = VERSION;\n',
       );
       await tsMoveSymbol(
-        tsProvider,
+        tsCompiler,
         path.join(dir, "src/utils.ts"),
         "VERSION",
         path.join(dir, "src/constants.ts"),
@@ -215,14 +215,14 @@ describe("tsMoveSymbol", () => {
 
   describe("dest file self-import removal", () => {
     it("does not add a self-import in dest file when dest already had a self-referencing import from source", async () => {
-      const { dir, tsProvider, scope } = setupSimpleTs();
+      const { dir, tsCompiler, scope } = setupSimpleTs();
       dirs.push(dir);
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
         'import { greetUser } from "./utils";\nexport function helper(): void { greetUser("x"); }\n',
       );
       await tsMoveSymbol(
-        tsProvider,
+        tsCompiler,
         path.join(dir, "src/utils.ts"),
         "greetUser",
         path.join(dir, "src/helpers.ts"),
@@ -236,13 +236,13 @@ describe("tsMoveSymbol", () => {
 
   describe("does not add unrelated saved files to modified", () => {
     it("only records files actually changed by the move", async () => {
-      const { dir, tsProvider, scope } = setupSimpleTs();
+      const { dir, tsCompiler, scope } = setupSimpleTs();
       dirs.push(dir);
       const extraPath = path.join(dir, "src/unrelated.ts");
       fs.writeFileSync(extraPath, "export const UNRELATED = 42;\n");
 
       await tsMoveSymbol(
-        tsProvider,
+        tsCompiler,
         path.join(dir, "src/utils.ts"),
         "greetUser",
         path.join(dir, "src/helpers.ts"),
