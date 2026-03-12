@@ -2,7 +2,7 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveFile } from "../../src/operations/moveFile.js";
-import { VolarProvider } from "../../src/plugins/vue/provider.js";
+import { VolarProvider } from "../../src/plugins/vue/compiler.js";
 import { updateVueImportsAfterMove } from "../../src/plugins/vue/scan.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
 import { findTsConfigForFile } from "../../src/utils/ts-project.js";

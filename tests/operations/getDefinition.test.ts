@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
+import { TsProvider } from "../../src/compilers/ts.js";
 import { getDefinition } from "../../src/operations/getDefinition.js";
-import { VolarProvider } from "../../src/plugins/vue/provider.js";
-import { TsProvider } from "../../src/providers/ts.js";
+import { VolarProvider } from "../../src/plugins/vue/compiler.js";
 import { cleanup, copyFixture } from "../helpers.js";
 
 describe("getDefinition action", () => {

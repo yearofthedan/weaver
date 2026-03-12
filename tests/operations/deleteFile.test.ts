@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { TsProvider } from "../../src/compilers/ts.js";
 import { deleteFile } from "../../src/operations/deleteFile.js";
-import { TsProvider } from "../../src/providers/ts.js";
 import { cleanup, copyFixture, fileExists, readFile } from "../helpers.js";
 
 describe("deleteFile", () => {

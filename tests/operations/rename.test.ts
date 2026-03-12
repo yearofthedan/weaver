@@ -1,14 +1,14 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { TsProvider } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { rename } from "../../src/operations/rename.js";
-import { VolarProvider } from "../../src/plugins/vue/provider.js";
+import { VolarProvider } from "../../src/plugins/vue/compiler.js";
 import { InMemoryFileSystem } from "../../src/ports/in-memory-filesystem.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
-import { TsProvider } from "../../src/providers/ts.js";
 import type { SpanLocation } from "../../src/types.js";
+import { makeMockProvider } from "../compilers/__helpers__/mock-compiler.js";
 import { cleanup, copyFixture, readFile } from "../helpers.js";
-import { makeMockProvider } from "../providers/__helpers__/mock-provider.js";
 
 // assertFileExists (called inside rename) still uses the real filesystem — it is not yet
 // migrated to the FileSystem port. In unit tests that mock the provider, we pass a path

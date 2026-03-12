@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { TsProvider } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveSymbol } from "../../src/operations/moveSymbol.js";
-import { VolarProvider } from "../../src/plugins/vue/provider.js";
+import { VolarProvider } from "../../src/plugins/vue/compiler.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
-import { TsProvider } from "../../src/providers/ts.js";
 import { cleanup, copyFixture, readFile } from "../helpers.js";
 
 describe("moveSymbol operation — VolarProvider integration", () => {

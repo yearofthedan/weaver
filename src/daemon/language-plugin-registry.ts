@@ -5,11 +5,11 @@ import { findTsConfigForFile } from "../utils/ts-project.js";
 const languagePlugins: LanguagePlugin[] = [];
 const pluginProviders = new Map<string, LanguageProvider>();
 
-let tsProviderSingleton: import("../providers/ts.js").TsProvider | undefined;
+let tsProviderSingleton: import("../compilers/ts.js").TsProvider | undefined;
 
-async function getTsProvider(): Promise<import("../providers/ts.js").TsProvider> {
+async function getTsProvider(): Promise<import("../compilers/ts.js").TsProvider> {
   if (!tsProviderSingleton) {
-    const { TsProvider } = await import("../providers/ts.js");
+    const { TsProvider } = await import("../compilers/ts.js");
     tsProviderSingleton = new TsProvider();
   }
   return tsProviderSingleton;

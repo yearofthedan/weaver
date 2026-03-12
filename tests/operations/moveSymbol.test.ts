@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveSymbol } from "../../src/operations/moveSymbol.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
-import { makeMockProvider } from "../providers/__helpers__/mock-provider.js";
+import { makeMockProvider } from "../compilers/__helpers__/mock-compiler.js";
 
 function makeMockTsProvider(overrides: Record<string, unknown> = {}) {
   return {

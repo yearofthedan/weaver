@@ -40,6 +40,12 @@ When a spec says "move function X to file Y", do not prescribe manual steps (cre
 
 ---
 
+## Each AC must leave the codebase in a working state
+
+Every AC should be a functional unit — the build passes and tests pass after it lands. Splitting work into ACs where one deliberately breaks the codebase ("move files now, fix imports later") is almost never correct. If the natural tool does X+Y atomically, that's one AC, not two. Non-functional AC splits (e.g. "rename files" separate from "fix references") should be extremely rare and require explicit justification.
+
+---
+
 ## Colocate test helpers with their domain, not in a generic folder
 
 `makeMockProvider` mocks the `LanguageProvider` interface — it belongs in `tests/providers/__helpers__/`, not `tests/helpers/`. Place test doubles near the concept they mock, using `__helpers__/` subfolders per code-standards.md.

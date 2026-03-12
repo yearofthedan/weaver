@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TsProvider } from "../../src/compilers/ts.js";
 import {
   clearLanguagePlugins,
   invalidateAll,
@@ -7,7 +8,6 @@ import {
   makeRegistry,
   registerLanguagePlugin,
 } from "../../src/daemon/language-plugin-registry.js";
-import { TsProvider } from "../../src/providers/ts.js";
 import type { LanguagePlugin, LanguageProvider } from "../../src/types.js";
 
 const PROJECT_FILE = path.resolve("src/types.ts");

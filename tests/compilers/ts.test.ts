@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { TsProvider } from "../../src/providers/ts.js";
+import { TsProvider } from "../../src/compilers/ts.js";
 import { EngineError } from "../../src/utils/errors.js";
 import { cleanup, copyFixture } from "../helpers.js";
 

@@ -2,8 +2,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { TsProvider } from "../../src/compilers/ts.js";
 import { extractFunction } from "../../src/operations/extractFunction.js";
-import { TsProvider } from "../../src/providers/ts.js";
 import { cleanup, copyFixture } from "../helpers.js";
 
 describe("extractFunction", () => {

@@ -2,7 +2,7 @@ import type { LanguagePlugin, LanguageProvider } from "../../types.js";
 import { isVueProject } from "../../utils/ts-project.js";
 
 export function createVueLanguagePlugin(): LanguagePlugin {
-  let cachedProvider: import("./provider.js").VolarProvider | undefined;
+  let cachedProvider: import("./compiler.js").VolarProvider | undefined;
   return {
     id: "vue-volar",
     supportsProject(tsconfigPath: string): boolean {
@@ -10,7 +10,7 @@ export function createVueLanguagePlugin(): LanguagePlugin {
     },
     async createProvider(): Promise<LanguageProvider> {
       if (!cachedProvider) {
-        const { VolarProvider } = await import("./provider.js");
+        const { VolarProvider } = await import("./compiler.js");
         cachedProvider = new VolarProvider();
       }
       return cachedProvider;

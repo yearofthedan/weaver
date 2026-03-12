@@ -255,5 +255,5 @@ export interface LanguagePlugin {
  */
 export interface ProviderRegistry {
   projectProvider(): Promise<LanguageProvider>;
-  tsProvider(): Promise<import("./providers/ts.js").TsProvider>;
+  tsProvider(): Promise<import("./compilers/ts.js").TsProvider>;
 }

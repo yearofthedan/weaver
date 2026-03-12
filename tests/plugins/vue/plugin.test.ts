@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { TsProvider } from "../../../src/compilers/ts.js";
 import {
   clearLanguagePlugins,
   invalidateAll,
@@ -8,7 +9,6 @@ import {
   registerLanguagePlugin,
 } from "../../../src/daemon/language-plugin-registry.js";
 import { createVueLanguagePlugin } from "../../../src/plugins/vue/plugin.js";
-import { TsProvider } from "../../../src/providers/ts.js";
 import { cleanup, copyFixture } from "../../helpers.js";
 
 describe("Vue LanguagePlugin integration", () => {
@@ -24,7 +24,7 @@ describe("Vue LanguagePlugin integration", () => {
   it("projectProvider returns VolarProvider for a Vue project", async () => {
     const dir = copyFixture("vue-project");
     dirs.push(dir);
-    const { VolarProvider } = await import("../../../src/plugins/vue/provider.js");
+    const { VolarProvider } = await import("../../../src/plugins/vue/compiler.js");
 
     const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
     const provider = await registry.projectProvider();
@@ -51,7 +51,7 @@ describe("Vue LanguagePlugin integration", () => {
   it("invalidateAll clears cached provider so next createProvider call rebuilds it", async () => {
     const dir = copyFixture("vue-project");
     dirs.push(dir);
-    const { VolarProvider } = await import("../../../src/plugins/vue/provider.js");
+    const { VolarProvider } = await import("../../../src/plugins/vue/compiler.js");
 
     const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
     const first = await registry.projectProvider();

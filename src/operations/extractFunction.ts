@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import type { TsProvider } from "../providers/ts.js";
+import type { TsProvider } from "../compilers/ts.js";
 import { isWithinWorkspace } from "../security.js";
 import type { ExtractFunctionResult } from "../types.js";
 import { assertFileExists } from "../utils/assert-file.js";

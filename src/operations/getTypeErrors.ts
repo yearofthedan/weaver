@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { ts } from "ts-morph";
-import type { TsProvider } from "../providers/ts.js";
+import type { TsProvider } from "../compilers/ts.js";
 import { isWithinWorkspace } from "../security.js";
 import type { GetTypeErrorsResult, PostWriteDiagnostics, TypeDiagnostic } from "../types.js";
 import { EngineError } from "../utils/errors.js";

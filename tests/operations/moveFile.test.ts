@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveFile } from "../../src/operations/moveFile.js";
 import { InMemoryFileSystem } from "../../src/ports/in-memory-filesystem.js";
-import { makeMockProvider } from "../providers/__helpers__/mock-provider.js";
+import { makeMockProvider } from "../compilers/__helpers__/mock-compiler.js";
 
 // assertFileExists (called inside moveFile) still uses the real filesystem — it is not yet
 // migrated to the FileSystem port. In unit tests that mock the provider, we pass a path

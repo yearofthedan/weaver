@@ -1,10 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { TsProvider } from "../../src/compilers/ts.js";
+import { tsMoveSymbol } from "../../src/compilers/ts-move-symbol.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
-import { TsProvider } from "../../src/providers/ts.js";
-import { tsMoveSymbol } from "../../src/providers/ts-move-symbol.js";
 import { cleanup, copyFixture } from "../helpers.js";
 
 function makeScope(root: string): WorkspaceScope {

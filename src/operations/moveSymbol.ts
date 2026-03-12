@@ -1,6 +1,6 @@
 import * as path from "node:path";
+import type { TsProvider } from "../compilers/ts.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import type { TsProvider } from "../providers/ts.js";
 import type { LanguageProvider, MoveSymbolResult } from "../types.js";
 import { assertFileExists } from "../utils/assert-file.js";
 
