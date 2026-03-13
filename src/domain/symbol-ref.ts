@@ -20,6 +20,7 @@ export class SymbolRef {
 
   private readonly _removeFn: () => void;
   private readonly _isDirectExport: boolean;
+  private _removed = false;
 
   private constructor(
     filePath: string,
@@ -93,6 +94,8 @@ export class SymbolRef {
    * second call is a no-op and does not throw.
    */
   remove(): void {
+    if (this._removed) return;
+    this._removed = true;
     this._removeFn();
   }
 }

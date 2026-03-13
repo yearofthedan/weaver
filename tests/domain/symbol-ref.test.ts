@@ -127,6 +127,42 @@ describe("SymbolRef", () => {
         expect(sf.getText()).not.toContain("BAR");
         expect(sf.getText()).toContain("function bar");
       });
+
+      it("source file text no longer contains the declaration after remove()", () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const sf = project.createSourceFile(
+          "/workspace/src/utils.ts",
+          "export function foo() { return 1; }\nexport function bar() {}",
+        );
+        const ref = SymbolRef.fromExport(sf, "foo");
+        ref.remove();
+        expect(sf.getText()).not.toContain("export function foo");
+        expect(sf.getText()).not.toContain("return 1");
+      });
+
+      it("calling remove() a second time is a no-op and does not throw", () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const sf = project.createSourceFile(
+          "/workspace/src/utils.ts",
+          "export function foo() {}\nexport function bar() {}",
+        );
+        const ref = SymbolRef.fromExport(sf, "foo");
+        ref.remove();
+        expect(() => ref.remove()).not.toThrow();
+      });
+
+      it("source file remains consistent after double remove()", () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const sf = project.createSourceFile(
+          "/workspace/src/utils.ts",
+          "export function foo() {}\nexport function bar() {}",
+        );
+        const ref = SymbolRef.fromExport(sf, "foo");
+        ref.remove();
+        ref.remove();
+        expect(sf.getText()).not.toContain("function foo");
+        expect(sf.getText()).toContain("function bar");
+      });
     });
 
     describe("SYMBOL_NOT_FOUND error", () => {
