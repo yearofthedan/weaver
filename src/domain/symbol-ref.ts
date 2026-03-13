@@ -1,4 +1,4 @@
-import type { Node, SourceFile } from "ts-morph";
+import { Node, type SourceFile } from "ts-morph";
 import { EngineError } from "../utils/errors.js";
 
 /**
@@ -48,9 +48,16 @@ export class SymbolRef {
       );
     }
 
-    const decl = exportedDecls[0] as Node & { remove(): void };
-    const declarationText = decl.getText();
-    const removeFn = () => decl.remove();
+    const rawDecl = exportedDecls[0] as Node;
+    // VariableDeclaration is nested inside VariableDeclarationList → VariableStatement.
+    // Navigate up two levels to get the removable top-level statement that carries
+    // the full text including the `export const` prefix.
+    const stmt = Node.isVariableDeclaration(rawDecl)
+      ? (rawDecl.getParent().getParent() as Node & { remove(): void })
+      : (rawDecl as Node & { remove(): void });
+
+    const declarationText = stmt.getText();
+    const removeFn = () => stmt.remove();
 
     return new SymbolRef(sourceFile.getFilePath() as string, symbolName, declarationText, removeFn);
   }

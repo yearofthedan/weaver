@@ -48,6 +48,18 @@ describe("SymbolRef", () => {
         expect(ref.name).toBe("bar");
         expect(ref.declarationText).toMatch(/^export function bar/);
       });
+
+      it("returns the full VariableStatement for an exported const", () => {
+        const sf = makeSourceFile("export const BAR = 42;");
+        const ref = SymbolRef.fromExport(sf, "BAR");
+        expect(ref.declarationText).toBe("export const BAR = 42;");
+      });
+
+      it("declarationText for exported const includes the export keyword and type annotation", () => {
+        const sf = makeSourceFile("export const BAZ: number = 99;");
+        const ref = SymbolRef.fromExport(sf, "BAZ");
+        expect(ref.declarationText).toBe("export const BAZ: number = 99;");
+      });
     });
 
     describe("isDirectExport()", () => {
@@ -84,6 +96,18 @@ describe("SymbolRef", () => {
         );
         const ref = SymbolRef.fromExport(sf, "foo");
         ref.remove();
+        expect(sf.getText()).toContain("function bar");
+      });
+
+      it("removes the entire VariableStatement when removing an exported const", () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const sf = project.createSourceFile(
+          "/workspace/src/utils.ts",
+          "export const BAR = 42;\nexport function bar() {}",
+        );
+        const ref = SymbolRef.fromExport(sf, "BAR");
+        ref.remove();
+        expect(sf.getText()).not.toContain("BAR");
         expect(sf.getText()).toContain("function bar");
       });
     });
