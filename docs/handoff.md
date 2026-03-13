@@ -109,9 +109,9 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-- **Target architecture: compiler adapter restructure** — Seven-step strangler migration. Steps 1-4 complete: Step 1 (FileSystem port + WorkspaceScope + `rename` proof) archived: [`docs/specs/archive/20260308-filesystem-port-and-workspace-scope.md`](specs/archive/20260308-filesystem-port-and-workspace-scope.md). Step 2 (`moveFile` migration to WorkspaceScope) archived: [`docs/specs/archive/20260308-movefile-workspace-scope.md`](specs/archive/20260308-movefile-workspace-scope.md). Step 3 (`moveSymbol` migration to WorkspaceScope) archived: [`docs/specs/archive/20260308-movesymbol-workspace-scope.md`](specs/archive/20260308-movesymbol-workspace-scope.md). Step 4 (extract `ImportRewriter`) archived: [`docs/specs/archive/20260308-extract-import-rewriter.md`](specs/archive/20260308-extract-import-rewriter.md). Step 5 (rename `providers/` → `compilers/`) → [`docs/specs/20260312-rename-providers-to-compilers.md`](specs/20260312-rename-providers-to-compilers.md). Remaining steps `[needs design]` — spec each before starting: (6) extract `SymbolRef`, (7) document hexagonal architecture with mermaid diagrams, (8) sense check design, identify gaps. See [`docs/target-architecture.md`](target-architecture.md) for rationale, layer diagram, and migration sequence.
+- **Target architecture: compiler adapter restructure** — Seven-step strangler migration. Steps 1-4 complete: Step 1 (FileSystem port + WorkspaceScope + `rename` proof) archived: [`docs/specs/archive/20260308-filesystem-port-and-workspace-scope.md`](specs/archive/20260308-filesystem-port-and-workspace-scope.md). Step 2 (`moveFile` migration to WorkspaceScope) archived: [`docs/specs/archive/20260308-movefile-workspace-scope.md`](specs/archive/20260308-movefile-workspace-scope.md). Step 3 (`moveSymbol` migration to WorkspaceScope) archived: [`docs/specs/archive/20260308-movesymbol-workspace-scope.md`](specs/archive/20260308-movesymbol-workspace-scope.md). Step 4 (extract `ImportRewriter`) archived: [`docs/specs/archive/20260308-extract-import-rewriter.md`](specs/archive/20260308-extract-import-rewriter.md). Step 5 (rename `providers/` → `compilers/`) archived: [`docs/specs/archive/20260312-rename-providers-to-compilers.md`](specs/archive/20260312-rename-providers-to-compilers.md). Remaining steps `[needs design]` — spec each before starting: (6) extract `SymbolRef`, (7) document hexagonal architecture with mermaid diagrams, (8) sense check design, identify gaps. See [`docs/target-architecture.md`](target-architecture.md) for rationale, layer diagram, and migration sequence.
 
-- **`rename` / `findReferences` / `getDefinition` fail with "Could not find source file" on `.ts` inputs** `[needs design]` — Separate from the Vue `.vue`-path bug above. Suspected cause: caller-supplied path differs from ts-morph's internally normalized path (e.g. symlinked workspace root); fix likely requires using `sourceFile.getFilePath()` when calling TS language service methods in `TsProvider`. Root cause not yet reproduced in a test.
+- **`rename` / `findReferences` / `getDefinition` fail with "Could not find source file" on `.ts` inputs** `[needs design]` — Separate from the Vue `.vue`-path bug above. Suspected cause: caller-supplied path differs from ts-morph's internally normalized path (e.g. symlinked workspace root); fix likely requires using `sourceFile.getFilePath()` when calling TS language service methods in `TsMorphCompiler`. Root cause not yet reproduced in a test.
 
 - **Reject control characters and URI fragments in file paths** `[needs design]` — `isWithinWorkspace()` guards against `..` traversal and symlink escapes, but does not reject control characters (`\x00`–`\x1f`) or URI-style fragments (`?`, `#`) in path strings. Control characters can corrupt logs and confuse downstream tools; query params / fragments suggest the caller passed a URI instead of a plain path. Fix: add an early rejection in the path validation layer before `path.resolve()`.
 
@@ -190,18 +190,6 @@ During the `moveFile` workspace-scope spec, the spec directed the agent to try `
 2. Fall back to: create the destination file manually with the symbol exported, then remove it from the source and add the import.
 
 There is no light-bridge tool for "add export keyword + move". This is a known gap — if it becomes a recurring friction point, add a `[needs design]` entry.
-
----
-
-## Agent reflection: providers → compilers rename (2026-03-12)
-
-First session where the execution agent actually used `moveFile` and `rename` for a structural change. Two lessons:
-
-1. **Spec structure drives tool choice.** The first spec split "move files" (AC1) from "fix imports" (AC3) into separate ACs. This made `git mv` look correct — `moveFile` does both atomically and couldn't be used for half the job. The fix: restructured to one AC that does moves + imports together via `moveFile`. **ACs must leave the codebase working; non-functional splits discourage the right tools.**
-
-2. **`rename` handles definitions well; derived names need manual cleanup.** `mcp__light-bridge__rename` correctly renamed `TsProvider` → `TsMorphCompiler` across all references. But derived variable names like `tsProviderSingleton`, `pluginProviders`, `stubProvider` aren't compiler references — they're just strings that happen to contain "provider". These needed `replaceText` or manual edits. This is expected behaviour, not a bug — `rename` follows the compiler's reference graph, which is correct.
-
-**Action for next agent:** Structure specs so each AC uses the natural tool atomically. If you find yourself splitting a tool's atomic operation across ACs, the spec is wrong.
 
 ---
 
