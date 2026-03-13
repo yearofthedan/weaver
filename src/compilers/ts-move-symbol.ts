@@ -1,23 +1,10 @@
 import * as path from "node:path";
-import { Node, type SourceFile, type Node as TsMorphNode } from "ts-morph";
+import type { SourceFile } from "ts-morph";
 import { ImportRewriter } from "../domain/import-rewriter.js";
+import { SymbolRef } from "../domain/symbol-ref.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { EngineError } from "../utils/errors.js";
 import type { TsMorphCompiler } from "./ts.js";
-
-type Removable = { getText(): string; remove(): void };
-
-/**
- * Resolve a declaration node to the removable top-level statement that
- * contains it. VariableDeclaration lives inside VariableDeclarationList →
- * VariableStatement and must be unwrapped before removal.
- */
-function toRemovableStatement(decl: TsMorphNode): Removable {
-  if (Node.isVariableDeclaration(decl)) {
-    return decl.getParent().getParent() as unknown as Removable;
-  }
-  return decl as unknown as Removable;
-}
 
 /**
  * Perform all compiler work for a named-symbol move: symbol lookup, destination
@@ -41,19 +28,9 @@ export async function tsMoveSymbol(
     srcSF = project.addSourceFileAtPath(absSource);
   }
 
-  const exportedDecls = srcSF.getExportedDeclarations().get(symbolName);
-  if (!exportedDecls) {
-    throw new EngineError(
-      `Symbol '${symbolName}' not found as an export in ${absSource}`,
-      "SYMBOL_NOT_FOUND",
-    );
-  }
+  const sourceRef = SymbolRef.fromExport(srcSF, symbolName);
 
-  const decl = exportedDecls[0];
-  const stmt = toRemovableStatement(decl);
-  const declarationText = stmt.getText();
-
-  if (!declarationText.trimStart().startsWith("export")) {
+  if (!sourceRef.declarationText.trimStart().startsWith("export")) {
     throw new EngineError(
       `Symbol '${symbolName}' in ${absSource} is not a direct export. Re-exports via 'export { }' are not supported.`,
       "NOT_SUPPORTED",
@@ -73,8 +50,16 @@ export async function tsMoveSymbol(
     dstSF = project.createSourceFile(absDest, "");
   }
 
-  const destExportedDecls = dstSF.getExportedDeclarations().get(symbolName);
-  const symbolExistsInDest = Boolean(destExportedDecls);
+  let destRef: SymbolRef | null = null;
+  try {
+    destRef = SymbolRef.fromExport(dstSF, symbolName);
+  } catch (err) {
+    if (!(err instanceof EngineError) || err.code !== "SYMBOL_NOT_FOUND") {
+      throw err;
+    }
+  }
+
+  const symbolExistsInDest = destRef !== null;
   if (symbolExistsInDest && !force) {
     throw new EngineError(
       `Symbol '${symbolName}' already exists as an export in ${absDest}. Pass force: true to replace the existing declaration with the source version.`,
@@ -90,20 +75,18 @@ export async function tsMoveSymbol(
     .filter((fp) => fp !== absSource && fp !== absDest);
 
   // Remove declaration from source file.
-  stmt.remove();
+  sourceRef.remove();
 
   // When force is true and the symbol already exists in dest, remove it first
   // so the source version replaces it (source wins).
-  if (force && symbolExistsInDest && destExportedDecls) {
-    const destDecl = destExportedDecls[0];
-    const destStmt = toRemovableStatement(destDecl);
-    destStmt.remove();
+  if (force && symbolExistsInDest && destRef) {
+    destRef.remove();
   }
 
   // Append the declaration to the destination file.
   const existingText = dstSF.getText();
   const separator = existingText.trimEnd().length === 0 ? "" : "\n\n";
-  dstSF.replaceWithText(`${existingText.trimEnd()}${separator}${declarationText}\n`);
+  dstSF.replaceWithText(`${existingText.trimEnd()}${separator}${sourceRef.declarationText}\n`);
 
   // Save source and dest files so importers can be rewritten from disk.
   for (const sf of [srcSF, dstSF]) {
