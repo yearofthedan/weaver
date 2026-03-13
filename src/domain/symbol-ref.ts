@@ -19,17 +19,20 @@ export class SymbolRef {
   readonly declarationText: string;
 
   private readonly _removeFn: () => void;
+  private readonly _isDirectExport: boolean;
 
   private constructor(
     filePath: string,
     name: string,
     declarationText: string,
     removeFn: () => void,
+    isDirectExport: boolean,
   ) {
     this.filePath = filePath;
     this.name = name;
     this.declarationText = declarationText;
     this._removeFn = removeFn;
+    this._isDirectExport = isDirectExport;
   }
 
   /**
@@ -59,16 +62,30 @@ export class SymbolRef {
     const declarationText = stmt.getText();
     const removeFn = () => stmt.remove();
 
-    return new SymbolRef(sourceFile.getFilePath() as string, symbolName, declarationText, removeFn);
+    // A direct export lives in the same file as the queried source file.
+    // A re-export (export { X } from "./y") resolves the declaration to the
+    // original source module — so the declaration's file differs from the
+    // queried file.
+    const isDirectExport = rawDecl.getSourceFile().getFilePath() === sourceFile.getFilePath();
+
+    return new SymbolRef(
+      sourceFile.getFilePath() as string,
+      symbolName,
+      declarationText,
+      removeFn,
+      isDirectExport,
+    );
   }
 
   /**
    * Whether this is a direct export (not a re-export via `export { } from`).
    *
-   * Stub implementation — full behaviour delivered in a later slice.
+   * Returns false when the symbol is re-exported from another module, e.g.
+   * `export { Baz } from "./other"`. Returns true when the declaration lives
+   * in the same file as the queried source file.
    */
   isDirectExport(): boolean {
-    return this.declarationText.startsWith("export");
+    return this._isDirectExport;
   }
 
   /**

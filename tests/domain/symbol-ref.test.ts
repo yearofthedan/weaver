@@ -49,29 +49,46 @@ describe("SymbolRef", () => {
         expect(ref.declarationText).toMatch(/^export function bar/);
       });
 
-      it("returns the full VariableStatement for an exported const", () => {
-        const sf = makeSourceFile("export const BAR = 42;");
-        const ref = SymbolRef.fromExport(sf, "BAR");
-        expect(ref.declarationText).toBe("export const BAR = 42;");
-      });
-
-      it("declarationText for exported const includes the export keyword and type annotation", () => {
-        const sf = makeSourceFile("export const BAZ: number = 99;");
-        const ref = SymbolRef.fromExport(sf, "BAZ");
-        expect(ref.declarationText).toBe("export const BAZ: number = 99;");
+      it.each([
+        ["export const BAR = 42;", "BAR", "export const BAR = 42;"],
+        ["export const BAZ: number = 99;", "BAZ", "export const BAZ: number = 99;"],
+      ])("returns the full VariableStatement for %s", (source, name, expected) => {
+        const sf = makeSourceFile(source);
+        const ref = SymbolRef.fromExport(sf, name);
+        expect(ref.declarationText).toBe(expected);
       });
     });
 
     describe("isDirectExport()", () => {
-      it("returns true for a direct export function", () => {
-        const sf = makeSourceFile("export function foo() {}");
-        const ref = SymbolRef.fromExport(sf, "foo");
+      it.each([
+        ["export function foo() {}", "foo"],
+        ["export class MyClass {}", "MyClass"],
+        ["export const BAR = 42;", "BAR"],
+      ])("returns true for direct export: %s", (source, name) => {
+        const sf = makeSourceFile(source);
+        const ref = SymbolRef.fromExport(sf, name);
         expect(ref.isDirectExport()).toBe(true);
       });
 
-      it("returns true for a direct export class", () => {
-        const sf = makeSourceFile("export class MyClass {}");
-        const ref = SymbolRef.fromExport(sf, "MyClass");
+      it("returns false for a re-export via export { } from", () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        project.createSourceFile("/workspace/src/other.ts", "export function Baz() {}");
+        const reexportSf = project.createSourceFile(
+          "/workspace/src/utils.ts",
+          `export { Baz } from "./other";`,
+        );
+        const ref = SymbolRef.fromExport(reexportSf, "Baz");
+        expect(ref.isDirectExport()).toBe(false);
+      });
+
+      it("returns true for a direct export in a multi-file project", () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        project.createSourceFile("/workspace/src/other.ts", "export function Baz() {}");
+        const directSf = project.createSourceFile(
+          "/workspace/src/utils.ts",
+          "export function Baz() {}",
+        );
+        const ref = SymbolRef.fromExport(directSf, "Baz");
         expect(ref.isDirectExport()).toBe(true);
       });
     });
@@ -113,30 +130,20 @@ describe("SymbolRef", () => {
     });
 
     describe("SYMBOL_NOT_FOUND error", () => {
-      it("throws EngineError when the symbol is not exported", () => {
+      it.each([
+        ["export function foo() {}", "nonexistent"],
+        ["", "anything"],
+        ["function foo() {}", "foo"],
+      ])("throws SYMBOL_NOT_FOUND for source %j and symbol %s", (source, name) => {
+        const sf = makeSourceFile(source);
+        expect(() => SymbolRef.fromExport(sf, name)).toThrow(
+          expect.objectContaining({ code: "SYMBOL_NOT_FOUND" }),
+        );
+      });
+
+      it("throws EngineError (not a plain Error)", () => {
         const sf = makeSourceFile("export function foo() {}");
         expect(() => SymbolRef.fromExport(sf, "nonexistent")).toThrow(EngineError);
-      });
-
-      it("throws with code SYMBOL_NOT_FOUND", () => {
-        const sf = makeSourceFile("export function foo() {}");
-        expect(() => SymbolRef.fromExport(sf, "nonexistent")).toThrow(
-          expect.objectContaining({ code: "SYMBOL_NOT_FOUND" }),
-        );
-      });
-
-      it("throws SYMBOL_NOT_FOUND for an empty source file", () => {
-        const sf = makeSourceFile("");
-        expect(() => SymbolRef.fromExport(sf, "anything")).toThrow(
-          expect.objectContaining({ code: "SYMBOL_NOT_FOUND" }),
-        );
-      });
-
-      it("throws SYMBOL_NOT_FOUND for a function that exists but is not exported", () => {
-        const sf = makeSourceFile("function foo() {}");
-        expect(() => SymbolRef.fromExport(sf, "foo")).toThrow(
-          expect.objectContaining({ code: "SYMBOL_NOT_FOUND" }),
-        );
       });
 
       it("error message includes the symbol name", () => {
