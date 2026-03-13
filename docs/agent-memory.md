@@ -46,6 +46,12 @@ Every AC should be a functional unit — the build passes and tests pass after i
 
 ---
 
+## After compiler-aware renames, batch the textual cleanup
+
+`mcp__light-bridge__rename` follows the compiler's reference graph — it renames the definition and all type-checked references. But derived names (`tsProviderSingleton`, `pluginProviders`, `stubProvider`) are just strings that happen to contain the old name; the compiler doesn't link them. After the `rename` calls, do **one** `replaceText` pass with a pattern to catch remaining occurrences — don't edit them individually. During the providers→compilers rename, doing this one-by-one instead of batching ballooned AC2 to 126 tool calls for what should have been ~10.
+
+---
+
 ## Colocate test helpers with their domain, not in a generic folder
 
 `makeMockCompiler` mocks the `Compiler` interface — it belongs in `tests/compilers/__helpers__/`, not `tests/helpers/`. Place test doubles near the concept they mock, using `__helpers__/` subfolders per code-standards.md.
