@@ -34,7 +34,7 @@ description: Create or refine a task specification from a handoff.md entry — p
 
    These are **not** implementation details the executor can figure out. They are architectural forks that affect what gets built. The spec cannot be picked up for implementation until every open decision is resolved. Never write "the executor should choose" — that defers a design decision to an agent that isn't equipped to make it.
 
-9. **Populate Relevant files and Red flags.** As you explored the codebase to draft ACs, you read files containing reusable logic, similar patterns, and shared types. List them in the `Relevant files` section with a brief note on why each matters. Also note any code smells in the target area (oversized files, duplication, missing abstractions) under `Red flags`. Reference `docs/code-standards.md` for thresholds.
+9. **Populate Relevant files and Red flags.** As you explored the codebase to draft ACs, you read files containing reusable logic, similar patterns, and shared types. List them in the `Relevant files` section with a brief note on why each matters. Also note any code smells in the target area — poor cohesion, duplication, missing abstractions, tangled responsibilities — under `Red flags`. Assess using the quality model in `docs/code-standards.md`, not just the size thresholds.
 
    **Test hotspot assessment:** Check the test files that will be touched by this spec. If any are at or near threshold, assess them using the test refactoring hierarchy in `docs/code-standards.md` and include a prep step in the spec to refactor them before adding new tests.
 
