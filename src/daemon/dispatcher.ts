@@ -156,7 +156,8 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params, workspace) {
       const { file } = params as { file?: string };
       const tsCompiler = await registry.tsCompiler();
-      return getTypeErrors(tsCompiler, file, workspace);
+      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      return getTypeErrors(tsCompiler, file, scope);
     },
   },
 
@@ -251,7 +252,11 @@ export async function dispatchRequest(
     (result.filesModified as string[]).length > 0
   ) {
     const tsCompiler = await registry.tsCompiler();
-    const diagnostics = getTypeErrorsForFiles(tsCompiler, result.filesModified as string[]);
+    const diagnostics = getTypeErrorsForFiles(
+      tsCompiler,
+      result.filesModified as string[],
+      new NodeFileSystem(),
+    );
     result.typeErrors = diagnostics.typeErrors;
     result.typeErrorCount = diagnostics.typeErrorCount;
     result.typeErrorsTruncated = diagnostics.typeErrorsTruncated;

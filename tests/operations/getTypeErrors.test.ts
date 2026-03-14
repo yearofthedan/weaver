@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
+import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { getTypeErrors, getTypeErrorsForFiles } from "../../src/operations/getTypeErrors.js";
+import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
 import { cleanup, copyFixture } from "../helpers.js";
+
+function makeScope(dir: string): WorkspaceScope {
+  return new WorkspaceScope(dir, new NodeFileSystem());
+}
 
 describe("getTypeErrors operation", () => {
   const dirs: string[] = [];
@@ -18,7 +24,7 @@ describe("getTypeErrors operation", () => {
       const dir = setup();
       const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, dir);
+      const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
 
       // broken.ts has exactly 3 deliberate errors
       expect(result.errorCount).toBe(3);
@@ -40,7 +46,7 @@ describe("getTypeErrors operation", () => {
       const dir = setup();
       const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, dir);
+      const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
 
       const diags = result.diagnostics.slice().sort((a, b) => a.line - b.line);
 
@@ -73,7 +79,7 @@ describe("getTypeErrors operation", () => {
       //   chain[0]: "Type '(x: number) => string' is not assignable to type '(x: string) => number'."
       //   chain[1]: "Types of parameters 'x' and 'x' are incompatible."
       //   chain[2]: "Type 'string' is not assignable to type 'number'."
-      const result = await getTypeErrors(compiler, `${dir}/src/chained-error.ts`, dir);
+      const result = await getTypeErrors(compiler, `${dir}/src/chained-error.ts`, makeScope(dir));
 
       expect(result.diagnostics).toHaveLength(1);
       const { message } = result.diagnostics[0];
@@ -89,7 +95,7 @@ describe("getTypeErrors operation", () => {
       const dir = setup();
       const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(compiler, `${dir}/src/clean.ts`, dir);
+      const result = await getTypeErrors(compiler, `${dir}/src/clean.ts`, makeScope(dir));
 
       expect(result.diagnostics).toHaveLength(0);
       expect(result.errorCount).toBe(0);
@@ -101,7 +107,7 @@ describe("getTypeErrors operation", () => {
       const compiler = new TsMorphCompiler();
 
       await expect(
-        getTypeErrors(compiler, `${dir}/src/doesNotExist.ts`, dir),
+        getTypeErrors(compiler, `${dir}/src/doesNotExist.ts`, makeScope(dir)),
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
@@ -109,7 +115,7 @@ describe("getTypeErrors operation", () => {
       const dir = setup();
       const compiler = new TsMorphCompiler();
 
-      await expect(getTypeErrors(compiler, "/etc/hosts", dir)).rejects.toMatchObject({
+      await expect(getTypeErrors(compiler, "/etc/hosts", makeScope(dir))).rejects.toMatchObject({
         code: "WORKSPACE_VIOLATION",
       });
     });
@@ -118,7 +124,7 @@ describe("getTypeErrors operation", () => {
       const dir = setup();
       const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, dir);
+      const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
 
       // When not truncated, errorCount is the true total and equals diagnostics.length
       expect(result.errorCount).toBe(result.diagnostics.length);
@@ -130,7 +136,7 @@ describe("getTypeErrors operation", () => {
       const compiler = new TsMorphCompiler();
 
       // many-errors.ts has 105 deliberate type errors
-      const result = await getTypeErrors(compiler, `${dir}/src/many-errors.ts`, dir);
+      const result = await getTypeErrors(compiler, `${dir}/src/many-errors.ts`, makeScope(dir));
 
       expect(result.truncated).toBe(true);
       expect(result.diagnostics).toHaveLength(100);
@@ -141,7 +147,7 @@ describe("getTypeErrors operation", () => {
       const dir = setup("ts-100-errors");
       const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(compiler, `${dir}/src/exactly-100.ts`, dir);
+      const result = await getTypeErrors(compiler, `${dir}/src/exactly-100.ts`, makeScope(dir));
 
       expect(result.truncated).toBe(false);
       expect(result.errorCount).toBe(100);
@@ -154,7 +160,7 @@ describe("getTypeErrors operation", () => {
       const dir = setup();
       const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(compiler, undefined, dir);
+      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
 
       // broken.ts (3 errors) + many-errors.ts (105 errors) = 108 total, so truncated
       expect(result.errorCount).toBeGreaterThan(100);
@@ -166,7 +172,7 @@ describe("getTypeErrors operation", () => {
       const dir = setup();
       const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(compiler, undefined, dir);
+      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
 
       expect(result.truncated).toBe(true);
       expect(result.diagnostics).toHaveLength(100);
@@ -179,7 +185,7 @@ describe("getTypeErrors operation", () => {
       const dir = setup("ts-100-errors");
       const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(compiler, undefined, dir);
+      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
 
       expect(result.truncated).toBe(false);
       expect(result.errorCount).toBe(100);
@@ -190,7 +196,7 @@ describe("getTypeErrors operation", () => {
       const dir = setup("simple-ts");
       const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(compiler, undefined, dir);
+      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
 
       expect(result.diagnostics).toHaveLength(0);
       expect(result.errorCount).toBe(0);
@@ -201,7 +207,7 @@ describe("getTypeErrors operation", () => {
       const dir = setup();
       const compiler = new TsMorphCompiler();
 
-      const result = await getTypeErrors(compiler, undefined, dir);
+      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
 
       for (const diag of result.diagnostics) {
         expect(typeof diag.file).toBe("string");
@@ -231,7 +237,7 @@ describe("getTypeErrorsForFiles helper", () => {
     setup(); // create fixture dir so afterEach cleanup runs
     const compiler = new TsMorphCompiler();
 
-    const result = getTypeErrorsForFiles(compiler, []);
+    const result = getTypeErrorsForFiles(compiler, [], new NodeFileSystem());
 
     expect(result.typeErrors).toEqual([]);
     expect(result.typeErrorCount).toBe(0);
@@ -242,10 +248,11 @@ describe("getTypeErrorsForFiles helper", () => {
     const dir = setup();
     const compiler = new TsMorphCompiler();
 
-    const result = getTypeErrorsForFiles(compiler, [
-      `${dir}/some-component.vue`,
-      `${dir}/config.json`,
-    ]);
+    const result = getTypeErrorsForFiles(
+      compiler,
+      [`${dir}/some-component.vue`, `${dir}/config.json`],
+      new NodeFileSystem(),
+    );
 
     expect(result.typeErrors).toEqual([]);
     expect(result.typeErrorCount).toBe(0);
@@ -256,7 +263,7 @@ describe("getTypeErrorsForFiles helper", () => {
     const dir = setup();
     const compiler = new TsMorphCompiler();
 
-    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/broken.ts`]);
+    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/broken.ts`], new NodeFileSystem());
 
     // broken.ts has exactly 3 deliberate errors
     expect(result.typeErrorCount).toBe(3);
@@ -277,7 +284,7 @@ describe("getTypeErrorsForFiles helper", () => {
     const compiler = new TsMorphCompiler();
 
     // AC2 equivalent: clean file → all three fields present but empty/zero/false
-    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/clean.ts`]);
+    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/clean.ts`], new NodeFileSystem());
 
     expect(result.typeErrors).toEqual([]);
     expect(result.typeErrorCount).toBe(0);
@@ -289,7 +296,7 @@ describe("getTypeErrorsForFiles helper", () => {
     const compiler = new TsMorphCompiler();
 
     // AC4 equivalent: provide only clean.ts; broken.ts has errors but is not listed
-    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/clean.ts`]);
+    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/clean.ts`], new NodeFileSystem());
 
     expect(result.typeErrors).toEqual([]);
     expect(result.typeErrorCount).toBe(0);
@@ -303,10 +310,11 @@ describe("getTypeErrorsForFiles helper", () => {
     const compiler = new TsMorphCompiler();
 
     // broken.ts: 3 errors, chained-error.ts: 1 error
-    const result = getTypeErrorsForFiles(compiler, [
-      `${dir}/src/broken.ts`,
-      `${dir}/src/chained-error.ts`,
-    ]);
+    const result = getTypeErrorsForFiles(
+      compiler,
+      [`${dir}/src/broken.ts`, `${dir}/src/chained-error.ts`],
+      new NodeFileSystem(),
+    );
 
     expect(result.typeErrorCount).toBe(4);
     expect(result.typeErrors).toHaveLength(4);
@@ -320,12 +328,14 @@ describe("getTypeErrorsForFiles helper", () => {
     const compiler = new TsMorphCompiler();
 
     // many-errors.ts has 105 errors
-    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/many-errors.ts`]);
+    const result = getTypeErrorsForFiles(
+      compiler,
+      [`${dir}/src/many-errors.ts`],
+      new NodeFileSystem(),
+    );
 
     expect(result.typeErrorsTruncated).toBe(true);
     expect(result.typeErrors).toHaveLength(100);
     expect(result.typeErrorCount).toBe(105);
-    // typeErrors must be exactly 100 — not 101, not 99
-    expect(result.typeErrors.length).not.toBeGreaterThan(100);
   });
 });

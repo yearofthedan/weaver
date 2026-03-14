@@ -1,8 +1,8 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { ts } from "ts-morph";
 import type { TsMorphCompiler } from "../compilers/ts.js";
-import { isWithinWorkspace } from "../security.js";
+import type { WorkspaceScope } from "../domain/workspace-scope.js";
+import type { FileSystem } from "../ports/filesystem.js";
 import type { GetTypeErrorsResult, PostWriteDiagnostics, TypeDiagnostic } from "../types.js";
 import { EngineError } from "../utils/errors.js";
 
@@ -13,19 +13,19 @@ const MAX_DIAGNOSTICS = 100;
 export async function getTypeErrors(
   compiler: TsMorphCompiler,
   file: string | undefined,
-  workspace: string,
+  scope: WorkspaceScope,
 ): Promise<GetTypeErrorsResult> {
   if (file !== undefined) {
     const absPath = path.resolve(file);
-    if (!fs.existsSync(absPath)) {
+    if (!scope.fs.exists(absPath)) {
       throw new EngineError(`File not found: ${file}`, "FILE_NOT_FOUND");
     }
-    if (!isWithinWorkspace(absPath, workspace)) {
+    if (!scope.contains(absPath)) {
       throw new EngineError(`file is outside the workspace: ${file}`, "WORKSPACE_VIOLATION");
     }
     return getForFile(compiler, absPath);
   }
-  return getForProject(compiler, workspace);
+  return getForProject(compiler, scope.root);
 }
 
 /**
@@ -36,6 +36,7 @@ export async function getTypeErrors(
 export function getTypeErrorsForFiles(
   compiler: TsMorphCompiler,
   files: string[],
+  fs: FileSystem,
 ): PostWriteDiagnostics {
   const tsFiles = files.filter((f) => TS_FILE_EXTENSIONS.has(path.extname(f)));
 
@@ -43,7 +44,7 @@ export function getTypeErrorsForFiles(
   const allDiagnostics: TypeDiagnostic[] = [];
 
   for (const file of tsFiles) {
-    if (!fs.existsSync(file)) continue;
+    if (!fs.exists(file)) continue;
 
     const project = compiler.getProjectForFile(file);
     const existing = project.getSourceFile(file);
