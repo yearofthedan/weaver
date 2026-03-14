@@ -204,7 +204,8 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
           newText: string;
         }>;
       };
-      return replaceText(workspace, { pattern, replacement, glob, edits });
+      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      return replaceText(scope, { pattern, replacement, glob, edits });
     },
   },
 };

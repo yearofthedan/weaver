@@ -1,7 +1,7 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import safeRegex from "safe-regex2";
-import { isSensitiveFile, isWithinWorkspace } from "../security.js";
+import type { WorkspaceScope } from "../domain/workspace-scope.js";
+import { isSensitiveFile } from "../security.js";
 import type { ReplaceTextResult, TextEdit } from "../types.js";
 import { EngineError } from "../utils/errors.js";
 import { walkWorkspaceFiles } from "./searchText.js";
@@ -20,7 +20,7 @@ import { walkWorkspaceFiles } from "./searchText.js";
  * Both modes enforce the workspace boundary and skip sensitive files.
  */
 export async function replaceText(
-  workspace: string,
+  scope: WorkspaceScope,
   opts: {
     pattern?: string;
     replacement?: string;
@@ -31,11 +31,11 @@ export async function replaceText(
   const { pattern, replacement, glob, edits } = opts;
 
   if (edits !== undefined) {
-    return applySurgicalEdits(workspace, edits);
+    return applySurgicalEdits(scope, edits);
   }
 
   if (pattern !== undefined && replacement !== undefined) {
-    return applyPatternReplace(workspace, pattern, replacement, glob);
+    return applyPatternReplace(scope, pattern, replacement, glob);
   }
 
   // Zod's refine() in ReplaceTextArgsSchema catches this at the protocol boundary;
@@ -49,7 +49,7 @@ export async function replaceText(
 // ─── Pattern mode ────────────────────────────────────────────────────────────
 
 function applyPatternReplace(
-  workspace: string,
+  scope: WorkspaceScope,
   pattern: string,
   replacement: string,
   glob?: string,
@@ -67,19 +67,18 @@ function applyPatternReplace(
     );
   }
 
-  const files = walkWorkspaceFiles(workspace, glob);
-  const filesModified: string[] = [];
+  const files = walkWorkspaceFiles(scope.root, glob);
   let replacementCount = 0;
 
   for (const filePath of files) {
     // Symlinks in git-tracked files can resolve outside the workspace —
-    // isWithinWorkspace re-checks via realpathSync to catch this case.
-    if (!isWithinWorkspace(filePath, workspace)) continue;
+    // scope.contains() re-checks via realpathSync to catch this case.
+    if (!scope.contains(filePath)) continue;
     if (isSensitiveFile(filePath)) continue;
 
     let content: string;
     try {
-      content = fs.readFileSync(filePath, "utf8");
+      content = scope.fs.readFile(filePath);
     } catch {
       continue;
     }
@@ -94,22 +93,21 @@ function applyPatternReplace(
     const updated = content.replace(re, replacement);
 
     if (updated !== content) {
-      fs.writeFileSync(filePath, updated, "utf8");
-      filesModified.push(filePath);
+      scope.writeFile(filePath, updated);
       replacementCount += hits.length;
     }
   }
 
-  return { filesModified, replacementCount };
+  return { filesModified: scope.modified, replacementCount };
 }
 
 // ─── Surgical mode ────────────────────────────────────────────────────────────
 
-function applySurgicalEdits(workspace: string, edits: TextEdit[]): ReplaceTextResult {
+function applySurgicalEdits(scope: WorkspaceScope, edits: TextEdit[]): ReplaceTextResult {
   // Validate all inputs up front before touching any file
   for (const edit of edits) {
     const abs = path.resolve(edit.file);
-    if (!isWithinWorkspace(abs, workspace)) {
+    if (!scope.contains(abs)) {
       throw new EngineError(`file is outside the workspace: ${edit.file}`, "WORKSPACE_VIOLATION");
     }
     if (isSensitiveFile(abs)) {
@@ -132,11 +130,10 @@ function applySurgicalEdits(workspace: string, edits: TextEdit[]): ReplaceTextRe
     }
   }
 
-  const filesModified: string[] = [];
   let replacementCount = 0;
 
   for (const [filePath, fileEdits] of byFile) {
-    let content = fs.readFileSync(filePath, "utf8");
+    let content = scope.fs.readFile(filePath);
     const lines = content.split("\n");
 
     // Sort edits by position descending (last → first) so earlier offsets
@@ -166,9 +163,8 @@ function applySurgicalEdits(workspace: string, edits: TextEdit[]): ReplaceTextRe
       replacementCount++;
     }
 
-    fs.writeFileSync(filePath, content, "utf8");
-    filesModified.push(filePath);
+    scope.writeFile(filePath, content);
   }
 
-  return { filesModified, replacementCount };
+  return { filesModified: scope.modified, replacementCount };
 }
