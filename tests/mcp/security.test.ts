@@ -1,7 +1,28 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
+import { validateFilePath } from "../../src/security.js";
 import { parseMcpResult, useMcpContext } from "../mcp-helpers.js";
+
+describe("validateFilePath", () => {
+  it.each([
+    ["null byte (\\x00)", "/workspace/src/foo\x00bar.ts"],
+    ["newline (\\n)", "/workspace/src/foo\nbar.ts"],
+    ["unit separator (\\x1f)", "/workspace/src/foo\x1fbar.ts"],
+  ])("rejects a path containing a control character — %s", (_label, filePath) => {
+    const result = validateFilePath(filePath);
+    expect(result).toEqual({ ok: false, reason: "CONTROL_CHARS" });
+  });
+
+  it.each([
+    ["plain absolute path", "/workspace/src/foo.ts"],
+    ["path with spaces and unicode", "/workspace/src/my file (v2) — naïve.ts"],
+    ["path with hyphens and parentheses", "/workspace/src/my-module (copy).ts"],
+  ])("accepts a valid path — %s", (_label, filePath) => {
+    const result = validateFilePath(filePath);
+    expect(result).toEqual({ ok: true });
+  });
+});
 
 describe("MCP transport — workspace security", () => {
   const { setup } = useMcpContext();

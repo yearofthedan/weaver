@@ -20,7 +20,7 @@ import {
   ReplaceTextArgsSchema,
   SearchTextArgsSchema,
 } from "../schema.js";
-import { isWithinWorkspace } from "../security.js";
+import { isWithinWorkspace, validateFilePath } from "../security.js";
 import type { CompilerRegistry } from "../types.js";
 import { makeRegistry } from "./language-plugin-registry.js";
 
@@ -229,6 +229,17 @@ export async function dispatchRequest(
 
   for (const paramKey of descriptor.pathParams) {
     const value = req.params[paramKey] as string;
+    const pathResult = validateFilePath(value);
+    if (!pathResult.ok) {
+      return {
+        ok: false,
+        error: "INVALID_PATH",
+        message:
+          pathResult.reason === "CONTROL_CHARS"
+            ? `path contains control characters: ${paramKey}`
+            : `path contains URI fragment or query character: ${paramKey}`,
+      };
+    }
     if (!isWithinWorkspace(value, workspace)) {
       return {
         ok: false,

@@ -10,7 +10,8 @@ export type ErrorCode =
   | "UNKNOWN_METHOD"
   | "PARSE_ERROR"
   | "VALIDATION_ERROR"
-  | "REDOS";
+  | "REDOS"
+  | "INVALID_PATH";
 
 export class EngineError extends Error {
   readonly code: ErrorCode;

@@ -95,6 +95,27 @@ export function isSensitiveFile(filePath: string): boolean {
   return false;
 }
 
+/**
+ * Validates a file path string for control characters and URI fragments.
+ * Must be called before path.resolve() or path.normalize() — those calls
+ * are exactly what we're protecting against for adversarial input.
+ *
+ * - Control characters (\x00–\x1f) can corrupt logs and confuse downstream tools.
+ *   \x00 (null byte) is especially dangerous: it terminates strings on POSIX,
+ *   meaning /workspace/src/foo.ts\x00.pem would pass a .pem check but resolve
+ *   to /workspace/src/foo.ts on the filesystem.
+ * - ? and # indicate the caller passed a URI instead of a plain filesystem path.
+ */
+export function validateFilePath(
+  filePath: string,
+): { ok: true } | { ok: false; reason: "CONTROL_CHARS" | "URI_FRAGMENT" } {
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentionally detecting control chars
+  if (/[\x00-\x1f]/.test(filePath)) return { ok: false, reason: "CONTROL_CHARS" };
+  if (filePath.includes("?") || filePath.includes("#"))
+    return { ok: false, reason: "URI_FRAGMENT" };
+  return { ok: true };
+}
+
 export function validateWorkspace(
   workspacePath: string,
 ): { ok: true; workspace: string } | { ok: false; error: string } {
