@@ -268,6 +268,93 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     });
   });
 
+  describe("moved out-of-project file own imports", () => {
+    it("rewrites relative imports inside a moved out-of-project test file", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      const oldPath = `${dir}/tests/utils.test.ts`;
+      const newPath = `${dir}/tests/unit/utils.test.ts`;
+
+      const result = await moveFile(compiler, oldPath, newPath, makeScope(dir));
+
+      const movedContent = fs.readFileSync(newPath, "utf8");
+      expect(movedContent).toContain('"../../src/utils"');
+      expect(movedContent).not.toContain('"../src/utils"');
+      expect(result.filesModified).toContain(newPath);
+    });
+
+    it("does not rewrite bare module specifiers inside the moved file", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      // Add a test file with a bare module specifier alongside a relative one
+      const extraTest = path.join(dir, "tests", "mixed.test.ts");
+      fs.writeFileSync(
+        extraTest,
+        [
+          'import { describe } from "vitest";',
+          'import { greetUser } from "../src/utils";',
+          "",
+        ].join("\n"),
+      );
+
+      const result = await moveFile(
+        compiler,
+        extraTest,
+        path.join(dir, "tests", "unit", "mixed.test.ts"),
+        makeScope(dir),
+      );
+
+      const movedContent = fs.readFileSync(
+        path.join(dir, "tests", "unit", "mixed.test.ts"),
+        "utf8",
+      );
+      expect(movedContent).toContain('"vitest"');
+      expect(movedContent).toContain('"../../src/utils"');
+      expect(result.filesModified).toContain(path.join(dir, "tests", "unit", "mixed.test.ts"));
+    });
+
+    it("preserves .js extension when rewriting relative imports in a moved file", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      const extraTest = path.join(dir, "tests", "js-ext.test.ts");
+      fs.writeFileSync(extraTest, 'import { greetUser } from "../src/utils.js";\n');
+
+      await moveFile(
+        compiler,
+        extraTest,
+        path.join(dir, "tests", "unit", "js-ext.test.ts"),
+        makeScope(dir),
+      );
+
+      const movedContent = fs.readFileSync(
+        path.join(dir, "tests", "unit", "js-ext.test.ts"),
+        "utf8",
+      );
+      expect(movedContent).toContain('"../../src/utils.js"');
+      expect(movedContent).not.toContain('"../src/utils.js"');
+    });
+
+    it("is a no-op when moved to the same directory depth (same-dir rename)", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      const extraTest = path.join(dir, "tests", "renamed.test.ts");
+      fs.writeFileSync(extraTest, 'import { greetUser } from "../src/utils";\n');
+
+      await moveFile(compiler, extraTest, path.join(dir, "tests", "other.test.ts"), makeScope(dir));
+
+      const movedContent = fs.readFileSync(path.join(dir, "tests", "other.test.ts"), "utf8");
+      expect(movedContent).toContain('"../src/utils"');
+    });
+  });
+
   describe("filesModified completeness", () => {
     it("includes all rewritten files including those updated by fallback scan", async () => {
       const dir = copyFixture("simple-ts");
