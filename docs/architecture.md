@@ -47,6 +47,14 @@ src/plugins/             ← language plugin feature folders (one per framework)
 
 Each plugin folder is a self-contained unit: project detection, compiler implementation, and any framework-specific helpers. When adding a new framework (Svelte, Angular), add a new `src/plugins/<name>/` folder following the same shape.
 
+### Design principles
+
+1. **Operations are orchestrators, not implementors.** An operation function should read like a recipe: resolve inputs, call domain services, return results. If it needs comments explaining what a block does, that block is a missing abstraction.
+2. **Compiler work belongs behind compiler adapters.** No operation should import from `ts-morph` or call `getProjectForFile()`. The compiler adapter owns all AST access.
+3. **I/O goes through ports.** File reads, writes, existence checks — all through the injectable `FileSystem` interface. This is the single biggest testability win: tests inject `InMemoryFileSystem` instead of copying fixtures to temp directories.
+4. **Plugins are self-contained feature folders.** The Vue plugin owns everything Vue-specific. Cross-cutting logic (`ImportRewriter`, `WorkspaceScope`) lives in `src/domain/` and is used by plugins, never duplicated inside them.
+5. **The workspace boundary is a first-class object.** `WorkspaceScope` encapsulates the root, the `FileSystem`, and modification tracking — not a string threaded through every function signature.
+
 ### Hexagonal layer diagram
 
 ```mermaid
@@ -141,24 +149,7 @@ sequenceDiagram
 
 ### Which operations use which pattern
 
-`rename`, `moveFile`, and `moveSymbol` receive a `WorkspaceScope`, use the `FileSystem` port for I/O, and rely on domain services for boundary tracking and import rewriting.
-
-The remaining mutating operations take `workspace: string`, call `fs.*` directly, check `isWithinWorkspace` inline, and track modifications with manual `Set<string>` instances.
-
-| Operation | Boundary / I/O pattern |
-|-----------|----------------------|
-| `rename` | `WorkspaceScope` + `FileSystem` port |
-| `moveFile` | `WorkspaceScope` + `FileSystem` port |
-| `moveSymbol` | `WorkspaceScope` + `FileSystem` port |
-| `deleteFile` | `workspace: string` + direct `fs.*` |
-| `extractFunction` | `workspace: string` + direct `fs.*` |
-| `getTypeErrors` | `workspace: string` + direct `fs.*` |
-| `searchText` | `workspace: string` + direct `fs.*` (no compiler) |
-| `replaceText` | `workspace: string` + direct `fs.*` (no compiler) |
-
-Read-only operations (`findReferences`, `getDefinition`) do not write files and do not take a workspace argument.
-
-**`workspace` is a read-only boundary string.** Operations receive it as a string path used only for `isWithinWorkspace` checks in `src/security.ts`. Never write to it as a config object or mutate it.
+All mutating operations receive a `WorkspaceScope`, use the `FileSystem` port for I/O, and rely on domain services for boundary tracking and import rewriting. Read-only operations (`findReferences`, `getDefinition`) do not write files and do not take a workspace argument.
 
 **MCP tool names use camelCase.** `rename`, `findReferences`, `getDefinition`, etc. — not kebab-case. This matches TypeScript naming conventions and is visible in the MCP tool descriptions agents read.
 
@@ -177,7 +168,7 @@ interface Compiler {
   getEditsForFileRename(oldPath, newPath): Promise<FileTextEdit[]>
   readFile(path): string
   notifyFileWritten(path, content): void
-  afterFileRename(oldPath, newPath, workspace, alreadyModified?): Promise<{ modified, skipped }>
+  afterFileRename(oldPath, newPath, scope: WorkspaceScope): Promise<void>
   afterSymbolMove(sourceFile, symbolName, destFile, scope: WorkspaceScope): Promise<void>
 }
 ```
@@ -299,7 +290,7 @@ Input validation is at the dispatcher layer; output filtering is at the operatio
 - `recordModified(path)` / `recordSkipped(path)` — modification tracking
 - `modified` / `skipped` getters — return tracked paths
 
-The dispatcher constructs a `WorkspaceScope` from the workspace string and a `NodeFileSystem` instance, then passes it to the operation. Currently `rename`, `moveFile`, and `moveSymbol` use `WorkspaceScope`; other operations still receive `workspace: string` and are migrated in subsequent slices.
+The dispatcher constructs a `WorkspaceScope` from the workspace string and a `NodeFileSystem` instance, then passes it to the operation. All mutating operations use `WorkspaceScope`.
 
 `ImportRewriter` (`src/domain/import-rewriter.ts`) rewrites named imports and re-exports of a moved symbol across a set of files. It provides:
 - `rewrite(files, symbolName, oldSource, newSource, scope)` — scan files, rewrite matching import/export declarations, write via `scope.writeFile()`
