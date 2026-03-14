@@ -33,11 +33,11 @@
 
 ## Behaviour
 
-- [ ] Given a file path containing any byte in `\x00`–`\x1f` (e.g. `"/workspace/src/foo\x00bar.ts"`), the dispatcher returns `{ ok: false, error: "INVALID_PATH", message: "path contains control characters: <paramKey>" }` and the operation is not invoked.
-- [ ] Given a file path containing `?` (e.g. `"file:///workspace/src/foo.ts?v=1"`), the dispatcher returns `{ ok: false, error: "INVALID_PATH", message: "path contains URI fragment or query character: <paramKey>" }`.
-- [ ] Given a file path containing `#` (e.g. `"/workspace/src/foo.ts#anchor"`), the dispatcher returns `{ ok: false, error: "INVALID_PATH", message: "path contains URI fragment or query character: <paramKey>" }`.
-- [ ] A valid absolute path (no control chars, no `?` or `#`) passes validation and reaches `isWithinWorkspace` unchanged — no false positives for paths with spaces, hyphens, parentheses, or unicode in filenames.
-- [ ] `validateFilePath` is called before `path.resolve()` — verified by unit test that passes a null-byte path and confirms the function returns `{ ok: false }` without throwing or calling resolve.
+- [x] Given a file path containing any byte in `\x00`–`\x1f` (e.g. `"/workspace/src/foo\x00bar.ts"`), the dispatcher returns `{ ok: false, error: "INVALID_PATH", message: "path contains control characters: <paramKey>" }` and the operation is not invoked.
+- [x] Given a file path containing `?` (e.g. `"file:///workspace/src/foo.ts?v=1"`), the dispatcher returns `{ ok: false, error: "INVALID_PATH", message: "path contains URI fragment or query character: <paramKey>" }`.
+- [x] Given a file path containing `#` (e.g. `"/workspace/src/foo.ts#anchor"`), the dispatcher returns `{ ok: false, error: "INVALID_PATH", message: "path contains URI fragment or query character: <paramKey>" }`.
+- [x] A valid absolute path (no control chars, no `?` or `#`) passes validation and reaches `isWithinWorkspace` unchanged — no false positives for paths with spaces, hyphens, parentheses, or unicode in filenames.
+- [x] `validateFilePath` is called before `path.resolve()` — verified by unit test that passes a null-byte path and confirms the function returns `{ ok: false }` without throwing or calling resolve.
 
 > Note: The check applies only to the `pathParams` loop in `dispatchRequest`. It does not apply to the `workspace` argument (which is validated separately by `validateWorkspace` at daemon startup).
 
@@ -98,12 +98,21 @@ Add `"INVALID_PATH"` to the `ErrorCode` union in `src/utils/errors.ts`.
 
 ## Done-when
 
-- [ ] All ACs verified by tests
-- [ ] Mutation score ≥ threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated if public surface changed:
-      - README.md (error codes table, if one exists)
-      - handoff.md current-state section
-- [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] All ACs verified by tests
+- [x] Mutation score >= threshold for touched files
+- [x] `pnpm check` passes (lint + build + test)
+- [x] Docs updated if public surface changed:
+      - README.md — no error codes table exists; no change needed
+      - handoff.md current-state section — updated security.ts description
+      - docs/features/mcp-transport.md — added `INVALID_PATH` to error codes list
+- [x] Tech debt discovered during implementation added to handoff.md as [needs design] — none discovered
+- [x] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting — none discovered
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Reflection:** Clean implementation matching the spec exactly. The `validateFilePath` function is a pure string check with no filesystem interaction, slotted into the dispatcher path-param loop before `path.resolve()`. The null-byte bypass of `isSensitiveFile` (where `foo.ts\x00.pem` would pass the `.pem` check but resolve to `foo.ts`) is now closed. Stryker generated mutations only in `errors.ts` (the new `INVALID_PATH` literal); `security.ts` and `dispatcher.ts` had no mutants generated, which is expected for simple conditional guards where the regex and branch structure don't produce viable mutations.
+
+- **Tests added:** 5
+- **Mutation score:** 100% on touched files (all generated mutants killed)
+- **Discoveries:** None -- implementation was straightforward with no surprises.

@@ -96,7 +96,7 @@ Failure:
 }
 ```
 
-Error codes include: `DAEMON_STARTING`, `INTERNAL_ERROR`, `VALIDATION_ERROR`, `WORKSPACE_VIOLATION`, `FILE_NOT_FOUND`, `SYMBOL_NOT_FOUND`, `RENAME_NOT_ALLOWED`, `NOT_SUPPORTED`, `SENSITIVE_FILE`, `TEXT_MISMATCH`, `PARSE_ERROR`, `REDOS`, `UNKNOWN_METHOD`.
+Error codes include: `DAEMON_STARTING`, `INTERNAL_ERROR`, `INVALID_PATH`, `VALIDATION_ERROR`, `WORKSPACE_VIOLATION`, `FILE_NOT_FOUND`, `SYMBOL_NOT_FOUND`, `RENAME_NOT_ALLOWED`, `NOT_SUPPORTED`, `SENSITIVE_FILE`, `TEXT_MISMATCH`, `PARSE_ERROR`, `REDOS`, `UNKNOWN_METHOD`.
 
 `filesSkipped` lists collateral writes that were skipped because they fell outside the workspace boundary. Agents should surface this to the user.
 

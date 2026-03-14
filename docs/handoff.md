@@ -62,7 +62,7 @@ src/
     import-rewriter.ts    ← ImportRewriter — rewrites named imports/re-exports of a moved symbol across files
     symbol-ref.ts         ← SymbolRef — resolved exported symbol value object (lookup, unwrap, remove)
   types.ts        ← result types + LanguagePlugin + Compiler + CompilerRegistry interfaces
-  security.ts     ← isWithinWorkspace() + isSensitiveFile() — boundary + sensitive file blocklist
+  security.ts     ← isWithinWorkspace() + isSensitiveFile() + validateFilePath() — boundary, sensitive file blocklist, path validation
   mcp.ts          ← MCP server (connects to daemon)
   daemon/
     daemon.ts                    ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher
@@ -110,9 +110,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Very high value bugs and tech debt
 
-- **Reject control characters and URI fragments in file paths** → [`docs/specs/20260314-reject-path-special-chars.md`](specs/20260314-reject-path-special-chars.md)
-
-- **`moveFile` does not update imports in files outside `tsconfig.include`** `[needs design]` — tool description says "Works for non-source files (tests, scripts, config) too" but imports within moved test files are not rewritten when directory depth changes, and test files that import a moved source file are not updated. Two failure modes: (a) source file moved → test imports to it break; (b) test file moved to different depth → its own `src/` imports break. Both require manual fixes today. Fix likely requires a second pass using text-based rewriting (outside ts-morph) for files not in `tsconfig.include`.
+- **`moveFile` does not rewrite imports inside a moved out-of-project file** → [`docs/specs/20260314-movefile-extraproject-imports.md`](specs/20260314-movefile-extraproject-imports.md)
 - **Batch file operations** `[needs design]` — `moveFile` requires N sequential calls for N files; no atomicity. Offer `moveFiles(oldPaths[], newPath)` and/or `moveDirectory(oldPath, newPath)`. Quality-of-life improvement for agents.
 
 - **Test colocation and mutation speed** → [`docs/specs/20260305-colocate-tests.md`](specs/20260305-colocate-tests.md) — Two-stage refactor: (1) move unit tests next to source, integration tests to `__tests__/`; (2) refactor source files mixing concerns (`searchText` utilities, `security` concerns, `getTypeErrors` dispatcher plumbing) and optimize fixture copying for `perTest` coverage analysis.
@@ -166,7 +164,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - **`docs/tech/volar-v3.md`** — how the Vue compiler works around TypeScript's refusal to process `.vue` files. Read this before touching `src/plugins/vue/compiler.ts`.
 - **`docs/tech/tech-debt.md`** — known structural issues. Includes the `ensureDaemon` one-shot bug.
 - **`@volar/language-core` version skew** — `@vue/language-core` and `@volar/typescript` previously depended on different patch versions of `@volar/language-core`, causing type mismatches. Fixed via `pnpm.overrides` in `package.json` pinning to 2.4.28. `@volar/language-core` is also a direct `devDependency` so TypeScript can resolve the `Language<string>` type import in `volar.ts`.
-- **`moveFile` import gap for files outside `tsconfig.include`** — test files and scripts are not in the ts-morph project; imports in/to them are not rewritten on move. See P2 backlog for details. Workaround: use `replaceText` to fix paths manually after moving.
+- **`moveFile` import gap for files outside `tsconfig.include`** — imports *to* out-of-project files are rewritten by the `afterFileRename` fallback scan, but imports *inside* a moved out-of-project file are not rewritten. Spec: [`docs/specs/20260314-movefile-extraproject-imports.md`](specs/20260314-movefile-extraproject-imports.md). Workaround: use `replaceText` to fix paths manually after moving.
 
 ---
 

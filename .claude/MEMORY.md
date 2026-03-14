@@ -89,3 +89,6 @@ Reaching for tools while a question is unanswered is acting instead of listening
 
 **Do simple docs tasks directly — don't delegate to spec-agent.**
 For straightforward docs updates (fixing text, adding diagrams, updating tables), do the work inline. Spec-agent is valuable for design work where questions and tradeoff discussion matter, but adds unnecessary roundtrips for mechanical docs changes.
+
+**Stryker CLI: use `--mutate`, not `--include`.**
+To scope a mutation run to specific files: `pnpm exec stryker run --mutate 'src/foo.ts'`. For multiple files use a comma-separated glob or multiple `--mutate` flags. There is no `--include` flag — that causes `too many arguments for 'run'`.
