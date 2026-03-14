@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import safeRegex from "safe-regex2";
+import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { isSensitiveFile } from "../security.js";
 import type { ContextLine, SearchMatch, SearchTextResult } from "../types.js";
 import { EngineError } from "../utils/errors.js";
@@ -87,11 +88,11 @@ function walkRecursive(dir: string): string[] {
   return results;
 }
 
-/** Return true if the buffer appears to be binary (contains a null byte). */
-function isBinaryBuffer(buf: Buffer): boolean {
-  const checkLen = Math.min(buf.length, 512);
+/** Return true if the string content appears to be binary (contains a null character). */
+function isBinaryContent(content: string): boolean {
+  const checkLen = Math.min(content.length, 512);
   for (let i = 0; i < checkLen; i++) {
-    if (buf[i] === 0) return true;
+    if (content.charCodeAt(i) === 0) return true;
   }
   return false;
 }
@@ -100,14 +101,14 @@ function isBinaryBuffer(buf: Buffer): boolean {
  * Search for a regex pattern across all text files in the workspace.
  *
  * @param pattern - ECMAScript regex pattern string
- * @param workspace - absolute path to the workspace root
+ * @param scope - workspace scope used to resolve the root and read file content
  * @param opts.glob - optional glob to restrict which files are searched
  * @param opts.context - lines of context before and after each match (like grep -C)
  * @param opts.maxResults - cap on total matches returned (default 500)
  */
 export async function searchText(
   pattern: string,
-  workspace: string,
+  scope: WorkspaceScope,
   opts: { glob?: string; context?: number; maxResults?: number } = {},
 ): Promise<SearchTextResult> {
   const { glob, context = 0, maxResults = DEFAULT_MAX_RESULTS } = opts;
@@ -125,22 +126,21 @@ export async function searchText(
     );
   }
 
-  const files = walkWorkspaceFiles(workspace, glob);
+  const files = walkWorkspaceFiles(scope.root, glob);
   const matches: SearchMatch[] = [];
   let truncated = false;
 
   outer: for (const filePath of files) {
     if (isSensitiveFile(filePath)) continue;
 
-    let raw: Buffer;
+    let content: string;
     try {
-      raw = fs.readFileSync(filePath);
+      content = scope.fs.readFile(filePath);
     } catch {
       continue;
     }
-    if (isBinaryBuffer(raw)) continue;
+    if (isBinaryContent(content)) continue;
 
-    const content = raw.toString("utf8");
     const lines = content.split("\n");
 
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {

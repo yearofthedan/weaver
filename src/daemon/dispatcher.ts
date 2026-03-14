@@ -171,7 +171,8 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         context?: number;
         maxResults?: number;
       };
-      return searchText(pattern, workspace, { glob, context, maxResults });
+      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      return searchText(pattern, scope, { glob, context, maxResults });
     },
   },
 

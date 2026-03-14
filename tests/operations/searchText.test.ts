@@ -2,8 +2,14 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { globToRegex, searchText } from "../../src/operations/searchText.js";
+import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
 import { cleanup, copyFixture } from "../helpers.js";
+
+function makeScope(dir: string): WorkspaceScope {
+  return new WorkspaceScope(dir, new NodeFileSystem());
+}
 
 describe("globToRegex", () => {
   it("matches basename when pattern has no slash (prepends **/ internally)", () => {
@@ -45,7 +51,7 @@ describe("searchText operation", () => {
     const dir = copyFixture("simple-ts");
     dirs.push(dir);
 
-    const result = await searchText("greetUser", dir);
+    const result = await searchText("greetUser", makeScope(dir));
 
     expect(result.truncated).toBe(false);
     expect(result.matches.length).toBeGreaterThanOrEqual(2);
@@ -65,7 +71,7 @@ describe("searchText operation", () => {
     const dir = copyFixture("simple-ts");
     dirs.push(dir);
 
-    const result = await searchText("greetUser", dir, { context: 1 });
+    const result = await searchText("greetUser", makeScope(dir), { context: 1 });
 
     expect(result.matches.length).toBeGreaterThan(0);
     const match = result.matches[0];
@@ -81,7 +87,7 @@ describe("searchText operation", () => {
     dirs.push(dir);
 
     // Only search main.ts
-    const result = await searchText("greetUser", dir, { glob: "**/main.ts" });
+    const result = await searchText("greetUser", makeScope(dir), { glob: "**/main.ts" });
 
     expect(result.matches.every((m) => m.file.endsWith("main.ts"))).toBe(true);
     expect(result.matches.some((m) => m.file.endsWith("utils.ts"))).toBe(false);
@@ -91,7 +97,7 @@ describe("searchText operation", () => {
     const dir = copyFixture("simple-ts");
     dirs.push(dir);
 
-    const result = await searchText("zzz_does_not_exist_zzz", dir);
+    const result = await searchText("zzz_does_not_exist_zzz", makeScope(dir));
 
     expect(result.matches).toHaveLength(0);
     expect(result.truncated).toBe(false);
@@ -101,7 +107,9 @@ describe("searchText operation", () => {
     const dir = copyFixture("simple-ts");
     dirs.push(dir);
 
-    await expect(searchText("[invalid", dir)).rejects.toMatchObject({ code: "PARSE_ERROR" });
+    await expect(searchText("[invalid", makeScope(dir))).rejects.toMatchObject({
+      code: "PARSE_ERROR",
+    });
   });
 
   it("reports 1-based line and col", async () => {
@@ -110,7 +118,7 @@ describe("searchText operation", () => {
 
     // utils.ts line 1: "export function greetUser(name: string): string {"
     // "greetUser" starts at col 17
-    const result = await searchText("greetUser", dir, { glob: "**/utils.ts" });
+    const result = await searchText("greetUser", makeScope(dir), { glob: "**/utils.ts" });
 
     expect(result.matches).toHaveLength(1);
     expect(result.matches[0].line).toBe(1);
@@ -124,7 +132,7 @@ describe("searchText operation", () => {
     // Create a .env file in the fixture that contains the search term
     fs.writeFileSync(path.join(dir, ".env"), "greetUser=secret\n");
 
-    const result = await searchText("greetUser", dir);
+    const result = await searchText("greetUser", makeScope(dir));
 
     // .env should not appear in results
     expect(result.matches.every((m) => !m.file.endsWith(".env"))).toBe(true);
@@ -135,7 +143,7 @@ describe("searchText operation", () => {
     dirs.push(dir);
 
     // "e" appears many times; cap at 2
-    const result = await searchText("e", dir, { maxResults: 2 });
+    const result = await searchText("e", makeScope(dir), { maxResults: 2 });
 
     expect(result.matches.length).toBeLessThanOrEqual(2);
     expect(result.truncated).toBe(true);
@@ -145,11 +153,11 @@ describe("searchText operation", () => {
     const dir = copyFixture("simple-ts");
     dirs.push(dir);
 
-    await expect(searchText("(a+)+$", dir)).rejects.toMatchObject({ code: "REDOS" });
+    await expect(searchText("(a+)+$", makeScope(dir))).rejects.toMatchObject({ code: "REDOS" });
   });
 
   it("skips binary files (files containing a null byte)", async () => {
-    // Exercises the isBinaryBuffer path: buf[i] === 0 must return true.
+    // Exercises the isBinaryContent path: charCodeAt === 0 must return true.
     const dir = copyFixture("simple-ts");
     dirs.push(dir);
 
@@ -160,7 +168,7 @@ describe("searchText operation", () => {
     ]);
     fs.writeFileSync(path.join(dir, "src/binary.bin"), binaryContent);
 
-    const result = await searchText("greetUser", dir);
+    const result = await searchText("greetUser", makeScope(dir));
     expect(result.matches.every((m) => !m.file.endsWith("binary.bin"))).toBe(true);
   });
 
@@ -169,7 +177,10 @@ describe("searchText operation", () => {
     const dir = copyFixture("simple-ts");
     dirs.push(dir);
 
-    const result = await searchText("greetUser", dir, { glob: "**/utils.ts", context: 5 });
+    const result = await searchText("greetUser", makeScope(dir), {
+      glob: "**/utils.ts",
+      context: 5,
+    });
 
     expect(result.matches).toHaveLength(1);
     const lineNums = result.matches[0].context.map((c) => c.line);
@@ -184,7 +195,10 @@ describe("searchText operation", () => {
     const content = fs.readFileSync(path.join(dir, "src/utils.ts"), "utf8");
     const totalLines = content.split("\n").length;
 
-    const result = await searchText("greetUser", dir, { glob: "**/utils.ts", context: 100 });
+    const result = await searchText("greetUser", makeScope(dir), {
+      glob: "**/utils.ts",
+      context: 100,
+    });
 
     expect(result.matches.length).toBeGreaterThan(0);
     for (const match of result.matches) {
@@ -203,7 +217,7 @@ describe("searchText operation", () => {
     fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, "src/hello.ts"), "export const greeting = 'hello';\n");
 
-    const result = await searchText("greeting", tmpDir);
+    const result = await searchText("greeting", makeScope(tmpDir));
 
     expect(result.matches.length).toBeGreaterThan(0);
     expect(result.matches.some((m) => m.file.endsWith("hello.ts"))).toBe(true);
@@ -214,7 +228,7 @@ describe("searchText operation", () => {
     const dir = copyFixture("simple-ts");
     dirs.push(dir);
 
-    const result = await searchText("Hello", dir, { glob: "**/utils.ts" });
+    const result = await searchText("Hello", makeScope(dir), { glob: "**/utils.ts" });
 
     expect(result.matches.length).toBeGreaterThan(0);
     for (const match of result.matches) {
