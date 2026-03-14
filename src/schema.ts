@@ -94,6 +94,14 @@ export const ReplaceTextArgsSchema = ReplaceTextBaseSchema.refine(
   { message: "Provide either 'pattern'+'replacement' or 'edits', not both" },
 );
 
+export const MoveDirectoryArgsSchema = z.object({
+  oldPath: z.string().min(1, "oldPath is required"),
+  newPath: z.string().min(1, "newPath is required"),
+  checkTypeErrors: z.boolean().optional(),
+});
+
+export type MoveDirectoryArgs = z.infer<typeof MoveDirectoryArgsSchema>;
+
 export type DeleteFileArgs = z.infer<typeof DeleteFileArgsSchema>;
 export type GetTypeErrorsArgs = z.infer<typeof GetTypeErrorsArgsSchema>;
 export type RenameArgs = z.infer<typeof RenameArgsSchema>;

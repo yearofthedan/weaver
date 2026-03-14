@@ -92,3 +92,6 @@ For straightforward docs updates (fixing text, adding diagrams, updating tables)
 
 **Stryker CLI: use `--mutate`, not `--include`.**
 To scope a mutation run to specific files: `pnpm exec stryker run --mutate 'src/foo.ts'`. For multiple files use a comma-separated glob or multiple `--mutate` flags. There is no `--include` flag — that causes `too many arguments for 'run'`.
+
+**Always pipe long-running commands through `tee` to capture output.**
+`pnpm test:mutate`, `pnpm check`, and other long commands must be run with `2>&1 | tee /tmp/output.txt`. Without tee, the tool sandbox discards output before it can be read when the command runs in background mode. Failure to use tee causes the output file to be 0 bytes and the result to be invisible.

@@ -83,6 +83,7 @@ src/
     getDefinition.ts   ← getDefinition(compiler, filePath, line, col)
     getTypeErrors.ts   ← getTypeErrors(tsCompiler, file?, scope: WorkspaceScope) — errors-only, cap 100
     moveFile.ts        ← moveFile(compiler, oldPath, newPath, scope: WorkspaceScope)
+    moveDirectory.ts   ← moveDirectory(compiler, oldPath, newPath, scope: WorkspaceScope)
     moveSymbol.ts      ← moveSymbol(tsCompiler, projectCompiler, sourceFile, symbolName, destFile, scope: WorkspaceScope)
     extractFunction.ts ← extractFunction(tsCompiler, file, startLine, startCol, endLine, endCol, functionName, scope: WorkspaceScope)
     searchText.ts      ← searchText(pattern, scope: WorkspaceScope, { glob, context, maxResults })
@@ -110,7 +111,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Very high value bugs and tech debt
 
-- **`moveDirectory` — move a directory and rewrite all imports** → [`docs/specs/20260314-move-directory.md`](specs/20260314-move-directory.md)
+- **`moveDirectory` AC2–AC5** → [`docs/specs/20260314-move-directory.md`](specs/20260314-move-directory.md) — AC1 shipped; AC2 (nested subdirectories), AC3 (intra-directory import rewriting), AC4 (error codes), AC5 (empty directory) still to implement.
 
 - **Test colocation and mutation speed** → [`docs/specs/20260305-colocate-tests.md`](specs/20260305-colocate-tests.md) — Two-stage refactor: (1) move unit tests next to source, integration tests to `__tests__/`; (2) refactor source files mixing concerns (`searchText` utilities, `security` concerns, `getTypeErrors` dispatcher plumbing) and optimize fixture copying for `perTest` coverage analysis.
 

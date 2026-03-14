@@ -10,6 +10,7 @@ import {
   GetDefinitionArgsSchema,
   GetTypeErrorsArgsSchema,
   MoveArgsSchema,
+  MoveDirectoryArgsSchema,
   MoveSymbolArgsSchema,
   RenameArgsSchema,
   ReplaceTextBaseSchema,
@@ -125,6 +126,26 @@ const TOOLS: ToolDefinition[] = [
       oldPath: MoveArgsSchema.shape.oldPath.describe("Absolute path to the file to move"),
       newPath: MoveArgsSchema.shape.newPath.describe("Absolute destination path"),
       checkTypeErrors: MoveArgsSchema.shape.checkTypeErrors.describe(
+        "When false, skip the post-write type check; defaults to on",
+      ),
+    },
+  },
+  {
+    name: "moveDirectory",
+    description:
+      "When restructuring project layout, use this to move an entire directory and rewrite every import across the project automatically. " +
+      "Handles nested subdirectories, preserves internal structure, and updates all external references. " +
+      "Use this instead of multiple moveFile calls when relocating a folder. " +
+      "Returns filesMoved (files that were relocated), filesModified (all files with rewritten imports, including the moved files), and filesSkipped (outside workspace, not written). " +
+      "Type errors in modified files are returned automatically; pass checkTypeErrors:false to suppress.",
+    inputSchema: {
+      oldPath: MoveDirectoryArgsSchema.shape.oldPath.describe(
+        "Absolute path to the source directory",
+      ),
+      newPath: MoveDirectoryArgsSchema.shape.newPath.describe(
+        "Absolute path to the destination directory (created if needed; must not already exist as a non-empty directory)",
+      ),
+      checkTypeErrors: MoveDirectoryArgsSchema.shape.checkTypeErrors.describe(
         "When false, skip the post-write type check; defaults to on",
       ),
     },

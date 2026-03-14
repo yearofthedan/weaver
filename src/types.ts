@@ -92,6 +92,15 @@ export interface ReplaceTextResult {
   replacementCount: number;
 }
 
+export interface MoveDirectoryResult {
+  filesMoved: string[];
+  filesModified: string[];
+  /** Impacted files outside workspace that were not written. */
+  filesSkipped: string[];
+  oldPath: string;
+  newPath: string;
+}
+
 export interface DeleteFileResult {
   deletedFile: string;
   filesModified: string[];

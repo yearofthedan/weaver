@@ -11,7 +11,10 @@ export type ErrorCode =
   | "PARSE_ERROR"
   | "VALIDATION_ERROR"
   | "REDOS"
-  | "INVALID_PATH";
+  | "INVALID_PATH"
+  | "NOT_A_DIRECTORY"
+  | "DESTINATION_EXISTS"
+  | "MOVE_INTO_SELF";
 
 export class EngineError extends Error {
   readonly code: ErrorCode;

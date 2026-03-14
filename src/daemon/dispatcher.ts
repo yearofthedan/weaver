@@ -3,6 +3,7 @@ import { extractFunction } from "../operations/extractFunction.js";
 import { findReferences } from "../operations/findReferences.js";
 import { getDefinition } from "../operations/getDefinition.js";
 import { getTypeErrors, getTypeErrorsForFiles } from "../operations/getTypeErrors.js";
+import { moveDirectory } from "../operations/moveDirectory.js";
 import { moveFile } from "../operations/moveFile.js";
 import { rename } from "../operations/rename.js";
 import { replaceText } from "../operations/replaceText.js";
@@ -15,6 +16,7 @@ import {
   GetDefinitionArgsSchema,
   GetTypeErrorsArgsSchema,
   MoveArgsSchema,
+  MoveDirectoryArgsSchema,
   MoveSymbolArgsSchema,
   RenameArgsSchema,
   ReplaceTextArgsSchema,
@@ -80,6 +82,17 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
       const compiler = await registry.projectCompiler();
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
       return moveFile(compiler, oldPath, newPath, scope);
+    },
+  },
+
+  moveDirectory: {
+    pathParams: ["oldPath", "newPath"],
+    schema: MoveDirectoryArgsSchema,
+    async invoke(registry, params, workspace) {
+      const { oldPath, newPath } = params as { oldPath: string; newPath: string };
+      const compiler = await registry.projectCompiler();
+      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      return moveDirectory(compiler, oldPath, newPath, scope);
     },
   },
 
