@@ -158,6 +158,10 @@ The remaining mutating operations take `workspace: string`, call `fs.*` directly
 
 Read-only operations (`findReferences`, `getDefinition`) do not write files and do not take a workspace argument.
 
+**`workspace` is a read-only boundary string.** Operations receive it as a string path used only for `isWithinWorkspace` checks in `src/security.ts`. Never write to it as a config object or mutate it.
+
+**MCP tool names use camelCase.** `rename`, `findReferences`, `getDefinition`, etc. — not kebab-case. This matches TypeScript naming conventions and is visible in the MCP tool descriptions agents read.
+
 ---
 
 ## Compiler interface

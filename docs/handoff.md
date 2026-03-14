@@ -29,7 +29,7 @@ An agent discovering new work should add a `[needs design]` entry and move on �
 1. Archive the spec to `docs/specs/archive/` with an Outcome section
 2. Remove or update the entry below
 3. Update docs if public surfaces changed (see Done-when in the spec)
-4. Write gotchas or decisions to `docs/agent-memory.md`
+4. Write gotchas to the relevant `docs/features/` or `docs/tech/` doc; cross-cutting process rules go in `.claude/MEMORY.md`
 
 ---
 
@@ -206,6 +206,6 @@ Each concern has a dedicated doc. Read those — don't rely on handoff for desig
 | MCP wire protocol, tool interface, `DAEMON_STARTING`, `filesSkipped` | [`docs/features/mcp-transport.md`](features/mcp-transport.md) |
 | Daemon lifecycle, auto-spawn, socket protocol | [`docs/features/daemon.md`](features/daemon.md) |
 | Vue compiler internals, virtual↔real path translation, `toVirtualLocation` | [`docs/tech/volar-v3.md`](tech/volar-v3.md) |
-| Implementation gotchas, hard-won decisions (MCP naming, read-only `workspace` convention, etc.) | [`docs/agent-memory.md`](agent-memory.md) |
+| Implementation gotchas (MCP naming, `workspace` convention, Volar quirks, etc.) | [`docs/architecture.md`](architecture.md), [`docs/tech/volar-v3.md`](tech/volar-v3.md), [`docs/tech/tech-debt.md`](tech/tech-debt.md) |
 | Known structural issues and their fixes | [`docs/tech/tech-debt.md`](tech/tech-debt.md) |
 | Task specifications (ready and archived) | [`docs/specs/`](specs/) |

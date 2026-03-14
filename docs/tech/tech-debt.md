@@ -1,7 +1,7 @@
 **Purpose:** Known structural issues, bugs, and their proposed fixes.
 **Audience:** Engineers deciding what to work on next, anyone hitting one of these issues in practice.
 **Status:** Current (as of last session)
-**Related docs:** [Handoff](../handoff.md) (next work), [Agent Memory](../agent-memory.md) (gotchas)
+**Related docs:** [Handoff](../handoff.md) (next work)
 
 ---
 
@@ -30,7 +30,7 @@ Original analysis preserved here: the operation set is growing faster than the e
 
 ## Missing compiler/engine separation
 
-**Addressed in compiler/engine separation.** See `docs/agent-memory.md` for the full design decisions including the `Compiler` interface and extraction of `VueEngine.buildService`.
+**Addressed in compiler/engine separation.** The `Compiler` interface was extracted; `VueEngine.buildService` became `buildVolarService` in `src/plugins/vue/service.ts`.
 
 ---
 
@@ -92,6 +92,14 @@ The module-level `rewriteSpecifier` function (introduced with the import-rewrite
 **Candidate fix:** replace the pair-loop dispatch with a lookup map from specifier suffix to rewrite rule, collapsing the two per-pair branches into a single handler. The `existsSync` guard would become a predicate attached to the JS-family rule.
 
 **Priority:** low. The function is pure, fully covered by tests, and does not contribute to the hot path.
+
+---
+
+## `assertFileExists` bypasses the `FileSystem` port
+
+`assertFileExists` (`src/utils/assert-file.ts`) calls `fs.existsSync` directly — it is not behind the `FileSystem` port. Unit tests using `InMemoryFileSystem` must pass a path that physically exists on disk (e.g. `import.meta.url`) to satisfy this guard. Will resolve when `assertFileExists` is migrated to use the port.
+
+**Priority:** low. Workaround is straightforward; affects only unit tests that hit the assertion path.
 
 ---
 

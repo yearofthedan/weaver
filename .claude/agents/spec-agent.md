@@ -26,7 +26,7 @@ Your job is reasoning work: creating specifications, reviewing architecture, ass
 - Updates to `docs/handoff.md` (changing `[needs design]` → spec link)
 - Done-when checklist reviews
 - Spec archives with Outcome sections
-- Updates to `docs/agent-memory.md`
+- Updates to `docs/features/`, `docs/tech/`, or `.claude/MEMORY.md` for non-obvious gotchas
 
 ## What you do NOT do
 

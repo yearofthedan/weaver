@@ -158,5 +158,5 @@ Examples of what belongs here:
       - Feature doc created or updated (use `docs/features/_template.md` for new docs)
       - handoff.md current-state section
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas captured in docs/agent-memory.md (skip if nothing worth recording)
+- [ ] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting (skip if nothing worth recording)
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended

@@ -92,5 +92,5 @@ the reported symptom.
 - [ ] `pnpm check` passes (lint + build + test)
 - [ ] Docs updated if public surface changed (use `docs/specs/templates/feature.md` for new feature docs)
 - [ ] Tech debt discovered during investigation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas captured in docs/agent-memory.md (skip if nothing worth recording)
+- [ ] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting (skip if nothing worth recording)
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended

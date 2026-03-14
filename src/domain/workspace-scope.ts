@@ -46,6 +46,7 @@ export class WorkspaceScope {
     this.recordModified(filePath);
   }
 
+  /** Returns a new array on every call — snapshot before looping if you check membership repeatedly. */
   get modified(): string[] {
     return [...this._modified];
   }

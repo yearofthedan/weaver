@@ -127,5 +127,5 @@ No new error codes. No new parameters. No response shape changes. The dispatcher
       - No public surface changes expected (internal refactoring)
       - handoff.md current-state section updated (operation signatures in directory layout)
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas captured in docs/agent-memory.md (skip if nothing worth recording)
+- [ ] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting (skip if nothing worth recording)
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended

@@ -26,6 +26,10 @@ Fixtures should be minimal but realistic — a small app with enough complexity 
 
 The eval suite (`eval/`) tests a different quality dimension from unit/integration tests: **do the tool descriptions cause agents to select the right tool for a given task?** Unit tests verify correct outputs given correct inputs; evals verify that agents reach for the right tool in the first place.
 
+### Don't fix pre-existing mutation scores by adding tests at the wrong layer
+
+If mutation survivors are in code you didn't change, note them and move on. Adding integration tests to kill unit-level mutants is test duplication — the fix belongs in unit tests for the unchanged code, as a separate task. Only add tests at the layer where the logic lives.
+
 **How it works:**
 
 - `eval/run-eval.ts` — entry point (`pnpm run eval`). Starts a fixture server that impersonates the daemon, runs `promptfoo eval` against `eval/promptfooconfig.yaml`, tears down on exit.

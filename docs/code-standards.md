@@ -64,6 +64,14 @@ The same file-size thresholds apply to test files. A large test file is usually 
 4. **Use parameterised tests.** When multiple cases test the same behaviour with different inputs, use `it.each` / `describe.each` rather than duplicating test bodies.
 5. **Split by feature area (last resort).** If the above steps aren't enough, split the file along feature boundaries. This is a last resort because it can obscure which tests cover which code paths.
 
+### Colocate test helpers with their domain
+
+Test doubles belong near the concept they mock, not in a generic folder. `makeMockCompiler` mocks the `Compiler` interface — it belongs in `tests/compilers/__helpers__/`, not `tests/helpers/`. Use `__helpers__/` subfolders per domain area.
+
+### Test layer must match code layer
+
+Audit every test file: does its test target match the directory it lives in? A test in `tests/operations/` should call the operation function; a test in `tests/compilers/` should call the compiler method directly. If a test in `tests/operations/` is exercising compiler logic through the operation, it belongs in `tests/compilers/`. "Stays as-is" requires justification, not just inertia.
+
 ### Avoid
 
 - Extracting assertion helpers that hide what's being checked. Indirection in assertions makes test failures harder to diagnose. Prefer inline assertions with clear variable names.

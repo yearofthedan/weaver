@@ -7,7 +7,7 @@
 - **I want to use light-bridge** → [README](../README.md) — installation, CLI, MCP tools, agent integration
 - **I'm implementing a feature** → [Handoff](handoff.md) — backlog, current state, finish checklist
 - **I'm reviewing security** → [Security](security.md), then specific [Features](features/)
-- **I'm debugging an issue** → [Tech Debt](tech/tech-debt.md), then [Agent Memory](agent-memory.md)
+- **I'm debugging an issue** → [Tech Debt](tech/tech-debt.md)
 
 ## Product & Rationale
 
@@ -28,5 +28,4 @@
 
 ## Agent Docs
 
-- [Agent Memory](agent-memory.md) — technical gotchas and hard-won implementation decisions
-- [MEMORY](./../.claude/MEMORY.md) — session-to-session state signpost
+- [MEMORY](./../.claude/MEMORY.md) — process rules and project state signpost

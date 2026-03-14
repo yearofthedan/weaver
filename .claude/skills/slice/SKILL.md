@@ -53,7 +53,7 @@ Delegate steps 1-2 to `spec-agent`. Step 3 is dispatched **one AC at a time** to
 
    **Do NOT proceed to step 6 until the Outcome section — including the Reflection — is written in the archived spec file.**
 
-6. **Update `docs/agent-memory.md`** with any non-obvious gotchas discovered.
+6. **Capture any non-obvious gotchas** discovered during implementation. Put them in the relevant `docs/features/` or `docs/tech/` doc, or in `.claude/MEMORY.md` if cross-cutting. Add a code comment if the gotcha is visible at the call site.
 
 7. **Commit** docs changes with a conventional commit message (see `CLAUDE.md`).
 

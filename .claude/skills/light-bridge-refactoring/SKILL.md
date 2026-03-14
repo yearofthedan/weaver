@@ -61,7 +61,7 @@ Pass `checkTypeErrors: false` only when you plan to batch multiple changes and c
 
 ## Common sequences
 
-**Rename a symbol:** Just call `rename`. One call handles everything — check `typeErrors` in the response for any issues.
+**Rename a symbol:** Just call `rename`. One call handles everything — check `typeErrors` in the response for any issues. After `rename`, do **one** `replaceText` pass to catch derived string names (e.g. `fooSingleton`, `stubFoo`) that the compiler doesn't link to the symbol — don't fix them one-by-one.
 
 **Move a file:** Call `moveFile`. Check `filesSkipped` — if any, fix those imports manually with `replaceText`.
 
