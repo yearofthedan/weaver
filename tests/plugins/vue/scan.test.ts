@@ -2,7 +2,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { WorkspaceScope } from "../../../src/domain/workspace-scope.js";
 import { updateVueImportsAfterMove } from "../../../src/plugins/vue/scan.js";
+import { NodeFileSystem } from "../../../src/ports/node-filesystem.js";
 
 // rewriteImports and computeRelativeSpecifier are private to their modules;
 // tested here through the public updateVueImportsAfterMove API.
@@ -25,6 +27,10 @@ describe("updateVueImportsAfterMove", () => {
     return full;
   }
 
+  function makeScope(dir: string): WorkspaceScope {
+    return new WorkspaceScope(dir, new NodeFileSystem());
+  }
+
   it("rewrites a same-directory import", () => {
     const oldPath = path.join(tmpDir, "src/utils.ts");
     const newPath = path.join(tmpDir, "src/helpers.ts");
@@ -33,7 +39,7 @@ describe("updateVueImportsAfterMove", () => {
       `<script setup>\nimport foo from './utils'\n</script>`,
     );
 
-    updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, makeScope(tmpDir));
 
     const result = fs.readFileSync(vueFile, "utf8");
     expect(result).toContain("from './helpers.js'");
@@ -48,7 +54,7 @@ describe("updateVueImportsAfterMove", () => {
       `<script setup>\nimport foo from '../shared/utils'\n</script>`,
     );
 
-    updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, makeScope(tmpDir));
 
     const result = fs.readFileSync(vueFile, "utf8");
     expect(result).toContain("from '../shared/helpers.js'");
@@ -61,28 +67,32 @@ describe("updateVueImportsAfterMove", () => {
     const original = `<script setup>\nimport foo from './other'\n</script>`;
     const vueFile = writeVue("src/Comp.vue", original);
 
-    updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, makeScope(tmpDir));
 
     expect(fs.readFileSync(vueFile, "utf8")).toBe(original);
   });
 
-  it("returns the list of modified files only", () => {
+  it("records modified files in scope.modified", () => {
     const oldPath = path.join(tmpDir, "utils.ts");
     const newPath = path.join(tmpDir, "helpers.ts");
     writeVue("A.vue", `<script>\nimport x from './utils'\n</script>`);
     writeVue("B.vue", `<script>\nimport x from './other'\n</script>`);
 
-    const modified = updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
+    const scope = makeScope(tmpDir);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, scope);
 
-    expect(modified).toHaveLength(1);
-    expect(path.basename(modified[0])).toBe("A.vue");
+    expect(scope.modified).toHaveLength(1);
+    expect(path.basename(scope.modified[0])).toBe("A.vue");
   });
 
-  it("returns empty array when no .vue files are present", () => {
+  it("scope.modified is empty when no .vue files are present", () => {
     const oldPath = path.join(tmpDir, "utils.ts");
     const newPath = path.join(tmpDir, "helpers.ts");
 
-    expect(updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir)).toEqual([]);
+    const scope = makeScope(tmpDir);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, scope);
+
+    expect(scope.modified).toEqual([]);
   });
 
   it("skips files outside workspace and does not write them", () => {
@@ -99,9 +109,10 @@ describe("updateVueImportsAfterMove", () => {
     );
     const originalContent = fs.readFileSync(outsideVue, "utf8");
 
-    const modified = updateVueImportsAfterMove(oldPath, newPath, tmpDir, workspace);
+    const scope = makeScope(workspace);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, scope);
 
-    expect(modified).toHaveLength(0);
+    expect(scope.modified).toHaveLength(0);
     // File must not have been written
     expect(fs.readFileSync(outsideVue, "utf8")).toBe(originalContent);
   });
@@ -111,7 +122,7 @@ describe("updateVueImportsAfterMove", () => {
     const newPath = path.join(tmpDir, "src/helpers.ts");
     const vueFile = writeVue("src/Comp.vue", `<script>\nimport foo from "./utils"\n</script>`);
 
-    updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, makeScope(tmpDir));
 
     expect(fs.readFileSync(vueFile, "utf8")).toContain('from "./helpers.js"');
   });
@@ -124,7 +135,7 @@ describe("updateVueImportsAfterMove", () => {
       `<script>\nimport x from '../lib/deep/util'\n</script>`,
     );
 
-    updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, makeScope(tmpDir));
 
     const result = fs.readFileSync(vueFile, "utf8");
     expect(result).toContain("from '../lib/deep/renamed.js'");
@@ -138,7 +149,7 @@ describe("updateVueImportsAfterMove", () => {
       `<script setup>\nimport foo from  './utils'\n</script>`,
     );
 
-    updateVueImportsAfterMove(oldPath, newPath, tmpDir, tmpDir);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, makeScope(tmpDir));
 
     // The replacement normalises whitespace to a single space.
     // The key assertion is that the rewrite DID happen (two-space import was matched).

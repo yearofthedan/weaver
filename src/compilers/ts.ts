@@ -3,7 +3,6 @@ import * as path from "node:path";
 import { Project } from "ts-morph";
 import { ImportRewriter } from "../domain/import-rewriter.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import { isWithinWorkspace } from "../security.js";
 import type { Compiler, DefinitionLocation, FileTextEdit, SpanLocation } from "../types.js";
 import { EngineError } from "../utils/errors.js";
 import { JS_EXTENSIONS, JS_TS_PAIRS, TS_EXTENSIONS } from "../utils/extensions.js";
@@ -268,22 +267,15 @@ export class TsMorphCompiler implements Compiler {
    * file with that extension exists on disk alongside the moved `.ts` file —
    * that import refers to the JS file, not the TypeScript source.
    */
-  async afterFileRename(
-    oldPath: string,
-    newPath: string,
-    workspace: string,
-    alreadyModified: ReadonlySet<string> = new Set(),
-  ): Promise<{ modified: string[]; skipped: string[] }> {
+  async afterFileRename(oldPath: string, newPath: string, scope: WorkspaceScope): Promise<void> {
     this.invalidateProject(newPath);
 
-    const workspaceRoot = path.resolve(workspace);
-    const modified: string[] = [];
-    const skipped: string[] = [];
+    const alreadyModified = new Set(scope.modified);
 
-    for (const filePath of walkFiles(workspaceRoot, [...TS_EXTENSIONS])) {
+    for (const filePath of walkFiles(scope.root, [...TS_EXTENSIONS])) {
       if (alreadyModified.has(filePath)) continue;
-      if (!isWithinWorkspace(filePath, workspace)) {
-        skipped.push(filePath);
+      if (!scope.contains(filePath)) {
+        scope.recordSkipped(filePath);
         continue;
       }
 
@@ -291,7 +283,7 @@ export class TsMorphCompiler implements Compiler {
       const relOldBase = toRelBase(fromDir, oldPath);
       const relNewBase = toRelBase(fromDir, newPath);
 
-      const raw = fs.readFileSync(filePath, "utf8");
+      const raw = scope.fs.readFile(filePath);
       const tmpProject = new Project({ useInMemoryFileSystem: true });
       const sf = tmpProject.createSourceFile(filePath, raw);
       let hasChanges = false;
@@ -308,11 +300,8 @@ export class TsMorphCompiler implements Compiler {
 
       if (!hasChanges) continue;
 
-      fs.writeFileSync(filePath, sf.getFullText(), "utf8");
-      modified.push(filePath);
+      scope.writeFile(filePath, sf.getFullText());
     }
-
-    return { modified, skipped };
   }
 }
 

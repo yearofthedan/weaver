@@ -33,21 +33,9 @@ export async function moveFile(
   scope.fs.rename(absOld, absNew);
 
   // Compiler cleanup (cache invalidation, post-move scans, etc.).
-  // Pass the already-modified set so the fallback scan can skip files that were
-  // already rewritten by getEditsForFileRename.
-  const { modified: extraModified, skipped: extraSkipped } = await compiler.afterFileRename(
-    absOld,
-    absNew,
-    scope.root,
-    new Set(scope.modified),
-  );
-
-  for (const f of extraModified) {
-    scope.recordModified(f);
-  }
-  for (const f of extraSkipped) {
-    scope.recordSkipped(f);
-  }
+  // The compiler records directly into scope; files already in scope.modified
+  // are skipped by the compiler to avoid double-rewriting.
+  await compiler.afterFileRename(absOld, absNew, scope);
 
   scope.recordModified(absNew);
 

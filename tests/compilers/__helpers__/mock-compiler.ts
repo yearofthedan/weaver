@@ -12,7 +12,7 @@ export function makeMockCompiler(overrides: Partial<Compiler> = {}): Compiler {
     getEditsForFileRename: vi.fn().mockResolvedValue([]),
     readFile: vi.fn().mockReturnValue(""),
     notifyFileWritten: vi.fn(),
-    afterFileRename: vi.fn().mockResolvedValue({ modified: [], skipped: [] }),
+    afterFileRename: vi.fn().mockResolvedValue(undefined),
     afterSymbolMove: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };

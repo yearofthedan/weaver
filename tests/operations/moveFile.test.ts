@@ -127,17 +127,20 @@ describe("moveFile action", () => {
       expect(memFs.exists(EXISTING_FILE)).toBe(false);
     });
 
-    it("merges afterFileRename results into scope tracking", async () => {
+    it("compiler writes additional modified and skipped files directly into scope", async () => {
       const workspace = workspaceFromUrl("../..");
       const newFilePath = `${workspace}/moved-file.ts`;
       const extraModified = `${workspace}/extra-modified.ts`;
       const extraSkipped = "/outside/extra-skipped.ts";
 
+      // afterFileRename now records directly into scope — simulate compiler doing so
       const compiler = makeMockCompiler({
         getEditsForFileRename: vi.fn().mockResolvedValue([]),
-        afterFileRename: vi
-          .fn()
-          .mockResolvedValue({ modified: [extraModified], skipped: [extraSkipped] }),
+        afterFileRename: vi.fn().mockImplementation((_old, _new, scope) => {
+          scope.recordModified(extraModified);
+          scope.recordSkipped(extraSkipped);
+          return Promise.resolve();
+        }),
       });
 
       const memFs = new InMemoryFileSystem();

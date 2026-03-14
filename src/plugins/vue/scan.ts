@@ -1,7 +1,5 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
-import { isWithinWorkspace } from "../../security.js";
 import { walkFiles } from "../../utils/file-walk.js";
 import { computeRelativeImportPath } from "../../utils/relative-path.js";
 
@@ -18,30 +16,26 @@ export function updateVueImportsAfterMove(
   oldPath: string,
   newPath: string,
   searchRoot: string,
-  workspace: string,
-): string[] {
+  scope: WorkspaceScope,
+): void {
   const oldWithoutExt = stripExt(oldPath);
   const vueFiles = walkFiles(searchRoot, [".vue"]);
-  const modified: string[] = [];
 
   for (const vueFile of vueFiles) {
-    if (!isWithinWorkspace(vueFile, workspace)) continue;
+    if (!scope.contains(vueFile)) continue;
 
     let content: string;
     try {
-      content = fs.readFileSync(vueFile, "utf8");
+      content = scope.fs.readFile(vueFile);
     } catch {
       continue;
     }
 
     const updated = rewriteImports(content, vueFile, oldWithoutExt, newPath);
     if (updated !== content) {
-      fs.writeFileSync(vueFile, updated, "utf8");
-      modified.push(vueFile);
+      scope.writeFile(vueFile, updated);
     }
   }
-
-  return modified;
 }
 
 /**

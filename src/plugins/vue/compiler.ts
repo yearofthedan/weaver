@@ -214,17 +214,11 @@ export class VolarCompiler implements Compiler {
     }
   }
 
-  async afterFileRename(
-    oldPath: string,
-    newPath: string,
-    workspace: string,
-  ): Promise<{ modified: string[]; skipped: string[] }> {
+  async afterFileRename(oldPath: string, newPath: string, scope: WorkspaceScope): Promise<void> {
     this.invalidateService(oldPath);
 
     const tsConfig = findTsConfigForFile(oldPath);
-    const searchRoot = tsConfig ? path.dirname(tsConfig) : workspace;
-    const modified = updateVueImportsAfterMove(oldPath, newPath, searchRoot, workspace);
-
-    return { modified, skipped: [] };
+    const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
+    updateVueImportsAfterMove(oldPath, newPath, searchRoot, scope);
   }
 }

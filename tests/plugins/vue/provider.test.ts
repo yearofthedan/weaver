@@ -121,14 +121,15 @@ describe("VolarCompiler", () => {
     expect(() => p.notifyFileWritten(file, "export const x = 1;\n")).not.toThrow();
   });
 
-  it("afterFileRename returns modified list and empty skipped array", async () => {
+  it("afterFileRename records modified files into scope and no skipped files", async () => {
     const dir = setup();
     const p = new VolarCompiler();
     const oldPath = path.join(dir, "src/composables/useCounter.ts");
     const newPath = path.join(dir, "src/composables/useTimer.ts");
-    const result = await p.afterFileRename(oldPath, newPath, dir);
-    expect(result).toHaveProperty("modified");
-    expect(result.skipped).toEqual([]);
+    const scope = makeScope(dir);
+    await p.afterFileRename(oldPath, newPath, scope);
+    // No .vue files import useCounter in this fixture, so nothing is modified
+    expect(scope.skipped).toEqual([]);
   });
 
   it("afterSymbolMove records nothing into scope when no .vue files match", async () => {

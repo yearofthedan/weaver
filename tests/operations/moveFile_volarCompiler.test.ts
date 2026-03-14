@@ -1,11 +1,8 @@
-import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveFile } from "../../src/operations/moveFile.js";
 import { VolarCompiler } from "../../src/plugins/vue/compiler.js";
-import { updateVueImportsAfterMove } from "../../src/plugins/vue/scan.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
-import { findTsConfigForFile } from "../../src/utils/ts-project.js";
 import { cleanup, copyFixture, fileExists, readFile } from "../helpers.js";
 
 function makeScope(dir: string): WorkspaceScope {
@@ -24,20 +21,13 @@ describe("moveFile action - VolarCompiler Integration", () => {
     const oldPath = `${dir}/src/composables/useCounter.ts`;
     const newPath = `${dir}/src/utils/useCounter.ts`;
 
+    // afterFileRename now writes .vue import updates directly into scope
     const result = await moveFile(compiler, oldPath, newPath, makeScope(dir));
 
     expect(result.oldPath).toBe(oldPath);
     expect(result.newPath).toBe(newPath);
     expect(fileExists(dir, "src/composables/useCounter.ts")).toBe(false);
     expect(fileExists(dir, "src/utils/useCounter.ts")).toBe(true);
-
-    // Post-step: scan .vue files for import rewrites (mirrors what dispatcher does)
-    const tsConfig = findTsConfigForFile(oldPath);
-    const searchRoot = tsConfig ? path.dirname(tsConfig) : path.dirname(oldPath);
-    const vueModified = updateVueImportsAfterMove(oldPath, newPath, searchRoot, dir);
-    for (const f of vueModified) {
-      if (!result.filesModified.includes(f)) result.filesModified.push(f);
-    }
 
     const vueContent = readFile(dir, "src/App.vue");
     expect(vueContent).toContain("utils/useCounter");
