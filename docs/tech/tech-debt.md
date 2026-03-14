@@ -103,6 +103,14 @@ The module-level `rewriteSpecifier` function (introduced with the import-rewrite
 
 ---
 
+## `ImportRewriter` bypasses the `FileSystem` port for path operations
+
+`import-rewriter.ts` imports `node:path` directly for `dirname` and `resolve`. The `resolve` method already exists on `FileSystem`; `dirname` does not. Adding `dirname` to the port and routing both calls through `scope.fs` would eliminate the domain layer's last direct platform dependency.
+
+**Priority:** low. Both functions are pure string operations that don't affect testability in practice. Architectural hygiene, not a testing blocker.
+
+---
+
 ## User feedback: rename / findReferences / getDefinition "Could not find source file" (TS path)
 
 External user (working-title workspace) reports tools fail with `PARSE_ERROR: Could not find source file` for `.ts` files. The Vue path (`.vue` inputs) was fixed by calling `toVirtualLocation` before `findRenameLocations` and `getReferencesAtPosition`.
