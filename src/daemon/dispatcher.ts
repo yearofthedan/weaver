@@ -179,8 +179,9 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params, workspace) {
       const { file } = params as { file: string };
       const tsCompiler = await registry.tsCompiler();
+      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
       const { deleteFile } = await import("../operations/deleteFile.js");
-      return deleteFile(tsCompiler, file, workspace);
+      return deleteFile(tsCompiler, file, scope);
     },
   },
 

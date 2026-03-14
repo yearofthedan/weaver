@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { isWithinWorkspace } from "../../security.js";
 import { walkFiles } from "../../utils/file-walk.js";
 import { computeRelativeImportPath } from "../../utils/relative-path.js";
@@ -77,7 +78,7 @@ function rewriteImports(
 export function removeVueImportsOfDeletedFile(
   deletedFile: string,
   searchRoot: string,
-  workspace: string,
+  scope: WorkspaceScope,
 ): { modified: string[]; skipped: string[]; refsRemoved: number } {
   const deletedNoExt = stripExt(deletedFile);
   const vueFiles = walkFiles(searchRoot, [".vue"]);
@@ -86,21 +87,21 @@ export function removeVueImportsOfDeletedFile(
   let refsRemoved = 0;
 
   for (const vueFile of vueFiles) {
-    if (!isWithinWorkspace(vueFile, workspace)) {
+    if (!scope.contains(vueFile)) {
       skipped.push(vueFile);
       continue;
     }
 
     let content: string;
     try {
-      content = fs.readFileSync(vueFile, "utf8");
+      content = scope.fs.readFile(vueFile);
     } catch {
       continue;
     }
 
     const { content: updated, removed } = removeImportLines(content, vueFile, deletedNoExt);
     if (removed > 0) {
-      fs.writeFileSync(vueFile, updated, "utf8");
+      scope.writeFile(vueFile, updated);
       modified.push(vueFile);
       refsRemoved += removed;
     }
