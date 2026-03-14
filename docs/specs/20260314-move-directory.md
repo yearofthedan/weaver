@@ -86,23 +86,25 @@ When an agent restructures a project layout, it needs to move entire directories
 | `MOVE_INTO_SELF` | `newPath` is inside `oldPath` |
 | `INVALID_PATH` | Path contains control characters or URI special characters |
 
-## Open decisions
+## Resolved decisions
 
 ### File enumeration strategy
 
-**Decision:** Which files inside the directory should `moveDirectory` move?
+**Decision (resolved):** Move all files; use compiler-aware rewriting only for source files.
 
-**Options:**
-1. **All files** -- `readdirSync` recursive, move everything regardless of extension. Simple, predictable, matches what `mv` does.
-2. **Only supported extensions** -- use `walkFiles()` with `TS_EXTENSIONS + VUE_EXTENSIONS`, move only files the compiler understands. Non-source files (images, JSON, markdown) stay behind.
-3. **All files, but only rewrite imports for supported extensions** -- move everything, but only call `moveFile` (with import rewriting) for `.ts/.tsx/.js/.jsx/.vue` files. Other files get a plain filesystem move.
+`moveDirectory` moves ALL files in the directory, matching user expectation of "move this folder." The enumeration uses a recursive `readdirSync` walk (like the existing `walkRecursive` in `file-walk.ts`) that skips `SKIP_DIRS`. No extension filtering during enumeration -- enumerate everything, then branch on extension at move time:
 
-**Tradeoffs:**
-- Option 1 is wrong -- `moveFile` would be called for `.json`, `.md`, etc., which would wastefully invoke the compiler for files that have no imports.
-- Option 2 surprises users -- "I moved the directory but my config files are still in the old location" is confusing.
-- Option 3 is correct: move everything (matching user expectation of "move this folder"), but only invoke compiler-aware `moveFile` for source files. Non-source files get a plain `fs.rename`.
+- For files with extensions in `VUE_EXTENSIONS` (`.ts`, `.tsx`, `.js`, `.jsx`, `.vue`), call `moveFile()` which invokes the compiler to rewrite imports.
+- For all other files (`.json`, `.md`, `.css`, images, etc.), do a plain `scope.fs.rename()` to physically move them without compiler involvement.
 
-**Recommendation:** Option 3. It matches what the user means by "move this directory" while keeping the compiler work scoped to files that actually have imports.
+**Reasoning:** Three options were considered:
+1. Move all files via `moveFile` -- wrong, wastefully invokes the compiler for files with no imports.
+2. Move only supported extensions -- surprises users ("I moved the directory but my config files are still in the old location").
+3. Move all files, compiler-aware rewriting only for source files -- correct.
+
+Option 3 was chosen because it matches what users mean by "move this directory" while keeping compiler work scoped to files that actually have imports.
+
+**Consequences:** The `FileSystem` port bypass is inherited tech debt from `walkFiles` (noted in handoff.md P3), not new debt introduced by this change.
 
 ### Internal execution: sequential moveFile vs. batch
 
