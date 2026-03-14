@@ -58,4 +58,4 @@ description: Create or refine a task specification from a handoff.md entry — p
     - Any open decisions flagged in step 8
     - Ask: "Ready to implement, or want to revise?"
 
-15. **Commit.** Use `docs(specs): add spec for [short-title]` as the commit message.
+15. **Report for commit.** Tell the caller that the spec file and the updated handoff.md are ready to commit with message `docs(specs): add spec for [short-title]`. The spec agent does not commit directly — the orchestrator or user handles the commit.

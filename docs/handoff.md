@@ -60,6 +60,7 @@ src/
   domain/
     workspace-scope.ts    ← WorkspaceScope boundary tracking + modification recording
     import-rewriter.ts    ← ImportRewriter — rewrites named imports/re-exports of a moved symbol across files
+    symbol-ref.ts         ← SymbolRef — resolved exported symbol value object (lookup, unwrap, remove)
   types.ts        ← result types + LanguagePlugin + Compiler + CompilerRegistry interfaces
   security.ts     ← isWithinWorkspace() + isSensitiveFile() — boundary + sensitive file blocklist
   mcp.ts          ← MCP server (connects to daemon)
@@ -109,7 +110,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Fix now (bugs / correctness)
 
-- **Target architecture: compiler adapter restructure** — Seven-step strangler migration. Steps 1-4 complete: Step 1 (FileSystem port + WorkspaceScope + `rename` proof) archived: [`docs/specs/archive/20260308-filesystem-port-and-workspace-scope.md`](specs/archive/20260308-filesystem-port-and-workspace-scope.md). Step 2 (`moveFile` migration to WorkspaceScope) archived: [`docs/specs/archive/20260308-movefile-workspace-scope.md`](specs/archive/20260308-movefile-workspace-scope.md). Step 3 (`moveSymbol` migration to WorkspaceScope) archived: [`docs/specs/archive/20260308-movesymbol-workspace-scope.md`](specs/archive/20260308-movesymbol-workspace-scope.md). Step 4 (extract `ImportRewriter`) archived: [`docs/specs/archive/20260308-extract-import-rewriter.md`](specs/archive/20260308-extract-import-rewriter.md). Step 5 (rename `providers/` → `compilers/`) archived: [`docs/specs/archive/20260312-rename-providers-to-compilers.md`](specs/archive/20260312-rename-providers-to-compilers.md). Remaining steps `[needs design]` — spec each before starting: (6) extract `SymbolRef`, (7) document hexagonal architecture with mermaid diagrams, (8) sense check design, identify gaps. See [`docs/target-architecture.md`](target-architecture.md) for rationale, layer diagram, and migration sequence.
+- **Target architecture: compiler adapter restructure** — Eight-step strangler migration. Steps 1-6 complete. Step 1 (FileSystem port + WorkspaceScope + `rename` proof) archived: [`docs/specs/archive/20260308-filesystem-port-and-workspace-scope.md`](specs/archive/20260308-filesystem-port-and-workspace-scope.md). Step 2 (`moveFile` migration to WorkspaceScope) archived: [`docs/specs/archive/20260308-movefile-workspace-scope.md`](specs/archive/20260308-movefile-workspace-scope.md). Step 3 (`moveSymbol` migration to WorkspaceScope) archived: [`docs/specs/archive/20260308-movesymbol-workspace-scope.md`](specs/archive/20260308-movesymbol-workspace-scope.md). Step 4 (extract `ImportRewriter`) archived: [`docs/specs/archive/20260308-extract-import-rewriter.md`](specs/archive/20260308-extract-import-rewriter.md). Step 5 (rename `providers/` → `compilers/`) archived: [`docs/specs/archive/20260312-rename-providers-to-compilers.md`](specs/archive/20260312-rename-providers-to-compilers.md). Step 6 (extract `SymbolRef`) archived: [`docs/specs/archive/20260313-extract-symbol-ref.md`](specs/archive/20260313-extract-symbol-ref.md). Remaining steps: (7) document hexagonal architecture with mermaid diagrams `[needs design]`, (8) sense check design, identify gaps `[needs design]`. See [`docs/target-architecture.md`](target-architecture.md) for rationale, layer diagram, and migration sequence.
 
 - **`rename` / `findReferences` / `getDefinition` fail with "Could not find source file" on `.ts` inputs** `[needs design]` — Separate from the Vue `.vue`-path bug above. Suspected cause: caller-supplied path differs from ts-morph's internally normalized path (e.g. symlinked workspace root); fix likely requires using `sourceFile.getFilePath()` when calling TS language service methods in `TsMorphCompiler`. Root cause not yet reproduced in a test.
 
@@ -121,20 +122,19 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P2 — Distribution (ship what exists)
 
-- **Pre-public release infrastructure** → [`docs/specs/20260304-pre-public-infra.md`](specs/20260304-pre-public-infra.md) — Release Please pipeline, CodeQL, branch protection, LICENSE, SECURITY.md, `package.json` modernisation
-
 - **`moveFile` does not update imports in files outside `tsconfig.include`** `[needs design]` — tool description says "Works for non-source files (tests, scripts, config) too" but imports within moved test files are not rewritten when directory depth changes, and test files that import a moved source file are not updated. Two failure modes: (a) source file moved → test imports to it break; (b) test file moved to different depth → its own `src/` imports break. Both require manual fixes today. Fix likely requires a second pass using text-based rewriting (outside ts-morph) for files not in `tsconfig.include`.
 
-- **Stage 2: Claude Code plugin** `[needs design]` — package as a Claude Code plugin (`.claude-plugin/plugin.json`); complements existing `typescript-lsp` code intelligence plugin with refactoring tools; one-command install via `/plugin install`
+- **Pre-public release infrastructure** → [`docs/specs/20260304-pre-public-infra.md`](specs/20260304-pre-public-infra.md) — Release Please pipeline, CodeQL, branch protection, LICENSE, SECURITY.md, `package.json` modernisation
+
+- **CLI-first transport: expose operations as CLI subcommands** `[needs design]` — Currently operations are only reachable via MCP. Add CLI subcommands (e.g. `light-bridge rename --symbol Foo --to Bar`) that talk to the existing daemon. Benefits: zero context-token cost (MCP schemas consume input tokens every turn), no `.mcp.json` setup friction, works with any agent that can shell out, enables Unix piping and composition, enables interactive selection workflows (e.g. `replaceText --interactive` presenting matches one-by-one like `git add -p`), and `--dry-run` previews. MCP remains as an optional transport. The daemon architecture already supports this — the new layer is thin (arg parsing → daemon request → JSON output).
 
 ---
 
 ### P3 — High-value features
 
-- **Workspace split: `app` + `tooling` (`conventions` + `evals`)** `[needs design]` — move `agent:check`, `agent:doctor`, and `eval` scripts plus related tests into a tooling project; keep app unit tests and mutation testing with app initially; define dependency ownership and migration steps that preserve CI and publish flows
 - `buildVolarService` refactoring `[needs design]` — extract named sub-functions from the ~176-line monolith; prerequisite for more Vue operations
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
-- **Stage 3: Claude Code Marketplace submission** `[needs design]` — submit to official Anthropic marketplace; position alongside LSP code intelligence plugins
+- **Stage 2: Claude Code plugin** `[needs design]` — package as a Claude Code plugin (`.claude-plugin/plugin.json`); complements existing `typescript-lsp` code intelligence plugin with refactoring tools; one-command install via `/plugin install`
 
 ---
 
@@ -146,6 +146,8 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P4 — Medium-value features and tech debt
 
+- **Workspace split: `app` + `tooling` (`conventions` + `evals`)** `[needs design]` — move `agent:check`, `agent:doctor`, and `eval` scripts plus related tests into a tooling project; keep app unit tests and mutation testing with app initially; define dependency ownership and migration steps that preserve CI and publish flows
+- **Stage 3: Claude Code Marketplace submission** `[needs design]` — submit to official Anthropic marketplace; position alongside LSP code intelligence plugins
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks; depends on buildVolarService refactoring
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; depends on buildVolarService refactoring; see [moveSymbol.md](features/moveSymbol.md)
@@ -157,7 +159,6 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - **`rename` doesn't catch derived variable names** `[needs design]` — `rename` follows the compiler's reference graph, which is correct for type-checked references. But when renaming `TsProvider` → `TsMorphCompiler`, variables like `tsProviderSingleton`, `pluginProviders`, `stubProvider` are untouched — they're just strings to the compiler. During the providers→compilers rename this meant ~100 extra tool calls for what should have been automatic. Possible approaches: (a) `rename --derived` flag that does a substring text pass after the compiler rename; (b) smarter `findReferences` that can return construct types (variable, type, import, parameter) like IntelliJ's "Find Usages" — let the caller filter by kind and batch-rename; (c) `rename` automatically identifies variables whose names derive from the renamed symbol (e.g. local variables typed as the renamed interface, or variables assigned from an import of the renamed symbol) and offers to rename them too. The IntelliJ model is worth studying — it distinguishes types, variables, imports, and string occurrences in its rename dialog.
 - **`searchText` output optimization** `[needs design]` — context array adds ~70% JSON overhead (~150-200 bytes/match). Consider: (a) return `line`/`col` only; (b) only include context when explicitly requested; (c) sparse representation for non-matching lines. Low priority, large-result-set efficiency.
 - **Agents don't reach for the tools even when loaded** `[needs design]` — The `light-bridge-refactoring` skill is loaded on the execution agent and explicitly tells it to use `moveSymbol`, `rename`, `findReferences` etc. for cross-file changes. It still reaches for manual Edit + Grep instead. Observed during the `extensions.ts` extraction: agent manually moved constants and fixed imports by hand instead of calling `moveSymbol`. The skill file, tool descriptions, and MCP server instructions are all present — the agent ignores them. This is the existential problem for the project: if the tool's own development agent won't use the tools, external consumers won't either. Needs investigation into why agents bypass MCP tools in favour of built-in editing, and what (if anything) can make them prefer compiler-aware tools. Possible angles: tool description phrasing, latency/cost perception, response format, or fundamental model behaviour that can't be influenced by descriptions alone.
-- **CLI-first transport: expose operations as CLI subcommands** `[needs design]` — Currently operations are only reachable via MCP. Add CLI subcommands (e.g. `light-bridge rename --symbol Foo --to Bar`) that talk to the existing daemon. Benefits: zero context-token cost (MCP schemas consume input tokens every turn), no `.mcp.json` setup friction, works with any agent that can shell out, enables Unix piping and composition, enables interactive selection workflows (e.g. `replaceText --interactive` presenting matches one-by-one like `git add -p`), and `--dry-run` previews. MCP remains as an optional transport. The daemon architecture already supports this — the new layer is thin (arg parsing → daemon request → JSON output).
 
 ---
 
