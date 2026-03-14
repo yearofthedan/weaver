@@ -1,6 +1,5 @@
-import * as fs from "node:fs";
 import type { TsMorphCompiler } from "../compilers/ts.js";
-import { isWithinWorkspace } from "../security.js";
+import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { ExtractFunctionResult } from "../types.js";
 import { assertFileExists } from "../utils/assert-file.js";
 import { EngineError } from "../utils/errors.js";
@@ -25,7 +24,7 @@ export async function extractFunction(
   endLine: number,
   endCol: number,
   functionName: string,
-  workspace: string,
+  scope: WorkspaceScope,
 ): Promise<ExtractFunctionResult> {
   const absFile = assertFileExists(file);
 
@@ -36,7 +35,7 @@ export async function extractFunction(
     );
   }
 
-  const content = fs.readFileSync(absFile, "utf8");
+  const content = scope.fs.readFile(absFile);
 
   let startOffset: number;
   let endOffset: number;
@@ -129,13 +128,14 @@ export async function extractFunction(
   }));
 
   // Apply edits to disk.
-  const filesModified: string[] = [];
   for (const fileEdit of modifiedEdits) {
-    if (!isWithinWorkspace(fileEdit.fileName, workspace)) continue;
-    const original = fs.readFileSync(fileEdit.fileName, "utf8");
+    if (!scope.contains(fileEdit.fileName)) {
+      scope.recordSkipped(fileEdit.fileName);
+      continue;
+    }
+    const original = scope.fs.readFile(fileEdit.fileName);
     const updated = applyTextEdits(original, fileEdit.textChanges);
-    fs.writeFileSync(fileEdit.fileName, updated, "utf8");
-    filesModified.push(fileEdit.fileName);
+    scope.writeFile(fileEdit.fileName, updated);
   }
 
   // Count parameters by reloading the file via a fresh project.
@@ -143,8 +143,8 @@ export async function extractFunction(
   const parameterCount = countParameters(tsCompiler, absFile, functionName);
 
   return {
-    filesModified,
-    filesSkipped: [],
+    filesModified: scope.modified,
+    filesSkipped: scope.skipped,
     functionName,
     parameterCount,
   };

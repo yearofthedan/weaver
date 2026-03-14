@@ -116,6 +116,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         functionName: string;
       };
       const tsCompiler = await registry.tsCompiler();
+      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
       return extractFunction(
         tsCompiler,
         file,
@@ -124,7 +125,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         endLine,
         endCol,
         functionName,
-        workspace,
+        scope,
       );
     },
   },
