@@ -407,4 +407,32 @@ describe("dispatchRequest path character validation", () => {
     expect(result.error).toBe("INVALID_PATH");
     expect(result.message).toBe("path contains control characters: file");
   });
+
+  it("returns INVALID_PATH when file path contains a URI query character (?)", async () => {
+    const result = (await dispatchRequest(
+      {
+        method: "rename",
+        params: { file: "/tmp/workspace/src/foo.ts?v=1", line: 1, col: 1, newName: "x" },
+      },
+      "/tmp/workspace",
+    )) as Record<string, unknown>;
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("INVALID_PATH");
+    expect(result.message).toContain("URI fragment or query character");
+    expect(result.message).toContain("file");
+  });
+
+  it("returns INVALID_PATH when file path contains a URI fragment character (#)", async () => {
+    const result = (await dispatchRequest(
+      {
+        method: "rename",
+        params: { file: "/tmp/workspace/src/foo.ts#anchor", line: 1, col: 1, newName: "x" },
+      },
+      "/tmp/workspace",
+    )) as Record<string, unknown>;
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("INVALID_PATH");
+    expect(result.message).toContain("URI fragment or query character");
+    expect(result.message).toContain("file");
+  });
 });
