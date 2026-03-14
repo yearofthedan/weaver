@@ -88,6 +88,14 @@ If mutation survivors are in code you didn't change, note them and move on. Addi
 
 ---
 
+## Where gotchas belong: code first, docs second, agent-memory last
+
+1. **Clear code** -- if the pattern is visible in the source (comments, naming, consistent usage), that's sufficient. Don't document what the code already says.
+2. **Feature / architecture / tech docs** (`docs/features/`, `docs/architecture.md`, `docs/tech/`) -- if the gotcha is isolated to one feature or technology area, put it in the relevant doc so agents working on that area find it.
+3. **agent-memory.md** -- only for cross-cutting constraints and conventions that affect how you work across the whole codebase. Things that contradict reasonable default assumptions regardless of which feature you're touching.
+
+---
+
 ## `scope.modified` returns a new array on every call
 
 `WorkspaceScope.modified` creates a fresh array each invocation. Snapshot it before a loop (`const alreadyModified = new Set(scope.modified)`) to avoid O(n^2) behaviour when checking membership repeatedly inside an iteration.
