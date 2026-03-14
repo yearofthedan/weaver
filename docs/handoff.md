@@ -75,19 +75,19 @@ src/
     vue/
       plugin.ts   ← createVueLanguagePlugin(); Vue/Volar LanguagePlugin factory (project detection, lifecycle)
       compiler.ts ← VolarCompiler: compiler calls via Volar proxy + virtual↔real translation; afterSymbolMove scans .vue files
-      scan.ts     ← updateVueImportsAfterMove + updateVueNamedImportAfterSymbolMove (regex scans; enforces workspace boundary)
+      scan.ts     ← updateVueImportsAfterMove + removeVueImportsOfDeletedFile + updateVueNamedImportAfterSymbolMove (regex scans; uses WorkspaceScope for boundary enforcement)
       service.ts  ← buildVolarService() — Volar service factory
   operations/
     rename.ts          ← rename(compiler, filePath, line, col, newName, scope: WorkspaceScope)
     findReferences.ts  ← findReferences(compiler, filePath, line, col)
     getDefinition.ts   ← getDefinition(compiler, filePath, line, col)
-    getTypeErrors.ts   ← getTypeErrors(tsCompiler, file?, workspace) — errors-only, cap 100
+    getTypeErrors.ts   ← getTypeErrors(tsCompiler, file?, scope: WorkspaceScope) — errors-only, cap 100
     moveFile.ts        ← moveFile(compiler, oldPath, newPath, scope: WorkspaceScope)
     moveSymbol.ts      ← moveSymbol(tsCompiler, projectCompiler, sourceFile, symbolName, destFile, scope: WorkspaceScope)
-    extractFunction.ts ← extractFunction(tsCompiler, file, startLine, startCol, endLine, endCol, functionName, workspace)
-    searchText.ts      ← searchText(pattern, workspace, { glob, context, maxResults })
-    replaceText.ts     ← replaceText(workspace, { pattern, replacement, glob } | { edits })
-    deleteFile.ts      ← deleteFile(tsCompiler, file, workspace)
+    extractFunction.ts ← extractFunction(tsCompiler, file, startLine, startCol, endLine, endCol, functionName, scope: WorkspaceScope)
+    searchText.ts      ← searchText(pattern, scope: WorkspaceScope, { glob, context, maxResults })
+    replaceText.ts     ← replaceText(scope: WorkspaceScope, { pattern, replacement, glob } | { edits })
+    deleteFile.ts      ← deleteFile(tsCompiler, file, scope: WorkspaceScope)
   compilers/
     ts.ts              ← TsMorphCompiler: compiler calls via ts-morph Project; refreshFile() for selective invalidation
     ts-move-symbol.ts  ← tsMoveSymbol(): compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
@@ -108,44 +108,33 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ---
 
-### P1 — Fix now (bugs / correctness)
-
-- **Migrate remaining operations to WorkspaceScope + FileSystem port** → [`docs/specs/20260314-migrate-remaining-operations.md`](specs/20260314-migrate-remaining-operations.md)
+### P1 — Very high value bugs and tech debt
 
 - **Reject control characters and URI fragments in file paths** → [`docs/specs/20260314-reject-path-special-chars.md`](specs/20260314-reject-path-special-chars.md)
+
+- **`moveFile` does not update imports in files outside `tsconfig.include`** `[needs design]` — tool description says "Works for non-source files (tests, scripts, config) too" but imports within moved test files are not rewritten when directory depth changes, and test files that import a moved source file are not updated. Two failure modes: (a) source file moved → test imports to it break; (b) test file moved to different depth → its own `src/` imports break. Both require manual fixes today. Fix likely requires a second pass using text-based rewriting (outside ts-morph) for files not in `tsconfig.include`.
+- **Batch file operations** `[needs design]` — `moveFile` requires N sequential calls for N files; no atomicity. Offer `moveFiles(oldPaths[], newPath)` and/or `moveDirectory(oldPath, newPath)`. Quality-of-life improvement for agents.
+
+- **Test colocation and mutation speed** → [`docs/specs/20260305-colocate-tests.md`](specs/20260305-colocate-tests.md) — Two-stage refactor: (1) move unit tests next to source, integration tests to `__tests__/`; (2) refactor source files mixing concerns (`searchText` utilities, `security` concerns, `getTypeErrors` dispatcher plumbing) and optimize fixture copying for `perTest` coverage analysis.
 
 - **`getTypeErrors` / write operations: add `warn` status level** `[needs design]` — Currently status is binary (`ok: true/false`). Type errors after a write operation (e.g. `moveFile` returns `ok: true` with `typeErrorCount > 0`) should surface as `status: "warn"` so agents know the operation succeeded structurally but left unresolved references. Supersedes the P4 "moveFile type error return contract" entry.
 
 ---
 
-### P2 — Distribution (ship what exists)
-
-- **`moveFile` does not update imports in files outside `tsconfig.include`** `[needs design]` — tool description says "Works for non-source files (tests, scripts, config) too" but imports within moved test files are not rewritten when directory depth changes, and test files that import a moved source file are not updated. Two failure modes: (a) source file moved → test imports to it break; (b) test file moved to different depth → its own `src/` imports break. Both require manual fixes today. Fix likely requires a second pass using text-based rewriting (outside ts-morph) for files not in `tsconfig.include`.
-
-- **Pre-public release infrastructure** → [`docs/specs/20260304-pre-public-infra.md`](specs/20260304-pre-public-infra.md) — Release Please pipeline, CodeQL, branch protection, LICENSE, SECURITY.md, `package.json` modernisation
+### P2 — High-value features / bugs / tech debt
 
 - **CLI-first transport: expose operations as CLI subcommands** `[needs design]` — Currently operations are only reachable via MCP. Add CLI subcommands (e.g. `light-bridge rename --symbol Foo --to Bar`) that talk to the existing daemon. Benefits: zero context-token cost (MCP schemas consume input tokens every turn), no `.mcp.json` setup friction, works with any agent that can shell out, enables Unix piping and composition, enables interactive selection workflows (e.g. `replaceText --interactive` presenting matches one-by-one like `git add -p`), and `--dry-run` previews. MCP remains as an optional transport. The daemon architecture already supports this — the new layer is thin (arg parsing → daemon request → JSON output).
 
----
-
-### P3 — High-value features
-
+- **Pre-public release infrastructure** → [`docs/specs/20260304-pre-public-infra.md`](specs/20260304-pre-public-infra.md) — Release Please pipeline, CodeQL, branch protection, LICENSE, SECURITY.md, `package.json` modernisation
 - `buildVolarService` refactoring `[needs design]` — extract named sub-functions from the ~176-line monolith; prerequisite for more Vue operations
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
-- **Stage 2: Claude Code plugin** `[needs design]` — package as a Claude Code plugin (`.claude-plugin/plugin.json`); complements existing `typescript-lsp` code intelligence plugin with refactoring tools; one-command install via `/plugin install`
-
 ---
 
-### P3.5 — Quality tooling
+### P3 — Medium-value features / bugs / tech debt
 
-- **Test colocation and mutation speed** → [`docs/specs/20260305-colocate-tests.md`](specs/20260305-colocate-tests.md) — Two-stage refactor: (1) move unit tests next to source, integration tests to `__tests__/`; (2) refactor source files mixing concerns (`searchText` utilities, `security` concerns, `getTypeErrors` dispatcher plumbing) and optimize fixture copying for `perTest` coverage analysis.
-
----
-
-### P4 — Medium-value features and tech debt
-
+- **: Claude Code plugin** `[needs design]` — package as a Claude Code plugin (`.claude-plugin/plugin.json`); complements existing `typescript-lsp` code intelligence plugin with refactoring tools; one-command install via `/plugin install`
 - **Workspace split: `app` + `tooling` (`conventions` + `evals`)** `[needs design]` — move `agent:check`, `agent:doctor`, and `eval` scripts plus related tests into a tooling project; keep app unit tests and mutation testing with app initially; define dependency ownership and migration steps that preserve CI and publish flows
-- **Stage 3: Claude Code Marketplace submission** `[needs design]` — submit to official Anthropic marketplace; position alongside LSP code intelligence plugins
+- **: Claude Code Marketplace submission** `[needs design]` — submit to official Anthropic marketplace; position alongside LSP code intelligence plugins
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks; depends on buildVolarService refactoring
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; depends on buildVolarService refactoring; see [moveSymbol.md](features/moveSymbol.md)
@@ -153,7 +142,6 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - **`moveSymbol` cannot move non-exported local functions** `[needs design]` — `moveSymbol` only handles top-level exported declarations. Attempting to move an unexported helper returns `SYMBOL_NOT_FOUND`. Workaround: manually create the destination file with the symbol exported, remove from source, add import. See handoff.md "Agent reflection" section for context.
 - `createFile` `[needs design]` — scaffold a file with correct import paths
 - **Agent guidance on type errors in tool responses** `[needs design]` — all write operations return `typeErrors`; agents need to know this is an action item (something wasn't fully updated) and follow up with `replaceText`. Currently nothing teaches this pattern. Decision needed: shipped skill file, tool description addition, CLAUDE.md guidance snippet, or combination?
-- **Batch file operations** `[needs design]` — `moveFile` requires N sequential calls for N files; no atomicity. Offer `moveFiles(oldPaths[], newPath)` and `moveDirectory(oldPath, newPath)`. Low priority, quality-of-life improvement for agents.
 - **`rename` doesn't catch derived variable names** `[needs design]` — `rename` follows the compiler's reference graph, which is correct for type-checked references. But when renaming `TsProvider` → `TsMorphCompiler`, variables like `tsProviderSingleton`, `pluginProviders`, `stubProvider` are untouched — they're just strings to the compiler. During the providers→compilers rename this meant ~100 extra tool calls for what should have been automatic. Possible approaches: (a) `rename --derived` flag that does a substring text pass after the compiler rename; (b) smarter `findReferences` that can return construct types (variable, type, import, parameter) like IntelliJ's "Find Usages" — let the caller filter by kind and batch-rename; (c) `rename` automatically identifies variables whose names derive from the renamed symbol (e.g. local variables typed as the renamed interface, or variables assigned from an import of the renamed symbol) and offers to rename them too. The IntelliJ model is worth studying — it distinguishes types, variables, imports, and string occurrences in its rename dialog.
 - **`searchText`/`replaceText` file enumeration bypasses `FileSystem` port** `[needs design]` — `walkWorkspaceFiles` (used by both operations) uses `spawnSync("git", ["ls-files", ...])` and `fs.readdirSync` directly instead of going through the `FileSystem` port. The `FileSystem` interface lacks a `readdir` method, so directory listing cannot be abstracted today. This is a DDD boundary violation: file enumeration is I/O that should go through the port for testability and consistency. Fix: add `readdir` (or a higher-level `walkFiles`) to the `FileSystem` interface, then migrate `walkWorkspaceFiles` and `walkRecursive` to use it.
 - **`searchText` output optimization** `[needs design]` — context array adds ~70% JSON overhead (~150-200 bytes/match). Consider: (a) return `line`/`col` only; (b) only include context when explicitly requested; (c) sparse representation for non-matching lines. Low priority, large-result-set efficiency.
@@ -161,7 +149,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ---
 
-### P5 — Low priority / accepted
+### P4 — Low priority
 
 - **`moveSymbol` for class methods** — extract a method to a standalone exported function. Deferred: the only safe subset (static methods / no-`this` instance methods) doesn't update call sites, so it always leaves broken code. Without call-site rewriting, the value over manual `searchText` + `replaceText` is low. Revisit if call-site rewriting becomes tractable.
 - **`inlineVariable` / `inlineFunction`** — less common refactoring pattern; complex to implement safely
