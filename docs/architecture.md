@@ -8,7 +8,7 @@ See also: `docs/tech/volar-v3.md` (Vue compiler internals), `docs/tech/tech-debt
 
 ## Overview
 
-The engine layer has three tiers: **ports** define I/O abstractions, **domain** holds boundary/tracking logic, **compilers** hold the stateful compiler objects, and **operations** are standalone functions that call into compilers and domain objects. There are no engine classes.
+The engine layer has four tiers: **ports** define I/O abstractions, **domain** holds boundary/tracking logic and value objects, **compilers** hold the stateful compiler objects, and **operations** are standalone functions that orchestrate compilers and domain objects. There are no engine classes.
 
 ```
 src/ports/               ← I/O abstractions (hexagonal ports)
@@ -19,13 +19,17 @@ src/ports/               ← I/O abstractions (hexagonal ports)
 src/domain/              ← domain logic independent of I/O
   workspace-scope.ts    ← WorkspaceScope — boundary enforcement + modification tracking
   import-rewriter.ts    ← ImportRewriter — rewrites named imports/re-exports of a moved symbol
+  symbol-ref.ts         ← SymbolRef — resolved exported symbol value object (lookup, unwrap, remove)
 
 src/operations/          ← standalone action functions (one per operation)
   rename.ts
   moveFile.ts
   moveSymbol.ts
+  deleteFile.ts
+  extractFunction.ts
   findReferences.ts
   getDefinition.ts
+  getTypeErrors.ts
   searchText.ts
   replaceText.ts
 
@@ -43,6 +47,117 @@ src/plugins/             ← language plugin feature folders (one per framework)
 
 Each plugin folder is a self-contained unit: project detection, compiler implementation, and any framework-specific helpers. When adding a new framework (Svelte, Angular), add a new `src/plugins/<name>/` folder following the same shape.
 
+### Hexagonal layer diagram
+
+```mermaid
+graph TD
+    subgraph Transport
+        MCP[MCP Server]
+        CLI[CLI]
+        Socket[Socket]
+    end
+
+    subgraph Dispatcher
+        D[dispatcher.ts<br/>schema validation / workspace gate / compiler resolution]
+    end
+
+    subgraph Operations
+        rename
+        moveFile
+        moveSymbol
+        deleteFile
+        extractFunction
+        findReferences
+        getDefinition
+        getTypeErrors
+        searchText
+        replaceText
+    end
+
+    subgraph Domain["Domain Services"]
+        WS[WorkspaceScope]
+        IR[ImportRewriter]
+        SR[SymbolRef]
+    end
+
+    subgraph Compilers["Compiler Adapters"]
+        TSC[TsMorphCompiler]
+        VOL[VolarCompiler]
+        TMS[tsMoveSymbol]
+    end
+
+    subgraph Ports
+        FS[FileSystem]
+        NFS[NodeFileSystem]
+        IFS[InMemoryFileSystem]
+    end
+
+    MCP --> D
+    CLI --> D
+    Socket --> D
+    D --> Operations
+    Operations --> Domain
+    Operations --> Compilers
+    Compilers --> Domain
+    Domain --> FS
+    Compilers --> FS
+    FS -.-> NFS
+    FS -.-> IFS
+```
+
+### Data flow: moveSymbol (write operation)
+
+```mermaid
+sequenceDiagram
+    participant T as Transport (MCP/CLI)
+    participant D as Dispatcher
+    participant O as moveSymbol operation
+    participant C as TsMorphCompiler
+    participant TMS as tsMoveSymbol
+    participant IR as ImportRewriter
+    participant SR as SymbolRef
+    participant PC as projectCompiler.afterSymbolMove
+    participant WS as WorkspaceScope
+
+    T->>D: moveSymbol(sourceFile, symbolName, destFile)
+    D->>D: validate params, resolve workspace
+    D->>WS: new WorkspaceScope(root, NodeFileSystem)
+    D->>O: moveSymbol(tsCompiler, projectCompiler, ..., scope)
+    O->>C: moveSymbol(source, symbol, dest, scope)
+    C->>TMS: tsMoveSymbol(project, source, symbol, dest, scope)
+    TMS->>SR: SymbolRef.from(sourceFile, symbolName)
+    SR-->>TMS: resolved symbol ref
+    TMS->>TMS: AST surgery (copy decl, add export)
+    TMS->>IR: rewrite(importerFiles, symbol, oldSource, newSource, scope)
+    IR->>WS: writeFile() for each rewritten importer
+    TMS->>SR: remove() from source file
+    TMS->>WS: writeFile(source), writeFile(dest)
+    C-->>O: done
+    O->>PC: afterSymbolMove(source, symbol, dest, scope)
+    PC->>WS: writeFile() for additional importers (.vue, out-of-project)
+    O-->>D: { filesModified: scope.modified, filesSkipped: scope.skipped }
+    D-->>T: { ok: true, filesModified, filesSkipped }
+```
+
+### Which operations use which pattern
+
+`rename`, `moveFile`, and `moveSymbol` receive a `WorkspaceScope`, use the `FileSystem` port for I/O, and rely on domain services for boundary tracking and import rewriting.
+
+The remaining mutating operations take `workspace: string`, call `fs.*` directly, check `isWithinWorkspace` inline, and track modifications with manual `Set<string>` instances.
+
+| Operation | Boundary / I/O pattern |
+|-----------|----------------------|
+| `rename` | `WorkspaceScope` + `FileSystem` port |
+| `moveFile` | `WorkspaceScope` + `FileSystem` port |
+| `moveSymbol` | `WorkspaceScope` + `FileSystem` port |
+| `deleteFile` | `workspace: string` + direct `fs.*` |
+| `extractFunction` | `workspace: string` + direct `fs.*` |
+| `getTypeErrors` | `workspace: string` + direct `fs.*` |
+| `searchText` | `workspace: string` + direct `fs.*` (no compiler) |
+| `replaceText` | `workspace: string` + direct `fs.*` (no compiler) |
+
+Read-only operations (`findReferences`, `getDefinition`) do not write files and do not take a workspace argument.
+
 ---
 
 ## Compiler interface
@@ -58,8 +173,8 @@ interface Compiler {
   getEditsForFileRename(oldPath, newPath): Promise<FileTextEdit[]>
   readFile(path): string
   notifyFileWritten(path, content): void
-  afterFileRename(oldPath, newPath, workspace): Promise<{ modified, skipped }>
-  afterSymbolMove(sourceFile, symbolName, destFile, workspace): Promise<{ modified, skipped }>
+  afterFileRename(oldPath, newPath, workspace, alreadyModified?): Promise<{ modified, skipped }>
+  afterSymbolMove(sourceFile, symbolName, destFile, scope: WorkspaceScope): Promise<void>
 }
 ```
 
@@ -141,6 +256,8 @@ Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and on
 | `rename` | `projectCompiler` | Calls `getRenameLocations`; applies edits; returns `filesModified`, `filesSkipped` |
 | `moveFile` | `projectCompiler` | Calls `getEditsForFileRename`; renames file; calls `afterFileRename` post-hook |
 | `moveSymbol` | `tsCompiler` + `projectCompiler` | Thin orchestrator using `WorkspaceScope`; compiler work in `TsMorphCompiler.moveSymbol()` (impl: `src/compilers/ts-move-symbol.ts`); `afterSymbolMove` hook for Vue SFC importers |
+| `deleteFile` | `tsCompiler` | Removes import/export declarations referencing the deleted file across in-project, out-of-project, and Vue SFC files; physically deletes the file |
+| `extractFunction` | `tsCompiler` | Delegates to the TS language service's "Extract Symbol" refactor; replaces auto-generated name with caller-provided name |
 
 ### Read-only
 
@@ -148,8 +265,9 @@ Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and on
 |-----------|---------------|-------|
 | `findReferences` | `projectCompiler` | Does not take `workspace` — returns all references, including outside the workspace |
 | `getDefinition` | `projectCompiler` | Same — workspace boundary is only enforced on inputs (the query file), not outputs |
+| `getTypeErrors` | `tsCompiler` | Returns semantic diagnostics for a single file or all files in the project; errors-only, capped at 100 |
 
-### Filesystem-only (no provider)
+### Filesystem-only (no compiler)
 
 | Operation | Notes |
 |-----------|-------|
@@ -200,9 +318,13 @@ The watcher (`src/daemon/watcher.ts`) calls into the language plugin registry:
 
 | File | Purpose |
 |------|---------|
-| `src/utils/text-utils.ts` | `applyTextEdits()`, `offsetToLineCol()` — used by all operations |
+| `src/utils/text-utils.ts` | `applyTextEdits()`, `offsetToLineCol()`, `lineColToOffset()` — text manipulation used by operations |
 | `src/utils/file-walk.ts` | `walkFiles(dir, extensions)`, `SKIP_DIRS` — in git workspaces shells out to `git ls-files` (respects gitignore); falls back to recursive readdir + `SKIP_DIRS` elsewhere |
 | `src/utils/ts-project.ts` | `findTsConfig`, `findTsConfigForFile`, `isVueProject` — project discovery |
+| `src/utils/extensions.ts` | `TS_EXTENSIONS`, `JS_EXTENSIONS`, `VUE_EXTENSIONS`, `JS_TS_PAIRS` — file extension constants |
+| `src/utils/relative-path.ts` | `computeRelativeImportPath()`, `toRelBase()` — import specifier path calculation |
+| `src/utils/assert-file.ts` | `assertFileExists()` — resolves and validates file path, throws `FILE_NOT_FOUND` |
+| `src/utils/errors.ts` | `EngineError` class + `ErrorCode` union — structured error type |
 | `src/plugins/vue/scan.ts` | `updateVueImportsAfterMove`, `updateVueNamedImportAfterSymbolMove` — regex scans for `.vue` SFC import strings |
 
 ## Implementation notes

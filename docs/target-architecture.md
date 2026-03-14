@@ -1,7 +1,7 @@
 # Target Architecture
 
 **Purpose:** Where the codebase should go. The "why" (see `why.md`) doesn't change — compiler-driven refactoring as agent infrastructure. This doc describes the structural changes needed to get there cleanly.
-**Status:** Draft — not yet implemented. The current architecture is in `architecture.md`.
+**Status:** Steps 1-7 complete. The domain layer (FileSystem port, WorkspaceScope, ImportRewriter, SymbolRef) is in place and used by `rename`, `moveFile`, `moveSymbol`. Remaining: migrate `deleteFile`, `extractFunction`, `getTypeErrors`, `searchText`, `replaceText` to the new pattern, and align `afterFileRename` signature. See `architecture.md` for current state.
 **Related docs:** [Why](why.md) (invariant), [Architecture](architecture.md) (current state), [Handoff](handoff.md) (task queue)
 
 ---
