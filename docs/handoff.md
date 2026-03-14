@@ -110,7 +110,6 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Very high value bugs and tech debt
 
-- **`moveFile` does not rewrite imports inside a moved out-of-project file** → [`docs/specs/20260314-movefile-extraproject-imports.md`](specs/20260314-movefile-extraproject-imports.md)
 - **`moveDirectory` — move a directory and rewrite all imports** → [`docs/specs/20260314-move-directory.md`](specs/20260314-move-directory.md)
 
 - **Test colocation and mutation speed** → [`docs/specs/20260305-colocate-tests.md`](specs/20260305-colocate-tests.md) — Two-stage refactor: (1) move unit tests next to source, integration tests to `__tests__/`; (2) refactor source files mixing concerns (`searchText` utilities, `security` concerns, `getTypeErrors` dispatcher plumbing) and optimize fixture copying for `perTest` coverage analysis.
@@ -164,7 +163,6 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - **`docs/tech/volar-v3.md`** — how the Vue compiler works around TypeScript's refusal to process `.vue` files. Read this before touching `src/plugins/vue/compiler.ts`.
 - **`docs/tech/tech-debt.md`** — known structural issues. Includes the `ensureDaemon` one-shot bug.
 - **`@volar/language-core` version skew** — `@vue/language-core` and `@volar/typescript` previously depended on different patch versions of `@volar/language-core`, causing type mismatches. Fixed via `pnpm.overrides` in `package.json` pinning to 2.4.28. `@volar/language-core` is also a direct `devDependency` so TypeScript can resolve the `Language<string>` type import in `volar.ts`.
-- **`moveFile` import gap for files outside `tsconfig.include`** — imports *to* out-of-project files are rewritten by the `afterFileRename` fallback scan, but imports *inside* a moved out-of-project file are not rewritten. Spec: [`docs/specs/20260314-movefile-extraproject-imports.md`](specs/20260314-movefile-extraproject-imports.md). Workaround: use `replaceText` to fix paths manually after moving.
 
 ---
 
