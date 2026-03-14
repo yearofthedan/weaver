@@ -116,7 +116,8 @@ export class TsMorphCompiler implements Compiler {
     }
 
     const ls = project.getLanguageService().compilerObject;
-    const renameInfo = ls.getRenameInfo(file, offset, { allowRenameOfImportPath: false });
+    const resolvedPath = sourceFile.getFilePath();
+    const renameInfo = ls.getRenameInfo(resolvedPath, offset, { allowRenameOfImportPath: false });
     if (!renameInfo.canRename) {
       throw new EngineError(
         renameInfo.localizedErrorMessage ?? "Symbol cannot be renamed",
@@ -124,7 +125,7 @@ export class TsMorphCompiler implements Compiler {
       );
     }
 
-    const locs = ls.findRenameLocations(file, offset, false, false, {
+    const locs = ls.findRenameLocations(resolvedPath, offset, false, false, {
       allowRenameOfImportPath: false,
     });
     if (!locs || locs.length === 0) return null;
@@ -143,7 +144,8 @@ export class TsMorphCompiler implements Compiler {
     }
 
     const ls = project.getLanguageService().compilerObject;
-    const refs = ls.getReferencesAtPosition(file, offset);
+    const resolvedPath = sourceFile.getFilePath();
+    const refs = ls.getReferencesAtPosition(resolvedPath, offset);
     if (!refs || refs.length === 0) return null;
 
     return refs.map((ref) => ({
@@ -163,7 +165,8 @@ export class TsMorphCompiler implements Compiler {
     }
 
     const ls = project.getLanguageService().compilerObject;
-    const defs = ls.getDefinitionAtPosition(file, offset);
+    const resolvedPath = sourceFile.getFilePath();
+    const defs = ls.getDefinitionAtPosition(resolvedPath, offset);
     if (!defs || defs.length === 0) return null;
 
     return defs.map((def) => ({

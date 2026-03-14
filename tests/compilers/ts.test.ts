@@ -229,6 +229,65 @@ describe("TsMorphCompiler", () => {
     expect(result.skipped).toEqual([]);
   });
 
+  describe("symlink path resolution", () => {
+    function setupSymlink() {
+      const realDir = copyFixture("simple-ts");
+      dirs.push(realDir);
+      const linkDir = realDir + "-link";
+      fs.symlinkSync(realDir, linkDir, "dir");
+      dirs.push(linkDir);
+      return { realDir, linkDir };
+    }
+
+    it("resolveOffset works through a symlinked path", () => {
+      const { linkDir } = setupSymlink();
+      const p = new TsMorphCompiler();
+      const file = path.join(linkDir, "src/utils.ts");
+      expect(p.resolveOffset(file, 1, 17)).toBe(16);
+    });
+
+    it("getRenameLocations succeeds through a symlinked path", async () => {
+      const { linkDir } = setupSymlink();
+      const p = new TsMorphCompiler();
+      const file = path.join(linkDir, "src/utils.ts");
+      const offset = p.resolveOffset(file, 1, 17);
+      const locs = await p.getRenameLocations(file, offset);
+      expect(locs).not.toBeNull();
+      expect(locs!.length).toBeGreaterThanOrEqual(2);
+      // Response paths should be real (usable) paths
+      for (const loc of locs!) {
+        expect(fs.existsSync(loc.fileName)).toBe(true);
+      }
+    });
+
+    it("getReferencesAtPosition succeeds through a symlinked path", async () => {
+      const { linkDir } = setupSymlink();
+      const p = new TsMorphCompiler();
+      const file = path.join(linkDir, "src/utils.ts");
+      const offset = p.resolveOffset(file, 1, 17);
+      const refs = await p.getReferencesAtPosition(file, offset);
+      expect(refs).not.toBeNull();
+      expect(refs!.length).toBeGreaterThanOrEqual(1);
+      for (const ref of refs!) {
+        expect(fs.existsSync(ref.fileName)).toBe(true);
+      }
+    });
+
+    it("getDefinitionAtPosition succeeds through a symlinked path", async () => {
+      const { linkDir } = setupSymlink();
+      const p = new TsMorphCompiler();
+      const file = path.join(linkDir, "src/main.ts");
+      const offset = p.resolveOffset(file, 3, 13); // greetUser call site
+      const defs = await p.getDefinitionAtPosition(file, offset);
+      expect(defs).not.toBeNull();
+      expect(defs!.length).toBeGreaterThanOrEqual(1);
+      expect(defs![0].name).toBe("greetUser");
+      for (const def of defs!) {
+        expect(fs.existsSync(def.fileName)).toBe(true);
+      }
+    });
+  });
+
   it("getProjectForDirectory falls back to no-tsconfig project when no tsconfig found", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-notconfig-dir-"));
     try {
