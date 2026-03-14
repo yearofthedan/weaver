@@ -6,6 +6,7 @@ tools: Read, Glob, Grep, Write, Edit, Bash, Agent(Explore)
 disallowedTools: WebFetch, WebSearch
 skills:
   - light-bridge-refactoring
+  - run-checks
 mcpServers:
   - light-bridge
 memory: project
