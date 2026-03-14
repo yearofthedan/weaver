@@ -49,11 +49,31 @@ Why this change exists. One paragraph max — the feature doc has the background
 
 > **Prompt:** Use this to decide whether the task is worth doing *now*.
 > If value is low or effort is high, consider deferring or splitting.
+>
+> Before writing the value statement, answer these questions honestly:
+>
+> 1. **How does this make the user's job easier?** Describe the improvement
+>    in terms of what the user is trying to do — not in terms of our
+>    implementation (round-trips, caching, batching). If you can't explain
+>    the value without referencing internals, you don't understand the
+>    user's problem yet.
+> 2. **Is this solving a real problem?** Can you point to a concrete
+>    scenario where a user hits this pain today? If the problem is
+>    hypothetical, reconsider whether you understand the user's need.
+> 3. **Is there a simpler way to solve it for the user?** The first
+>    design that comes to mind often pushes complexity onto the user.
+>    Ask: what would the user *say* they want? Does the proposed interface
+>    match that, or does it require the user to do homework first?
+>    If you're building a data structure when the user just wants to say
+>    "move this folder" — you're over-engineering.
+>
+> The solution design must map to the value statement. If the design
+> doesn't directly serve the stated value, either the design or the
+> value statement is wrong.
 
-- **Value:** What does this save the caller from having to do themselves?
+- **Value:** What does this make easier for the user, in their terms?
   What failure mode does it prevent? ("Saves a round-trip" is weak;
-  "agents catch type errors at the point of change instead of discovering
-  them three steps later" is strong.)
+  "the user restructures a directory and imports just work" is strong.)
 - **Effort:** What's the implementation surface? Count the files touched,
   new concepts introduced, and interactions with existing code. Flag anything
   that requires new infrastructure vs. plumbing through existing patterns.

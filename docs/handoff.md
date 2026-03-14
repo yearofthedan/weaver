@@ -111,7 +111,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 ### P1 — Very high value bugs and tech debt
 
 - **`moveFile` does not rewrite imports inside a moved out-of-project file** → [`docs/specs/20260314-movefile-extraproject-imports.md`](specs/20260314-movefile-extraproject-imports.md)
-- **Batch file operations** `[needs design]` — `moveFile` requires N sequential calls for N files; no atomicity. Offer `moveFiles(oldPaths[], newPath)` and/or `moveDirectory(oldPath, newPath)`. Quality-of-life improvement for agents.
+- **`moveDirectory` — move a directory and rewrite all imports** → [`docs/specs/20260314-move-directory.md`](specs/20260314-move-directory.md)
 
 - **Test colocation and mutation speed** → [`docs/specs/20260305-colocate-tests.md`](specs/20260305-colocate-tests.md) — Two-stage refactor: (1) move unit tests next to source, integration tests to `__tests__/`; (2) refactor source files mixing concerns (`searchText` utilities, `security` concerns, `getTypeErrors` dispatcher plumbing) and optimize fixture copying for `perTest` coverage analysis.
 
