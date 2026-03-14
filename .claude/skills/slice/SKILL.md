@@ -36,7 +36,7 @@ Delegate steps 1-2 to `spec-agent`. Step 3 is dispatched **one AC at a time** to
    **Implement one AC at a time.** For each AC in the spec's Fix/Behaviour section, dispatch a **single** `execution-agent` call with:
    - The spec file path
    - Which AC to implement (quote the AC text)
-   - Explicit instruction: "Write failing tests, implement, run `pnpm check`, run `pnpm test:mutate` on the source files you changed (add tests if below threshold), commit, then stop."
+   - Explicit instruction: "Write failing tests, implement, run `pnpm check`, commit, then stop."
    - Any context from previous ACs (e.g. files already created, patterns established)
 
    **Do NOT batch multiple ACs into one agent call.** Each call produces one commit. After each call, verify the commit exists and `pnpm check` passes before dispatching the next AC.
