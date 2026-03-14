@@ -112,7 +112,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 - **Migrate remaining operations to WorkspaceScope + FileSystem port** → [`docs/specs/20260314-migrate-remaining-operations.md`](specs/20260314-migrate-remaining-operations.md)
 
-- **Reject control characters and URI fragments in file paths** `[needs design]` — `isWithinWorkspace()` guards against `..` traversal and symlink escapes, but does not reject control characters (`\x00`–`\x1f`) or URI-style fragments (`?`, `#`) in path strings. Control characters can corrupt logs and confuse downstream tools; query params / fragments suggest the caller passed a URI instead of a plain path. Fix: add an early rejection in the path validation layer before `path.resolve()`.
+- **Reject control characters and URI fragments in file paths** → [`docs/specs/20260314-reject-path-special-chars.md`](specs/20260314-reject-path-special-chars.md)
 
 - **`getTypeErrors` / write operations: add `warn` status level** `[needs design]` — Currently status is binary (`ok: true/false`). Type errors after a write operation (e.g. `moveFile` returns `ok: true` with `typeErrorCount > 0`) should surface as `status: "warn"` so agents know the operation succeeded structurally but left unresolved references. Supersedes the P4 "moveFile type error return contract" entry.
 
