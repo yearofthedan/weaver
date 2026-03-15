@@ -6,6 +6,7 @@ import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveDirectory } from "../../src/operations/moveDirectory.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
+import { makeMockCompiler } from "../compilers/__helpers__/mock-compiler.js";
 
 function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
@@ -195,36 +196,23 @@ describe("moveDirectory", () => {
   });
 
   describe("import rewriting across moved files", () => {
-    it("preserves intra-directory imports in moved files and rewrites external imports", async () => {
+    it("rewrites external imports and preserves intra-directory imports without introducing parent paths", async () => {
       const dir = copyFixture("move-dir-ts");
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
       await moveDirectory(compiler, `${dir}/src/utils`, `${dir}/src/lib`, makeScope(dir));
 
-      // b.ts imports from ./a — both files moved together, so relative path is still valid
       const movedBContent = readFile(dir, "src/lib/b.ts");
       expect(movedBContent).toContain("./a");
+      expect(movedBContent).not.toContain("../");
+      expect(movedBContent).not.toContain("src/lib/a");
 
-      // app.ts imported from ./utils/a and ./utils/b — both must be rewritten to ./lib/...
       const appContent = readFile(dir, "src/app.ts");
       expect(appContent).toContain("./lib/a");
       expect(appContent).toContain("./lib/b");
       expect(appContent).not.toContain("./utils/a");
       expect(appContent).not.toContain("./utils/b");
-    });
-
-    it("does not break the moved file's intra-directory import at compile level", async () => {
-      const dir = copyFixture("move-dir-ts");
-      dirs.push(dir);
-      const compiler = new TsMorphCompiler();
-
-      await moveDirectory(compiler, `${dir}/src/utils`, `${dir}/src/lib`, makeScope(dir));
-
-      // The intra-directory import in b.ts must NOT have been changed to an absolute or parent path
-      const movedBContent = readFile(dir, "src/lib/b.ts");
-      expect(movedBContent).not.toContain("../");
-      expect(movedBContent).not.toContain("src/lib/a");
     });
   });
 
@@ -249,44 +237,67 @@ describe("moveDirectory", () => {
   });
 
   describe("error cases", () => {
-    it("throws FILE_NOT_FOUND when source does not exist", async () => {
+    it.each([
+      [
+        "source does not exist",
+        (dir: string) => `${dir}/src/nonexistent`,
+        (dir: string) => `${dir}/src/dest`,
+        "FILE_NOT_FOUND",
+      ],
+      [
+        "source is a file",
+        (dir: string) => `${dir}/src/app.ts`,
+        (dir: string) => `${dir}/src/dest`,
+        "NOT_A_DIRECTORY",
+      ],
+      [
+        "destination is a non-empty directory",
+        (dir: string) => `${dir}/src/utils`,
+        (dir: string) => `${dir}/src`,
+        "DESTINATION_EXISTS",
+      ],
+      [
+        "newPath is inside oldPath",
+        (dir: string) => `${dir}/src/utils`,
+        (dir: string) => `${dir}/src/utils/subdir`,
+        "MOVE_INTO_SELF",
+      ],
+    ])("throws when %s", async (_, oldPathFn, newPathFn, code) => {
       const dir = copyFixture("move-dir-ts");
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
       await expect(
-        moveDirectory(compiler, `${dir}/src/nonexistent`, `${dir}/src/dest`, makeScope(dir)),
-      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
+        moveDirectory(compiler, oldPathFn(dir), newPathFn(dir), makeScope(dir)),
+      ).rejects.toMatchObject({ code });
     });
 
-    it("throws NOT_A_DIRECTORY when source is a file", async () => {
-      const dir = copyFixture("move-dir-ts");
-      dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+    it("leaves all files at original paths when compute phase fails for a Vue file", async () => {
+      const tmpRoot = fs.mkdtempSync(path.join(fs.realpathSync("/tmp"), "move-dir-atomic-"));
+      dirs.push(tmpRoot);
 
-      await expect(
-        moveDirectory(compiler, `${dir}/src/app.ts`, `${dir}/src/dest`, makeScope(dir)),
-      ).rejects.toMatchObject({ code: "NOT_A_DIRECTORY" });
-    });
+      const srcDir = path.join(tmpRoot, "src");
+      const destDir = path.join(tmpRoot, "dest");
+      fs.mkdirSync(srcDir);
+      fs.writeFileSync(path.join(srcDir, "plain.ts"), "export const x = 1;");
+      fs.writeFileSync(path.join(srcDir, "Component.vue"), "<template><div/></template>");
 
-    it("throws DESTINATION_EXISTS when destination is a non-empty directory", async () => {
-      const dir = copyFixture("move-dir-ts");
-      dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = makeMockCompiler({
+        getEditsForFileRename: (oldPath: string) => {
+          if (oldPath.endsWith(".vue")) {
+            return Promise.reject(new Error("compiler exploded during compute"));
+          }
+          return Promise.resolve([]);
+        },
+      });
 
-      await expect(
-        moveDirectory(compiler, `${dir}/src/utils`, `${dir}/src`, makeScope(dir)),
-      ).rejects.toMatchObject({ code: "DESTINATION_EXISTS" });
-    });
+      await expect(moveDirectory(compiler, srcDir, destDir, makeScope(tmpRoot))).rejects.toThrow(
+        "compiler exploded during compute",
+      );
 
-    it("throws MOVE_INTO_SELF when newPath is inside oldPath", async () => {
-      const dir = copyFixture("move-dir-ts");
-      dirs.push(dir);
-      const compiler = new TsMorphCompiler();
-
-      await expect(
-        moveDirectory(compiler, `${dir}/src/utils`, `${dir}/src/utils/subdir`, makeScope(dir)),
-      ).rejects.toMatchObject({ code: "MOVE_INTO_SELF" });
+      expect(fs.existsSync(path.join(srcDir, "plain.ts"))).toBe(true);
+      expect(fs.existsSync(path.join(srcDir, "Component.vue"))).toBe(true);
+      expect(fs.existsSync(destDir)).toBe(false);
     });
   });
 });

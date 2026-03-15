@@ -77,15 +77,30 @@ export async function moveDirectory(
     );
   }
 
+  // ── Compute phase ──────────────────────────────────────────────────
+  // Enumerate files and pre-validate compiler operations.
+  // If anything throws here, no files have been modified.
   const files = enumerateAllFiles(absOld);
-  const filesMoved: string[] = [];
+  const movePairs: Array<{ oldFilePath: string; newFilePath: string; isVue: boolean }> = [];
 
   for (const oldFilePath of files) {
     const relPath = path.relative(absOld, oldFilePath);
     const newFilePath = path.join(absNew, relPath);
-    const ext = path.extname(oldFilePath);
+    movePairs.push({ oldFilePath, newFilePath, isVue: VUE_EXTENSIONS.has(path.extname(oldFilePath)) });
+  }
 
-    if (VUE_EXTENSIONS.has(ext)) {
+  for (const { oldFilePath, newFilePath, isVue } of movePairs) {
+    if (isVue) {
+      await compiler.getEditsForFileRename(oldFilePath, newFilePath);
+    }
+  }
+
+  // ── Commit phase ──────────────────────────────────────────────────
+  // All validation passed. Apply moves.
+  const filesMoved: string[] = [];
+
+  for (const { oldFilePath, newFilePath, isVue } of movePairs) {
+    if (isVue) {
       await moveFile(compiler, oldFilePath, newFilePath, scope);
     } else {
       const destDir = path.dirname(newFilePath);
