@@ -113,7 +113,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P1 — Very high value bugs and tech debt
 
-- **`moveDirectory` is not atomic — partial move on failure leaves split state** → [`docs/specs/20260315-moveDirectory-atomicity.md`](specs/20260315-moveDirectory-atomicity.md)
+- **`moveDirectory` is not atomic — partial move on failure leaves split state** → [`docs/specs/20260315-moveDirectory-atomicity.md`](specs/20260315-moveDirectory-atomicity.md) — Attempted fix in `8d1710c` (compute-before-mutate for Vue files) does NOT fix the bug. The ENOENT occurs on pure-TS directories through the daemon path — the unit test passes but the real MCP call still fails. Root cause not yet identified; needs daemon-level investigation.
 
 - **Test colocation Phase 1: unit tests** → [`docs/specs/20260315-colocate-unit-tests.md`](specs/20260315-colocate-unit-tests.md) — Move unit tests next to source, fixtures and shared helpers to `src/__testHelpers__/`.
 
