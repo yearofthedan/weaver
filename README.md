@@ -105,6 +105,7 @@ All refactoring operations are exposed as MCP tools via `light-bridge serve`. Th
 |---|---|---|---|---|
 | `rename` | ✓ | ✓ | no | Renames a symbol at a given position; updates every reference project-wide |
 | `moveFile` | ✓ | ✓ | no | Moves a file; rewrites all import paths that reference it |
+| `moveDirectory` | ✓ | ✓ | no | Moves an entire directory; rewrites all imports across the project |
 | `moveSymbol` | ✓ | ✓* | no | Moves a named export to another file; updates all importers |
 | `deleteFile` | ✓ | ✓† | no | Deletes a file; removes every import and re-export of it across the workspace |
 | `extractFunction` | ✓ | — | no | Extracts a selected block of statements into a new named function at module scope |
@@ -153,6 +154,9 @@ On failure:
 - `TEXT_MISMATCH` — surgical replace precondition failed (`oldText` mismatch)
 - `PARSE_ERROR` — malformed request payload or invalid regex
 - `REDOS` — unsafe regex rejected
+- `NOT_A_DIRECTORY` — path exists but is not a directory
+- `DESTINATION_EXISTS` — destination directory already exists and is non-empty
+- `MOVE_INTO_SELF` — destination is inside the source directory
 - `INTERNAL_ERROR` — unexpected server-side failure
 - `DAEMON_STARTING` — daemon is still initialising; retry the tool call
 

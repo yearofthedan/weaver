@@ -40,15 +40,15 @@ When an agent restructures a project layout, it needs to move entire directories
 
 ## Behaviour
 
-- [ ] **AC1: Basic directory move.** Given `moveDirectory(oldPath: "/project/src/utils", newPath: "/project/src/lib/helpers")` where `src/utils/` contains `a.ts` and `b.ts`, moves both files to `src/lib/helpers/a.ts` and `src/lib/helpers/b.ts`, rewrites all imports across the project that referenced either file, and returns `{ filesMoved: ["...a.ts", "...b.ts"], filesModified: [...all files with rewritten imports...], filesSkipped: [...] }`. The laziest wrong implementation would move files without rewriting imports -- the response must include `filesModified` entries beyond just the moved files themselves.
+- [x] **AC1: Basic directory move.** Given `moveDirectory(oldPath: "/project/src/utils", newPath: "/project/src/lib/helpers")` where `src/utils/` contains `a.ts` and `b.ts`, moves both files to `src/lib/helpers/a.ts` and `src/lib/helpers/b.ts`, rewrites all imports across the project that referenced either file, and returns `{ filesMoved: ["...a.ts", "...b.ts"], filesModified: [...all files with rewritten imports...], filesSkipped: [...] }`. The laziest wrong implementation would move files without rewriting imports -- the response must include `filesModified` entries beyond just the moved files themselves.
 
-- [ ] **AC2: Nested subdirectories preserved.** Given `src/utils/` containing `helpers/format.ts` and `helpers/parse.ts`, `moveDirectory` preserves the subdirectory structure: `src/lib/helpers/format.ts` and `src/lib/helpers/parse.ts`. The laziest wrong implementation would flatten all files into the destination root. The response `filesMoved` must reflect the nested paths.
+- [x] **AC2: Nested subdirectories preserved.** Given `src/utils/` containing `helpers/format.ts` and `helpers/parse.ts`, `moveDirectory` preserves the subdirectory structure: `src/lib/helpers/format.ts` and `src/lib/helpers/parse.ts`. The laziest wrong implementation would flatten all files into the destination root. The response `filesMoved` must reflect the nested paths.
 
-- [ ] **AC3: Import rewriting across all moved files.** Given `src/utils/a.ts` imports from `./b` (both in `src/utils/`), and an external file `src/app.ts` imports from `./utils/a`, after `moveDirectory(src/utils, src/lib)`: the import in the moved `a.ts` (now `src/lib/a.ts`) from `./b` is unchanged (relative path still valid), the import in `src/app.ts` is rewritten from `./utils/a` to `./lib/a`. The laziest wrong implementation would only rewrite external imports and break intra-directory references, or vice versa.
+- [x] **AC3: Import rewriting across all moved files.** Given `src/utils/a.ts` imports from `./b` (both in `src/utils/`), and an external file `src/app.ts` imports from `./utils/a`, after `moveDirectory(src/utils, src/lib)`: the import in the moved `a.ts` (now `src/lib/a.ts`) from `./b` is unchanged (relative path still valid), the import in `src/app.ts` is rewritten from `./utils/a` to `./lib/a`. The laziest wrong implementation would only rewrite external imports and break intra-directory references, or vice versa.
 
-- [ ] **AC4: Error when source is not a directory.** Given `oldPath` points to a regular file (not a directory), returns error `{ ok: false, error: "NOT_A_DIRECTORY" }`. Given `oldPath` does not exist, returns `{ ok: false, error: "FILE_NOT_FOUND" }`. Given `newPath` already exists as a non-empty directory, returns `{ ok: false, error: "DESTINATION_EXISTS" }`.
+- [x] **AC4: Error when source is not a directory.** Given `oldPath` points to a regular file (not a directory), returns error `{ ok: false, error: "NOT_A_DIRECTORY" }`. Given `oldPath` does not exist, returns `{ ok: false, error: "FILE_NOT_FOUND" }`. Given `newPath` already exists as a non-empty directory, returns `{ ok: false, error: "DESTINATION_EXISTS" }`.
 
-- [ ] **AC5: Empty directory.** Given `oldPath` is a directory with no files matching supported extensions (or no files at all), returns success with `filesMoved: []`, `filesModified: []`. Does not error -- an empty move is a valid no-op.
+- [x] **AC5: Empty directory.** Given `oldPath` is a directory with no files matching supported extensions (or no files at all), returns success with `filesMoved: []`, `filesModified: []`. Does not error -- an empty move is a valid no-op.
 
 ## Interface
 
@@ -126,13 +126,25 @@ Option 3 was chosen because it matches what users mean by "move this directory" 
 
 ## Done-when
 
-- [ ] All ACs verified by tests
-- [ ] Mutation score >= threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated if public surface changed:
+- [x] All ACs verified by tests
+- [x] Mutation score >= threshold for touched files
+- [x] `pnpm check` passes (lint + build + test)
+- [x] Docs updated if public surface changed:
       - README.md (tool table, CLI commands, error codes, project structure)
       - Feature doc created or updated (use `docs/features/_template.md` for new docs)
       - handoff.md current-state section
-- [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting (skip if nothing worth recording)
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Tech debt discovered during implementation added to handoff.md as [needs design]
+- [x] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting (skip if nothing worth recording)
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Shipped.** All 5 ACs implemented and tested. 636 tests passing.
+
+- **Source:** `src/operations/moveDirectory.ts` (109 lines) -- recursive file enumeration, sequential `moveFile` for source files, plain `fs.rename` for non-source files
+- **Registration:** `MoveDirectoryArgsSchema` in `schema.ts`, dispatcher entry in `dispatcher.ts`, MCP tool in `mcp.ts`, `MoveDirectoryResult` type in `types.ts`
+- **Tests:** `tests/operations/moveDirectory_tsMorphCompiler.test.ts` (separate file, as recommended by the red flag assessment)
+- **Error codes:** `NOT_A_DIRECTORY`, `DESTINATION_EXISTS`, `MOVE_INTO_SELF` (new); `FILE_NOT_FOUND`, `WORKSPACE_VIOLATION`, `INVALID_PATH` (existing)
+- **Feature doc:** `docs/features/moveDirectory.md` (new companion doc to `moveFile.md`)
+- **Design note:** Symlinks are silently skipped during enumeration (`entry.isFile()` returns false for symlinks). This is documented in the feature doc Constraints section.
+- **No new tech debt.** The `FileSystem` port bypass in `enumerateAllFiles` is inherited from the existing `walkFiles` pattern (already tracked in handoff.md P3).

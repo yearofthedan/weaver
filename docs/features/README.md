@@ -10,6 +10,7 @@ All tools are invoked through the MCP server (`light-bridge serve`). There are n
 |------|-----|----|-----|----------|
 | `rename` | [rename.md](./rename.md) | ✓ | ✓ | yes |
 | `moveFile` | [moveFile.md](./moveFile.md) | ✓ | ✓ | yes |
+| `moveDirectory` | [moveDirectory.md](./moveDirectory.md) | ✓ | ✓ | yes |
 | `moveSymbol` | [moveSymbol.md](./moveSymbol.md) | ✓ | ✓* | yes |
 | `deleteFile` | [deleteFile.md](./deleteFile.md) | ✓ | ✓† | yes |
 | `extractFunction` | [extractFunction.md](./extractFunction.md) | ✓ | — | yes |
