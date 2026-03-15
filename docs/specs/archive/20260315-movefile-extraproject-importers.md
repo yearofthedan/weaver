@@ -95,11 +95,33 @@ The narrowest wrong implementation: dropping the coexisting-file check during ex
 
 ## Done-when
 
-- [ ] All fix criteria (AC1-AC3) verified by tests
-- [ ] Failing test now passes
-- [ ] Mutation score >= threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated if public surface changed — check `docs/features/moveFile.md`
-- [ ] Tech debt discovered during investigation added to handoff.md as `[needs design]`
-- [ ] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] All fix criteria (AC1-AC3) verified by tests
+- [x] Failing test now passes
+- [ ] Mutation score >= threshold for touched files — scoped Stryker run crashes (pre-existing resource issue); unit tests cover all branches
+- [x] `pnpm check` passes (lint + build + test) — 682/682
+- [x] Docs updated — `docs/features/moveFile.md` diagram and constraints updated
+- [x] No new tech debt discovered
+- [x] No non-obvious gotchas
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+### What shipped
+
+- **AC1:** Extracted `rewriteImportersOfMovedFile()` and supporting functions (`rewriteSpecifier`, `isCoexistingJsFile`) from `TsMorphCompiler.afterFileRename` into `src/domain/rewrite-importers-of-moved-file.ts`. Both `TsMorphCompiler` and `VolarCompiler` now call it from `afterFileRename`. The function takes `candidateFiles` as an explicit parameter (rather than calling `walkFiles` internally), making it directly unit-testable with `InMemoryFileSystem`.
+- **AC2:** All existing TsMorphCompiler and VolarCompiler tests pass — the extraction is a pure refactor for TsMorphCompiler.
+- **AC3:** The `isCoexistingJsFile` guard is preserved. It now uses `scope.fs.exists` instead of `fs.existsSync`, making it testable with `InMemoryFileSystem`.
+
+### Tests added
+
+- 26 unit tests in `tests/domain/rewrite-importers-of-moved-file.test.ts`
+- 1 integration test in `tests/operations/moveFile_volarCompiler.test.ts` (the previously failing test)
+
+Total: 27 new tests. 682 tests pass overall.
+
+### Reflection
+
+- **What went well:** The fix was straightforward — the fallback walk already existed in TsMorphCompiler, so it was a clean extraction. The `rewriteMovedFileOwnImports` prior art made the pattern obvious.
+- **What didn't go well:** Stryker scoped mutation run crashes with SIGKILL (resource issue with small file count + concurrency). This is pre-existing and not related to the change.
+- **Architectural decision:** The extracted function takes `candidateFiles` as a parameter rather than calling `walkFiles` internally. This avoids coupling the domain function to the filesystem walk and makes unit testing trivial with `InMemoryFileSystem`. Both callers pass `walkFiles(scope.root, [...TS_EXTENSIONS])`.
+- **Key insight for future work:** The `isCoexistingJsFile` function was changed to use `scope.fs.exists` instead of `fs.existsSync`, making it consistent with the rest of the domain layer's filesystem abstraction.
