@@ -34,7 +34,10 @@ Steps 1-2 and 4-8 run in the main conversation (interactive spec and review work
    - Explicit instruction: "Write failing tests, implement, run `pnpm check`, commit, then stop."
    - Any context from previous ACs (e.g. files already created, patterns established)
 
-   **Do NOT batch multiple ACs into one agent call.** Each call produces one commit. After each call, verify the commit exists and `pnpm check` passes before dispatching the next AC.
+   **Do NOT batch multiple ACs into one agent call.** Each call produces one commit. After each call:
+   - Read the agent's notes file from `.claude/agent-notes/` — it logs deviations, assumptions, and surprises as they happen
+   - If the agent reported assumptions or spec mismatches, decide whether to adjust the next AC's instructions, fix something, or ask the user
+   - Verify the commit exists and `pnpm check` passes before dispatching the next AC
 
 4. **Complete the spec's Done-when checklist.** Walk through every item in the spec's Done-when section (defined by the template — see `docs/specs/templates/change.md` or `bug.md`). Additionally:
    - [ ] **Remove** the handoff.md task entry entirely — handoff.md is a work queue, not a history. Do not mark it shipped, do not leave a link to the archive. Just delete the line. Update the "Current state" section (test count, layout changes) if needed.
