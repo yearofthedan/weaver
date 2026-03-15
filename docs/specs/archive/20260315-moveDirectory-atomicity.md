@@ -181,9 +181,38 @@ Add as principle #7 in `docs/architecture.md`:
 
 ## Done-when
 
-- [ ] All acceptance criteria (AC1-AC8) verified by tests
-- [ ] Mutation score >= threshold for `moveDirectory.ts`
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated: architecture.md principle #7, moveDirectory.md feature doc
-- [ ] Tech debt discovered during investigation added to handoff.md as `[needs design]`
-- [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+- [x] All acceptance criteria (AC1-AC8) verified by tests
+- [ ] Mutation score >= threshold for `moveDirectory.ts` — Stryker crashes on initial dry run (pre-existing, unrelated to this change)
+- [x] `pnpm check` passes (lint + build + test) — 700 tests, 65 files
+- [x] Docs updated: architecture.md principle #7, moveDirectory.md feature doc
+- [x] Tech debt discovered during investigation added to handoff.md as `[needs design]`
+- [x] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+## Outcome
+
+### What shipped
+
+The core atomicity bug is fixed. `moveDirectory` now delegates to `compiler.moveDirectory()` which uses ts-morph's `directory.move()` — a batch API that computes all import rewrites in the project graph before writing anything to disk. Intra-directory imports (e.g. `./utils`) are preserved, external importers are rewritten, and non-source files are moved physically.
+
+**Commits:**
+1. `feat(compilers): add moveDirectory to Compiler interface with ts-morph batch implementation` — interface + TsMorphCompiler + VolarCompiler (delegates to TsMorphCompiler)
+2. `fix(operations): rewrite moveDirectory as thin orchestrator over compiler.moveDirectory()` — operation rewrite + test updates
+3. `test(operations): add Vue import specifier tests for moveDirectory (AC3)` — Vue fixture + 6 tests
+4. `docs: add architecture principle #7 and update moveDirectory to reflect batch approach`
+
+**Tests added:** ~17 new tests (11 compiler-level, 6 Vue specifier tests) + 1 AC1 regression test at operation level.
+
+### What was deferred
+
+- **VolarCompiler Vue import rewriting:** `VolarCompiler.moveDirectory()` delegates to `TsMorphCompiler`, so `.vue` import specifiers in `.ts` files (e.g. `import Button from "./components/Button.vue"`) are NOT rewritten. Added as P2 `[needs design]` in handoff.md. The virtual `.vue.ts` stub approach described in the spec section "VolarCompiler implementation" is the planned fix.
+- **Mutation score:** Stryker crashes on the initial dry run — a pre-existing issue unrelated to this change.
+
+### Reflection
+
+**What went well:** The ts-morph `directory.move()` API worked exactly as documented. The implementation was straightforward once the interface was in place.
+
+**What didn't go well:** Execution agents exited early on the first dispatch (added interface + tests but didn't implement compiler methods or commit). Required a second dispatch with much more explicit deliverables. The second and subsequent dispatches completed successfully.
+
+**Key discovery:** ts-morph's `project.saveSync()` uses OS-level `fs.renameSync` for directory moves, which means it moves ALL files in the directory (including non-source files like JSON, CSS). The spec assumed non-source files would stay at the old path and need separate handling. The operation pre-enumerates all files before the compiler call to reconcile the difference.
+
+**Recommendation for next agent:** When implementing the VolarCompiler virtual `.vue.ts` stub approach, study the `saveSync()` behaviour carefully — it will move `.vue.ts` stub files to the new location, which then need cleanup. The `afterSymbolMove` pattern in `VolarCompiler` already does script block extraction/injection and is a good template.
