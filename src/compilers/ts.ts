@@ -2,13 +2,13 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { Project } from "ts-morph";
 import { ImportRewriter } from "../domain/import-rewriter.js";
+import { rewriteImportersOfMovedFile } from "../domain/rewrite-importers-of-moved-file.js";
 import { rewriteMovedFileOwnImports } from "../domain/rewrite-own-imports.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { Compiler, DefinitionLocation, FileTextEdit, SpanLocation } from "../types.js";
 import { EngineError } from "../utils/errors.js";
-import { JS_EXTENSIONS, JS_TS_PAIRS, TS_EXTENSIONS } from "../utils/extensions.js";
+import { JS_EXTENSIONS, TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
-import { toRelBase } from "../utils/relative-path.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 import { tsMoveSymbol } from "./ts-move-symbol.js";
 
@@ -273,49 +273,8 @@ export class TsMorphCompiler implements Compiler {
 
     rewriteMovedFileOwnImports(oldPath, newPath, scope);
 
-    const alreadyModified = new Set(scope.modified);
-
-    for (const filePath of walkFiles(scope.root, [...TS_EXTENSIONS])) {
-      if (alreadyModified.has(filePath)) continue;
-      if (!scope.contains(filePath)) {
-        scope.recordSkipped(filePath);
-        continue;
-      }
-
-      const fromDir = path.dirname(filePath);
-      const relOldBase = toRelBase(fromDir, oldPath);
-      const relNewBase = toRelBase(fromDir, newPath);
-
-      const raw = scope.fs.readFile(filePath);
-      const tmpProject = new Project({ useInMemoryFileSystem: true });
-      const sf = tmpProject.createSourceFile(filePath, raw);
-      let hasChanges = false;
-
-      for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {
-        const specifier = decl.getModuleSpecifierValue();
-        if (specifier === undefined) continue;
-        const replacement = rewriteSpecifier(specifier, relOldBase, relNewBase, fromDir);
-        if (replacement !== null) {
-          decl.setModuleSpecifier(replacement);
-          hasChanges = true;
-        }
-      }
-
-      if (!hasChanges) continue;
-
-      scope.writeFile(filePath, sf.getFullText());
-    }
+    rewriteImportersOfMovedFile(oldPath, newPath, scope, walkFiles(scope.root, [...TS_EXTENSIONS]));
   }
-}
-
-/**
- * Returns true if `specifier` has a JS-family extension and resolves to a real
- * file on disk at `fromDir`. Used to suppress rewrites of imports that genuinely
- * target a `.js` file rather than aliasing a `.ts` source.
- */
-function isCoexistingJsFile(specifier: string, fromDir: string): boolean {
-  if (!JS_EXTENSIONS.has(path.extname(specifier))) return false;
-  return fs.existsSync(path.resolve(fromDir, specifier));
 }
 
 /**
@@ -329,31 +288,7 @@ function isCoexistingJsFileEdit(fileName: string, start: number, length: number)
   } catch {
     return false;
   }
-  return isCoexistingJsFile(content.slice(start, start + length), path.dirname(fileName));
-}
-
-/**
- * Given a parsed import specifier, return the rewritten specifier if it matches
- * the old path base, or `null` if no rewrite is needed.
- *
- * JS-family extensions (`.js`, `.jsx`, `.mjs`, `.cjs`) are only rewritten when
- * no real file with that extension exists at `fromDir`.
- */
-function rewriteSpecifier(
-  specifier: string,
-  relOldBase: string,
-  relNewBase: string,
-  fromDir: string,
-): string | null {
-  if (specifier === relOldBase) return relNewBase;
-
-  for (const [jsExt, tsExt] of JS_TS_PAIRS) {
-    if (specifier === relOldBase + jsExt) {
-      if (isCoexistingJsFile(specifier, fromDir)) return null;
-      return relNewBase + jsExt;
-    }
-    if (specifier === relOldBase + tsExt) return relNewBase + tsExt;
-  }
-
-  return null;
+  const specifier = content.slice(start, start + length);
+  if (!JS_EXTENSIONS.has(path.extname(specifier))) return false;
+  return fs.existsSync(path.resolve(path.dirname(fileName), specifier));
 }

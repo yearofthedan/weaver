@@ -1,10 +1,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { ImportRewriter } from "../../domain/import-rewriter.js";
+import { rewriteImportersOfMovedFile } from "../../domain/rewrite-importers-of-moved-file.js";
 import { rewriteMovedFileOwnImports } from "../../domain/rewrite-own-imports.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type { Compiler, DefinitionLocation, FileTextEdit, SpanLocation } from "../../types.js";
 import { EngineError } from "../../utils/errors.js";
+import { TS_EXTENSIONS } from "../../utils/extensions.js";
 import { walkFiles } from "../../utils/file-walk.js";
 import { lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
@@ -222,5 +224,6 @@ export class VolarCompiler implements Compiler {
     const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
     updateVueImportsAfterMove(oldPath, newPath, searchRoot, scope);
     rewriteMovedFileOwnImports(oldPath, newPath, scope);
+    rewriteImportersOfMovedFile(oldPath, newPath, scope, walkFiles(scope.root, [...TS_EXTENSIONS]));
   }
 }
