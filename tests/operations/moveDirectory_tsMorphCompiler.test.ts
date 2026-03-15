@@ -236,6 +236,116 @@ describe("moveDirectory", () => {
     });
   });
 
+  describe("Vue import specifiers", () => {
+    it("physically moves .vue files to the destination when the directory moves", async () => {
+      const dir = copyFixture("move-dir-vue");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      await moveDirectory(
+        compiler,
+        `${dir}/src/components`,
+        `${dir}/src/ui/widgets`,
+        makeScope(dir),
+      );
+
+      // .vue files must be physically present at the new path
+      expect(fileExists(dir, "src/ui/widgets/Button.vue")).toBe(true);
+      // Old location must be gone
+      expect(fileExists(dir, "src/components/Button.vue")).toBe(false);
+    });
+
+    it("preserves .vue extension in moved file content — no .vue.ts artifact introduced", async () => {
+      const dir = copyFixture("move-dir-vue");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      await moveDirectory(
+        compiler,
+        `${dir}/src/components`,
+        `${dir}/src/ui/widgets`,
+        makeScope(dir),
+      );
+
+      // The moved Button.vue must not have been corrupted by ts-morph's virtual .vue.ts mapping
+      const buttonContent = readFile(dir, "src/ui/widgets/Button.vue");
+      expect(buttonContent).not.toContain(".vue.ts");
+      // Script content must be intact (defineProps is present in the original)
+      expect(buttonContent).toContain("defineProps");
+    });
+
+    it("preserves .vue extension in moved file content for moduleResolution bundler", async () => {
+      // The fixture uses moduleResolution: bundler — verify no extension stripping occurs
+      const dir = copyFixture("move-dir-vue");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      await moveDirectory(
+        compiler,
+        `${dir}/src/components`,
+        `${dir}/src/ui/widgets`,
+        makeScope(dir),
+      );
+
+      const buttonContent = readFile(dir, "src/ui/widgets/Button.vue");
+      // The .vue extension must not be stripped from file contents
+      expect(buttonContent).not.toContain(".vue.ts");
+      expect(buttonContent).toContain("<template>");
+    });
+
+    it("preserves intra-directory .ts imports within the moved directory", async () => {
+      const dir = copyFixture("move-dir-vue");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      await moveDirectory(
+        compiler,
+        `${dir}/src/components`,
+        `${dir}/src/ui/widgets`,
+        makeScope(dir),
+      );
+
+      // Button.vue's import of ./utils should stay ./utils (both files moved together)
+      const buttonContent = readFile(dir, "src/ui/widgets/Button.vue");
+      expect(buttonContent).toContain("./utils");
+      expect(buttonContent).not.toContain("components");
+    });
+
+    it("includes moved .vue files in filesMoved result", async () => {
+      const dir = copyFixture("move-dir-vue");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      const result = await moveDirectory(
+        compiler,
+        `${dir}/src/components`,
+        `${dir}/src/ui/widgets`,
+        makeScope(dir),
+      );
+
+      // .vue files must appear in filesMoved even though the compiler doesn't track them
+      expect(result.filesMoved).toContain(`${dir}/src/ui/widgets/Button.vue`);
+    });
+
+    it("does not introduce .vue.ts artifacts in any file after move", async () => {
+      // ts-morph uses virtual .vue.ts stubs internally — these must never leak to disk
+      const dir = copyFixture("move-dir-vue");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      await moveDirectory(
+        compiler,
+        `${dir}/src/components`,
+        `${dir}/src/ui/widgets`,
+        makeScope(dir),
+      );
+
+      // No .vue.ts file should exist anywhere in the fixture
+      expect(fileExists(dir, "src/ui/widgets/Button.vue.ts")).toBe(false);
+      expect(fileExists(dir, "src/components/Button.vue.ts")).toBe(false);
+    });
+  });
+
   describe("empty directory", () => {
     it("returns empty arrays and no error for a directory with no files", async () => {
       const tmpRoot = fs.mkdtempSync(path.join(fs.realpathSync("/tmp"), "move-dir-empty-"));
