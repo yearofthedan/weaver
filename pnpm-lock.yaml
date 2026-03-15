@@ -61,8 +61,8 @@ importers:
         specifier: 9.1.7
         version: 9.1.7
       promptfoo:
-        specifier: 0.121.1
-        version: 0.121.1(@types/json-schema@7.0.15)(@types/node@24.12.0)(pg@8.19.0)(playwright-core@1.58.2)(socks@2.8.7)
+        specifier: 0.121.2
+        version: 0.121.2(@types/json-schema@7.0.15)(@types/node@24.12.0)(pg@8.19.0)(playwright-core@1.58.2)(socks@2.8.7)
       tsx:
         specifier: 4.21.0
         version: 4.21.0
@@ -1324,47 +1324,47 @@ packages:
     peerDependencies:
       zod: ^4.0.0
 
-  '@openai/codex-sdk@0.110.0':
-    resolution: {integrity: sha512-UT8OaFAOWBP6uXdpJkpKO1vPO/AqUqaCJMrIbazOuRC92zrMqhdX2DlyJJ+lN6ewHXLgNZBQ6yh/WUaoPXj/2w==}
+  '@openai/codex-sdk@0.113.0':
+    resolution: {integrity: sha512-NwBbQ9zEhmr5fx+JkT1U8/rzAqqWqRiqd0lX3052x8fGCcOQ7T9ai480zGPQuiQTLatpxRORBDKVMt1bYRzO+A==}
     engines: {node: '>=18'}
 
-  '@openai/codex@0.110.0':
-    resolution: {integrity: sha512-BhhiFkLAWwFZ4vo2WK7rlV5PoicndbIjONamPsHyp6xz5bvLQC5l2IgB4FgGpkuRywLxc5MnNlrziyhABNblcg==}
+  '@openai/codex@0.113.0':
+    resolution: {integrity: sha512-tORKkHTWOT8r8prizxpVxDbC706nDfPNmt+IHjrdZV101rXtmqft8v/sxdutIkw9VBMAD5irxm0IuINi/vDZTw==}
     engines: {node: '>=16'}
     hasBin: true
 
-  '@openai/codex@0.110.0-darwin-arm64':
-    resolution: {integrity: sha512-yCrO3HLpohNM5zqqEzJhqtBBAH4r9nHb+h7F0+2/T0qbCJwxzL6XtgjQonvKW9Ol6qc3kqlW7uQVFEX+z13Ydg==}
+  '@openai/codex@0.113.0-darwin-arm64':
+    resolution: {integrity: sha512-e8cvmmItlluDHCw2h1MHtjuZ2imt8YkchpyQ52jWlsaG8QHmf/+mkRJ2+YeLrO5tfQcGFWpMrCYMlmEdxKB6sQ==}
     engines: {node: '>=16'}
     cpu: [arm64]
     os: [darwin]
 
-  '@openai/codex@0.110.0-darwin-x64':
-    resolution: {integrity: sha512-UgDkVR+9Ffky60Paygc48NjGjMpEi8HBl/GtVFuhYprvcFep0qodjcL6/K3NmmIpDOBoF4PtkjUFB/sATklfvw==}
+  '@openai/codex@0.113.0-darwin-x64':
+    resolution: {integrity: sha512-RXPf2XvbgRofq/sCSB/lQL30JEhtVr/BRH527ggvzH0mdBleOwFJrHkRA4kAMRuawsfhhTYcdM1Jit3TusmCjg==}
     engines: {node: '>=16'}
     cpu: [x64]
     os: [darwin]
 
-  '@openai/codex@0.110.0-linux-arm64':
-    resolution: {integrity: sha512-Mswcq2dmt1S+d2DeaxLUOu9AfVjs0O5b4M8fqvNzSeWozY6dw905JnU+nOKPlqP4xN4K6OK+H+zjSDFJXsmS6w==}
+  '@openai/codex@0.113.0-linux-arm64':
+    resolution: {integrity: sha512-i1K9yXjXlYOjKTxvNrdAF5jzi1dOP2puMyPhQThbRHcQQnJjjUxSGTXJDTVAL7VntYPzsxJ2cQJigHb1Ubg9sw==}
     engines: {node: '>=16'}
     cpu: [arm64]
     os: [linux]
 
-  '@openai/codex@0.110.0-linux-x64':
-    resolution: {integrity: sha512-o9xIcgU9U5mpljQx2b6v763qz3dU3eugxWCZMid6YU8hc1VZvR9hkWMFL0kaboYOKFkpZPLGg1bUFSWfsmZN+A==}
+  '@openai/codex@0.113.0-linux-x64':
+    resolution: {integrity: sha512-ZWGfrO+xRN9uIqukCkwstEWbnST0S8SUUfK0Dq/QlY9jSdPiNiuYCsue15YkSNvwfW29eqF1icUUqcKc0T5GdA==}
     engines: {node: '>=16'}
     cpu: [x64]
     os: [linux]
 
-  '@openai/codex@0.110.0-win32-arm64':
-    resolution: {integrity: sha512-eFJtx66V+ohXbHPGz2aRdhYMfIFOL1dLwLvdGcBELBQu5CfNzsJNq+r1YKntHV2BwdwkUHcJYe+8B9/bzGXDXg==}
+  '@openai/codex@0.113.0-win32-arm64':
+    resolution: {integrity: sha512-lRdmumMGX+y/qauBoKqo2WLTiM96OzZz+0+JNuPieF8VYXsWQ7OFQUeOnKiI1k8Xmdh76R5ErKnBpo80gYRW5w==}
     engines: {node: '>=16'}
     cpu: [arm64]
     os: [win32]
 
-  '@openai/codex@0.110.0-win32-x64':
-    resolution: {integrity: sha512-kPdxMh6xDhn7kgknHzC6X0nOr5y5gE9HP/d5GcI95yN1jEGmY2maMGuB2iT2ZyWrD/8xknkaAXY+S9NMVKWbdQ==}
+  '@openai/codex@0.113.0-win32-x64':
+    resolution: {integrity: sha512-JnynD8WlDMgCovj1g5lecg7d+6q5iSgf3xemmDdOpQCQmIkR8bpj4NIGdKU5BnqCb9GfLtPdd0Sl6Zy94SoFRg==}
     engines: {node: '>=16'}
     cpu: [x64]
     os: [win32]
@@ -1815,10 +1815,6 @@ packages:
 
   '@smithy/smithy-client@4.12.4':
     resolution: {integrity: sha512-kbFGh3QrUj7Z9zYHCip+dGVyRGiFo6JK0A+9InOwmU4ZCkJs3HKhjLL/ABe5I8kp9uScqrftcWrDh7YxlWmmZA==}
-    engines: {node: '>=18.0.0'}
-
-  '@smithy/types@4.13.0':
-    resolution: {integrity: sha512-COuLsZILbbQsdrwKQpkkpyep7lCsByxwj7m0Mg5v66/ZTyenlfBc40/QFQ5chO0YN/PNEH1Bi3fGtfXPnYNeDw==}
     engines: {node: '>=18.0.0'}
 
   '@smithy/types@4.13.1':
@@ -2962,9 +2958,6 @@ packages:
   fast-wrap-ansi@0.2.0:
     resolution: {integrity: sha512-rLV8JHxTyhVmFYhBJuMujcrHqOT2cnO5Zxj37qROj23CP39GXubJRBUFF0z8KFK77Uc0SukZUf7JZhsVEQ6n8w==}
 
-  fast-xml-builder@1.0.0:
-    resolution: {integrity: sha512-fpZuDogrAgnyt9oDDz+5DBz0zgPdPZz6D4IR7iESxRXElrlGTRkHJ9eEt+SACRJwT0FNFrt71DFQIUFBJfX/uQ==}
-
   fast-xml-builder@1.1.2:
     resolution: {integrity: sha512-NJAmiuVaJEjVa7TjLZKlYd7RqmzOC91EtPFXHvlTcqBVo50Qh7XV5IwvXi1c7NRz2Q/majGX9YLcwJtWgHjtkA==}
 
@@ -3871,8 +3864,8 @@ packages:
     resolution: {integrity: sha512-YgBpdJHPyQ2UE5x+hlSXcnejzAvD0b22U2OuAP+8OnlJT+PjWPxtgmGqKKc+RgTM63U9gN0YzrYc71R2WT/hTA==}
     engines: {node: '>=18'}
 
-  openai@6.25.0:
-    resolution: {integrity: sha512-mEh6VZ2ds2AGGokWARo18aPISI1OhlgdEIC1ewhkZr8pSIT31dec0ecr9Nhxx0JlybyOgoAT1sWeKtwPZzJyww==}
+  openai@6.29.0:
+    resolution: {integrity: sha512-YxoArl2BItucdO89/sN6edksV0x47WUTgkgVfCgX7EuEMhbirENsgYe5oO4LTjBL9PtdKtk2WqND1gSLcTd2yw==}
     hasBin: true
     peerDependencies:
       ws: ^8.18.0
@@ -4116,8 +4109,8 @@ packages:
     resolution: {integrity: sha512-7PiHtLll5LdnKIMw100I+8xJXR5gW2QwWYkT6iJva0bXitZKa/XMrSbdmg3r2Xnaidz9Qumd0VPaMrZlF9V9sA==}
     engines: {node: '>=0.4.0'}
 
-  promptfoo@0.121.1:
-    resolution: {integrity: sha512-lYaSqmam8NF9Rw3gCi6Soz8+si9o97FZRjHNzOts7vNG+cc7qGgVyERVjnmTIFh5nXd1Tx4okHiYf9xMxK1Fkg==}
+  promptfoo@0.121.2:
+    resolution: {integrity: sha512-dVAho6gzNZemrRfyvF6LtA5qr8g/W25yIvab6MAuBsAO10XO+K53HwPmLjo6HpT8uc0Lkgs50Jb4VjPwEKMdeA==}
     engines: {node: ^20.20.0 || >=22.22.0}
     hasBin: true
 
@@ -4234,8 +4227,8 @@ packages:
     resolution: {integrity: sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ==}
     engines: {node: '>=0.10.0'}
 
-  read-excel-file@7.0.1:
-    resolution: {integrity: sha512-r+U52N6h56pdSAD0db2J83yUcMPRXvONRkESMYbyM9oaT9b2Jj7PzVRMo6zfUdZODcyzL79A2TjqoU5SqNFcKg==}
+  read-excel-file@7.0.2:
+    resolution: {integrity: sha512-EfEmV3MwKspbRSBtLPS5UMz64YC+4oNjATrKZFGGZQD7MaU7NgO2UWN942o4oPg0F56pKECSvP48nY+Wmiofug==}
     engines: {node: '>=18'}
 
   readable-stream@2.3.8:
@@ -5164,7 +5157,7 @@ snapshots:
       '@smithy/node-http-handler': 4.4.15
       '@smithy/protocol-http': 5.3.12
       '@smithy/smithy-client': 4.12.4
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       '@smithy/url-parser': 4.2.12
       '@smithy/util-base64': 4.3.2
       '@smithy/util-body-length-browser': 4.2.2
@@ -5216,7 +5209,7 @@ snapshots:
       '@smithy/node-http-handler': 4.4.15
       '@smithy/protocol-http': 5.3.12
       '@smithy/smithy-client': 4.12.4
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       '@smithy/url-parser': 4.2.12
       '@smithy/util-base64': 4.3.2
       '@smithy/util-body-length-browser': 4.2.2
@@ -5276,7 +5269,7 @@ snapshots:
       '@smithy/node-http-handler': 4.4.15
       '@smithy/protocol-http': 5.3.12
       '@smithy/smithy-client': 4.12.4
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       '@smithy/url-parser': 4.2.12
       '@smithy/util-base64': 4.3.2
       '@smithy/util-body-length-browser': 4.2.2
@@ -5326,7 +5319,7 @@ snapshots:
       '@smithy/node-http-handler': 4.4.15
       '@smithy/protocol-http': 5.3.12
       '@smithy/smithy-client': 4.12.4
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       '@smithy/url-parser': 4.2.12
       '@smithy/util-base64': 4.3.2
       '@smithy/util-body-length-browser': 4.2.2
@@ -5353,7 +5346,7 @@ snapshots:
       '@smithy/protocol-http': 5.3.12
       '@smithy/signature-v4': 5.3.12
       '@smithy/smithy-client': 4.12.4
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       '@smithy/util-base64': 4.3.2
       '@smithy/util-middleware': 4.2.12
       '@smithy/util-utf8': 4.2.2
@@ -5362,7 +5355,7 @@ snapshots:
 
   '@aws-sdk/crc64-nvme@3.972.4':
     dependencies:
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
@@ -5371,7 +5364,7 @@ snapshots:
       '@aws-sdk/core': 3.973.19
       '@aws-sdk/types': 3.973.5
       '@smithy/property-provider': 4.2.12
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
@@ -5384,7 +5377,7 @@ snapshots:
       '@smithy/property-provider': 4.2.12
       '@smithy/protocol-http': 5.3.12
       '@smithy/smithy-client': 4.12.4
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       '@smithy/util-stream': 4.5.18
       tslib: 2.8.1
     optional: true
@@ -5403,7 +5396,7 @@ snapshots:
       '@smithy/credential-provider-imds': 4.2.12
       '@smithy/property-provider': 4.2.12
       '@smithy/shared-ini-file-loader': 4.4.7
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
@@ -5417,7 +5410,7 @@ snapshots:
       '@smithy/property-provider': 4.2.12
       '@smithy/protocol-http': 5.3.12
       '@smithy/shared-ini-file-loader': 4.4.7
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
@@ -5435,7 +5428,7 @@ snapshots:
       '@smithy/credential-provider-imds': 4.2.12
       '@smithy/property-provider': 4.2.12
       '@smithy/shared-ini-file-loader': 4.4.7
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
@@ -5447,7 +5440,7 @@ snapshots:
       '@aws-sdk/types': 3.973.5
       '@smithy/property-provider': 4.2.12
       '@smithy/shared-ini-file-loader': 4.4.7
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
@@ -5459,7 +5452,7 @@ snapshots:
       '@aws-sdk/types': 3.973.5
       '@smithy/property-provider': 4.2.12
       '@smithy/shared-ini-file-loader': 4.4.7
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
@@ -5472,7 +5465,7 @@ snapshots:
       '@aws-sdk/types': 3.973.5
       '@smithy/property-provider': 4.2.12
       '@smithy/shared-ini-file-loader': 4.4.7
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
@@ -5482,7 +5475,7 @@ snapshots:
     dependencies:
       '@aws-sdk/types': 3.973.5
       '@smithy/eventstream-codec': 4.2.12
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
@@ -5492,7 +5485,7 @@ snapshots:
       '@aws-sdk/util-arn-parser': 3.972.3
       '@smithy/node-config-provider': 4.3.12
       '@smithy/protocol-http': 5.3.12
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       '@smithy/util-config-provider': 4.2.2
       tslib: 2.8.1
     optional: true
@@ -5501,7 +5494,7 @@ snapshots:
     dependencies:
       '@aws-sdk/types': 3.973.5
       '@smithy/protocol-http': 5.3.12
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
@@ -5509,7 +5502,7 @@ snapshots:
     dependencies:
       '@aws-sdk/types': 3.973.5
       '@smithy/protocol-http': 5.3.12
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
@@ -5524,7 +5517,7 @@ snapshots:
       '@smithy/is-array-buffer': 4.2.2
       '@smithy/node-config-provider': 4.3.12
       '@smithy/protocol-http': 5.3.12
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       '@smithy/util-middleware': 4.2.12
       '@smithy/util-stream': 4.5.18
       '@smithy/util-utf8': 4.2.2
@@ -5535,21 +5528,21 @@ snapshots:
     dependencies:
       '@aws-sdk/types': 3.973.5
       '@smithy/protocol-http': 5.3.12
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
   '@aws-sdk/middleware-location-constraint@3.972.7':
     dependencies:
       '@aws-sdk/types': 3.973.5
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
   '@aws-sdk/middleware-logger@3.972.7':
     dependencies:
       '@aws-sdk/types': 3.973.5
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
@@ -5558,7 +5551,7 @@ snapshots:
       '@aws-sdk/types': 3.973.5
       '@aws/lambda-invoke-store': 0.2.3
       '@smithy/protocol-http': 5.3.12
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
@@ -5572,7 +5565,7 @@ snapshots:
       '@smithy/protocol-http': 5.3.12
       '@smithy/signature-v4': 5.3.12
       '@smithy/smithy-client': 4.12.4
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       '@smithy/util-config-provider': 4.2.2
       '@smithy/util-middleware': 4.2.12
       '@smithy/util-stream': 4.5.18
@@ -5583,7 +5576,7 @@ snapshots:
   '@aws-sdk/middleware-ssec@3.972.7':
     dependencies:
       '@aws-sdk/types': 3.973.5
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
@@ -5594,7 +5587,7 @@ snapshots:
       '@aws-sdk/util-endpoints': 3.996.4
       '@smithy/core': 3.23.10
       '@smithy/protocol-http': 5.3.12
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       '@smithy/util-retry': 4.2.12
       tslib: 2.8.1
     optional: true
@@ -5608,7 +5601,7 @@ snapshots:
       '@smithy/fetch-http-handler': 5.3.14
       '@smithy/protocol-http': 5.3.12
       '@smithy/signature-v4': 5.3.12
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       '@smithy/util-base64': 4.3.2
       '@smithy/util-hex-encoding': 4.2.2
       '@smithy/util-utf8': 4.2.2
@@ -5643,7 +5636,7 @@ snapshots:
       '@smithy/node-http-handler': 4.4.15
       '@smithy/protocol-http': 5.3.12
       '@smithy/smithy-client': 4.12.4
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       '@smithy/url-parser': 4.2.12
       '@smithy/util-base64': 4.3.2
       '@smithy/util-body-length-browser': 4.2.2
@@ -5664,7 +5657,7 @@ snapshots:
       '@aws-sdk/types': 3.973.5
       '@smithy/config-resolver': 4.4.11
       '@smithy/node-config-provider': 4.3.12
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
@@ -5674,7 +5667,7 @@ snapshots:
       '@aws-sdk/types': 3.973.5
       '@smithy/protocol-http': 5.3.12
       '@smithy/signature-v4': 5.3.12
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
@@ -5685,7 +5678,7 @@ snapshots:
       '@aws-sdk/types': 3.973.5
       '@smithy/property-provider': 4.2.12
       '@smithy/shared-ini-file-loader': 4.4.7
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
@@ -5698,7 +5691,7 @@ snapshots:
       '@aws-sdk/types': 3.973.5
       '@smithy/property-provider': 4.2.12
       '@smithy/shared-ini-file-loader': 4.4.7
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
@@ -5706,7 +5699,7 @@ snapshots:
 
   '@aws-sdk/types@3.973.5':
     dependencies:
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
@@ -5718,7 +5711,7 @@ snapshots:
   '@aws-sdk/util-endpoints@3.996.4':
     dependencies:
       '@aws-sdk/types': 3.973.5
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       '@smithy/url-parser': 4.2.12
       '@smithy/util-endpoints': 3.3.3
       tslib: 2.8.1
@@ -5728,7 +5721,7 @@ snapshots:
     dependencies:
       '@aws-sdk/types': 3.973.5
       '@smithy/querystring-builder': 4.2.12
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
@@ -5740,7 +5733,7 @@ snapshots:
   '@aws-sdk/util-user-agent-browser@3.972.7':
     dependencies:
       '@aws-sdk/types': 3.973.5
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       bowser: 2.14.1
       tslib: 2.8.1
     optional: true
@@ -5750,13 +5743,13 @@ snapshots:
       '@aws-sdk/middleware-user-agent': 3.972.20
       '@aws-sdk/types': 3.973.5
       '@smithy/node-config-provider': 4.3.12
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       tslib: 2.8.1
     optional: true
 
   '@aws-sdk/xml-builder@3.972.10':
     dependencies:
-      '@smithy/types': 4.13.0
+      '@smithy/types': 4.13.1
       fast-xml-parser: 5.4.1
       tslib: 2.8.1
     optional: true
@@ -5824,7 +5817,7 @@ snapshots:
       '@azure/core-util': 1.13.1
       '@azure/logger': 1.3.0
       '@azure/storage-blob': 12.31.0
-      openai: 6.25.0(ws@8.19.0)(zod@4.3.6)
+      openai: 6.29.0(ws@8.19.0)(zod@4.3.6)
       tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
@@ -6791,7 +6784,7 @@ snapshots:
   '@openai/agents-core@0.5.4(ws@8.19.0)(zod@4.3.6)':
     dependencies:
       debug: 4.4.3
-      openai: 6.25.0(ws@8.19.0)(zod@4.3.6)
+      openai: 6.29.0(ws@8.19.0)(zod@4.3.6)
     optionalDependencies:
       '@modelcontextprotocol/sdk': 1.27.1(zod@4.3.6)
       zod: 4.3.6
@@ -6804,7 +6797,7 @@ snapshots:
     dependencies:
       '@openai/agents-core': 0.5.4(ws@8.19.0)(zod@4.3.6)
       debug: 4.4.3
-      openai: 6.25.0(ws@8.19.0)(zod@4.3.6)
+      openai: 6.29.0(ws@8.19.0)(zod@4.3.6)
       zod: 4.3.6
     transitivePeerDependencies:
       - '@cfworker/json-schema'
@@ -6830,7 +6823,7 @@ snapshots:
       '@openai/agents-openai': 0.5.4(ws@8.19.0)(zod@4.3.6)
       '@openai/agents-realtime': 0.5.4(zod@4.3.6)
       debug: 4.4.3
-      openai: 6.25.0(ws@8.19.0)(zod@4.3.6)
+      openai: 6.29.0(ws@8.19.0)(zod@4.3.6)
       zod: 4.3.6
     transitivePeerDependencies:
       - '@cfworker/json-schema'
@@ -6839,37 +6832,37 @@ snapshots:
       - utf-8-validate
       - ws
 
-  '@openai/codex-sdk@0.110.0':
+  '@openai/codex-sdk@0.113.0':
     dependencies:
-      '@openai/codex': 0.110.0
+      '@openai/codex': 0.113.0
     optional: true
 
-  '@openai/codex@0.110.0':
+  '@openai/codex@0.113.0':
     optionalDependencies:
-      '@openai/codex-darwin-arm64': '@openai/codex@0.110.0-darwin-arm64'
-      '@openai/codex-darwin-x64': '@openai/codex@0.110.0-darwin-x64'
-      '@openai/codex-linux-arm64': '@openai/codex@0.110.0-linux-arm64'
-      '@openai/codex-linux-x64': '@openai/codex@0.110.0-linux-x64'
-      '@openai/codex-win32-arm64': '@openai/codex@0.110.0-win32-arm64'
-      '@openai/codex-win32-x64': '@openai/codex@0.110.0-win32-x64'
+      '@openai/codex-darwin-arm64': '@openai/codex@0.113.0-darwin-arm64'
+      '@openai/codex-darwin-x64': '@openai/codex@0.113.0-darwin-x64'
+      '@openai/codex-linux-arm64': '@openai/codex@0.113.0-linux-arm64'
+      '@openai/codex-linux-x64': '@openai/codex@0.113.0-linux-x64'
+      '@openai/codex-win32-arm64': '@openai/codex@0.113.0-win32-arm64'
+      '@openai/codex-win32-x64': '@openai/codex@0.113.0-win32-x64'
     optional: true
 
-  '@openai/codex@0.110.0-darwin-arm64':
+  '@openai/codex@0.113.0-darwin-arm64':
     optional: true
 
-  '@openai/codex@0.110.0-darwin-x64':
+  '@openai/codex@0.113.0-darwin-x64':
     optional: true
 
-  '@openai/codex@0.110.0-linux-arm64':
+  '@openai/codex@0.113.0-linux-arm64':
     optional: true
 
-  '@openai/codex@0.110.0-linux-x64':
+  '@openai/codex@0.113.0-linux-x64':
     optional: true
 
-  '@openai/codex@0.110.0-win32-arm64':
+  '@openai/codex@0.113.0-win32-arm64':
     optional: true
 
-  '@openai/codex@0.110.0-win32-x64':
+  '@openai/codex@0.113.0-win32-x64':
     optional: true
 
   '@opencode-ai/sdk@1.2.24': {}
@@ -7378,11 +7371,6 @@ snapshots:
       '@smithy/protocol-http': 5.3.12
       '@smithy/types': 4.13.1
       '@smithy/util-stream': 4.5.18
-      tslib: 2.8.1
-    optional: true
-
-  '@smithy/types@4.13.0':
-    dependencies:
       tslib: 2.8.1
     optional: true
 
@@ -8573,16 +8561,13 @@ snapshots:
     dependencies:
       fast-string-width: 3.0.2
 
-  fast-xml-builder@1.0.0:
-    optional: true
-
   fast-xml-builder@1.1.2:
     dependencies:
       path-expression-matcher: 1.1.3
 
   fast-xml-parser@5.4.1:
     dependencies:
-      fast-xml-builder: 1.0.0
+      fast-xml-builder: 1.1.2
       strnum: 2.2.0
     optional: true
 
@@ -9577,7 +9562,7 @@ snapshots:
       wsl-utils: 0.1.0
     optional: true
 
-  openai@6.25.0(ws@8.19.0)(zod@4.3.6):
+  openai@6.29.0(ws@8.19.0)(zod@4.3.6):
     optionalDependencies:
       ws: 8.19.0
       zod: 4.3.6
@@ -9832,7 +9817,7 @@ snapshots:
 
   progress@2.0.3: {}
 
-  promptfoo@0.121.1(@types/json-schema@7.0.15)(@types/node@24.12.0)(pg@8.19.0)(playwright-core@1.58.2)(socks@2.8.7):
+  promptfoo@0.121.2(@types/json-schema@7.0.15)(@types/node@24.12.0)(pg@8.19.0)(playwright-core@1.58.2)(socks@2.8.7):
     dependencies:
       '@anthropic-ai/sdk': 0.78.0(zod@4.3.6)
       '@apidevtools/json-schema-ref-parser': 15.3.1(@types/json-schema@7.0.15)
@@ -9890,13 +9875,14 @@ snapshots:
       js-rouge: 3.2.0
       js-yaml: 4.1.1
       jsdom: 28.1.0
+      json5: 2.2.3
       keyv: 5.6.0
       keyv-file: 5.3.3
       lru-cache: 11.2.6
       mathjs: 15.1.1
       minimatch: 10.2.4
       nunjucks: 3.2.4(chokidar@5.0.0)
-      openai: 6.25.0(ws@8.19.0)(zod@4.3.6)
+      openai: 6.29.0(ws@8.19.0)(zod@4.3.6)
       opener: 1.5.2
       ora: 9.3.0
       pem: 1.14.8
@@ -9933,7 +9919,7 @@ snapshots:
       '@huggingface/transformers': 3.8.1
       '@ibm-cloud/watsonx-ai': 1.7.9
       '@ibm-generative-ai/node-sdk': 3.2.4
-      '@openai/codex-sdk': 0.110.0
+      '@openai/codex-sdk': 0.113.0
       '@playwright/browser-chromium': 1.58.2
       '@rollup/rollup-linux-x64-gnu': 4.59.0
       '@slack/web-api': 7.14.1
@@ -9954,7 +9940,7 @@ snapshots:
       playwright: 1.58.2
       playwright-extra: 4.3.6(playwright-core@1.58.2)(playwright@1.58.2)
       puppeteer-extra-plugin-stealth: 2.11.2(playwright-extra@4.3.6(playwright-core@1.58.2)(playwright@1.58.2))
-      read-excel-file: 7.0.1
+      read-excel-file: 7.0.2
       sharp: 0.34.5
     transitivePeerDependencies:
       - '@aws-sdk/client-rds-data'
@@ -10153,7 +10139,7 @@ snapshots:
 
   react@19.2.4: {}
 
-  read-excel-file@7.0.1:
+  read-excel-file@7.0.2:
     dependencies:
       '@xmldom/xmldom': 0.8.11
       fflate: 0.8.2
