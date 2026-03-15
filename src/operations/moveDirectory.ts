@@ -3,9 +3,7 @@ import * as path from "node:path";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { Compiler, MoveDirectoryResult } from "../types.js";
 import { EngineError } from "../utils/errors.js";
-import { VUE_EXTENSIONS } from "../utils/extensions.js";
 import { SKIP_DIRS } from "../utils/file-walk.js";
-import { moveFile } from "./moveFile.js";
 
 function resolveAbs(p: string): string {
   return path.resolve(p);
@@ -77,44 +75,32 @@ export async function moveDirectory(
     );
   }
 
-  // ── Compute phase ──────────────────────────────────────────────────
-  // Enumerate files and pre-validate compiler operations.
-  // If anything throws here, no files have been modified.
-  const files = enumerateAllFiles(absOld);
-  const movePairs: Array<{ oldFilePath: string; newFilePath: string; isVue: boolean }> = [];
+  // ── Enumerate all files before the compiler move ─────────────────────────
+  // The compiler may do an OS-level directory rename, moving everything including
+  // non-source files. We capture the non-source file list upfront so we can
+  // track them in the result.
+  const allFilesBefore = enumerateAllFiles(absOld);
 
-  for (const oldFilePath of files) {
+  // ── Source files: atomic batch move via compiler ─────────────────────────
+  const { filesMoved } = await compiler.moveDirectory(absOld, absNew, scope);
+
+  // ── Non-source files: account for files not tracked by the compiler ───────
+  // Files still at the old path need a physical move; files already at the new
+  // path (moved atomically by the compiler's OS rename) just need recording.
+  for (const oldFilePath of allFilesBefore) {
     const relPath = path.relative(absOld, oldFilePath);
     const newFilePath = path.join(absNew, relPath);
-    movePairs.push({
-      oldFilePath,
-      newFilePath,
-      isVue: VUE_EXTENSIONS.has(path.extname(oldFilePath)),
-    });
-  }
-
-  for (const { oldFilePath, newFilePath, isVue } of movePairs) {
-    if (isVue) {
-      await compiler.getEditsForFileRename(oldFilePath, newFilePath);
-    }
-  }
-
-  // ── Commit phase ──────────────────────────────────────────────────
-  // All validation passed. Apply moves.
-  const filesMoved: string[] = [];
-
-  for (const { oldFilePath, newFilePath, isVue } of movePairs) {
-    if (isVue) {
-      await moveFile(compiler, oldFilePath, newFilePath, scope);
-    } else {
+    if (filesMoved.includes(newFilePath)) continue; // already tracked as source file
+    if (fs.existsSync(oldFilePath)) {
+      // Still at old path — physically move it
       const destDir = path.dirname(newFilePath);
       if (!scope.fs.exists(destDir)) {
         scope.fs.mkdir(destDir, { recursive: true });
       }
       scope.fs.rename(oldFilePath, newFilePath);
-      scope.recordModified(newFilePath);
     }
-
+    // Record the destination regardless (moved by compiler or by us above)
+    scope.recordModified(newFilePath);
     filesMoved.push(newFilePath);
   }
 

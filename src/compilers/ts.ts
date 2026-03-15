@@ -309,6 +309,10 @@ export class TsMorphCompiler implements Compiler {
       }
     }
 
+    // ts-morph uses fs.renameSync for directory moves, which requires the parent
+    // directory to exist. Create it before saveSync to avoid ENOENT.
+    fs.mkdirSync(path.dirname(absNew), { recursive: true });
+
     project.saveSync();
 
     if (filesMoved.length > 0) {

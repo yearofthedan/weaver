@@ -140,7 +140,7 @@ describe("moveDirectory", () => {
       expect(result.filesMoved).toContain(`${dir}/src/lib/nested/c.ts`);
     });
 
-    it("skips SKIP_DIRS (node_modules) inside the moved directory", async () => {
+    it("excludes SKIP_DIRS (node_modules) contents from the filesMoved result", async () => {
       const dir = copyFixture("move-dir-ts");
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
@@ -156,9 +156,11 @@ describe("moveDirectory", () => {
         makeScope(dir),
       );
 
+      // node_modules contents are not tracked in filesMoved (not source files)
       const movedBasenames = result.filesMoved.map((f) => path.basename(f));
       expect(movedBasenames).not.toContain("dep.ts");
-      expect(fileExists(dir, "src/utils/node_modules/dep.ts")).toBe(true);
+      // The entire directory was atomically moved — node_modules physically moved with it
+      expect(fileExists(dir, "src/lib/node_modules/dep.ts")).toBe(true);
     });
   });
 
@@ -213,6 +215,24 @@ describe("moveDirectory", () => {
       expect(appContent).toContain("./lib/b");
       expect(appContent).not.toContain("./utils/a");
       expect(appContent).not.toContain("./utils/b");
+    });
+
+    it("preserves intra-directory imports when files import each other after a deep move", async () => {
+      const dir = copyFixture("move-dir-ts");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      await moveDirectory(
+        compiler,
+        `${dir}/src/utils`,
+        `${dir}/src/lib/deep/nested`,
+        makeScope(dir),
+      );
+
+      // b.ts imports ./a — must stay ./a regardless of how deep the move goes
+      const bContent = readFile(dir, "src/lib/deep/nested/b.ts");
+      expect(bContent).toContain('"./a"');
+      expect(bContent).not.toContain("utils");
     });
   });
 
@@ -272,7 +292,7 @@ describe("moveDirectory", () => {
       ).rejects.toMatchObject({ code });
     });
 
-    it("leaves all files at original paths when compute phase fails for a Vue file", async () => {
+    it("leaves all files at original paths when compiler.moveDirectory fails", async () => {
       const tmpRoot = fs.mkdtempSync(path.join(fs.realpathSync("/tmp"), "move-dir-atomic-"));
       dirs.push(tmpRoot);
 
@@ -283,16 +303,11 @@ describe("moveDirectory", () => {
       fs.writeFileSync(path.join(srcDir, "Component.vue"), "<template><div/></template>");
 
       const compiler = makeMockCompiler({
-        getEditsForFileRename: (oldPath: string) => {
-          if (oldPath.endsWith(".vue")) {
-            return Promise.reject(new Error("compiler exploded during compute"));
-          }
-          return Promise.resolve([]);
-        },
+        moveDirectory: () => Promise.reject(new Error("compiler exploded")),
       });
 
       await expect(moveDirectory(compiler, srcDir, destDir, makeScope(tmpRoot))).rejects.toThrow(
-        "compiler exploded during compute",
+        "compiler exploded",
       );
 
       expect(fs.existsSync(path.join(srcDir, "plain.ts"))).toBe(true);
