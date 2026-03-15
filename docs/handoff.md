@@ -98,6 +98,11 @@ src/
     text-utils.ts ← applyTextEdits(), offsetToLineCol()
     file-walk.ts  ← walkFiles() + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS
     ts-project.ts ← findTsConfig, findTsConfigForFile, isVueProject
+  __testHelpers__/
+    helpers.ts     ← shared test utilities (cleanup, readFile, fileExists, PROJECT_ROOT); re-exports copyFixture
+    fixtures/
+      fixtures.ts  ← copyFixture() — copies a named fixture to a temp dir
+      simple-ts/   ← minimal TS project scaffold (and 9 others: vue-project, cross-boundary, etc.)
 ```
 
 **Features shipped:** see [`docs/features/README.md`](features/README.md) for the full tool index.
