@@ -86,7 +86,11 @@ export async function moveDirectory(
   for (const oldFilePath of files) {
     const relPath = path.relative(absOld, oldFilePath);
     const newFilePath = path.join(absNew, relPath);
-    movePairs.push({ oldFilePath, newFilePath, isVue: VUE_EXTENSIONS.has(path.extname(oldFilePath)) });
+    movePairs.push({
+      oldFilePath,
+      newFilePath,
+      isVue: VUE_EXTENSIONS.has(path.extname(oldFilePath)),
+    });
   }
 
   for (const { oldFilePath, newFilePath, isVue } of movePairs) {

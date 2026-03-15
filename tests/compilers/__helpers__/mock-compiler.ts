@@ -14,6 +14,7 @@ export function makeMockCompiler(overrides: Partial<Compiler> = {}): Compiler {
     notifyFileWritten: vi.fn(),
     afterFileRename: vi.fn().mockResolvedValue(undefined),
     afterSymbolMove: vi.fn().mockResolvedValue(undefined),
+    moveDirectory: vi.fn().mockResolvedValue({ filesMoved: [] }),
     ...overrides,
   };
 }

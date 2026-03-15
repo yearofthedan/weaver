@@ -226,4 +226,16 @@ export class VolarCompiler implements Compiler {
     rewriteMovedFileOwnImports(oldPath, newPath, scope);
     rewriteImportersOfMovedFile(oldPath, newPath, scope, walkFiles(scope.root, [...TS_EXTENSIONS]));
   }
+
+  async moveDirectory(
+    oldPath: string,
+    newPath: string,
+    scope: WorkspaceScope,
+  ): Promise<{ filesMoved: string[] }> {
+    const { TsMorphCompiler } = await import("../../compilers/ts.js");
+    const tsCompiler = new TsMorphCompiler();
+    const result = await tsCompiler.moveDirectory(oldPath, newPath, scope);
+    this.invalidateService(oldPath);
+    return result;
+  }
 }

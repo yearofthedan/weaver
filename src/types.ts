@@ -216,6 +216,18 @@ export interface Compiler {
     destFile: string,
     scope: WorkspaceScope,
   ): Promise<void>;
+
+  /**
+   * Move all source files in `oldPath` to `newPath`, rewriting imports across
+   * the project atomically. Only handles source files the compiler understands.
+   * Non-source files (json, css, images) are the caller's responsibility.
+   * Records all modified files into `scope`.
+   */
+  moveDirectory(
+    oldPath: string,
+    newPath: string,
+    scope: WorkspaceScope,
+  ): Promise<{ filesMoved: string[] }>;
 }
 
 // ─── Language Plugin ───────────────────────────────────────────────────────

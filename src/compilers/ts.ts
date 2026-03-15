@@ -8,7 +8,7 @@ import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { Compiler, DefinitionLocation, FileTextEdit, SpanLocation } from "../types.js";
 import { EngineError } from "../utils/errors.js";
 import { JS_EXTENSIONS, TS_EXTENSIONS } from "../utils/extensions.js";
-import { walkFiles } from "../utils/file-walk.js";
+import { SKIP_DIRS, walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 import { tsMoveSymbol } from "./ts-move-symbol.js";
 
@@ -275,6 +275,68 @@ export class TsMorphCompiler implements Compiler {
 
     rewriteImportersOfMovedFile(oldPath, newPath, scope, walkFiles(scope.root, [...TS_EXTENSIONS]));
   }
+
+  async moveDirectory(
+    oldPath: string,
+    newPath: string,
+    scope: WorkspaceScope,
+  ): Promise<{ filesMoved: string[] }> {
+    const absOld = path.resolve(oldPath);
+    const absNew = path.resolve(newPath);
+    const project = this.getProjectForDirectory(absOld);
+
+    for (const filePath of enumerateSourceFiles(absOld)) {
+      if (!project.getSourceFile(filePath)) {
+        project.addSourceFileAtPath(filePath);
+      }
+    }
+
+    const dir = project.getDirectory(absOld);
+    if (!dir) {
+      return { filesMoved: [] };
+    }
+
+    dir.move(absNew);
+
+    const filesMoved: string[] = [];
+    for (const sf of project.getSourceFiles()) {
+      const filePath = sf.getFilePath();
+      if (filePath.startsWith(`${absNew}/`)) {
+        filesMoved.push(filePath);
+      }
+      if (!sf.isSaved()) {
+        scope.recordModified(filePath);
+      }
+    }
+
+    project.saveSync();
+
+    if (filesMoved.length > 0) {
+      this.invalidateProject(filesMoved[0]);
+    }
+
+    return { filesMoved };
+  }
+}
+
+function enumerateSourceFiles(dir: string): string[] {
+  const results: string[] = [];
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return results;
+  }
+  for (const entry of entries) {
+    if (SKIP_DIRS.has(entry.name)) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...enumerateSourceFiles(full));
+    } else if (entry.isFile() && TS_EXTENSIONS.has(path.extname(entry.name))) {
+      results.push(full);
+    }
+  }
+  return results;
 }
 
 /**
