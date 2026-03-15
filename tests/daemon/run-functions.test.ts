@@ -8,8 +8,8 @@
  * for them.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
 import { isDaemonAlive, removeDaemonFiles, runDaemon, runStop } from "../../src/daemon/daemon.js";
-import { cleanup, copyFixture } from "../helpers.js";
 import { killDaemon, spawnAndWaitForReady } from "../process-helpers.js";
 
 // ─── runStop ─────────────────────────────────────────────────────────────────

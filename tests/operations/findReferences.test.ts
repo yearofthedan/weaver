@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { findReferences } from "../../src/operations/findReferences.js";
 import { VolarCompiler } from "../../src/plugins/vue/compiler.js";
-import { cleanup, copyFixture } from "../helpers.js";
 
 describe("findReferences action", () => {
   const dirs: string[] = [];

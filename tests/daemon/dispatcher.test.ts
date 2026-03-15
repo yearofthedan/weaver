@@ -1,8 +1,8 @@
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { dispatchRequest, makeRegistry } from "../../src/daemon/dispatcher.js";
-import { cleanup, copyFixture } from "../helpers.js";
 
 describe("makeRegistry", () => {
   const dirs: string[] = [];

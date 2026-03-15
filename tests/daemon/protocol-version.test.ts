@@ -3,9 +3,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
 import { isDaemonAlive, PROTOCOL_VERSION, removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath } from "../../src/daemon/paths";
-import { cleanup, copyFixture } from "../helpers.js";
 import { callDaemonSocket, killDaemon, spawnAndWaitForReady } from "../process-helpers.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
 import { isDaemonAlive, removeDaemonFiles, stopDaemon } from "../../src/daemon/daemon.js";
-import { cleanup, copyFixture } from "../helpers.js";
 import { killDaemon, spawnAndWaitForReady } from "../process-helpers.js";
 
 describe("stopDaemon", () => {

@@ -1,11 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, copyFixture, fileExists, readFile } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveDirectory } from "../../src/operations/moveDirectory.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
-import { cleanup, copyFixture, fileExists, readFile } from "../helpers.js";
 
 function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());

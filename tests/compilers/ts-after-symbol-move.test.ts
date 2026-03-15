@@ -14,10 +14,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { cleanup } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
-import { cleanup } from "../helpers.js";
 
 function makeTmpDir(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));

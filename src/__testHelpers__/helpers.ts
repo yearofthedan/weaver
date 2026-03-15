@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-export const PROJECT_ROOT = path.resolve(__dirname, "..");
+export const PROJECT_ROOT = path.resolve(__dirname, "../..");
 
 /**
  * Copy a named fixture to a fresh temp directory and return its path.

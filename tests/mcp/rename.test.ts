@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { readFile } from "../helpers.js";
+import { readFile } from "../../src/__testHelpers__/helpers.js";
 import { parseMcpResult, useMcpContext } from "../mcp-helpers.js";
 
 describe("MCP transport — rename tool", () => {

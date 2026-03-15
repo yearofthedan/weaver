@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
 import { isDaemonAlive, removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath, socketPath } from "../../src/daemon/paths";
-import { cleanup, copyFixture } from "../helpers.js";
 import { McpTestClient } from "../mcp-helpers.js";
 import { killDaemon, spawnAndWaitForReady, waitForDaemon } from "../process-helpers.js";
 

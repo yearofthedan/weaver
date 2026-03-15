@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { getTypeErrors, getTypeErrorsForFiles } from "../../src/operations/getTypeErrors.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
-import { cleanup, copyFixture } from "../helpers.js";
 
 function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());

@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, copyFixture, readFile } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { rename } from "../../src/operations/rename.js";
@@ -8,7 +9,6 @@ import { InMemoryFileSystem } from "../../src/ports/in-memory-filesystem.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
 import type { SpanLocation } from "../../src/types.js";
 import { makeMockCompiler } from "../compilers/__helpers__/mock-compiler.js";
-import { cleanup, copyFixture, readFile } from "../helpers.js";
 
 // assertFileExists (called inside rename) still uses the real filesystem — it is not yet
 // migrated to the FileSystem port. In unit tests that mock the compiler, we pass a path

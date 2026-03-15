@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { cleanup, copyFixture } from "../../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../../src/compilers/ts.js";
 import {
   clearLanguagePlugins,
@@ -9,7 +10,6 @@ import {
   registerLanguagePlugin,
 } from "../../../src/daemon/language-plugin-registry.js";
 import { createVueLanguagePlugin } from "../../../src/plugins/vue/plugin.js";
-import { cleanup, copyFixture } from "../../helpers.js";
 
 describe("Vue LanguagePlugin integration", () => {
   const dirs: string[] = [];

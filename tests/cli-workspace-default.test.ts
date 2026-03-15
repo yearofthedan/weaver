@@ -3,8 +3,8 @@
  * (daemon, serve, stop) when the flag is omitted.
  */
 import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, copyFixture } from "../src/__testHelpers__/helpers.js";
 import { removeDaemonFiles } from "../src/daemon/daemon.js";
-import { cleanup, copyFixture } from "./helpers.js";
 import { killDaemon, runCliCommand, spawnAndWaitForReady } from "./process-helpers.js";
 
 describe("--workspace default (process.cwd())", () => {

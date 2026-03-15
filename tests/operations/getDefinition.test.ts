@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { getDefinition } from "../../src/operations/getDefinition.js";
 import { VolarCompiler } from "../../src/plugins/vue/compiler.js";
-import { cleanup, copyFixture } from "../helpers.js";
 
 describe("getDefinition action", () => {
   const dirs: string[] = [];
