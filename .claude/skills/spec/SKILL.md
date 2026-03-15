@@ -5,6 +5,8 @@ description: Create or refine a task specification from a handoff.md entry — p
 
 # Spec Workflow
 
+**Hard rule: steps 1–14 are checkpoints, not suggestions.** When a step says "confirm with the user", "ask the user", or "do NOT proceed" — STOP. Output what you have and wait for the user's response. Do not write spec files, update handoff.md, or commit until the user has agreed to the ACs at step 7. Skipping checkpoints to "save time" makes the workflow useless. Steps 3–6 and 8–13 produce draft content that is only written to disk AFTER step 7 confirmation.
+
 1. **Identify the task.** Read `docs/handoff.md` — find the entry the user wants to spec. If no entry is specified, show the `[needs design]` entries and ask which one.
 
 2. **Pick the template.** Read the spec templates in `docs/specs/templates/`. Choose:
