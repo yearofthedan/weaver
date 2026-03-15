@@ -57,7 +57,7 @@ Config file changes:
 |------|--------|
 | `tsconfig.json` | Add `"src/**/*.integration.test.ts"` to `exclude` (if not already covered by a broader pattern) |
 | `vitest.config.ts` | `include: ["src/**/*.test.ts", "src/**/*.integration.test.ts"]`, remove `tests/` patterns |
-| `vitest.stryker.config.ts` | Update `exclude` list to reference new `*.integration.test.ts` paths |
+| `vitest.stryker.config.ts` | Replace per-file exclusion list with single glob: `"src/**/*.integration.test.ts"`. Stryker runs unit tests only — integration tests are noise for mutation testing (slow, imprecise, flaky). |
 | `stryker.config.mjs` | No change expected — `mutate` targets `src/**/*.ts` which already excludes test files via other config |
 
 ## Security
