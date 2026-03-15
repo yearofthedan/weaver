@@ -63,6 +63,27 @@ describe("moveFile action - VolarCompiler Integration", () => {
     expect(mainContent).not.toContain("utils/useCounter");
   });
 
+  it("rewrites own relative imports when moving a file to a shallower directory depth", async () => {
+    const dir = copyFixture("vue-project");
+    dirs.push(dir);
+    const compiler = new VolarCompiler();
+
+    const oldPath = `${dir}/tests/unit/counter.test.ts`;
+    const newPath = `${dir}/src/counter.test.ts`;
+
+    const result = await moveFile(compiler, oldPath, newPath, makeScope(dir));
+
+    expect(fileExists(dir, "tests/unit/counter.test.ts")).toBe(false);
+    expect(fileExists(dir, "src/counter.test.ts")).toBe(true);
+
+    const content = readFile(dir, "src/counter.test.ts");
+    expect(content).toContain(`from "./composables/useCounter"`);
+    expect(content).not.toContain(`from "../../src/composables/useCounter"`);
+    expect(content).toContain(`from "vitest"`);
+
+    expect(result.filesModified).toContain(newPath);
+  });
+
   it("throws FILE_NOT_FOUND for non-existent source", async () => {
     const dir = copyFixture("vue-project");
     dirs.push(dir);

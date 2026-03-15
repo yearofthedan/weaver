@@ -161,6 +161,12 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ---
 
+## Agent process notes
+
+**`pnpm check` was run twice with no changes in between (2026-03-15):** After fixing a Biome import-ordering error with `biome check --write`, `pnpm check 2>&1 | tee /tmp/check3.log | tail -20` was submitted as a background task. Because it was backgrounded, the terminal returned immediately with no output — the command hadn't produced anything yet. Seeing empty output, the instinct was to run it again. That is wrong. The correct responses are: (1) wait to be notified the background task completed, then `Read /tmp/check3.log`; or (2) don't background `pnpm check` at all — run it synchronously and wait. Never re-run a long command because its backgrounded output looked empty.
+
+---
+
 ## Technical context
 
 - **`docs/tech/volar-v3.md`** — how the Vue compiler works around TypeScript's refusal to process `.vue` files. Read this before touching `src/plugins/vue/compiler.ts`.

@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { ImportRewriter } from "../../domain/import-rewriter.js";
+import { rewriteMovedFileOwnImports } from "../../domain/rewrite-own-imports.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type { Compiler, DefinitionLocation, FileTextEdit, SpanLocation } from "../../types.js";
 import { EngineError } from "../../utils/errors.js";
@@ -220,5 +221,6 @@ export class VolarCompiler implements Compiler {
     const tsConfig = findTsConfigForFile(oldPath);
     const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
     updateVueImportsAfterMove(oldPath, newPath, searchRoot, scope);
+    rewriteMovedFileOwnImports(oldPath, newPath, scope);
   }
 }

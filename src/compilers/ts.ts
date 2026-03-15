@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { Project } from "ts-morph";
 import { ImportRewriter } from "../domain/import-rewriter.js";
+import { rewriteMovedFileOwnImports } from "../domain/rewrite-own-imports.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { Compiler, DefinitionLocation, FileTextEdit, SpanLocation } from "../types.js";
 import { EngineError } from "../utils/errors.js";
@@ -269,6 +270,8 @@ export class TsMorphCompiler implements Compiler {
    */
   async afterFileRename(oldPath: string, newPath: string, scope: WorkspaceScope): Promise<void> {
     this.invalidateProject(newPath);
+
+    rewriteMovedFileOwnImports(oldPath, newPath, scope);
 
     const alreadyModified = new Set(scope.modified);
 
