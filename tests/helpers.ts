@@ -11,7 +11,7 @@ export const PROJECT_ROOT = path.resolve(__dirname, "..");
  * Each test should call this to get an isolated, mutable copy.
  */
 export function copyFixture(name: string): string {
-  const src = path.join(PROJECT_ROOT, "tests", "fixtures", name);
+  const src = path.join(PROJECT_ROOT, "src", "__testHelpers__", name);
   const dest = fs.mkdtempSync(path.join(os.tmpdir(), `ns-${name}-`));
   copyDirSync(src, dest);
   return dest;

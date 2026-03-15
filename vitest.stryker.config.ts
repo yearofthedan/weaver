@@ -10,7 +10,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     exclude: [
       // No dist/ binary in Stryker's sandbox — these tests spawn subprocesses
-      "tests/fixtures/**",
+      "src/__testHelpers__/**",
       "tests/cli-workspace-default.test.ts",
       "tests/daemon/daemon.test.ts",
       "tests/daemon/protocol-version.test.ts",
