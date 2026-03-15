@@ -112,7 +112,9 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Very high value bugs and tech debt
 
-- **Test colocation** → [`docs/specs/20260305-colocate-tests.md`](specs/20260305-colocate-tests.md) — Move unit tests next to source, integration tests to `__tests__/`, colocate fixtures.
+- **Test colocation Phase 1: unit tests** → [`docs/specs/20260315-colocate-unit-tests.md`](specs/20260315-colocate-unit-tests.md) — Move unit tests next to source, fixtures and shared helpers to `src/__testHelpers__/`.
+
+- **Test colocation Phase 2: integration tests** → [`docs/specs/20260315-colocate-integration-tests.md`](specs/20260315-colocate-integration-tests.md) — Move integration tests to colocated `*.integration.test.ts` files, remove `tests/` directory. Blocked by Phase 1.
 
 - **Source refactoring for mutation speed** → [`docs/specs/20260315-source-refactor-mutation-speed.md`](specs/20260315-source-refactor-mutation-speed.md) — Extract misplaced utilities from operations (`searchText`, `security`, `getTypeErrors`), optimize fixture copying for `perTest` coverage analysis, exclude redundant dispatcher tests from Stryker. Depends on test colocation landing first.
 
@@ -127,6 +129,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - **Pre-public release infrastructure** → [`docs/specs/20260304-pre-public-infra.md`](specs/20260304-pre-public-infra.md) — Release Please pipeline, CodeQL, branch protection, LICENSE, SECURITY.md, `package.json` modernisation
 - `buildVolarService` refactoring `[needs design]` — extract named sub-functions from the ~176-line monolith; prerequisite for more Vue operations
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
+- **Extract `src/adapters/` for CLI and MCP entry points** `[needs design]` — `mcp.ts` and `cli.ts` are inbound adapters translating external protocols (MCP JSON-RPC, CLI args) into internal operation calls. Move them into `src/adapters/mcp/` and `src/adapters/cli/` to make the ports-and-adapters boundary explicit. Mirrors the existing `src/ports/` (outbound abstractions) with inbound counterparts.
 - **Daemon request logging** `[needs design]` — The daemon has no logging after the startup ready signal. Stderr is disconnected from the parent after spawn. Debugging daemon-only bugs requires patching source, rebuilding, and manually wiring stderr to a file. Add structured per-request logging (method, compiler used, edits count, duration) to a log file. Discovered during the VolarCompiler moveFile investigation — the key insight (wrong compiler was handling the request) was invisible without instrumentation.
 ---
 
