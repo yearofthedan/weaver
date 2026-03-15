@@ -185,4 +185,31 @@ describe("isVueProject", () => {
     const second = isVueProject(tsconfig);
     expect(second).toBe(false);
   });
+
+  it("returns false when .vue files exist only outside tsconfig include patterns", () => {
+    const tsconfig = write(
+      "tsconfig.json",
+      JSON.stringify({
+        include: ["src/**/*.ts", "src/**/*.vue"],
+      }),
+    );
+    write("src/main.ts", "");
+    write("tests/fixtures/App.vue", "<template><div/></template>");
+
+    expect(isVueProject(tsconfig)).toBe(false);
+  });
+
+  it("returns false when .vue files are excluded by tsconfig exclude", () => {
+    const tsconfig = write(
+      "tsconfig.json",
+      JSON.stringify({
+        include: ["**/*.ts", "**/*.vue"],
+        exclude: ["vendor/**"],
+      }),
+    );
+    write("src/main.ts", "");
+    write("vendor/legacy/App.vue", "<template/>");
+
+    expect(isVueProject(tsconfig)).toBe(false);
+  });
 });

@@ -55,8 +55,17 @@ export function isVueProject(tsConfigPath: string): boolean {
     // biome-ignore lint/style/noNonNullAssertion: guarded by .has() above
     return vueProjectCache.get(projectRoot)!;
   }
-  const vueFiles = ts.sys.readDirectory(projectRoot, [".vue"], [], [], 1000);
-  const hasVue = vueFiles.length > 0;
+  const configJson = ts.readConfigFile(tsConfigPath, ts.sys.readFile);
+  const parsed = ts.parseJsonConfigFileContent(
+    configJson.config,
+    ts.sys,
+    projectRoot,
+    undefined,
+    tsConfigPath,
+    undefined,
+    [{ extension: ".vue", isMixedContent: true, scriptKind: ts.ScriptKind.Deferred }],
+  );
+  const hasVue = parsed.fileNames.some((f) => f.endsWith(".vue"));
   vueProjectCache.set(projectRoot, hasVue);
   return hasVue;
 }
