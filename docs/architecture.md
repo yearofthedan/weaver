@@ -55,6 +55,7 @@ Each plugin folder is a self-contained unit: project detection, compiler impleme
 4. **Plugins are self-contained feature folders.** The Vue plugin owns everything Vue-specific. Cross-cutting logic (`ImportRewriter`, `WorkspaceScope`) lives in `src/domain/` and is used by plugins, never duplicated inside them.
 5. **The workspace boundary is a first-class object.** `WorkspaceScope` encapsulates the root, the `FileSystem`, and modification tracking — not a string threaded through every function signature.
 6. **Compute before mutate.** Write operations must separate computation (reading files, resolving edits, validating preconditions) from mutation (writing files, renaming, deleting). If the compute phase fails, no files are modified. This prevents partial-state corruption where some files are updated and others aren't — a state that can't be rolled back because import rewrites touch arbitrary files across the workspace.
+7. **Prefer batch compiler APIs over sequential single-file calls.** When an operation involves multiple interdependent files (e.g. moving a directory where files import each other), use the compiler's batch API rather than calling single-file methods in a loop. Sequential calls see intermediate state — each call assumes only its file moved and may rewrite imports incorrectly. Batch APIs compute all changes in the project graph before writing anything to disk.
 
 ### Hexagonal layer diagram
 
@@ -252,6 +253,7 @@ Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and on
 | `rename` | `projectCompiler` | Calls `getRenameLocations`; applies edits; returns `filesModified`, `filesSkipped` |
 | `moveFile` | `projectCompiler` | Calls `getEditsForFileRename`; renames file; calls `afterFileRename` post-hook |
 | `moveSymbol` | `tsCompiler` + `projectCompiler` | Thin orchestrator using `WorkspaceScope`; compiler work in `TsMorphCompiler.moveSymbol()` (impl: `src/compilers/ts-move-symbol.ts`); `afterSymbolMove` hook for Vue SFC importers |
+| `moveDirectory` | `projectCompiler` | Calls `compiler.moveDirectory()` for atomic batch move of all source files using ts-morph `directory.move()`; then moves non-source files physically via `scope.fs.rename`. Intra-directory imports are preserved because all files move together in the project graph before any disk writes. |
 | `deleteFile` | `tsCompiler` | Removes import/export declarations referencing the deleted file across in-project, out-of-project, and Vue SFC files; physically deletes the file |
 | `extractFunction` | `tsCompiler` | Delegates to the TS language service's "Extract Symbol" refactor; replaces auto-generated name with caller-provided name |
 
