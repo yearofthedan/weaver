@@ -34,6 +34,8 @@ tool call
   │         TsMorphCompiler: explicit project cache invalidation (keyed by old path)
   │         VolarCompiler: updateVueImportsAfterMove() regex scan patches .vue SFC imports
   │                        (Volar edits use virtual .vue.ts names; can't be written directly)
+  │         Both compilers: rewriteMovedFileOwnImports() adjusts relative specifiers
+  │                         inside the moved file when directory depth changes
   ▼ dispatcher appends type errors for filesModified (unless checkTypeErrors: false)
   ▼ result { ok, filesModified, filesSkipped, typeErrors }
 ```
@@ -50,7 +52,7 @@ See [security.md](../security.md) for the full threat model.
 
 - `newPath` must not already exist. The operation does not overwrite existing files.
 - Both paths must be within the workspace boundary.
-- Import rewrites are computed from the project graph. Files outside `tsconfig.include` (tests, scripts) are temporarily added to the project via `addSourceFileAtPath` before the language service runs, so their imports are rewritten correctly. A fallback scan catches any remaining imports the TS language service misses (e.g. `.js` extension imports under `moduleResolution: "node"`). The Vue post-scan handles `.vue` SFC imports separately using regex.
+- Import rewrites are computed from the project graph. Files outside `tsconfig.include` (tests, scripts) are temporarily added to the project via `addSourceFileAtPath` before the language service runs (TsMorphCompiler), so their imports are rewritten correctly. A fallback scan catches any remaining imports the TS language service misses (e.g. `.js` extension imports under `moduleResolution: "node"`). After the physical move, both compilers run `rewriteMovedFileOwnImports()` to adjust the moved file's own relative specifiers when it wasn't already rewritten by the language service. The Vue post-scan handles `.vue` SFC imports separately using regex.
 - Dynamic `import()` calls with computed paths are not updated.
 - Moving a `.ts` file to a `.vue` path (or vice versa) is not supported — semantic mismatch; TypeScript modules can't become Vue SFCs or vice versa.
 

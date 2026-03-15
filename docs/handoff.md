@@ -60,6 +60,7 @@ src/
   domain/
     workspace-scope.ts    ← WorkspaceScope boundary tracking + modification recording
     import-rewriter.ts    ← ImportRewriter — rewrites named imports/re-exports of a moved symbol across files
+    rewrite-own-imports.ts ← rewriteMovedFileOwnImports — adjusts a moved file's own relative specifiers
     symbol-ref.ts         ← SymbolRef — resolved exported symbol value object (lookup, unwrap, remove)
   types.ts        ← result types + LanguagePlugin + Compiler + CompilerRegistry interfaces
   security.ts     ← isWithinWorkspace() + isSensitiveFile() + validateFilePath() — boundary, sensitive file blocklist, path validation
@@ -111,9 +112,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Very high value bugs and tech debt
 
-- **`moveFile` via VolarCompiler doesn't rewrite moved file's own imports** → [`docs/specs/20260315-movefile-volar-own-imports.md`](specs/20260315-movefile-volar-own-imports.md) — VolarCompiler's `afterFileRename` doesn't rewrite the moved file's own import specifiers; `isVueProject` false-positives on `.vue` test fixtures route pure TS projects through VolarCompiler. Blocks test colocation.
-
-- **Test colocation** → [`docs/specs/20260305-colocate-tests.md`](specs/20260305-colocate-tests.md) — Move unit tests next to source, integration tests to `__tests__/`, colocate fixtures. Blocked by moveFile bug above.
+- **Test colocation** → [`docs/specs/20260305-colocate-tests.md`](specs/20260305-colocate-tests.md) — Move unit tests next to source, integration tests to `__tests__/`, colocate fixtures.
 
 - **Source refactoring for mutation speed** → [`docs/specs/20260315-source-refactor-mutation-speed.md`](specs/20260315-source-refactor-mutation-speed.md) — Extract misplaced utilities from operations (`searchText`, `security`, `getTypeErrors`), optimize fixture copying for `perTest` coverage analysis, exclude redundant dispatcher tests from Stryker. Depends on test colocation landing first.
 

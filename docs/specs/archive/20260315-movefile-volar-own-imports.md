@@ -109,13 +109,11 @@ Moving a `.ts` file that is imported by `.vue` SFCs still updates the `.vue` imp
 
 ### Should the moved-file rewrite logic be shared between TsMorphCompiler and VolarCompiler?
 
-TsMorphCompiler's `afterFileRename` already has an existing fallback pass that rewrites OTHER files' imports pointing at the moved file. The new pass rewrites the MOVED file's own imports — a different concern. Both compilers need this second pass.
+**Decision: Shared utility function (Approach A).**
 
-**Approach A:** Extract a shared function (e.g. `rewriteMovedFileOwnImports(oldPath, newPath, scope)`) in a utility module. Both compilers call it from `afterFileRename`.
+Extract `rewriteMovedFileOwnImports(oldPath, newPath, scope)` as a utility function. Both compilers call it from `afterFileRename`. The logic is identical — parse with in-memory ts-morph Project, iterate import/re-export declarations, for each relative specifier resolve against oldDir and recompute from newDir, write back if changed.
 
-**Approach B:** Inline the logic in each compiler's `afterFileRename`. Accept the duplication since the surrounding context differs (VolarCompiler also calls `updateVueImportsAfterMove`; TsMorphCompiler also does the "other files" fallback scan).
-
-**Recommendation:** Approach A. The logic is identical — parse with in-memory ts-morph, iterate declarations, recompute relative specifiers, write back. ~15 lines. Duplication here would be a maintenance hazard since a bug fix in one compiler would need to be replicated in the other.
+A base class was considered and rejected: the two compilers share the `Compiler` interface but have completely different internals (ts-morph Project vs Volar language service), no shared state, and no other shared methods. The codebase pattern is utility functions (`toRelBase`, `walkFiles`, `findTsConfigForFile`), not inheritance. A base class for one ~15-line function would over-couple their lifecycles.
 
 ## Done-when
 
@@ -125,4 +123,31 @@ TsMorphCompiler's `afterFileRename` already has an existing fallback pass that r
 - [ ] Docs updated if public surface changed — update `docs/features/moveFile.md` if it references Vue-specific limitations
 - [ ] Tech debt discovered during investigation added to handoff.md as `[needs design]`
 - [ ] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+### What shipped
+
+- **AC1+AC2:** Extracted `rewriteMovedFileOwnImports()` as a shared domain utility (`src/domain/rewrite-own-imports.ts`). Both `VolarCompiler.afterFileRename` and `TsMorphCompiler.afterFileRename` now call it after the physical move. The utility parses with an in-memory ts-morph Project, iterates import and re-export declarations, resolves each relative specifier against the old directory, recomputes from the new directory, and writes back if changed. Bare module specifiers are skipped; original extensions are preserved. Skips files already in `scope.modified` (already rewritten by `getEditsForFileRename`). Skips specifiers that already resolve correctly from the new location (companion file moves).
+- **AC3:** `isVueProject` now uses `ts.parseJsonConfigFileContent` with a `.vue` extra file extension to resolve tsconfig `include`/`exclude` patterns, instead of scanning the entire directory tree with `ts.sys.readDirectory`. Only `.vue` files within the project graph trigger Vue detection.
+- **AC4:** Existing VolarCompiler integration tests continue to pass — moving a `.ts` file imported by `.vue` SFCs still updates the `.vue` import specifiers.
+
+### Tests added
+
+- 16 unit tests in `tests/domain/rewrite-own-imports.test.ts` — relative import rewriting, side-effect imports, type-only imports, re-exports, bare module specifiers, node: protocol, `.js`/`.ts` extension preservation, same-directory no-op, companion file skipping, scope.modified skip (both oldPath and newPath), dot-prefix normalisation, scope tracking.
+- 1 integration test in `tests/operations/moveFile_volarCompiler.test.ts` — rewrites own relative imports when moving to a shallower directory depth.
+- 2 unit tests in `tests/utils/ts-project.test.ts` — `.vue` files outside tsconfig include return false; `.vue` files in excluded directories return false.
+
+Total: 19 new tests. 655 tests pass overall.
+
+### Mutation score
+
+95.45% for touched files (above 75% threshold).
+
+### Reflection
+
+- **What went well:** The spec was well-structured — root cause was identified precisely, the fix approach was clear, and the shared utility pattern was decided upfront. Implementation was straightforward.
+- **What didn't go well:** Nothing notable — this was a clean fix.
+- **Architectural decisions:** Shared utility function over base class inheritance. The two compilers have no shared state and completely different internals; a base class for one function would over-couple them.
+- **Discovery:** `ts.parseJsonConfigFileContent` requires an explicit extra file extension entry for `.vue` — without it, the API only resolves file types TypeScript natively knows about (`.ts`, `.tsx`, `.js`, `.jsx`, `.d.ts`).
