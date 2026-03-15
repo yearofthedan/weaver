@@ -2,7 +2,7 @@
 name: execution-agent
 description: Implementation agent for writing code and tests against a spec. Use after a spec is ready — writes failing tests first, implements minimum code to pass, runs checks, and achieves mutation score targets. Faster and cheaper than Opus for mechanical code changes.
 model: sonnet
-tools: Read, Glob, Grep, Write, Edit, Bash, Agent(Explore)
+tools: Read, Glob, Grep, Write, Edit, Bash
 disallowedTools: WebFetch, WebSearch
 skills:
   - light-bridge-refactoring
@@ -27,10 +27,22 @@ You receive **one AC at a time** from the orchestrator. Each call is a self-cont
 5. Write failing tests FIRST for the AC (TDD)
 6. Implement minimum code to make tests pass
 7. Refactor as you go — clean up what you touch, but don't gold-plate. If you find shared logic that belongs in a utility, extract it now — don't log it as tech debt
-8. Run `pnpm check` — must pass
+8. Run `pnpm check` — must pass (see "Running commands" below)
 9. Run `pnpm test:mutate` scoped to the source files you changed — if below threshold, add tests until it passes
 10. Commit with a conventional commit message
 11. Stop and return your result — do NOT continue to the next AC
+
+## Running commands
+
+**Capture once, read many.** Long-running commands (`pnpm check`, `pnpm test`, `pnpm build`) MUST use `tee` on the first run:
+
+```bash
+pnpm check 2>&1 | tee /tmp/check.log
+```
+
+Then use the `Read` tool on `/tmp/check.log` to inspect any section. **NEVER** re-run a command just to see different output. **NEVER** pipe the command itself through `grep | head` or `tail` — you discard output and end up re-running. Searching the captured log file afterward is fine.
+
+Run scoped tests first (`pnpm test path/to/file.test.ts 2>&1 | tee /tmp/test.log`), then `pnpm check` once at the end.
 
 ## Test discipline
 

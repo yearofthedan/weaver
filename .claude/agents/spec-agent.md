@@ -1,8 +1,8 @@
 ---
 name: spec-agent
-description: Reasoning agent for specs, architecture, and review. Use for creating task specifications, reviewing designs, filling Done-when checklists, and archiving specs. Delegates investigation to Explore subagents when broad codebase research is needed.
+description: Reasoning agent for specs, architecture, and review. Use for creating task specifications, reviewing designs, filling Done-when checklists, and archiving specs.
 model: opus
-tools: Read, Glob, Grep, Write, Edit, WebFetch, WebSearch, Agent(Explore)
+tools: Read, Glob, Grep, Write, Edit, WebFetch, WebSearch
 skills:
   - spec
 memory: project
