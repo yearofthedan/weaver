@@ -1,4 +1,4 @@
-# moveDirectory is not atomic — partial move on failure leaves split state
+# moveDirectory is not atomic — partial move corrupts imports and leaves split state
 
 **type:** bug
 **date:** 2026-03-15
@@ -8,46 +8,151 @@
 
 ## Symptom
 
-`moveDirectory` moves files one at a time in a loop (`moveDirectory.ts:83-100`). When an error occurs mid-operation, files already moved stay at the destination while remaining files stay at the source. The workspace is left in an inconsistent split state requiring manual recovery (`git checkout`).
+`moveDirectory` moves files one at a time in a loop. Two failures observed:
+
+1. **Import corruption:** Intra-directory imports are rewritten to point back at the old (now empty) location. Reproduced via MCP on a pure-TS fixture — `main.ts`'s `./utils` becomes `../../../simple-ts/src/utils` after move.
+2. **Partial move on failure:** When an error occurs mid-operation, files already moved stay at the destination while remaining files stay at the source.
 
 ```
-input:    moveDirectory("project/simple-ts", "project/fixtures/simple-ts")
-actual:   { ok: false, error: "PARSE_ERROR", message: "ENOENT: ...utils.ts" }
-          — src/main.ts and src/utils.ts at NEW path, tests/ and tsconfig.json at OLD path
-expected: { ok: false, ... } — all files remain at original location
+input:    moveDirectory("tmp-repro/simple-ts", "tmp-repro/fixtures/simple-ts")
+actual:   ok: true, but main.ts import rewritten to "../../../simple-ts/src/utils"
+          — import points to old empty location; type error on the moved file
+expected: ok: true, main.ts import stays "./utils" (both files moved together)
 ```
 
 ## Value / Effort
 
-- **Value:** High. A failed `moveDirectory` silently corrupts the workspace. The user sees an error but has no idea which files moved and which didn't. The only recovery is `git checkout`, which discards all uncommitted work — not just the failed move.
-- **Effort:** Low-medium. The fix is localised to `moveDirectory.ts`. The function is 109 lines and the loop is the only mutation site. The fix restructures the loop into two phases but doesn't change the external interface.
-
-## Expected
-
-If `moveDirectory` fails at any point, all files remain at their original paths with original content. The error propagates normally. No partial state.
+- **Value:** High. `moveDirectory` is fundamentally broken — it corrupts imports even on success. The only recovery is `git checkout`.
+- **Effort:** Medium. Adds `moveDirectory` to the `Compiler` interface with a ts-morph `directory.move()` implementation. Signature change mirrors `moveSymbol` pattern. VolarCompiler implementation deferred (uses ts-morph internally with virtual `.vue.ts` stubs — same proven pattern from `buildVolarService`).
 
 ## Root cause
 
-`moveDirectory.ts:83-100` — the `for` loop physically moves files (`scope.fs.rename`) and applies compiler edits (`moveFile` for Vue files) incrementally. There is no separation between the compute phase (what needs to happen) and the commit phase (doing it). When any step throws — compiler ENOENT, filesystem error, import rewrite failure — files already processed are at the new path, files not yet processed are at the old path, and import rewrites in third-party files may already be written to disk.
+Two separate bugs, same structural cause:
 
-The problem is structural: a single loop interleaves reads, writes, and moves with no ability to roll back the writes (import rewrites touch arbitrary files across the workspace).
+**Bug 1 — Import corruption:** The per-file approach calls `getEditsForFileRename` (or `afterFileRename`) for each file sequentially. Each call assumes only that one file moved — it doesn't know sibling files are also moving. When `main.ts` is moved, the rewriter sees `utils.ts` still at the old path and rewrites the import to point there. When `utils.ts` moves next, nobody goes back to fix `main.ts`.
+
+**Bug 2 — Non-atomic failures:** The loop interleaves physical moves and compiler edits. A failure mid-loop leaves files split across old and new paths.
+
+**Why unit tests pass:** Tests use `TsMorphCompiler` directly but the fixtures are small enough that intra-directory imports don't cross file boundaries in ways that expose the bug. The daemon path (via MCP) hits it on real project structures.
+
+## Investigation findings
+
+ts-morph's `Directory.move()` API handles batch directory moves atomically in the project graph:
+
+```typescript
+const project = new Project({ tsConfigFilePath: "..." });
+const dir = project.getDirectoryOrThrow("/old/path");
+dir.move("/new/path");
+project.saveSync();
+```
+
+Verified behaviour:
+- **Preserves intra-directory imports:** `./utils` stays `./utils` when both files move together
+- **Rewrites external importers:** `../src/utils` becomes `../lib/utils` in files outside the moved directory
+- **Cleans up old directory:** Source directory removed after save
+- **Atomic in-memory:** All changes computed in the project graph before any disk writes
+
+Also verified that ts-morph correctly handles `.vue` import specifiers when virtual `.vue.ts` stubs are present in the project. `import Foo from "./Foo.vue"` is correctly rewritten when `Foo.vue.ts` is in the project and the directory moves.
 
 ## Fix
 
-Restructure `moveDirectory` to follow design principle #6 ("compute before mutate" — see `docs/architecture.md`):
+Add `moveDirectory` to the `Compiler` interface. Each compiler adapter implements batch directory moves using whatever batch mechanism is available to it. This follows design principle #2 ("compiler work belongs behind compiler adapters") — the operation calls `compiler.moveDirectory()` without knowing about ts-morph.
 
-1. **Compute phase:** Enumerate files, validate destinations, and for each file that needs compiler edits (Vue files via `moveFile`, or future TS import rewriting), gather the edits without applying them. If anything fails here, no files have been touched.
-2. **Commit phase:** Apply all gathered edits, then perform all physical file moves. This phase runs only after the compute phase succeeds completely.
+### New `Compiler` interface method
 
-Acceptance criteria:
+```typescript
+interface Compiler {
+  // ... existing methods ...
 
-- [ ] **AC1 — Two-phase structure:** `moveDirectory` separates into a compute phase (enumerate files, validate destinations, gather compiler edits) and a commit phase (apply edits, move files). If the compute phase fails, no files are modified.
-- [ ] **AC2 — Regression test:** A test forces a failure during the compute phase (e.g. a compiler stub that throws on `getEditsForFileRename` for the second file) and asserts every file is still at its original path with original content.
-- [ ] **AC3 — Happy path unchanged:** Successful `moveDirectory` returns the same result shape (`filesMoved`, `filesModified`, `filesSkipped`, `oldPath`, `newPath`), moves all files, and reports all modified files. Existing tests pass without changes.
+  /**
+   * Move all source files in `oldPath` to `newPath`, rewriting imports across
+   * the project atomically. Implementations must ensure that if the operation
+   * fails, no files are modified (compute-before-mutate, principle #6).
+   *
+   * Only handles source files the compiler understands. Non-source files
+   * (json, css, images) are the caller's responsibility.
+   *
+   * Records all modified files into `scope`.
+   */
+  moveDirectory(
+    oldPath: string,
+    newPath: string,
+    scope: WorkspaceScope,
+  ): Promise<{ filesMoved: string[] }>;
+}
+```
+
+### TsMorphCompiler implementation
+
+1. Get the `Project` via `getProjectForDirectory(oldPath)`
+2. Ensure all TS source files in the directory are in the project (some may be excluded by tsconfig — add via `project.addSourceFileAtPath()`)
+3. Call `project.getDirectoryOrThrow(absOld).move(absNew)`
+4. Call `project.saveSync()` — writes all TS files with corrected imports, removes old files
+5. Record all written files in `scope`
+6. Invalidate the project cache so subsequent operations rebuild from disk
+
+### VolarCompiler implementation
+
+Uses the same ts-morph `directory.move()` under the hood, with virtual `.vue.ts` stubs injected for each `.vue` file in the directory. This is the same virtual file pattern already proven in `buildVolarService` (see `docs/tech/volar-v3.md`):
+
+1. Create a temporary ts-morph `Project` from the project's tsconfig
+2. For each `.vue` file in the directory, extract the `<script>` block content and add it as a `.vue.ts` source file in the project
+3. Call `directory.move()` — ts-morph sees all files (TS + virtual Vue) and rewrites all import specifiers atomically
+4. `project.saveSync()` writes TS files and virtual `.vue.ts` files
+5. Delete the `.vue.ts` files from disk (they're artifacts)
+6. Physical-move the real `.vue` files to the new location
+7. Apply `rewriteMovedFileOwnImports` for each moved `.vue` file (their internal imports need adjusting since ts-morph edited the `.vue.ts` copies, not the real `.vue` files)
+8. Record all modified files in `scope`
+
+### Operation changes (`moveDirectory.ts`)
+
+The operation becomes a thin orchestrator (principle #1):
+
+1. Pre-validate (same as today): source exists, is directory, not move-into-self, dest not non-empty
+2. Call `compiler.moveDirectory(oldPath, newPath, scope)` — handles all source files
+3. Physical-move non-source files (json, css, images) via `scope.fs.rename`
+4. Return aggregated result
+
+### Dispatcher change
+
+```typescript
+// Uses projectCompiler only — like rename, moveFile
+moveDirectory: {
+  pathParams: ["oldPath", "newPath"],
+  schema: MoveDirectoryArgsSchema,
+  async invoke(registry, params, workspace) {
+    const { oldPath, newPath } = params as { oldPath: string; newPath: string };
+    const compiler = await registry.projectCompiler();
+    const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+    return moveDirectory(compiler, oldPath, newPath, scope);
+  },
+},
+```
+
+### New architecture principle
+
+Add as principle #7 in `docs/architecture.md`:
+
+> **7. Prefer batch compiler APIs over sequential single-file calls.** When an operation involves multiple interdependent files (e.g. moving a directory where files import each other), use the compiler's batch API rather than calling single-file methods in a loop. Sequential calls see intermediate state — each call assumes only its file moved and may rewrite imports incorrectly. Batch APIs compute all changes in the project graph before writing anything to disk.
+
+## Acceptance criteria
+
+- [ ] **AC1 — Intra-directory imports preserved:** Moving a directory where `main.ts` imports `./utils` (both in the same directory) preserves the `./utils` specifier. No rewrite to an absolute or cross-tree path.
+- [ ] **AC2 — External importers rewritten:** Files outside the moved directory that import from it get their specifiers updated to the new location.
+- [ ] **AC3 — Non-source files moved:** JSON, CSS, and other non-source files are physically moved to the new location.
+- [ ] **AC4 — Result shape unchanged:** Returns `{ filesMoved, filesModified, filesSkipped, oldPath, newPath }` — same contract as today.
+- [ ] **AC5 — Existing tests pass:** All current `moveDirectory` tests pass (with signature adjustments as needed).
+- [ ] **AC6 — Compiler interface updated:** `Compiler` interface gains `moveDirectory` method. Both `TsMorphCompiler` and `VolarCompiler` implement it.
+- [ ] **AC7 — Architecture docs updated:** Principle #7 added. `moveDirectory.md` feature doc updated to reflect batch architecture.
+
+## Scope notes
+
+- The VolarCompiler implementation (virtual `.vue.ts` stubs) can ship in a follow-up if needed. A minimal first pass can have VolarCompiler delegate to the same ts-morph approach without the virtual stubs (handling TS files atomically, Vue files via existing regex scan). The important thing is the interface is in place so the implementation can improve without changing callers.
+- The existing P2 bugs ("doesn't delete source directory", "corrupts imports inside sub-project boundaries") are separate issues. This spec fixes the core atomicity and import corruption bugs only.
 
 ## Security
 
-- **Workspace boundary:** N/A — the fix doesn't change which files are read or written, only the order of operations. `WorkspaceScope` enforcement is unchanged.
+- **Workspace boundary:** Unchanged. `WorkspaceScope` enforcement still applies to all writes. ts-morph's `project.saveSync()` writes within the project root. Compiler implementations must record all modified files in `scope`.
 - **Sensitive file exposure:** N/A — no change to file content reading.
 - **Input injection:** N/A — no change to how user-supplied strings are handled.
 - **Response leakage:** N/A — no change to error messages or response fields.
@@ -56,29 +161,29 @@ Acceptance criteria:
 
 | File | Why |
 |------|-----|
-| `src/operations/moveDirectory.ts` (109 lines) | Primary fix target — the loop that needs two-phase restructuring |
-| `src/operations/moveFile.ts` (48 lines) | Called by `moveDirectory` for Vue files; its `getEditsForFileRename` → apply pattern is the model for the compute/commit split |
-| `src/domain/workspace-scope.ts` (57 lines) | Tracks modified/skipped files; `writeFile` and `recordModified` are the mutation points |
-| `src/ports/filesystem.ts` | `FileSystem` interface — `rename`, `writeFile`, `mkdir` are the mutation surface |
-| `tests/operations/moveDirectory_tsMorphCompiler.test.ts` (293 lines) | Existing test file — near the 300-line review threshold; AC2 adds a new test here |
-
-## Red flags
-
-- **Test file near threshold:** `moveDirectory_tsMorphCompiler.test.ts` is 293 lines. Adding AC2's regression test will push it over 300. Assess whether any existing tests can be tightened (e.g. the two intra-directory import tests at lines 197-228 overlap significantly) before adding new ones.
+| `src/types.ts` | Add `moveDirectory` to `Compiler` interface |
+| `src/operations/moveDirectory.ts` (124 lines) | Simplify to thin orchestrator calling `compiler.moveDirectory()` |
+| `src/compilers/ts.ts` | `TsMorphCompiler.moveDirectory()` — ts-morph `directory.move()` implementation |
+| `src/plugins/vue/compiler.ts` | `VolarCompiler.moveDirectory()` — virtual `.vue.ts` stub approach |
+| `src/daemon/dispatcher.ts` | Simplify descriptor (single `projectCompiler`, no `tsCompiler` needed) |
+| `docs/architecture.md` | Add principle #7 (batch over sequential) |
+| `docs/features/moveDirectory.md` | Update to reflect batch architecture |
+| `tests/operations/moveDirectory_tsMorphCompiler.test.ts` | Update tests, add AC1/AC2 regression tests |
 
 ## Edges
 
-- **Vue + TS mixed directory:** The compute phase must handle both Vue files (which need `compiler.getEditsForFileRename`) and non-Vue files (which currently just do `fs.rename`). Both paths must be deferred to the commit phase.
+- **Files excluded from tsconfig:** Test files, scripts, etc. may not be in the ts-morph project. Before calling `directory.move()`, the compiler implementation must add any source files found by enumeration that aren't already in the project via `project.addSourceFileAtPath()`.
 - **Empty directory:** Still returns empty arrays, no error. No change from current behaviour.
-- **Pre-validation errors (FILE_NOT_FOUND, NOT_A_DIRECTORY, MOVE_INTO_SELF, DESTINATION_EXISTS):** These already throw before the loop — no change needed. They are naturally in the "compute phase."
-- **SKIP_DIRS and symlinks:** Enumeration filtering happens before the loop — no change needed.
-- **Existing `moveFile` callers:** `moveFile` itself is not changed. Only `moveDirectory`'s usage of it is restructured.
+- **Pre-validation errors:** FILE_NOT_FOUND, NOT_A_DIRECTORY, MOVE_INTO_SELF, DESTINATION_EXISTS — unchanged, still throw before any work.
+- **SKIP_DIRS and symlinks:** Enumeration filtering unchanged.
+- **ts-morph `project.saveSync()` deletes old files:** ts-morph handles cleanup of moved source files. Non-source files need explicit `scope.fs.rename`. Old directory shells may remain (known P2 issue).
+- **ts-morph project cache:** After `project.saveSync()`, call `invalidateProject()` so subsequent operations rebuild from disk.
 
 ## Done-when
 
-- [ ] All fix criteria (AC1-AC3) verified by tests
+- [ ] All acceptance criteria (AC1-AC7) verified by tests
 - [ ] Mutation score >= threshold for `moveDirectory.ts`
 - [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated if public surface changed (no public surface change expected)
+- [ ] Docs updated: architecture.md principle #7, moveDirectory.md feature doc
 - [ ] Tech debt discovered during investigation added to handoff.md as `[needs design]`
 - [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
