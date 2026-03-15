@@ -7,12 +7,7 @@ description: Pick up the next task — if it needs a spec, create one first; if 
 
 ## Agent model
 
-This workflow delegates to two custom subagents defined in `.claude/agents/`:
-
-- **`spec-agent`** (Opus) — reasoning work: creates specs, reviews architecture, security, and documentation.
-- **`execution-agent`** (Sonnet) — implementation work: writes code against a spec, runs tests, commits.
-
-Delegate steps 1-2 to `spec-agent`. Step 3 is dispatched **one AC at a time** to `execution-agent` — see details below. Steps 4-8 go to `spec-agent`.
+Steps 1-2 and 4-8 run in the main conversation (interactive spec and review work). Step 3 is dispatched **one AC at a time** to `execution-agent` (defined in `.claude/agents/`) for mechanical code changes.
 
 ---
 
@@ -41,7 +36,7 @@ Delegate steps 1-2 to `spec-agent`. Step 3 is dispatched **one AC at a time** to
 
    **Do NOT batch multiple ACs into one agent call.** Each call produces one commit. After each call, verify the commit exists and `pnpm check` passes before dispatching the next AC.
 
-4. **Complete the spec's Done-when checklist.** Delegate to `spec-agent`. Walk through every item in the spec's Done-when section (defined by the template — see `docs/specs/templates/change.md` or `bug.md`). Additionally:
+4. **Complete the spec's Done-when checklist.** Walk through every item in the spec's Done-when section (defined by the template — see `docs/specs/templates/change.md` or `bug.md`). Additionally:
    - [ ] **Remove** the handoff.md task entry entirely — handoff.md is a work queue, not a history. Do not mark it shipped, do not leave a link to the archive. Just delete the line. Update the "Current state" section (test count, layout changes) if needed.
    - [ ] If public surfaces changed, update the corresponding docs (the spec's Done-when checklist specifies which)
 

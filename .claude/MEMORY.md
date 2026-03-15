@@ -87,8 +87,8 @@ See `docs/handoff.md` § "Start here" and the `/slice` skill for the full proced
 **When the user asks a question, answer it before touching any tools.**
 Reaching for tools while a question is unanswered is acting instead of listening. Answer first, confirm the user wants the change, then act.
 
-**Do simple docs tasks directly — don't delegate to spec-agent.**
-For straightforward docs updates (fixing text, adding diagrams, updating tables), do the work inline. Spec-agent is valuable for design work where questions and tradeoff discussion matter, but adds unnecessary roundtrips for mechanical docs changes.
+**Do simple docs tasks directly — don't delegate to subagents.**
+For straightforward docs updates (fixing text, adding diagrams, updating tables), do the work inline.
 
 **Stryker CLI: use `--mutate`, not `--include`.**
 To scope a mutation run to specific files: `pnpm exec stryker run --mutate 'src/foo.ts'`. For multiple files use a comma-separated glob or multiple `--mutate` flags. There is no `--include` flag — that causes `too many arguments for 'run'`.
