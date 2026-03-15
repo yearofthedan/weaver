@@ -95,3 +95,9 @@ To scope a mutation run to specific files: `pnpm exec stryker run --mutate 'src/
 
 **Always pipe long-running commands through `tee` to capture output.**
 `pnpm test:mutate`, `pnpm check`, and other long commands must be run with `2>&1 | tee /tmp/output.txt`. Without tee, the tool sandbox discards output before it can be read when the command runs in background mode. Failure to use tee causes the output file to be 0 bytes and the result to be invisible.
+
+**When a bug report says "X doesn't work", reproduce X in the real project first.**
+Do not reproduce against fixture copies or simplified setups. The daemon, watcher, singleton compiler, and project detection all behave differently in the real project (dependencies in `node_modules`, `.vue` fixture files triggering `isVueProject`, cached compiler state). A test that passes on a fixture copy proves nothing about the daemon path. Run the actual MCP tool on the actual project, read the result, then write a failing test that captures the root cause.
+
+**The daemon may route through VolarCompiler unexpectedly.**
+`isVueProject` scans the entire workspace for `.vue` files — including `tests/fixtures/`. If any `.vue` file exists anywhere under the workspace root, every daemon operation routes through VolarCompiler instead of TsMorphCompiler. When debugging daemon-only bugs, check which compiler is handling the request before investigating compiler internals.

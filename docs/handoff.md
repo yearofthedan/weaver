@@ -111,13 +111,13 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 
 ### P1 — Very high value bugs and tech debt
 
-- **`moveFile` doesn't rewrite imports inside moved file when outside tsconfig project** `[needs design]` — When a file outside `tsconfig.json`'s `include` (e.g. a test file in `tests/`) is moved via `moveFile`, the physical move succeeds and external references are updated, but the moved file's own import specifiers are not rewritten. Discovered during test colocation: moving `tests/utils/errors.test.ts` to `src/utils/errors.test.ts` left the import as `../../src/utils/errors.js` instead of rewriting to `./errors.js`. Root cause: `getEditsForFileRename` only produces edits for files the compiler knows about; files outside the project graph get no edits for their own imports. Blocks using `moveFile` for test colocation.
+- **`moveFile` via VolarCompiler doesn't rewrite moved file's own imports** → [`docs/specs/20260315-movefile-volar-own-imports.md`](specs/20260315-movefile-volar-own-imports.md) — VolarCompiler's `afterFileRename` doesn't rewrite the moved file's own import specifiers; `isVueProject` false-positives on `.vue` test fixtures route pure TS projects through VolarCompiler. Blocks test colocation.
 
 - **Test colocation** → [`docs/specs/20260305-colocate-tests.md`](specs/20260305-colocate-tests.md) — Move unit tests next to source, integration tests to `__tests__/`, colocate fixtures. Blocked by moveFile bug above.
 
 - **Source refactoring for mutation speed** → [`docs/specs/20260315-source-refactor-mutation-speed.md`](specs/20260315-source-refactor-mutation-speed.md) — Extract misplaced utilities from operations (`searchText`, `security`, `getTypeErrors`), optimize fixture copying for `perTest` coverage analysis, exclude redundant dispatcher tests from Stryker. Depends on test colocation landing first.
 
-- **`getTypeErrors` / write operations: add `warn` status level** `[needs design]` — Currently status is binary (`ok: true/false`). Type errors after a write operation (e.g. `moveFile` returns `ok: true` with `typeErrorCount > 0`) should surface as `status: "warn"` so agents know the operation succeeded structurally but left unresolved references. Supersedes the P4 "moveFile type error return contract" entry.
+- **`getTypeErrors` / write operations: add `warn` status level** `[needs design]` — Currently status is binary (`ok: true/false`). Type errors after a write operation (e.g. `moveFile` returns `ok: true` with `typeErrorCount > 0`) should surface as `status: "warn"` so agents know the operation succeeded structurally but left unresolved references. Supersedes the P4 "moveFile type error return contract" entry. Note: `warn` alone won't catch all failures — `moveFile` can return `ok: true, typeErrorCount: 0` despite broken imports, because `getTypeErrorsForFiles` always uses TsMorphCompiler regardless of which compiler performed the operation. If VolarCompiler performed the move and left broken specifiers, TsMorphCompiler's post-write type check may not detect the resolution failures depending on module resolution settings. Reliable detection may need the post-write type check to run through the same compiler that performed the operation.
 
 ---
 
@@ -128,6 +128,7 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - **Pre-public release infrastructure** → [`docs/specs/20260304-pre-public-infra.md`](specs/20260304-pre-public-infra.md) — Release Please pipeline, CodeQL, branch protection, LICENSE, SECURITY.md, `package.json` modernisation
 - `buildVolarService` refactoring `[needs design]` — extract named sub-functions from the ~176-line monolith; prerequisite for more Vue operations
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
+- **Daemon request logging** `[needs design]` — The daemon has no logging after the startup ready signal. Stderr is disconnected from the parent after spawn. Debugging daemon-only bugs requires patching source, rebuilding, and manually wiring stderr to a file. Add structured per-request logging (method, compiler used, edits count, duration) to a log file. Discovered during the VolarCompiler moveFile investigation — the key insight (wrong compiler was handling the request) was invisible without instrumentation.
 ---
 
 ### P3 — Medium-value features / bugs / tech debt
