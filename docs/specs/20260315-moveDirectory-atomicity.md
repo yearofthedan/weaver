@@ -98,11 +98,10 @@ Uses the same ts-morph `directory.move()` under the hood, with virtual `.vue.ts`
 1. Create a temporary ts-morph `Project` from the project's tsconfig
 2. For each `.vue` file in the directory, extract the `<script>` block content and add it as a `.vue.ts` source file in the project
 3. Call `directory.move()` — ts-morph sees all files (TS + virtual Vue) and rewrites all import specifiers atomically
-4. `project.saveSync()` writes TS files and virtual `.vue.ts` files
-5. Delete the `.vue.ts` files from disk (they're artifacts)
-6. Physical-move the real `.vue` files to the new location
-7. Apply `rewriteMovedFileOwnImports` for each moved `.vue` file (their internal imports need adjusting since ts-morph edited the `.vue.ts` copies, not the real `.vue` files)
-8. Record all modified files in `scope`
+4. `project.saveSync()` writes TS files and virtual `.vue.ts` files to disk
+5. For each moved `.vue` file: read the written `.vue.ts` at the new location (ts-morph already rewrote its imports correctly), read the original `.vue` file (still at old location), replace the `<script>` block content in the `.vue` with the `.vue.ts` content, write the updated `.vue` to the new location. This transplants ts-morph's import rewrites back into the SFC — no regex-based import rewriting needed. The `<script>` block extraction/injection pattern already exists in `VolarCompiler.afterSymbolMove`.
+6. Delete the `.vue.ts` artifacts from disk and the old `.vue` files
+7. Record all modified files in `scope`
 
 ### Operation changes (`moveDirectory.ts`)
 
@@ -139,11 +138,12 @@ Add as principle #7 in `docs/architecture.md`:
 
 - [ ] **AC1 — Intra-directory imports preserved:** Moving a directory where `main.ts` imports `./utils` (both in the same directory) preserves the `./utils` specifier. No rewrite to an absolute or cross-tree path.
 - [ ] **AC2 — External importers rewritten:** Files outside the moved directory that import from it get their specifiers updated to the new location.
-- [ ] **AC3 — Non-source files moved:** JSON, CSS, and other non-source files are physically moved to the new location.
-- [ ] **AC4 — Result shape unchanged:** Returns `{ filesMoved, filesModified, filesSkipped, oldPath, newPath }` — same contract as today.
-- [ ] **AC5 — Existing tests pass:** All current `moveDirectory` tests pass (with signature adjustments as needed).
-- [ ] **AC6 — Compiler interface updated:** `Compiler` interface gains `moveDirectory` method. Both `TsMorphCompiler` and `VolarCompiler` implement it.
-- [ ] **AC7 — Architecture docs updated:** Principle #7 added. `moveDirectory.md` feature doc updated to reflect batch architecture.
+- [ ] **AC3 — Vue import specifiers preserved:** `import Foo from "./Comp.vue"` specifiers must not be rewritten to `.vue.ts` or have the extension stripped by ts-morph's virtual file mapping. Verified with at least two `moduleResolution` settings (`bundler` and `node`).
+- [ ] **AC4 — Non-source files moved:** JSON, CSS, and other non-source files are physically moved to the new location.
+- [ ] **AC5 — Result shape unchanged:** Returns `{ filesMoved, filesModified, filesSkipped, oldPath, newPath }` — same contract as today.
+- [ ] **AC6 — Existing tests pass:** All current `moveDirectory` tests pass (with signature adjustments as needed).
+- [ ] **AC7 — Compiler interface updated:** `Compiler` interface gains `moveDirectory` method. Both `TsMorphCompiler` and `VolarCompiler` implement it.
+- [ ] **AC8 — Architecture docs updated:** Principle #7 added. `moveDirectory.md` feature doc updated to reflect batch architecture.
 
 ## Scope notes
 
@@ -181,7 +181,7 @@ Add as principle #7 in `docs/architecture.md`:
 
 ## Done-when
 
-- [ ] All acceptance criteria (AC1-AC7) verified by tests
+- [ ] All acceptance criteria (AC1-AC8) verified by tests
 - [ ] Mutation score >= threshold for `moveDirectory.ts`
 - [ ] `pnpm check` passes (lint + build + test)
 - [ ] Docs updated: architecture.md principle #7, moveDirectory.md feature doc
