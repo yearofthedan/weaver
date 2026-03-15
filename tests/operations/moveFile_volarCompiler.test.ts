@@ -84,6 +84,22 @@ describe("moveFile action - VolarCompiler Integration", () => {
     expect(result.filesModified).toContain(newPath);
   });
 
+  it("rewrites imports in out-of-project .ts files that import the moved file", async () => {
+    const dir = copyFixture("vue-project");
+    dirs.push(dir);
+    const compiler = new VolarCompiler();
+
+    const oldPath = `${dir}/src/composables/useCounter.ts`;
+    const newPath = `${dir}/src/utils/useCounter.ts`;
+
+    await moveFile(compiler, oldPath, newPath, makeScope(dir));
+
+    // tests/unit/counter.test.ts is outside tsconfig include and imports useCounter
+    const testContent = readFile(dir, "tests/unit/counter.test.ts");
+    expect(testContent).toContain("utils/useCounter");
+    expect(testContent).not.toContain("composables/useCounter");
+  });
+
   it("throws FILE_NOT_FOUND for non-existent source", async () => {
     const dir = copyFixture("vue-project");
     dirs.push(dir);

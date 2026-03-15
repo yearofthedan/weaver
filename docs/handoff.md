@@ -106,11 +106,14 @@ src/
 
 ## Next things to build
 
-Priorities run top to bottom. Complete a tier before starting the next — later tiers depend on the quality signal from earlier ones. If a priority item needs design, don't skip it.
+Priorities run top to bottom. Complete a tier before starting the next. 
+**IMPORTANT**: Priority is the only thing that matters. Skipping an item without a design is a failure. If a priority item needs design, spec it. 
 
 ---
 
 ### P1 — Very high value bugs and tech debt
+
+- **`moveFile` does not rewrite imports in out-of-project TS/JS files (VolarCompiler)** → [`docs/specs/20260315-movefile-extraproject-importers.md`](specs/20260315-movefile-extraproject-importers.md)
 
 - **Test colocation Phase 1: unit tests** → [`docs/specs/20260315-colocate-unit-tests.md`](specs/20260315-colocate-unit-tests.md) — Move unit tests next to source, fixtures and shared helpers to `src/__testHelpers__/`.
 
@@ -133,7 +136,6 @@ Priorities run top to bottom. Complete a tier before starting the next — later
 - **`moveDirectory` doesn't delete source directory after move** `[needs design]` — After a successful move, empty directory shells are left at the old path. Manual `rm -rf` is needed. Discovered during test colocation Phase 1 (AC2).
 - **`moveDirectory` corrupts imports inside sub-project boundaries** `[needs design]` — When the moved directory contains its own `tsconfig.json` (a sub-project), internal relative imports (e.g. `"./utils"`) are rewritten to long cross-tree paths pointing back to the old location. The tool doesn't recognise the sub-project's tsconfig boundary and treats internal imports as references to rewrite relative to the parent project. Silently corrupts files — no error returned. Main real-world risk: monorepos where each package has its own tsconfig. Single-project directory moves (the common case) are unaffected. Discovered during test colocation Phase 1 (AC2) — 9 fixture files across 6 fixture projects were corrupted.
 - **Daemon request logging** `[needs design]` — The daemon has no logging after the startup ready signal. Stderr is disconnected from the parent after spawn. Debugging daemon-only bugs requires patching source, rebuilding, and manually wiring stderr to a file. Add structured per-request logging (method, compiler used, edits count, duration) to a log file. Discovered during the VolarCompiler moveFile investigation — the key insight (wrong compiler was handling the request) was invisible without instrumentation.
-- **`moveFile` does not rewrite imports in files outside the tsconfig project** `[needs design]` — When `moveFile` is called with a source file that is outside `tsconfig.json`'s `include` (e.g. test files under `tests/`), the tool moves the file but only lists the destination file in `filesModified`. No import paths in any other file are updated, and the moved file's own imports are not rewritten either. Observed during test colocation AC3: moving `tests/helpers.ts` → `src/__testHelpers__/helpers.ts` returned `filesModified: ["src/__testHelpers__/helpers.ts"]` and left all 30+ test file import paths pointing at the old location. Required manual `replaceText` surgical edits for all three depth levels (`./helpers.js`, `../helpers.js`, `../../helpers.js`). Root cause is documented in `docs/specs/20260315-movefile-volar-own-imports.md` (archived): the TypeScript compiler project only resolves references for files included via tsconfig, so files outside `include` are invisible to the reference graph. Fix likely requires extending project boundaries or using a separate tsconfig for test files.
 ---
 
 ### P3 — Medium-value features / bugs / tech debt
