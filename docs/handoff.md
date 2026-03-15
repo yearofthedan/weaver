@@ -113,6 +113,8 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P1 — Very high value bugs and tech debt
 
+- **`moveDirectory` is not atomic — partial move on failure leaves split state** → [`docs/specs/20260315-moveDirectory-atomicity.md`](specs/20260315-moveDirectory-atomicity.md)
+
 - **Test colocation Phase 1: unit tests** → [`docs/specs/20260315-colocate-unit-tests.md`](specs/20260315-colocate-unit-tests.md) — Move unit tests next to source, fixtures and shared helpers to `src/__testHelpers__/`.
 
 - **Test colocation Phase 2: integration tests** → [`docs/specs/20260315-colocate-integration-tests.md`](specs/20260315-colocate-integration-tests.md) — Move integration tests to colocated `*.integration.test.ts` files, remove `tests/` directory. Blocked by Phase 1.

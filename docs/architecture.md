@@ -54,6 +54,7 @@ Each plugin folder is a self-contained unit: project detection, compiler impleme
 3. **I/O goes through ports.** File reads, writes, existence checks — all through the injectable `FileSystem` interface. This is the single biggest testability win: tests inject `InMemoryFileSystem` instead of copying fixtures to temp directories.
 4. **Plugins are self-contained feature folders.** The Vue plugin owns everything Vue-specific. Cross-cutting logic (`ImportRewriter`, `WorkspaceScope`) lives in `src/domain/` and is used by plugins, never duplicated inside them.
 5. **The workspace boundary is a first-class object.** `WorkspaceScope` encapsulates the root, the `FileSystem`, and modification tracking — not a string threaded through every function signature.
+6. **Compute before mutate.** Write operations must separate computation (reading files, resolving edits, validating preconditions) from mutation (writing files, renaming, deleting). If the compute phase fails, no files are modified. This prevents partial-state corruption where some files are updated and others aren't — a state that can't be rolled back because import rewrites touch arbitrary files across the workspace.
 
 ### Hexagonal layer diagram
 
