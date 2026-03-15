@@ -194,6 +194,60 @@ describe("moveDirectory", () => {
     });
   });
 
+  describe("import rewriting across moved files", () => {
+    it("preserves intra-directory imports in moved files and rewrites external imports", async () => {
+      const dir = copyFixture("move-dir-ts");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      await moveDirectory(compiler, `${dir}/src/utils`, `${dir}/src/lib`, makeScope(dir));
+
+      // b.ts imports from ./a — both files moved together, so relative path is still valid
+      const movedBContent = readFile(dir, "src/lib/b.ts");
+      expect(movedBContent).toContain("./a");
+
+      // app.ts imported from ./utils/a and ./utils/b — both must be rewritten to ./lib/...
+      const appContent = readFile(dir, "src/app.ts");
+      expect(appContent).toContain("./lib/a");
+      expect(appContent).toContain("./lib/b");
+      expect(appContent).not.toContain("./utils/a");
+      expect(appContent).not.toContain("./utils/b");
+    });
+
+    it("does not break the moved file's intra-directory import at compile level", async () => {
+      const dir = copyFixture("move-dir-ts");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      await moveDirectory(compiler, `${dir}/src/utils`, `${dir}/src/lib`, makeScope(dir));
+
+      // The intra-directory import in b.ts must NOT have been changed to an absolute or parent path
+      const movedBContent = readFile(dir, "src/lib/b.ts");
+      expect(movedBContent).not.toContain("../");
+      expect(movedBContent).not.toContain("src/lib/a");
+    });
+  });
+
+  describe("empty directory", () => {
+    it("returns empty arrays and no error for a directory with no files", async () => {
+      const tmpRoot = fs.mkdtempSync(path.join(fs.realpathSync("/tmp"), "move-dir-empty-"));
+      dirs.push(tmpRoot);
+      const emptyDir = path.join(tmpRoot, "source");
+      fs.mkdirSync(emptyDir);
+      const destDir = path.join(tmpRoot, "dest");
+      const compiler = new TsMorphCompiler();
+      const scope = makeScope(tmpRoot);
+
+      const result = await moveDirectory(compiler, emptyDir, destDir, scope);
+
+      expect(result.filesMoved).toEqual([]);
+      expect(result.filesModified).toEqual([]);
+      expect(result.filesSkipped).toEqual([]);
+      expect(result.oldPath).toBe(emptyDir);
+      expect(result.newPath).toBe(destDir);
+    });
+  });
+
   describe("error cases", () => {
     it("throws FILE_NOT_FOUND when source does not exist", async () => {
       const dir = copyFixture("move-dir-ts");
