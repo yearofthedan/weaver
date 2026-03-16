@@ -1,0 +1,197 @@
+import { Project } from "ts-morph";
+import { describe, expect, it } from "vitest";
+import { EngineError } from "../utils/errors.js";
+import { SymbolRef } from "./symbol-ref.js";
+
+function makeSourceFile(content: string) {
+  const project = new Project({ useInMemoryFileSystem: true });
+  return project.createSourceFile("/workspace/src/utils.ts", content);
+}
+
+describe("SymbolRef", () => {
+  describe("fromExport()", () => {
+    describe("successful resolution", () => {
+      it("returns a SymbolRef with the correct name", () => {
+        const sf = makeSourceFile("export function foo() {}");
+        const ref = SymbolRef.fromExport(sf, "foo");
+        expect(ref.name).toBe("foo");
+      });
+
+      it("returns a SymbolRef with filePath matching the source file path", () => {
+        const sf = makeSourceFile("export function foo() {}");
+        const ref = SymbolRef.fromExport(sf, "foo");
+        expect(ref.filePath).toBe("/workspace/src/utils.ts");
+      });
+
+      it("returns a SymbolRef whose declarationText starts with 'export function foo'", () => {
+        const sf = makeSourceFile("export function foo() {}");
+        const ref = SymbolRef.fromExport(sf, "foo");
+        expect(ref.declarationText).toMatch(/^export function foo/);
+      });
+
+      it("includes the full declaration text (not a truncated version)", () => {
+        const sf = makeSourceFile("export function foo() { return 42; }");
+        const ref = SymbolRef.fromExport(sf, "foo");
+        expect(ref.declarationText).toContain("return 42");
+      });
+
+      it("resolves an exported class", () => {
+        const sf = makeSourceFile("export class MyClass {}");
+        const ref = SymbolRef.fromExport(sf, "MyClass");
+        expect(ref.name).toBe("MyClass");
+        expect(ref.declarationText).toMatch(/^export class MyClass/);
+      });
+
+      it("resolves when multiple exports are present", () => {
+        const sf = makeSourceFile("export function foo() {}\nexport function bar() {}");
+        const ref = SymbolRef.fromExport(sf, "bar");
+        expect(ref.name).toBe("bar");
+        expect(ref.declarationText).toMatch(/^export function bar/);
+      });
+
+      it.each([
+        ["export const BAR = 42;", "BAR", "export const BAR = 42;"],
+        ["export const BAZ: number = 99;", "BAZ", "export const BAZ: number = 99;"],
+      ])("returns the full VariableStatement for %s", (source, name, expected) => {
+        const sf = makeSourceFile(source);
+        const ref = SymbolRef.fromExport(sf, name);
+        expect(ref.declarationText).toBe(expected);
+      });
+    });
+
+    describe("isDirectExport()", () => {
+      it.each([
+        ["export function foo() {}", "foo"],
+        ["export class MyClass {}", "MyClass"],
+        ["export const BAR = 42;", "BAR"],
+      ])("returns true for direct export: %s", (source, name) => {
+        const sf = makeSourceFile(source);
+        const ref = SymbolRef.fromExport(sf, name);
+        expect(ref.isDirectExport()).toBe(true);
+      });
+
+      it("returns false for a re-export via export { } from", () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        project.createSourceFile("/workspace/src/other.ts", "export function Baz() {}");
+        const reexportSf = project.createSourceFile(
+          "/workspace/src/utils.ts",
+          `export { Baz } from "./other";`,
+        );
+        const ref = SymbolRef.fromExport(reexportSf, "Baz");
+        expect(ref.isDirectExport()).toBe(false);
+      });
+
+      it("returns true for a direct export in a multi-file project", () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        project.createSourceFile("/workspace/src/other.ts", "export function Baz() {}");
+        const directSf = project.createSourceFile(
+          "/workspace/src/utils.ts",
+          "export function Baz() {}",
+        );
+        const ref = SymbolRef.fromExport(directSf, "Baz");
+        expect(ref.isDirectExport()).toBe(true);
+      });
+    });
+
+    describe("remove()", () => {
+      it("calls the remove function on the underlying declaration", () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const sf = project.createSourceFile(
+          "/workspace/src/utils.ts",
+          "export function foo() {}\nexport function bar() {}",
+        );
+        const ref = SymbolRef.fromExport(sf, "foo");
+        ref.remove();
+        expect(sf.getText()).not.toContain("function foo");
+      });
+
+      it("does not affect other declarations when removing one symbol", () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const sf = project.createSourceFile(
+          "/workspace/src/utils.ts",
+          "export function foo() {}\nexport function bar() {}",
+        );
+        const ref = SymbolRef.fromExport(sf, "foo");
+        ref.remove();
+        expect(sf.getText()).toContain("function bar");
+      });
+
+      it("removes the entire VariableStatement when removing an exported const", () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const sf = project.createSourceFile(
+          "/workspace/src/utils.ts",
+          "export const BAR = 42;\nexport function bar() {}",
+        );
+        const ref = SymbolRef.fromExport(sf, "BAR");
+        ref.remove();
+        expect(sf.getText()).not.toContain("BAR");
+        expect(sf.getText()).toContain("function bar");
+      });
+
+      it("source file text no longer contains the declaration after remove()", () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const sf = project.createSourceFile(
+          "/workspace/src/utils.ts",
+          "export function foo() { return 1; }\nexport function bar() {}",
+        );
+        const ref = SymbolRef.fromExport(sf, "foo");
+        ref.remove();
+        expect(sf.getText()).not.toContain("export function foo");
+        expect(sf.getText()).not.toContain("return 1");
+      });
+
+      it("calling remove() a second time is a no-op and does not throw", () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const sf = project.createSourceFile(
+          "/workspace/src/utils.ts",
+          "export function foo() {}\nexport function bar() {}",
+        );
+        const ref = SymbolRef.fromExport(sf, "foo");
+        ref.remove();
+        expect(() => ref.remove()).not.toThrow();
+      });
+
+      it("source file remains consistent after double remove()", () => {
+        const project = new Project({ useInMemoryFileSystem: true });
+        const sf = project.createSourceFile(
+          "/workspace/src/utils.ts",
+          "export function foo() {}\nexport function bar() {}",
+        );
+        const ref = SymbolRef.fromExport(sf, "foo");
+        ref.remove();
+        ref.remove();
+        expect(sf.getText()).not.toContain("function foo");
+        expect(sf.getText()).toContain("function bar");
+      });
+    });
+
+    describe("SYMBOL_NOT_FOUND error", () => {
+      it.each([
+        ["export function foo() {}", "nonexistent"],
+        ["", "anything"],
+        ["function foo() {}", "foo"],
+      ])("throws SYMBOL_NOT_FOUND for source %j and symbol %s", (source, name) => {
+        const sf = makeSourceFile(source);
+        expect(() => SymbolRef.fromExport(sf, name)).toThrow(
+          expect.objectContaining({ code: "SYMBOL_NOT_FOUND" }),
+        );
+      });
+
+      it("throws EngineError (not a plain Error)", () => {
+        const sf = makeSourceFile("export function foo() {}");
+        expect(() => SymbolRef.fromExport(sf, "nonexistent")).toThrow(EngineError);
+      });
+
+      it("error message includes the symbol name", () => {
+        const sf = makeSourceFile("export function foo() {}");
+        let error: EngineError | undefined;
+        try {
+          SymbolRef.fromExport(sf, "nonexistent");
+        } catch (e) {
+          if (e instanceof EngineError) error = e;
+        }
+        expect(error?.message).toContain("nonexistent");
+      });
+    });
+  });
+});

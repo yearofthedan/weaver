@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import {
   clearLanguagePlugins,

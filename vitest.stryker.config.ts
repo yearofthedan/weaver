@@ -7,7 +7,7 @@ export default defineConfig({
   test: {
     environment: "node",
     testTimeout: 60_000,
-    include: ["tests/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
     exclude: [
       // No dist/ binary in Stryker's sandbox — these tests spawn subprocesses
       "src/__testHelpers__/**",
