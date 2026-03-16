@@ -59,9 +59,9 @@ A secondary issue compounds the problem: the catch-all error handler at `daemon.
 
 ## Fix
 
-- [ ] **AC1: `TsMorphCompiler` uses `sourceFile.move()` for file renames.** Replace the hand-rolled `getEditsForFileRename` + manual edit application + physical rename with ts-morph's native `sourceFile.move()` (or `moveImmediatelySync`). The project graph stays correct across sequential operations — no stale references, no ENOENT. The `afterFileRename` fallback scan for out-of-project files still runs after the native move to catch files outside tsconfig. Verify that `sourceFile.move()` handles: `.js` extension preservation in import specifiers, `moduleResolution: "node"` vs `"nodenext"`, type-only imports, re-exports, and side-effect imports.
+- [ ] **AC1: `TsMorphCompiler` project graph survives sequential moves.** Remove the destructive `invalidateProject(oldPath)` call from `getEditsForFileRename` — this is what causes the ENOENT (rebuilding the project from scratch loses knowledge of previous moves). In `afterFileRename`, replace `invalidateProject(newPath)` with an incremental graph update: remove the source file at the old path from the project, add the source file at the new path. The TS language service's `getEditsForFileRename` is preserved for import rewriting (it handles `.js` extensions, path aliases, and barrel re-exports correctly — verified that `sourceFile.move()` does not). The `afterFileRename` fallback scan for out-of-project files still runs after the graph update.
 
-  *Narrowest wrong implementation:* using `sourceFile.move()` but not calling `project.save()` / `project.saveSync()`, leaving the physical file at the old path. Or: using `sourceFile.move()` but not running the `afterFileRename` fallback, breaking out-of-project files.
+  *Narrowest wrong implementation:* removing `invalidateProject` from `getEditsForFileRename` but not updating the graph in `afterFileRename` — subsequent non-move operations (rename, findReferences) would still see the file at the old path.
 
 - [ ] **AC2: Sequential `moveFile` calls succeed.** Regression test: move file A (which is imported by file B), then move file B. Both return `ok: true`. B's import of A is correctly rewritten to the new relative path. Test both in-project and out-of-project files.
 
@@ -108,18 +108,27 @@ A secondary issue compounds the problem: the catch-all error handler at `daemon.
 - **`moveSymbol`:** Uses `tsMoveSymbol` which operates on the ts-morph AST directly. Not affected.
 - **Test reduction:** If `sourceFile.move()` handles import rewriting natively, some TsMorphCompiler-specific tests for `rewriteMovedFileOwnImports` and `afterFileRename` fallback scan edge cases may become redundant. Verify and remove in the same pass — don't leave dead tests.
 
-## Open decisions
+## Resolved decisions
 
 ### Does `sourceFile.move()` handle all edge cases that `getEditsForFileRename` handles?
 
-The TS language service's `getEditsForFileRename` and ts-morph's `sourceFile.move()` use different algorithms. Before committing to the switch, verify these edge cases:
+**Answer: No.** Verified empirically with ts-morph 27.0.2 (test: create `foo.ts` imported by `bar.ts` via `"./foo.js"`, move `foo.ts` to `subdir/foo.ts`):
 
-1. **`.js` extension imports** — `import { x } from "./foo.js"` when moving `foo.ts`. Does `sourceFile.move()` preserve the `.js` extension?
-2. **`moduleResolution: "node"` vs `"nodenext"`** — different resolution strategies may produce different specifier rewrites.
-3. **Path aliases** (`paths` in tsconfig) — are aliased imports left untouched?
-4. **Barrel re-exports** — `export { x } from "./foo"` in an index file.
+1. **`.js` extension imports** — `sourceFile.move()` **strips** `.js` extensions. `import { hello } from "./foo.js"` becomes `"./subdir/foo"` (no `.js`). **Breaks ESM/nodenext projects.**
+2. **Extensionless imports** — `import { hello } from "./foo"` was **NOT rewritten at all** when moving `foo.ts` to `subdir/foo.ts`. ts-morph failed to detect the dependency. Second bug.
+3. **Barrel re-exports** — Specifier rewritten correctly but `.js` extension also stripped.
+4. **Algorithm** — `sourceFile.move()` uses its own AST-based rewriting via `_referenceContainer` + `getRelativePathAsModuleSpecifierTo()`, not the TS language service.
 
-**Approach:** Write the AC2 regression test first with these edge cases. Run it against both the current implementation and the `sourceFile.move()` implementation. If `sourceFile.move()` fails any case, keep the TS language service for that case and document the gap.
+**Decision: Keep the TS language service's `getEditsForFileRename` for import rewriting.** Fix the stale project graph by:
+- Removing the destructive `invalidateProject()` from `getEditsForFileRename` (this is what causes the ENOENT — rebuilding the project from scratch loses knowledge of previous moves)
+- In `afterFileRename`, replace `invalidateProject()` with incremental graph updates: `project.removeSourceFile(oldPath)` + `project.addSourceFileAtPath(newPath)`
+
+**Consequences:**
+- The `Compiler` interface does not change — no impact on VolarCompiler
+- AC1 is reframed: keep `getEditsForFileRename` but fix the project graph lifecycle around it
+- All existing import rewriting behaviour preserved (`.js` extensions, path aliases, barrel re-exports)
+- `sourceFile.move()` findings documented in `docs/tech/ts-morph-apis.md` for future reference
+- `moveDirectory` already uses `dir.move()` — `.js` extension stripping is a latent bug there too (add `[needs design]` entry)
 
 ## Done-when
 
