@@ -332,8 +332,14 @@ export class TsMorphCompiler implements Compiler {
     // Step 4: Merge edits by target file, deduplicating identical spans.
     const mergedEdits = mergeFileEdits(allEdits);
 
-    // Step 5: Apply merged edits to disk (these target importers outside the moved directory).
-    applyRenameEdits(this, mergedEdits, scope);
+    // Step 5: Apply merged edits to disk — skip edits targeting files inside
+    // the moved directory itself. Intra-directory imports stay valid because all
+    // files move together; the language service doesn't know about the batch move
+    // and would corrupt those specifiers if we applied its suggested rewrites.
+    const externalEdits = mergedEdits.filter(
+      (e) => !e.fileName.startsWith(absOld + path.sep) && e.fileName !== absOld,
+    );
+    applyRenameEdits(this, externalEdits, scope);
 
     // Step 6: Physical move — atomic OS-level directory rename.
     fs.mkdirSync(path.dirname(absNew), { recursive: true });

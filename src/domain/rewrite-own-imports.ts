@@ -1,18 +1,29 @@
 import * as path from "node:path";
 import { Project } from "ts-morph";
+import { JS_TS_PAIRS } from "../utils/extensions.js";
 import type { WorkspaceScope } from "./workspace-scope.js";
 
 const RESOLVABLE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"];
 
 /**
  * Returns true if `specifier` resolves to an existing file when treated as
- * relative to `fromDir`. Checks the bare path and common source extensions.
+ * relative to `fromDir`. Checks the bare path, common source extensions, and
+ * the TypeScript counterpart for JS-extension specifiers (e.g. `./a.js` can
+ * resolve to `./a.ts` in ESM/nodenext projects).
  */
 function resolvedFromDirExists(fromDir: string, specifier: string, scope: WorkspaceScope): boolean {
   const base = path.resolve(fromDir, specifier);
   if (scope.fs.exists(base)) return true;
   for (const ext of RESOLVABLE_EXTENSIONS) {
     if (scope.fs.exists(base + ext)) return true;
+  }
+  // ESM/nodenext: `./a.js` refers to `./a.ts` on disk — check the TS counterpart.
+  const specExt = path.extname(specifier);
+  for (const [jsExt, tsExt] of JS_TS_PAIRS) {
+    if (specExt === jsExt) {
+      const tsBase = base.slice(0, -jsExt.length) + tsExt;
+      if (scope.fs.exists(tsBase)) return true;
+    }
   }
   return false;
 }

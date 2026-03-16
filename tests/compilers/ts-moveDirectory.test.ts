@@ -84,6 +84,29 @@ describe("TsMorphCompiler.moveDirectory", () => {
     });
   });
 
+  describe("ESM .js extension preservation", () => {
+    it("preserves .js extensions in import specifiers after directory move", async () => {
+      const dir = copyFixture("move-dir-ts-esm");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+      const scope = makeScope(dir);
+
+      await compiler.moveDirectory(`${dir}/src/utils`, `${dir}/src/lib`, scope);
+
+      // External importer: .js extensions must be preserved
+      const appContent = readFile(dir, "src/app.ts");
+      expect(appContent).toContain("./lib/a.js");
+      expect(appContent).toContain("./lib/b.js");
+      expect(appContent).not.toContain("./utils/");
+
+      // Internal import within moved directory: b.ts imports from a.ts with .js extension
+      // Since both files moved together, the relative path stays the same
+      const bContent = readFile(dir, "src/lib/b.ts");
+      expect(bContent).toContain("./a.js");
+      expect(bContent).not.toContain("./utils/");
+    });
+  });
+
   describe("files excluded from tsconfig project", () => {
     it("includes TS files on disk in the moved directory even when excluded from tsconfig", async () => {
       // Copy the fixture and update tsconfig to exclude utils/ — simulating
