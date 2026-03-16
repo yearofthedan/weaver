@@ -177,8 +177,9 @@ export class TsMorphCompiler implements Compiler {
   }
 
   async getEditsForFileRename(oldPath: string, newPath: string): Promise<FileTextEdit[]> {
-    // Invalidate and rebuild the project so files added after the initial load are included.
-    this.invalidateProject(oldPath);
+    // Use the cached project so the in-memory graph reflects previous moves within the same
+    // session. Rebuilding from scratch (via invalidateProject) would lose knowledge of files
+    // moved in earlier calls and cause ENOENT when the language service tries to open them.
     const project = this.getProject(oldPath);
     if (!project.getSourceFile(oldPath)) {
       project.addSourceFileAtPath(oldPath);
@@ -269,7 +270,23 @@ export class TsMorphCompiler implements Compiler {
    * that import refers to the JS file, not the TypeScript source.
    */
   async afterFileRename(oldPath: string, newPath: string, scope: WorkspaceScope): Promise<void> {
-    this.invalidateProject(newPath);
+    // Incrementally update the project graph so subsequent operations see the file at its new
+    // location. Invalidating and rebuilding would lose knowledge of previous moves within the
+    // same session and cause ENOENT on the next call.
+    const tsConfigPath = findTsConfigForFile(newPath);
+    const cacheKey = tsConfigPath ?? "__no_tsconfig__";
+    const project = this.projects.get(cacheKey);
+    if (project) {
+      const oldSf = project.getSourceFile(oldPath);
+      if (oldSf) {
+        project.removeSourceFile(oldSf);
+      }
+      try {
+        project.addSourceFileAtPath(newPath);
+      } catch {
+        // newPath may be outside tsconfig's include — that's fine; the fallback scan covers it.
+      }
+    }
 
     rewriteMovedFileOwnImports(oldPath, newPath, scope);
 

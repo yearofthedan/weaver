@@ -355,6 +355,75 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     });
   });
 
+  describe("sequential moves (project graph survives across calls)", () => {
+    it("does not throw ENOENT when moving a file that imports a previously-moved file", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      // Set up: helper.ts (out of tsconfig include) is imported by consumer.ts (also out of include).
+      // We'll move helper.ts first (raw FS rename — simulating a previous moveFile call that
+      // physically relocated the file). Then move consumer.ts via the full moveFile pipeline.
+      // consumer.ts still has its import pointing to the old helper path.
+      // With invalidateProject in getEditsForFileRename, the fresh project rebuild triggers an
+      // ENOENT when the TS language service tries to open the old path.
+      const helperOldPath = path.join(dir, "tests", "helper.ts");
+      const helperNewPath = path.join(dir, "lib", "helper.ts");
+      const consumerPath = path.join(dir, "tests", "consumer.ts");
+
+      fs.writeFileSync(helperOldPath, "export function help() { return 42; }\n");
+      fs.writeFileSync(consumerPath, 'import { help } from "./helper";\nconsole.log(help());\n');
+
+      // Prime the compiler's project cache via an initial call so it knows about both files.
+      await compiler.getEditsForFileRename(helperOldPath, helperNewPath);
+
+      // Physically move helper.ts without using moveFile (simulates consumer.ts not yet rewritten).
+      fs.mkdirSync(path.join(dir, "lib"), { recursive: true });
+      fs.renameSync(helperOldPath, helperNewPath);
+
+      // Now try to call getEditsForFileRename for consumer.ts.
+      // consumer.ts still imports "./helper" (old path, now gone).
+      // With invalidateProject, a fresh project rebuild causes the TS language service to
+      // open "./helper" which no longer exists → ENOENT.
+      // With incremental graph update, the cached project already knows helper is gone from
+      // tests/ so the language service resolves without hitting the old path.
+      await expect(
+        compiler.getEditsForFileRename(consumerPath, path.join(dir, "lib", "consumer.ts")),
+      ).resolves.not.toThrow();
+    });
+
+    it("second moveFile call succeeds and rewrites import to new path of moved dependency", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      // Move file A (utils.ts → lib/utils.ts). main.ts (imports utils.ts) gets rewritten.
+      const moveA = await moveFile(
+        compiler,
+        `${dir}/src/utils.ts`,
+        `${dir}/lib/utils.ts`,
+        makeScope(dir),
+      );
+      expect(moveA.filesModified).toContain(`${dir}/lib/utils.ts`);
+      // main.ts import must be rewritten by first move
+      expect(readFile(dir, "src/main.ts")).toContain("../lib/utils");
+
+      // Move file B (main.ts → dist/main.ts).
+      const moveB = await moveFile(
+        compiler,
+        `${dir}/src/main.ts`,
+        `${dir}/dist/main.ts`,
+        makeScope(dir),
+      );
+      expect(moveB.filesModified).toContain(`${dir}/dist/main.ts`);
+
+      // Moved main.ts import must reference lib/utils relative to dist/
+      const movedMainContent = fs.readFileSync(`${dir}/dist/main.ts`, "utf8");
+      expect(movedMainContent).toContain("../lib/utils");
+      expect(movedMainContent).not.toContain("../src/utils");
+    });
+  });
+
   describe("filesModified completeness", () => {
     it("includes all rewritten files including those updated by fallback scan", async () => {
       const dir = copyFixture("simple-ts");
