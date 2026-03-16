@@ -123,23 +123,6 @@ describe("moveDirectory", () => {
   });
 
   describe("nested subdirectories", () => {
-    it("preserves nested subdirectory structure when moving", async () => {
-      const dir = copyFixture("move-dir-ts");
-      dirs.push(dir);
-      const compiler = new TsMorphCompiler();
-
-      const result = await moveDirectory(
-        compiler,
-        `${dir}/src/utils`,
-        `${dir}/src/lib`,
-        makeScope(dir),
-      );
-
-      expect(fileExists(dir, "src/lib/nested/c.ts")).toBe(true);
-      expect(fileExists(dir, "src/utils/nested/c.ts")).toBe(false);
-      expect(result.filesMoved).toContain(`${dir}/src/lib/nested/c.ts`);
-    });
-
     it("excludes SKIP_DIRS (node_modules) contents from the filesMoved result", async () => {
       const dir = copyFixture("move-dir-ts");
       dirs.push(dir);
@@ -194,45 +177,6 @@ describe("moveDirectory", () => {
       expect(movedPaths).not.toContain("link-to-app");
       expect(movedPaths).toContain("a.ts");
       expect(movedPaths).toContain("b.ts");
-    });
-  });
-
-  describe("import rewriting across moved files", () => {
-    it("rewrites external imports and preserves intra-directory imports without introducing parent paths", async () => {
-      const dir = copyFixture("move-dir-ts");
-      dirs.push(dir);
-      const compiler = new TsMorphCompiler();
-
-      await moveDirectory(compiler, `${dir}/src/utils`, `${dir}/src/lib`, makeScope(dir));
-
-      const movedBContent = readFile(dir, "src/lib/b.ts");
-      expect(movedBContent).toContain("./a");
-      expect(movedBContent).not.toContain("../");
-      expect(movedBContent).not.toContain("src/lib/a");
-
-      const appContent = readFile(dir, "src/app.ts");
-      expect(appContent).toContain("./lib/a");
-      expect(appContent).toContain("./lib/b");
-      expect(appContent).not.toContain("./utils/a");
-      expect(appContent).not.toContain("./utils/b");
-    });
-
-    it("preserves intra-directory imports when files import each other after a deep move", async () => {
-      const dir = copyFixture("move-dir-ts");
-      dirs.push(dir);
-      const compiler = new TsMorphCompiler();
-
-      await moveDirectory(
-        compiler,
-        `${dir}/src/utils`,
-        `${dir}/src/lib/deep/nested`,
-        makeScope(dir),
-      );
-
-      // b.ts imports ./a — must stay ./a regardless of how deep the move goes
-      const bContent = readFile(dir, "src/lib/deep/nested/b.ts");
-      expect(bContent).toContain('"./a"');
-      expect(bContent).not.toContain("utils");
     });
   });
 

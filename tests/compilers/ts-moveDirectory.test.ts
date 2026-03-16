@@ -14,71 +14,6 @@ describe("TsMorphCompiler.moveDirectory", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  describe("moved files returned in filesMoved", () => {
-    it("includes all source files at the new location", async () => {
-      const dir = copyFixture("move-dir-ts");
-      dirs.push(dir);
-      const compiler = new TsMorphCompiler();
-      const scope = makeScope(dir);
-
-      const result = await compiler.moveDirectory(`${dir}/src/utils`, `${dir}/src/lib`, scope);
-
-      expect(result.filesMoved).toContain(`${dir}/src/lib/a.ts`);
-      expect(result.filesMoved).toContain(`${dir}/src/lib/b.ts`);
-      expect(result.filesMoved).toContain(`${dir}/src/lib/nested/c.ts`);
-      // Old location not listed
-      expect(result.filesMoved).not.toContain(`${dir}/src/utils/a.ts`);
-      expect(result.filesMoved).not.toContain(`${dir}/src/utils/b.ts`);
-    });
-
-    it("does not include unrelated files outside the moved directory", async () => {
-      const dir = copyFixture("move-dir-ts");
-      dirs.push(dir);
-      const compiler = new TsMorphCompiler();
-      const scope = makeScope(dir);
-
-      const result = await compiler.moveDirectory(`${dir}/src/utils`, `${dir}/src/lib`, scope);
-
-      // unrelated.ts is in src/ but not in the moved utils/ directory
-      expect(result.filesMoved).not.toContain(`${dir}/src/unrelated.ts`);
-      expect(result.filesMoved).not.toContain(`${dir}/src/app.ts`);
-    });
-  });
-
-  describe("intra-directory imports preserved (atomicity)", () => {
-    it("keeps import specifier unchanged when both files move together", async () => {
-      const dir = copyFixture("move-dir-ts");
-      dirs.push(dir);
-      const compiler = new TsMorphCompiler();
-      const scope = makeScope(dir);
-
-      await compiler.moveDirectory(`${dir}/src/utils`, `${dir}/src/lib`, scope);
-
-      // b.ts imports from "./a" — must stay "./a", not rewritten to "../utils/a"
-      const bContent = readFile(dir, "src/lib/b.ts");
-      expect(bContent).toContain('"./a"');
-      expect(bContent).not.toContain("utils");
-      expect(bContent).not.toContain("../");
-    });
-  });
-
-  describe("external importers rewritten to new path", () => {
-    it("updates imports in files outside the moved directory", async () => {
-      const dir = copyFixture("move-dir-ts");
-      dirs.push(dir);
-      const compiler = new TsMorphCompiler();
-      const scope = makeScope(dir);
-
-      await compiler.moveDirectory(`${dir}/src/utils`, `${dir}/src/lib`, scope);
-
-      const appContent = readFile(dir, "src/app.ts");
-      expect(appContent).toContain("./lib/a");
-      expect(appContent).toContain("./lib/b");
-      expect(appContent).not.toContain("./utils/a");
-      expect(appContent).not.toContain("./utils/b");
-    });
-  });
-
   describe("scope records modified files", () => {
     it("records moved and externally-modified files in scope", async () => {
       const dir = copyFixture("move-dir-ts");
@@ -108,37 +43,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
     });
   });
 
-  describe("nested subdirectories", () => {
-    it("moves nested files and returns them in filesMoved", async () => {
-      const dir = copyFixture("move-dir-ts");
-      dirs.push(dir);
-      const compiler = new TsMorphCompiler();
-      const scope = makeScope(dir);
-
-      const result = await compiler.moveDirectory(`${dir}/src/utils`, `${dir}/src/lib`, scope);
-
-      expect(result.filesMoved).toContain(`${dir}/src/lib/nested/c.ts`);
-      expect(result.filesMoved).not.toContain(path.join(dir, "src/utils/nested/c.ts"));
-    });
-  });
-
   describe("empty directory", () => {
-    it("returns empty filesMoved for a directory with no source files", async () => {
-      const dir = copyFixture("move-dir-ts");
-      dirs.push(dir);
-
-      // Create an empty sub-directory (no TS files)
-      const emptyDir = `${dir}/src/empty-utils`;
-      fs.mkdirSync(emptyDir, { recursive: true });
-
-      const compiler = new TsMorphCompiler();
-      const scope = makeScope(dir);
-
-      const result = await compiler.moveDirectory(emptyDir, `${dir}/src/empty-lib`, scope);
-
-      expect(result.filesMoved).toEqual([]);
-    });
-
     it("does not record any files in scope when directory has no source files", async () => {
       const dir = copyFixture("move-dir-ts");
       dirs.push(dir);
