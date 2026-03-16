@@ -107,6 +107,25 @@ describe("TsMorphCompiler.moveDirectory", () => {
     });
   });
 
+  describe("sub-project boundary", () => {
+    it("does not rewrite internal imports when moved directory has its own tsconfig", async () => {
+      const dir = copyFixture("move-dir-subproject");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+      const scope = makeScope(dir);
+
+      await compiler.moveDirectory(`${dir}/src/pkg`, `${dir}/src/library`, scope);
+
+      const indexContent = readFile(dir, "src/library/index.ts");
+      expect(indexContent).toContain("./utils");
+      expect(indexContent).not.toContain("pkg");
+
+      const appContent = readFile(dir, "src/app.ts");
+      expect(appContent).toContain("./library/index");
+      expect(appContent).not.toContain("./pkg/");
+    });
+  });
+
   describe("files excluded from tsconfig project", () => {
     it("includes TS files on disk in the moved directory even when excluded from tsconfig", async () => {
       // Copy the fixture and update tsconfig to exclude utils/ — simulating
