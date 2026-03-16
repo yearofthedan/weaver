@@ -1,10 +1,34 @@
 import * as fs from "node:fs";
+import * as net from "node:net";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, test } from "vitest";
 import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
 import { removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath, socketPath } from "../../src/daemon/paths";
 import { callDaemonSocket, killDaemon, spawnAndWaitForReady } from "../process-helpers.js";
+
+function sendRawToSocket(dir: string, raw: string): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection(socketPath(dir));
+    let buf = "";
+    socket.on("connect", () => {
+      socket.write(`${raw}\n`);
+    });
+    socket.on("data", (chunk: Buffer) => {
+      buf += chunk.toString();
+      const nl = buf.indexOf("\n");
+      if (nl !== -1) {
+        try {
+          resolve(JSON.parse(buf.slice(0, nl)) as Record<string, unknown>);
+        } catch (e) {
+          reject(e);
+        }
+        socket.destroy();
+      }
+    });
+    socket.on("error", reject);
+  });
+}
 
 const WORKSPACE_FIXTURE = "simple-ts";
 
@@ -124,25 +148,33 @@ describe("daemon command", () => {
     expect(fs.existsSync(lockfilePath(dir))).toBe(false);
   });
 
-  it("returns PARSE_ERROR when the socket receives a malformed envelope (missing method)", async () => {
-    const dir = await setup();
-    const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
-    procs.push(proc);
+  describe("PARSE_ERROR for valid JSON that fails envelope validation", () => {
+    test.each([
+      ["empty method string", { method: "", params: {} }],
+      ["params is not an object", { method: "rename", params: "not-an-object" }],
+    ] as const)("%s returns PARSE_ERROR", async (_label, req) => {
+      const dir = await setup();
+      const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
+      procs.push(proc);
 
-    const response = await callDaemonSocket(dir, { method: "", params: {} });
-    expect(response).toMatchObject({ ok: false, error: "PARSE_ERROR" });
+      const response = await callDaemonSocket(
+        dir,
+        req as { method: string; params: Record<string, unknown> },
+      );
+      expect(response).toMatchObject({ ok: false, error: "PARSE_ERROR" });
+    });
   });
 
-  it("returns PARSE_ERROR when params is not an object", async () => {
+  it("returns INTERNAL_ERROR when the socket receives invalid JSON", async () => {
     const dir = await setup();
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
 
-    // callDaemonSocket types params as Record but we force a bad value at runtime
-    const response = await callDaemonSocket(dir, {
-      method: "rename",
-      params: "not-an-object" as unknown as Record<string, unknown>,
-    });
-    expect(response).toMatchObject({ ok: false, error: "PARSE_ERROR" });
+    // Sending raw invalid JSON causes JSON.parse to throw a SyntaxError (a plain Error,
+    // not an EngineError). The catch-all must use INTERNAL_ERROR, not PARSE_ERROR.
+    const response = await sendRawToSocket(dir, "not valid json {{{");
+    expect(response).toMatchObject({ ok: false, error: "INTERNAL_ERROR" });
+    expect(typeof response.message).toBe("string");
+    expect((response.message as string).length).toBeGreaterThan(0);
   });
 });

@@ -9,6 +9,7 @@ export type ErrorCode =
   | "TEXT_MISMATCH"
   | "UNKNOWN_METHOD"
   | "PARSE_ERROR"
+  | "INTERNAL_ERROR"
   | "VALIDATION_ERROR"
   | "REDOS"
   | "INVALID_PATH"

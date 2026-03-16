@@ -226,7 +226,7 @@ async function handleSocketRequest(
   } catch (err) {
     response = {
       ok: false,
-      error: EngineError.is(err) ? err.code : "PARSE_ERROR",
+      error: EngineError.is(err) ? err.code : "INTERNAL_ERROR",
       message: err instanceof Error ? err.message : String(err),
     };
   }
