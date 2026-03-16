@@ -95,6 +95,9 @@ For straightforward docs updates (fixing text, adding diagrams, updating tables)
 **Stryker CLI: use `--mutate`, not `--include`.**
 To scope a mutation run to specific files: `pnpm exec stryker run --mutate 'src/foo.ts'`. For multiple files use a comma-separated glob or multiple `--mutate` flags. There is no `--include` flag — that causes `too many arguments for 'run'`.
 
+**Execution agent prompts: no step comments, test at the right layer.**
+Implementation instructions to the execution agent describe *what to do*, not *what comments to leave*. Never write "Step 1:", "Step 2:" in prompts — the agent transcribes them as code comments. Use a JSDoc on the method instead. For tests, say "test at the lowest layer that can verify the behaviour" (per `docs/code-standards.md`) — do not write the same assertion at both compiler and operation layers.
+
 **Use worktrees for parallel AC execution.**
 When dispatching independent ACs to execution agents in parallel, use `isolation: "worktree"` so each agent gets an isolated copy of the repo. Without worktrees, parallel agents on the same working tree can conflict (e.g. both modifying the same test file). Merge results back after both complete. Only use worktrees when ACs are truly independent — if AC2 depends on AC1's output, run them sequentially.
 

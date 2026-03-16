@@ -94,10 +94,34 @@ Compute all edits before any physical moves. Call `getEditsForFileRename()` for 
 
 ## Done-when
 
-- [ ] All fix criteria verified by tests
-- [ ] Mutation score ≥ threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated if public surface changed (use `docs/specs/templates/feature.md` for new feature docs)
-- [ ] Tech debt discovered during investigation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting (skip if nothing worth recording)
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] All fix criteria verified by tests
+- [ ] Mutation score ≥ threshold for touched files (deferred — run separately)
+- [x] `pnpm check` passes (lint + build + test)
+- [x] Docs updated — `docs/features/moveDirectory.md` updated to reflect new implementation
+- [x] No new tech debt discovered
+- [x] Gotchas: MEMORY.md updated with execution agent prompt guidance; feature doc updated with `.js` preservation and sub-project boundary constraints
+- [x] Spec moved to docs/specs/archive/
+
+## Outcome
+
+### What was done
+
+Replaced `dir.move()` in `TsMorphCompiler.moveDirectory()` with a batch `getEditsForFileRename` pipeline. Two shared utilities extracted to `src/domain/apply-rename-edits.ts`: `applyRenameEdits` (edit-application loop shared with `moveFile`) and `mergeFileEdits` (deduplicating merge for batch rename results). `moveFile.ts` refactored to use the shared utility.
+
+Two latent bugs discovered and fixed during AC2:
+- `getEditsForFileRename` edits targeting files *inside* the moved directory had to be filtered out — the language service doesn't know about the batch move and would corrupt intra-directory specifiers
+- `rewriteMovedFileOwnImports` didn't recognise that `./a.js` can resolve to `./a.ts` in ESM/nodenext projects
+
+### Test count
+
++12 tests (708 total): 9 unit tests for `applyRenameEdits`/`mergeFileEdits`, 1 ESM extension preservation, 1 old directory removal, 1 sub-project boundary. Two new fixtures: `move-dir-ts-esm`, `move-dir-subproject`.
+
+### Reflection
+
+**What went well:** The `moveFile` implementation was a clear reference pattern — the batch version followed naturally. Extracting `applyRenameEdits` and `mergeFileEdits` kept both `moveFile` and `moveDirectory` clean. Folding the P2 issues (dir cleanup, sub-project corruption) into this spec was the right call — they were free side effects of the fix.
+
+**What didn't go well:** The execution agent left "Step 1:", "Step 2:" comments transcribed from the prompt instructions, and duplicated the same test at two layers. Both were prompt quality issues — the agent did exactly what it was told. Added guidance to MEMORY.md to prevent recurrence.
+
+**What took longer than expected:** The AC2 agent discovered two additional bugs (intra-directory edit filtering, ESM `.js`→`.ts` resolution in `rewriteMovedFileOwnImports`) that weren't anticipated in the spec. These are inherent to the batch approach and couldn't have been predicted without implementation.
+
+**Recommendation for next agent:** The `tests/operations/moveDirectory_tsMorphCompiler.test.ts` file is at 365 lines — still near the review threshold. The Vue-specific tests (lines 183-290) test compiler behaviour through the operation layer and could be pushed down to the compiler test file during the next refactoring pass.
