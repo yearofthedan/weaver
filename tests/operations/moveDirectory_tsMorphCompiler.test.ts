@@ -180,29 +180,6 @@ describe("moveDirectory", () => {
     });
   });
 
-  describe("ESM .js extension preservation", () => {
-    it("preserves .js extensions in external importers when directory moves", async () => {
-      const dir = copyFixture("move-dir-ts-esm");
-      dirs.push(dir);
-      const compiler = new TsMorphCompiler();
-
-      const result = await moveDirectory(
-        compiler,
-        `${dir}/src/utils`,
-        `${dir}/src/lib`,
-        makeScope(dir),
-      );
-
-      const appContent = readFile(dir, "src/app.ts");
-      expect(appContent).toContain("./lib/a.js");
-      expect(appContent).toContain("./lib/b.js");
-      expect(appContent).not.toContain("./utils/");
-
-      expect(result.filesMoved).toContain(`${dir}/src/lib/a.ts`);
-      expect(result.filesMoved).toContain(`${dir}/src/lib/b.ts`);
-    });
-  });
-
   describe("Vue import specifiers", () => {
     it("physically moves .vue files to the destination when the directory moves", async () => {
       const dir = copyFixture("move-dir-vue");

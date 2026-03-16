@@ -294,6 +294,12 @@ export class TsMorphCompiler implements Compiler {
     rewriteImportersOfMovedFile(oldPath, newPath, scope, walkFiles(scope.root, [...TS_EXTENSIONS]));
   }
 
+  /**
+   * Move all source files from `oldPath` to `newPath` using the TS language
+   * service for import rewriting. Computes all edits before any physical move
+   * so the language service sees a consistent project state. Intra-directory
+   * edits are filtered out — files that move together keep their relative imports.
+   */
   async moveDirectory(
     oldPath: string,
     newPath: string,
@@ -303,7 +309,6 @@ export class TsMorphCompiler implements Compiler {
     const absNew = path.resolve(newPath);
     const project = this.getProjectForDirectory(absOld);
 
-    // Step 1: Enumerate source files and ensure they are in the project.
     const sourceFiles = enumerateSourceFiles(absOld);
     for (const filePath of sourceFiles) {
       if (!project.getSourceFile(filePath)) {
@@ -315,43 +320,31 @@ export class TsMorphCompiler implements Compiler {
       return { filesMoved: [] };
     }
 
-    // Step 2: Compute old→new path mappings for each source file.
     const mappings = sourceFiles.map((oldFilePath) => ({
       oldFilePath,
       newFilePath: path.join(absNew, path.relative(absOld, oldFilePath)),
     }));
 
-    // Step 3: Call getEditsForFileRename for each source file — all files still
-    // at old locations so the language service sees a consistent project state.
-    // Sequential to avoid concurrent TS language service calls on the same project.
     const allEdits: FileTextEdit[][] = [];
     for (const { oldFilePath, newFilePath } of mappings) {
       allEdits.push(await this.getEditsForFileRename(oldFilePath, newFilePath));
     }
 
-    // Step 4: Merge edits by target file, deduplicating identical spans.
-    const mergedEdits = mergeFileEdits(allEdits);
-
-    // Step 5: Apply merged edits to disk — skip edits targeting files inside
-    // the moved directory itself. Intra-directory imports stay valid because all
-    // files move together; the language service doesn't know about the batch move
-    // and would corrupt those specifiers if we applied its suggested rewrites.
-    const externalEdits = mergedEdits.filter(
+    // Filter out edits targeting files inside the moved directory — the language
+    // service doesn't know about the batch move and would corrupt intra-directory
+    // specifiers that are still valid after the move.
+    const externalEdits = mergeFileEdits(allEdits).filter(
       (e) => !e.fileName.startsWith(absOld + path.sep) && e.fileName !== absOld,
     );
     applyRenameEdits(this, externalEdits, scope);
 
-    // Step 6: Physical move — atomic OS-level directory rename.
     fs.mkdirSync(path.dirname(absNew), { recursive: true });
     fs.renameSync(absOld, absNew);
 
-    // Step 7: Run afterFileRename for each moved source file (files now at new locations).
-    // This updates the project graph incrementally and runs the fallback scan.
     for (const { oldFilePath, newFilePath } of mappings) {
       await this.afterFileRename(oldFilePath, newFilePath, scope);
     }
 
-    // Step 8: Record moved source files and return their new paths.
     const filesMoved = mappings.map(({ newFilePath }) => newFilePath);
     for (const newFilePath of filesMoved) {
       scope.recordModified(newFilePath);
