@@ -165,15 +165,15 @@ describe("daemon command", () => {
     });
   });
 
-  it("returns INTERNAL_ERROR when the socket receives invalid JSON", async () => {
+  it("returns PARSE_ERROR for invalid JSON (SyntaxError) and INTERNAL_ERROR for other unexpected errors", async () => {
     const dir = await setup();
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
 
-    // Sending raw invalid JSON causes JSON.parse to throw a SyntaxError (a plain Error,
-    // not an EngineError). The catch-all must use INTERNAL_ERROR, not PARSE_ERROR.
+    // Invalid JSON causes JSON.parse to throw a SyntaxError — that's a genuine parse
+    // error, so the daemon returns PARSE_ERROR (not INTERNAL_ERROR).
     const response = await sendRawToSocket(dir, "not valid json {{{");
-    expect(response).toMatchObject({ ok: false, error: "INTERNAL_ERROR" });
+    expect(response).toMatchObject({ ok: false, error: "PARSE_ERROR" });
     expect(typeof response.message).toBe("string");
     expect((response.message as string).length).toBeGreaterThan(0);
   });
