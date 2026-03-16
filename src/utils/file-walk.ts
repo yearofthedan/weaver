@@ -32,7 +32,8 @@ export function walkFiles(dir: string, extensions: string[]): string[] {
       .split("\n")
       .filter(Boolean)
       .filter((line) => extSet.has(path.extname(line)))
-      .map((line) => path.join(dir, line));
+      .map((line) => path.join(dir, line))
+      .filter((abs) => fs.existsSync(abs));
   }
 
   // Fallback for non-git workspaces

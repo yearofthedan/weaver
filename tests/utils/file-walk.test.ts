@@ -192,5 +192,23 @@ describe("walkFiles", () => {
       expect(names).not.toContain("b.vue");
       expect(result).toHaveLength(1);
     });
+
+    it("excludes git-tracked files deleted from disk", () => {
+      // git ls-files --cached returns files that are tracked even if deleted.
+      // walkFiles must filter these out to avoid ENOENT when callers read them.
+      initGit();
+      write("src/a.ts");
+      write("src/b.ts");
+      execSync("git add .", { cwd: tmpDir, stdio: "pipe" });
+      execSync('git commit -m "init"', { cwd: tmpDir, stdio: "pipe" });
+
+      // Delete b.ts from disk but don't stage the deletion
+      fs.unlinkSync(path.join(tmpDir, "src/b.ts"));
+
+      const result = walkFiles(tmpDir, [".ts"]);
+      const names = result.map((f) => path.basename(f));
+      expect(names).toContain("a.ts");
+      expect(names).not.toContain("b.ts");
+    });
   });
 });
