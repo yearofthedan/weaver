@@ -3,10 +3,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
-import { isDaemonAlive, PROTOCOL_VERSION, removeDaemonFiles } from "../../src/daemon/daemon";
-import { lockfilePath } from "../../src/daemon/paths";
-import { callDaemonSocket, killDaemon, spawnAndWaitForReady } from "../../src/__testHelpers__/process-helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { isDaemonAlive, PROTOCOL_VERSION, removeDaemonFiles } from "./daemon.js";
+import { lockfilePath } from "./paths.js";
+import { callDaemonSocket, killDaemon, spawnAndWaitForReady } from "../__testHelpers__/process-helpers.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "../..");

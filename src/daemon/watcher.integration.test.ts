@@ -2,9 +2,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { WatcherHandle } from "../../src/daemon/watcher.js";
-import { startWatcher } from "../../src/daemon/watcher.js";
-import { TS_EXTENSIONS } from "../../src/utils/extensions.js";
+import type { WatcherHandle } from "./watcher.js";
+import { startWatcher } from "./watcher.js";
+import { TS_EXTENSIONS } from "../utils/extensions.js";
 
 describe("startWatcher", () => {
   let tmpDir: string;

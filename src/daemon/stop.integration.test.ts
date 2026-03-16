@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
-import { removeDaemonFiles } from "../../src/daemon/daemon";
-import { lockfilePath, socketPath } from "../../src/daemon/paths";
-import { killDaemon, runCliCommand, spawnAndWaitForReady } from "../../src/__testHelpers__/process-helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { removeDaemonFiles } from "./daemon.js";
+import { lockfilePath, socketPath } from "./paths.js";
+import { killDaemon, runCliCommand, spawnAndWaitForReady } from "../__testHelpers__/process-helpers.js";
 
 const WORKSPACE_FIXTURE = FIXTURES.simpleTs.name;
 

@@ -107,7 +107,7 @@ beforeEach(async () => {
 
   // Fresh module instance resets the module-level versionVerified to false.
   vi.resetModules();
-  const mod = await import("../../src/daemon/ensure-daemon.js");
+  const mod = await import("./ensure-daemon.js");
   ensureDaemon = mod.ensureDaemon;
 });
 

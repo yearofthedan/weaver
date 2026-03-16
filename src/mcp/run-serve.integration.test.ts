@@ -4,7 +4,7 @@
  * existing serve.test.ts integration tests that spawn a subprocess.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { runServe } from "../../src/mcp.js";
+import { runServe } from "./mcp.js";
 
 describe("runServe validation", () => {
   let writeSpy: ReturnType<typeof vi.spyOn>;

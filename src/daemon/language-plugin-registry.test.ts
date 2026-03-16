@@ -1,14 +1,14 @@
 import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TsMorphCompiler } from "../../src/compilers/ts.js";
+import { TsMorphCompiler } from "../compilers/ts.js";
 import {
   clearLanguagePlugins,
   invalidateAll,
   invalidateFile,
   makeRegistry,
   registerLanguagePlugin,
-} from "../../src/daemon/language-plugin-registry.js";
-import type { Compiler, LanguagePlugin } from "../../src/types.js";
+} from "./language-plugin-registry.js";
+import type { Compiler, LanguagePlugin } from "../types.js";
 
 const PROJECT_FILE = path.resolve("src/types.ts");
 

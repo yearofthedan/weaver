@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSensitiveFile } from "../../src/security.js";
+import { isSensitiveFile } from "./security.js";
 
 describe("isSensitiveFile", () => {
   it("blocks .env files", () => {

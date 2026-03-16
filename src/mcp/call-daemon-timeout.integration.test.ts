@@ -3,7 +3,7 @@ import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { callDaemonForTest } from "../../src/mcp.js";
+import { callDaemonForTest } from "./mcp.js";
 
 let sockPath: string;
 let server: net.Server;

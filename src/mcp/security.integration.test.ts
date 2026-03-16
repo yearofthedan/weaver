@@ -1,8 +1,8 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { validateFilePath } from "../../src/security.js";
-import { parseMcpResult, useMcpContext } from "../../src/__testHelpers__/mcp-helpers.js";
+import { validateFilePath } from "../security.js";
+import { parseMcpResult, useMcpContext } from "../__testHelpers__/mcp-helpers.js";
 
 describe("validateFilePath", () => {
   it.each([

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
-import { isDaemonAlive, removeDaemonFiles, stopDaemon } from "../../src/daemon/daemon.js";
-import { killDaemon, spawnAndWaitForReady } from "../../src/__testHelpers__/process-helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { isDaemonAlive, removeDaemonFiles, stopDaemon } from "./daemon.js";
+import { killDaemon, spawnAndWaitForReady } from "../__testHelpers__/process-helpers.js";
 
 describe("stopDaemon", () => {
   const dirs: string[] = [];

@@ -1,8 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { callDaemon, ensureDaemon } from "./daemon/ensure-daemon.js";
-import { socketPath } from "./daemon/paths.js";
+import { callDaemon, ensureDaemon } from "../daemon/ensure-daemon.js";
+import { socketPath } from "../daemon/paths.js";
 import {
   DeleteFileArgsSchema,
   ExtractFunctionArgsSchema,
@@ -16,8 +16,8 @@ import {
   ReplaceTextBaseSchema,
   SearchTextArgsSchema,
   TextEditSchema,
-} from "./schema.js";
-import { validateWorkspace } from "./security.js";
+} from "../schema.js";
+import { validateWorkspace } from "../security.js";
 
 export async function runServe(opts: { workspace: string }): Promise<void> {
   const validation = validateWorkspace(opts.workspace);
