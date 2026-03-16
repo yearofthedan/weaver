@@ -1,7 +1,7 @@
+import { applyRenameEdits } from "../domain/apply-rename-edits.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { Compiler, MoveResult } from "../types.js";
 import { assertFileExists } from "../utils/assert-file.js";
-import { applyTextEdits } from "../utils/text-utils.js";
 
 export async function moveFile(
   compiler: Compiler,
@@ -13,17 +13,7 @@ export async function moveFile(
   const absNew = scope.fs.resolve(newPath);
 
   const edits = await compiler.getEditsForFileRename(absOld, absNew);
-
-  for (const edit of edits) {
-    if (!scope.contains(edit.fileName)) {
-      scope.recordSkipped(edit.fileName);
-      continue;
-    }
-    const original = compiler.readFile(edit.fileName);
-    const updated = applyTextEdits(original, edit.textChanges);
-    scope.writeFile(edit.fileName, updated);
-    compiler.notifyFileWritten(edit.fileName, updated);
-  }
+  applyRenameEdits(compiler, edits, scope);
 
   // Physical move.
   const destDir = scope.fs.resolve(absNew, "..");

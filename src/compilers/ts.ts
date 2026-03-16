@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Project } from "ts-morph";
+import { applyRenameEdits, mergeFileEdits } from "../domain/apply-rename-edits.js";
 import { ImportRewriter } from "../domain/import-rewriter.js";
 import { rewriteImportersOfMovedFile } from "../domain/rewrite-importers-of-moved-file.js";
 import { rewriteMovedFileOwnImports } from "../domain/rewrite-own-imports.js";
@@ -302,38 +303,52 @@ export class TsMorphCompiler implements Compiler {
     const absNew = path.resolve(newPath);
     const project = this.getProjectForDirectory(absOld);
 
-    for (const filePath of enumerateSourceFiles(absOld)) {
+    // Step 1: Enumerate source files and ensure they are in the project.
+    const sourceFiles = enumerateSourceFiles(absOld);
+    for (const filePath of sourceFiles) {
       if (!project.getSourceFile(filePath)) {
         project.addSourceFileAtPath(filePath);
       }
     }
 
-    const dir = project.getDirectory(absOld);
-    if (!dir) {
+    if (sourceFiles.length === 0) {
       return { filesMoved: [] };
     }
 
-    dir.move(absNew);
+    // Step 2: Compute old→new path mappings for each source file.
+    const mappings = sourceFiles.map((oldFilePath) => ({
+      oldFilePath,
+      newFilePath: path.join(absNew, path.relative(absOld, oldFilePath)),
+    }));
 
-    const filesMoved: string[] = [];
-    for (const sf of project.getSourceFiles()) {
-      const filePath = sf.getFilePath();
-      if (filePath.startsWith(`${absNew}/`)) {
-        filesMoved.push(filePath);
-      }
-      if (!sf.isSaved()) {
-        scope.recordModified(filePath);
-      }
+    // Step 3: Call getEditsForFileRename for each source file — all files still
+    // at old locations so the language service sees a consistent project state.
+    // Sequential to avoid concurrent TS language service calls on the same project.
+    const allEdits: FileTextEdit[][] = [];
+    for (const { oldFilePath, newFilePath } of mappings) {
+      allEdits.push(await this.getEditsForFileRename(oldFilePath, newFilePath));
     }
 
-    // ts-morph uses fs.renameSync for directory moves, which requires the parent
-    // directory to exist. Create it before saveSync to avoid ENOENT.
+    // Step 4: Merge edits by target file, deduplicating identical spans.
+    const mergedEdits = mergeFileEdits(allEdits);
+
+    // Step 5: Apply merged edits to disk (these target importers outside the moved directory).
+    applyRenameEdits(this, mergedEdits, scope);
+
+    // Step 6: Physical move — atomic OS-level directory rename.
     fs.mkdirSync(path.dirname(absNew), { recursive: true });
+    fs.renameSync(absOld, absNew);
 
-    project.saveSync();
+    // Step 7: Run afterFileRename for each moved source file (files now at new locations).
+    // This updates the project graph incrementally and runs the fallback scan.
+    for (const { oldFilePath, newFilePath } of mappings) {
+      await this.afterFileRename(oldFilePath, newFilePath, scope);
+    }
 
-    if (filesMoved.length > 0) {
-      this.invalidateProject(filesMoved[0]);
+    // Step 8: Record moved source files and return their new paths.
+    const filesMoved = mappings.map(({ newFilePath }) => newFilePath);
+    for (const newFilePath of filesMoved) {
+      scope.recordModified(newFilePath);
     }
 
     return { filesMoved };
