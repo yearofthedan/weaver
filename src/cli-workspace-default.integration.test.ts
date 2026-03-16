@@ -3,9 +3,13 @@
  * (daemon, serve, stop) when the flag is omitted.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../src/__testHelpers__/helpers.js";
-import { removeDaemonFiles } from "../src/daemon/daemon.js";
-import { killDaemon, runCliCommand, spawnAndWaitForReady } from "../src/__testHelpers__/process-helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "./__testHelpers__/helpers.js";
+import {
+  killDaemon,
+  runCliCommand,
+  spawnAndWaitForReady,
+} from "./__testHelpers__/process-helpers.js";
+import { removeDaemonFiles } from "./daemon/daemon.js";
 
 describe("--workspace default (process.cwd())", () => {
   const dirs: string[] = [];

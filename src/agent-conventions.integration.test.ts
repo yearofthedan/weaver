@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateLightBridgeServerConfig } from "../../scripts/agent-conventions.js";
+import { validateLightBridgeServerConfig } from "../scripts/agent-conventions.js";
 
 describe("validateLightBridgeServerConfig", () => {
   it("accepts the portable committed config pattern", () => {

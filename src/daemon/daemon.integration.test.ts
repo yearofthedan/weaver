@@ -3,9 +3,13 @@ import * as net from "node:net";
 import * as path from "node:path";
 import { afterEach, describe, expect, it, test } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import {
+  callDaemonSocket,
+  killDaemon,
+  spawnAndWaitForReady,
+} from "../__testHelpers__/process-helpers.js";
 import { removeDaemonFiles } from "./daemon.js";
 import { lockfilePath, socketPath } from "./paths.js";
-import { callDaemonSocket, killDaemon, spawnAndWaitForReady } from "../__testHelpers__/process-helpers.js";
 
 function sendRawToSocket(dir: string, raw: string): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {

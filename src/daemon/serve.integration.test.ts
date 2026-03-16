@@ -2,10 +2,14 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { McpTestClient } from "../__testHelpers__/mcp-helpers.js";
+import {
+  killDaemon,
+  spawnAndWaitForReady,
+  waitForDaemon,
+} from "../__testHelpers__/process-helpers.js";
 import { isDaemonAlive, removeDaemonFiles } from "./daemon.js";
 import { lockfilePath, socketPath } from "./paths.js";
-import { McpTestClient } from "../__testHelpers__/mcp-helpers.js";
-import { killDaemon, spawnAndWaitForReady, waitForDaemon } from "../__testHelpers__/process-helpers.js";
 
 describe("serve command — daemon integration", () => {
   const dirs: string[] = [];

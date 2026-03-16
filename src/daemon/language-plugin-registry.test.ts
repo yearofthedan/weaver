@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TsMorphCompiler } from "../compilers/ts.js";
+import type { Compiler, LanguagePlugin } from "../types.js";
 import {
   clearLanguagePlugins,
   invalidateAll,
@@ -8,7 +9,6 @@ import {
   makeRegistry,
   registerLanguagePlugin,
 } from "./language-plugin-registry.js";
-import type { Compiler, LanguagePlugin } from "../types.js";
 
 const PROJECT_FILE = path.resolve("src/types.ts");
 

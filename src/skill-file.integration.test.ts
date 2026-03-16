@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
+const PROJECT_ROOT = path.resolve(import.meta.dirname, "..");
 const SKILL_FILE = path.join(PROJECT_ROOT, ".claude/skills/light-bridge-refactoring/SKILL.md");
 const PACKAGE_JSON = path.join(PROJECT_ROOT, "package.json");
 

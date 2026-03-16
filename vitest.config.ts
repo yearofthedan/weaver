@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     environment: "node",
     testTimeout: 60_000, // engine init (especially Volar) can be slow on first run
-    include: ["src/**/*.test.ts", "src/**/*.integration.test.ts"],
+    include: ["src/**/*.test.ts"],
     exclude: ["src/__testHelpers__/**"],
   },
 });
