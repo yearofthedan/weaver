@@ -67,15 +67,19 @@ src/
     *.test.ts              ← colocated unit tests
   types.ts        ← result types + LanguagePlugin + Compiler + CompilerRegistry interfaces
   security.ts     ← isWithinWorkspace() + isSensitiveFile() + validateFilePath() — boundary, sensitive file blocklist, path validation
-  mcp.ts          ← MCP server (connects to daemon)
+  security.test.ts ← colocated unit test
+  mcp/
+    mcp.ts        ← MCP server (connects to daemon)
+    *.integration.test.ts ← MCP integration tests (find-references, rename, move-file, security, etc.)
   daemon/
     daemon.ts                    ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher
     ensure-daemon.ts             ← ensureDaemon (version check + auto-spawn); callDaemon (socket client); spawnDaemon
     paths.ts                     ← socketPath, lockfilePath, ensureCacheDir only
     dispatcher.ts                ← dispatchRequest; OPERATIONS table; re-exports registry functions
-    dispatcher.test.ts           ← colocated unit test (only daemon unit test; rest are integration)
     language-plugin-registry.ts  ← LanguagePlugin registry; makeRegistry; invalidateFile/invalidateAll; registers built-in Vue plugin
     watcher.ts                   ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
+    *.test.ts                    ← colocated unit tests
+    *.integration.test.ts        ← colocated integration tests
   plugins/
     vue/
       plugin.ts   ← createVueLanguagePlugin(); Vue/Volar LanguagePlugin factory (project detection, lifecycle)
@@ -107,8 +111,12 @@ src/
     file-walk.ts  ← walkFiles() + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS
     ts-project.ts ← findTsConfig, findTsConfigForFile, isVueProject
     *.test.ts     ← colocated unit tests
+  *.integration.test.ts ← cross-cutting integration tests (cli-workspace-default, eval, agent-conventions, skill-file)
   __testHelpers__/
-    helpers.ts     ← shared test utilities (cleanup, readFile, fileExists, PROJECT_ROOT); re-exports copyFixture
+    helpers.ts        ← shared test utilities (cleanup, readFile, fileExists, PROJECT_ROOT); re-exports copyFixture
+    mcp-helpers.ts    ← MCP test utilities (useMcpContext, parseMcpResult)
+    process-helpers.ts ← subprocess spawning utilities
+    fake-daemon.ts    ← fake daemon script for protocol tests
     fixtures/
       fixtures.ts  ← copyFixture() — copies a named fixture to a temp dir
       simple-ts/   ← minimal TS project scaffold (and 9 others: vue-project, cross-boundary, etc.)
@@ -126,8 +134,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P1 — Very high value bugs and tech debt
-
-- **Test colocation Phase 2: integration tests** → [`docs/specs/20260315-colocate-integration-tests.md`](specs/20260315-colocate-integration-tests.md) — Move integration tests to colocated `*.integration.test.ts` files, remove `tests/` directory.
 
 - **Source refactoring for mutation speed** → [`docs/specs/20260315-source-refactor-mutation-speed.md`](specs/20260315-source-refactor-mutation-speed.md) — Extract misplaced utilities from operations (`searchText`, `security`, `getTypeErrors`), optimize fixture copying for `perTest` coverage analysis, exclude redundant dispatcher tests from Stryker. Depends on test colocation landing first.
 

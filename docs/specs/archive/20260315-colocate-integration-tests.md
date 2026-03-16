@@ -34,18 +34,18 @@ Phase 2 of test colocation. Phase 1 moved unit tests next to source and fixtures
 
 ## Behaviour
 
-- [ ] **AC1: Integration tests colocate as `*.integration.test.ts`.** Tests that map to a source entry point move next to it with the `.integration.test.ts` suffix. Mapping:
+- [x] **AC1: Integration tests colocate as `*.integration.test.ts`.** Tests that map to a source entry point move next to it with the `.integration.test.ts` suffix. Mapping:
   - `tests/daemon/{daemon,stop,stop-daemon,run-functions,protocol-version,watcher}.test.ts` → `src/daemon/*.integration.test.ts`
   - `tests/daemon/serve.test.ts` → `src/daemon/serve.integration.test.ts`
   - `tests/mcp/{find-references,get-definition,move-file,move-symbol,rename,run-serve,security,call-daemon-timeout,error-masking}.test.ts` → `src/mcp.integration.test.ts` or `src/mcp/` if it becomes a directory
   - `tests/security/{sensitive-files,workspace}.test.ts` → `src/security.integration.test.ts`
-- [ ] **AC2: Cross-cutting integration tests move to `src/`.** Tests with no clear single entry point move to `src/` as `*.integration.test.ts`:
+- [x] **AC2: Cross-cutting integration tests move to `src/`.** Tests with no clear single entry point move to `src/` as `*.integration.test.ts`:
   - `tests/cli-workspace-default.test.ts` → `src/cli-workspace-default.integration.test.ts`
   - `tests/eval/{fixture-coverage,fixture-server}.test.ts` → `src/eval-fixture-coverage.integration.test.ts`, `src/eval-fixture-server.integration.test.ts`
   - `tests/scripts/{agent-conventions,skill-file}.test.ts` → `src/agent-conventions.integration.test.ts`, `src/skill-file.integration.test.ts`
-- [ ] **AC3: Integration-only helpers move to `src/__testHelpers__/`.** `tests/mcp-helpers.ts`, `tests/process-helpers.ts`, and `tests/fake-daemon.ts` move to `src/__testHelpers__/`.
-- [ ] **AC4: `tests/` directory fully removed.** No leftover files. The old directory must not exist after the migration.
-- [ ] **AC5: All tools pass.** `pnpm check` (biome + build + test) passes. `pnpm test:mutate` passes with the same break threshold (75). Vitest finds all tests under `src/`.
+- [x] **AC3: Integration-only helpers move to `src/__testHelpers__/`.** `tests/mcp-helpers.ts`, `tests/process-helpers.ts`, and `tests/fake-daemon.ts` move to `src/__testHelpers__/`.
+- [x] **AC4: `tests/` directory fully removed.** No leftover files. The old directory must not exist after the migration.
+- [x] **AC5: All tools pass.** `pnpm check` (biome + build + test) passes. `pnpm test:mutate` passes with the same break threshold (75). Vitest finds all tests under `src/`.
 
 ## Interface
 
@@ -80,14 +80,32 @@ Config file changes:
 
 ## Done-when
 
-- [ ] All ACs verified by tests
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] `pnpm test:mutate` passes with same break threshold (75)
-- [ ] `dist/` contains no test files or fixture data
-- [ ] `tests/` directory no longer exists
-- [ ] All test files under `src/` (colocated unit tests and `*.integration.test.ts`)
-- [ ] Docs updated:
+- [x] All ACs verified by tests
+- [x] `pnpm check` passes (lint + build + test)
+- [x] `pnpm test:mutate` passes with same break threshold (75)
+- [x] `dist/` contains no test files or fixture data
+- [x] `tests/` directory no longer exists
+- [x] All test files under `src/` (colocated unit tests and `*.integration.test.ts`)
+- [x] Docs updated:
       - handoff.md current-state directory layout
       - README.md project structure (if it documents `tests/`)
-- [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Tech debt discovered during implementation added to handoff.md as [needs design]
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Tests moved:** ~20 integration test files + 3 helpers. `tests/` directory fully eliminated.
+
+**Key decisions made during implementation:**
+- MCP tests went into `src/mcp/` directory (option a), which required moving `src/mcp.ts` → `src/mcp/mcp.ts` first
+- Security tests formerly misnamed as `*.integration.test.ts` (pure unit tests for `isSensitiveFile`, `isWithinWorkspace`, `validateWorkspace`) were consolidated into `src/security.test.ts`
+- 3 daemon tests (`ensure-daemon`, `language-plugin-registry`, `paths`) were correctly identified as unit tests and moved as `*.test.ts`, not `*.integration.test.ts`
+- `vitest.config.ts` simplified to single include: `["src/**/*.test.ts"]` — the `*.integration.test.ts` pattern is redundant since it matches `*.test.ts`
+
+**Test count:** 710 tests across 65 files, all passing.
+
+**Reflection:**
+- What went well: light-bridge `moveFile` handled the bulk moves correctly and rewrote all imports. The `walkFiles` ENOENT fix (from a prior commit) was essential — without it, sequential moves in git-tracked directories would fail.
+- What did not go well: The execution agent disabled `checkTypeErrors` on all moves (told to do so by dispatch instructions that were too broad). Independent moves should always check types. The agent also continued past errors instead of stopping, requiring manual intervention. Security tests were misclassified as integration tests by the spec — caught during review.
+- What took longer than expected: Debugging the ENOENT in `walkFiles` consumed significant time before realising the daemon was running stale compiled code from `dist/`. The fix was already in source but the daemon hadn't been rebuilt.
+- Recommendation for next agent: Always rebuild (`pnpm build`) before running integration tests that hit the daemon. When dispatching to execution agents, only pass `checkTypeErrors: false` for interdependent batched moves, never for independent ones. Stop on first error — do not continue and hope errors are transient.
