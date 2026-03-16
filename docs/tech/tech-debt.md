@@ -11,29 +11,6 @@ Known issues to address before they compound. Reference the relevant source file
 
 ---
 
-## Daemon: no request serialisation
-
-**Addressed in request serialisation: promise-chain mutex in `daemon.ts`.** The fix was to add a promise-chain mutex so concurrent socket connections are queued rather than interleaved.
-
-Context preserved here for reference: `src/daemon/daemon.ts` dispatches requests with `void handleSocketRequest(...)` — concurrent socket connections run as interleaved async tasks with no queueing. Current exposure is low (agents make sequential tool calls), but MCP hosts can retry on timeout, creating overlapping requests.
-
----
-
-
-## Dispatcher: operation-centric architecture
-
-**Addressed in provider/engine separation and data-driven dispatch.** The provider/engine separation addresses the engine-side duplication; data-driven dispatch addresses the dispatcher-side boilerplate. Together they replace the engine-centric routing with a model where operations and providers are independently composable.
-
-Original analysis preserved here: the operation set is growing faster than the engine set. Adding a new operation today requires a method on `RefactorEngine` and an implementation in every engine. The vue-scan post-step for `moveFile` was an early signal that operations need their own orchestration strategy.
-
----
-
-## Missing compiler/engine separation
-
-**Addressed in compiler/engine separation.** The `Compiler` interface was extracted; `VueEngine.buildService` became `buildVolarService` in `src/plugins/vue/service.ts`.
-
----
-
 ## Watcher: own-writes trigger redundant invalidation
 
 The daemon's own operations (`rename`, `moveFile`, `moveSymbol`) write files to disk. Those writes emit inotify/FSEvents events that the watcher picks up, firing `invalidateFile` or `invalidateAll` ~200ms after the write — by which time the operation has already performed its own invalidation. The redundant callbacks are currently no-ops (refreshing a project that is already dropped), so there is no correctness issue.
