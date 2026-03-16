@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath, socketPath } from "../../src/daemon/paths";
-import { killDaemon, runCliCommand, spawnAndWaitForReady } from "../process-helpers.js";
+import { killDaemon, runCliCommand, spawnAndWaitForReady } from "../../src/__testHelpers__/process-helpers.js";
 
 const WORKSPACE_FIXTURE = FIXTURES.simpleTs.name;
 

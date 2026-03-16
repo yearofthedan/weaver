@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, test } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath, socketPath } from "../../src/daemon/paths";
-import { callDaemonSocket, killDaemon, spawnAndWaitForReady } from "../process-helpers.js";
+import { callDaemonSocket, killDaemon, spawnAndWaitForReady } from "../../src/__testHelpers__/process-helpers.js";
 
 function sendRawToSocket(dir: string, raw: string): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {

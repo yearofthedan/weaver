@@ -5,7 +5,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../src/__testHelpers__/helpers.js";
 import { removeDaemonFiles } from "../src/daemon/daemon.js";
-import { killDaemon, runCliCommand, spawnAndWaitForReady } from "./process-helpers.js";
+import { killDaemon, runCliCommand, spawnAndWaitForReady } from "../src/__testHelpers__/process-helpers.js";
 
 describe("--workspace default (process.cwd())", () => {
   const dirs: string[] = [];

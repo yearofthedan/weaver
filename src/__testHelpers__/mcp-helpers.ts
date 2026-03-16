@@ -1,7 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 import { afterEach } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../src/__testHelpers__/helpers.js";
-import { removeDaemonFiles } from "../src/daemon/daemon.js";
+import { cleanup, copyFixture, FIXTURES } from "./helpers.js";
+import { removeDaemonFiles } from "../daemon/daemon.js";
 import { killDaemon, spawnAndWaitForReady, waitForDaemon } from "./process-helpers.js";
 
 /**

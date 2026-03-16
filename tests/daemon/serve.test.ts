@@ -4,8 +4,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { isDaemonAlive, removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath, socketPath } from "../../src/daemon/paths";
-import { McpTestClient } from "../mcp-helpers.js";
-import { killDaemon, spawnAndWaitForReady, waitForDaemon } from "../process-helpers.js";
+import { McpTestClient } from "../../src/__testHelpers__/mcp-helpers.js";
+import { killDaemon, spawnAndWaitForReady, waitForDaemon } from "../../src/__testHelpers__/process-helpers.js";
 
 describe("serve command — daemon integration", () => {
   const dirs: string[] = [];

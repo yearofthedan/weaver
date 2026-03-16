@@ -8,7 +8,7 @@
  */
 import * as fs from "node:fs";
 import * as net from "node:net";
-import { ensureCacheDir, lockfilePath, socketPath } from "../src/daemon/paths.js";
+import { ensureCacheDir, lockfilePath, socketPath } from "../daemon/paths.js";
 
 const args = process.argv.slice(2);
 const workspace = args[args.indexOf("--workspace") + 1];

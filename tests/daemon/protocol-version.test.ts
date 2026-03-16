@@ -6,12 +6,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { isDaemonAlive, PROTOCOL_VERSION, removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath } from "../../src/daemon/paths";
-import { callDaemonSocket, killDaemon, spawnAndWaitForReady } from "../process-helpers.js";
+import { callDaemonSocket, killDaemon, spawnAndWaitForReady } from "../../src/__testHelpers__/process-helpers.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "../..");
 const TSX_BIN = path.join(PROJECT_ROOT, "node_modules", ".bin", "tsx");
-const FAKE_DAEMON = path.join(PROJECT_ROOT, "tests", "fake-daemon.ts");
+const FAKE_DAEMON = path.join(PROJECT_ROOT, "src", "__testHelpers__", "fake-daemon.ts");
 
 function spawnFakeDaemon(workspaceDir: string, version: number): Promise<ChildProcess> {
   return new Promise((resolve, reject) => {

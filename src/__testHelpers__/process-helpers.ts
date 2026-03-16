@@ -2,8 +2,8 @@ import { type ChildProcess, spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
-import { PROJECT_ROOT } from "../src/__testHelpers__/helpers.js";
-import { lockfilePath, socketPath } from "../src/daemon/paths.js";
+import { PROJECT_ROOT } from "./helpers.js";
+import { lockfilePath, socketPath } from "../daemon/paths.js";
 
 const TSX_BIN = path.join(PROJECT_ROOT, "node_modules", ".bin", "tsx");
 const CLI_ENTRY = path.join(PROJECT_ROOT, "src", "cli.ts");
