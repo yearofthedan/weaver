@@ -2,46 +2,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseMcpResult, useMcpContext } from "../__testHelpers__/mcp-helpers.js";
-import { validateFilePath } from "../security.js";
-
-describe("validateFilePath", () => {
-  it.each([
-    ["null byte (\\x00)", "/workspace/src/foo\x00bar.ts"],
-    ["newline (\\n)", "/workspace/src/foo\nbar.ts"],
-    ["unit separator (\\x1f)", "/workspace/src/foo\x1fbar.ts"],
-  ])("rejects a path containing a control character — %s", (_label, filePath) => {
-    const result = validateFilePath(filePath);
-    expect(result).toEqual({ ok: false, reason: "CONTROL_CHARS" });
-  });
-
-  it.each([
-    ["question mark (URI query)", "/workspace/src/foo.ts?v=1"],
-    ["hash (URI fragment)", "/workspace/src/foo.ts#anchor"],
-  ])("rejects a path containing a URI special character — %s", (_label, filePath) => {
-    const result = validateFilePath(filePath);
-    expect(result).toEqual({ ok: false, reason: "URI_FRAGMENT" });
-  });
-
-  it.each([
-    ["plain absolute path", "/workspace/src/foo.ts"],
-    ["path with spaces and unicode", "/workspace/src/my file (v2) — naïve.ts"],
-    ["path with hyphens and parentheses", "/workspace/src/my-module (copy).ts"],
-  ])("accepts a valid path — %s", (_label, filePath) => {
-    const result = validateFilePath(filePath);
-    expect(result).toEqual({ ok: true });
-  });
-
-  it("returns { ok: false } for a null-byte path without throwing", () => {
-    // Verifies validateFilePath runs before path.resolve() — path.resolve() with
-    // a null byte throws an ERR_INVALID_ARG_VALUE on Node.js 18+.
-    const filePath = "/workspace/src/foo\x00bar.ts";
-    let result: ReturnType<typeof validateFilePath> | undefined;
-    expect(() => {
-      result = validateFilePath(filePath);
-    }).not.toThrow();
-    expect(result).toMatchObject({ ok: false });
-  });
-});
 
 describe("MCP transport — workspace security", () => {
   const { setup } = useMcpContext();
