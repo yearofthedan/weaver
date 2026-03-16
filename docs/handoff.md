@@ -57,11 +57,14 @@ src/
     filesystem.ts         ← FileSystem interface + barrel re-exports
     node-filesystem.ts    ← NodeFileSystem wrapping node:fs (production)
     in-memory-filesystem.ts ← InMemoryFileSystem Map-backed (unit tests)
+    __helpers__/           ← filesystem-conformance.ts shared test suite
+    *.test.ts              ← colocated unit tests
   domain/
     workspace-scope.ts    ← WorkspaceScope boundary tracking + modification recording
     import-rewriter.ts    ← ImportRewriter — rewrites named imports/re-exports of a moved symbol across files
     rewrite-own-imports.ts ← rewriteMovedFileOwnImports — adjusts a moved file's own relative specifiers
     symbol-ref.ts         ← SymbolRef — resolved exported symbol value object (lookup, unwrap, remove)
+    *.test.ts              ← colocated unit tests
   types.ts        ← result types + LanguagePlugin + Compiler + CompilerRegistry interfaces
   security.ts     ← isWithinWorkspace() + isSensitiveFile() + validateFilePath() — boundary, sensitive file blocklist, path validation
   mcp.ts          ← MCP server (connects to daemon)
@@ -70,6 +73,7 @@ src/
     ensure-daemon.ts             ← ensureDaemon (version check + auto-spawn); callDaemon (socket client); spawnDaemon
     paths.ts                     ← socketPath, lockfilePath, ensureCacheDir only
     dispatcher.ts                ← dispatchRequest; OPERATIONS table; re-exports registry functions
+    dispatcher.test.ts           ← colocated unit test (only daemon unit test; rest are integration)
     language-plugin-registry.ts  ← LanguagePlugin registry; makeRegistry; invalidateFile/invalidateAll; registers built-in Vue plugin
     watcher.ts                   ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
   plugins/
@@ -78,6 +82,7 @@ src/
       compiler.ts ← VolarCompiler: compiler calls via Volar proxy + virtual↔real translation; afterSymbolMove scans .vue files
       scan.ts     ← updateVueImportsAfterMove + removeVueImportsOfDeletedFile + updateVueNamedImportAfterSymbolMove (regex scans; uses WorkspaceScope for boundary enforcement)
       service.ts  ← buildVolarService() — Volar service factory
+      *.test.ts   ← colocated unit tests
   operations/
     rename.ts          ← rename(compiler, filePath, line, col, newName, scope: WorkspaceScope)
     findReferences.ts  ← findReferences(compiler, filePath, line, col)
@@ -90,14 +95,18 @@ src/
     searchText.ts      ← searchText(pattern, scope: WorkspaceScope, { glob, context, maxResults })
     replaceText.ts     ← replaceText(scope: WorkspaceScope, { pattern, replacement, glob } | { edits })
     deleteFile.ts      ← deleteFile(tsCompiler, file, scope: WorkspaceScope)
+    *.test.ts          ← colocated unit tests
   compilers/
     ts.ts              ← TsMorphCompiler: compiler calls via ts-morph Project; refreshFile() for selective invalidation
     ts-move-symbol.ts  ← tsMoveSymbol(): compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
+    __helpers__/       ← mock-compiler.ts shared test helper
+    *.test.ts          ← colocated unit tests
   utils/
     errors.ts     ← EngineError class + ErrorCode union
     text-utils.ts ← applyTextEdits(), offsetToLineCol()
     file-walk.ts  ← walkFiles() + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS
     ts-project.ts ← findTsConfig, findTsConfigForFile, isVueProject
+    *.test.ts     ← colocated unit tests
   __testHelpers__/
     helpers.ts     ← shared test utilities (cleanup, readFile, fileExists, PROJECT_ROOT); re-exports copyFixture
     fixtures/
@@ -118,9 +127,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P1 — Very high value bugs and tech debt
 
-- **Test colocation Phase 1: unit tests** → [`docs/specs/20260315-colocate-unit-tests.md`](specs/20260315-colocate-unit-tests.md) — Move unit tests next to source, fixtures and shared helpers to `src/__testHelpers__/`.
-
-- **Test colocation Phase 2: integration tests** → [`docs/specs/20260315-colocate-integration-tests.md`](specs/20260315-colocate-integration-tests.md) — Move integration tests to colocated `*.integration.test.ts` files, remove `tests/` directory. Blocked by Phase 1.
+- **Test colocation Phase 2: integration tests** → [`docs/specs/20260315-colocate-integration-tests.md`](specs/20260315-colocate-integration-tests.md) — Move integration tests to colocated `*.integration.test.ts` files, remove `tests/` directory.
 
 - **Source refactoring for mutation speed** → [`docs/specs/20260315-source-refactor-mutation-speed.md`](specs/20260315-source-refactor-mutation-speed.md) — Extract misplaced utilities from operations (`searchText`, `security`, `getTypeErrors`), optimize fixture copying for `perTest` coverage analysis, exclude redundant dispatcher tests from Stryker. Depends on test colocation landing first.
 

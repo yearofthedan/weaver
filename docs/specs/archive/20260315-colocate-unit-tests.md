@@ -34,11 +34,11 @@ All tests currently live in a parallel `tests/` tree that mirrors `src/`. This m
 
 ## Behaviour
 
-- [ ] **AC1: Unit tests colocate with source.** Every test file that tests a single source module moves next to it: `src/operations/rename.test.ts` beside `src/operations/rename.ts`, `src/utils/errors.test.ts` beside `src/utils/errors.ts`, etc. Import paths within moved tests are updated. Unit tests are those under `tests/compilers/`, `tests/domain/`, `tests/operations/`, `tests/plugins/`, `tests/ports/`, `tests/utils/`, and `tests/daemon/dispatcher.test.ts` (which tests the dispatcher directly without subprocess spawning).
+- [x] **AC1: Unit tests colocate with source.** Every test file that tests a single source module moves next to it: `src/operations/rename.test.ts` beside `src/operations/rename.ts`, `src/utils/errors.test.ts` beside `src/utils/errors.ts`, etc. Import paths within moved tests are updated. Unit tests are those under `tests/compilers/`, `tests/domain/`, `tests/operations/`, `tests/plugins/`, `tests/ports/`, `tests/utils/`, and `tests/daemon/dispatcher.test.ts` (which tests the dispatcher directly without subprocess spawning).
 - [x] **AC2: Test fixtures move to `src/__testHelpers__/fixtures/`.** All fixture directories moved to `src/__testHelpers__/fixtures/` (with an extra `fixtures/` subfolder for clarity). `copyFixture` extracted to `src/__testHelpers__/fixtures/fixtures.ts` next to the fixtures it copies. `react-project` confirmed unused and removed. `move-dir-vue` (added by moveDirectory bug fix) also moved.
 - [x] **AC3: Shared test helper moves to `src/__testHelpers__/`.** `tests/helpers.ts` moved to `src/__testHelpers__/helpers.ts`. Import paths in all 35 test files updated. `copyFixture` re-exported from `fixtures/fixtures.ts` for backward compatibility.
-- [ ] **AC4: Build output unchanged.** `tsc` produces the same `dist/` contents — no `.test.ts` files, no `__testHelpers__/` directories compiled into `dist/`. `tsconfig.json` excludes `src/**/*.test.ts` and `src/__testHelpers__/**`.
-- [ ] **AC5: All tools pass.** `pnpm check` (biome + build + test) passes. Vitest finds all unit tests at their new `src/` locations and all integration tests at their current `tests/` locations.
+- [x] **AC4: Build output unchanged.** `tsc` produces the same `dist/` contents — no `.test.ts` files, no `__testHelpers__/` directories compiled into `dist/`. `tsconfig.json` excludes `src/**/*.test.ts` and `src/__testHelpers__/**`.
+- [x] **AC5: All tools pass.** `pnpm check` (biome + build + test) passes. Vitest finds all unit tests at their new `src/` locations and all integration tests at their current `tests/` locations.
 
 ## Interface
 
@@ -85,21 +85,15 @@ Config file changes:
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
 
-## Progress (for next agent)
+## Outcome
 
-**Completed:**
-- AC2 (fixtures) and AC3 (helpers) are done and committed.
-- Fixtures live at `src/__testHelpers__/fixtures/` (not directly in `__testHelpers__/` as originally specced).
-- `copyFixture` is in `src/__testHelpers__/fixtures/fixtures.ts`; `helpers.ts` re-exports it.
-- Config files already updated: `tsconfig.json` excludes `src/__testHelpers__/**`, `vitest.config.ts` and `vitest.stryker.config.ts` exclude patterns updated.
-- `react-project` fixture removed (confirmed unused).
+**Reflection:**
 
-**Remaining:**
-- **AC1:** Move ~30 unit test files from `tests/` to colocate next to source in `src/`. Directories to move: `tests/compilers/` → `src/compilers/`, `tests/domain/` → `src/domain/`, `tests/operations/` → `src/operations/`, `tests/plugins/` → `src/plugins/`, `tests/ports/` → `src/ports/`, `tests/utils/` → `src/utils/`, and `tests/daemon/dispatcher.test.ts` → `src/daemon/`. All other daemon tests stay in `tests/`.
-- **AC4:** Add `src/**/*.test.ts` to `tsconfig.json` exclude. Update `vitest.config.ts` include to cover both `src/` and `tests/`. Update `vitest.stryker.config.ts` include/exclude for new paths.
-- **AC5:** Run `pnpm check` to verify everything passes.
+- **What went well:** `moveFile` handled all 42 file moves with correct import rewriting. The `moveDirectory` tool worked for `__helpers__/` directories (clean moves to non-existent destinations). `biome.json` fixture exclusion was a latent bug caught early by this work.
+- **What did not go well:** An earlier attempt hit the `walkFiles` ENOENT bug (git ls-files --cached returning deleted files). The execution agent encountered the error but continued instead of stopping — violating the spec's instruction to stop on errors. The ENOENT was from a stale daemon running pre-fix `dist/` code, not a new bug.
+- **What took longer than it should have:** Investigating whether the ENOENT was a new bug or a known one. The agent notes from the failed attempt mixed with the successful run's notes, making triage harder.
+- **Recommendation for Phase 2:** Always rebuild and kill the daemon before MCP tool usage. The `moveDirectory` tool cannot merge into existing non-empty directories — use `moveFile` for files going into existing directories.
 
-**Tooling notes from this session:**
-- `moveDirectory` works correctly now (bug fixes landed mid-session). Use it for batch moves of directories like `tests/compilers/` → `src/compilers/`.
-- `moveFile` rewrites the moved file's own imports, but does NOT rewrite imports in other out-of-project files. Test files that cross-import each other will need manual fixup after move.
-- Always `pnpm build` and kill the daemon (`pkill -f "light-bridge.*daemon"`) after source changes before using MCP tools — the daemon runs the compiled `dist/` code.
+**Tests added:** 1 regression test (sequential moves in git-tracked directories)
+**Total test count:** 710
+**Config changes:** `vitest.config.ts`, `vitest.stryker.config.ts`, `tsconfig.json`, `biome.json` (fixture exclusion)
