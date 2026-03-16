@@ -31,7 +31,7 @@ tool call
   │   ├─ boundary-check each rewrite target → write passing files; add others to filesSkipped
   │   ├─ renameSync(oldPath → newPath) — physical file move on disk
   │   └─ afterFileRename() — compiler hook
-  │         TsMorphCompiler: explicit project cache invalidation (keyed by old path)
+  │         TsMorphCompiler: incremental project graph update (remove old path, add new)
   │         VolarCompiler: updateVueImportsAfterMove() regex scan patches .vue SFC imports
   │                        (Volar edits use virtual .vue.ts names; can't be written directly)
   │         Both compilers: rewriteMovedFileOwnImports() adjusts relative specifiers
@@ -67,5 +67,5 @@ See [security.md](../security.md) for the full threat model.
 **Why a post-scan for Vue imports?**
 Volar's `getEditsForFileRename` returns edits with virtual `.vue.ts` filenames that can't be written to disk directly. The Vue import string rewriting is done by a separate regex scan in `plugins/vue/scan.ts`, invoked by the compiler `afterFileRename` hook.
 
-**Why does invalidation happen after the move?**
-ts-morph and Volar both cache project state keyed by file path. After `renameSync`, the old path no longer exists but may still be in the cache. Explicit invalidation forces the engine to rebuild on the next request. Without it, a subsequent operation referencing the moved file would use stale state.
+**Why incremental graph updates instead of full invalidation?**
+ts-morph and Volar both cache project state keyed by file path. After `renameSync`, the old path no longer exists but may still be in the cache. TsMorphCompiler updates the graph incrementally (remove old source file, add new) rather than rebuilding the entire project. Full invalidation (`invalidateProject`) destroys the in-memory project graph, losing knowledge of files moved in previous calls within the same daemon session — causing ENOENT on sequential moves. Incremental updates keep the graph accurate across calls. See `docs/tech/ts-morph-apis.md` for why `sourceFile.move()` is not used for this.

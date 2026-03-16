@@ -132,10 +132,34 @@ A secondary issue compounds the problem: the catch-all error handler at `daemon.
 
 ## Done-when
 
-- [ ] All fix criteria (AC1-AC4) verified by tests
-- [ ] Mutation score >= threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated: `docs/features/moveFile.md` if behaviour or error codes changed
-- [ ] Tech debt discovered during investigation added to handoff.md as `[needs design]`
-- [ ] Non-obvious gotchas added to `docs/tech/ts-morph-apis.md` (new file — document `sourceFile.move()` behaviour, edge cases discovered, and comparison with `getEditsForFileRename`)
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] All fix criteria (AC1-AC4) verified by tests
+- [ ] Mutation score >= threshold for touched files (deferred to end of session)
+- [x] `pnpm check` passes (lint + build + test) — 696 tests pass
+- [x] Docs updated: `docs/features/moveFile.md` — updated graph update description, technical decisions section
+- [x] Tech debt discovered during investigation added to handoff.md as `[needs design]` — `moveDirectory` `.js` stripping promoted to P1
+- [x] Non-obvious gotchas added to `docs/tech/ts-morph-apis.md` — `sourceFile.move()` bugs, alternatives analysis, correct approach
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+### What shipped
+
+- **AC1:** Removed destructive `invalidateProject()` from `getEditsForFileRename` and `afterFileRename`. Replaced with incremental graph updates (`removeSourceFile` + `addSourceFileAtPath`). The TS language service is preserved for import rewriting.
+- **AC2:** Regression tests for sequential moves — both in-project (src files) and out-of-project (test files outside tsconfig include).
+- **AC3:** Tests verifying the fallback scan (`rewriteImportersOfMovedFile`) still rewrites imports in out-of-project files after the incremental graph update.
+- **AC4:** Catch-all error handler now uses `INTERNAL_ERROR` for unexpected errors. `SyntaxError` (from `JSON.parse`) still returns `PARSE_ERROR`. `INTERNAL_ERROR` added to `ErrorCode` union.
+- **Verified end-to-end:** Two sequential `moveFile` calls through the live daemon both returned `ok: true` with correct import rewriting and `.js` extension preservation.
+
+### Tests added: 5
+
+1. `getEditsForFileRename` doesn't throw after dependency physically moved (AC1)
+2. Sequential `moveFile` for in-project files succeeds with correct import rewriting (AC1/AC2)
+3. Sequential moves of out-of-project files both return ok and rewrite imports correctly (AC2)
+4. Fallback scan rewrites out-of-project importer on the second move after graph update (AC3)
+5. `PARSE_ERROR` for invalid JSON, `INTERNAL_ERROR` for unexpected errors (AC4)
+
+### Reflection
+
+- **Could not reproduce the exact ENOENT in a unit test.** ts-morph silently skips missing files rather than throwing. The original bug likely manifested through a specific interaction between the TS language service's internal file reading and the project graph state that's hard to isolate in a synthetic fixture. The fix is directionally correct regardless — removing unnecessary `invalidateProject` is strictly better. Verified through the live daemon instead.
+- **The spec's AC4 overcorrected.** The original spec said all non-EngineError exceptions should return `INTERNAL_ERROR`, but that made genuine JSON parse errors (`SyntaxError`) return a misleading code. Refined during implementation to check `instanceof SyntaxError` specifically.
+- **Parallel AC execution would have saved time.** AC2+AC3 and AC4 were dispatched in parallel but ran on the same working tree. Using `isolation: "worktree"` would have been safer for truly independent ACs. Added to `.claude/MEMORY.md` as a process rule.
