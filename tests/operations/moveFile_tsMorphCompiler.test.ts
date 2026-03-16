@@ -356,6 +356,38 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
   });
 
   describe("sequential moves (project graph survives across calls)", () => {
+    it("sequential moves of out-of-project files both return ok and rewrites import to correct path", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      // Create two out-of-project files (outside tsconfig include: ["src/**/*.ts"])
+      // helper.ts exports something; consumer.test.ts imports "./helper"
+      const helperPath = path.join(dir, "tests", "helper.ts");
+      const consumerPath = path.join(dir, "tests", "consumer.test.ts");
+      fs.writeFileSync(helperPath, "export function help() { return 42; }\n");
+      fs.writeFileSync(consumerPath, 'import { help } from "./helper";\nconsole.log(help());\n');
+
+      // Move helper.ts to a different directory (lib/helper.ts)
+      const helperNewPath = path.join(dir, "lib", "helper.ts");
+      const moveA = await moveFile(compiler, helperPath, helperNewPath, makeScope(dir));
+      expect(moveA.filesModified).toContain(helperNewPath);
+
+      // Move consumer.test.ts to a subdirectory
+      const consumerNewPath = path.join(dir, "tests", "unit", "consumer.test.ts");
+      const moveB = await moveFile(compiler, consumerPath, consumerNewPath, makeScope(dir));
+      expect(moveB.filesModified).toContain(consumerNewPath);
+
+      // consumer.test.ts originally imported "./helper" (same dir).
+      // After first move: helper is now at lib/helper.ts, consumer is still at tests/consumer.test.ts
+      //   so consumer's import should have been rewritten to "../../lib/helper"
+      // After second move: consumer moved to tests/unit/consumer.test.ts
+      //   relative to tests/unit/, lib/helper.ts is at "../../lib/helper"
+      const movedConsumerContent = fs.readFileSync(consumerNewPath, "utf8");
+      expect(movedConsumerContent).toContain("../../lib/helper");
+      expect(movedConsumerContent).not.toContain('"./helper"');
+    });
+
     it("does not throw ENOENT when moving a file that imports a previously-moved file", async () => {
       const dir = copyFixture("simple-ts");
       dirs.push(dir);
@@ -421,6 +453,46 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
       const movedMainContent = fs.readFileSync(`${dir}/dist/main.ts`, "utf8");
       expect(movedMainContent).toContain("../lib/utils");
       expect(movedMainContent).not.toContain("../src/utils");
+    });
+
+    it("fallback scan rewrites out-of-project importer on the second move after project graph update", async () => {
+      const dir = copyFixture("simple-ts");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+
+      // Create an out-of-project file that imports src/main.ts
+      const scriptPath = path.join(dir, "scripts", "run.ts");
+      fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
+      fs.writeFileSync(
+        scriptPath,
+        'import { greetUser } from "../src/main";\nconsole.log(greetUser("world"));\n',
+      );
+
+      // First move: utils.ts → lib/utils.ts (updates project graph incrementally)
+      const moveA = await moveFile(
+        compiler,
+        `${dir}/src/utils.ts`,
+        `${dir}/lib/utils.ts`,
+        makeScope(dir),
+      );
+      expect(moveA.filesModified).toContain(`${dir}/lib/utils.ts`);
+
+      // Second move: main.ts → dist/main.ts (fallback scan must rewrite scripts/run.ts)
+      const moveB = await moveFile(
+        compiler,
+        `${dir}/src/main.ts`,
+        `${dir}/dist/main.ts`,
+        makeScope(dir),
+      );
+
+      // scripts/run.ts (out-of-project) must have its import updated by the fallback scan
+      const scriptContent = fs.readFileSync(scriptPath, "utf8");
+      expect(scriptContent).toContain("../dist/main");
+      expect(scriptContent).not.toContain("../src/main");
+      // The moved file must appear in filesModified
+      expect(moveB.filesModified).toContain(`${dir}/dist/main.ts`);
+      // The out-of-project file must also appear in filesModified (fallback scan ran)
+      expect(moveB.filesModified).toContain(scriptPath);
     });
   });
 
