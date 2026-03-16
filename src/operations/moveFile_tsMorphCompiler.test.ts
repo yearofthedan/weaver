@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -499,6 +500,68 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
       expect(moveB.filesModified).toContain(`${dir}/dist/main.ts`);
       // The out-of-project file must also appear in filesModified (fallback scan ran)
       expect(moveB.filesModified).toContain(scriptPath);
+    });
+  });
+
+  describe("sequential moves in git-tracked directories", () => {
+    it("does not throw ENOENT when git ls-files returns a file deleted by a prior move", async () => {
+      // Regression: walkFiles uses `git ls-files --cached` in git repos, which
+      // returns files that are tracked even after deletion from disk. Without the
+      // fs.existsSync filter in walkFiles, rewriteImportersOfMovedFile tries to
+      // read the deleted file and throws ENOENT.
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lb-git-move-"));
+      dirs.push(dir);
+
+      // Set up project with two out-of-project files: helper imports nothing,
+      // consumer imports helper. Both are outside tsconfig include.
+      fs.mkdirSync(path.join(dir, "src"));
+      fs.mkdirSync(path.join(dir, "tests", "helpers"), { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, "tsconfig.json"),
+        JSON.stringify({ compilerOptions: { strict: true }, include: ["src/**/*.ts"] }),
+      );
+      fs.writeFileSync(
+        path.join(dir, "src", "utils.ts"),
+        "export function greet() { return 'hi'; }\n",
+      );
+      fs.writeFileSync(
+        path.join(dir, "tests", "helpers", "mock.ts"),
+        "export function makeMock() { return {}; }\n",
+      );
+      fs.writeFileSync(
+        path.join(dir, "tests", "consumer.test.ts"),
+        'import { makeMock } from "./helpers/mock";\nconsole.log(makeMock());\n',
+      );
+
+      // Initialize git and commit — critical: git ls-files --cached returns committed files
+      execSync("git init && git add . && git commit -m init", { cwd: dir, stdio: "pipe" });
+
+      const compiler = new TsMorphCompiler();
+
+      // Move 1: helper → src/helpers/mock.ts (physically deletes tests/helpers/mock.ts)
+      const move1 = await moveFile(
+        compiler,
+        path.join(dir, "tests", "helpers", "mock.ts"),
+        path.join(dir, "src", "helpers", "mock.ts"),
+        makeScope(dir),
+      );
+      expect(move1.filesModified).toContain(path.join(dir, "src", "helpers", "mock.ts"));
+
+      // Move 2: consumer.test.ts → src/consumer.test.ts
+      // Without the walkFiles fix, this throws ENOENT because git ls-files still
+      // returns tests/helpers/mock.ts (deleted from disk but in git index).
+      const move2 = await moveFile(
+        compiler,
+        path.join(dir, "tests", "consumer.test.ts"),
+        path.join(dir, "src", "consumer.test.ts"),
+        makeScope(dir),
+      );
+      expect(move2.filesModified).toContain(path.join(dir, "src", "consumer.test.ts"));
+
+      // Verify the moved consumer's import was rewritten to the new helper location
+      const content = fs.readFileSync(path.join(dir, "src", "consumer.test.ts"), "utf8");
+      expect(content).toContain("./helpers/mock");
+      expect(content).not.toContain('"../tests/helpers/mock"');
     });
   });
 
