@@ -69,6 +69,17 @@ describe("moveDirectory", () => {
       expect(result.filesModified).toContain(`${dir}/src/lib/helpers/a.ts`);
       expect(result.filesModified).toContain(`${dir}/src/lib/helpers/b.ts`);
     });
+
+    it("removes the old directory tree after a successful move", async () => {
+      const dir = copyFixture("move-dir-ts");
+      dirs.push(dir);
+      const compiler = new TsMorphCompiler();
+      const oldPath = `${dir}/src/utils`;
+
+      await moveDirectory(compiler, oldPath, `${dir}/src/lib/helpers`, makeScope(dir));
+
+      expect(fs.existsSync(oldPath)).toBe(false);
+    });
   });
 
   describe("non-source files", () => {
