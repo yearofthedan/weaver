@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { extractFunction } from "../../src/operations/extractFunction.js";
@@ -200,7 +200,7 @@ describe("extractFunction", () => {
   });
 
   it("throws NOT_SUPPORTED when no extractable code exists at the given range", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const filePath = path.join(dir, "src/utils.ts");
 

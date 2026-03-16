@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { getDefinition } from "../../src/operations/getDefinition.js";
 import { VolarCompiler } from "../../src/plugins/vue/compiler.js";
@@ -9,7 +9,7 @@ describe("getDefinition action", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  function setup(fixture = "simple-ts") {
+  function setup(fixture = FIXTURES.simpleTs.name) {
     const dir = copyFixture(fixture);
     dirs.push(dir);
     return dir;

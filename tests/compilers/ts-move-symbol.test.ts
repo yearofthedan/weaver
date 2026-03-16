@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, readFile } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES, readFile } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { tsMoveSymbol } from "../../src/compilers/ts-move-symbol.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
@@ -24,7 +24,7 @@ function makeScope(root: string): WorkspaceScope {
 }
 
 function setupSimpleTs(): { dir: string; tsCompiler: TsMorphCompiler; scope: WorkspaceScope } {
-  const dir = copyFixture("simple-ts");
+  const dir = copyFixture(FIXTURES.simpleTs.name);
   return { dir, tsCompiler: new TsMorphCompiler(), scope: makeScope(dir) };
 }
 

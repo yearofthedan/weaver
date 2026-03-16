@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, readFile } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES, readFile } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveSymbol } from "../../src/operations/moveSymbol.js";
@@ -13,7 +13,7 @@ describe("moveSymbol operation — TsMorphCompiler integration", () => {
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
   it("moves a symbol end-to-end: source updated, dest created, importer updated", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const tsCompiler = new TsMorphCompiler();
     const scope = new WorkspaceScope(dir, new NodeFileSystem());
@@ -77,7 +77,7 @@ describe("moveSymbol operation — TsMorphCompiler integration", () => {
     // simple-ts fixture: tsconfig.include = ["src/**/*.ts"], so tests/ is outside the project.
     // tests/utils.test.ts imports greetUser from "../src/utils".
     // After moving greetUser to src/helpers.ts, the fallback scan must rewrite the test file.
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const tsCompiler = new TsMorphCompiler();
     const scope = new WorkspaceScope(dir, new NodeFileSystem());

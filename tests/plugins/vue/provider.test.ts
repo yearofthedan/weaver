@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture } from "../../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../../../src/__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../../../src/domain/workspace-scope.js";
 import { VolarCompiler } from "../../../src/plugins/vue/compiler.js";
 import { NodeFileSystem } from "../../../src/ports/node-filesystem.js";
@@ -15,7 +15,7 @@ describe("VolarCompiler", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  function setup(fixture = "vue-project") {
+  function setup(fixture = FIXTURES.vueProject.name) {
     const dir = copyFixture(fixture);
     dirs.push(dir);
     return dir;
@@ -134,7 +134,7 @@ describe("VolarCompiler", () => {
 
   it("afterSymbolMove records nothing into scope when no .vue files match", async () => {
     // Use a plain TS fixture (no .vue files) so nothing is modified or skipped.
-    const tsDir = copyFixture("simple-ts");
+    const tsDir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(tsDir);
     const p = new VolarCompiler();
     const scope = makeScope(tsDir);
@@ -149,7 +149,7 @@ describe("VolarCompiler", () => {
   });
 
   it("afterSymbolMove rewrites a matching named import in a .vue file", async () => {
-    const dir = copyFixture("vue-project");
+    const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
     const p = new VolarCompiler();
     const scope = makeScope(dir);
@@ -167,7 +167,7 @@ describe("VolarCompiler", () => {
   });
 
   it("afterSymbolMove does not rewrite a .vue file already in scope.modified", async () => {
-    const dir = copyFixture("vue-project");
+    const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
     const p = new VolarCompiler();
     const scope = makeScope(dir);
@@ -186,7 +186,7 @@ describe("VolarCompiler", () => {
   });
 
   it("afterSymbolMove does not modify .vue files that do not import the symbol", async () => {
-    const dir = copyFixture("vue-project");
+    const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
     const p = new VolarCompiler();
     const scope = makeScope(dir);

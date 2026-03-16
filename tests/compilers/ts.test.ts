@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
@@ -21,7 +21,7 @@ describe("TsMorphCompiler", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  function setup(fixture = "simple-ts") {
+  function setup(fixture = FIXTURES.simpleTs.name) {
     const dir = copyFixture(fixture);
     dirs.push(dir);
     return dir;
@@ -248,7 +248,7 @@ describe("TsMorphCompiler", () => {
 
   describe("symlink path resolution", () => {
     function setupSymlink() {
-      const realDir = copyFixture("simple-ts");
+      const realDir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(realDir);
       const linkDir = realDir + "-link";
       fs.symlinkSync(realDir, linkDir, "dir");

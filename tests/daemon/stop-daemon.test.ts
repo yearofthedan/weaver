@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { isDaemonAlive, removeDaemonFiles, stopDaemon } from "../../src/daemon/daemon.js";
 import { killDaemon, spawnAndWaitForReady } from "../process-helpers.js";
 
@@ -19,14 +19,14 @@ describe("stopDaemon", () => {
   });
 
   it("is a no-op when no daemon is running", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     await expect(stopDaemon(dir)).resolves.toBeUndefined();
     expect(isDaemonAlive(dir)).toBe(false);
   });
 
   it("sends SIGTERM, waits for daemon to stop, and removes daemon files", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);

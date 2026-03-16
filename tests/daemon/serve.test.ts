@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { isDaemonAlive, removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath, socketPath } from "../../src/daemon/paths";
 import { McpTestClient } from "../mcp-helpers.js";
@@ -23,7 +23,7 @@ describe("serve command — daemon integration", () => {
   });
 
   async function setup() {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     return dir;
   }

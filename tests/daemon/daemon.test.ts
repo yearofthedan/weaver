@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
 import { afterEach, describe, expect, it, test } from "vitest";
-import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath, socketPath } from "../../src/daemon/paths";
 import { callDaemonSocket, killDaemon, spawnAndWaitForReady } from "../process-helpers.js";
@@ -30,7 +30,7 @@ function sendRawToSocket(dir: string, raw: string): Promise<Record<string, unkno
   });
 }
 
-const WORKSPACE_FIXTURE = "simple-ts";
+const WORKSPACE_FIXTURE = FIXTURES.simpleTs.name;
 
 describe("daemon command", () => {
   const dirs: string[] = [];

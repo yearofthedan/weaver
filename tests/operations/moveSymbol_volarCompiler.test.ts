@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, readFile } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES, readFile } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveSymbol } from "../../src/operations/moveSymbol.js";
@@ -11,7 +11,7 @@ describe("moveSymbol operation — VolarCompiler integration", () => {
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
   it("moves a composable and updates .vue SFC imports via VolarCompiler", async () => {
-    const dir = copyFixture("vue-project");
+    const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
     const tsCompiler = new TsMorphCompiler();
     const volarCompiler = new VolarCompiler();

@@ -1,6 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 import { afterEach } from "vitest";
-import { cleanup, copyFixture } from "../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../src/__testHelpers__/helpers.js";
 import { removeDaemonFiles } from "../src/daemon/daemon.js";
 import { killDaemon, spawnAndWaitForReady, waitForDaemon } from "./process-helpers.js";
 
@@ -99,7 +99,9 @@ export function useMcpContext(): {
     }
   });
 
-  async function setup(fixture = "simple-ts"): Promise<{ dir: string; client: McpTestClient }> {
+  async function setup(
+    fixture = FIXTURES.simpleTs.name,
+  ): Promise<{ dir: string; client: McpTestClient }> {
     const dir = copyFixture(fixture);
     dirs.push(dir);
     const proc = await spawnAndWaitForReady(["serve", "--workspace", dir], { pipeStdin: true });

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { getTypeErrors, getTypeErrorsForFiles } from "../../src/operations/getTypeErrors.js";
@@ -13,7 +13,7 @@ describe("getTypeErrors operation", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  function setup(fixture = "ts-errors") {
+  function setup(fixture = FIXTURES.tsErrors.name) {
     const dir = copyFixture(fixture);
     dirs.push(dir);
     return dir;
@@ -227,7 +227,7 @@ describe("getTypeErrorsForFiles helper", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  function setup(fixture = "ts-errors") {
+  function setup(fixture = FIXTURES.tsErrors.name) {
     const dir = copyFixture(fixture);
     dirs.push(dir);
     return dir;

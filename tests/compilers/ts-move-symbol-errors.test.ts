@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { tsMoveSymbol } from "../../src/compilers/ts-move-symbol.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
@@ -12,7 +12,7 @@ function makeScope(root: string): WorkspaceScope {
 }
 
 function setupSimpleTs(): { dir: string; tsCompiler: TsMorphCompiler; scope: WorkspaceScope } {
-  const dir = copyFixture("simple-ts");
+  const dir = copyFixture(FIXTURES.simpleTs.name);
   return { dir, tsCompiler: new TsMorphCompiler(), scope: makeScope(dir) };
 }
 
@@ -169,7 +169,7 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
     let scope: WorkspaceScope;
 
     beforeEach(() => {
-      dir = copyFixture("simple-ts");
+      dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
       fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");

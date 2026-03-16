@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, readFile } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES, readFile } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
@@ -16,7 +16,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
 
   describe("scope records modified files", () => {
     it("records moved and externally-modified files in scope", async () => {
-      const dir = copyFixture("move-dir-ts");
+      const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
       const scope = makeScope(dir);
@@ -31,7 +31,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
     });
 
     it("does not record unchanged files unrelated to the move", async () => {
-      const dir = copyFixture("move-dir-ts");
+      const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
       const scope = makeScope(dir);
@@ -45,7 +45,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
 
   describe("empty directory", () => {
     it("does not record any files in scope when directory has no source files", async () => {
-      const dir = copyFixture("move-dir-ts");
+      const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
 
       const emptyDir = `${dir}/src/empty-utils`;
@@ -62,7 +62,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
 
   describe("project cache invalidation", () => {
     it("subsequent moveDirectory calls on the same compiler instance work correctly", async () => {
-      const dir = copyFixture("move-dir-ts");
+      const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -86,7 +86,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
 
   describe("ESM .js extension preservation", () => {
     it("preserves .js extensions in import specifiers after directory move", async () => {
-      const dir = copyFixture("move-dir-ts-esm");
+      const dir = copyFixture(FIXTURES.moveDirTsEsm.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
       const scope = makeScope(dir);
@@ -109,7 +109,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
 
   describe("sub-project boundary", () => {
     it("does not rewrite internal imports when moved directory has its own tsconfig", async () => {
-      const dir = copyFixture("move-dir-subproject");
+      const dir = copyFixture(FIXTURES.moveDirSubproject.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
       const scope = makeScope(dir);
@@ -130,7 +130,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
     it("includes TS files on disk in the moved directory even when excluded from tsconfig", async () => {
       // Copy the fixture and update tsconfig to exclude utils/ — simulating
       // files that exist on disk but are not in the ts-morph project
-      const dir = copyFixture("move-dir-ts");
+      const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
 
       // Rewrite tsconfig to only include app.ts — utils/*.ts are excluded

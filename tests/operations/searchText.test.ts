@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { globToRegex, searchText } from "../../src/operations/searchText.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
@@ -48,7 +48,7 @@ describe("searchText operation", () => {
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
   it("finds all occurrences of a pattern across workspace files", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     const result = await searchText("greetUser", makeScope(dir));
@@ -68,7 +68,7 @@ describe("searchText operation", () => {
   });
 
   it("returns context lines when requested", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     const result = await searchText("greetUser", makeScope(dir), { context: 1 });
@@ -83,7 +83,7 @@ describe("searchText operation", () => {
   });
 
   it("filters files by glob pattern", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     // Only search main.ts
@@ -94,7 +94,7 @@ describe("searchText operation", () => {
   });
 
   it("returns empty matches when pattern is not found", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     const result = await searchText("zzz_does_not_exist_zzz", makeScope(dir));
@@ -104,7 +104,7 @@ describe("searchText operation", () => {
   });
 
   it("throws PARSE_ERROR for invalid regex", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     await expect(searchText("[invalid", makeScope(dir))).rejects.toMatchObject({
@@ -113,7 +113,7 @@ describe("searchText operation", () => {
   });
 
   it("reports 1-based line and col", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     // utils.ts line 1: "export function greetUser(name: string): string {"
@@ -126,7 +126,7 @@ describe("searchText operation", () => {
   });
 
   it("skips sensitive files", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     // Create a .env file in the fixture that contains the search term
@@ -139,7 +139,7 @@ describe("searchText operation", () => {
   });
 
   it("respects maxResults cap and sets truncated=true", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     // "e" appears many times; cap at 2
@@ -150,7 +150,7 @@ describe("searchText operation", () => {
   });
 
   it("throws REDOS for a catastrophic backtracking pattern", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     await expect(searchText("(a+)+$", makeScope(dir))).rejects.toMatchObject({ code: "REDOS" });
@@ -158,7 +158,7 @@ describe("searchText operation", () => {
 
   it("skips binary files (files containing a null byte)", async () => {
     // Exercises the isBinaryContent path: charCodeAt === 0 must return true.
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     const binaryContent = Buffer.concat([
@@ -174,7 +174,7 @@ describe("searchText operation", () => {
 
   it("context lines do not extend before line 1", async () => {
     // Exercises Math.max(0, lineIdx - context): start must be >= 1 even on first line.
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     const result = await searchText("greetUser", makeScope(dir), {
@@ -189,7 +189,7 @@ describe("searchText operation", () => {
 
   it("context lines do not extend past the last line of the file", async () => {
     // Exercises Math.min(lines.length - 1, lineIdx + context): end must not exceed EOF.
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     const content = fs.readFileSync(path.join(dir, "src/utils.ts"), "utf8");
@@ -225,7 +225,7 @@ describe("searchText operation", () => {
 
   it("each match reports the correct matchText", async () => {
     // Verifies that m[0] (the actual match) is stored, not a mutated value.
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     const result = await searchText("Hello", makeScope(dir), { glob: "**/utils.ts" });

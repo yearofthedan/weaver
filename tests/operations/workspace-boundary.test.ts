@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, readFile } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES, readFile } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveFile } from "../../src/operations/moveFile.js";
@@ -16,7 +16,7 @@ describe("workspace boundary enforcement", () => {
   });
 
   it("rename: skips out-of-workspace impacted files, writes in-workspace files", async () => {
-    const root = copyFixture("cross-boundary");
+    const root = copyFixture(FIXTURES.crossBoundary.name);
     dirs.push(root);
 
     const workspace = path.join(root, "workspace");
@@ -54,7 +54,7 @@ describe("workspace boundary enforcement", () => {
   }, 30_000);
 
   it("moveFile: skips out-of-workspace import rewrites, performs the physical move", async () => {
-    const root = copyFixture("cross-boundary");
+    const root = copyFixture(FIXTURES.crossBoundary.name);
     dirs.push(root);
 
     const workspace = path.join(root, "workspace");

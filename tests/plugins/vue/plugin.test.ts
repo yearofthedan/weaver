@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture } from "../../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../../src/compilers/ts.js";
 import {
   clearLanguagePlugins,
@@ -22,7 +22,7 @@ describe("Vue LanguagePlugin integration", () => {
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
   it("projectCompiler returns VolarCompiler for a Vue project", async () => {
-    const dir = copyFixture("vue-project");
+    const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
     const { VolarCompiler } = await import("../../../src/plugins/vue/compiler.js");
 
@@ -32,7 +32,7 @@ describe("Vue LanguagePlugin integration", () => {
   }, 10_000);
 
   it("projectCompiler returns TsMorphCompiler for a non-Vue project", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     const registry = makeRegistry(path.join(dir, "src/utils.ts"));
@@ -49,7 +49,7 @@ describe("Vue LanguagePlugin integration", () => {
   });
 
   it("invalidateAll clears cached compiler so next createCompiler call rebuilds it", async () => {
-    const dir = copyFixture("vue-project");
+    const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
     const { VolarCompiler } = await import("../../../src/plugins/vue/compiler.js");
 

@@ -1,11 +1,11 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { removeDaemonFiles } from "../../src/daemon/daemon";
 import { lockfilePath, socketPath } from "../../src/daemon/paths";
 import { killDaemon, runCliCommand, spawnAndWaitForReady } from "../process-helpers.js";
 
-const WORKSPACE_FIXTURE = "simple-ts";
+const WORKSPACE_FIXTURE = FIXTURES.simpleTs.name;
 
 describe("stop command", () => {
   const dirs: string[] = [];

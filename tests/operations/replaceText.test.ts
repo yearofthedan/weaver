@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, readFile } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES, readFile } from "../../src/__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { replaceText } from "../../src/operations/replaceText.js";
 import { NodeFileSystem } from "../../src/ports/node-filesystem.js";
@@ -15,7 +15,7 @@ describe("replaceText operation", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  function setup(fixture = "simple-ts") {
+  function setup(fixture = FIXTURES.simpleTs.name) {
     const dir = copyFixture(fixture);
     dirs.push(dir);
     return dir;

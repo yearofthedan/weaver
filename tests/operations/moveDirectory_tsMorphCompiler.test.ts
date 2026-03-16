@@ -1,7 +1,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, fileExists, readFile } from "../../src/__testHelpers__/helpers.js";
+import {
+  cleanup,
+  copyFixture,
+  FIXTURES,
+  fileExists,
+  readFile,
+} from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveDirectory } from "../../src/operations/moveDirectory.js";
@@ -18,7 +24,7 @@ describe("moveDirectory", () => {
 
   describe("basic directory move", () => {
     it("moves directory files and rewrites external imports", async () => {
-      const dir = copyFixture("move-dir-ts");
+      const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -55,7 +61,7 @@ describe("moveDirectory", () => {
     });
 
     it("includes moved files in filesModified", async () => {
-      const dir = copyFixture("move-dir-ts");
+      const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -71,7 +77,7 @@ describe("moveDirectory", () => {
     });
 
     it("removes the old directory tree after a successful move", async () => {
-      const dir = copyFixture("move-dir-ts");
+      const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
       const oldPath = `${dir}/src/utils`;
@@ -84,7 +90,7 @@ describe("moveDirectory", () => {
 
   describe("non-source files", () => {
     it("moves non-source files (json, css) via plain filesystem copy", async () => {
-      const dir = copyFixture("move-dir-ts");
+      const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -110,7 +116,7 @@ describe("moveDirectory", () => {
     });
 
     it("creates destination directory when moving non-source files into a new directory", async () => {
-      const dir = copyFixture("move-dir-ts");
+      const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -135,7 +141,7 @@ describe("moveDirectory", () => {
 
   describe("nested subdirectories", () => {
     it("excludes SKIP_DIRS (node_modules) contents from the filesMoved result", async () => {
-      const dir = copyFixture("move-dir-ts");
+      const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -160,7 +166,7 @@ describe("moveDirectory", () => {
 
   describe("edge cases", () => {
     it("throws MOVE_INTO_SELF when oldPath and newPath are the same directory", async () => {
-      const dir = copyFixture("move-dir-ts");
+      const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -170,7 +176,7 @@ describe("moveDirectory", () => {
     });
 
     it("skips symlinks in directory enumeration", async () => {
-      const dir = copyFixture("move-dir-ts");
+      const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -193,7 +199,7 @@ describe("moveDirectory", () => {
 
   describe("Vue import specifiers", () => {
     it("physically moves .vue files to the destination when the directory moves", async () => {
-      const dir = copyFixture("move-dir-vue");
+      const dir = copyFixture(FIXTURES.moveDirVue.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -211,7 +217,7 @@ describe("moveDirectory", () => {
     });
 
     it("preserves .vue extension in moved file content — no .vue.ts artifact introduced", async () => {
-      const dir = copyFixture("move-dir-vue");
+      const dir = copyFixture(FIXTURES.moveDirVue.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -231,7 +237,7 @@ describe("moveDirectory", () => {
 
     it("preserves .vue extension in moved file content for moduleResolution bundler", async () => {
       // The fixture uses moduleResolution: bundler — verify no extension stripping occurs
-      const dir = copyFixture("move-dir-vue");
+      const dir = copyFixture(FIXTURES.moveDirVue.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -249,7 +255,7 @@ describe("moveDirectory", () => {
     });
 
     it("preserves intra-directory .ts imports within the moved directory", async () => {
-      const dir = copyFixture("move-dir-vue");
+      const dir = copyFixture(FIXTURES.moveDirVue.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -267,7 +273,7 @@ describe("moveDirectory", () => {
     });
 
     it("includes moved .vue files in filesMoved result", async () => {
-      const dir = copyFixture("move-dir-vue");
+      const dir = copyFixture(FIXTURES.moveDirVue.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -284,7 +290,7 @@ describe("moveDirectory", () => {
 
     it("does not introduce .vue.ts artifacts in any file after move", async () => {
       // ts-morph uses virtual .vue.ts stubs internally — these must never leak to disk
-      const dir = copyFixture("move-dir-vue");
+      const dir = copyFixture(FIXTURES.moveDirVue.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -348,7 +354,7 @@ describe("moveDirectory", () => {
         "MOVE_INTO_SELF",
       ],
     ])("throws when %s", async (_, oldPathFn, newPathFn, code) => {
-      const dir = copyFixture("move-dir-ts");
+      const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 

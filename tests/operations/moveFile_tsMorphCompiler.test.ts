@@ -2,7 +2,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, fileExists, readFile } from "../../src/__testHelpers__/helpers.js";
+import {
+  cleanup,
+  copyFixture,
+  FIXTURES,
+  fileExists,
+  readFile,
+} from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { moveFile } from "../../src/operations/moveFile.js";
@@ -17,7 +23,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
   it("moves a file and updates imports", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const compiler = new TsMorphCompiler();
 
@@ -36,7 +42,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
   });
 
   it("creates destination directory if missing", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const compiler = new TsMorphCompiler();
 
@@ -50,7 +56,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
   });
 
   it("updates imports on move-back with the same compiler instance", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const compiler = new TsMorphCompiler();
 
@@ -67,7 +73,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
   });
 
   it("updates imports in out-of-project files (e.g. tests/)", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const compiler = new TsMorphCompiler();
 
@@ -79,7 +85,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
   });
 
   it("does not corrupt comments when updating imports in out-of-project files", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const compiler = new TsMorphCompiler();
 
@@ -107,7 +113,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
   });
 
   it("throws FILE_NOT_FOUND for non-existent source", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const compiler = new TsMorphCompiler();
 
@@ -118,7 +124,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
 
   describe("stale project cache (file added after project load)", () => {
     it("rewrites import in a file created after the project was loaded", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -148,7 +154,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
 
   describe("symlink path resolution", () => {
     it("rewrites imports when moveFile is called with a symlinked workspace path", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
 
       // Create a symlink pointing to the real fixture dir
@@ -181,7 +187,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
 
   describe("unresolved .js extension imports with moduleResolution node", () => {
     it("rewrites import with .js extension when tsconfig uses moduleResolution node", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -217,7 +223,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     });
 
     it("does not rewrite .js import when an actual .js file exists on disk", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -243,7 +249,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     });
 
     it("does not rewrite imports of similarly-named files (substring false positives)", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -270,7 +276,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
 
   describe("moved out-of-project file own imports", () => {
     it("rewrites relative imports inside a moved out-of-project test file", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -286,7 +292,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     });
 
     it("does not rewrite bare module specifiers inside the moved file", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -318,7 +324,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     });
 
     it("preserves .js extension when rewriting relative imports in a moved file", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -341,7 +347,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     });
 
     it("is a no-op when moved to the same directory depth (same-dir rename)", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -357,7 +363,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
 
   describe("sequential moves (project graph survives across calls)", () => {
     it("sequential moves of out-of-project files both return ok and rewrites import to correct path", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -389,7 +395,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     });
 
     it("does not throw ENOENT when moving a file that imports a previously-moved file", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -425,7 +431,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     });
 
     it("second moveFile call succeeds and rewrites import to new path of moved dependency", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -456,7 +462,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     });
 
     it("fallback scan rewrites out-of-project importer on the second move after project graph update", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -498,7 +504,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
 
   describe("filesModified completeness", () => {
     it("includes all rewritten files including those updated by fallback scan", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 
@@ -518,7 +524,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     });
 
     it("does not include the same file twice", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const compiler = new TsMorphCompiler();
 

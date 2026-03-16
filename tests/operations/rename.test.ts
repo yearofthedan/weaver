@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, copyFixture, readFile } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES, readFile } from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { rename } from "../../src/operations/rename.js";
@@ -23,7 +23,7 @@ describe("rename action", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  function setup(fixture = "simple-ts") {
+  function setup(fixture = FIXTURES.simpleTs.name) {
     const dir = copyFixture(fixture);
     dirs.push(dir);
     return dir;
@@ -107,7 +107,7 @@ describe("rename action", () => {
   });
 
   describe("with VolarCompiler", () => {
-    function vueSetup(fixture = "vue-project") {
+    function vueSetup(fixture = FIXTURES.vueProject.name) {
       const dir = copyFixture(fixture);
       dirs.push(dir);
       return dir;

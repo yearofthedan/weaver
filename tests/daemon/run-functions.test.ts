@@ -8,7 +8,7 @@
  * for them.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, copyFixture } from "../../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../../src/__testHelpers__/helpers.js";
 import { isDaemonAlive, removeDaemonFiles, runDaemon, runStop } from "../../src/daemon/daemon.js";
 import { killDaemon, spawnAndWaitForReady } from "../process-helpers.js";
 
@@ -48,7 +48,7 @@ describe("runStop", () => {
   });
 
   it("writes stopped:false and returns when no daemon is running", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     await runStop({ workspace: dir });
@@ -58,7 +58,7 @@ describe("runStop", () => {
   });
 
   it("sends SIGTERM, waits, and writes stopped:true when daemon is running", async () => {
-    const dir = copyFixture("simple-ts");
+    const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);

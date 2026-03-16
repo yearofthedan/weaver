@@ -3,7 +3,7 @@
  * (daemon, serve, stop) when the flag is omitted.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture } from "../src/__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES } from "../src/__testHelpers__/helpers.js";
 import { removeDaemonFiles } from "../src/daemon/daemon.js";
 import { killDaemon, runCliCommand, spawnAndWaitForReady } from "./process-helpers.js";
 
@@ -24,7 +24,7 @@ describe("--workspace default (process.cwd())", () => {
 
   describe("stop", () => {
     it("accepts no --workspace flag and uses cwd as workspace", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
 
       const { exitCode, stdout } = await runCliCommand(["stop"], 10_000, { cwd: dir });
@@ -36,7 +36,7 @@ describe("--workspace default (process.cwd())", () => {
     });
 
     it("uses cwd workspace to stop a running daemon", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const daemon = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
       procs.push(daemon);
@@ -49,7 +49,7 @@ describe("--workspace default (process.cwd())", () => {
 
   describe("daemon", () => {
     it("accepts no --workspace flag and becomes ready using cwd", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
 
       const proc = await spawnAndWaitForReady(["daemon"], { cwd: dir });
@@ -61,7 +61,7 @@ describe("--workspace default (process.cwd())", () => {
 
   describe("serve", () => {
     it("accepts no --workspace flag and becomes ready using cwd", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
 
       const proc = await spawnAndWaitForReady(["serve"], { cwd: dir });
@@ -72,7 +72,7 @@ describe("--workspace default (process.cwd())", () => {
 
   describe("explicit --workspace still takes precedence over cwd", () => {
     it("stop uses explicit path when provided", async () => {
-      const dir = copyFixture("simple-ts");
+      const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
 
       const { exitCode, stdout } = await runCliCommand(["stop", "--workspace", dir]);

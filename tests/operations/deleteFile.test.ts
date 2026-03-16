@@ -1,7 +1,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, fileExists, readFile } from "../../src/__testHelpers__/helpers.js";
+import {
+  cleanup,
+  copyFixture,
+  FIXTURES,
+  fileExists,
+  readFile,
+} from "../../src/__testHelpers__/helpers.js";
 import { TsMorphCompiler } from "../../src/compilers/ts.js";
 import { WorkspaceScope } from "../../src/domain/workspace-scope.js";
 import { deleteFile } from "../../src/operations/deleteFile.js";
@@ -17,7 +23,7 @@ describe("deleteFile", () => {
 
   describe("in-project TS/JS files", () => {
     it("removes named import declarations that reference the deleted file", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const result = await deleteFile(
@@ -31,7 +37,7 @@ describe("deleteFile", () => {
     });
 
     it("removes type-only import declarations that reference the deleted file", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       await deleteFile(new TsMorphCompiler(), `${dir}/src/target.ts`, makeScope(dir));
@@ -42,7 +48,7 @@ describe("deleteFile", () => {
     });
 
     it("removes export * and named re-export declarations from barrel files", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const result = await deleteFile(
@@ -57,7 +63,7 @@ describe("deleteFile", () => {
     });
 
     it("counts every removed declaration in importRefsRemoved", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       // importer.ts: 2 decls (named import + type import)
@@ -73,7 +79,7 @@ describe("deleteFile", () => {
     });
 
     it("does not include the deleted file itself in filesModified", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const result = await deleteFile(
@@ -86,7 +92,7 @@ describe("deleteFile", () => {
     });
 
     it("returns importRefsRemoved = 0 and empty filesModified when nothing imports the file", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const isolated = path.join(dir, "src", "isolated.ts");
@@ -101,7 +107,7 @@ describe("deleteFile", () => {
 
   describe("physical deletion", () => {
     it("removes the target file from disk after cleaning importers", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       expect(fileExists(dir, "src/target.ts")).toBe(true);
@@ -116,7 +122,7 @@ describe("deleteFile", () => {
     });
 
     it("deletes the file even when it has no importers", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const isolated = path.join(dir, "src", "isolated.ts");
@@ -130,7 +136,7 @@ describe("deleteFile", () => {
 
   describe("out-of-project TS/JS files", () => {
     it("removes imports from files not included in tsconfig", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       // tests/out-of-project.ts is outside tsconfig include (src/**/*.ts)
@@ -145,7 +151,7 @@ describe("deleteFile", () => {
     });
 
     it("handles imports that use an explicit file extension", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const extra = path.join(dir, "tests", "explicit-ext.ts");
@@ -168,7 +174,7 @@ describe("deleteFile", () => {
 
   describe("Vue SFC script blocks", () => {
     it("removes named and type-only import lines from script blocks", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const vueFile = path.join(dir, "src", "Comp.vue");
@@ -201,7 +207,7 @@ describe("deleteFile", () => {
     });
 
     it("removes bare side-effect import lines from script blocks", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const vueFile = path.join(dir, "src", "SideEffect.vue");
@@ -224,7 +230,7 @@ describe("deleteFile", () => {
     });
 
     it("removes re-export lines from script blocks", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const vueFile = path.join(dir, "src", "ReExport.vue");
@@ -250,7 +256,7 @@ describe("deleteFile", () => {
     });
 
     it("does not modify Vue files that do not import the deleted file", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const originalContent = [
@@ -268,7 +274,7 @@ describe("deleteFile", () => {
     });
 
     it("does not remove side-effect imports from paths other than the deleted file", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const originalContent = [
@@ -286,7 +292,7 @@ describe("deleteFile", () => {
     });
 
     it("does not include unmodified Vue files in filesModified", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const unrelatedVue = path.join(dir, "src", "Unrelated.vue");
@@ -308,7 +314,7 @@ describe("deleteFile", () => {
     });
 
     it("counts Vue import removals in importRefsRemoved", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const vueFile = path.join(dir, "src", "VueRefs.vue");
@@ -335,7 +341,7 @@ describe("deleteFile", () => {
     });
 
     it("removes indented import lines from script blocks", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const vueFile = path.join(dir, "src", "Indented.vue");
@@ -369,7 +375,7 @@ describe("deleteFile", () => {
     it("skips out-of-workspace importers and reports them in filesSkipped without writing", async () => {
       // cross-boundary fixture: tsconfig includes ../consumer/**/* so ts-morph's
       // in-project scan finds consumer/main.ts, which is outside the workspace.
-      const root = copyFixture("cross-boundary");
+      const root = copyFixture(FIXTURES.crossBoundary.name);
       dirs.push(root);
 
       const workspace = path.join(root, "workspace");
@@ -388,7 +394,7 @@ describe("deleteFile", () => {
     });
 
     it("records modified files via scope, not manual Set", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const result = await deleteFile(
@@ -406,7 +412,7 @@ describe("deleteFile", () => {
 
   describe("error handling", () => {
     it("throws a structured FILE_NOT_FOUND error when the target does not exist", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       await expect(
@@ -415,7 +421,7 @@ describe("deleteFile", () => {
     });
 
     it("does not touch any other files when the target is missing", async () => {
-      const dir = copyFixture("delete-file-ts");
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
       const importerBefore = readFile(dir, "src/importer.ts");
