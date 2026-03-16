@@ -118,6 +118,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P1 — Very high value bugs and tech debt
 
+- **`moveFile` stale project graph — sequential moves fail** → [`docs/specs/20260316-movefile-stale-project-graph.md`](specs/20260316-movefile-stale-project-graph.md) — Hand-rolled move doesn't update ts-morph project graph; subsequent moves crash with ENOENT on previously-moved files. Fix: use `sourceFile.move()`. Blocks test colocation AC1.
 
 - **Test colocation Phase 1: unit tests** → [`docs/specs/20260315-colocate-unit-tests.md`](specs/20260315-colocate-unit-tests.md) — Move unit tests next to source, fixtures and shared helpers to `src/__testHelpers__/`.
 

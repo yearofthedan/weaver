@@ -59,6 +59,8 @@ When a spec says "move function X to file Y", do not prescribe manual steps. Tha
 **Each AC must leave the codebase in a working state.**
 Every AC should be a functional unit — the build passes and tests pass after it lands. If the natural tool does X+Y atomically, that's one AC, not two.
 
+**Fix the cause, not the error.** When an operation fails, the instinct is to suppress the error or add a try-catch. That's always wrong. Ask: "what does the user want to happen?" Users don't want `ok: true` with silently wrong results — they want the operation to actually work. The fix is the one that makes the operation correct, not the one that makes the error go away. If sequential moves crash because the project graph is stale, fix the project graph — don't catch the ENOENT. If moveDirectory corrupts imports, fix the import rewriting — don't skip the sub-project files. Every error is a symptom of an underlying correctness bug. Fix that bug.
+
 **Where gotchas belong: code first, feature docs second, MEMORY.md last.**
 1. **Clear code** — if the pattern is visible in the source (comments, naming, consistent usage), that's sufficient.
 2. **Feature / tech docs** (`docs/features/`, `docs/tech/`) — if the gotcha is isolated to one feature or technology area.
