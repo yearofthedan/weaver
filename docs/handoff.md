@@ -51,8 +51,8 @@ eval/
   mutate-triage/       ← /mutate-triage skill: classify survivors, open issues for noise, fix PRs for fixable gaps
   light-bridge-refactoring/ ← shipped with npm; agent workflow guidance for light-bridge tools (when to use, response handling, sequences)
 src/
-  schema.ts
   adapters/
+    schema.ts         ← Zod schemas + inferred arg types for all operations (used by tools.ts + dispatcher)
     cli/
       cli.ts      ← CLI entry point; registers daemon, serve, stop commands
     mcp/
@@ -73,7 +73,6 @@ src/
     rewrite-own-imports.ts ← rewriteMovedFileOwnImports — adjusts a moved file's own relative specifiers
     symbol-ref.ts         ← SymbolRef — resolved exported symbol value object (lookup, unwrap, remove)
     *.test.ts              ← colocated unit tests
-  types.ts        ← result types + LanguagePlugin + Compiler + CompilerRegistry interfaces
   security.ts     ← isWithinWorkspace() + isSensitiveFile() + validateFilePath() — boundary, sensitive file blocklist, path validation
   security.test.ts ← colocated unit test
   daemon/
@@ -104,8 +103,10 @@ src/
     searchText.ts      ← searchText(pattern, scope: WorkspaceScope, { glob, context, maxResults })
     replaceText.ts     ← replaceText(scope: WorkspaceScope, { pattern, replacement, glob } | { edits })
     deleteFile.ts      ← deleteFile(tsCompiler, file, scope: WorkspaceScope)
+    types.ts           ← result types for all operations (RenameResult, MoveResult, FindReferencesResult, etc.)
     *.test.ts          ← colocated unit tests
   compilers/
+    types.ts           ← Compiler + LanguagePlugin + CompilerRegistry interfaces; SpanLocation, DefinitionLocation, FileTextEdit
     ts.ts              ← TsMorphCompiler: compiler calls via ts-morph Project; refreshFile() for selective invalidation
     ts-move-symbol.ts  ← tsMoveSymbol(): compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
     __helpers__/       ← mock-compiler.ts shared test helper
@@ -172,6 +173,8 @@ Priorities run top to bottom. Complete a tier before starting the next.
 - **Workspace split: `app` + `tooling` (`conventions` + `evals`)** `[needs design]` — move `agent:check`, `agent:doctor`, and `eval` scripts plus related tests into a tooling project; keep app unit tests and mutation testing with app initially; define dependency ownership and migration steps that preserve CI and publish flows
 - **: Claude Code Marketplace submission** `[needs design]` — submit to official Anthropic marketplace; position alongside LSP code intelligence plugins
 - **`moveSymbol` cannot move non-exported local functions** `[needs design]` — `moveSymbol` only handles top-level exported declarations. Attempting to move an unexported helper returns `SYMBOL_NOT_FOUND`. Workaround: manually create the destination file with the symbol exported, remove from source, add import.
+- **`moveSymbol` requires destination file to exist** `[needs design]` — if the destination file does not exist, `moveSymbol` fails. Callers must pre-create the file (e.g. with `export {};`) before moving symbols into it. A `createFile` capability or auto-creation in `moveSymbol` would eliminate this friction. Discovered during the `types.ts` decomposition.
+- **`moveSymbol` does not carry transitive imports** `[needs design]` — when a symbol references types from other modules, those imports are not added to the destination file automatically. After moving e.g. `Compiler` (which references `WorkspaceScope`), the destination file must have the missing import added manually. Discovered during the `types.ts` decomposition.
 - `createFile` `[needs design]` — scaffold a file with correct import paths
 - **Agent guidance on type errors in tool responses** `[needs design]` — all write operations return `typeErrors`; agents need to know this is an action item (something wasn't fully updated) and follow up with `replaceText`. Currently nothing teaches this pattern. Decision needed: shipped skill file, tool description addition, CLAUDE.md guidance snippet, or combination?
 - **`rename` doesn't catch derived variable names** `[needs design]` — `rename` follows the compiler's reference graph, which is correct for type-checked references. But when renaming `TsProvider` → `TsMorphCompiler`, variables like `tsProviderSingleton`, `pluginProviders`, `stubProvider` are untouched — they're just strings to the compiler. During the providers→compilers rename this meant ~100 extra tool calls for what should have been automatic. Possible approaches: (a) `rename --derived` flag that does a substring text pass after the compiler rename; (b) smarter `findReferences` that can return construct types (variable, type, import, parameter) like IntelliJ's "Find Usages" — let the caller filter by kind and batch-rename; (c) `rename` automatically identifies variables whose names derive from the renamed symbol (e.g. local variables typed as the renamed interface, or variables assigned from an import of the renamed symbol) and offers to rename them too. The IntelliJ model is worth studying — it distinguishes types, variables, imports, and string occurrences in its rename dialog.
