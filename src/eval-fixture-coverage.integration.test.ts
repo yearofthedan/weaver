@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { TOOL_NAMES } from "./mcp/mcp.js";
+import { TOOL_NAMES } from "./adapters/mcp/mcp.js";
 
 const FIXTURES_DIR = join(import.meta.dirname, "../eval/fixtures");
 

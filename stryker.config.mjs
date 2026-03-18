@@ -20,7 +20,7 @@ const config = {
     "!src/schema.ts",
     "!src/types.ts",
     // MCP + most daemon files: integration tests only, not available in Stryker's sandbox.
-    "!src/mcp.ts",
+    "!src/adapters/mcp/mcp.ts",
     "!src/daemon/daemon.ts",
     "!src/daemon/paths.ts",
     "!src/daemon/watcher.ts",

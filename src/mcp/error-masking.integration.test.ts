@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyDaemonError } from "./mcp.js";
+import { classifyDaemonError } from "../adapters/mcp/mcp.js";
 
 describe("classifyDaemonError", () => {
   it("returns DAEMON_STARTING for ECONNREFUSED (daemon not yet listening)", () => {

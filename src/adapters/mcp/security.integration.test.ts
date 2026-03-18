@@ -1,7 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseMcpResult, useMcpContext } from "../__testHelpers__/mcp-helpers.js";
+import { parseMcpResult, useMcpContext } from "../../__testHelpers__/mcp-helpers.js";
 
 describe("MCP transport — workspace security", () => {
   const { setup } = useMcpContext();

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command, type CommanderError } from "commander";
+import { runServe } from "./adapters/mcp/mcp.js";
 import { runDaemon, runStop } from "./daemon/daemon.js";
-import { runServe } from "./mcp/mcp.js";
 
 function jsonError(message: string): void {
   process.stdout.write(`${JSON.stringify({ ok: false, error: "VALIDATION_ERROR", message })}\n`);
