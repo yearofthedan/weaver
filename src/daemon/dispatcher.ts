@@ -1,14 +1,3 @@
-import { WorkspaceScope } from "../domain/workspace-scope.js";
-import { extractFunction } from "../operations/extractFunction.js";
-import { findReferences } from "../operations/findReferences.js";
-import { getDefinition } from "../operations/getDefinition.js";
-import { getTypeErrors, getTypeErrorsForFiles } from "../operations/getTypeErrors.js";
-import { moveDirectory } from "../operations/moveDirectory.js";
-import { moveFile } from "../operations/moveFile.js";
-import { rename } from "../operations/rename.js";
-import { replaceText } from "../operations/replaceText.js";
-import { searchText } from "../operations/searchText.js";
-import { NodeFileSystem } from "../ports/node-filesystem.js";
 import {
   DeleteFileArgsSchema,
   ExtractFunctionArgsSchema,
@@ -21,13 +10,24 @@ import {
   RenameArgsSchema,
   ReplaceTextArgsSchema,
   SearchTextArgsSchema,
-} from "../schema.js";
+} from "../adapters/schema.js";
+import type { CompilerRegistry } from "../compilers/types.js";
+import { WorkspaceScope } from "../domain/workspace-scope.js";
+import { extractFunction } from "../operations/extractFunction.js";
+import { findReferences } from "../operations/findReferences.js";
+import { getDefinition } from "../operations/getDefinition.js";
+import { getTypeErrors, getTypeErrorsForFiles } from "../operations/getTypeErrors.js";
+import { moveDirectory } from "../operations/moveDirectory.js";
+import { moveFile } from "../operations/moveFile.js";
+import { rename } from "../operations/rename.js";
+import { replaceText } from "../operations/replaceText.js";
+import { searchText } from "../operations/searchText.js";
+import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { isWithinWorkspace, validateFilePath } from "../security.js";
-import type { CompilerRegistry } from "../types.js";
 import { makeRegistry } from "./language-plugin-registry.js";
 
+export type { LanguagePlugin } from "../compilers/types.js";
 export { createVueLanguagePlugin } from "../plugins/vue/plugin.js";
-export type { LanguagePlugin } from "../types.js";
 export {
   clearLanguagePlugins,
   invalidateAll,

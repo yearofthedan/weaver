@@ -1,9 +1,9 @@
 import type { TsMorphCompiler } from "../compilers/ts.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import type { ExtractFunctionResult } from "../types.js";
 import { assertFileExists } from "../utils/assert-file.js";
 import { EngineError } from "../utils/errors.js";
 import { applyTextEdits, lineColToOffset } from "../utils/text-utils.js";
+import type { ExtractFunctionResult } from "./types.js";
 
 /**
  * Extract a selection of statements from a TypeScript function into a new

@@ -4,9 +4,9 @@ import * as path from "node:path";
 import safeRegex from "safe-regex2";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { isSensitiveFile } from "../security.js";
-import type { ContextLine, SearchMatch, SearchTextResult } from "../types.js";
 import { EngineError } from "../utils/errors.js";
 import { SKIP_DIRS } from "../utils/file-walk.js";
+import type { ContextLine, SearchMatch, SearchTextResult } from "./types.js";
 
 const DEFAULT_MAX_RESULTS = 500;
 

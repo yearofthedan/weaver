@@ -1,5 +1,5 @@
+import type { Compiler, CompilerRegistry, LanguagePlugin } from "../compilers/types.js";
 import { createVueLanguagePlugin } from "../plugins/vue/plugin.js";
-import type { Compiler, CompilerRegistry, LanguagePlugin } from "../types.js";
 import { findTsConfigForFile } from "../utils/ts-project.js";
 
 const languagePlugins: LanguagePlugin[] = [];

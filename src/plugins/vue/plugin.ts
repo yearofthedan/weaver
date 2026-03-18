@@ -1,4 +1,4 @@
-import type { Compiler, LanguagePlugin } from "../../types.js";
+import type { Compiler, LanguagePlugin } from "../../compilers/types.js";
 import { isVueProject } from "../../utils/ts-project.js";
 
 export function createVueLanguagePlugin(): LanguagePlugin {

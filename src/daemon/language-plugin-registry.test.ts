@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TsMorphCompiler } from "../compilers/ts.js";
-import type { Compiler, LanguagePlugin } from "../types.js";
+import type { Compiler, LanguagePlugin } from "../compilers/types.js";
 import {
   clearLanguagePlugins,
   invalidateAll,

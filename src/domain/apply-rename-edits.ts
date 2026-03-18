@@ -1,4 +1,4 @@
-import type { Compiler, FileTextEdit } from "../types.js";
+import type { Compiler, FileTextEdit } from "../compilers/types.js";
 import { applyTextEdits } from "../utils/text-utils.js";
 import type { WorkspaceScope } from "./workspace-scope.js";
 

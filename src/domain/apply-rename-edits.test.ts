@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Compiler, FileTextEdit } from "../types.js";
+import type { Compiler, FileTextEdit } from "../compilers/types.js";
 import { applyRenameEdits, mergeFileEdits } from "./apply-rename-edits.js";
 import type { WorkspaceScope } from "./workspace-scope.js";
 

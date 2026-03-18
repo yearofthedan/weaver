@@ -6,12 +6,12 @@ import { ImportRewriter } from "../domain/import-rewriter.js";
 import { rewriteImportersOfMovedFile } from "../domain/rewrite-importers-of-moved-file.js";
 import { rewriteMovedFileOwnImports } from "../domain/rewrite-own-imports.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import type { Compiler, DefinitionLocation, FileTextEdit, SpanLocation } from "../types.js";
 import { EngineError } from "../utils/errors.js";
 import { JS_EXTENSIONS, TS_EXTENSIONS } from "../utils/extensions.js";
 import { SKIP_DIRS, walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 import { tsMoveSymbol } from "./ts-move-symbol.js";
+import type { Compiler, DefinitionLocation, FileTextEdit, SpanLocation } from "./types.js";
 
 export class TsMorphCompiler implements Compiler {
   private projects = new Map<string, Project>();

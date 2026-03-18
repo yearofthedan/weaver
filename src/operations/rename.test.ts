@@ -3,11 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
 import { makeMockCompiler } from "../compilers/__helpers__/mock-compiler.js";
 import { TsMorphCompiler } from "../compilers/ts.js";
+import type { SpanLocation } from "../compilers/types.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { VolarCompiler } from "../plugins/vue/compiler.js";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
-import type { SpanLocation } from "../types.js";
 import { rename } from "./rename.js";
 
 // assertFileExists (called inside rename) still uses the real filesystem — it is not yet

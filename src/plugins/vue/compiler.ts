@@ -1,10 +1,15 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type {
+  Compiler,
+  DefinitionLocation,
+  FileTextEdit,
+  SpanLocation,
+} from "../../compilers/types.js";
 import { ImportRewriter } from "../../domain/import-rewriter.js";
 import { rewriteImportersOfMovedFile } from "../../domain/rewrite-importers-of-moved-file.js";
 import { rewriteMovedFileOwnImports } from "../../domain/rewrite-own-imports.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
-import type { Compiler, DefinitionLocation, FileTextEdit, SpanLocation } from "../../types.js";
 import { EngineError } from "../../utils/errors.js";
 import { TS_EXTENSIONS } from "../../utils/extensions.js";
 import { walkFiles } from "../../utils/file-walk.js";

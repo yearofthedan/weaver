@@ -3,8 +3,8 @@ import { ts } from "ts-morph";
 import type { TsMorphCompiler } from "../compilers/ts.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { FileSystem } from "../ports/filesystem.js";
-import type { GetTypeErrorsResult, PostWriteDiagnostics, TypeDiagnostic } from "../types.js";
 import { EngineError } from "../utils/errors.js";
+import type { GetTypeErrorsResult, PostWriteDiagnostics, TypeDiagnostic } from "./types.js";
 
 const TS_FILE_EXTENSIONS = new Set([".ts", ".tsx"]);
 

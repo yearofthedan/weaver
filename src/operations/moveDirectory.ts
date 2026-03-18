@@ -1,9 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { Compiler } from "../compilers/types.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import type { Compiler, MoveDirectoryResult } from "../types.js";
 import { EngineError } from "../utils/errors.js";
 import { SKIP_DIRS } from "../utils/file-walk.js";
+import type { MoveDirectoryResult } from "./types.js";
 
 function resolveAbs(p: string): string {
   return path.resolve(p);

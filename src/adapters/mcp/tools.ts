@@ -12,7 +12,7 @@ import {
   ReplaceTextBaseSchema,
   SearchTextArgsSchema,
   TextEditSchema,
-} from "../../schema.js";
+} from "../schema.js";
 
 // ─── Tool definition table ─────────────────────────────────────────────────
 

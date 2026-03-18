@@ -1,8 +1,9 @@
 import * as path from "node:path";
 import type { TsMorphCompiler } from "../compilers/ts.js";
+import type { Compiler } from "../compilers/types.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import type { Compiler, MoveSymbolResult } from "../types.js";
 import { assertFileExists } from "../utils/assert-file.js";
+import type { MoveSymbolResult } from "./types.js";
 
 /**
  * Move a named export from `sourceFile` to `destFile`, updating all importers

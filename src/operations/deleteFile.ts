@@ -3,10 +3,10 @@ import { Project } from "ts-morph";
 import type { TsMorphCompiler } from "../compilers/ts.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { removeVueImportsOfDeletedFile } from "../plugins/vue/scan.js";
-import type { DeleteFileResult } from "../types.js";
 import { assertFileExists } from "../utils/assert-file.js";
 import { TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
+import type { DeleteFileResult } from "./types.js";
 
 export async function deleteFile(
   tsCompiler: TsMorphCompiler,
