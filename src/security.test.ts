@@ -49,115 +49,66 @@ describe("validateFilePath", () => {
 });
 
 describe("isSensitiveFile", () => {
-  it("blocks .env files", () => {
-    expect(isSensitiveFile("/workspace/.env")).toBe(true);
+  it.each([
+    "/workspace/.env",
+    "/workspace/.env.local",
+    "/workspace/.env.production",
+    "/workspace/src/.env.test",
+    "/workspace/cert.pem",
+    "/certs/server.pem",
+    "/workspace/private.key",
+    "/home/user/.ssh/id_rsa",
+    "/home/user/.ssh/id_ecdsa",
+    "/home/user/.ssh/id_ed25519",
+    "/home/user/.ssh/id_dsa",
+    "/workspace/keystore.p12",
+    "/workspace/keystore.pfx",
+    "/workspace/app.jks",
+    "/workspace/app.keystore",
+    "/workspace/server.cert",
+    "/workspace/server.crt",
+    "/home/user/.aws/credentials",
+    "/workspace/credentials",
+    "/workspace/.credentials",
+    "/home/user/.ssh/known_hosts",
+    "/home/user/.ssh/authorized_keys",
+    "/workspace/.npmrc",
+    "/home/user/.npmrc",
+    "/home/user/.netrc",
+    "/workspace/.envrc",
+    "/home/user/project/.envrc",
+    "/home/user/.vault-token",
+    "/workspace/.htpasswd",
+    "/workspace/secrets.yaml",
+    "/workspace/secrets.yml",
+    "/workspace/passwords.kdbx",
+    "/workspace/service-account.json",
+    "/workspace/service-account-prod.json",
+    "/workspace/my-app-key.json",
+    "/workspace/firebase-key.json",
+  ])("blocks %s", (filePath) => {
+    expect(isSensitiveFile(filePath)).toBe(true);
   });
 
-  it("blocks .env.local and other .env variants", () => {
-    expect(isSensitiveFile("/workspace/.env.local")).toBe(true);
-    expect(isSensitiveFile("/workspace/.env.production")).toBe(true);
-    expect(isSensitiveFile("/workspace/src/.env.test")).toBe(true);
-  });
-
-  it("blocks PEM certificate files", () => {
-    expect(isSensitiveFile("/workspace/cert.pem")).toBe(true);
-    expect(isSensitiveFile("/certs/server.pem")).toBe(true);
-  });
-
-  it("blocks private key files", () => {
-    expect(isSensitiveFile("/workspace/private.key")).toBe(true);
-    expect(isSensitiveFile("/home/user/.ssh/id_rsa")).toBe(true);
-    expect(isSensitiveFile("/home/user/.ssh/id_ecdsa")).toBe(true);
-    expect(isSensitiveFile("/home/user/.ssh/id_ed25519")).toBe(true);
-    expect(isSensitiveFile("/home/user/.ssh/id_dsa")).toBe(true);
-  });
-
-  it("blocks PKCS12 keystores", () => {
-    expect(isSensitiveFile("/workspace/keystore.p12")).toBe(true);
-    expect(isSensitiveFile("/workspace/keystore.pfx")).toBe(true);
-  });
-
-  it("blocks Java keystores", () => {
-    expect(isSensitiveFile("/workspace/app.jks")).toBe(true);
-    expect(isSensitiveFile("/workspace/app.keystore")).toBe(true);
-  });
-
-  it("blocks certificate files", () => {
-    expect(isSensitiveFile("/workspace/server.cert")).toBe(true);
-    expect(isSensitiveFile("/workspace/server.crt")).toBe(true);
-  });
-
-  it("blocks AWS and cloud credential files", () => {
-    expect(isSensitiveFile("/home/user/.aws/credentials")).toBe(true);
-    expect(isSensitiveFile("/workspace/credentials")).toBe(true);
-    expect(isSensitiveFile("/workspace/.credentials")).toBe(true);
-  });
-
-  it("blocks SSH known_hosts and authorized_keys", () => {
-    expect(isSensitiveFile("/home/user/.ssh/known_hosts")).toBe(true);
-    expect(isSensitiveFile("/home/user/.ssh/authorized_keys")).toBe(true);
-  });
-
-  it("allows normal source files", () => {
-    expect(isSensitiveFile("/workspace/src/utils.ts")).toBe(false);
-    expect(isSensitiveFile("/workspace/src/App.vue")).toBe(false);
-    expect(isSensitiveFile("/workspace/package.json")).toBe(false);
-    expect(isSensitiveFile("/workspace/README.md")).toBe(false);
-    expect(isSensitiveFile("/workspace/.gitignore")).toBe(false);
-  });
-
-  it("allows files that merely contain env-like words in their name", () => {
-    expect(isSensitiveFile("/workspace/src/environment.ts")).toBe(false);
-    expect(isSensitiveFile("/workspace/src/keyUtils.ts")).toBe(false);
-  });
-
-  it("does not block files whose name merely ends with .env (^ anchor must hold)", () => {
-    // Dropping the ^ from /^\.env($|\.|_)/ would match mid-filename occurrences
-    // like config.env or template.env — these should NOT be blocked.
-    expect(isSensitiveFile("/workspace/config.env")).toBe(false);
-    expect(isSensitiveFile("/workspace/template.env")).toBe(false);
-    expect(isSensitiveFile("/workspace/myapp.env")).toBe(false);
-  });
-
-  it("blocks npm and HTTP credential files", () => {
-    expect(isSensitiveFile("/workspace/.npmrc")).toBe(true);
-    expect(isSensitiveFile("/home/user/.npmrc")).toBe(true);
-    expect(isSensitiveFile("/home/user/.netrc")).toBe(true);
-  });
-
-  it("blocks direnv shell-variable files", () => {
-    expect(isSensitiveFile("/workspace/.envrc")).toBe(true);
-    expect(isSensitiveFile("/home/user/project/.envrc")).toBe(true);
-  });
-
-  it("blocks HashiCorp Vault token file", () => {
-    expect(isSensitiveFile("/home/user/.vault-token")).toBe(true);
-  });
-
-  it("blocks htpasswd files", () => {
-    expect(isSensitiveFile("/workspace/.htpasswd")).toBe(true);
-  });
-
-  it("blocks secrets YAML files", () => {
-    expect(isSensitiveFile("/workspace/secrets.yaml")).toBe(true);
-    expect(isSensitiveFile("/workspace/secrets.yml")).toBe(true);
-  });
-
-  it("blocks KeePass database files", () => {
-    expect(isSensitiveFile("/workspace/passwords.kdbx")).toBe(true);
-  });
-
-  it("blocks GCP and AWS service account key files", () => {
-    expect(isSensitiveFile("/workspace/service-account.json")).toBe(true);
-    expect(isSensitiveFile("/workspace/service-account-prod.json")).toBe(true);
-    expect(isSensitiveFile("/workspace/my-app-key.json")).toBe(true);
-    expect(isSensitiveFile("/workspace/firebase-key.json")).toBe(true);
-  });
-
-  it("does not block ordinary JSON files", () => {
-    expect(isSensitiveFile("/workspace/package.json")).toBe(false);
-    expect(isSensitiveFile("/workspace/tsconfig.json")).toBe(false);
-    expect(isSensitiveFile("/workspace/monkey.json")).toBe(false);
+  it.each([
+    "/workspace/src/utils.ts",
+    "/workspace/src/App.vue",
+    "/workspace/package.json",
+    "/workspace/README.md",
+    "/workspace/.gitignore",
+    // Files that merely contain env-like words in their name
+    "/workspace/src/environment.ts",
+    "/workspace/src/keyUtils.ts",
+    // Files ending with .env but without the leading dot (^ anchor pins the pattern
+    // start: dropping it would match mid-filename occurrences like config.env)
+    "/workspace/config.env",
+    "/workspace/template.env",
+    "/workspace/myapp.env",
+    // Ordinary JSON files (not matching service-account key patterns)
+    "/workspace/tsconfig.json",
+    "/workspace/monkey.json",
+  ])("allows %s", (filePath) => {
+    expect(isSensitiveFile(filePath)).toBe(false);
   });
 });
 
@@ -178,41 +129,18 @@ describe("isWithinWorkspace", () => {
     return d;
   }
 
-  it("returns true for a path inside the workspace", () => {
-    expect(isWithinWorkspace("/tmp/my-workspace/src/foo.ts", ws)).toBe(true);
-  });
-
-  it("returns true for a path equal to the workspace root", () => {
-    expect(isWithinWorkspace("/tmp/my-workspace", ws)).toBe(true);
-  });
-
-  it("returns false for a sibling directory that shares the workspace prefix", () => {
-    expect(isWithinWorkspace("/tmp/my-workspace-other/file.ts", ws)).toBe(false);
-  });
-
-  it("returns false for a path in a completely different directory", () => {
-    expect(isWithinWorkspace("/tmp/other/file.ts", ws)).toBe(false);
-  });
-
-  it("returns false for a path that resolves outside via ..", () => {
-    expect(isWithinWorkspace("/tmp/my-workspace/../other/file.ts", ws)).toBe(false);
-  });
-
-  it("returns true for a deeply nested path", () => {
-    expect(isWithinWorkspace("/tmp/my-workspace/a/b/c/d/index.ts", ws)).toBe(true);
-  });
-
-  it("returns false for the parent of the workspace", () => {
-    expect(isWithinWorkspace("/tmp", ws)).toBe(false);
-  });
-
-  it("returns false for a root path", () => {
-    expect(isWithinWorkspace("/", ws)).toBe(false);
-  });
-
-  it("handles absolute paths computed with path.join correctly", () => {
-    const inside = path.join(ws, "src/index.ts");
-    expect(isWithinWorkspace(inside, ws)).toBe(true);
+  it.each([
+    { filePath: "/tmp/my-workspace/src/foo.ts", expected: true, desc: "path inside workspace" },
+    { filePath: "/tmp/my-workspace", expected: true, desc: "workspace root itself" },
+    { filePath: "/tmp/my-workspace-other/file.ts", expected: false, desc: "sibling dir sharing the workspace prefix" },
+    { filePath: "/tmp/other/file.ts", expected: false, desc: "completely different directory" },
+    { filePath: "/tmp/my-workspace/../other/file.ts", expected: false, desc: "path escaping via .." },
+    { filePath: "/tmp/my-workspace/a/b/c/d/index.ts", expected: true, desc: "deeply nested path" },
+    { filePath: "/tmp", expected: false, desc: "parent of the workspace" },
+    { filePath: "/", expected: false, desc: "root path" },
+    { filePath: "/tmp/my-workspace/src/index.ts", expected: true, desc: "path computed with path.join" },
+  ])("$desc", ({ filePath, expected }) => {
+    expect(isWithinWorkspace(filePath, ws)).toBe(expected);
   });
 
   it("returns false for a symlink inside the workspace that resolves outside", () => {

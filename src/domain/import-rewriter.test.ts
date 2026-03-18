@@ -207,50 +207,12 @@ describe("ImportRewriter", () => {
   });
 
   describe("no-op cases", () => {
-    it("does not modify a file that does not import the symbol at all", () => {
-      const original = `import { SomethingElse } from "./utils.js";\n`;
-      const scope = makeScope({ "/project/src/consumer.ts": original });
-      rewriter.rewrite(
-        ["/project/src/consumer.ts"],
-        "MyFn",
-        "/project/src/utils.ts",
-        "/project/src/helpers.ts",
-        scope,
-      );
-      expect(readFile(scope, "/project/src/consumer.ts")).toBe(original);
-      expect(scope.modified).not.toContain("/project/src/consumer.ts");
-    });
-
-    it("does not modify a file that imports from oldSource but not the moved symbol", () => {
-      const original = `import { OtherFn } from "./utils.js";\n`;
-      const scope = makeScope({ "/project/src/consumer.ts": original });
-      rewriter.rewrite(
-        ["/project/src/consumer.ts"],
-        "MyFn",
-        "/project/src/utils.ts",
-        "/project/src/helpers.ts",
-        scope,
-      );
-      expect(readFile(scope, "/project/src/consumer.ts")).toBe(original);
-      expect(scope.modified).not.toContain("/project/src/consumer.ts");
-    });
-
-    it("does not modify a file with a bare export (no module specifier)", () => {
-      const original = `const MyFn = () => {};\nexport { MyFn };\n`;
-      const scope = makeScope({ "/project/src/consumer.ts": original });
-      rewriter.rewrite(
-        ["/project/src/consumer.ts"],
-        "MyFn",
-        "/project/src/utils.ts",
-        "/project/src/helpers.ts",
-        scope,
-      );
-      expect(readFile(scope, "/project/src/consumer.ts")).toBe(original);
-      expect(scope.modified).not.toContain("/project/src/consumer.ts");
-    });
-
-    it("does not modify a file that imports an unrelated module", () => {
-      const original = `import { MyFn } from "./other.js";\n`;
+    it.each([
+      ["symbol not imported at all", `import { SomethingElse } from "./utils.js";\n`],
+      ["imports from old source but not the moved symbol", `import { OtherFn } from "./utils.js";\n`],
+      ["bare export with no module specifier", `const MyFn = () => {};\nexport { MyFn };\n`],
+      ["imports symbol from an unrelated module", `import { MyFn } from "./other.js";\n`],
+    ])("does not modify file when %s", (_desc, original) => {
       const scope = makeScope({ "/project/src/consumer.ts": original });
       rewriter.rewrite(
         ["/project/src/consumer.ts"],

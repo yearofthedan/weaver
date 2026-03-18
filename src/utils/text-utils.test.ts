@@ -2,37 +2,20 @@ import { describe, expect, it } from "vitest";
 import { applyTextEdits, lineColToOffset, offsetToLineCol } from "./text-utils.js";
 
 describe("offsetToLineCol", () => {
-  it("returns line 1 col 1 for offset 0 in empty string", () => {
-    expect(offsetToLineCol("", 0)).toEqual({ line: 1, col: 1 });
-  });
-
-  it("returns line 1 col 1 for offset 0 at start of file", () => {
-    expect(offsetToLineCol("hello", 0)).toEqual({ line: 1, col: 1 });
-  });
-
-  it("returns correct position mid-line", () => {
-    expect(offsetToLineCol("hello world", 6)).toEqual({ line: 1, col: 7 });
-  });
-
-  it("returns correct position at the newline character itself", () => {
+  it.each([
+    { content: "", offset: 0, line: 1, col: 1, desc: "offset 0 in empty string" },
+    { content: "hello", offset: 0, line: 1, col: 1, desc: "offset 0 at start of file" },
+    { content: "hello world", offset: 6, line: 1, col: 7, desc: "mid-line" },
     // "abc\ndef" — offset 3 is '\n' → still line 1, col 4
-    expect(offsetToLineCol("abc\ndef", 3)).toEqual({ line: 1, col: 4 });
-  });
-
-  it("returns correct position on second line after newline", () => {
+    { content: "abc\ndef", offset: 3, line: 1, col: 4, desc: "at the newline character itself" },
     // "abc\ndef" — offset 4 is 'd' → line 2, col 1
-    expect(offsetToLineCol("abc\ndef", 4)).toEqual({ line: 2, col: 1 });
-  });
-
-  it("returns correct position at last char (no trailing newline)", () => {
-    const s = "abc\ndef";
+    { content: "abc\ndef", offset: 4, line: 2, col: 1, desc: "first char of second line" },
     // last char 'f' is at offset 6 → line 2, col 3
-    expect(offsetToLineCol(s, s.length - 1)).toEqual({ line: 2, col: 3 });
-  });
-
-  it("handles three lines", () => {
+    { content: "abc\ndef", offset: 6, line: 2, col: 3, desc: "last char with no trailing newline" },
     // "a\nb\nc" — offset 4 is 'c' → line 3, col 1
-    expect(offsetToLineCol("a\nb\nc", 4)).toEqual({ line: 3, col: 1 });
+    { content: "a\nb\nc", offset: 4, line: 3, col: 1, desc: "third line" },
+  ])("$desc", ({ content, offset, line, col }) => {
+    expect(offsetToLineCol(content, offset)).toEqual({ line, col });
   });
 
   it("handles multi-byte characters (emoji are 2 JS code units)", () => {
@@ -46,22 +29,15 @@ describe("offsetToLineCol", () => {
 });
 
 describe("lineColToOffset", () => {
-  it("returns offset 0 for line 1 col 1", () => {
-    expect(lineColToOffset("hello", 1, 1)).toBe(0);
-  });
-
-  it("returns correct offset mid-line", () => {
-    expect(lineColToOffset("hello world", 1, 7)).toBe(6);
-  });
-
-  it("returns correct offset at start of second line", () => {
+  it.each([
+    { content: "hello", line: 1, col: 1, offset: 0, desc: "start of file" },
+    { content: "hello world", line: 1, col: 7, offset: 6, desc: "mid-line" },
     // "abc\ndef" — line 2, col 1 → offset 4
-    expect(lineColToOffset("abc\ndef", 2, 1)).toBe(4);
-  });
-
-  it("returns correct offset mid second line", () => {
+    { content: "abc\ndef", line: 2, col: 1, offset: 4, desc: "start of second line" },
     // "abc\ndef" — line 2, col 3 → offset 6
-    expect(lineColToOffset("abc\ndef", 2, 3)).toBe(6);
+    { content: "abc\ndef", line: 2, col: 3, offset: 6, desc: "mid second line" },
+  ])("$desc", ({ content, line, col, offset }) => {
+    expect(lineColToOffset(content, line, col)).toBe(offset);
   });
 
   it("is the inverse of offsetToLineCol (round-trip)", () => {
@@ -84,38 +60,40 @@ describe("lineColToOffset", () => {
 });
 
 describe("applyTextEdits", () => {
-  it("returns text unchanged with empty edit array", () => {
-    expect(applyTextEdits("hello", [])).toBe("hello");
-  });
-
-  it("replaces a span in the middle", () => {
-    expect(
-      applyTextEdits("hello world", [{ span: { start: 6, length: 5 }, newText: "there" }]),
-    ).toBe("hello there");
-  });
-
-  it("inserts at start with zero-length span", () => {
-    expect(applyTextEdits("world", [{ span: { start: 0, length: 0 }, newText: "hello " }])).toBe(
-      "hello world",
-    );
-  });
-
-  it("inserts at end with zero-length span", () => {
-    expect(applyTextEdits("hello", [{ span: { start: 5, length: 0 }, newText: "!" }])).toBe(
-      "hello!",
-    );
-  });
-
-  it("deletes a span with empty newText", () => {
-    expect(applyTextEdits("hello world", [{ span: { start: 5, length: 6 }, newText: "" }])).toBe(
-      "hello",
-    );
-  });
-
-  it("replaces the entire string", () => {
-    expect(applyTextEdits("old", [{ span: { start: 0, length: 3 }, newText: "brand new" }])).toBe(
-      "brand new",
-    );
+  it.each([
+    { text: "hello", edits: [], expected: "hello", desc: "empty edit array" },
+    {
+      text: "hello world",
+      edits: [{ span: { start: 6, length: 5 }, newText: "there" }],
+      expected: "hello there",
+      desc: "replace a span",
+    },
+    {
+      text: "world",
+      edits: [{ span: { start: 0, length: 0 }, newText: "hello " }],
+      expected: "hello world",
+      desc: "insert at start with zero-length span",
+    },
+    {
+      text: "hello",
+      edits: [{ span: { start: 5, length: 0 }, newText: "!" }],
+      expected: "hello!",
+      desc: "insert at end with zero-length span",
+    },
+    {
+      text: "hello world",
+      edits: [{ span: { start: 5, length: 6 }, newText: "" }],
+      expected: "hello",
+      desc: "delete a span with empty newText",
+    },
+    {
+      text: "old",
+      edits: [{ span: { start: 0, length: 3 }, newText: "brand new" }],
+      expected: "brand new",
+      desc: "replace the entire string",
+    },
+  ])("$desc", ({ text, edits, expected }) => {
+    expect(applyTextEdits(text, edits)).toBe(expected);
   });
 
   it("applies multiple non-overlapping edits correctly", () => {

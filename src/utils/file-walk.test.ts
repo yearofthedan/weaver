@@ -52,40 +52,17 @@ describe("walkFiles", () => {
       expect(result).toHaveLength(2);
     });
 
-    it("skips node_modules", () => {
+    it.each([
+      ["node_modules", "node_modules/dep/index.ts"],
+      ["dist", "dist/bundle.ts"],
+      [".git", ".git/objects/a.ts"],
+      [".nuxt", ".nuxt/a.ts"],
+      [".output", ".output/a.ts"],
+      [".vite", ".vite/a.ts"],
+    ])("skips %s", (_dir, skippedFile) => {
       write("src/a.ts");
-      write("node_modules/dep/index.ts");
-
-      const result = walkFiles(tmpDir, [".ts"]);
-      expect(result).toHaveLength(1);
-      expect(path.basename(result[0])).toBe("a.ts");
-    });
-
-    it("skips dist", () => {
-      write("src/a.ts");
-      write("dist/bundle.ts");
-
-      const result = walkFiles(tmpDir, [".ts"]);
-      expect(result).toHaveLength(1);
-      expect(path.basename(result[0])).toBe("a.ts");
-    });
-
-    it("skips .git", () => {
-      write("src/a.ts");
-      write(".git/objects/a.ts");
-
-      const result = walkFiles(tmpDir, [".ts"]);
-      expect(result).toHaveLength(1);
-    });
-
-    it("skips .nuxt, .output, .vite", () => {
-      write("src/a.ts");
-      write(".nuxt/a.ts");
-      write(".output/a.ts");
-      write(".vite/a.ts");
-
-      const result = walkFiles(tmpDir, [".ts"]);
-      expect(result).toHaveLength(1);
+      write(skippedFile);
+      expect(walkFiles(tmpDir, [".ts"])).toHaveLength(1);
     });
 
     it("returns .vue files when requested", () => {

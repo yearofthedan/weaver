@@ -36,69 +36,46 @@ describe("makeRegistry", () => {
 describe("dispatchRequest param validation", () => {
   const workspace = "/tmp/test-workspace";
 
-  it("returns VALIDATION_ERROR when rename receives line as a string", async () => {
-    const result = await dispatchRequest(
-      {
-        method: "rename",
-        params: { file: "/tmp/test-workspace/a.ts", line: "five", col: 1, newName: "foo" },
-      },
-      workspace,
-    );
-    expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
-  });
-
-  it("returns VALIDATION_ERROR when rename is missing required params", async () => {
-    const result = await dispatchRequest(
+  it.each([
+    [
+      "rename with line as string",
+      { method: "rename", params: { file: "/tmp/test-workspace/a.ts", line: "five", col: 1, newName: "foo" } },
+    ],
+    [
+      "rename missing required params",
       { method: "rename", params: { file: "/tmp/test-workspace/a.ts" } },
-      workspace,
-    );
-    expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
-  });
-
-  it("returns VALIDATION_ERROR when searchText receives pattern as a number", async () => {
-    const result = await dispatchRequest(
+    ],
+    [
+      "searchText with pattern as number",
       { method: "searchText", params: { pattern: 123 } },
-      workspace,
-    );
-    expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
-  });
-
-  it("returns VALIDATION_ERROR when findReferences receives col as null", async () => {
-    const result = await dispatchRequest(
+    ],
+    [
+      "findReferences with col as null",
+      { method: "findReferences", params: { file: "/tmp/test-workspace/a.ts", line: 1, col: null } },
+    ],
+    [
+      "replaceText with both pattern and edits",
       {
-        method: "findReferences",
-        params: { file: "/tmp/test-workspace/a.ts", line: 1, col: null },
+        method: "replaceText",
+        params: {
+          pattern: "foo",
+          replacement: "bar",
+          edits: [{ file: "/tmp/test-workspace/a.ts", line: 1, col: 1, oldText: "x", newText: "y" }],
+        },
       },
-      workspace,
-    );
+    ],
+    [
+      "replaceText with neither pattern nor edits",
+      { method: "replaceText", params: {} },
+    ],
+  ])("returns VALIDATION_ERROR — %s", async (_desc, request) => {
+    const result = await dispatchRequest(request, workspace);
     expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
   });
 
   it("returns UNKNOWN_METHOD for an unrecognised method", async () => {
     const result = await dispatchRequest({ method: "doSomethingFake", params: {} }, workspace);
     expect(result).toMatchObject({ ok: false, error: "UNKNOWN_METHOD" });
-  });
-
-  it("returns VALIDATION_ERROR when replaceText receives both pattern and edits", async () => {
-    const result = await dispatchRequest(
-      {
-        method: "replaceText",
-        params: {
-          pattern: "foo",
-          replacement: "bar",
-          edits: [
-            { file: "/tmp/test-workspace/a.ts", line: 1, col: 1, oldText: "x", newText: "y" },
-          ],
-        },
-      },
-      workspace,
-    );
-    expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
-  });
-
-  it("returns VALIDATION_ERROR when replaceText receives neither pattern nor edits", async () => {
-    const result = await dispatchRequest({ method: "replaceText", params: {} }, workspace);
-    expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
   });
 });
 
@@ -408,26 +385,12 @@ describe("dispatchRequest path character validation", () => {
     expect(result.message).toBe("path contains control characters: file");
   });
 
-  it("returns INVALID_PATH when file path contains a URI query character (?)", async () => {
+  it.each([
+    ["question mark (?)", "/tmp/workspace/src/foo.ts?v=1"],
+    ["hash (#)", "/tmp/workspace/src/foo.ts#anchor"],
+  ])("returns INVALID_PATH when file contains URI character — %s", async (_label, filePath) => {
     const result = (await dispatchRequest(
-      {
-        method: "rename",
-        params: { file: "/tmp/workspace/src/foo.ts?v=1", line: 1, col: 1, newName: "x" },
-      },
-      "/tmp/workspace",
-    )) as Record<string, unknown>;
-    expect(result.ok).toBe(false);
-    expect(result.error).toBe("INVALID_PATH");
-    expect(result.message).toContain("URI fragment or query character");
-    expect(result.message).toContain("file");
-  });
-
-  it("returns INVALID_PATH when file path contains a URI fragment character (#)", async () => {
-    const result = (await dispatchRequest(
-      {
-        method: "rename",
-        params: { file: "/tmp/workspace/src/foo.ts#anchor", line: 1, col: 1, newName: "x" },
-      },
+      { method: "rename", params: { file: filePath, line: 1, col: 1, newName: "x" } },
       "/tmp/workspace",
     )) as Record<string, unknown>;
     expect(result.ok).toBe(false);
