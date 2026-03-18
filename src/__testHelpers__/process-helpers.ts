@@ -6,7 +6,7 @@ import { lockfilePath, socketPath } from "../daemon/paths.js";
 import { PROJECT_ROOT } from "./helpers.js";
 
 const TSX_BIN = path.join(PROJECT_ROOT, "node_modules", ".bin", "tsx");
-const CLI_ENTRY = path.join(PROJECT_ROOT, "src", "cli.ts");
+const CLI_ENTRY = path.join(PROJECT_ROOT, "src", "adapters", "cli", "cli.ts");
 
 /**
  * Spawn the CLI and wait for a `{ status: "ready" }` line on stderr.

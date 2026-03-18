@@ -7,7 +7,7 @@ import { isDaemonAlive, PROTOCOL_VERSION, removeDaemonFiles, stopDaemon } from "
 import { socketPath } from "./paths.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const CLI_ENTRY = path.resolve(__dirname, "../..", "dist", "cli.js");
+const CLI_ENTRY = path.resolve(__dirname, "../..", "dist", "adapters", "cli", "cli.js");
 
 /**
  * Tracks whether the running daemon's protocol version has already been
