@@ -76,3 +76,40 @@ For project graph management, use ts-morph's incremental APIs (`project.removeSo
 ### Impact on `moveDirectory`
 
 `dir.move()` uses the same `sourceFile.move()` pipeline internally — same two bugs apply. The `moveDirectory` implementation (which currently uses `dir.move()`) has a latent `.js` extension-stripping bug. The fix should follow the same pattern: TS language service for rewriting, ts-morph for graph/physical move. Tracked separately.
+
+---
+
+## Full API audit (2026-03-18)
+
+Audited all operations against ts-morph docs and Volar API surface. Goal: find cases where we hand-roll something the library already provides correctly.
+
+### `deleteFile` — `sourceFile.delete()` does NOT clean up importers
+
+ts-morph's `SourceFile.delete()` removes the file from the in-memory project graph and queues a physical delete. It does **not** iterate other source files to remove their import/export declarations pointing at the deleted file. Our 5-phase implementation (in-project import removal, out-of-project walkFiles scan, Vue SFC regex scan, physical unlink, cache invalidation) is the correct approach — there is no simpler library API.
+
+### `extractFunction` — already uses the right API
+
+`extractFunction` delegates to the TypeScript language service's built-in "Extract Symbol" refactor via `ls.getApplicableRefactors()` + `ls.getEditsForRefactor()`. ts-morph does not add higher-level abstractions over this — `project.getLanguageService().compilerObject` is the intended access path. No hand-rolled reimplementation here.
+
+### Import rewriting (`ImportRewriter`) — no native ts-morph alternative
+
+ts-morph has no API for "rewrite imports of symbol X from file A to file B". The closest is `sourceFile.move()` (rewrites all imports of the file, not a specific symbol), which is broken for our use cases (see above). `ImportRewriter` uses throwaway in-memory ts-morph Projects for AST parsing and mutation — this is appropriate given that no library API exists for symbol-level import rewriting.
+
+### Summary
+
+| Area | Library API exists? | Our approach correct? |
+|------|--------------------|-----------------------|
+| `moveFile` | `getEditsForFileRename` ✓ | Yes — already using it |
+| `moveDirectory` | `dir.move()` — buggy | Yes — per-file `getEditsForFileRename` |
+| `deleteFile` | `sourceFile.delete()` — incomplete | Yes — manual importer cleanup |
+| `extractFunction` | TS LS `getEditsForRefactor` ✓ | Yes — already using it |
+| Import rewriting | None for symbol-level | Yes — `ImportRewriter` with in-memory AST |
+
+### What ts-morph actually provides
+
+ts-morph's value in this codebase is:
+1. **LanguageServiceHost management** — `Project` eliminates ~100 lines of `LanguageServiceHost` boilerplate per project type
+2. **AST mutation ergonomics** — `sf.getImportDeclarations()`, `decl.remove()`, `addImportDeclaration()` etc. vs raw `ts.factory.update*()` + `ts.createPrinter()`
+3. **Project graph lifecycle** — `removeSourceFile()`, `addSourceFileAtPath()`, `refreshFromFileSystemSync()`
+
+Its heavy-lifting APIs (`sourceFile.move()`, `dir.move()`) are bypassed due to bugs. We use ts-morph as infrastructure, not as a feature provider.
