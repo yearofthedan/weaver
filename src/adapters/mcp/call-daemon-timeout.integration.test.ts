@@ -3,7 +3,7 @@ import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { callDaemonForTest } from "./mcp.js";
+import { callDaemon } from "../../daemon/ensure-daemon.js";
 
 let sockPath: string;
 let server: net.Server;
@@ -38,7 +38,7 @@ afterEach(async () => {
 
 describe("callDaemon timeout", () => {
   it("rejects when the daemon never responds within the timeout", async () => {
-    await expect(callDaemonForTest(sockPath, { method: "rename", params: {} }, 50)).rejects.toThrow(
+    await expect(callDaemon(sockPath, { method: "rename", params: {} }, 50)).rejects.toThrow(
       /timed out/i,
     );
   });
@@ -61,8 +61,8 @@ describe("callDaemon timeout", () => {
       server.listen(sockPath, resolve);
     });
 
-    await expect(
-      callDaemonForTest(sockPath, { method: "rename", params: {} }, 1000),
-    ).resolves.toEqual(response);
+    await expect(callDaemon(sockPath, { method: "rename", params: {} }, 1000)).resolves.toEqual(
+      response,
+    );
   });
 });

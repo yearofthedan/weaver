@@ -18,6 +18,7 @@ import {
   TextEditSchema,
 } from "../../schema.js";
 import { validateWorkspace } from "../../security.js";
+import { classifyDaemonError } from "./classify-error.js";
 
 export async function runServe(opts: { workspace: string }): Promise<void> {
   const validation = validateWorkspace(opts.workspace);
@@ -350,22 +351,3 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
-
-/**
- * Returns "DAEMON_STARTING" for socket-level connection failures and timeouts
- * (transient — the daemon isn't ready yet, caller should retry).
- * Returns "INTERNAL_ERROR" for anything else (don't retry).
- *
- * Exported for testing only — do not call from production code.
- */
-export function classifyDaemonError(err: unknown): "DAEMON_STARTING" | "INTERNAL_ERROR" {
-  if (!(err instanceof Error)) return "INTERNAL_ERROR";
-  const code = (err as NodeJS.ErrnoException).code;
-  if (code === "ECONNREFUSED" || code === "ENOENT" || code === "ECONNRESET")
-    return "DAEMON_STARTING";
-  if (err.message.includes("timed out")) return "DAEMON_STARTING";
-  return "INTERNAL_ERROR";
-}
-
-/** Exported for testing only — do not call from production code. */
-export { callDaemon as callDaemonForTest };
