@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { Project } from "ts-morph";
+import { createThrowawaySourceFile } from "../compilers/throwaway-project.js";
 import type { TsMorphCompiler } from "../compilers/ts.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { removeVueImportsOfDeletedFile } from "../plugins/vue/scan.js";
@@ -102,8 +102,7 @@ export async function deleteFile(
       continue;
     }
 
-    const tmpProject = new Project({ useInMemoryFileSystem: true });
-    const sf = tmpProject.createSourceFile(filePath, raw);
+    const sf = createThrowawaySourceFile(filePath, raw);
     const fromDir = path.dirname(filePath);
 
     let removed = 0;

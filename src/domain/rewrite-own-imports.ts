@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { Project } from "ts-morph";
+import { createThrowawaySourceFile } from "../compilers/throwaway-project.js";
 import { JS_TS_PAIRS } from "../utils/extensions.js";
 import type { WorkspaceScope } from "./workspace-scope.js";
 
@@ -55,8 +55,7 @@ export function rewriteMovedFileOwnImports(
   const oldDir = path.dirname(oldPath);
   const newDir = path.dirname(newPath);
 
-  const tmpProject = new Project({ useInMemoryFileSystem: true });
-  const sf = tmpProject.createSourceFile(newPath, content);
+  const sf = createThrowawaySourceFile(newPath, content);
   let hasChanges = false;
 
   for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {

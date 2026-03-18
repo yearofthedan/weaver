@@ -209,7 +209,10 @@ describe("ImportRewriter", () => {
   describe("no-op cases", () => {
     it.each([
       ["symbol not imported at all", `import { SomethingElse } from "./utils.js";\n`],
-      ["imports from old source but not the moved symbol", `import { OtherFn } from "./utils.js";\n`],
+      [
+        "imports from old source but not the moved symbol",
+        `import { OtherFn } from "./utils.js";\n`,
+      ],
       ["bare export with no module specifier", `const MyFn = () => {};\nexport { MyFn };\n`],
       ["imports symbol from an unrelated module", `import { MyFn } from "./other.js";\n`],
     ])("does not modify file when %s", (_desc, original) => {

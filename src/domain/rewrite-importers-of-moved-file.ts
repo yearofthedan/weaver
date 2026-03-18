@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { Project } from "ts-morph";
+import { createThrowawaySourceFile } from "../compilers/throwaway-project.js";
 import { JS_EXTENSIONS, JS_TS_PAIRS } from "../utils/extensions.js";
 import { toRelBase } from "../utils/relative-path.js";
 import type { WorkspaceScope } from "./workspace-scope.js";
@@ -75,8 +75,7 @@ export function rewriteImportersOfMovedFile(
     const relNewBase = toRelBase(fromDir, newPath);
 
     const raw = scope.fs.readFile(filePath);
-    const tmpProject = new Project({ useInMemoryFileSystem: true });
-    const sf = tmpProject.createSourceFile(filePath, raw);
+    const sf = createThrowawaySourceFile(filePath, raw);
     let hasChanges = false;
 
     for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {

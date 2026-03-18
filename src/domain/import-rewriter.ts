@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { Project } from "ts-morph";
+import { createThrowawaySourceFile } from "../compilers/throwaway-project.js";
 import { JS_TS_PAIRS } from "../utils/extensions.js";
 import { computeRelativeImportPath, toRelBase } from "../utils/relative-path.js";
 import type { WorkspaceScope } from "./workspace-scope.js";
@@ -60,8 +60,7 @@ export class ImportRewriter {
   ): string | null {
     const fromDir = path.dirname(filePath);
     const relOldBase = toRelBase(fromDir, oldSource);
-    const tmpProject = new Project({ useInMemoryFileSystem: true });
-    const sf = tmpProject.createSourceFile("__rewrite__.ts", content);
+    const sf = createThrowawaySourceFile("__rewrite__.ts", content);
     let hasChanges = false;
 
     for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {

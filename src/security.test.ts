@@ -132,13 +132,25 @@ describe("isWithinWorkspace", () => {
   it.each([
     { filePath: "/tmp/my-workspace/src/foo.ts", expected: true, desc: "path inside workspace" },
     { filePath: "/tmp/my-workspace", expected: true, desc: "workspace root itself" },
-    { filePath: "/tmp/my-workspace-other/file.ts", expected: false, desc: "sibling dir sharing the workspace prefix" },
+    {
+      filePath: "/tmp/my-workspace-other/file.ts",
+      expected: false,
+      desc: "sibling dir sharing the workspace prefix",
+    },
     { filePath: "/tmp/other/file.ts", expected: false, desc: "completely different directory" },
-    { filePath: "/tmp/my-workspace/../other/file.ts", expected: false, desc: "path escaping via .." },
+    {
+      filePath: "/tmp/my-workspace/../other/file.ts",
+      expected: false,
+      desc: "path escaping via ..",
+    },
     { filePath: "/tmp/my-workspace/a/b/c/d/index.ts", expected: true, desc: "deeply nested path" },
     { filePath: "/tmp", expected: false, desc: "parent of the workspace" },
     { filePath: "/", expected: false, desc: "root path" },
-    { filePath: "/tmp/my-workspace/src/index.ts", expected: true, desc: "path computed with path.join" },
+    {
+      filePath: "/tmp/my-workspace/src/index.ts",
+      expected: true,
+      desc: "path computed with path.join",
+    },
   ])("$desc", ({ filePath, expected }) => {
     expect(isWithinWorkspace(filePath, ws)).toBe(expected);
   });

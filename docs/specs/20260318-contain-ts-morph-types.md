@@ -56,34 +56,25 @@ No public interface changes. All changes are internal — the `Compiler` interfa
 
 ### AC3: What methods to expose on TsMorphCompiler
 
-**Decision:** What's the right surface for `extractFunction` and `getTypeErrors` to use instead of raw `Project`?
+**Chosen approach: Option 1 — expose a raw `ts.LanguageService` accessor.**
 
-`extractFunction` needs:
-- Ensure a source file is in the project (`getSourceFile` / `addSourceFileAtPath`)
-- Access the raw TS language service (`getApplicableRefactors`, `getEditsForRefactor`)
-- Invalidate the project after mutation
+Add `getLanguageServiceForFile(path: string): ts.LanguageService`, `ensureSourceFile(path: string): void`, `refreshSourceFile(path: string): void`, and `getProjectSourceFilePaths(workspace: string): string[]` to `TsMorphCompiler`.
 
-`getTypeErrors` needs:
-- Ensure a source file is in the project
-- Refresh a source file from disk (`refreshFromFileSystemSync`)
-- Access the raw TS language service (`getSemanticDiagnostics`)
-- Iterate all project source files (`getSourceFiles`)
+`extractFunction` and `getTypeErrors` call these helpers instead of reaching for `Project`. The `ts.LanguageService` type comes from TypeScript itself (not ts-morph), so exposing it doesn't create ts-morph coupling. The additional helpers are small and stable.
 
-**Options:**
-1. **Expose a raw `ts.LanguageService` accessor** — e.g. `getLanguageServiceForFile(path): ts.LanguageService` + `ensureSourceFile(path)` + `getProjectSourceFilePaths(): string[]`. Callers use the TS LS directly (which they already do), but never see `Project`. Minimal new API, but `ts.LanguageService` is still a large surface.
-2. **Expose operation-specific methods** — e.g. `getApplicableRefactors(file, range)`, `getSemanticDiagnostics(file)`. Tighter surface, but couples `TsMorphCompiler` to operation needs — every new LS operation needs a new method.
-
-**Recommendation:** Option 1. The `ts.LanguageService` type comes from TypeScript itself (not ts-morph), so exposing it doesn't create ts-morph coupling. It's the same type the callers already work with after unwrapping `Project`. The additional helpers (`ensureSourceFile`, `refreshSourceFile`, `getProjectSourceFilePaths`) are small and stable.
+**What this enables:** `extractFunction.ts` and `getTypeErrors.ts` drop all ts-morph imports.
+**What it rules out:** callers can't reach other `Project` APIs without a new method.
+**Watch for:** the `getProjectSourceFilePaths` helper is needed by `getForProject` to iterate source files — it must return actual paths, not source file objects.
 
 ### AC4: Scope of the new compiler method
 
-**Decision:** Should the new method handle Vue cleanup too, or just TS/JS?
+**Chosen approach: Option 1 — TS/JS only, Vue cleanup stays in `deleteFile`.**
 
-**Options:**
-1. **TS/JS only** — the compiler method handles Phase 1 + Phase 2. `deleteFile` still calls `removeVueImportsOfDeletedFile` separately (as it does today). Keeps the compiler focused on what it knows.
-2. **Full cleanup including Vue** — the compiler method handles all three phases. Requires the compiler to know about Vue scanning, which currently lives in `plugins/vue/scan.ts`.
+The new `removeImportersOf(targetFile: string, scope: WorkspaceScope): Promise<void>` method handles Phase 1 (in-project AST removal) and Phase 2 (out-of-project walkFiles scan). `deleteFile.ts` continues to call `removeVueImportsOfDeletedFile` separately, matching the `moveFile` pattern where `compiler.afterFileRename()` is called and then Vue cleanup runs independently.
 
-**Recommendation:** Option 1. Vue cleanup is a plugin concern — the `Compiler` interface has `afterFileRename` and `afterSymbolMove` but no Vue-specific logic. `deleteFile` orchestrating the Vue call is the same pattern as `moveFile` calling `compiler.afterFileRename()` (which internally delegates to Vue scanning).
+**What this enables:** compiler stays focused on TS/JS; no coupling to Vue plugin internals.
+**What it rules out:** a single-call "delete everything" API — callers must still orchestrate Vue cleanup.
+**Watch for:** `scope` boundary checks must be preserved exactly as in the current `deleteFile.ts` implementation.
 
 ## Security
 

@@ -39,19 +39,22 @@ describe("dispatchRequest param validation", () => {
   it.each([
     [
       "rename with line as string",
-      { method: "rename", params: { file: "/tmp/test-workspace/a.ts", line: "five", col: 1, newName: "foo" } },
+      {
+        method: "rename",
+        params: { file: "/tmp/test-workspace/a.ts", line: "five", col: 1, newName: "foo" },
+      },
     ],
     [
       "rename missing required params",
       { method: "rename", params: { file: "/tmp/test-workspace/a.ts" } },
     ],
-    [
-      "searchText with pattern as number",
-      { method: "searchText", params: { pattern: 123 } },
-    ],
+    ["searchText with pattern as number", { method: "searchText", params: { pattern: 123 } }],
     [
       "findReferences with col as null",
-      { method: "findReferences", params: { file: "/tmp/test-workspace/a.ts", line: 1, col: null } },
+      {
+        method: "findReferences",
+        params: { file: "/tmp/test-workspace/a.ts", line: 1, col: null },
+      },
     ],
     [
       "replaceText with both pattern and edits",
@@ -60,14 +63,13 @@ describe("dispatchRequest param validation", () => {
         params: {
           pattern: "foo",
           replacement: "bar",
-          edits: [{ file: "/tmp/test-workspace/a.ts", line: 1, col: 1, oldText: "x", newText: "y" }],
+          edits: [
+            { file: "/tmp/test-workspace/a.ts", line: 1, col: 1, oldText: "x", newText: "y" },
+          ],
         },
       },
     ],
-    [
-      "replaceText with neither pattern nor edits",
-      { method: "replaceText", params: {} },
-    ],
+    ["replaceText with neither pattern nor edits", { method: "replaceText", params: {} }],
   ])("returns VALIDATION_ERROR — %s", async (_desc, request) => {
     const result = await dispatchRequest(request, workspace);
     expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
