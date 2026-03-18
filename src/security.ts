@@ -5,6 +5,9 @@ import * as path from "node:path";
 // Paths that must never be used as a workspace root.
 // Defense-in-depth: prevents a misconfigured or malicious MCP client config
 // from pointing the daemon at system directories or user credential stores.
+// Note: this is an exact-match blocklist of the directories themselves.
+// Subdirectories (e.g. /etc/nginx) are intentionally allowed — projects
+// legitimately live in subdirectories of system paths.
 const RESTRICTED_WORKSPACE_ROOTS: ReadonlySet<string> = new Set([
   // Filesystem root
   "/",
@@ -46,6 +49,7 @@ const SENSITIVE_BASENAME_EXACT = new Set([
   ".netrc",
   ".vault-token",
   ".htpasswd",
+  ".envrc",
   "secrets.yaml",
   "secrets.yml",
 ]);

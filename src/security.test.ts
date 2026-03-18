@@ -125,6 +125,11 @@ describe("isSensitiveFile", () => {
     expect(isSensitiveFile("/home/user/.netrc")).toBe(true);
   });
 
+  it("blocks direnv shell-variable files", () => {
+    expect(isSensitiveFile("/workspace/.envrc")).toBe(true);
+    expect(isSensitiveFile("/home/user/project/.envrc")).toBe(true);
+  });
+
   it("blocks HashiCorp Vault token file", () => {
     expect(isSensitiveFile("/home/user/.vault-token")).toBe(true);
   });

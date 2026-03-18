@@ -411,6 +411,19 @@ describe("deleteFile", () => {
   });
 
   describe("error handling", () => {
+    it("throws SENSITIVE_FILE when the target is a sensitive file", async () => {
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
+      dirs.push(dir);
+      const envFile = path.join(dir, ".env");
+      fs.writeFileSync(envFile, "SECRET=abc\n", "utf8");
+
+      await expect(
+        deleteFile(new TsMorphCompiler(), envFile, makeScope(dir)),
+      ).rejects.toMatchObject({ code: "SENSITIVE_FILE" });
+
+      expect(fs.existsSync(envFile)).toBe(true);
+    });
+
     it("throws a structured FILE_NOT_FOUND error when the target does not exist", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);

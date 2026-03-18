@@ -3,6 +3,7 @@ import { Project } from "ts-morph";
 import type { TsMorphCompiler } from "../compilers/ts.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { removeVueImportsOfDeletedFile } from "../plugins/vue/scan.js";
+import { isSensitiveFile } from "../security.js";
 import { assertFileExists } from "../utils/assert-file.js";
 import { TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
@@ -14,6 +15,13 @@ export async function deleteFile(
   scope: WorkspaceScope,
 ): Promise<DeleteFileResult> {
   const absTarget = assertFileExists(targetFile);
+
+  if (isSensitiveFile(absTarget)) {
+    throw Object.assign(new Error(`Refusing to delete sensitive file: ${absTarget}`), {
+      code: "SENSITIVE_FILE",
+    });
+  }
+
   let importRefsRemoved = 0;
 
   // Phase 1: In-project TS/JS cleanup via ts-morph.
