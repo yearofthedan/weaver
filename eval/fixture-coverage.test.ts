@@ -1,9 +1,9 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { TOOL_NAMES } from "./adapters/mcp/mcp.js";
+import { TOOL_NAMES } from "../src/adapters/mcp/mcp.js";
 
-const FIXTURES_DIR = join(import.meta.dirname, "../eval/fixtures");
+const FIXTURES_DIR = join(import.meta.dirname, "./fixtures");
 
 describe("eval fixture coverage", () => {
   it("TOOL_NAMES is non-empty and has the expected count", () => {

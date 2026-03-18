@@ -3,9 +3,9 @@ import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { startFixtureServer } from "../eval/fixture-server.js";
-import { PROTOCOL_VERSION } from "./daemon/daemon.js";
-import { lockfilePath, socketPath } from "./daemon/paths.js";
+import { PROTOCOL_VERSION } from "../src/daemon/daemon.js";
+import { lockfilePath, socketPath } from "../src/daemon/paths.js";
+import { startFixtureServer } from "./fixture-server.js";
 
 function callSocket(sockPath: string, req: object): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {

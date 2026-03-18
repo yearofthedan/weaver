@@ -14,7 +14,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc && chmod +x dist/adapters/cli/cli.js",
     "dev": "tsx src/adapters/cli/cli.ts",
-    "test": "vitest run",
+    "test": "vitest run && vitest run --config eval/vitest.config.ts",
     "test:watch": "vitest",
     "lint": "biome lint .",
     "format": "biome format . --write",
