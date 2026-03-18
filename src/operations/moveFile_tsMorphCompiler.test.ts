@@ -534,7 +534,12 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
       );
 
       // Initialize git and commit — critical: git ls-files --cached returns committed files
-      execSync("git init && git add . && git commit -m init", { cwd: dir, stdio: "pipe" });
+      const gitEnv = { ...process.env, GIT_CONFIG_NOSYSTEM: "1" };
+      execSync("git init", { cwd: dir, env: gitEnv, stdio: "pipe" });
+      execSync("git config user.email test@test.com", { cwd: dir, env: gitEnv, stdio: "pipe" });
+      execSync("git config user.name Test", { cwd: dir, env: gitEnv, stdio: "pipe" });
+      execSync("git add .", { cwd: dir, env: gitEnv, stdio: "pipe" });
+      execSync("git commit -m init", { cwd: dir, env: gitEnv, stdio: "pipe" });
 
       const compiler = new TsMorphCompiler();
 

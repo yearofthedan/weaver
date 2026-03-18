@@ -112,16 +112,18 @@ describe("walkFiles", () => {
   // ── git repo ──────────────────────────────────────────────────────────────
 
   describe("git repo", () => {
+    const gitEnv = { ...process.env, GIT_CONFIG_NOSYSTEM: "1" };
+
     function initGit() {
-      execSync("git init", { cwd: tmpDir, stdio: "pipe" });
-      execSync("git config user.email test@test.com", { cwd: tmpDir, stdio: "pipe" });
-      execSync("git config user.name Test", { cwd: tmpDir, stdio: "pipe" });
+      execSync("git init", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
+      execSync("git config user.email test@test.com", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
+      execSync("git config user.name Test", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
     }
 
     it("returns staged .ts files", () => {
       initGit();
       write("src/a.ts");
-      execSync("git add .", { cwd: tmpDir, stdio: "pipe" });
+      execSync("git add .", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
 
       const result = walkFiles(tmpDir, [".ts"]);
       expect(result.map((f) => path.basename(f))).toContain("a.ts");
@@ -131,7 +133,7 @@ describe("walkFiles", () => {
       initGit();
       write("src/a.ts");
       write("src/b.ts");
-      execSync("git add src/a.ts", { cwd: tmpDir, stdio: "pipe" });
+      execSync("git add src/a.ts", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
       // b.ts is untracked but not ignored — should still appear
 
       const result = walkFiles(tmpDir, [".ts"]);
@@ -145,7 +147,7 @@ describe("walkFiles", () => {
       write(".gitignore", "dist/\n");
       write("src/a.ts");
       write("dist/b.ts"); // gitignored
-      execSync("git add .", { cwd: tmpDir, stdio: "pipe" });
+      execSync("git add .", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
 
       const result = walkFiles(tmpDir, [".ts"]);
       const names = result.map((f) => path.basename(f));
@@ -156,7 +158,7 @@ describe("walkFiles", () => {
     it("returns absolute paths", () => {
       initGit();
       write("src/a.ts");
-      execSync("git add .", { cwd: tmpDir, stdio: "pipe" });
+      execSync("git add .", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
 
       const result = walkFiles(tmpDir, [".ts"]);
       expect(result.length).toBeGreaterThan(0);
@@ -170,7 +172,7 @@ describe("walkFiles", () => {
       write(".gitignore", "private/\n");
       write("src/a.ts");
       write("private/secret.ts");
-      execSync("git add .", { cwd: tmpDir, stdio: "pipe" });
+      execSync("git add .", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
 
       const result = walkFiles(tmpDir, [".ts"]);
       const names = result.map((f) => path.basename(f));
@@ -184,7 +186,7 @@ describe("walkFiles", () => {
       initGit();
       write("src/a.ts");
       write("src/b.vue"); // added to git but not requested
-      execSync("git add .", { cwd: tmpDir, stdio: "pipe" });
+      execSync("git add .", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
 
       const result = walkFiles(tmpDir, [".ts"]);
       const names = result.map((f) => path.basename(f));
@@ -199,8 +201,8 @@ describe("walkFiles", () => {
       initGit();
       write("src/a.ts");
       write("src/b.ts");
-      execSync("git add .", { cwd: tmpDir, stdio: "pipe" });
-      execSync('git commit -m "init"', { cwd: tmpDir, stdio: "pipe" });
+      execSync("git add .", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
+      execSync('git commit -m "init"', { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
 
       // Delete b.ts from disk but don't stage the deletion
       fs.unlinkSync(path.join(tmpDir, "src/b.ts"));
