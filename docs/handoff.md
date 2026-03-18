@@ -51,8 +51,16 @@ eval/
   mutate-triage/       ← /mutate-triage skill: classify survivors, open issues for noise, fix PRs for fixable gaps
   light-bridge-refactoring/ ← shipped with npm; agent workflow guidance for light-bridge tools (when to use, response handling, sequences)
 src/
-  cli.ts          ← registers only: daemon, serve, stop
   schema.ts
+  adapters/
+    cli/
+      cli.ts      ← CLI entry point; registers daemon, serve, stop commands
+    mcp/
+      mcp.ts          ← MCP server (connects to daemon); runServe + startMcpServer + classifyDaemonError
+      tools.ts        ← TOOLS table (11 tool definitions) + ToolDefinition interface + TOOL_NAMES
+      classify-error.ts ← classifyDaemonError — maps socket error codes to DAEMON_STARTING / INTERNAL_ERROR
+      classify-error.test.ts ← unit tests for classifyDaemonError
+      *.integration.test.ts  ← MCP integration tests (find-references, rename, move-file, security, etc.)
   ports/
     filesystem.ts         ← FileSystem interface + barrel re-exports
     node-filesystem.ts    ← NodeFileSystem wrapping node:fs (production)
@@ -68,9 +76,6 @@ src/
   types.ts        ← result types + LanguagePlugin + Compiler + CompilerRegistry interfaces
   security.ts     ← isWithinWorkspace() + isSensitiveFile() + validateFilePath() — boundary, sensitive file blocklist, path validation
   security.test.ts ← colocated unit test
-  mcp/
-    mcp.ts        ← MCP server (connects to daemon)
-    *.integration.test.ts ← MCP integration tests (find-references, rename, move-file, security, etc.)
   daemon/
     daemon.ts                    ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher
     ensure-daemon.ts             ← ensureDaemon (version check + auto-spawn); callDaemon (socket client); spawnDaemon
@@ -135,7 +140,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P1 — Very high value bugs and tech debt
 
-- **Extract `src/adapters/` for CLI and MCP entry points** → [`docs/specs/20260318-extract-adapters.md`](specs/20260318-extract-adapters.md) — Move `src/cli.ts` and `src/mcp/mcp.ts` into `src/adapters/cli/` and `src/adapters/mcp/`; decompose `mcp.ts` (372 lines) by extracting tool definitions and error classifier; eliminate two "exported for testing only" exports.
 - **Contain ts-morph types behind the compiler boundary** → [`docs/specs/20260318-contain-ts-morph-types.md`](specs/20260318-contain-ts-morph-types.md) — Extract throwaway-project utility, add LS accessors to TsMorphCompiler, refactor `deleteFile` to delegate importer cleanup to compiler, move `symbol-ref.ts` to `compilers/`.
 - **Source refactoring for mutation speed** → [`docs/specs/20260315-source-refactor-mutation-speed.md`](specs/20260315-source-refactor-mutation-speed.md) — Extract misplaced utilities from operations (`searchText`, `security`, `getTypeErrors`), optimize fixture copying for `perTest` coverage analysis, exclude redundant dispatcher tests from Stryker. Depends on test colocation landing first.
 

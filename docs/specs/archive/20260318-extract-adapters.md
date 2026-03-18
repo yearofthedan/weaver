@@ -75,4 +75,21 @@ None — the handoff entry specifies `src/adapters/mcp/` and `src/adapters/cli/`
 - [ ] No "exported for testing only" exports remain in `src/adapters/mcp/mcp.ts`
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas added to relevant doc if discovered
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Tests added:** 0 new tests — existing tests were moved and renamed. 65 test files, 710 tests passing.
+
+**Mutation score:** not re-run (pure structural change; no logic mutations possible).
+
+**Reflection:**
+
+What went well: `moveFile` handled all relative import rewrites automatically across all ACs — zero manual import path edits needed for TypeScript imports. The structural seams in `mcp.ts` were exactly as clean as predicted.
+
+What didn't go well:
+- The spec listed `package.json` as the only non-import update for AC3, but `ensure-daemon.ts`, `process-helpers.ts`, and `.mcp.json` also contained hardcoded path strings that `moveFile` cannot detect. Always grep for the old path after a file move to catch hardcoded string literals.
+- `moveSymbol` does not add an import back to the source file when the moved symbol is also consumed there. `mcp.ts` was left with an unresolved call to `classifyDaemonError` after extraction — required a manual import fix. Documented in `docs/features/moveSymbol.md` and `docs/tech/tech-debt.md`.
+- `tools.ts` landed at 261 lines, above the 200-line spec target. The target was wrong — 11 verbose tool definitions are inherently ~240 lines of data with no extractable logic. Don't set line-count constraints on data-heavy files without counting first.
+
+**Architectural note:** `stryker.config.mjs` exclusion paths are string literals, not TypeScript imports — `moveFile` does not update them. Any future file move affecting Stryker exclusions requires a manual config update.

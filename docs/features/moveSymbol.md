@@ -83,6 +83,11 @@ See [security.md](../security.md) for the full threat model.
 - If the destination file already exports a declaration with the same name as `symbolName`, the operation returns a `SYMBOL_EXISTS` error and makes no changes to any file. Pass `force: true` to replace the destination declaration with the source version ("source wins", like `mv -f`). The conflict check only considers exported declarations; a non-exported same-name declaration in the destination does not trigger the error.
 - Moving symbols *from* a `.vue` source file is not yet supported. The shipped path moves TS exports and then patches Vue importers; moving declarations from `<script setup>` blocks requires SFC-aware block parsing (e.g. via `@vue/compiler-sfc`).
 
+## Known limitations
+
+**`moveSymbol` does not add an import back to the source file when the symbol is also used there.**
+If the symbol being moved is declared and called in the same file (e.g. a helper called by a sibling function), `moveSymbol` removes the declaration and updates external importers — but does not add a `from './destination.js'` import to the source file for its own internal use. You must add that import manually after the move.
+
 ## Technical decisions
 
 **Why AST surgery instead of language-service APIs?**

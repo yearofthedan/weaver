@@ -88,6 +88,16 @@ The module-level `rewriteSpecifier` function (introduced with the import-rewrite
 
 ---
 
+## `moveSymbol` does not add an import back to the source file when the symbol is also consumed there
+
+If a symbol is declared and called in the same file (e.g. an exported helper invoked by a sibling function in the same module), `moveSymbol` removes the declaration and updates all external importers — but does not add a `from './destination.js'` import to the source file for its internal call site. The source file is left with an unresolved reference.
+
+**Fix:** after snapshotting importers and removing the declaration, scan the source file's remaining statements for any call or reference to the moved symbol name. If found, add an import from the destination file before writing.
+
+**Priority:** low. The gap is immediately visible as a type error after the operation. Workaround: add the import manually.
+
+---
+
 ## User feedback: rename / findReferences / getDefinition "Could not find source file" (TS path)
 
 External user (working-title workspace) reports tools fail with `PARSE_ERROR: Could not find source file` for `.ts` files. The Vue path (`.vue` inputs) was fixed by calling `toVirtualLocation` before `findRenameLocations` and `getReferencesAtPosition`.
