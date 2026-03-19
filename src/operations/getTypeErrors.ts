@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { ts } from "ts-morph";
+import ts from "typescript";
 import type { TsMorphCompiler } from "../compilers/ts.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { FileSystem } from "../ports/filesystem.js";
