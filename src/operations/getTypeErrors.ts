@@ -46,15 +46,8 @@ export function getTypeErrorsForFiles(
   for (const file of tsFiles) {
     if (!fs.exists(file)) continue;
 
-    const project = compiler.getProjectForFile(file);
-    const existing = project.getSourceFile(file);
-    if (!existing) {
-      project.addSourceFileAtPath(file);
-    } else {
-      existing.refreshFromFileSystemSync();
-    }
-
-    const ls = project.getLanguageService().compilerObject;
+    compiler.refreshSourceFile(file);
+    const ls = compiler.getLanguageServiceForFile(file);
     const raw = ls.getSemanticDiagnostics(file);
     const errors = raw.filter((d) => d.category === ts.DiagnosticCategory.Error);
     totalCount += errors.length;
@@ -73,11 +66,7 @@ export function getTypeErrorsForFiles(
 }
 
 function getForFile(compiler: TsMorphCompiler, absPath: string): GetTypeErrorsResult {
-  const project = compiler.getProjectForFile(absPath);
-  if (!project.getSourceFile(absPath)) {
-    project.addSourceFileAtPath(absPath);
-  }
-  const ls = project.getLanguageService().compilerObject;
+  const ls = compiler.getLanguageServiceForFile(absPath);
   const all = ls.getSemanticDiagnostics(absPath);
   const errors = all.filter((d) => d.category === ts.DiagnosticCategory.Error);
   const truncated = errors.length > MAX_DIAGNOSTICS;
@@ -86,11 +75,10 @@ function getForFile(compiler: TsMorphCompiler, absPath: string): GetTypeErrorsRe
 }
 
 function getForProject(compiler: TsMorphCompiler, workspace: string): GetTypeErrorsResult {
-  const project = compiler.getProjectForDirectory(workspace);
-  const ls = project.getLanguageService().compilerObject;
+  const ls = compiler.getLanguageServiceForDirectory(workspace);
   const allErrors: ReturnType<typeof ls.getSemanticDiagnostics> = [];
-  for (const sf of project.getSourceFiles()) {
-    const diags = ls.getSemanticDiagnostics(sf.getFilePath() as string);
+  for (const filePath of compiler.getProjectSourceFilePaths(workspace)) {
+    const diags = ls.getSemanticDiagnostics(filePath);
     for (const d of diags) {
       if (d.category === ts.DiagnosticCategory.Error) {
         allErrors.push(d);

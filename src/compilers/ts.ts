@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Project } from "ts-morph";
+import type ts from "typescript";
 import { applyRenameEdits, mergeFileEdits } from "../domain/apply-rename-edits.js";
 import { ImportRewriter } from "../domain/import-rewriter.js";
 import { rewriteImportersOfMovedFile } from "../domain/rewrite-importers-of-moved-file.js";
@@ -65,6 +66,78 @@ export class TsMorphCompiler implements Compiler {
   invalidateProject(filePath: string): void {
     const tsConfigPath = findTsConfigForFile(filePath);
     this.projects.delete(tsConfigPath ?? "__no_tsconfig__");
+  }
+
+  /**
+   * Ensures `filePath` is in the project, then returns the raw TypeScript
+   * language service. Callers get compiler access without holding a `Project`
+   * reference — no ts-morph coupling at the call site.
+   */
+  getLanguageServiceForFile(filePath: string): ts.LanguageService {
+    const project = this.getProject(filePath);
+    if (!project.getSourceFile(filePath)) {
+      project.addSourceFileAtPath(filePath);
+    }
+    return project.getLanguageService().compilerObject;
+  }
+
+  /**
+   * Same as `getLanguageServiceForFile` but resolves the project by searching
+   * for a tsconfig starting from `dirPath` itself — correct when the caller has
+   * a directory rather than a file.
+   */
+  getLanguageServiceForDirectory(dirPath: string): ts.LanguageService {
+    const project = this.getProjectForDirectory(dirPath);
+    return project.getLanguageService().compilerObject;
+  }
+
+  /**
+   * Refreshes the given file from disk within its cached project.
+   * If the file is already tracked, its content is re-read; if not, it is added.
+   * No-op when the project for the file has not been loaded yet.
+   */
+  refreshSourceFile(filePath: string): void {
+    const key = findTsConfigForFile(filePath) ?? "__no_tsconfig__";
+    const project = this.projects.get(key);
+    if (!project) return;
+    const existing = project.getSourceFile(filePath);
+    if (existing) {
+      existing.refreshFromFileSystemSync();
+    } else {
+      project.addSourceFileAtPath(filePath);
+    }
+  }
+
+  /**
+   * Returns the file paths of all source files in the project that covers
+   * `workspace`. Used by callers that need to iterate over project files
+   * without holding a `Project` reference.
+   */
+  getProjectSourceFilePaths(workspace: string): string[] {
+    const project = this.getProjectForDirectory(workspace);
+    return project.getSourceFiles().map((sf) => sf.getFilePath() as string);
+  }
+
+  /**
+   * Returns metadata for a named top-level function declaration in `filePath`,
+   * or `undefined` if no such function exists. Ensures the source file is
+   * loaded from disk so callers that have just written edits see the current state.
+   */
+  getFunction(
+    filePath: string,
+    functionName: string,
+  ): { name: string; parameters: Array<{ name: string }> } | undefined {
+    const project = this.getProject(filePath);
+    let sf = project.getSourceFile(filePath);
+    if (!sf) {
+      sf = project.addSourceFileAtPath(filePath);
+    }
+    const fn = sf.getFunction(functionName);
+    if (!fn) return undefined;
+    return {
+      name: fn.getName()!,
+      parameters: fn.getParameters().map((p) => ({ name: p.getName() })),
+    };
   }
 
   /**

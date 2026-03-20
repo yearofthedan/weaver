@@ -49,12 +49,7 @@ export async function extractFunction(
     );
   }
 
-  const project = tsCompiler.getProjectForFile(absFile);
-  if (!project.getSourceFile(absFile)) {
-    project.addSourceFileAtPath(absFile);
-  }
-
-  const ls = project.getLanguageService().compilerObject;
+  const ls = tsCompiler.getLanguageServiceForFile(absFile);
 
   // startOffset and endOffset are inclusive byte offsets (pointing at the first and
   // last characters of the selection). The TypeScript language service uses exclusive
@@ -138,9 +133,16 @@ export async function extractFunction(
     scope.writeFile(fileEdit.fileName, updated);
   }
 
-  // Count parameters by reloading the file via a fresh project.
+  // Count parameters by reloading the file after the extract wrote it.
   tsCompiler.invalidateProject(absFile);
-  const parameterCount = countParameters(tsCompiler, absFile, functionName);
+  const extracted = tsCompiler.getFunction(absFile, functionName);
+  if (!extracted) {
+    throw new EngineError(
+      `Extracted function '${functionName}' not found after writing — this is a bug`,
+      "INTERNAL_ERROR",
+    );
+  }
+  const parameterCount = extracted.parameters.length;
 
   return {
     filesModified: scope.modified,
@@ -148,17 +150,4 @@ export async function extractFunction(
     functionName,
     parameterCount,
   };
-}
-
-function countParameters(
-  tsCompiler: TsMorphCompiler,
-  absFile: string,
-  functionName: string,
-): number {
-  const project = tsCompiler.getProjectForFile(absFile);
-  let sf = project.getSourceFile(absFile);
-  if (!sf) {
-    sf = project.addSourceFileAtPath(absFile);
-  }
-  return sf.getFunction(functionName)?.getParameters().length ?? 0;
 }

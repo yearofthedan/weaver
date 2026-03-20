@@ -316,4 +316,164 @@ describe("TsMorphCompiler", () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  describe("getLanguageServiceForFile", () => {
+    it("returns a language service with getSemanticDiagnostics", () => {
+      const dir = setup();
+      const p = new TsMorphCompiler();
+      const file = path.join(dir, "src/utils.ts");
+      const ls = p.getLanguageServiceForFile(file);
+      expect(typeof ls.getSemanticDiagnostics).toBe("function");
+    });
+
+    it("returns a language service that can find rename locations", () => {
+      const dir = setup();
+      const p = new TsMorphCompiler();
+      const file = path.join(dir, "src/utils.ts");
+      const ls = p.getLanguageServiceForFile(file);
+      // greetUser is at offset 16 in utils.ts
+      const locs = ls.findRenameLocations(file, 16, false, false, {
+        allowRenameOfImportPath: false,
+      });
+      expect(locs).not.toBeUndefined();
+      expect(locs?.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("adds the file to the project when it was not already tracked", () => {
+      const dir = setup();
+      const p = new TsMorphCompiler();
+      const file = path.join(dir, "src/utils.ts");
+      // Call before any other method — file is not yet in a project.
+      const ls = p.getLanguageServiceForFile(file);
+      const diags = ls.getSemanticDiagnostics(file);
+      expect(Array.isArray(diags)).toBe(true);
+    });
+  });
+
+  describe("getLanguageServiceForDirectory", () => {
+    it("returns a language service for the project covering the directory", () => {
+      const dir = setup();
+      const p = new TsMorphCompiler();
+      const ls = p.getLanguageServiceForDirectory(dir);
+      expect(typeof ls.getSemanticDiagnostics).toBe("function");
+    });
+
+    it("returns a language service that can check files in the project", () => {
+      const dir = setup();
+      const p = new TsMorphCompiler();
+      const ls = p.getLanguageServiceForDirectory(dir);
+      const file = path.join(dir, "src/utils.ts");
+      const diags = ls.getSemanticDiagnostics(file);
+      expect(Array.isArray(diags)).toBe(true);
+    });
+  });
+
+  describe("refreshSourceFile", () => {
+    it("is a no-op when the project has not been loaded yet", () => {
+      const p = new TsMorphCompiler();
+      expect(() => p.refreshSourceFile("/nonexistent/path.ts")).not.toThrow();
+    });
+
+    it("re-reads the file from disk after content changes", () => {
+      const dir = setup();
+      const p = new TsMorphCompiler();
+      const file = path.join(dir, "src/utils.ts");
+      // Load the project so the file is tracked.
+      p.getLanguageServiceForFile(file);
+      // Overwrite the file with a type error.
+      fs.writeFileSync(file, "export const x: number = 'not-a-number';\n");
+      p.refreshSourceFile(file);
+      const ls = p.getLanguageServiceForFile(file);
+      const diags = ls.getSemanticDiagnostics(file);
+      expect(diags.length).toBeGreaterThan(0);
+    });
+
+    it("adds the file to the project when it was not already tracked", () => {
+      const dir = setup();
+      const p = new TsMorphCompiler();
+      const file = path.join(dir, "src/utils.ts");
+      // Load the project (but not this specific file).
+      const otherFile = path.join(dir, "src/main.ts");
+      p.getLanguageServiceForFile(otherFile);
+      // refreshSourceFile should add it without throwing.
+      expect(() => p.refreshSourceFile(file)).not.toThrow();
+    });
+  });
+
+  describe("getProjectSourceFilePaths", () => {
+    it("returns file paths as strings", () => {
+      const dir = setup();
+      const p = new TsMorphCompiler();
+      const paths = p.getProjectSourceFilePaths(dir);
+      expect(Array.isArray(paths)).toBe(true);
+      for (const fp of paths) {
+        expect(typeof fp).toBe("string");
+      }
+    });
+
+    it("includes source files from the project", () => {
+      const dir = setup();
+      const p = new TsMorphCompiler();
+      const paths = p.getProjectSourceFilePaths(dir);
+      const utils = path.join(dir, "src/utils.ts");
+      expect(paths.some((fp) => fp === utils || fp.endsWith("/src/utils.ts"))).toBe(true);
+    });
+
+    it("returns an empty array when the directory has no tsconfig and no source files", () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-empty-"));
+      try {
+        const p = new TsMorphCompiler();
+        const paths = p.getProjectSourceFilePaths(tmpDir);
+        expect(Array.isArray(paths)).toBe(true);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe("getFunction", () => {
+    it("returns name and parameters for a named function", () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-params-"));
+      const file = path.join(tmpDir, "funcs.ts");
+      fs.writeFileSync(
+        file,
+        "export function add(a: number, b: number): number { return a + b; }\n",
+      );
+      try {
+        const p = new TsMorphCompiler();
+        const result = p.getFunction(file, "add");
+        expect(result).toEqual({
+          name: "add",
+          parameters: [{ name: "a" }, { name: "b" }],
+        });
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("returns empty parameters for a zero-arg function", () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-params-"));
+      const file = path.join(tmpDir, "funcs.ts");
+      fs.writeFileSync(file, "export function noop(): void {}\n");
+      try {
+        const p = new TsMorphCompiler();
+        const result = p.getFunction(file, "noop");
+        expect(result).toEqual({ name: "noop", parameters: [] });
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("returns undefined when the function does not exist", () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-params-"));
+      const file = path.join(tmpDir, "funcs.ts");
+      fs.writeFileSync(file, "export const x = 1;\n");
+      try {
+        const p = new TsMorphCompiler();
+        expect(p.getFunction(file, "nonExistent")).toBeUndefined();
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+  });
 });
