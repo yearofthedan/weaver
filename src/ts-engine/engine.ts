@@ -12,8 +12,15 @@ import { EngineError } from "../utils/errors.js";
 import { JS_EXTENSIONS, TS_EXTENSIONS } from "../utils/extensions.js";
 import { SKIP_DIRS, walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
+import { tsDeleteFile } from "./delete-file.js";
 import { tsRemoveImportersOf } from "./remove-importers.js";
-import type { DefinitionLocation, Engine, FileTextEdit, SpanLocation } from "./types.js";
+import type {
+  DefinitionLocation,
+  DeleteFileActionResult,
+  Engine,
+  FileTextEdit,
+  SpanLocation,
+} from "./types.js";
 
 export class TsMorphEngine implements Engine {
   private projects = new Map<string, Project>();
@@ -75,6 +82,14 @@ export class TsMorphEngine implements Engine {
    */
   async removeImportersOf(targetFile: string, scope: WorkspaceScope): Promise<number> {
     return tsRemoveImportersOf(this, targetFile, scope);
+  }
+
+  /**
+   * Full delete workflow: delegates to `tsDeleteFile` which handles importer
+   * removal, Vue SFC cleanup, physical deletion, and project cache invalidation.
+   */
+  async deleteFile(targetFile: string, scope: WorkspaceScope): Promise<DeleteFileActionResult> {
+    return tsDeleteFile(this, targetFile, scope);
   }
 
   /**

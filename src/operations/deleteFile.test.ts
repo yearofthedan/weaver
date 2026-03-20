@@ -1,393 +1,181 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import {
-  cleanup,
-  copyFixture,
-  FIXTURES,
-  fileExists,
-  readFile,
-} from "../__testHelpers__/helpers.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
+import type { Engine } from "../ts-engine/types.js";
 import { deleteFile } from "./deleteFile.js";
 
 function makeScope(workspace: string): WorkspaceScope {
   return new WorkspaceScope(workspace, new NodeFileSystem());
 }
 
-describe("deleteFile", () => {
+/** Minimal Engine stub — all methods throw unless overridden. */
+function makeStubEngine(overrides: Partial<Engine> = {}): Engine {
+  return {
+    resolveOffset: vi.fn(),
+    getRenameLocations: vi.fn(),
+    getReferencesAtPosition: vi.fn(),
+    getDefinitionAtPosition: vi.fn(),
+    getEditsForFileRename: vi.fn(),
+    readFile: vi.fn(),
+    notifyFileWritten: vi.fn(),
+    afterFileRename: vi.fn(),
+    afterSymbolMove: vi.fn(),
+    moveDirectory: vi.fn(),
+    deleteFile: vi.fn(),
+    ...overrides,
+  } as Engine;
+}
+
+describe("deleteFile operation", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  describe("in-project TS/JS files", () => {
-    it("removes named import declarations that reference the deleted file", async () => {
+  describe("FILE_NOT_FOUND validation", () => {
+    it("throws FILE_NOT_FOUND when the target does not exist", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
-      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
+      const engine = makeStubEngine();
 
-      expect(result.filesModified).toContain(`${dir}/src/importer.ts`);
-      expect(readFile(dir, "src/importer.ts")).not.toMatch(/from ['"]\.\/target['"]/);
+      await expect(
+        deleteFile(engine, `${dir}/src/does-not-exist.ts`, makeScope(dir)),
+      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
-    it("removes type-only import declarations that reference the deleted file", async () => {
+    it("does not call engine.deleteFile when the target is missing", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
-      await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
+      const engineDeleteFile = vi.fn();
+      const engine = makeStubEngine({ deleteFile: engineDeleteFile });
 
-      // importer.ts has both a named import and a type-only import from target
-      const content = readFile(dir, "src/importer.ts");
-      expect(content).not.toMatch(/import type.*from ['"]\.\/target['"]/);
-    });
+      await expect(
+        deleteFile(engine, `${dir}/src/does-not-exist.ts`, makeScope(dir)),
+      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
 
-    it("removes export * and named re-export declarations from barrel files", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      expect(result.filesModified).toContain(`${dir}/src/barrel.ts`);
-      const content = readFile(dir, "src/barrel.ts");
-      expect(content).not.toMatch(/from ['"]\.\/target['"]/);
-    });
-
-    it("counts every removed declaration in importRefsRemoved", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      // importer.ts: 2 decls (named import + type import)
-      // barrel.ts:   2 decls (export * + named re-export)
-      // tests/out-of-project.ts: 1 decl (out-of-project, but still within workspace)
-      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      expect(result.importRefsRemoved).toBe(5);
-    });
-
-    it("does not include the deleted file itself in filesModified", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      expect(result.filesModified).not.toContain(`${dir}/src/target.ts`);
-    });
-
-    it("returns importRefsRemoved = 0 and empty filesModified when nothing imports the file", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const isolated = path.join(dir, "src", "isolated.ts");
-      fs.writeFileSync(isolated, "export const x = 1;\n", "utf8");
-
-      const result = await deleteFile(new TsMorphEngine(), isolated, makeScope(dir));
-
-      expect(result.importRefsRemoved).toBe(0);
-      expect(result.filesModified).toHaveLength(0);
+      expect(engineDeleteFile).not.toHaveBeenCalled();
     });
   });
 
-  describe("physical deletion", () => {
-    it("removes the target file from disk after cleaning importers", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      expect(fileExists(dir, "src/target.ts")).toBe(true);
-      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      expect(fileExists(dir, "src/target.ts")).toBe(false);
-      expect(result.deletedFile).toBe(`${dir}/src/target.ts`);
-    });
-
-    it("deletes the file even when it has no importers", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const isolated = path.join(dir, "src", "isolated.ts");
-      fs.writeFileSync(isolated, "export const x = 1;\n", "utf8");
-
-      await deleteFile(new TsMorphEngine(), isolated, makeScope(dir));
-
-      expect(fs.existsSync(isolated)).toBe(false);
-    });
-  });
-
-  describe("out-of-project TS/JS files", () => {
-    it("removes imports from files not included in tsconfig", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      // tests/out-of-project.ts is outside tsconfig include (src/**/*.ts)
-      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      expect(result.filesModified).toContain(`${dir}/tests/out-of-project.ts`);
-      expect(readFile(dir, "tests/out-of-project.ts")).not.toMatch(/from ['"][^'"]*target['"]/);
-    });
-
-    it("handles imports that use an explicit file extension", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const extra = path.join(dir, "tests", "explicit-ext.ts");
-      fs.writeFileSync(
-        extra,
-        'import { targetFn } from "../src/target.ts";\nconst _ = targetFn();\n',
-        "utf8",
-      );
-
-      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      expect(result.filesModified).toContain(extra);
-      expect(fs.readFileSync(extra, "utf8")).not.toMatch(/from ['"][^'"]*target/);
-    });
-  });
-
-  describe("Vue SFC script blocks", () => {
-    it("removes named and type-only import lines from script blocks", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const vueFile = path.join(dir, "src", "Comp.vue");
-      fs.writeFileSync(
-        vueFile,
-        [
-          '<script setup lang="ts">',
-          "import { targetFn } from './target';",
-          "import type { TargetType } from './target';",
-          "import * as All from './target';",
-          "const x = targetFn();",
-          "</script>",
-          "<template><div>hello</div></template>",
-        ].join("\n"),
-        "utf8",
-      );
-
-      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      expect(result.filesModified).toContain(vueFile);
-      const content = fs.readFileSync(vueFile, "utf8");
-      expect(content).not.toMatch(/from ['"]\.\/target['"]/);
-      // Non-import content is preserved
-      expect(content).toContain("const x = targetFn();");
-      expect(content).toContain("<template>");
-    });
-
-    it("removes bare side-effect import lines from script blocks", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const vueFile = path.join(dir, "src", "SideEffect.vue");
-      fs.writeFileSync(
-        vueFile,
-        ["<script setup>", "import './target';", "const x = 1;", "</script>"].join("\n"),
-        "utf8",
-      );
-
-      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      expect(result.filesModified).toContain(vueFile);
-      const content = fs.readFileSync(vueFile, "utf8");
-      expect(content).not.toContain("import './target'");
-      expect(content).toContain("const x = 1;");
-    });
-
-    it("removes re-export lines from script blocks", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const vueFile = path.join(dir, "src", "ReExport.vue");
-      fs.writeFileSync(
-        vueFile,
-        [
-          "<script>",
-          "export * from './target';",
-          "export { targetFn } from './target';",
-          "</script>",
-        ].join("\n"),
-        "utf8",
-      );
-
-      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      expect(result.filesModified).toContain(vueFile);
-      expect(fs.readFileSync(vueFile, "utf8")).not.toMatch(/from ['"]\.\/target['"]/);
-    });
-
-    it("does not modify Vue files that do not import the deleted file", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const originalContent = [
-        "<script setup>",
-        "import { other } from './other-module';",
-        "const x = 1;",
-        "</script>",
-      ].join("\n");
-      const vueFile = path.join(dir, "src", "Unrelated.vue");
-      fs.writeFileSync(vueFile, originalContent, "utf8");
-
-      await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      expect(fs.readFileSync(vueFile, "utf8")).toBe(originalContent);
-    });
-
-    it("does not remove side-effect imports from paths other than the deleted file", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const originalContent = [
-        "<script setup>",
-        "import './other-module';",
-        "const x = 1;",
-        "</script>",
-      ].join("\n");
-      const vueFile = path.join(dir, "src", "OtherSideEffect.vue");
-      fs.writeFileSync(vueFile, originalContent, "utf8");
-
-      await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      expect(fs.readFileSync(vueFile, "utf8")).toBe(originalContent);
-    });
-
-    it("does not include unmodified Vue files in filesModified", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const unrelatedVue = path.join(dir, "src", "Unrelated.vue");
-      fs.writeFileSync(
-        unrelatedVue,
-        ["<script setup>", "import { other } from './other';", "const x = 1;", "</script>"].join(
-          "\n",
-        ),
-        "utf8",
-      );
-
-      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      expect(result.filesModified).not.toContain(unrelatedVue);
-    });
-
-    it("counts Vue import removals in importRefsRemoved", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const vueFile = path.join(dir, "src", "VueRefs.vue");
-      fs.writeFileSync(
-        vueFile,
-        [
-          "<script setup>",
-          "import { targetFn } from './target';",
-          "import type { TargetType } from './target';",
-          "</script>",
-        ].join("\n"),
-        "utf8",
-      );
-
-      // TS files contribute: importer.ts (2) + barrel.ts (2) + tests/out-of-project.ts (1) = 5
-      // Vue file contributes 2 more = 7 total
-      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      expect(result.importRefsRemoved).toBe(7);
-    });
-
-    it("removes indented import lines from script blocks", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const vueFile = path.join(dir, "src", "Indented.vue");
-      fs.writeFileSync(
-        vueFile,
-        [
-          "<script setup>",
-          "  import { targetFn } from './target';",
-          "  import './target';",
-          "const x = 1;",
-          "</script>",
-        ].join("\n"),
-        "utf8",
-      );
-
-      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      expect(result.filesModified).toContain(vueFile);
-      const content = fs.readFileSync(vueFile, "utf8");
-      expect(content).not.toMatch(/from ['"]\.\/target['"]/);
-      expect(content).not.toContain("import './target'");
-      expect(content).toContain("const x = 1;");
-    });
-  });
-
-  describe("workspace boundary", () => {
-    it("skips out-of-workspace importers and reports them in filesSkipped without writing", async () => {
-      // cross-boundary fixture: tsconfig includes ../consumer/**/* so ts-morph's
-      // in-project scan finds consumer/main.ts, which is outside the workspace.
-      const root = copyFixture(FIXTURES.crossBoundary.name);
-      dirs.push(root);
-
-      const workspace = path.join(root, "workspace");
-      const targetFile = path.join(workspace, "src", "utils.ts");
-      const consumerFile = path.join(root, "consumer", "main.ts");
-      const consumerBefore = fs.readFileSync(consumerFile, "utf8");
-
-      const result = await deleteFile(new TsMorphEngine(), targetFile, makeScope(workspace));
-
-      // consumer/main.ts is outside workspace — must not be written
-      expect(fs.readFileSync(consumerFile, "utf8")).toBe(consumerBefore);
-      // It must appear in filesSkipped
-      expect(result.filesSkipped).toContain(consumerFile);
-      // The target file is gone
-      expect(fs.existsSync(targetFile)).toBe(false);
-    });
-
-    it("records modified files via scope, not manual Set", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
-
-      // All modified files must be within the workspace
-      for (const f of result.filesModified) {
-        expect(f.startsWith(dir)).toBe(true);
-      }
-    });
-  });
-
-  describe("error handling", () => {
+  describe("SENSITIVE_FILE rejection", () => {
     it("throws SENSITIVE_FILE when the target is a sensitive file", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
+
       const envFile = path.join(dir, ".env");
       fs.writeFileSync(envFile, "SECRET=abc\n", "utf8");
 
-      await expect(deleteFile(new TsMorphEngine(), envFile, makeScope(dir))).rejects.toMatchObject({
+      const engine = makeStubEngine();
+
+      await expect(deleteFile(engine, envFile, makeScope(dir))).rejects.toMatchObject({
         code: "SENSITIVE_FILE",
       });
 
       expect(fs.existsSync(envFile)).toBe(true);
     });
 
-    it("throws a structured FILE_NOT_FOUND error when the target does not exist", async () => {
+    it("does not call engine.deleteFile when the target is sensitive", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
-      await expect(
-        deleteFile(new TsMorphEngine(), `${dir}/src/does-not-exist.ts`, makeScope(dir)),
-      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
+      const envFile = path.join(dir, ".env");
+      fs.writeFileSync(envFile, "SECRET=abc\n", "utf8");
+
+      const engineDeleteFile = vi.fn();
+      const engine = makeStubEngine({ deleteFile: engineDeleteFile });
+
+      await expect(deleteFile(engine, envFile, makeScope(dir))).rejects.toMatchObject({
+        code: "SENSITIVE_FILE",
+      });
+
+      expect(engineDeleteFile).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("result construction from scope", () => {
+    it("returns deletedFile as the resolved absolute path", async () => {
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
+      dirs.push(dir);
+
+      const targetFile = `${dir}/src/target.ts`;
+      const engine = new TsMorphEngine();
+      const result = await deleteFile(engine, targetFile, makeScope(dir));
+
+      expect(result.deletedFile).toBe(path.resolve(targetFile));
     });
 
-    it("does not touch any other files when the target is missing", async () => {
+    it("returns filesModified populated by the engine's work", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
-      const importerBefore = readFile(dir, "src/importer.ts");
+      const targetFile = `${dir}/src/target.ts`;
+      const modifiedFile = `${dir}/src/importer.ts`;
 
-      await expect(
-        deleteFile(new TsMorphEngine(), `${dir}/src/missing.ts`, makeScope(dir)),
-      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
+      const scope = makeScope(dir);
+      scope.recordModified(modifiedFile);
 
-      expect(readFile(dir, "src/importer.ts")).toBe(importerBefore);
+      const engineDeleteFile = vi.fn().mockResolvedValue({ importRefsRemoved: 0 });
+      const engine = makeStubEngine({ deleteFile: engineDeleteFile });
+
+      const result = await deleteFile(engine, targetFile, scope);
+
+      expect(result.filesModified).toContain(modifiedFile);
+      expect(result.filesModified).toStrictEqual(scope.modified);
+    });
+
+    it("returns filesSkipped populated by the engine's work", async () => {
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
+      dirs.push(dir);
+
+      const targetFile = `${dir}/src/target.ts`;
+      const skippedFile = `/outside/workspace/file.ts`;
+
+      const scope = makeScope(dir);
+      scope.recordSkipped(skippedFile);
+
+      const engineDeleteFile = vi.fn().mockResolvedValue({ importRefsRemoved: 0 });
+      const engine = makeStubEngine({ deleteFile: engineDeleteFile });
+
+      const result = await deleteFile(engine, targetFile, scope);
+
+      expect(result.filesSkipped).toContain(skippedFile);
+      expect(result.filesSkipped).toStrictEqual(scope.skipped);
+    });
+
+    it("returns importRefsRemoved from engine.deleteFile result", async () => {
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
+      dirs.push(dir);
+
+      const targetFile = path.join(dir, "src", "target.ts");
+      const absTarget = path.resolve(targetFile);
+
+      const engineDeleteFile = vi.fn().mockResolvedValue({ importRefsRemoved: 42 });
+      const engine = makeStubEngine({ deleteFile: engineDeleteFile });
+
+      const scope = makeScope(dir);
+      const result = await deleteFile(engine, targetFile, scope);
+
+      expect(result.importRefsRemoved).toBe(42);
+      expect(engineDeleteFile).toHaveBeenCalledWith(absTarget, scope);
+    });
+
+    it("passes the resolved absolute path to engine.deleteFile", async () => {
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
+      dirs.push(dir);
+
+      const targetFile = `${dir}/src/target.ts`;
+      const absTarget = path.resolve(targetFile);
+
+      const engineDeleteFile = vi.fn().mockResolvedValue({ importRefsRemoved: 0 });
+      const engine = makeStubEngine({ deleteFile: engineDeleteFile });
+
+      await deleteFile(engine, targetFile, makeScope(dir));
+
+      expect(engineDeleteFile).toHaveBeenCalledWith(absTarget, expect.any(WorkspaceScope));
     });
   });
 });

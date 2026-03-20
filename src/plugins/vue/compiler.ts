@@ -6,6 +6,7 @@ import { rewriteMovedFileOwnImports } from "../../domain/rewrite-own-imports.js"
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type {
   DefinitionLocation,
+  DeleteFileActionResult,
   Engine,
   FileTextEdit,
   SpanLocation,
@@ -15,7 +16,7 @@ import { TS_EXTENSIONS } from "../../utils/extensions.js";
 import { walkFiles } from "../../utils/file-walk.js";
 import { lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
-import { updateVueImportsAfterMove } from "./scan.js";
+import { removeVueImportsOfDeletedFile, updateVueImportsAfterMove } from "./scan.js";
 import { buildVolarService, type CachedService } from "./service.js";
 
 export class VolarCompiler implements Engine {
@@ -242,5 +243,22 @@ export class VolarCompiler implements Engine {
     const result = await tsCompiler.moveDirectory(oldPath, newPath, scope);
     this.invalidateService(oldPath);
     return result;
+  }
+
+  async deleteFile(targetFile: string, scope: WorkspaceScope): Promise<DeleteFileActionResult> {
+    const { tsDeleteFile } = await import("../../ts-engine/delete-file.js");
+    const { TsMorphEngine } = await import("../../ts-engine/engine.js");
+    const tsEngine = new TsMorphEngine();
+    const { importRefsRemoved } = await tsDeleteFile(tsEngine, targetFile, scope);
+
+    const workspaceRoot = path.resolve(scope.root);
+    const { skipped: vueSkipped, refsRemoved: vueRefs } = removeVueImportsOfDeletedFile(
+      targetFile,
+      workspaceRoot,
+      scope,
+    );
+    for (const f of vueSkipped) scope.recordSkipped(f);
+
+    return { importRefsRemoved: importRefsRemoved + vueRefs };
   }
 }

@@ -80,6 +80,17 @@ export interface Engine {
     newPath: string,
     scope: WorkspaceScope,
   ): Promise<{ filesMoved: string[] }>;
+
+  /**
+   * Full delete workflow: remove all import references to `targetFile` from
+   * TS/JS and Vue SFC files within the workspace, physically delete the file,
+   * and invalidate the project cache.
+   *
+   * `targetFile` must be an absolute path that has already been validated by
+   * the operation layer (exists, not sensitive). `scope` controls workspace
+   * boundary enforcement and file write tracking.
+   */
+  deleteFile(targetFile: string, scope: WorkspaceScope): Promise<DeleteFileActionResult>;
 }
 
 export interface LanguagePlugin {
