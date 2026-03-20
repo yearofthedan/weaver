@@ -113,6 +113,11 @@ export interface DeleteFileActionResult {
   importRefsRemoved: number;
 }
 
+export interface MoveFileActionResult {
+  oldPath: string;
+  newPath: string;
+}
+
 export interface EngineRegistry {
   /** Returns the project engine — Vue plugin if detected, TsMorphEngine otherwise. */
   projectEngine(): Promise<Engine>;
