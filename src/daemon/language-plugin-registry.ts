@@ -5,14 +5,14 @@ import { findTsConfigForFile } from "../utils/ts-project.js";
 const languagePlugins: LanguagePlugin[] = [];
 const pluginCompilers = new Map<string, Engine>();
 
-let tsMorphCompilerSingleton: import("../ts-engine/engine.js").TsMorphEngine | undefined;
+let tsMorphEngineSingleton: import("../ts-engine/engine.js").TsMorphEngine | undefined;
 
 async function getTsMorphEngine(): Promise<import("../ts-engine/engine.js").TsMorphEngine> {
-  if (!tsMorphCompilerSingleton) {
+  if (!tsMorphEngineSingleton) {
     const { TsMorphEngine } = await import("../ts-engine/engine.js");
-    tsMorphCompilerSingleton = new TsMorphEngine();
+    tsMorphEngineSingleton = new TsMorphEngine();
   }
-  return tsMorphCompilerSingleton;
+  return tsMorphEngineSingleton;
 }
 
 async function getPluginEngine(plugin: LanguagePlugin): Promise<Engine> {
@@ -66,7 +66,7 @@ export function makeRegistry(filePath: string): EngineRegistry {
  * Errors in individual plugins are caught so one failure doesn't block others.
  */
 export function invalidateFile(filePath: string): void {
-  tsMorphCompilerSingleton?.refreshFile(filePath);
+  tsMorphEngineSingleton?.refreshFile(filePath);
   for (const plugin of languagePlugins) {
     try {
       plugin.invalidateFile?.(filePath);
@@ -83,7 +83,7 @@ export function invalidateFile(filePath: string): void {
  * Errors in individual plugins are caught so one failure doesn't block others.
  */
 export function invalidateAll(): void {
-  tsMorphCompilerSingleton = undefined;
+  tsMorphEngineSingleton = undefined;
   pluginCompilers.clear();
   for (const plugin of languagePlugins) {
     try {
