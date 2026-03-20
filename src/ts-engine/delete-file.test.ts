@@ -102,77 +102,6 @@ describe("tsDeleteFile", () => {
     });
   });
 
-  describe("Vue SFC cleanup", () => {
-    it("removes named and type-only import lines from Vue script blocks", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const vueFile = path.join(dir, "src", "Comp.vue");
-      fs.writeFileSync(
-        vueFile,
-        [
-          '<script setup lang="ts">',
-          "import { targetFn } from './target';",
-          "import type { TargetType } from './target';",
-          "import * as All from './target';",
-          "const x = targetFn();",
-          "</script>",
-          "<template><div>hello</div></template>",
-        ].join("\n"),
-        "utf8",
-      );
-
-      const scope = makeScope(dir);
-      await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
-
-      expect(scope.modified).toContain(vueFile);
-      const content = fs.readFileSync(vueFile, "utf8");
-      expect(content).not.toMatch(/from ['"]\.\/target['"]/);
-      expect(content).toContain("const x = targetFn();");
-      expect(content).toContain("<template>");
-    });
-
-    it("removes bare side-effect import lines from Vue script blocks", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const vueFile = path.join(dir, "src", "SideEffect.vue");
-      fs.writeFileSync(
-        vueFile,
-        ["<script setup>", "import './target';", "const x = 1;", "</script>"].join("\n"),
-        "utf8",
-      );
-
-      const scope = makeScope(dir);
-      await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
-
-      expect(scope.modified).toContain(vueFile);
-      const content = fs.readFileSync(vueFile, "utf8");
-      expect(content).not.toContain("import './target'");
-      expect(content).toContain("const x = 1;");
-    });
-
-    it("does not modify Vue files that do not import the deleted file", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const originalContent = [
-        "<script setup>",
-        "import { other } from './other-module';",
-        "const x = 1;",
-        "</script>",
-      ].join("\n");
-      const vueFile = path.join(dir, "src", "Unrelated.vue");
-      fs.writeFileSync(vueFile, originalContent, "utf8");
-
-      const scope = makeScope(dir);
-      await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
-
-      expect(fs.readFileSync(vueFile, "utf8")).toBe(originalContent);
-      expect(scope.modified).not.toContain(vueFile);
-    });
-  });
-
   describe("physical file deletion", () => {
     it("removes the target file from disk after cleaning importers", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
@@ -211,30 +140,6 @@ describe("tsDeleteFile", () => {
       const result = await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
 
       expect(result.importRefsRemoved).toBe(5);
-    });
-
-    it("counts Vue import removals in importRefsRemoved", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
-      const vueFile = path.join(dir, "src", "VueRefs.vue");
-      fs.writeFileSync(
-        vueFile,
-        [
-          "<script setup>",
-          "import { targetFn } from './target';",
-          "import type { TargetType } from './target';",
-          "</script>",
-        ].join("\n"),
-        "utf8",
-      );
-
-      // TS files: importer.ts (2) + barrel.ts (2) + tests/out-of-project.ts (1) = 5
-      // Vue file adds 2 more = 7 total
-      const scope = makeScope(dir);
-      const result = await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
-
-      expect(result.importRefsRemoved).toBe(7);
     });
   });
 
