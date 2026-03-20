@@ -4,16 +4,16 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
-import { TsMorphCompiler } from "./ts.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { tsMoveSymbol } from "./ts-move-symbol.js";
 
 function makeScope(root: string): WorkspaceScope {
   return new WorkspaceScope(root, new NodeFileSystem());
 }
 
-function setupSimpleTs(): { dir: string; tsCompiler: TsMorphCompiler; scope: WorkspaceScope } {
+function setupSimpleTs(): { dir: string; tsCompiler: TsMorphEngine; scope: WorkspaceScope } {
   const dir = copyFixture(FIXTURES.simpleTs.name);
-  return { dir, tsCompiler: new TsMorphCompiler(), scope: makeScope(dir) };
+  return { dir, tsCompiler: new TsMorphEngine(), scope: makeScope(dir) };
 }
 
 describe("tsMoveSymbol — error cases and conflict detection", () => {
@@ -165,7 +165,7 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
 
   describe("force flag — source replaces dest declaration", () => {
     let dir: string;
-    let tsCompiler: TsMorphCompiler;
+    let tsCompiler: TsMorphEngine;
     let scope: WorkspaceScope;
 
     beforeEach(() => {
@@ -173,7 +173,7 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
       dirs.push(dir);
       fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
       fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
-      tsCompiler = new TsMorphCompiler();
+      tsCompiler = new TsMorphEngine();
       scope = makeScope(dir);
     });
 
@@ -230,7 +230,7 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
       fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
       fs.writeFileSync(path.join(dir, "src/b.ts"), "export function FOO(): void {}\n");
       await tsMoveSymbol(
-        new TsMorphCompiler(),
+        new TsMorphEngine(),
         path.join(dir, "src/a.ts"),
         "FOO",
         path.join(dir, "src/b.ts"),

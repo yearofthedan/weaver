@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
-import { TsMorphCompiler } from "./ts.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { tsMoveSymbol } from "./ts-move-symbol.js";
 
 function makeTmpDir(prefix: string): string {
@@ -23,9 +23,9 @@ function makeScope(root: string): WorkspaceScope {
   return new WorkspaceScope(root, new NodeFileSystem());
 }
 
-function setupSimpleTs(): { dir: string; tsCompiler: TsMorphCompiler; scope: WorkspaceScope } {
+function setupSimpleTs(): { dir: string; tsCompiler: TsMorphEngine; scope: WorkspaceScope } {
   const dir = copyFixture(FIXTURES.simpleTs.name);
-  return { dir, tsCompiler: new TsMorphCompiler(), scope: makeScope(dir) };
+  return { dir, tsCompiler: new TsMorphEngine(), scope: makeScope(dir) };
 }
 
 describe("tsMoveSymbol", () => {
@@ -133,7 +133,7 @@ describe("tsMoveSymbol", () => {
         'import { add } from "../src/utils";\nexport const r = add(1, 2);\n',
       );
       const scope = makeScope(path.join(tmpDir, "src"));
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
 
       await tsMoveSymbol(
         p,
@@ -161,7 +161,7 @@ describe("tsMoveSymbol", () => {
         "export function add(a: number, b: number): number { return a + b; }\n",
       );
       const scope = makeScope(path.join(tmpDir, "src"));
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
 
       await tsMoveSymbol(
         p,

@@ -1,12 +1,12 @@
-import type { Compiler } from "../compilers/types.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
+import type { Engine } from "../ts-engine/types.js";
 import { assertFileExists } from "../utils/assert-file.js";
 import { EngineError } from "../utils/errors.js";
 import { applyTextEdits } from "../utils/text-utils.js";
 import type { RenameResult } from "./types.js";
 
 export async function rename(
-  compiler: Compiler,
+  compiler: Engine,
   filePath: string,
   line: number,
   col: number,

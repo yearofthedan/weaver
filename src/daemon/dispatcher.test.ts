@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
-import { TsMorphCompiler } from "../compilers/ts.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { dispatchRequest, makeRegistry } from "./dispatcher.js";
 
 describe("makeRegistry", () => {
@@ -14,22 +14,22 @@ describe("makeRegistry", () => {
     expect(typeof registry.tsCompiler).toBe("function");
   });
 
-  it("tsCompiler resolves to a TsMorphCompiler with Compiler methods", async () => {
+  it("tsCompiler resolves to a TsMorphEngine with Compiler methods", async () => {
     const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const registry = makeRegistry(path.join(dir, "src/utils.ts"));
     const compiler = await registry.tsCompiler();
-    expect(compiler).toBeInstanceOf(TsMorphCompiler);
+    expect(compiler).toBeInstanceOf(TsMorphEngine);
     expect(typeof compiler.resolveOffset).toBe("function");
     expect(typeof compiler.afterSymbolMove).toBe("function");
   }, 10_000);
 
-  it("projectCompiler resolves to a TsMorphCompiler for a TS-only project", async () => {
+  it("projectCompiler resolves to a TsMorphEngine for a TS-only project", async () => {
     const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const registry = makeRegistry(path.join(dir, "src/utils.ts"));
     const compiler = await registry.projectCompiler();
-    expect(compiler).toBeInstanceOf(TsMorphCompiler);
+    expect(compiler).toBeInstanceOf(TsMorphEngine);
   }, 10_000);
 });
 

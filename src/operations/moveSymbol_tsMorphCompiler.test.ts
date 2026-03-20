@@ -3,19 +3,19 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
-import { TsMorphCompiler } from "../compilers/ts.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { moveSymbol } from "./moveSymbol.js";
 
-describe("moveSymbol operation — TsMorphCompiler integration", () => {
+describe("moveSymbol operation — TsMorphEngine integration", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
   it("moves a symbol end-to-end: source updated, dest created, importer updated", async () => {
     const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
-    const tsCompiler = new TsMorphCompiler();
+    const tsCompiler = new TsMorphEngine();
     const scope = new WorkspaceScope(dir, new NodeFileSystem());
 
     const result = await moveSymbol(
@@ -58,7 +58,7 @@ describe("moveSymbol operation — TsMorphCompiler integration", () => {
     );
     // Workspace is scoped to src/ only — lib/ is outside the boundary
     const scope = new WorkspaceScope(path.join(tmpDir, "src"), new NodeFileSystem());
-    const tsCompiler = new TsMorphCompiler();
+    const tsCompiler = new TsMorphEngine();
 
     const result = await moveSymbol(
       tsCompiler,
@@ -79,7 +79,7 @@ describe("moveSymbol operation — TsMorphCompiler integration", () => {
     // After moving greetUser to src/helpers.ts, the fallback scan must rewrite the test file.
     const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
-    const tsCompiler = new TsMorphCompiler();
+    const tsCompiler = new TsMorphEngine();
     const scope = new WorkspaceScope(dir, new NodeFileSystem());
 
     const result = await moveSymbol(

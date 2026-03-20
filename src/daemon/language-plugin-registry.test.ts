@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TsMorphCompiler } from "../compilers/ts.js";
-import type { Compiler, LanguagePlugin } from "../compilers/types.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
+import type { Engine, LanguagePlugin } from "../ts-engine/types.js";
 import {
   clearLanguagePlugins,
   invalidateAll,
@@ -12,7 +12,7 @@ import {
 
 const PROJECT_FILE = path.resolve("src/types.ts");
 
-function stubCompiler(tag = "stub"): Compiler {
+function stubCompiler(tag = "stub"): Engine {
   return {
     resolveOffset: () => 0,
     getRenameLocations: async () => null,
@@ -24,7 +24,7 @@ function stubCompiler(tag = "stub"): Compiler {
     afterFileRename: async () => ({ modified: [], skipped: [] }),
     afterSymbolMove: async () => ({ modified: [], skipped: [] }),
     _tag: tag,
-  } as Compiler & { _tag: string };
+  } as Engine & { _tag: string };
 }
 
 describe("LanguagePluginRegistry", () => {
@@ -33,13 +33,13 @@ describe("LanguagePluginRegistry", () => {
   });
 
   describe("plugin resolution via makeRegistry", () => {
-    it("falls back to TsMorphCompiler when no plugins are registered", async () => {
+    it("falls back to TsMorphEngine when no plugins are registered", async () => {
       const registry = makeRegistry(PROJECT_FILE);
       const compiler = await registry.projectCompiler();
-      expect(compiler).toBeInstanceOf(TsMorphCompiler);
+      expect(compiler).toBeInstanceOf(TsMorphEngine);
     });
 
-    it("falls back to TsMorphCompiler when file has no tsconfig", async () => {
+    it("falls back to TsMorphEngine when file has no tsconfig", async () => {
       registerLanguagePlugin({
         id: "never-consulted",
         supportsProject: () => true,
@@ -48,10 +48,10 @@ describe("LanguagePluginRegistry", () => {
       // Path with no tsconfig — plugins are never consulted
       const registry = makeRegistry("/tmp/no-tsconfig/file.ts");
       const compiler = await registry.projectCompiler();
-      expect(compiler).toBeInstanceOf(TsMorphCompiler);
+      expect(compiler).toBeInstanceOf(TsMorphEngine);
     });
 
-    it("falls back to TsMorphCompiler when no plugin matches the project", async () => {
+    it("falls back to TsMorphEngine when no plugin matches the project", async () => {
       registerLanguagePlugin({
         id: "never-matches",
         supportsProject: () => false,
@@ -60,7 +60,7 @@ describe("LanguagePluginRegistry", () => {
 
       const registry = makeRegistry(PROJECT_FILE);
       const compiler = await registry.projectCompiler();
-      expect(compiler).toBeInstanceOf(TsMorphCompiler);
+      expect(compiler).toBeInstanceOf(TsMorphEngine);
     });
 
     it("uses the first matching plugin's compiler", async () => {
@@ -78,7 +78,7 @@ describe("LanguagePluginRegistry", () => {
       registerLanguagePlugin(pluginB);
 
       const registry = makeRegistry(PROJECT_FILE);
-      const compiler = (await registry.projectCompiler()) as Compiler & { _tag: string };
+      const compiler = (await registry.projectCompiler()) as Engine & { _tag: string };
       expect(compiler._tag).toBe("a");
     });
 
@@ -97,11 +97,11 @@ describe("LanguagePluginRegistry", () => {
       registerLanguagePlugin(match);
 
       const registry = makeRegistry(PROJECT_FILE);
-      const compiler = (await registry.projectCompiler()) as Compiler & { _tag: string };
+      const compiler = (await registry.projectCompiler()) as Engine & { _tag: string };
       expect(compiler._tag).toBe("yes");
     });
 
-    it("tsCompiler always returns TsMorphCompiler regardless of registered plugins", async () => {
+    it("tsCompiler always returns TsMorphEngine regardless of registered plugins", async () => {
       registerLanguagePlugin({
         id: "claims-all",
         supportsProject: () => true,
@@ -110,7 +110,7 @@ describe("LanguagePluginRegistry", () => {
 
       const registry = makeRegistry(PROJECT_FILE);
       const tsCompiler = await registry.tsCompiler();
-      expect(tsCompiler).toBeInstanceOf(TsMorphCompiler);
+      expect(tsCompiler).toBeInstanceOf(TsMorphEngine);
     });
 
     it("caches the compiler from createCompiler — does not call it twice for the same plugin", async () => {

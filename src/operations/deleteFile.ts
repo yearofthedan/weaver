@@ -1,13 +1,13 @@
 import * as path from "node:path";
-import type { TsMorphCompiler } from "../compilers/ts.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { removeVueImportsOfDeletedFile } from "../plugins/vue/scan.js";
 import { isSensitiveFile } from "../security.js";
+import type { TsMorphEngine } from "../ts-engine/engine.js";
 import { assertFileExists } from "../utils/assert-file.js";
 import type { DeleteFileResult } from "./types.js";
 
 export async function deleteFile(
-  tsCompiler: TsMorphCompiler,
+  tsCompiler: TsMorphEngine,
   targetFile: string,
   scope: WorkspaceScope,
 ): Promise<DeleteFileResult> {

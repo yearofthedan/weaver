@@ -1,4 +1,4 @@
-import type { Compiler, LanguagePlugin } from "../../compilers/types.js";
+import type { Engine, LanguagePlugin } from "../../ts-engine/types.js";
 import { isVueProject } from "../../utils/ts-project.js";
 
 export function createVueLanguagePlugin(): LanguagePlugin {
@@ -8,7 +8,7 @@ export function createVueLanguagePlugin(): LanguagePlugin {
     supportsProject(tsconfigPath: string): boolean {
       return isVueProject(tsconfigPath);
     },
-    async createCompiler(): Promise<Compiler> {
+    async createCompiler(): Promise<Engine> {
       if (!cachedCompiler) {
         const { VolarCompiler } = await import("./compiler.js");
         cachedCompiler = new VolarCompiler();

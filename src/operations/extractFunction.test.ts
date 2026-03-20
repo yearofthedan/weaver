@@ -3,9 +3,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
-import { TsMorphCompiler } from "../compilers/ts.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { extractFunction } from "./extractFunction.js";
 
 describe("extractFunction", () => {
@@ -41,7 +41,7 @@ describe("extractFunction", () => {
 
     // Extract lines 2-4 (the three body statements)
     const result = await extractFunction(
-      new TsMorphCompiler(),
+      new TsMorphEngine(),
       filePath,
       2,
       3, // startLine, startCol
@@ -72,7 +72,7 @@ describe("extractFunction", () => {
     fs.writeFileSync(filePath, src);
 
     const result = await extractFunction(
-      new TsMorphCompiler(),
+      new TsMorphEngine(),
       filePath,
       2,
       3,
@@ -100,7 +100,7 @@ describe("extractFunction", () => {
 
     // Extract "x + y" expression (line 2, inside the initialiser)
     const result = await extractFunction(
-      new TsMorphCompiler(),
+      new TsMorphEngine(),
       filePath,
       2,
       15, // col of 'x'
@@ -127,7 +127,7 @@ describe("extractFunction", () => {
 
     // Extract "42" (a literal — no outer references)
     const result = await extractFunction(
-      new TsMorphCompiler(),
+      new TsMorphEngine(),
       filePath,
       2,
       15, // col of '4' in '42'
@@ -151,7 +151,7 @@ describe("extractFunction", () => {
     fs.writeFileSync(filePath, src);
 
     const result = await extractFunction(
-      new TsMorphCompiler(),
+      new TsMorphEngine(),
       filePath,
       2,
       19, // col of 'a'
@@ -183,7 +183,7 @@ describe("extractFunction", () => {
     fs.writeFileSync(filePath, src);
 
     await extractFunction(
-      new TsMorphCompiler(),
+      new TsMorphEngine(),
       filePath,
       4,
       3,
@@ -206,7 +206,7 @@ describe("extractFunction", () => {
 
     // Line 1 col 1 to line 1 col 1 — empty range, nothing to extract
     await expect(
-      extractFunction(new TsMorphCompiler(), filePath, 1, 1, 1, 1, "myFn", makeScope(dir)),
+      extractFunction(new TsMorphEngine(), filePath, 1, 1, 1, 1, "myFn", makeScope(dir)),
     ).rejects.toMatchObject({ code: "NOT_SUPPORTED" });
   });
 
@@ -215,7 +215,7 @@ describe("extractFunction", () => {
 
     await expect(
       extractFunction(
-        new TsMorphCompiler(),
+        new TsMorphEngine(),
         path.join(dir, "src/does-not-exist.ts"),
         1,
         1,
@@ -248,7 +248,7 @@ describe("extractFunction", () => {
     // We use dir as file root but innerDir as scope root to test boundary enforcement
     const scopeForInner = new WorkspaceScope(dir, new NodeFileSystem());
     const result = await extractFunction(
-      new TsMorphCompiler(),
+      new TsMorphEngine(),
       filePath,
       2,
       3,

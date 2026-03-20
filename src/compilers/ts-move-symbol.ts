@@ -2,18 +2,18 @@ import * as path from "node:path";
 import type { SourceFile } from "ts-morph";
 import { ImportRewriter } from "../domain/import-rewriter.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
+import type { TsMorphEngine } from "../ts-engine/engine.js";
 import { EngineError } from "../utils/errors.js";
 import { SymbolRef } from "./symbol-ref.js";
-import type { TsMorphCompiler } from "./ts.js";
 
 /**
  * Perform all compiler work for a named-symbol move: symbol lookup, destination
  * preparation, importer rewriting, AST surgery, dirty-file tracking, and saving.
  *
- * Called by `TsMorphCompiler.moveSymbol`; not intended for direct use by operations.
+ * Called by `TsMorphEngine.moveSymbol`; not intended for direct use by operations.
  */
 export async function tsMoveSymbol(
-  tsCompiler: TsMorphCompiler,
+  tsCompiler: TsMorphEngine,
   absSource: string,
   symbolName: string,
   absDest: string,

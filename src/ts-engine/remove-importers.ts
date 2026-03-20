@@ -4,11 +4,11 @@ import type {
   ImportDeclaration,
   SourceFile as TsMorphSourceFile,
 } from "ts-morph";
+import { createThrowawaySourceFile } from "../compilers/throwaway-project.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { stripExt, TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
-import { createThrowawaySourceFile } from "./throwaway-project.js";
-import type { TsMorphCompiler } from "./ts.js";
+import type { TsMorphEngine } from "./engine.js";
 
 /**
  * Removes all import and export declarations that reference `targetFile` from
@@ -20,7 +20,7 @@ import type { TsMorphCompiler } from "./ts.js";
  * Files outside `scope.root` are recorded as skipped and never written.
  */
 export async function tsRemoveImportersOf(
-  compiler: TsMorphCompiler,
+  compiler: TsMorphEngine,
   targetFile: string,
   scope: WorkspaceScope,
 ): Promise<number> {
@@ -45,7 +45,7 @@ export async function tsRemoveImportersOf(
  * handles path aliases, index files, and all extension variants.
  */
 async function removeInProjectImporters(
-  compiler: TsMorphCompiler,
+  compiler: TsMorphEngine,
   targetFile: string,
   scope: WorkspaceScope,
 ): Promise<{ projectFilePaths: Set<string>; removed: number }> {

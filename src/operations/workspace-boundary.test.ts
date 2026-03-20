@@ -2,9 +2,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
-import { TsMorphCompiler } from "../compilers/ts.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { moveFile } from "./moveFile.js";
 import { rename } from "./rename.js";
 
@@ -30,7 +30,7 @@ describe("workspace boundary enforcement", () => {
     expect(before.utils).toContain("greetUser");
     expect(before.consumer).toContain("greetUser");
 
-    const compiler = new TsMorphCompiler();
+    const compiler = new TsMorphEngine();
     // greetUser starts at col 17: "export function greetUser"
     //                                               ^ col 17
     const result = await rename(
@@ -65,7 +65,7 @@ describe("workspace boundary enforcement", () => {
     expect(fs.existsSync(oldFilePath)).toBe(true);
     expect(readFile(root, "consumer/main.ts")).toContain("utils");
 
-    const compiler = new TsMorphCompiler();
+    const compiler = new TsMorphEngine();
     const scope = new WorkspaceScope(workspace, new NodeFileSystem());
     const result = await moveFile(compiler, oldFilePath, newFilePath, scope);
 

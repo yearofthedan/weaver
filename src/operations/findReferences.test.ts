@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
-import { TsMorphCompiler } from "../compilers/ts.js";
 import { VolarCompiler } from "../plugins/vue/compiler.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { findReferences } from "./findReferences.js";
 
 describe("findReferences action", () => {
@@ -14,10 +14,10 @@ describe("findReferences action", () => {
     return dir;
   }
 
-  describe("with TsMorphCompiler", () => {
+  describe("with TsMorphEngine", () => {
     it("finds all references to a symbol from the declaration site", async () => {
       const dir = setup();
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const result = await findReferences(compiler, `${dir}/src/utils.ts`, 1, 17);
 
@@ -37,7 +37,7 @@ describe("findReferences action", () => {
 
     it("finds the same references from a call site", async () => {
       const dir = setup();
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const result = await findReferences(compiler, `${dir}/src/main.ts`, 3, 13);
 
@@ -49,7 +49,7 @@ describe("findReferences action", () => {
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
       const dir = setup();
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       await expect(
         findReferences(compiler, `${dir}/src/doesNotExist.ts`, 1, 1),
@@ -58,7 +58,7 @@ describe("findReferences action", () => {
 
     it("throws SYMBOL_NOT_FOUND for an out-of-range line", async () => {
       const dir = setup();
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       await expect(findReferences(compiler, `${dir}/src/utils.ts`, 999, 1)).rejects.toMatchObject({
         code: "SYMBOL_NOT_FOUND",

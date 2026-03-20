@@ -4,13 +4,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
-import { TsMorphCompiler } from "./ts.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 
 function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
 }
 
-describe("TsMorphCompiler.moveDirectory", () => {
+describe("TsMorphEngine.moveDirectory", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
@@ -18,7 +18,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
     it("records moved and externally-modified files in scope", async () => {
       const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
       const scope = makeScope(dir);
 
       await compiler.moveDirectory(`${dir}/src/utils`, `${dir}/src/lib`, scope);
@@ -33,7 +33,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
     it("does not record unchanged files unrelated to the move", async () => {
       const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
       const scope = makeScope(dir);
 
       await compiler.moveDirectory(`${dir}/src/utils`, `${dir}/src/lib`, scope);
@@ -51,7 +51,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
       const emptyDir = `${dir}/src/empty-utils`;
       fs.mkdirSync(emptyDir, { recursive: true });
 
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
       const scope = makeScope(dir);
 
       await compiler.moveDirectory(emptyDir, `${dir}/src/empty-lib`, scope);
@@ -64,7 +64,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
     it("subsequent moveDirectory calls on the same compiler instance work correctly", async () => {
       const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       // First move: utils -> lib
       const scope1 = makeScope(dir);
@@ -88,7 +88,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
     it("preserves .js extensions in import specifiers after directory move", async () => {
       const dir = copyFixture(FIXTURES.moveDirTsEsm.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
       const scope = makeScope(dir);
 
       await compiler.moveDirectory(`${dir}/src/utils`, `${dir}/src/lib`, scope);
@@ -111,7 +111,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
     it("does not rewrite internal imports when moved directory has its own tsconfig", async () => {
       const dir = copyFixture(FIXTURES.moveDirSubproject.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
       const scope = makeScope(dir);
 
       await compiler.moveDirectory(`${dir}/src/pkg`, `${dir}/src/library`, scope);
@@ -144,7 +144,7 @@ describe("TsMorphCompiler.moveDirectory", () => {
       fs.mkdirSync(nmDir, { recursive: true });
       fs.writeFileSync(path.join(nmDir, "skip.ts"), "export const x = 1;\n");
 
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
       const scope = makeScope(dir);
 
       const result = await compiler.moveDirectory(`${dir}/src/utils`, `${dir}/src/lib`, scope);

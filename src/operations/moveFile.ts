@@ -1,11 +1,11 @@
-import type { Compiler } from "../compilers/types.js";
 import { applyRenameEdits } from "../domain/apply-rename-edits.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
+import type { Engine } from "../ts-engine/types.js";
 import { assertFileExists } from "../utils/assert-file.js";
 import type { MoveResult } from "./types.js";
 
 export async function moveFile(
-  compiler: Compiler,
+  compiler: Engine,
   oldPath: string,
   newPath: string,
   scope: WorkspaceScope,

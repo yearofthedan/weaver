@@ -11,7 +11,6 @@ import {
   ReplaceTextArgsSchema,
   SearchTextArgsSchema,
 } from "../adapters/schema.js";
-import type { CompilerRegistry } from "../compilers/types.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { extractFunction } from "../operations/extractFunction.js";
 import { findReferences } from "../operations/findReferences.js";
@@ -24,10 +23,11 @@ import { replaceText } from "../operations/replaceText.js";
 import { searchText } from "../operations/searchText.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { isWithinWorkspace, validateFilePath } from "../security.js";
+import type { EngineRegistry } from "../ts-engine/types.js";
 import { makeRegistry } from "./language-plugin-registry.js";
 
-export type { LanguagePlugin } from "../compilers/types.js";
 export { createVueLanguagePlugin } from "../plugins/vue/plugin.js";
+export type { LanguagePlugin } from "../ts-engine/types.js";
 export {
   clearLanguagePlugins,
   invalidateAll,
@@ -51,7 +51,7 @@ interface OperationDescriptor {
   };
   /** Call the appropriate compiler method and return the raw result. */
   invoke(
-    registry: CompilerRegistry,
+    registry: EngineRegistry,
     params: Record<string, unknown>,
     workspace: string,
   ): Promise<unknown>;

@@ -1,21 +1,21 @@
-import type { Compiler, CompilerRegistry, LanguagePlugin } from "../compilers/types.js";
 import { createVueLanguagePlugin } from "../plugins/vue/plugin.js";
+import type { Engine, EngineRegistry, LanguagePlugin } from "../ts-engine/types.js";
 import { findTsConfigForFile } from "../utils/ts-project.js";
 
 const languagePlugins: LanguagePlugin[] = [];
-const pluginCompilers = new Map<string, Compiler>();
+const pluginCompilers = new Map<string, Engine>();
 
-let tsMorphCompilerSingleton: import("../compilers/ts.js").TsMorphCompiler | undefined;
+let tsMorphCompilerSingleton: import("../ts-engine/engine.js").TsMorphEngine | undefined;
 
-async function getTsMorphCompiler(): Promise<import("../compilers/ts.js").TsMorphCompiler> {
+async function getTsMorphEngine(): Promise<import("../ts-engine/engine.js").TsMorphEngine> {
   if (!tsMorphCompilerSingleton) {
-    const { TsMorphCompiler } = await import("../compilers/ts.js");
-    tsMorphCompilerSingleton = new TsMorphCompiler();
+    const { TsMorphEngine } = await import("../ts-engine/engine.js");
+    tsMorphCompilerSingleton = new TsMorphEngine();
   }
   return tsMorphCompilerSingleton;
 }
 
-async function getPluginCompiler(plugin: LanguagePlugin): Promise<Compiler> {
+async function getPluginCompiler(plugin: LanguagePlugin): Promise<Engine> {
   let compiler = pluginCompilers.get(plugin.id);
   if (!compiler) {
     compiler = await plugin.createCompiler();
@@ -37,12 +37,12 @@ export function clearLanguagePlugins(): void {
 /**
  * Create a `CompilerRegistry` scoped to the project containing `filePath`.
  * `projectCompiler` iterates registered language plugins; first match wins,
- * with TsMorphCompiler as the default fallback.
- * `tsCompiler` always returns TsMorphCompiler for AST-level operations (e.g. moveSymbol).
+ * with TsMorphEngine as the default fallback.
+ * `tsCompiler` always returns TsMorphEngine for AST-level operations (e.g. moveSymbol).
  */
-export function makeRegistry(filePath: string): CompilerRegistry {
+export function makeRegistry(filePath: string): EngineRegistry {
   return {
-    async projectCompiler(): Promise<Compiler> {
+    async projectCompiler(): Promise<Engine> {
       const tsConfigPath = findTsConfigForFile(filePath);
       if (tsConfigPath) {
         for (const plugin of languagePlugins) {
@@ -51,10 +51,10 @@ export function makeRegistry(filePath: string): CompilerRegistry {
           }
         }
       }
-      return getTsMorphCompiler();
+      return getTsMorphEngine();
     },
     async tsCompiler() {
-      return getTsMorphCompiler();
+      return getTsMorphEngine();
     },
   };
 }

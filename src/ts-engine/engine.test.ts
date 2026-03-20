@@ -6,7 +6,7 @@ import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { EngineError } from "../utils/errors.js";
-import { TsMorphCompiler } from "./ts.js";
+import { TsMorphEngine } from "./engine.js";
 
 function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
@@ -17,7 +17,7 @@ function makeScope(dir: string): WorkspaceScope {
 //   src/main.ts   line 1, col 10 → greetUser (import)
 //                 line 3, col 13 → greetUser (call)
 
-describe("TsMorphCompiler", () => {
+describe("TsMorphEngine", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
@@ -28,7 +28,7 @@ describe("TsMorphCompiler", () => {
   }
 
   it("implements Compiler shape", () => {
-    const p = new TsMorphCompiler();
+    const p = new TsMorphEngine();
     expect(typeof p.resolveOffset).toBe("function");
     expect(typeof p.getRenameLocations).toBe("function");
     expect(typeof p.getReferencesAtPosition).toBe("function");
@@ -42,7 +42,7 @@ describe("TsMorphCompiler", () => {
 
   it("resolveOffset converts 1-based line/col to 0-based offset", () => {
     const dir = setup();
-    const p = new TsMorphCompiler();
+    const p = new TsMorphEngine();
     const file = path.join(dir, "src/utils.ts");
     // line 1, col 1 → offset 0
     expect(p.resolveOffset(file, 1, 1)).toBe(0);
@@ -52,7 +52,7 @@ describe("TsMorphCompiler", () => {
 
   it("getRenameLocations returns spans for a symbol", async () => {
     const dir = setup();
-    const p = new TsMorphCompiler();
+    const p = new TsMorphEngine();
     const file = path.join(dir, "src/utils.ts");
     const offset = p.resolveOffset(file, 1, 17); // greetUser
     const locs = await p.getRenameLocations(file, offset);
@@ -67,7 +67,7 @@ describe("TsMorphCompiler", () => {
 
   it("getReferencesAtPosition returns spans including definition", async () => {
     const dir = setup();
-    const p = new TsMorphCompiler();
+    const p = new TsMorphEngine();
     const file = path.join(dir, "src/utils.ts");
     const offset = p.resolveOffset(file, 1, 17);
     const refs = await p.getReferencesAtPosition(file, offset);
@@ -77,7 +77,7 @@ describe("TsMorphCompiler", () => {
 
   it("getDefinitionAtPosition returns definition location", async () => {
     const dir = setup();
-    const p = new TsMorphCompiler();
+    const p = new TsMorphEngine();
     const file = path.join(dir, "src/main.ts");
     const offset = p.resolveOffset(file, 3, 13); // greetUser call site
     const defs = await p.getDefinitionAtPosition(file, offset);
@@ -88,13 +88,13 @@ describe("TsMorphCompiler", () => {
   });
 
   it("refreshFile is a no-op when the project has not been loaded yet", () => {
-    const p = new TsMorphCompiler();
+    const p = new TsMorphEngine();
     expect(() => p.refreshFile("/nonexistent/path.ts")).not.toThrow();
   });
 
   it("refreshFile does not throw after a project has been loaded", () => {
     const dir = setup();
-    const p = new TsMorphCompiler();
+    const p = new TsMorphEngine();
     const file = path.join(dir, "src/utils.ts");
     // Force project load.
     p.resolveOffset(file, 1, 1);
@@ -104,7 +104,7 @@ describe("TsMorphCompiler", () => {
 
   it("getRenameLocations throws RENAME_NOT_ALLOWED for a non-renameable token", async () => {
     const dir = setup();
-    const p = new TsMorphCompiler();
+    const p = new TsMorphEngine();
     // main.ts line 1: import { greetUser } from "./utils";
     // The import path string "./utils" at col 27 cannot be renamed
     // because allowRenameOfImportPath:false is passed to the TS LS.
@@ -117,7 +117,7 @@ describe("TsMorphCompiler", () => {
 
   it("getDefinitionAtPosition returns null for a whitespace offset", async () => {
     const dir = setup();
-    const p = new TsMorphCompiler();
+    const p = new TsMorphEngine();
     // main.ts line 2 is blank — any position there has no symbol definition
     const file = path.join(dir, "src/main.ts");
     const result = await p.getDefinitionAtPosition(file, 37); // '\n' at end of line 1
@@ -129,7 +129,7 @@ describe("TsMorphCompiler", () => {
     const file = path.join(tmpDir, "standalone.ts");
     fs.writeFileSync(file, "export const x = 1;\n");
     try {
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       // 'x' starts at column 14 → offset 13
       expect(p.resolveOffset(file, 1, 14)).toBe(13);
     } finally {
@@ -142,7 +142,7 @@ describe("TsMorphCompiler", () => {
     const file = path.join(tmpDir, "standalone.ts");
     fs.writeFileSync(file, "export const myVar = 1;\n");
     try {
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       // 'myVar' starts at offset 13
       const locs = await p.getRenameLocations(file, 13);
       expect(locs).not.toBeNull();
@@ -157,7 +157,7 @@ describe("TsMorphCompiler", () => {
     const file = path.join(tmpDir, "standalone.ts");
     fs.writeFileSync(file, "export const myVar = 1;\n");
     try {
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const refs = await p.getReferencesAtPosition(file, 13);
       expect(refs).not.toBeNull();
     } finally {
@@ -171,7 +171,7 @@ describe("TsMorphCompiler", () => {
     // Use a reference expression: x references myVar defined earlier in the file
     fs.writeFileSync(file, "export const myVar = 1;\nexport const x = myVar;\n");
     try {
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       // 'myVar' in 'const x = myVar' starts at offset 41
       const content = fs.readFileSync(file, "utf8");
       const offset = content.indexOf("myVar", content.indexOf("const x"));
@@ -184,7 +184,7 @@ describe("TsMorphCompiler", () => {
 
   it("afterFileRename does not touch files outside the workspace boundary", async () => {
     const dir = setup();
-    const p = new TsMorphCompiler();
+    const p = new TsMorphEngine();
     // Use a narrow workspace that only covers an empty subdirectory.
     // A file outside this boundary that imports the moved file must not be written.
     const narrowDir = path.join(dir, "src", "nested");
@@ -204,7 +204,7 @@ describe("TsMorphCompiler", () => {
 
   it("afterFileRename does not rewrite files that do not import the old path", async () => {
     const dir = setup();
-    const p = new TsMorphCompiler();
+    const p = new TsMorphEngine();
     const mainPath = path.join(dir, "src/main.ts");
     const originalContent = fs.readFileSync(mainPath, "utf8");
     // Moving a file that main.ts doesn't import — main.ts must not be touched.
@@ -218,7 +218,7 @@ describe("TsMorphCompiler", () => {
 
   it("afterFileRename skips files already in scope.modified", async () => {
     const dir = setup();
-    const p = new TsMorphCompiler();
+    const p = new TsMorphEngine();
     const mainPath = path.join(dir, "src/main.ts");
     const originalContent = fs.readFileSync(mainPath, "utf8");
     const utils = path.join(dir, "src/utils.ts");
@@ -233,7 +233,7 @@ describe("TsMorphCompiler", () => {
 
   it("afterFileRename records the modified file in scope.modified", async () => {
     const dir = setup();
-    const p = new TsMorphCompiler();
+    const p = new TsMorphEngine();
     const utils = path.join(dir, "src/utils.ts");
     const helpers = path.join(dir, "src/helpers.ts");
     // Physically rename the file so the new path exists for the project refresh.
@@ -258,14 +258,14 @@ describe("TsMorphCompiler", () => {
 
     it("resolveOffset works through a symlinked path", () => {
       const { linkDir } = setupSymlink();
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const file = path.join(linkDir, "src/utils.ts");
       expect(p.resolveOffset(file, 1, 17)).toBe(16);
     });
 
     it("getRenameLocations succeeds through a symlinked path", async () => {
       const { linkDir } = setupSymlink();
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const file = path.join(linkDir, "src/utils.ts");
       const offset = p.resolveOffset(file, 1, 17);
       const locs = await p.getRenameLocations(file, offset);
@@ -279,7 +279,7 @@ describe("TsMorphCompiler", () => {
 
     it("getReferencesAtPosition succeeds through a symlinked path", async () => {
       const { linkDir } = setupSymlink();
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const file = path.join(linkDir, "src/utils.ts");
       const offset = p.resolveOffset(file, 1, 17);
       const refs = await p.getReferencesAtPosition(file, offset);
@@ -292,7 +292,7 @@ describe("TsMorphCompiler", () => {
 
     it("getDefinitionAtPosition succeeds through a symlinked path", async () => {
       const { linkDir } = setupSymlink();
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const file = path.join(linkDir, "src/main.ts");
       const offset = p.resolveOffset(file, 3, 13); // greetUser call site
       const defs = await p.getDefinitionAtPosition(file, offset);
@@ -308,7 +308,7 @@ describe("TsMorphCompiler", () => {
   it("getProjectForDirectory falls back to no-tsconfig project when no tsconfig found", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-notconfig-dir-"));
     try {
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       // Must not throw — returns a bare Project without tsconfig.
       const project = p.getProjectForDirectory(tmpDir);
       expect(project).toBeTruthy();
@@ -320,7 +320,7 @@ describe("TsMorphCompiler", () => {
   describe("getLanguageServiceForFile", () => {
     it("returns a language service with getSemanticDiagnostics", () => {
       const dir = setup();
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       const ls = p.getLanguageServiceForFile(file);
       expect(typeof ls.getSemanticDiagnostics).toBe("function");
@@ -328,7 +328,7 @@ describe("TsMorphCompiler", () => {
 
     it("returns a language service that can find rename locations", () => {
       const dir = setup();
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       const ls = p.getLanguageServiceForFile(file);
       // greetUser is at offset 16 in utils.ts
@@ -341,7 +341,7 @@ describe("TsMorphCompiler", () => {
 
     it("adds the file to the project when it was not already tracked", () => {
       const dir = setup();
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       // Call before any other method — file is not yet in a project.
       const ls = p.getLanguageServiceForFile(file);
@@ -353,14 +353,14 @@ describe("TsMorphCompiler", () => {
   describe("getLanguageServiceForDirectory", () => {
     it("returns a language service for the project covering the directory", () => {
       const dir = setup();
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const ls = p.getLanguageServiceForDirectory(dir);
       expect(typeof ls.getSemanticDiagnostics).toBe("function");
     });
 
     it("returns a language service that can check files in the project", () => {
       const dir = setup();
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const ls = p.getLanguageServiceForDirectory(dir);
       const file = path.join(dir, "src/utils.ts");
       const diags = ls.getSemanticDiagnostics(file);
@@ -370,13 +370,13 @@ describe("TsMorphCompiler", () => {
 
   describe("refreshSourceFile", () => {
     it("is a no-op when the project has not been loaded yet", () => {
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       expect(() => p.refreshSourceFile("/nonexistent/path.ts")).not.toThrow();
     });
 
     it("re-reads the file from disk after content changes", () => {
       const dir = setup();
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       // Load the project so the file is tracked.
       p.getLanguageServiceForFile(file);
@@ -390,7 +390,7 @@ describe("TsMorphCompiler", () => {
 
     it("adds the file to the project when it was not already tracked", () => {
       const dir = setup();
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       // Load the project (but not this specific file).
       const otherFile = path.join(dir, "src/main.ts");
@@ -403,7 +403,7 @@ describe("TsMorphCompiler", () => {
   describe("getProjectSourceFilePaths", () => {
     it("returns file paths as strings", () => {
       const dir = setup();
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const paths = p.getProjectSourceFilePaths(dir);
       expect(Array.isArray(paths)).toBe(true);
       for (const fp of paths) {
@@ -413,7 +413,7 @@ describe("TsMorphCompiler", () => {
 
     it("includes source files from the project", () => {
       const dir = setup();
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const paths = p.getProjectSourceFilePaths(dir);
       const utils = path.join(dir, "src/utils.ts");
       expect(paths.some((fp) => fp === utils || fp.endsWith("/src/utils.ts"))).toBe(true);
@@ -422,7 +422,7 @@ describe("TsMorphCompiler", () => {
     it("returns an empty array when the directory has no tsconfig and no source files", () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-empty-"));
       try {
-        const p = new TsMorphCompiler();
+        const p = new TsMorphEngine();
         const paths = p.getProjectSourceFilePaths(tmpDir);
         expect(Array.isArray(paths)).toBe(true);
       } finally {
@@ -435,7 +435,7 @@ describe("TsMorphCompiler", () => {
     it("removes in-project import declarations that resolve to the target file", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const target = path.join(dir, "src/target.ts");
       const scope = makeScope(dir);
 
@@ -448,7 +448,7 @@ describe("TsMorphCompiler", () => {
     it("removes in-project export declarations (barrel re-exports) that resolve to the target", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const target = path.join(dir, "src/target.ts");
       const scope = makeScope(dir);
 
@@ -462,7 +462,7 @@ describe("TsMorphCompiler", () => {
     it("removes out-of-project imports matched by specifier path", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const target = path.join(dir, "src/target.ts");
       const scope = makeScope(dir);
 
@@ -477,7 +477,7 @@ describe("TsMorphCompiler", () => {
       dirs.push(dir);
       const extra = path.join(dir, "tests", "explicit-ext.ts");
       fs.writeFileSync(extra, 'import { targetFn } from "../src/target.ts";\n', "utf8");
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const target = path.join(dir, "src/target.ts");
       const scope = makeScope(dir);
 
@@ -489,7 +489,7 @@ describe("TsMorphCompiler", () => {
     it("returns the total count of declarations removed", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const target = path.join(dir, "src/target.ts");
       const scope = makeScope(dir);
 
@@ -506,7 +506,7 @@ describe("TsMorphCompiler", () => {
       dirs.push(dir);
       const isolated = path.join(dir, "src", "isolated.ts");
       fs.writeFileSync(isolated, "export const x = 1;\n", "utf8");
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const scope = makeScope(dir);
 
       const count = await p.removeImportersOf(isolated, scope);
@@ -517,7 +517,7 @@ describe("TsMorphCompiler", () => {
     it("records modified files in scope", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const target = path.join(dir, "src/target.ts");
       const scope = makeScope(dir);
 
@@ -531,7 +531,7 @@ describe("TsMorphCompiler", () => {
     it("does not include the target file itself in scope.modified", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const target = path.join(dir, "src/target.ts");
       const scope = makeScope(dir);
 
@@ -547,7 +547,7 @@ describe("TsMorphCompiler", () => {
       const target = path.join(workspace, "src", "utils.ts");
       const consumerFile = path.join(root, "consumer", "main.ts");
       const before = fs.readFileSync(consumerFile, "utf8");
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const scope = makeScope(workspace);
 
       await p.removeImportersOf(target, scope);
@@ -561,7 +561,7 @@ describe("TsMorphCompiler", () => {
       dirs.push(dir);
       const isolated = path.join(dir, "src", "isolated.ts");
       fs.writeFileSync(isolated, "export const x = 1;\n", "utf8");
-      const p = new TsMorphCompiler();
+      const p = new TsMorphEngine();
       const target = path.join(dir, "src/target.ts");
       const scope = makeScope(dir);
 
@@ -580,7 +580,7 @@ describe("TsMorphCompiler", () => {
         "export function add(a: number, b: number): number { return a + b; }\n",
       );
       try {
-        const p = new TsMorphCompiler();
+        const p = new TsMorphEngine();
         const result = p.getFunction(file, "add");
         expect(result).toEqual({
           name: "add",
@@ -596,7 +596,7 @@ describe("TsMorphCompiler", () => {
       const file = path.join(tmpDir, "funcs.ts");
       fs.writeFileSync(file, "export function noop(): void {}\n");
       try {
-        const p = new TsMorphCompiler();
+        const p = new TsMorphEngine();
         const result = p.getFunction(file, "noop");
         expect(result).toEqual({ name: "noop", parameters: [] });
       } finally {
@@ -609,7 +609,7 @@ describe("TsMorphCompiler", () => {
       const file = path.join(tmpDir, "funcs.ts");
       fs.writeFileSync(file, "export const x = 1;\n");
       try {
-        const p = new TsMorphCompiler();
+        const p = new TsMorphEngine();
         expect(p.getFunction(file, "nonExistent")).toBeUndefined();
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });

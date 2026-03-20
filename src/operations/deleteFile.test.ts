@@ -8,9 +8,9 @@ import {
   fileExists,
   readFile,
 } from "../__testHelpers__/helpers.js";
-import { TsMorphCompiler } from "../compilers/ts.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { deleteFile } from "./deleteFile.js";
 
 function makeScope(workspace: string): WorkspaceScope {
@@ -26,11 +26,7 @@ describe("deleteFile", () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
-      const result = await deleteFile(
-        new TsMorphCompiler(),
-        `${dir}/src/target.ts`,
-        makeScope(dir),
-      );
+      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(result.filesModified).toContain(`${dir}/src/importer.ts`);
       expect(readFile(dir, "src/importer.ts")).not.toMatch(/from ['"]\.\/target['"]/);
@@ -40,7 +36,7 @@ describe("deleteFile", () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
-      await deleteFile(new TsMorphCompiler(), `${dir}/src/target.ts`, makeScope(dir));
+      await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       // importer.ts has both a named import and a type-only import from target
       const content = readFile(dir, "src/importer.ts");
@@ -51,11 +47,7 @@ describe("deleteFile", () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
-      const result = await deleteFile(
-        new TsMorphCompiler(),
-        `${dir}/src/target.ts`,
-        makeScope(dir),
-      );
+      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(result.filesModified).toContain(`${dir}/src/barrel.ts`);
       const content = readFile(dir, "src/barrel.ts");
@@ -69,11 +61,7 @@ describe("deleteFile", () => {
       // importer.ts: 2 decls (named import + type import)
       // barrel.ts:   2 decls (export * + named re-export)
       // tests/out-of-project.ts: 1 decl (out-of-project, but still within workspace)
-      const result = await deleteFile(
-        new TsMorphCompiler(),
-        `${dir}/src/target.ts`,
-        makeScope(dir),
-      );
+      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(result.importRefsRemoved).toBe(5);
     });
@@ -82,11 +70,7 @@ describe("deleteFile", () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
-      const result = await deleteFile(
-        new TsMorphCompiler(),
-        `${dir}/src/target.ts`,
-        makeScope(dir),
-      );
+      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(result.filesModified).not.toContain(`${dir}/src/target.ts`);
     });
@@ -98,7 +82,7 @@ describe("deleteFile", () => {
       const isolated = path.join(dir, "src", "isolated.ts");
       fs.writeFileSync(isolated, "export const x = 1;\n", "utf8");
 
-      const result = await deleteFile(new TsMorphCompiler(), isolated, makeScope(dir));
+      const result = await deleteFile(new TsMorphEngine(), isolated, makeScope(dir));
 
       expect(result.importRefsRemoved).toBe(0);
       expect(result.filesModified).toHaveLength(0);
@@ -111,11 +95,7 @@ describe("deleteFile", () => {
       dirs.push(dir);
 
       expect(fileExists(dir, "src/target.ts")).toBe(true);
-      const result = await deleteFile(
-        new TsMorphCompiler(),
-        `${dir}/src/target.ts`,
-        makeScope(dir),
-      );
+      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(fileExists(dir, "src/target.ts")).toBe(false);
       expect(result.deletedFile).toBe(`${dir}/src/target.ts`);
@@ -128,7 +108,7 @@ describe("deleteFile", () => {
       const isolated = path.join(dir, "src", "isolated.ts");
       fs.writeFileSync(isolated, "export const x = 1;\n", "utf8");
 
-      await deleteFile(new TsMorphCompiler(), isolated, makeScope(dir));
+      await deleteFile(new TsMorphEngine(), isolated, makeScope(dir));
 
       expect(fs.existsSync(isolated)).toBe(false);
     });
@@ -140,11 +120,7 @@ describe("deleteFile", () => {
       dirs.push(dir);
 
       // tests/out-of-project.ts is outside tsconfig include (src/**/*.ts)
-      const result = await deleteFile(
-        new TsMorphCompiler(),
-        `${dir}/src/target.ts`,
-        makeScope(dir),
-      );
+      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(result.filesModified).toContain(`${dir}/tests/out-of-project.ts`);
       expect(readFile(dir, "tests/out-of-project.ts")).not.toMatch(/from ['"][^'"]*target['"]/);
@@ -161,11 +137,7 @@ describe("deleteFile", () => {
         "utf8",
       );
 
-      const result = await deleteFile(
-        new TsMorphCompiler(),
-        `${dir}/src/target.ts`,
-        makeScope(dir),
-      );
+      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(result.filesModified).toContain(extra);
       expect(fs.readFileSync(extra, "utf8")).not.toMatch(/from ['"][^'"]*target/);
@@ -192,11 +164,7 @@ describe("deleteFile", () => {
         "utf8",
       );
 
-      const result = await deleteFile(
-        new TsMorphCompiler(),
-        `${dir}/src/target.ts`,
-        makeScope(dir),
-      );
+      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(result.filesModified).toContain(vueFile);
       const content = fs.readFileSync(vueFile, "utf8");
@@ -217,11 +185,7 @@ describe("deleteFile", () => {
         "utf8",
       );
 
-      const result = await deleteFile(
-        new TsMorphCompiler(),
-        `${dir}/src/target.ts`,
-        makeScope(dir),
-      );
+      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(result.filesModified).toContain(vueFile);
       const content = fs.readFileSync(vueFile, "utf8");
@@ -245,11 +209,7 @@ describe("deleteFile", () => {
         "utf8",
       );
 
-      const result = await deleteFile(
-        new TsMorphCompiler(),
-        `${dir}/src/target.ts`,
-        makeScope(dir),
-      );
+      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(result.filesModified).toContain(vueFile);
       expect(fs.readFileSync(vueFile, "utf8")).not.toMatch(/from ['"]\.\/target['"]/);
@@ -268,7 +228,7 @@ describe("deleteFile", () => {
       const vueFile = path.join(dir, "src", "Unrelated.vue");
       fs.writeFileSync(vueFile, originalContent, "utf8");
 
-      await deleteFile(new TsMorphCompiler(), `${dir}/src/target.ts`, makeScope(dir));
+      await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(fs.readFileSync(vueFile, "utf8")).toBe(originalContent);
     });
@@ -286,7 +246,7 @@ describe("deleteFile", () => {
       const vueFile = path.join(dir, "src", "OtherSideEffect.vue");
       fs.writeFileSync(vueFile, originalContent, "utf8");
 
-      await deleteFile(new TsMorphCompiler(), `${dir}/src/target.ts`, makeScope(dir));
+      await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(fs.readFileSync(vueFile, "utf8")).toBe(originalContent);
     });
@@ -304,11 +264,7 @@ describe("deleteFile", () => {
         "utf8",
       );
 
-      const result = await deleteFile(
-        new TsMorphCompiler(),
-        `${dir}/src/target.ts`,
-        makeScope(dir),
-      );
+      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(result.filesModified).not.toContain(unrelatedVue);
     });
@@ -331,11 +287,7 @@ describe("deleteFile", () => {
 
       // TS files contribute: importer.ts (2) + barrel.ts (2) + tests/out-of-project.ts (1) = 5
       // Vue file contributes 2 more = 7 total
-      const result = await deleteFile(
-        new TsMorphCompiler(),
-        `${dir}/src/target.ts`,
-        makeScope(dir),
-      );
+      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(result.importRefsRemoved).toBe(7);
     });
@@ -357,11 +309,7 @@ describe("deleteFile", () => {
         "utf8",
       );
 
-      const result = await deleteFile(
-        new TsMorphCompiler(),
-        `${dir}/src/target.ts`,
-        makeScope(dir),
-      );
+      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       expect(result.filesModified).toContain(vueFile);
       const content = fs.readFileSync(vueFile, "utf8");
@@ -383,7 +331,7 @@ describe("deleteFile", () => {
       const consumerFile = path.join(root, "consumer", "main.ts");
       const consumerBefore = fs.readFileSync(consumerFile, "utf8");
 
-      const result = await deleteFile(new TsMorphCompiler(), targetFile, makeScope(workspace));
+      const result = await deleteFile(new TsMorphEngine(), targetFile, makeScope(workspace));
 
       // consumer/main.ts is outside workspace — must not be written
       expect(fs.readFileSync(consumerFile, "utf8")).toBe(consumerBefore);
@@ -397,11 +345,7 @@ describe("deleteFile", () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
-      const result = await deleteFile(
-        new TsMorphCompiler(),
-        `${dir}/src/target.ts`,
-        makeScope(dir),
-      );
+      const result = await deleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, makeScope(dir));
 
       // All modified files must be within the workspace
       for (const f of result.filesModified) {
@@ -417,9 +361,9 @@ describe("deleteFile", () => {
       const envFile = path.join(dir, ".env");
       fs.writeFileSync(envFile, "SECRET=abc\n", "utf8");
 
-      await expect(
-        deleteFile(new TsMorphCompiler(), envFile, makeScope(dir)),
-      ).rejects.toMatchObject({ code: "SENSITIVE_FILE" });
+      await expect(deleteFile(new TsMorphEngine(), envFile, makeScope(dir))).rejects.toMatchObject({
+        code: "SENSITIVE_FILE",
+      });
 
       expect(fs.existsSync(envFile)).toBe(true);
     });
@@ -429,7 +373,7 @@ describe("deleteFile", () => {
       dirs.push(dir);
 
       await expect(
-        deleteFile(new TsMorphCompiler(), `${dir}/src/does-not-exist.ts`, makeScope(dir)),
+        deleteFile(new TsMorphEngine(), `${dir}/src/does-not-exist.ts`, makeScope(dir)),
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
@@ -440,7 +384,7 @@ describe("deleteFile", () => {
       const importerBefore = readFile(dir, "src/importer.ts");
 
       await expect(
-        deleteFile(new TsMorphCompiler(), `${dir}/src/missing.ts`, makeScope(dir)),
+        deleteFile(new TsMorphEngine(), `${dir}/src/missing.ts`, makeScope(dir)),
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
 
       expect(readFile(dir, "src/importer.ts")).toBe(importerBefore);

@@ -1,15 +1,15 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type {
-  Compiler,
-  DefinitionLocation,
-  FileTextEdit,
-  SpanLocation,
-} from "../../compilers/types.js";
 import { ImportRewriter } from "../../domain/import-rewriter.js";
 import { rewriteImportersOfMovedFile } from "../../domain/rewrite-importers-of-moved-file.js";
 import { rewriteMovedFileOwnImports } from "../../domain/rewrite-own-imports.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
+import type {
+  DefinitionLocation,
+  Engine,
+  FileTextEdit,
+  SpanLocation,
+} from "../../ts-engine/types.js";
 import { EngineError } from "../../utils/errors.js";
 import { TS_EXTENSIONS } from "../../utils/extensions.js";
 import { walkFiles } from "../../utils/file-walk.js";
@@ -18,7 +18,7 @@ import { findTsConfigForFile } from "../../utils/ts-project.js";
 import { updateVueImportsAfterMove } from "./scan.js";
 import { buildVolarService, type CachedService } from "./service.js";
 
-export class VolarCompiler implements Compiler {
+export class VolarCompiler implements Engine {
   private services = new Map<string, CachedService>();
 
   private cacheKey(tsConfigPath: string | null, filePath: string): string {
@@ -237,8 +237,8 @@ export class VolarCompiler implements Compiler {
     newPath: string,
     scope: WorkspaceScope,
   ): Promise<{ filesMoved: string[] }> {
-    const { TsMorphCompiler } = await import("../../compilers/ts.js");
-    const tsCompiler = new TsMorphCompiler();
+    const { TsMorphEngine } = await import("../../ts-engine/engine.js");
+    const tsCompiler = new TsMorphEngine();
     const result = await tsCompiler.moveDirectory(oldPath, newPath, scope);
     this.invalidateService(oldPath);
     return result;

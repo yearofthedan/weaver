@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
-import { TsMorphCompiler } from "../compilers/ts.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { VolarCompiler } from "../plugins/vue/compiler.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { moveSymbol } from "./moveSymbol.js";
 
 describe("moveSymbol operation — VolarCompiler integration", () => {
@@ -13,7 +13,7 @@ describe("moveSymbol operation — VolarCompiler integration", () => {
   it("moves a composable and updates .vue SFC imports via VolarCompiler", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const tsCompiler = new TsMorphCompiler();
+    const tsCompiler = new TsMorphEngine();
     const volarCompiler = new VolarCompiler();
     const srcPath = `${dir}/src/composables/useCounter.ts`;
     const dstPath = `${dir}/src/shared.ts`;

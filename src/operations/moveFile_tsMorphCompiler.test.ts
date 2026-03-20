@@ -10,23 +10,23 @@ import {
   fileExists,
   readFile,
 } from "../__testHelpers__/helpers.js";
-import { TsMorphCompiler } from "../compilers/ts.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { moveFile } from "./moveFile.js";
 
 function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
 }
 
-describe("moveFile action - TsMorphCompiler Integration", () => {
+describe("moveFile action - TsMorphEngine Integration", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
   it("moves a file and updates imports", async () => {
     const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
-    const compiler = new TsMorphCompiler();
+    const compiler = new TsMorphEngine();
 
     const oldPath = `${dir}/src/utils.ts`;
     const newPath = `${dir}/lib/utils.ts`;
@@ -45,7 +45,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
   it("creates destination directory if missing", async () => {
     const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
-    const compiler = new TsMorphCompiler();
+    const compiler = new TsMorphEngine();
 
     const oldPath = `${dir}/src/utils.ts`;
     const newPath = `${dir}/deep/nested/lib/utils.ts`;
@@ -59,7 +59,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
   it("updates imports on move-back with the same compiler instance", async () => {
     const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
-    const compiler = new TsMorphCompiler();
+    const compiler = new TsMorphEngine();
 
     await moveFile(compiler, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, makeScope(dir));
     expect(readFile(dir, "src/main.ts")).toContain("../lib/utils");
@@ -76,7 +76,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
   it("updates imports in out-of-project files (e.g. tests/)", async () => {
     const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
-    const compiler = new TsMorphCompiler();
+    const compiler = new TsMorphEngine();
 
     await moveFile(compiler, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, makeScope(dir));
 
@@ -88,7 +88,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
   it("does not corrupt comments when updating imports in out-of-project files", async () => {
     const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
-    const compiler = new TsMorphCompiler();
+    const compiler = new TsMorphEngine();
 
     // This file has a specific structure (comment containing the same path as the import)
     // that would pollute the shared fixture with a special-case artefact
@@ -116,7 +116,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
   it("throws FILE_NOT_FOUND for non-existent source", async () => {
     const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
-    const compiler = new TsMorphCompiler();
+    const compiler = new TsMorphEngine();
 
     await expect(
       moveFile(compiler, `${dir}/src/doesNotExist.ts`, `${dir}/lib/utils.ts`, makeScope(dir)),
@@ -127,7 +127,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     it("rewrites import in a file created after the project was loaded", async () => {
       const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       // Prime the project cache with an initial call so the project is loaded before the new file exists.
       await compiler.getEditsForFileRename(`${dir}/src/utils.ts`, `${dir}/src/utils2.ts`);
@@ -164,7 +164,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
       const symlink = path.join(symlinkDir, "project");
       fs.symlinkSync(dir, symlink, "dir");
 
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       // Use symlink-based paths for the move
       const oldPath = `${symlink}/src/utils.ts`;
@@ -190,7 +190,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     it("rewrites import with .js extension when tsconfig uses moduleResolution node", async () => {
       const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       // Update tsconfig to use moduleResolution: "node" (which prevents .js -> .ts resolution)
       fs.writeFileSync(
@@ -226,7 +226,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     it("does not rewrite .js import when an actual .js file exists on disk", async () => {
       const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       // Create a real utils.js file alongside utils.ts
       fs.writeFileSync(
@@ -252,7 +252,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     it("does not rewrite imports of similarly-named files (substring false positives)", async () => {
       const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       // Create a my-utils.ts file (not the moved file)
       fs.writeFileSync(
@@ -279,7 +279,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     it("rewrites relative imports inside a moved out-of-project test file", async () => {
       const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const oldPath = `${dir}/tests/utils.test.ts`;
       const newPath = `${dir}/tests/unit/utils.test.ts`;
@@ -295,7 +295,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     it("does not rewrite bare module specifiers inside the moved file", async () => {
       const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       // Add a test file with a bare module specifier alongside a relative one
       const extraTest = path.join(dir, "tests", "mixed.test.ts");
@@ -327,7 +327,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     it("preserves .js extension when rewriting relative imports in a moved file", async () => {
       const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const extraTest = path.join(dir, "tests", "js-ext.test.ts");
       fs.writeFileSync(extraTest, 'import { greetUser } from "../src/utils.js";\n');
@@ -350,7 +350,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     it("is a no-op when moved to the same directory depth (same-dir rename)", async () => {
       const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const extraTest = path.join(dir, "tests", "renamed.test.ts");
       fs.writeFileSync(extraTest, 'import { greetUser } from "../src/utils";\n');
@@ -366,7 +366,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     it("sequential moves of out-of-project files both return ok and rewrites import to correct path", async () => {
       const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       // Create two out-of-project files (outside tsconfig include: ["src/**/*.ts"])
       // helper.ts exports something; consumer.test.ts imports "./helper"
@@ -398,7 +398,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     it("does not throw ENOENT when moving a file that imports a previously-moved file", async () => {
       const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       // Set up: helper.ts (out of tsconfig include) is imported by consumer.ts (also out of include).
       // We'll move helper.ts first (raw FS rename — simulating a previous moveFile call that
@@ -434,7 +434,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     it("second moveFile call succeeds and rewrites import to new path of moved dependency", async () => {
       const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       // Move file A (utils.ts → lib/utils.ts). main.ts (imports utils.ts) gets rewritten.
       const moveA = await moveFile(
@@ -465,7 +465,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     it("fallback scan rewrites out-of-project importer on the second move after project graph update", async () => {
       const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       // Create an out-of-project file that imports src/main.ts
       const scriptPath = path.join(dir, "scripts", "run.ts");
@@ -541,7 +541,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
       execSync("git add .", { cwd: dir, env: gitEnv, stdio: "pipe" });
       execSync("git commit -m init", { cwd: dir, env: gitEnv, stdio: "pipe" });
 
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       // Move 1: helper → src/helpers/mock.ts (physically deletes tests/helpers/mock.ts)
       const move1 = await moveFile(
@@ -574,7 +574,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     it("includes all rewritten files including those updated by fallback scan", async () => {
       const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       // out-of-project test file already references utils
       const result = await moveFile(
@@ -594,7 +594,7 @@ describe("moveFile action - TsMorphCompiler Integration", () => {
     it("does not include the same file twice", async () => {
       const dir = copyFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const result = await moveFile(
         compiler,

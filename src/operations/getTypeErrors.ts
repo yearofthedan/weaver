@@ -1,8 +1,8 @@
 import * as path from "node:path";
 import ts from "typescript";
-import type { TsMorphCompiler } from "../compilers/ts.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { FileSystem } from "../ports/filesystem.js";
+import type { TsMorphEngine } from "../ts-engine/engine.js";
 import { EngineError } from "../utils/errors.js";
 import type { GetTypeErrorsResult, PostWriteDiagnostics, TypeDiagnostic } from "./types.js";
 
@@ -11,7 +11,7 @@ const TS_FILE_EXTENSIONS = new Set([".ts", ".tsx"]);
 const MAX_DIAGNOSTICS = 100;
 
 export async function getTypeErrors(
-  compiler: TsMorphCompiler,
+  compiler: TsMorphEngine,
   file: string | undefined,
   scope: WorkspaceScope,
 ): Promise<GetTypeErrorsResult> {
@@ -34,7 +34,7 @@ export async function getTypeErrors(
  * MAX_DIAGNOSTICS total across all files; typeErrorCount reflects the true total.
  */
 export function getTypeErrorsForFiles(
-  compiler: TsMorphCompiler,
+  compiler: TsMorphEngine,
   files: string[],
   fs: FileSystem,
 ): PostWriteDiagnostics {
@@ -65,7 +65,7 @@ export function getTypeErrorsForFiles(
   };
 }
 
-function getForFile(compiler: TsMorphCompiler, absPath: string): GetTypeErrorsResult {
+function getForFile(compiler: TsMorphEngine, absPath: string): GetTypeErrorsResult {
   const ls = compiler.getLanguageServiceForFile(absPath);
   const all = ls.getSemanticDiagnostics(absPath);
   const errors = all.filter((d) => d.category === ts.DiagnosticCategory.Error);
@@ -74,7 +74,7 @@ function getForFile(compiler: TsMorphCompiler, absPath: string): GetTypeErrorsRe
   return { diagnostics, errorCount: errors.length, truncated };
 }
 
-function getForProject(compiler: TsMorphCompiler, workspace: string): GetTypeErrorsResult {
+function getForProject(compiler: TsMorphEngine, workspace: string): GetTypeErrorsResult {
   const ls = compiler.getLanguageServiceForDirectory(workspace);
   const allErrors: ReturnType<typeof ls.getSemanticDiagnostics> = [];
   for (const filePath of compiler.getProjectSourceFilePaths(workspace)) {

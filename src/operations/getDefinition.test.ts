@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
-import { TsMorphCompiler } from "../compilers/ts.js";
 import { VolarCompiler } from "../plugins/vue/compiler.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { getDefinition } from "./getDefinition.js";
 
 describe("getDefinition action", () => {
@@ -15,10 +15,10 @@ describe("getDefinition action", () => {
     return dir;
   }
 
-  describe("with TsMorphCompiler", () => {
+  describe("with TsMorphEngine", () => {
     it("returns the definition location from a call site", async () => {
       const dir = setup();
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       // main.ts line 3: console.log(greetUser("World")); → col 13
       const result = await getDefinition(compiler, `${dir}/src/main.ts`, 3, 13);
@@ -36,7 +36,7 @@ describe("getDefinition action", () => {
 
     it("returns the definition location from the declaration site itself", async () => {
       const dir = setup();
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const result = await getDefinition(compiler, `${dir}/src/utils.ts`, 1, 17);
 
@@ -46,7 +46,7 @@ describe("getDefinition action", () => {
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
       const dir = setup();
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       await expect(
         getDefinition(compiler, `${dir}/src/doesNotExist.ts`, 1, 1),
@@ -55,7 +55,7 @@ describe("getDefinition action", () => {
 
     it("throws SYMBOL_NOT_FOUND for an out-of-range line", async () => {
       const dir = setup();
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       await expect(getDefinition(compiler, `${dir}/src/utils.ts`, 999, 1)).rejects.toMatchObject({
         code: "SYMBOL_NOT_FOUND",
@@ -66,7 +66,7 @@ describe("getDefinition action", () => {
       // Exercises the `!defs || defs.length === 0` path in getDefinition.ts:
       // line 2 of main.ts is blank — resolveOffset succeeds but getDefinitionAtPosition returns null.
       const dir = setup();
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       await expect(getDefinition(compiler, `${dir}/src/main.ts`, 2, 1)).rejects.toMatchObject({
         code: "SYMBOL_NOT_FOUND",

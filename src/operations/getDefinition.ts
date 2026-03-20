@@ -1,12 +1,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { Compiler } from "../compilers/types.js";
+import type { Engine } from "../ts-engine/types.js";
 import { EngineError } from "../utils/errors.js";
 import { offsetToLineCol } from "../utils/text-utils.js";
 import type { GetDefinitionResult } from "./types.js";
 
 export async function getDefinition(
-  compiler: Compiler,
+  compiler: Engine,
   filePath: string,
   line: number,
   col: number,

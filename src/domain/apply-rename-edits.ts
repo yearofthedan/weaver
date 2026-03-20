@@ -1,4 +1,4 @@
-import type { Compiler, FileTextEdit } from "../compilers/types.js";
+import type { Engine, FileTextEdit } from "../ts-engine/types.js";
 import { applyTextEdits } from "../utils/text-utils.js";
 import type { WorkspaceScope } from "./workspace-scope.js";
 
@@ -8,7 +8,7 @@ import type { WorkspaceScope } from "./workspace-scope.js";
  * Files inside the boundary are written and the compiler is notified.
  */
 export function applyRenameEdits(
-  compiler: Compiler,
+  compiler: Engine,
   edits: FileTextEdit[],
   scope: WorkspaceScope,
 ): void {

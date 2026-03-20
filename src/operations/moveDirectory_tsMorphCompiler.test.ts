@@ -9,9 +9,9 @@ import {
   readFile,
 } from "../__testHelpers__/helpers.js";
 import { makeMockCompiler } from "../compilers/__helpers__/mock-compiler.js";
-import { TsMorphCompiler } from "../compilers/ts.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { moveDirectory } from "./moveDirectory.js";
 
 function makeScope(dir: string): WorkspaceScope {
@@ -26,7 +26,7 @@ describe("moveDirectory", () => {
     it("moves directory files and rewrites external imports", async () => {
       const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const result = await moveDirectory(
         compiler,
@@ -63,7 +63,7 @@ describe("moveDirectory", () => {
     it("includes moved files in filesModified", async () => {
       const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const result = await moveDirectory(
         compiler,
@@ -79,7 +79,7 @@ describe("moveDirectory", () => {
     it("removes the old directory tree after a successful move", async () => {
       const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
       const oldPath = `${dir}/src/utils`;
 
       await moveDirectory(compiler, oldPath, `${dir}/src/lib/helpers`, makeScope(dir));
@@ -92,7 +92,7 @@ describe("moveDirectory", () => {
     it("moves non-source files (json, css) via plain filesystem copy", async () => {
       const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       fs.writeFileSync(path.join(dir, "src/utils/config.json"), '{"key": "value"}');
       fs.writeFileSync(path.join(dir, "src/utils/styles.css"), ".foo { color: red; }");
@@ -118,7 +118,7 @@ describe("moveDirectory", () => {
     it("creates destination directory when moving non-source files into a new directory", async () => {
       const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const assetsDir = path.join(dir, "assets");
       fs.mkdirSync(assetsDir);
@@ -143,7 +143,7 @@ describe("moveDirectory", () => {
     it("excludes SKIP_DIRS (node_modules) contents from the filesMoved result", async () => {
       const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const fakeNodeModules = path.join(dir, "src/utils/node_modules");
       fs.mkdirSync(fakeNodeModules);
@@ -168,7 +168,7 @@ describe("moveDirectory", () => {
     it("throws MOVE_INTO_SELF when oldPath and newPath are the same directory", async () => {
       const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       await expect(
         moveDirectory(compiler, `${dir}/src/utils`, `${dir}/src/utils`, makeScope(dir)),
@@ -178,7 +178,7 @@ describe("moveDirectory", () => {
     it("skips symlinks in directory enumeration", async () => {
       const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const symlinkPath = path.join(dir, "src/utils/link-to-app");
       fs.symlinkSync(path.join(dir, "src/app.ts"), symlinkPath);
@@ -201,7 +201,7 @@ describe("moveDirectory", () => {
     it("physically moves .vue files to the destination when the directory moves", async () => {
       const dir = copyFixture(FIXTURES.moveDirVue.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       await moveDirectory(
         compiler,
@@ -219,7 +219,7 @@ describe("moveDirectory", () => {
     it("preserves .vue extension in moved file content — no .vue.ts artifact introduced", async () => {
       const dir = copyFixture(FIXTURES.moveDirVue.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       await moveDirectory(
         compiler,
@@ -239,7 +239,7 @@ describe("moveDirectory", () => {
       // The fixture uses moduleResolution: bundler — verify no extension stripping occurs
       const dir = copyFixture(FIXTURES.moveDirVue.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       await moveDirectory(
         compiler,
@@ -257,7 +257,7 @@ describe("moveDirectory", () => {
     it("preserves intra-directory .ts imports within the moved directory", async () => {
       const dir = copyFixture(FIXTURES.moveDirVue.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       await moveDirectory(
         compiler,
@@ -275,7 +275,7 @@ describe("moveDirectory", () => {
     it("includes moved .vue files in filesMoved result", async () => {
       const dir = copyFixture(FIXTURES.moveDirVue.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const result = await moveDirectory(
         compiler,
@@ -292,7 +292,7 @@ describe("moveDirectory", () => {
       // ts-morph uses virtual .vue.ts stubs internally — these must never leak to disk
       const dir = copyFixture(FIXTURES.moveDirVue.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       await moveDirectory(
         compiler,
@@ -314,7 +314,7 @@ describe("moveDirectory", () => {
       const emptyDir = path.join(tmpRoot, "source");
       fs.mkdirSync(emptyDir);
       const destDir = path.join(tmpRoot, "dest");
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
       const scope = makeScope(tmpRoot);
 
       const result = await moveDirectory(compiler, emptyDir, destDir, scope);
@@ -356,7 +356,7 @@ describe("moveDirectory", () => {
     ])("throws when %s", async (_, oldPathFn, newPathFn, code) => {
       const dir = copyFixture(FIXTURES.moveDirTs.name);
       dirs.push(dir);
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       await expect(
         moveDirectory(compiler, oldPathFn(dir), newPathFn(dir), makeScope(dir)),

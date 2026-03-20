@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { Compiler } from "../compilers/types.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
+import type { Engine } from "../ts-engine/types.js";
 import { EngineError } from "../utils/errors.js";
 import { SKIP_DIRS } from "../utils/file-walk.js";
 import type { MoveDirectoryResult } from "./types.js";
@@ -48,7 +48,7 @@ function enumerateAllFiles(dir: string): string[] {
 }
 
 export async function moveDirectory(
-  compiler: Compiler,
+  compiler: Engine,
   oldPath: string,
   newPath: string,
   scope: WorkspaceScope,

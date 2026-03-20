@@ -11,16 +11,16 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
-import { TsMorphCompiler } from "./ts.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { tsMoveSymbol } from "./ts-move-symbol.js";
 
 function makeScope(root: string): WorkspaceScope {
   return new WorkspaceScope(root, new NodeFileSystem());
 }
 
-function setupMultiImporter(): { dir: string; tsCompiler: TsMorphCompiler; scope: WorkspaceScope } {
+function setupMultiImporter(): { dir: string; tsCompiler: TsMorphEngine; scope: WorkspaceScope } {
   const dir = copyFixture(FIXTURES.multiImporter.name);
-  return { dir, tsCompiler: new TsMorphCompiler(), scope: makeScope(dir) };
+  return { dir, tsCompiler: new TsMorphEngine(), scope: makeScope(dir) };
 }
 
 describe("tsMoveSymbol — import rewriting", () => {

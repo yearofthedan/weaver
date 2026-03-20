@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { Project } from "ts-morph";
 import type ts from "typescript";
+import { tsMoveSymbol } from "../compilers/ts-move-symbol.js";
 import { applyRenameEdits, mergeFileEdits } from "../domain/apply-rename-edits.js";
 import { ImportRewriter } from "../domain/import-rewriter.js";
 import { rewriteImportersOfMovedFile } from "../domain/rewrite-importers-of-moved-file.js";
@@ -11,11 +12,10 @@ import { EngineError } from "../utils/errors.js";
 import { JS_EXTENSIONS, TS_EXTENSIONS } from "../utils/extensions.js";
 import { SKIP_DIRS, walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
-import { tsMoveSymbol } from "./ts-move-symbol.js";
-import { tsRemoveImportersOf } from "./ts-remove-importers.js";
-import type { Compiler, DefinitionLocation, FileTextEdit, SpanLocation } from "./types.js";
+import { tsRemoveImportersOf } from "./remove-importers.js";
+import type { DefinitionLocation, Engine, FileTextEdit, SpanLocation } from "./types.js";
 
-export class TsMorphCompiler implements Compiler {
+export class TsMorphEngine implements Engine {
   private projects = new Map<string, Project>();
 
   private getProject(filePath: string): Project {

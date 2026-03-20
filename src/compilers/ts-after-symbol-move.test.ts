@@ -1,5 +1,5 @@
 /**
- * Tests for TsMorphCompiler.afterSymbolMove — the fallback scan that rewrites
+ * Tests for TsMorphEngine.afterSymbolMove — the fallback scan that rewrites
  * imports in files outside tsconfig.include (test files, scripts, etc.).
  *
  * These test the method directly, not through the moveSymbol operation.
@@ -17,7 +17,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
-import { TsMorphCompiler } from "./ts.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 
 function makeTmpDir(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -61,7 +61,7 @@ function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
 }
 
-describe("TsMorphCompiler.afterSymbolMove", () => {
+describe("TsMorphEngine.afterSymbolMove", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
@@ -71,7 +71,7 @@ describe("TsMorphCompiler.afterSymbolMove", () => {
     const originalContent = 'import { mul } from "../src/utils";\nconsole.log(mul(3, 4));\n';
     fs.writeFileSync(path.join(dir, "tests/consumer.ts"), originalContent);
 
-    const compiler = new TsMorphCompiler();
+    const compiler = new TsMorphEngine();
     const scope = makeScope(dir);
     await compiler.afterSymbolMove(sourceFile, "add", destFile, scope);
 
@@ -86,7 +86,7 @@ describe("TsMorphCompiler.afterSymbolMove", () => {
     const originalContent = 'import { add } from "../src/utils";\nconsole.log(add(1, 2));\n';
     fs.writeFileSync(consumerPath, originalContent);
 
-    const compiler = new TsMorphCompiler();
+    const compiler = new TsMorphEngine();
     const scope = makeScope(dir);
     scope.recordModified(consumerPath);
     await compiler.afterSymbolMove(sourceFile, "add", destFile, scope);
@@ -100,7 +100,7 @@ describe("TsMorphCompiler.afterSymbolMove", () => {
     dirs.push(dir);
     // No test files importing add
 
-    const compiler = new TsMorphCompiler();
+    const compiler = new TsMorphEngine();
     const scope = makeScope(dir);
     await compiler.afterSymbolMove(sourceFile, "add", destFile, scope);
 

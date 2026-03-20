@@ -2,12 +2,12 @@ import * as fs from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
 import { makeMockCompiler } from "../compilers/__helpers__/mock-compiler.js";
-import { TsMorphCompiler } from "../compilers/ts.js";
-import type { SpanLocation } from "../compilers/types.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { VolarCompiler } from "../plugins/vue/compiler.js";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
+import type { SpanLocation } from "../ts-engine/types.js";
 import { rename } from "./rename.js";
 
 // assertFileExists (called inside rename) still uses the real filesystem — it is not yet
@@ -29,10 +29,10 @@ describe("rename action", () => {
     return dir;
   }
 
-  describe("with TsMorphCompiler", () => {
+  describe("with TsMorphEngine", () => {
     it("renames a function at its declaration site", async () => {
       const dir = setup();
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const result = await rename(
         compiler,
@@ -53,7 +53,7 @@ describe("rename action", () => {
 
     it("renames a function from a call site", async () => {
       const dir = setup();
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const result = await rename(
         compiler,
@@ -74,7 +74,7 @@ describe("rename action", () => {
 
     it("renames across three files (multi-importer)", async () => {
       const dir = setup("multi-importer");
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       const result = await rename(compiler, `${dir}/src/utils.ts`, 1, 17, "sum", makeScope(dir));
 
@@ -89,7 +89,7 @@ describe("rename action", () => {
 
     it("throws FILE_NOT_FOUND for non-existent file", async () => {
       const dir = setup();
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       await expect(
         rename(compiler, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", makeScope(dir)),
@@ -98,7 +98,7 @@ describe("rename action", () => {
 
     it("throws SYMBOL_NOT_FOUND for out-of-range line", async () => {
       const dir = setup();
-      const compiler = new TsMorphCompiler();
+      const compiler = new TsMorphEngine();
 
       await expect(
         rename(compiler, `${dir}/src/utils.ts`, 999, 1, "foo", makeScope(dir)),

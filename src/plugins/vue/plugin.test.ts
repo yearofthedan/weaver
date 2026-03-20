@@ -1,7 +1,6 @@
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../../__testHelpers__/helpers.js";
-import { TsMorphCompiler } from "../../compilers/ts.js";
 import {
   clearLanguagePlugins,
   invalidateAll,
@@ -9,6 +8,7 @@ import {
   makeRegistry,
   registerLanguagePlugin,
 } from "../../daemon/language-plugin-registry.js";
+import { TsMorphEngine } from "../../ts-engine/engine.js";
 import { createVueLanguagePlugin } from "./plugin.js";
 
 describe("Vue LanguagePlugin integration", () => {
@@ -31,13 +31,13 @@ describe("Vue LanguagePlugin integration", () => {
     expect(compiler).toBeInstanceOf(VolarCompiler);
   }, 10_000);
 
-  it("projectCompiler returns TsMorphCompiler for a non-Vue project", async () => {
+  it("projectCompiler returns TsMorphEngine for a non-Vue project", async () => {
     const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     const registry = makeRegistry(path.join(dir, "src/utils.ts"));
     const compiler = await registry.projectCompiler();
-    expect(compiler).toBeInstanceOf(TsMorphCompiler);
+    expect(compiler).toBeInstanceOf(TsMorphEngine);
   }, 10_000);
 
   it("invalidateFile before compiler is created does not throw", () => {

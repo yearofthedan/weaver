@@ -1,7 +1,7 @@
 import * as path from "node:path";
-import type { TsMorphCompiler } from "../compilers/ts.js";
-import type { Compiler } from "../compilers/types.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
+import type { TsMorphEngine } from "../ts-engine/engine.js";
+import type { Engine } from "../ts-engine/types.js";
 import { assertFileExists } from "../utils/assert-file.js";
 import type { MoveSymbolResult } from "./types.js";
 
@@ -14,8 +14,8 @@ import type { MoveSymbolResult } from "./types.js";
  * language service doesn't see (e.g. `.vue` SFC script blocks in a Vue project).
  */
 export async function moveSymbol(
-  tsCompiler: TsMorphCompiler,
-  projectCompiler: Compiler,
+  tsCompiler: TsMorphEngine,
+  projectCompiler: Engine,
   sourceFile: string,
   symbolName: string,
   destFile: string,

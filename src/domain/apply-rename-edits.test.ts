@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Compiler, FileTextEdit } from "../compilers/types.js";
+import type { Engine, FileTextEdit } from "../ts-engine/types.js";
 import { applyRenameEdits, mergeFileEdits } from "./apply-rename-edits.js";
 import type { WorkspaceScope } from "./workspace-scope.js";
 
 function makeCompiler(
   fileContents: Record<string, string>,
-): Pick<Compiler, "readFile" | "notifyFileWritten"> {
+): Pick<Engine, "readFile" | "notifyFileWritten"> {
   return {
     readFile: (path: string) => fileContents[path] ?? "",
     notifyFileWritten: vi.fn(),
@@ -146,7 +146,7 @@ describe("applyRenameEdits", () => {
       const compiler = makeCompiler({ "/workspace/src/importer.ts": originalContent });
       const scope = makeScope(["/workspace/src/importer.ts"]);
 
-      applyRenameEdits(compiler as unknown as Compiler, edits, scope as unknown as WorkspaceScope);
+      applyRenameEdits(compiler as unknown as Engine, edits, scope as unknown as WorkspaceScope);
 
       expect(scope._written.has("/workspace/src/importer.ts")).toBe(true);
       expect(scope._written.get("/workspace/src/importer.ts")).toContain("./lib/a");
@@ -168,7 +168,7 @@ describe("applyRenameEdits", () => {
       const compiler = makeCompiler({ "/outside/other.ts": "some content" });
       const scope = makeScope([]);
 
-      applyRenameEdits(compiler as unknown as Compiler, edits, scope as unknown as WorkspaceScope);
+      applyRenameEdits(compiler as unknown as Engine, edits, scope as unknown as WorkspaceScope);
 
       expect(scope._skipped).toContain("/outside/other.ts");
       expect(scope._written.has("/outside/other.ts")).toBe(false);
@@ -192,7 +192,7 @@ describe("applyRenameEdits", () => {
       });
       const scope = makeScope(["/workspace/src/importer.ts"]);
 
-      applyRenameEdits(compiler as unknown as Compiler, edits, scope as unknown as WorkspaceScope);
+      applyRenameEdits(compiler as unknown as Engine, edits, scope as unknown as WorkspaceScope);
 
       expect(scope._written.has("/workspace/src/importer.ts")).toBe(true);
       expect(scope._skipped).toContain("/outside/other.ts");

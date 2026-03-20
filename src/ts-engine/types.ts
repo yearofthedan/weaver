@@ -15,7 +15,7 @@ export interface FileTextEdit {
   textChanges: { span: { start: number; length: number }; newText: string }[];
 }
 
-export interface Compiler {
+export interface Engine {
   /** Convert 1-based line/col to a 0-based byte offset. Synchronous — no I/O. */
   resolveOffset(file: string, line: number, col: number): number;
 
@@ -56,7 +56,7 @@ export interface Compiler {
   /**
    * Called after a named export has been moved from `sourceFile` to `destFile`.
    * Compilers scan for imports of the specific symbol and rewrite them.
-   * `TsMorphCompiler` walks workspace TS files to catch out-of-project importers.
+   * `TsMorphEngine` walks workspace TS files to catch out-of-project importers.
    * `VolarCompiler` scans `.vue` SFC script blocks.
    *
    * Files already in `scope.modified` are skipped to avoid double-rewriting.
@@ -88,14 +88,14 @@ export interface LanguagePlugin {
   /** Project-level detection. Receives the resolved tsconfig path. */
   supportsProject(tsconfigPath: string): boolean;
   /** Lazy factory — called once per plugin lifetime, result cached by the registry. */
-  createCompiler(): Promise<Compiler>;
+  createCompiler(): Promise<Engine>;
   /** Selective cache refresh (watcher `change` events). */
   invalidateFile?(filePath: string): void;
   /** Full cache drop (watcher `add`/`unlink` events). */
   invalidateAll?(): void;
 }
 
-export interface CompilerRegistry {
-  projectCompiler(): Promise<Compiler>;
-  tsCompiler(): Promise<import("./ts.js").TsMorphCompiler>;
+export interface EngineRegistry {
+  projectCompiler(): Promise<Engine>;
+  tsCompiler(): Promise<import("./engine.js").TsMorphEngine>;
 }
