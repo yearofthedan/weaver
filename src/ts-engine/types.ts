@@ -95,6 +95,10 @@ export interface LanguagePlugin {
   invalidateAll?(): void;
 }
 
+export interface DeleteFileActionResult {
+  importRefsRemoved: number;
+}
+
 export interface EngineRegistry {
   projectCompiler(): Promise<Engine>;
   tsCompiler(): Promise<import("./engine.js").TsMorphEngine>;
