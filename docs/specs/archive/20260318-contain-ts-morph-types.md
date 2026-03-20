@@ -112,4 +112,37 @@ Net: total test count stays similar, but layer fit improves. The compiler tests 
       - `docs/handoff.md` current-state section updated (file moves)
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting (skip if nothing worth recording)
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+### Reflection
+
+**What went well:**
+- The `tsMoveSymbol` extraction pattern (standalone function receiving compiler) proved to be the right model. Applying it to `removeImportersOf` immediately made the code more testable and brought `ts.ts` under the 500-line threshold.
+- Using `moveFile` tool for AC5 (dogfooding) was clean — zero type errors, correct import rewrites.
+- The `getFunction` API design discussion caught an over-tailored `countFunctionParameters` method early and replaced it with a general-purpose query returning `{ name, parameters: { name }[] }`.
+
+**What did not go well:**
+- The initial AC4 implementation merged both phases of importer cleanup into one 96-line method on `TsMorphCompiler`. Review caught this as a layering problem — workflows belong in standalone functions, not on the cache class. Required rework.
+- Execution agents ran mutation tests that took too long, causing cancellations. Agents should run `pnpm check` only, not mutation tests.
+- Biome formatting in worktrees required manual `biome check --write` fixups after every agent run.
+
+**What took longer than it should have:**
+- Iterating on the `getFunction` API design (3 rounds: `countFunctionParameters` → `getTopLevelFunctions` → `getFunction`). The spec should have been more explicit about the return shape rather than deferring to "the executor should choose."
+
+**Recommendation for next agent:**
+- The `TsMorphCompiler` decomposition into action classes is the natural next step. The `tsMoveSymbol` and `tsRemoveImportersOf` extractions prove the pattern works. `moveDirectory` and `afterFileRename` are the remaining candidates.
+- Silent error swallowing (catch blocks that discard errors) is a codebase-wide concern worth auditing.
+
+### Stats
+
+- **Tests added:** ~16 new tests (throwaway-project: 6, getFunction: 3, removeImportersOf: 10, minus deleted duplicates)
+- **Files created:** 2 (`throwaway-project.ts`, `ts-remove-importers.ts`)
+- **Files moved:** 2 (`symbol-ref.ts`, `symbol-ref.test.ts` → `compilers/`)
+- **Containment verified:** zero `from "ts-morph"` in `src/domain/` and `src/operations/`; `getProjectForFile`/`getProjectForDirectory` only called from `src/compilers/`
+
+### New handoff entries added
+
+- P1: Decompose `TsMorphCompiler` into action classes `[needs design]`
+- P3: Audit silent error swallowing across operations `[needs design]`

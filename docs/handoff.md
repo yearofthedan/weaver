@@ -71,7 +71,6 @@ src/
     workspace-scope.ts    ← WorkspaceScope boundary tracking + modification recording
     import-rewriter.ts    ← ImportRewriter — rewrites named imports/re-exports of a moved symbol across files
     rewrite-own-imports.ts ← rewriteMovedFileOwnImports — adjusts a moved file's own relative specifiers
-    symbol-ref.ts         ← SymbolRef — resolved exported symbol value object (lookup, unwrap, remove)
     *.test.ts              ← colocated unit tests
   security.ts     ← isWithinWorkspace() + isSensitiveFile() + validateFilePath() — boundary, sensitive file blocklist, path validation
   security.test.ts ← colocated unit test
@@ -106,11 +105,14 @@ src/
     types.ts           ← result types for all operations (RenameResult, MoveResult, FindReferencesResult, etc.)
     *.test.ts          ← colocated unit tests
   compilers/
-    types.ts           ← Compiler + LanguagePlugin + CompilerRegistry interfaces; SpanLocation, DefinitionLocation, FileTextEdit
-    ts.ts              ← TsMorphCompiler: compiler calls via ts-morph Project; refreshFile() for selective invalidation
-    ts-move-symbol.ts  ← tsMoveSymbol(): compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
-    __helpers__/       ← mock-compiler.ts shared test helper
-    *.test.ts          ← colocated unit tests
+    types.ts              ← Compiler + LanguagePlugin + CompilerRegistry interfaces; SpanLocation, DefinitionLocation, FileTextEdit
+    ts.ts                 ← TsMorphCompiler: project cache, LS accessors, delegation to standalone action functions
+    ts-move-symbol.ts     ← tsMoveSymbol(): compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
+    ts-remove-importers.ts ← tsRemoveImportersOf(): remove all import/export declarations referencing a deleted file
+    throwaway-project.ts  ← createThrowawaySourceFile(): in-memory ts-morph project for one-off AST parsing
+    symbol-ref.ts         ← SymbolRef — resolved exported symbol value object (lookup, unwrap, remove)
+    __helpers__/          ← mock-compiler.ts shared test helper
+    *.test.ts             ← colocated unit tests
   utils/
     errors.ts     ← EngineError class + ErrorCode union
     text-utils.ts ← applyTextEdits(), offsetToLineCol()
@@ -141,7 +143,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P1 — Very high value bugs and tech debt
 
-- **Contain ts-morph types behind the compiler boundary** → [`docs/specs/20260318-contain-ts-morph-types.md`](specs/20260318-contain-ts-morph-types.md) — Extract throwaway-project utility, add LS accessors to TsMorphCompiler, refactor `deleteFile` to delegate importer cleanup to compiler, move `symbol-ref.ts` to `compilers/`.
+- **Decompose `TsMorphCompiler` into action classes** `[needs design]` — `TsMorphCompiler` is a shared project cache with unrelated workflows bolted on (~470 lines). Each heavy workflow (`moveSymbol`, `moveDirectory`, `afterFileRename`, `removeImportersOf`) should be its own action class that receives the cache — e.g. `TsMorphDeleteAction`, `TsMorphMoveDirectoryAction`. `tsMoveSymbol` and `tsRemoveImportersOf` are already standalone functions (the pattern exists); this formalises it. Smaller, focused classes improve unit testing surface and mutation testing speed. The `Compiler` interface stays the same — the split is internal to `TsMorphCompiler`.
 - **Source refactoring for mutation speed** → [`docs/specs/20260315-source-refactor-mutation-speed.md`](specs/20260315-source-refactor-mutation-speed.md) — Extract misplaced utilities from operations (`searchText`, `security`, `getTypeErrors`), optimize fixture copying for `perTest` coverage analysis, exclude redundant dispatcher tests from Stryker. Depends on test colocation landing first.
 
 - **Daemon request logging** `[needs design]` — The daemon has no logging after the startup ready signal. Stderr is disconnected from the parent after spawn. Debugging daemon-only bugs requires patching source, rebuilding, and manually wiring stderr to a file. Add structured per-request logging (method, compiler used, edits count, duration) to a log file. Discovered during the VolarCompiler moveFile investigation and again during the walkFiles ENOENT bug — both required manual `console.error` tracing, rebuild, daemon restart, and reproduction. With request logging, the stack trace and failing path would have been immediately visible.
@@ -165,6 +167,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
+- **Audit silent error swallowing across operations** `[needs design]` — Several operations silently catch errors and continue (e.g. `scope.fs.readFile` failures in `tsRemoveImportersOf`, `?? 0` fallbacks after compiler queries). These hide bugs — if `walkFiles` found a file but `readFile` fails, that's unexpected and should be surfaced. Audit all `catch {}` blocks and `?? 0`/`?? undefined` fallbacks; replace with `scope.recordSkipped` or explicit errors where the failure is unexpected.
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks; depends on buildVolarService refactoring
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; depends on buildVolarService refactoring; see [moveSymbol.md](features/moveSymbol.md)
