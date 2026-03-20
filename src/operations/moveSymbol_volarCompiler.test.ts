@@ -14,7 +14,7 @@ describe("moveSymbol operation — VolarCompiler integration", () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
     const tsCompiler = new TsMorphEngine();
-    const volarCompiler = new VolarCompiler();
+    const volarCompiler = new VolarCompiler(new TsMorphEngine());
     const srcPath = `${dir}/src/composables/useCounter.ts`;
     const dstPath = `${dir}/src/shared.ts`;
     const scope = new WorkspaceScope(dir, new NodeFileSystem());

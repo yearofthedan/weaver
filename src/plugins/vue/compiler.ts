@@ -4,6 +4,7 @@ import { ImportRewriter } from "../../domain/import-rewriter.js";
 import { rewriteImportersOfMovedFile } from "../../domain/rewrite-importers-of-moved-file.js";
 import { rewriteMovedFileOwnImports } from "../../domain/rewrite-own-imports.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
+import type { TsMorphEngine } from "../../ts-engine/engine.js";
 import type {
   DefinitionLocation,
   DeleteFileActionResult,
@@ -21,6 +22,11 @@ import { buildVolarService, type CachedService } from "./service.js";
 
 export class VolarCompiler implements Engine {
   private services = new Map<string, CachedService>();
+  private tsEngine: TsMorphEngine;
+
+  constructor(tsEngine: TsMorphEngine) {
+    this.tsEngine = tsEngine;
+  }
 
   private cacheKey(tsConfigPath: string | null, filePath: string): string {
     return tsConfigPath ?? `__no_tsconfig__:${path.dirname(filePath)}`;
@@ -238,18 +244,14 @@ export class VolarCompiler implements Engine {
     newPath: string,
     scope: WorkspaceScope,
   ): Promise<{ filesMoved: string[] }> {
-    const { TsMorphEngine } = await import("../../ts-engine/engine.js");
-    const tsCompiler = new TsMorphEngine();
-    const result = await tsCompiler.moveDirectory(oldPath, newPath, scope);
+    const result = await this.tsEngine.moveDirectory(oldPath, newPath, scope);
     this.invalidateService(oldPath);
     return result;
   }
 
   async deleteFile(targetFile: string, scope: WorkspaceScope): Promise<DeleteFileActionResult> {
     const { tsDeleteFile } = await import("../../ts-engine/delete-file.js");
-    const { TsMorphEngine } = await import("../../ts-engine/engine.js");
-    const tsEngine = new TsMorphEngine();
-    const { importRefsRemoved } = await tsDeleteFile(tsEngine, targetFile, scope);
+    const { importRefsRemoved } = await tsDeleteFile(this.tsEngine, targetFile, scope);
 
     const workspaceRoot = path.resolve(scope.root);
     const { skipped: vueSkipped, refsRemoved: vueRefs } = removeVueImportsOfDeletedFile(

@@ -69,7 +69,7 @@ describe("findReferences action", () => {
   describe("with VolarCompiler", () => {
     it("finds references to a composable across .ts and .vue files", async () => {
       const dir = setup("vue-project");
-      const compiler = new VolarCompiler();
+      const compiler = new VolarCompiler(new TsMorphEngine());
 
       const result = await findReferences(compiler, `${dir}/src/composables/useCounter.ts`, 1, 17);
 
@@ -89,7 +89,7 @@ describe("findReferences action", () => {
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
       const dir = setup("vue-project");
-      const compiler = new VolarCompiler();
+      const compiler = new VolarCompiler(new TsMorphEngine());
 
       await expect(
         findReferences(compiler, `${dir}/src/doesNotExist.ts`, 1, 1),

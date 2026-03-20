@@ -77,7 +77,7 @@ describe("getDefinition action", () => {
   describe("with VolarCompiler", () => {
     it("resolves a composable definition from a .vue call site", async () => {
       const dir = setup("vue-ts-boundary");
-      const compiler = new VolarCompiler();
+      const compiler = new VolarCompiler(new TsMorphEngine());
 
       const appVue = `${dir}/src/App.vue`;
       const content = fs.readFileSync(appVue, "utf8");
@@ -101,7 +101,7 @@ describe("getDefinition action", () => {
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
       const dir = setup("vue-project");
-      const compiler = new VolarCompiler();
+      const compiler = new VolarCompiler(new TsMorphEngine());
 
       await expect(
         getDefinition(compiler, `${dir}/src/doesNotExist.ts`, 1, 1),
@@ -111,7 +111,7 @@ describe("getDefinition action", () => {
     it("throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", async () => {
       // Exercises the resolveOffset catch block in VolarCompiler (volar.ts line 103).
       const dir = setup("vue-ts-boundary");
-      const compiler = new VolarCompiler();
+      const compiler = new VolarCompiler(new TsMorphEngine());
 
       await expect(getDefinition(compiler, `${dir}/src/App.vue`, 999, 1)).rejects.toMatchObject({
         code: "SYMBOL_NOT_FOUND",

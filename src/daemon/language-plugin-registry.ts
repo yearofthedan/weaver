@@ -15,13 +15,14 @@ async function getTsMorphEngine(): Promise<import("../ts-engine/engine.js").TsMo
   return tsMorphCompilerSingleton;
 }
 
-async function getPluginCompiler(plugin: LanguagePlugin): Promise<Engine> {
-  let compiler = pluginCompilers.get(plugin.id);
-  if (!compiler) {
-    compiler = await plugin.createCompiler();
-    pluginCompilers.set(plugin.id, compiler);
+async function getPluginEngine(plugin: LanguagePlugin): Promise<Engine> {
+  let engine = pluginCompilers.get(plugin.id);
+  if (!engine) {
+    const tsEngine = await getTsMorphEngine();
+    engine = await plugin.createEngine(tsEngine);
+    pluginCompilers.set(plugin.id, engine);
   }
-  return compiler;
+  return engine;
 }
 
 export function registerLanguagePlugin(plugin: LanguagePlugin): void {
@@ -35,25 +36,25 @@ export function clearLanguagePlugins(): void {
 }
 
 /**
- * Create a `CompilerRegistry` scoped to the project containing `filePath`.
- * `projectCompiler` iterates registered language plugins; first match wins,
+ * Create an `EngineRegistry` scoped to the project containing `filePath`.
+ * `projectEngine` iterates registered language plugins; first match wins,
  * with TsMorphEngine as the default fallback.
- * `tsCompiler` always returns TsMorphEngine for AST-level operations (e.g. moveSymbol).
+ * `tsEngine` always returns TsMorphEngine for AST-level operations (e.g. moveSymbol).
  */
 export function makeRegistry(filePath: string): EngineRegistry {
   return {
-    async projectCompiler(): Promise<Engine> {
+    async projectEngine(): Promise<Engine> {
       const tsConfigPath = findTsConfigForFile(filePath);
       if (tsConfigPath) {
         for (const plugin of languagePlugins) {
           if (plugin.supportsProject(tsConfigPath)) {
-            return getPluginCompiler(plugin);
+            return getPluginEngine(plugin);
           }
         }
       }
       return getTsMorphEngine();
     },
-    async tsCompiler() {
+    async tsEngine() {
       return getTsMorphEngine();
     },
   };

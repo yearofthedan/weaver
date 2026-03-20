@@ -9,6 +9,7 @@ import {
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { VolarCompiler } from "../plugins/vue/compiler.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { moveFile } from "./moveFile.js";
 
 function makeScope(dir: string): WorkspaceScope {
@@ -22,7 +23,7 @@ describe("moveFile action - VolarCompiler Integration", () => {
   it("moves a composable file and updates .vue imports", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const compiler = new VolarCompiler();
+    const compiler = new VolarCompiler(new TsMorphEngine());
 
     const oldPath = `${dir}/src/composables/useCounter.ts`;
     const newPath = `${dir}/src/utils/useCounter.ts`;
@@ -45,7 +46,7 @@ describe("moveFile action - VolarCompiler Integration", () => {
   it("updates imports on move-back with the same compiler instance", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const compiler = new VolarCompiler();
+    const compiler = new VolarCompiler(new TsMorphEngine());
 
     await moveFile(
       compiler,
@@ -72,7 +73,7 @@ describe("moveFile action - VolarCompiler Integration", () => {
   it("rewrites own relative imports when moving a file to a shallower directory depth", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const compiler = new VolarCompiler();
+    const compiler = new VolarCompiler(new TsMorphEngine());
 
     const oldPath = `${dir}/tests/unit/counter.test.ts`;
     const newPath = `${dir}/src/counter.test.ts`;
@@ -93,7 +94,7 @@ describe("moveFile action - VolarCompiler Integration", () => {
   it("rewrites imports in out-of-project .ts files that import the moved file", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const compiler = new VolarCompiler();
+    const compiler = new VolarCompiler(new TsMorphEngine());
 
     const oldPath = `${dir}/src/composables/useCounter.ts`;
     const newPath = `${dir}/src/utils/useCounter.ts`;
@@ -109,7 +110,7 @@ describe("moveFile action - VolarCompiler Integration", () => {
   it("throws FILE_NOT_FOUND for non-existent source", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const compiler = new VolarCompiler();
+    const compiler = new VolarCompiler(new TsMorphEngine());
 
     await expect(
       moveFile(

@@ -115,7 +115,7 @@ describe("rename action", () => {
 
     it("renames a composable in a .ts file and updates .vue files", async () => {
       const dir = vueSetup();
-      const compiler = new VolarCompiler();
+      const compiler = new VolarCompiler(new TsMorphEngine());
 
       const filePath = `${dir}/src/composables/useCounter.ts`;
       const result = await rename(compiler, filePath, 1, 17, "useCount", makeScope(dir));
@@ -134,7 +134,7 @@ describe("rename action", () => {
 
     it("renames across TypeScript/Vue boundary", async () => {
       const dir = vueSetup("vue-ts-boundary");
-      const compiler = new VolarCompiler();
+      const compiler = new VolarCompiler(new TsMorphEngine());
 
       const result = await rename(
         compiler,
@@ -156,7 +156,7 @@ describe("rename action", () => {
 
     it("does not rename symbols in dist/ .vue files", async () => {
       const dir = vueSetup();
-      const compiler = new VolarCompiler();
+      const compiler = new VolarCompiler(new TsMorphEngine());
 
       // dist/ is conventionally gitignored so it can't live in the committed fixture
       fs.mkdirSync(`${dir}/dist`, { recursive: true });
@@ -175,7 +175,7 @@ describe("rename action", () => {
 
     it("throws FILE_NOT_FOUND for non-existent file", async () => {
       const dir = vueSetup();
-      const compiler = new VolarCompiler();
+      const compiler = new VolarCompiler(new TsMorphEngine());
 
       await expect(
         rename(compiler, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", makeScope(dir)),

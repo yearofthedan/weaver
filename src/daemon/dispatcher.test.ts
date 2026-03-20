@@ -8,28 +8,28 @@ describe("makeRegistry", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  it("returns an object with projectCompiler and tsCompiler functions", () => {
+  it("returns an object with projectEngine and tsEngine functions", () => {
     const registry = makeRegistry("/any/file.ts");
-    expect(typeof registry.projectCompiler).toBe("function");
-    expect(typeof registry.tsCompiler).toBe("function");
+    expect(typeof registry.projectEngine).toBe("function");
+    expect(typeof registry.tsEngine).toBe("function");
   });
 
-  it("tsCompiler resolves to a TsMorphEngine with Compiler methods", async () => {
+  it("tsEngine resolves to a TsMorphEngine with Engine methods", async () => {
     const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const registry = makeRegistry(path.join(dir, "src/utils.ts"));
-    const compiler = await registry.tsCompiler();
-    expect(compiler).toBeInstanceOf(TsMorphEngine);
-    expect(typeof compiler.resolveOffset).toBe("function");
-    expect(typeof compiler.afterSymbolMove).toBe("function");
+    const engine = await registry.tsEngine();
+    expect(engine).toBeInstanceOf(TsMorphEngine);
+    expect(typeof engine.resolveOffset).toBe("function");
+    expect(typeof engine.afterSymbolMove).toBe("function");
   }, 10_000);
 
-  it("projectCompiler resolves to a TsMorphEngine for a TS-only project", async () => {
+  it("projectEngine resolves to a TsMorphEngine for a TS-only project", async () => {
     const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const registry = makeRegistry(path.join(dir, "src/utils.ts"));
-    const compiler = await registry.projectCompiler();
-    expect(compiler).toBeInstanceOf(TsMorphEngine);
+    const engine = await registry.projectEngine();
+    expect(engine).toBeInstanceOf(TsMorphEngine);
   }, 10_000);
 });
 

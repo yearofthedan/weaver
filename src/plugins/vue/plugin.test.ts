@@ -21,22 +21,22 @@ describe("Vue LanguagePlugin integration", () => {
 
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  it("projectCompiler returns VolarCompiler for a Vue project", async () => {
+  it("projectEngine returns VolarCompiler for a Vue project", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
     const { VolarCompiler } = await import("./compiler.js");
 
     const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
-    const compiler = await registry.projectCompiler();
+    const compiler = await registry.projectEngine();
     expect(compiler).toBeInstanceOf(VolarCompiler);
   }, 10_000);
 
-  it("projectCompiler returns TsMorphEngine for a non-Vue project", async () => {
+  it("projectEngine returns TsMorphEngine for a non-Vue project", async () => {
     const dir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     const registry = makeRegistry(path.join(dir, "src/utils.ts"));
-    const compiler = await registry.projectCompiler();
+    const compiler = await registry.projectEngine();
     expect(compiler).toBeInstanceOf(TsMorphEngine);
   }, 10_000);
 
@@ -48,15 +48,15 @@ describe("Vue LanguagePlugin integration", () => {
     expect(() => invalidateAll()).not.toThrow();
   });
 
-  it("invalidateAll clears cached compiler so next createCompiler call rebuilds it", async () => {
+  it("invalidateAll clears cached engine so next createEngine call rebuilds it", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
     const { VolarCompiler } = await import("./compiler.js");
 
     const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
-    const first = await registry.projectCompiler();
+    const first = await registry.projectEngine();
     invalidateAll();
-    const second = await registry.projectCompiler();
+    const second = await registry.projectEngine();
 
     expect(first).toBeInstanceOf(VolarCompiler);
     expect(second).toBeInstanceOf(VolarCompiler);

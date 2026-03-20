@@ -98,8 +98,11 @@ export interface LanguagePlugin {
   id: string;
   /** Project-level detection. Receives the resolved tsconfig path. */
   supportsProject(tsconfigPath: string): boolean;
-  /** Lazy factory — called once per plugin lifetime, result cached by the registry. */
-  createCompiler(): Promise<Engine>;
+  /**
+   * Lazy factory — called once per plugin lifetime, result cached by the registry.
+   * Receives the TsMorphEngine so the plugin can delegate TS operations to it.
+   */
+  createEngine(tsEngine: import("./engine.js").TsMorphEngine): Promise<Engine>;
   /** Selective cache refresh (watcher `change` events). */
   invalidateFile?(filePath: string): void;
   /** Full cache drop (watcher `add`/`unlink` events). */
@@ -111,6 +114,8 @@ export interface DeleteFileActionResult {
 }
 
 export interface EngineRegistry {
-  projectCompiler(): Promise<Engine>;
-  tsCompiler(): Promise<import("./engine.js").TsMorphEngine>;
+  /** Returns the project engine — Vue plugin if detected, TsMorphEngine otherwise. */
+  projectEngine(): Promise<Engine>;
+  /** Always returns TsMorphEngine for AST-level operations (e.g. moveSymbol, extractFunction). */
+  tsEngine(): Promise<import("./engine.js").TsMorphEngine>;
 }

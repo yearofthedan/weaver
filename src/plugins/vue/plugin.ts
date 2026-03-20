@@ -1,3 +1,4 @@
+import type { TsMorphEngine } from "../../ts-engine/engine.js";
 import type { Engine, LanguagePlugin } from "../../ts-engine/types.js";
 import { isVueProject } from "../../utils/ts-project.js";
 
@@ -8,10 +9,10 @@ export function createVueLanguagePlugin(): LanguagePlugin {
     supportsProject(tsconfigPath: string): boolean {
       return isVueProject(tsconfigPath);
     },
-    async createCompiler(): Promise<Engine> {
+    async createEngine(tsEngine: TsMorphEngine): Promise<Engine> {
       if (!cachedCompiler) {
         const { VolarCompiler } = await import("./compiler.js");
-        cachedCompiler = new VolarCompiler();
+        cachedCompiler = new VolarCompiler(tsEngine);
       }
       return cachedCompiler;
     },

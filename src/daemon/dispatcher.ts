@@ -68,9 +68,9 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         col: number;
         newName: string;
       };
-      const compiler = await registry.projectCompiler();
+      const engine = await registry.projectEngine();
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
-      return rename(compiler, file, line, col, newName, scope);
+      return rename(engine, file, line, col, newName, scope);
     },
   },
 
@@ -79,9 +79,9 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     schema: MoveArgsSchema,
     async invoke(registry, params, workspace) {
       const { oldPath, newPath } = params as { oldPath: string; newPath: string };
-      const compiler = await registry.projectCompiler();
+      const engine = await registry.projectEngine();
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
-      return moveFile(compiler, oldPath, newPath, scope);
+      return moveFile(engine, oldPath, newPath, scope);
     },
   },
 
@@ -90,9 +90,9 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     schema: MoveDirectoryArgsSchema,
     async invoke(registry, params, workspace) {
       const { oldPath, newPath } = params as { oldPath: string; newPath: string };
-      const compiler = await registry.projectCompiler();
+      const engine = await registry.projectEngine();
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
-      return moveDirectory(compiler, oldPath, newPath, scope);
+      return moveDirectory(engine, oldPath, newPath, scope);
     },
   },
 
@@ -106,11 +106,11 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         destFile: string;
         force?: boolean;
       };
-      const tsCompiler = await registry.tsCompiler();
-      const projectCompiler = await registry.projectCompiler();
+      const tsEngine = await registry.tsEngine();
+      const projectEngine = await registry.projectEngine();
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
       const { moveSymbol } = await import("../operations/moveSymbol.js");
-      return moveSymbol(tsCompiler, projectCompiler, sourceFile, symbolName, destFile, scope, {
+      return moveSymbol(tsEngine, projectEngine, sourceFile, symbolName, destFile, scope, {
         force,
       });
     },
@@ -128,10 +128,10 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         endCol: number;
         functionName: string;
       };
-      const tsCompiler = await registry.tsCompiler();
+      const tsEngine = await registry.tsEngine();
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
       return extractFunction(
-        tsCompiler,
+        tsEngine,
         file,
         startLine,
         startCol,
@@ -148,8 +148,8 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     schema: FindReferencesArgsSchema,
     async invoke(registry, params) {
       const { file, line, col } = params as { file: string; line: number; col: number };
-      const compiler = await registry.projectCompiler();
-      return findReferences(compiler, file, line, col);
+      const engine = await registry.projectEngine();
+      return findReferences(engine, file, line, col);
     },
   },
 
@@ -158,8 +158,8 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     schema: GetDefinitionArgsSchema,
     async invoke(registry, params) {
       const { file, line, col } = params as { file: string; line: number; col: number };
-      const compiler = await registry.projectCompiler();
-      return getDefinition(compiler, file, line, col);
+      const engine = await registry.projectEngine();
+      return getDefinition(engine, file, line, col);
     },
   },
 
@@ -168,9 +168,9 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     schema: GetTypeErrorsArgsSchema,
     async invoke(registry, params, workspace) {
       const { file } = params as { file?: string };
-      const tsCompiler = await registry.tsCompiler();
+      const tsEngine = await registry.tsEngine();
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
-      return getTypeErrors(tsCompiler, file, scope);
+      return getTypeErrors(tsEngine, file, scope);
     },
   },
 
@@ -194,10 +194,10 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     schema: DeleteFileArgsSchema,
     async invoke(registry, params, workspace) {
       const { file } = params as { file: string };
-      const tsCompiler = await registry.tsCompiler();
+      const engine = await registry.projectEngine();
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
       const { deleteFile } = await import("../operations/deleteFile.js");
-      return deleteFile(tsCompiler, file, scope);
+      return deleteFile(engine, file, scope);
     },
   },
 
@@ -277,9 +277,9 @@ export async function dispatchRequest(
     Array.isArray(result.filesModified) &&
     (result.filesModified as string[]).length > 0
   ) {
-    const tsCompiler = await registry.tsCompiler();
+    const tsEngine = await registry.tsEngine();
     const diagnostics = getTypeErrorsForFiles(
-      tsCompiler,
+      tsEngine,
       result.filesModified as string[],
       new NodeFileSystem(),
     );

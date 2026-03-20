@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { NodeFileSystem } from "../../ports/node-filesystem.js";
+import { TsMorphEngine } from "../../ts-engine/engine.js";
 import { VolarCompiler } from "./compiler.js";
 
 function makeScope(root: string): WorkspaceScope {
@@ -22,7 +23,7 @@ describe("VolarCompiler", () => {
   }
 
   it("implements Compiler shape", () => {
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     expect(typeof p.resolveOffset).toBe("function");
     expect(typeof p.getRenameLocations).toBe("function");
     expect(typeof p.getReferencesAtPosition).toBe("function");
@@ -38,7 +39,7 @@ describe("VolarCompiler", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vue-noop-"));
     fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
     try {
-      const p = new VolarCompiler();
+      const p = new VolarCompiler(new TsMorphEngine());
       const scope = makeScope(tmpDir);
       await p.afterSymbolMove(
         path.join(tmpDir, "src/a.ts"),
@@ -55,7 +56,7 @@ describe("VolarCompiler", () => {
 
   it("resolveOffset converts 1-based line/col to 0-based offset", () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     // vue-project: src/composables/useCounter.ts line 1 → "export function useCounter..."
     const file = path.join(dir, "src/composables/useCounter.ts");
     expect(p.resolveOffset(file, 1, 1)).toBe(0);
@@ -64,7 +65,7 @@ describe("VolarCompiler", () => {
 
   it("getRenameLocations returns spans for a TS symbol in a Vue project", async () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     // useCounter is declared at line 1, col 17 of useCounter.ts
     const file = path.join(dir, "src/composables/useCounter.ts");
     const offset = p.resolveOffset(file, 1, 17);
@@ -79,7 +80,7 @@ describe("VolarCompiler", () => {
 
   it("getRenameLocations translates virtual .vue.ts paths to real .vue paths in results", async () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     // useCounter is used in App.vue; rename locations from useCounter.ts must include
     // the real App.vue path (not the .vue.ts virtual path used internally by Volar)
     const file = path.join(dir, "src/composables/useCounter.ts");
@@ -93,7 +94,7 @@ describe("VolarCompiler", () => {
 
   it("readFile reads from disk when no service has been cached yet", () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const file = path.join(dir, "src/composables/useCounter.ts");
     const content = p.readFile(file);
     expect(content).toContain("useCounter");
@@ -101,7 +102,7 @@ describe("VolarCompiler", () => {
 
   it("notifyFileWritten: readFile returns updated content from the cache", async () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const file = path.join(dir, "src/composables/useCounter.ts");
     // Load service by calling getRenameLocations (builds and caches the service).
     const offset = p.resolveOffset(file, 1, 17);
@@ -115,7 +116,7 @@ describe("VolarCompiler", () => {
 
   it("notifyFileWritten does not throw when service not yet cached", () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const file = path.join(dir, "src/composables/useCounter.ts");
     // No service loaded — must be a silent no-op.
     expect(() => p.notifyFileWritten(file, "export const x = 1;\n")).not.toThrow();
@@ -123,7 +124,7 @@ describe("VolarCompiler", () => {
 
   it("afterFileRename records modified files into scope and no skipped files", async () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const oldPath = path.join(dir, "src/composables/useCounter.ts");
     const newPath = path.join(dir, "src/composables/useTimer.ts");
     const scope = makeScope(dir);
@@ -136,7 +137,7 @@ describe("VolarCompiler", () => {
     // Use a plain TS fixture (no .vue files) so nothing is modified or skipped.
     const tsDir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(tsDir);
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const scope = makeScope(tsDir);
     await p.afterSymbolMove(
       path.join(tsDir, "src/utils.ts"),
@@ -151,7 +152,7 @@ describe("VolarCompiler", () => {
   it("afterSymbolMove rewrites a matching named import in a .vue file", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const scope = makeScope(dir);
     // App.vue imports useCounter from composables/useCounter
     const sourceFile = path.join(dir, "src/composables/useCounter.ts");
@@ -169,7 +170,7 @@ describe("VolarCompiler", () => {
   it("afterSymbolMove does not rewrite a .vue file already in scope.modified", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const scope = makeScope(dir);
     const appVue = path.join(dir, "src/App.vue");
     // Pre-mark App.vue as already modified
@@ -188,7 +189,7 @@ describe("VolarCompiler", () => {
   it("afterSymbolMove does not modify .vue files that do not import the symbol", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const scope = makeScope(dir);
     // Move a symbol that App.vue does not import
     const sourceFile = path.join(dir, "src/composables/useCounter.ts");
@@ -200,7 +201,7 @@ describe("VolarCompiler", () => {
 
   it("resolveOffset throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const file = path.join(dir, "src/App.vue");
     expect(() => p.resolveOffset(file, 999, 1)).toThrow();
     try {
@@ -212,7 +213,7 @@ describe("VolarCompiler", () => {
 
   it("getReferencesAtPosition returns translated spans for a symbol in a Vue project", async () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const file = path.join(dir, "src/composables/useCounter.ts");
     const offset = p.resolveOffset(file, 1, 17); // useCounter declaration
     const refs = await p.getReferencesAtPosition(file, offset);
@@ -228,7 +229,7 @@ describe("VolarCompiler", () => {
 
   it("getDefinitionAtPosition in a .vue file returns a real path (exercises toVirtualLocation)", async () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const file = path.join(dir, "src/App.vue");
     const content = fs.readFileSync(file, "utf8");
     const useCounterOffset = content.indexOf("useCounter");
@@ -241,7 +242,7 @@ describe("VolarCompiler", () => {
 
   it("getReferencesAtPosition returns null for a blank line (no symbol)", async () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const file = path.join(dir, "src/main.ts");
     const content = fs.readFileSync(file, "utf8");
     const blankLineOffset = content.indexOf("\n\n") + 1;
@@ -251,7 +252,7 @@ describe("VolarCompiler", () => {
 
   it("getEditsForFileRename returns only real-path edits with non-empty textChanges", async () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const oldPath = path.join(dir, "src/composables/useCounter.ts");
     const newPath = path.join(dir, "src/composables/useTimer.ts");
     const edits = await p.getEditsForFileRename(oldPath, newPath);
@@ -265,7 +266,7 @@ describe("VolarCompiler", () => {
 
   it("getDefinitionAtPosition returns null for a whitespace position", async () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const file = path.join(dir, "src/composables/useCounter.ts");
     const content = fs.readFileSync(file, "utf8");
     const closingBraceOffset = content.lastIndexOf("}");
@@ -287,7 +288,7 @@ describe("VolarCompiler", () => {
       const vueFile = path.join(tmpDir, "src/NoScript.vue");
       fs.writeFileSync(vueFile, "<template>\n  <div>Hello</div>\n</template>\n");
 
-      const p = new VolarCompiler();
+      const p = new VolarCompiler(new TsMorphEngine());
       const result = await p.getDefinitionAtPosition(vueFile, 15);
       expect(result === null || Array.isArray(result)).toBe(true);
       if (Array.isArray(result)) {
@@ -302,7 +303,7 @@ describe("VolarCompiler", () => {
 
   it("getRenameLocations returns null for a blank-line position in a .ts file (exercises rawLocs.length === 0 guard)", async () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const file = path.join(dir, "src/main.ts");
     const content = fs.readFileSync(file, "utf8");
     const blankLineOffset = content.indexOf("\n\n") + 1;
@@ -312,7 +313,7 @@ describe("VolarCompiler", () => {
 
   it("getRenameLocations on a .vue file returns locations including the .vue path", async () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const file = path.join(dir, "src/App.vue");
     const content = fs.readFileSync(file, "utf8");
     const offset = content.indexOf("useCounter");
@@ -326,7 +327,7 @@ describe("VolarCompiler", () => {
 
   it("getReferencesAtPosition on a .vue file returns refs including the .vue path", async () => {
     const dir = setup();
-    const p = new VolarCompiler();
+    const p = new VolarCompiler(new TsMorphEngine());
     const file = path.join(dir, "src/App.vue");
     const content = fs.readFileSync(file, "utf8");
     const offset = content.indexOf("useCounter");
@@ -351,7 +352,7 @@ describe("VolarCompiler", () => {
       );
       const vueFile = path.join(tmpDir, "src/NoScript.vue");
       fs.writeFileSync(vueFile, "<template>\n  <div>Hello</div>\n</template>\n");
-      const p = new VolarCompiler();
+      const p = new VolarCompiler(new TsMorphEngine());
       const result = await p.getRenameLocations(vueFile, 15);
       expect(result === null || Array.isArray(result)).toBe(true);
     } finally {
@@ -372,7 +373,7 @@ describe("VolarCompiler", () => {
       );
       const vueFile = path.join(tmpDir, "src/NoScript.vue");
       fs.writeFileSync(vueFile, "<template>\n  <div>Hello</div>\n</template>\n");
-      const p = new VolarCompiler();
+      const p = new VolarCompiler(new TsMorphEngine());
       const result = await p.getReferencesAtPosition(vueFile, 15);
       expect(result === null || Array.isArray(result)).toBe(true);
     } finally {
