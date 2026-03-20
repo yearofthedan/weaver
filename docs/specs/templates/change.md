@@ -85,6 +85,10 @@ Acceptance criteria as concrete **input → output** statements.
 > **Prompt:** For each criterion, ask: "what's the laziest wrong implementation that
 > would still satisfy this line?" If you can think of one, the criterion is too vague.
 > Tighten it or add another.
+>
+> **After writing all ACs, re-read the entire spec for contradictions.** An
+> implementer following the spec faithfully must not be able to produce
+> conflicting behaviour.
 
 - [ ] Given [input], produces [exact expected output] (not just "returns a result")
 - [ ] Given [empty/zero case], produces [specific handling]

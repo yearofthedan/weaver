@@ -54,6 +54,10 @@ Acceptance criteria for the fix:
 
 > **Prompt:** For each criterion, ask: "what's the narrowest fix that passes this
 > line but leaves a related case broken?" If you can think of one, add that case.
+>
+> **After writing all ACs, re-read the entire spec for contradictions.** An
+> implementer following the spec faithfully must not be able to produce
+> conflicting behaviour.
 
 > **Prompt:** What are the **adjacent inputs** — variations of the failing input
 > that might also be broken? A string with different length, a path with different
