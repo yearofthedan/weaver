@@ -431,6 +431,146 @@ describe("TsMorphCompiler", () => {
     });
   });
 
+  describe("removeImportersOf", () => {
+    it("removes in-project import declarations that resolve to the target file", async () => {
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
+      dirs.push(dir);
+      const p = new TsMorphCompiler();
+      const target = path.join(dir, "src/target.ts");
+      const scope = makeScope(dir);
+
+      await p.removeImportersOf(target, scope);
+
+      const content = fs.readFileSync(path.join(dir, "src/importer.ts"), "utf8");
+      expect(content).not.toMatch(/from ['"]\.\/target['"]/);
+    });
+
+    it("removes in-project export declarations (barrel re-exports) that resolve to the target", async () => {
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
+      dirs.push(dir);
+      const p = new TsMorphCompiler();
+      const target = path.join(dir, "src/target.ts");
+      const scope = makeScope(dir);
+
+      await p.removeImportersOf(target, scope);
+
+      const content = fs.readFileSync(path.join(dir, "src/barrel.ts"), "utf8");
+      expect(content).not.toMatch(/from ['"]\.\/target['"]/);
+      expect(content.trim()).toBe("");
+    });
+
+    it("removes out-of-project imports matched by specifier path", async () => {
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
+      dirs.push(dir);
+      const p = new TsMorphCompiler();
+      const target = path.join(dir, "src/target.ts");
+      const scope = makeScope(dir);
+
+      await p.removeImportersOf(target, scope);
+
+      const content = fs.readFileSync(path.join(dir, "tests/out-of-project.ts"), "utf8");
+      expect(content).not.toMatch(/from ['"][^'"]*target['"]/);
+    });
+
+    it("handles out-of-project imports that use an explicit .ts extension", async () => {
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
+      dirs.push(dir);
+      const extra = path.join(dir, "tests", "explicit-ext.ts");
+      fs.writeFileSync(extra, 'import { targetFn } from "../src/target.ts";\n', "utf8");
+      const p = new TsMorphCompiler();
+      const target = path.join(dir, "src/target.ts");
+      const scope = makeScope(dir);
+
+      await p.removeImportersOf(target, scope);
+
+      expect(fs.readFileSync(extra, "utf8")).not.toMatch(/from ['"][^'"]*target/);
+    });
+
+    it("returns the total count of declarations removed", async () => {
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
+      dirs.push(dir);
+      const p = new TsMorphCompiler();
+      const target = path.join(dir, "src/target.ts");
+      const scope = makeScope(dir);
+
+      // importer.ts: 2 (named import + type-only import)
+      // barrel.ts:   2 (export * + named re-export)
+      // tests/out-of-project.ts: 1
+      const count = await p.removeImportersOf(target, scope);
+
+      expect(count).toBe(5);
+    });
+
+    it("returns 0 when no file imports the target", async () => {
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
+      dirs.push(dir);
+      const isolated = path.join(dir, "src", "isolated.ts");
+      fs.writeFileSync(isolated, "export const x = 1;\n", "utf8");
+      const p = new TsMorphCompiler();
+      const scope = makeScope(dir);
+
+      const count = await p.removeImportersOf(isolated, scope);
+
+      expect(count).toBe(0);
+    });
+
+    it("records modified files in scope", async () => {
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
+      dirs.push(dir);
+      const p = new TsMorphCompiler();
+      const target = path.join(dir, "src/target.ts");
+      const scope = makeScope(dir);
+
+      await p.removeImportersOf(target, scope);
+
+      expect(scope.modified).toContain(path.join(dir, "src/importer.ts"));
+      expect(scope.modified).toContain(path.join(dir, "src/barrel.ts"));
+      expect(scope.modified).toContain(path.join(dir, "tests/out-of-project.ts"));
+    });
+
+    it("does not include the target file itself in scope.modified", async () => {
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
+      dirs.push(dir);
+      const p = new TsMorphCompiler();
+      const target = path.join(dir, "src/target.ts");
+      const scope = makeScope(dir);
+
+      await p.removeImportersOf(target, scope);
+
+      expect(scope.modified).not.toContain(target);
+    });
+
+    it("skips out-of-workspace files and records them in scope.skipped without writing", async () => {
+      const root = copyFixture(FIXTURES.crossBoundary.name);
+      dirs.push(root);
+      const workspace = path.join(root, "workspace");
+      const target = path.join(workspace, "src", "utils.ts");
+      const consumerFile = path.join(root, "consumer", "main.ts");
+      const before = fs.readFileSync(consumerFile, "utf8");
+      const p = new TsMorphCompiler();
+      const scope = makeScope(workspace);
+
+      await p.removeImportersOf(target, scope);
+
+      expect(fs.readFileSync(consumerFile, "utf8")).toBe(before);
+      expect(scope.skipped).toContain(consumerFile);
+    });
+
+    it("does not write files that have no matching declarations", async () => {
+      const dir = copyFixture(FIXTURES.deleteFileTs.name);
+      dirs.push(dir);
+      const isolated = path.join(dir, "src", "isolated.ts");
+      fs.writeFileSync(isolated, "export const x = 1;\n", "utf8");
+      const p = new TsMorphCompiler();
+      const target = path.join(dir, "src/target.ts");
+      const scope = makeScope(dir);
+
+      await p.removeImportersOf(target, scope);
+
+      expect(scope.modified).not.toContain(isolated);
+    });
+  });
+
   describe("getFunction", () => {
     it("returns name and parameters for a named function", () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-params-"));

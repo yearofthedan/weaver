@@ -8,9 +8,10 @@ import { rewriteImportersOfMovedFile } from "../domain/rewrite-importers-of-move
 import { rewriteMovedFileOwnImports } from "../domain/rewrite-own-imports.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { EngineError } from "../utils/errors.js";
-import { JS_EXTENSIONS, TS_EXTENSIONS } from "../utils/extensions.js";
+import { JS_EXTENSIONS, stripExt, TS_EXTENSIONS } from "../utils/extensions.js";
 import { SKIP_DIRS, walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
+import { createThrowawaySourceFile } from "./throwaway-project.js";
 import { tsMoveSymbol } from "./ts-move-symbol.js";
 import type { Compiler, DefinitionLocation, FileTextEdit, SpanLocation } from "./types.js";
 
@@ -66,6 +67,114 @@ export class TsMorphCompiler implements Compiler {
   invalidateProject(filePath: string): void {
     const tsConfigPath = findTsConfigForFile(filePath);
     this.projects.delete(tsConfigPath ?? "__no_tsconfig__");
+  }
+
+  /**
+   * Removes all import and export declarations that reference `targetFile` from
+   * every in-scope TS/JS file. In-project files are resolved via the ts-morph
+   * compiler; out-of-project files are matched by specifier path.
+   *
+   * Returns the total count of declarations removed across all files so the
+   * caller can populate `importRefsRemoved` in its result.
+   *
+   * Files outside `scope.root` are recorded as skipped and never written.
+   */
+  async removeImportersOf(targetFile: string, scope: WorkspaceScope): Promise<number> {
+    let importRefsRemoved = 0;
+
+    const project = this.getProject(targetFile);
+    if (!project.getSourceFile(targetFile)) {
+      project.addSourceFileAtPath(targetFile);
+    }
+
+    const projectFilePaths = new Set(
+      project.getSourceFiles().map((sf) => sf.getFilePath() as string),
+    );
+
+    for (const sf of project.getSourceFiles()) {
+      const filePath = sf.getFilePath() as string;
+      if (filePath === targetFile) continue;
+
+      const hasRefs =
+        sf
+          .getImportDeclarations()
+          .some((d) => d.getModuleSpecifierSourceFile()?.getFilePath() === targetFile) ||
+        sf
+          .getExportDeclarations()
+          .some((d) => d.getModuleSpecifierSourceFile()?.getFilePath() === targetFile);
+
+      if (!hasRefs) continue;
+
+      if (!scope.contains(filePath)) {
+        scope.recordSkipped(filePath);
+        continue;
+      }
+
+      let found = true;
+      while (found) {
+        found = false;
+        for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {
+          if (decl.getModuleSpecifierSourceFile()?.getFilePath() === targetFile) {
+            decl.remove();
+            importRefsRemoved++;
+            found = true;
+            break;
+          }
+        }
+      }
+
+      scope.recordModified(filePath);
+    }
+
+    for (const sf of project.getSourceFiles()) {
+      if (!sf.isSaved() && scope.contains(sf.getFilePath() as string)) {
+        await sf.save();
+      }
+    }
+
+    const workspaceRoot = path.resolve(scope.root);
+    const targetNoExt = stripExt(targetFile);
+
+    for (const filePath of walkFiles(workspaceRoot, [...TS_EXTENSIONS])) {
+      if (projectFilePaths.has(filePath)) continue;
+      if (filePath === targetFile) continue;
+      if (!scope.contains(filePath)) {
+        scope.recordSkipped(filePath);
+        continue;
+      }
+
+      let raw: string;
+      try {
+        raw = scope.fs.readFile(filePath);
+      } catch {
+        continue;
+      }
+
+      const sf = createThrowawaySourceFile(filePath, raw);
+      const fromDir = path.dirname(filePath);
+
+      let removed = 0;
+      let found = true;
+      while (found) {
+        found = false;
+        for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {
+          const specifier = decl.getModuleSpecifierValue();
+          if (!specifier || !specifier.startsWith(".")) continue;
+          if (stripExt(path.resolve(fromDir, specifier)) === targetNoExt) {
+            decl.remove();
+            removed++;
+            found = true;
+            break;
+          }
+        }
+      }
+
+      if (removed === 0) continue;
+      importRefsRemoved += removed;
+      scope.writeFile(filePath, sf.getFullText());
+    }
+
+    return importRefsRemoved;
   }
 
   /**

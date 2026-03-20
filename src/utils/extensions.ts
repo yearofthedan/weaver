@@ -18,3 +18,8 @@ export const JS_TS_PAIRS: ReadonlyArray<[string, string]> = [
 
 /** The set of JS-family extensions derived from JS_TS_PAIRS. */
 export const JS_EXTENSIONS: ReadonlySet<string> = new Set(JS_TS_PAIRS.map(([js]) => js));
+
+/** Strips a TS/JS source file extension from a path, leaving the bare stem. */
+export function stripExt(filePath: string): string {
+  return filePath.replace(/\.(ts|tsx|js|jsx|mts|cts)$/, "");
+}
