@@ -86,29 +86,32 @@ src/
   plugins/
     vue/
       plugin.ts   ← createVueLanguagePlugin(); Vue/Volar LanguagePlugin factory (project detection, lifecycle)
-      compiler.ts ← VolarCompiler: compiler calls via Volar proxy + virtual↔real translation; afterSymbolMove scans .vue files
-      scan.ts     ← updateVueImportsAfterMove + removeVueImportsOfDeletedFile + updateVueNamedImportAfterSymbolMove (regex scans; uses WorkspaceScope for boundary enforcement)
+      compiler.ts ← VolarCompiler: implements Engine; delegates TS work to TsMorphEngine; scans .vue files for imports
+      scan.ts     ← updateVueImportsAfterMove + removeVueImportsOfDeletedFile + updateVueNamedImportAfterSymbolMove
       service.ts  ← buildVolarService() — Volar service factory
       *.test.ts   ← colocated unit tests
   operations/
-    rename.ts          ← rename(compiler, filePath, line, col, newName, scope: WorkspaceScope)
-    findReferences.ts  ← findReferences(compiler, filePath, line, col)
-    getDefinition.ts   ← getDefinition(compiler, filePath, line, col)
-    getTypeErrors.ts   ← getTypeErrors(tsCompiler, file?, scope: WorkspaceScope) — errors-only, cap 100
-    moveFile.ts        ← moveFile(compiler, oldPath, newPath, scope: WorkspaceScope)
-    moveDirectory.ts   ← moveDirectory(compiler, oldPath, newPath, scope: WorkspaceScope)
-    moveSymbol.ts      ← moveSymbol(tsCompiler, projectCompiler, sourceFile, symbolName, destFile, scope: WorkspaceScope)
-    extractFunction.ts ← extractFunction(tsCompiler, file, startLine, startCol, endLine, endCol, functionName, scope: WorkspaceScope)
+    rename.ts          ← rename(engine, filePath, line, col, newName, scope: WorkspaceScope)
+    findReferences.ts  ← findReferences(engine, filePath, line, col)
+    getDefinition.ts   ← getDefinition(engine, filePath, line, col)
+    getTypeErrors.ts   ← getTypeErrors(tsEngine, file?, scope: WorkspaceScope) — errors-only, cap 100
+    moveFile.ts        ← moveFile(engine, oldPath, newPath, scope: WorkspaceScope)
+    moveDirectory.ts   ← moveDirectory(engine, oldPath, newPath, scope: WorkspaceScope)
+    moveSymbol.ts      ← moveSymbol(tsEngine, projectEngine, sourceFile, symbolName, destFile, scope: WorkspaceScope)
+    extractFunction.ts ← extractFunction(tsEngine, file, startLine, startCol, endLine, endCol, functionName, scope: WorkspaceScope)
     searchText.ts      ← searchText(pattern, scope: WorkspaceScope, { glob, context, maxResults })
     replaceText.ts     ← replaceText(scope: WorkspaceScope, { pattern, replacement, glob } | { edits })
-    deleteFile.ts      ← deleteFile(tsCompiler, file, scope: WorkspaceScope)
+    deleteFile.ts      ← deleteFile(engine, file, scope: WorkspaceScope) — delegates to engine.deleteFile()
     types.ts           ← result types for all operations (RenameResult, MoveResult, FindReferencesResult, etc.)
     *.test.ts          ← colocated unit tests
+  ts-engine/
+    types.ts              ← Engine + LanguagePlugin + EngineRegistry interfaces; SpanLocation, DefinitionLocation, FileTextEdit
+    engine.ts             ← TsMorphEngine: project cache, LS accessors, delegates to standalone action functions
+    delete-file.ts        ← tsDeleteFile(): delete file, remove importers, invalidate cache — standalone action
+    remove-importers.ts   ← tsRemoveImportersOf(): remove all import/export declarations referencing a deleted file
+    *.test.ts             ← colocated unit tests
   compilers/
-    types.ts              ← Compiler + LanguagePlugin + CompilerRegistry interfaces; SpanLocation, DefinitionLocation, FileTextEdit
-    ts.ts                 ← TsMorphCompiler: project cache, LS accessors, delegation to standalone action functions
     ts-move-symbol.ts     ← tsMoveSymbol(): compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
-    ts-remove-importers.ts ← tsRemoveImportersOf(): remove all import/export declarations referencing a deleted file
     throwaway-project.ts  ← createThrowawaySourceFile(): in-memory ts-morph project for one-off AST parsing
     symbol-ref.ts         ← SymbolRef — resolved exported symbol value object (lookup, unwrap, remove)
     __helpers__/          ← mock-compiler.ts shared test helper

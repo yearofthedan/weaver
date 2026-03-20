@@ -8,7 +8,7 @@ See also: `docs/tech/volar-v3.md` (Vue compiler internals), `docs/tech/tech-debt
 
 ## Overview
 
-The engine layer has four tiers: **ports** define I/O abstractions, **domain** holds boundary/tracking logic and value objects, **compilers** hold the stateful compiler objects, and **operations** are standalone functions that orchestrate compilers and domain objects. There are no engine classes.
+The engine layer has five tiers: **ports** define I/O abstractions, **domain** holds boundary/tracking logic and value objects, **ts-engine** holds the TypeScript compiler wrapper and action functions, **operations** are orchestrators that delegate to engines, and **plugins** extend functionality for specific frameworks.
 
 ```
 src/ports/               ← I/O abstractions (hexagonal ports)
@@ -19,9 +19,14 @@ src/ports/               ← I/O abstractions (hexagonal ports)
 src/domain/              ← domain logic independent of I/O
   workspace-scope.ts    ← WorkspaceScope — boundary enforcement + modification tracking
   import-rewriter.ts    ← ImportRewriter — rewrites named imports/re-exports of a moved symbol
-  symbol-ref.ts         ← SymbolRef — resolved exported symbol value object (lookup, unwrap, remove)
 
-src/operations/          ← standalone action functions (one per operation)
+src/ts-engine/          ← TypeScript engine layer (stateful compiler + action functions)
+  types.ts              ← Engine interface (compiler contract + action methods); EngineRegistry
+  engine.ts             ← TsMorphEngine — ts-morph Project; per-tsconfig cache; always-available TS fallback
+  delete-file.ts        ← tsDeleteFile() — standalone action function for file deletion
+  remove-importers.ts   ← tsRemoveImportersOf() — remove all importers of a deleted/moved file
+
+src/operations/          ← standalone orchestrator functions (one per operation)
   rename.ts
   moveFile.ts
   moveSymbol.ts
@@ -33,15 +38,11 @@ src/operations/          ← standalone action functions (one per operation)
   searchText.ts
   replaceText.ts
 
-src/compilers/           ← stateful compiler wrappers
-  ts.ts                 ← TsMorphCompiler — ts-morph Project; per-tsconfig cache; always-available TS fallback
-  ts-move-symbol.ts     ← tsMoveSymbol() — compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
-
 src/plugins/             ← language plugin feature folders (one per framework)
   vue/
     plugin.ts           ← createVueLanguagePlugin() — LanguagePlugin factory (project detection, lifecycle)
-    compiler.ts         ← VolarCompiler — Volar proxy; virtual↔real path translation; afterSymbolMove
-    scan.ts             ← updateVueImportsAfterMove, updateVueNamedImportAfterSymbolMove
+    compiler.ts         ← VolarCompiler — implements Engine; Volar proxy; virtual↔real path translation
+    scan.ts             ← updateVueImportsAfterMove, removeVueImportsOfDeletedFile
     service.ts          ← buildVolarService() factory
 ```
 
@@ -90,10 +91,10 @@ graph TD
         SR[SymbolRef]
     end
 
-    subgraph Compilers["Compiler Adapters"]
-        TSC[TsMorphCompiler]
-        VOL[VolarCompiler]
-        TMS[tsMoveSymbol]
+    subgraph Engines["Engine Layer"]
+        TSE[TsMorphEngine]
+        VOE[VolarEngine]
+        TSA["Standalone Actions<br/>(tsDeleteFile, etc)"]
     end
 
     subgraph Ports
@@ -157,66 +158,77 @@ All mutating operations receive a `WorkspaceScope`, use the `FileSystem` port fo
 
 ---
 
-## Compiler interface
+## Engine interface
 
-Both compilers implement `Compiler` (defined in `src/types.ts`):
+Both engines implement `Engine` (defined in `src/ts-engine/types.ts`):
 
 ```typescript
-interface Compiler {
+interface Engine {
+  // Queries
   resolveOffset(file, line, col): number
   getRenameLocations(file, offset): Promise<SpanLocation[] | null>
   getReferencesAtPosition(file, offset): Promise<SpanLocation[] | null>
   getDefinitionAtPosition(file, offset): Promise<DefinitionLocation[] | null>
-  getEditsForFileRename(oldPath, newPath): Promise<FileTextEdit[]>
   readFile(path): string
   notifyFileWritten(path, content): void
+
+  // Actions (delegated to operations)
+  deleteFile(targetFile, scope: WorkspaceScope): Promise<{ importRefsRemoved: number }>
+
+  // Legacy methods (migrated to actions in subsequent specs)
+  getEditsForFileRename(oldPath, newPath): Promise<FileTextEdit[]>
   afterFileRename(oldPath, newPath, scope: WorkspaceScope): Promise<void>
   afterSymbolMove(sourceFile, symbolName, destFile, scope: WorkspaceScope): Promise<void>
+  moveDirectory(oldPath, newPath, scope: WorkspaceScope): Promise<{ filesMoved: string[] }>
 }
 ```
 
-`afterFileRename` and `afterSymbolMove` are post-step hooks. `TsMorphCompiler.afterSymbolMove` is a fallback scan — it walks workspace TS/JS files outside `tsconfig.include` (test files, scripts) and rewrites imports of the moved symbol that ts-morph's AST pass missed. `VolarCompiler.afterSymbolMove` scans `.vue` SFC script blocks for imports of the moved symbol and rewrites them.
+The engine layer is progressively migrating from the legacy interface methods (queries + post-step hooks) to actions that own the full workflow. `deleteFile` is the first action method. Subsequent specs will add `moveFile`, `moveSymbol`, and `rename` as actions, removing the legacy methods each operation replaces.
+
+`TsMorphEngine` delegates to standalone action functions in `src/ts-engine/` (e.g. `tsDeleteFile()` for the delete action). `VolarEngine` delegates to `TsMorphEngine` for TS/JS work, then adds Vue-specific scanning (e.g. scanning `.vue` SFCs for imports of deleted files).
 
 ---
 
 ## Language plugin contract
 
-The `LanguagePlugin` interface (defined in `src/types.ts`) is the contract for adding language/framework support. Each plugin provides project-level detection and a `Compiler` factory:
+The `LanguagePlugin` interface (defined in `src/ts-engine/types.ts`) is the contract for adding language/framework support. Each plugin provides project-level detection and an `Engine` factory:
 
 ```typescript
 interface LanguagePlugin {
-  id: string;                                      // stable identifier, e.g. "vue-volar"
-  supportsProject(tsconfigPath: string): boolean;  // project-level detection
-  createCompiler(): Promise<Compiler>;             // lazy factory, result cached by registry
-  invalidateFile?(filePath: string): void;         // selective cache refresh
-  invalidateAll?(): void;                          // full cache drop
+  id: string;                                           // stable identifier, e.g. "vue-volar"
+  supportsProject(tsconfigPath: string): boolean;       // project-level detection
+  createEngine(tsEngine: TsMorphEngine): Promise<Engine>; // lazy factory, result cached by registry
+  invalidateFile?(filePath: string): void;              // selective cache refresh
+  invalidateAll?(): void;                               // full cache drop
 }
 ```
 
-**Resolution:** `makeRegistry(filePath)` finds the tsconfig for the input file, then iterates registered plugins in order. The first plugin whose `supportsProject()` returns true provides the `projectCompiler`. If no plugin matches (or no tsconfig exists), TsMorphCompiler is used as the default fallback.
+**Resolution:** `makeRegistry(filePath)` creates a `TsMorphEngine` first, then finds the tsconfig for the input file and iterates registered plugins in order. The first plugin whose `supportsProject()` returns true provides the `projectEngine` (passing the shared `TsMorphEngine` to its factory). If no plugin matches (or no tsconfig exists), `TsMorphEngine` is used as the default fallback.
 
-**Detection is project-level, not file-level.** In a Vue project, even `.ts` file operations go through VolarCompiler because Volar's language service sees both `.ts` and `.vue` importers. The detection checks the project (does this tsconfig cover a Vue project?), not the file extension.
+**Detection is project-level, not file-level.** In a Vue project, even `.ts` file operations go through VolarEngine because Volar's language service sees both `.ts` and `.vue` importers. The detection checks the project (does this tsconfig cover a Vue project?), not the file extension.
 
-**Built-in plugins:** Vue/Volar is registered at module load time (`src/daemon/vue-language-plugin.ts`). The TS compiler is the always-available fallback — it's not modelled as a plugin.
+**Built-in plugins:** Vue/Volar is registered at module load time. The TS engine is the always-available fallback — it's not modelled as a plugin.
 
-**Adding a new language plugin:** Implement `LanguagePlugin` with project detection logic, create a `Compiler` for your framework's compiler, and call `registerLanguagePlugin()`. See `src/daemon/vue-language-plugin.ts` as a template.
+**Adding a new language plugin:** Implement `LanguagePlugin` with project detection logic, create an `Engine` for your framework's compiler, and call `registerLanguagePlugin()`. The factory receives the shared `TsMorphEngine` for delegation to TS work (AST queries, import rewriting, etc.). See `src/plugins/vue/plugin.ts` as a template.
 
 ---
 
-## Compiler registry
+## Engine registry
 
-The registry creates a `CompilerRegistry` per request, scoped to the project that contains the input file:
+The registry creates an `EngineRegistry` per request, scoped to the project that contains the input file:
 
 ```typescript
-interface CompilerRegistry {
-  projectCompiler(): Promise<Compiler>              // first matching plugin, or TsMorphCompiler fallback
-  tsCompiler(): Promise<TsMorphCompiler>            // always TsMorphCompiler — for AST-level operations
+interface EngineRegistry {
+  projectEngine(): Promise<Engine>                    // first matching plugin, or TsMorphEngine fallback
+  tsEngine(): Promise<TsMorphEngine>                  // always TsMorphEngine — for AST-level operations
 }
 ```
 
-`projectCompiler` resolution iterates registered `LanguagePlugin` entries (see above). `tsCompiler` is not subject to plugin resolution — it always returns TsMorphCompiler for operations needing direct ts-morph AST access (e.g. `moveSymbol`, `extractFunction`).
+`projectEngine` resolution creates a `TsMorphEngine`, finds the tsconfig, then iterates registered `LanguagePlugin` entries. The first plugin's `supportsProject()` that returns true calls its `createEngine(tsEngine)` to create the project engine (usually a wrapper like `VolarEngine` that delegates TS work to the shared engine). If no plugin matches (or no tsconfig exists), `TsMorphEngine` is used as the default fallback.
 
-In a monorepo each package resolves to its own tsconfig and gets the right compiler automatically. Compilers are lazy singletons; each manages a per-tsconfig cache internally.
+`tsEngine` is not subject to plugin resolution — it always returns `TsMorphEngine` for operations needing direct ts-morph AST access (e.g. `moveSymbol`, `extractFunction`).
+
+In a monorepo each package resolves to its own tsconfig and gets the right engine automatically. Engines are lazy singletons; each manages a per-tsconfig cache internally.
 
 ---
 
