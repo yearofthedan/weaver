@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
+import { stripExt } from "../../utils/extensions.js";
 import { walkFiles } from "../../utils/file-walk.js";
 import { computeRelativeImportPath } from "../../utils/relative-path.js";
 
@@ -142,8 +143,4 @@ function removeImportLines(
   );
 
   return { content: result, removed };
-}
-
-function stripExt(filePath: string): string {
-  return filePath.replace(/\.(ts|tsx|js|jsx|mts|cts)$/, "");
 }
