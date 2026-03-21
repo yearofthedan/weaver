@@ -70,10 +70,11 @@ export interface Engine {
   ): Promise<void>;
 
   /**
-   * Move all source files in `oldPath` to `newPath`, rewriting imports across
-   * the project atomically. Only handles source files the compiler understands.
-   * Non-source files (json, css, images) are the caller's responsibility.
-   * Records all modified files into `scope`.
+   * Full moveDirectory workflow: rewrite imports for all source files atomically,
+   * physically move the entire directory tree (source and non-source), and record
+   * all moved files into scope.
+   *
+   * Precondition: `oldPath` must exist and be a valid directory.
    */
   moveDirectory(
     oldPath: string,
