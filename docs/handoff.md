@@ -108,6 +108,7 @@ src/
     types.ts              ← Engine + LanguagePlugin + EngineRegistry interfaces; SpanLocation, DefinitionLocation, FileTextEdit
     engine.ts             ← TsMorphEngine: project cache, LS accessors, delegates to standalone action functions
     delete-file.ts        ← tsDeleteFile(): delete file, remove importers, invalidate cache — standalone action
+    move-file.ts          ← tsMoveFile(): edits + physical move + project graph update + fallback scan — standalone action
     remove-importers.ts   ← tsRemoveImportersOf(): remove all import/export declarations referencing a deleted file
     *.test.ts             ← colocated unit tests
   compilers/
@@ -145,7 +146,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P1 — Very high value bugs and tech debt
-- **Engine layer: `moveFile` action** → [spec](docs/specs/20260320-engine-layer-move-file.md) — Migrate `moveFile` to the engine layer. Create `tsMoveFile()` standalone function that owns the full workflow (getEditsForFileRename + apply + physical move + afterFileRename). Add `moveFile()` to the `Engine` interface. Remove `getEditsForFileRename` and `afterFileRename` from the `Engine` interface (they become internal). VolarEngine implements `moveFile()` by delegating TS work then adding Vue scanning.
 - **Engine layer: `moveSymbol` action** `[needs design]` — `tsMoveSymbol()` already exists as a standalone function. Remove the `TsMorphEngine.moveSymbol()` delegate method. Update the `moveSymbol` operation to call `tsMoveSymbol()` directly (it already takes `TsMorphCompiler`/`TsMorphEngine` as first arg). Remove `afterSymbolMove` from the `Engine` interface. VolarEngine implements `moveSymbol()` by calling `tsMoveSymbol()` via its injected `TsMorphEngine` then doing Vue SFC scanning.
 - **Engine layer: `moveDirectory` action** `[needs design]` — Create `tsMoveDirectory()` standalone function. Add `moveDirectory()` as a full-workflow action on the `Engine` interface (replacing the current version that leaks intermediate steps). Rename `VolarCompiler` → `VolarEngine`, `compiler.ts` → `engine.ts`.
 - **Engine layer: `rename` action** `[needs design]` — Create `tsRename()` standalone function that owns the full workflow (getRenameLocations + apply edits + notifyFileWritten). Add `rename()` to the `Engine` interface. Remove `getRenameLocations` and `notifyFileWritten` from the `Engine` interface (they become internal). VolarEngine implements `rename()` by delegating to its language service.
