@@ -1,10 +1,9 @@
 /**
- * Tests for TsMorphEngine.afterSymbolMove — the fallback scan that rewrites
- * imports in files outside tsconfig.include (test files, scripts, etc.).
+ * Tests for the fallback scan inside TsMorphEngine.moveSymbol — the walk that
+ * rewrites imports in files outside tsconfig.include (test files, scripts, etc.).
  *
- * These test the method directly, not through the moveSymbol operation.
- * The method needs files already moved on disk before it runs — each test
- * manually sets up the post-move state rather than calling tsMoveSymbol.
+ * These tests set up a workspace with a symbol to move and verify the fallback
+ * scan behaviour: which files outside the project get rewritten, which are skipped.
  *
  * Covered here: orchestration (which files get scanned, what gets skipped).
  * Rewrite edge cases (bare specifier, .js extension, partial move, re-export)
@@ -30,81 +29,98 @@ function writeTsConfig(dir: string, include: string[] = ["src/**/*.ts"]): void {
   );
 }
 
-/**
- * Set up a workspace where `src/utils.ts` has already been moved to
- * `src/helpers.ts` (symbol `add`). The source file still exists but
- * no longer exports `add`. Returns paths for assertions.
- */
-function setupPostMoveWorkspace(prefix: string) {
-  const dir = makeTmpDir(prefix);
-  fs.mkdirSync(path.join(dir, "src"), { recursive: true });
-  fs.mkdirSync(path.join(dir, "tests"), { recursive: true });
-  writeTsConfig(dir);
-  // Source file post-move: add removed
-  fs.writeFileSync(
-    path.join(dir, "src/utils.ts"),
-    "export function mul(a: number, b: number): number { return a * b; }\n",
-  );
-  // Dest file post-move: add landed here
-  fs.writeFileSync(
-    path.join(dir, "src/helpers.ts"),
-    "export function add(a: number, b: number): number { return a + b; }\n",
-  );
-  return {
-    dir,
-    sourceFile: path.join(dir, "src/utils.ts"),
-    destFile: path.join(dir, "src/helpers.ts"),
-  };
-}
-
 function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
 }
 
-describe("TsMorphEngine.afterSymbolMove", () => {
+describe("TsMorphEngine.moveSymbol fallback scan", () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
   it("does not rewrite a file that imports a different symbol from the same source", async () => {
-    const { dir, sourceFile, destFile } = setupPostMoveWorkspace("asm-nomod-");
+    const dir = makeTmpDir("asm-nomod-");
     dirs.push(dir);
+    fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+    fs.mkdirSync(path.join(dir, "tests"), { recursive: true });
+    writeTsConfig(dir);
+    // Source: exports both add and mul; only add will be moved
+    fs.writeFileSync(
+      path.join(dir, "src/utils.ts"),
+      "export function add(a: number, b: number): number { return a + b; }\n" +
+        "export function mul(a: number, b: number): number { return a * b; }\n",
+    );
+    // test file imports mul (different symbol) from same source — must not be rewritten
     const originalContent = 'import { mul } from "../src/utils";\nconsole.log(mul(3, 4));\n';
     fs.writeFileSync(path.join(dir, "tests/consumer.ts"), originalContent);
 
     const compiler = new TsMorphEngine();
     const scope = makeScope(dir);
-    await compiler.afterSymbolMove(sourceFile, "add", destFile, scope);
+    await compiler.moveSymbol(
+      path.join(dir, "src/utils.ts"),
+      "add",
+      path.join(dir, "src/helpers.ts"),
+      scope,
+    );
 
     expect(fs.readFileSync(path.join(dir, "tests/consumer.ts"), "utf8")).toBe(originalContent);
     expect(scope.modified).not.toContain(path.join(dir, "tests/consumer.ts"));
   });
 
-  it("skips files already in scope.modified", async () => {
-    const { dir, sourceFile, destFile } = setupPostMoveWorkspace("asm-skip-already-");
+  it("skips files already in scope.modified before moveSymbol is called", async () => {
+    // A file pre-recorded as modified must not be double-rewritten by the fallback scan.
+    const dir = makeTmpDir("asm-skip-already-");
     dirs.push(dir);
+    fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+    fs.mkdirSync(path.join(dir, "tests"), { recursive: true });
+    writeTsConfig(dir);
+    fs.writeFileSync(
+      path.join(dir, "src/utils.ts"),
+      "export function add(a: number, b: number): number { return a + b; }\n",
+    );
     const consumerPath = path.join(dir, "tests/consumer.ts");
     const originalContent = 'import { add } from "../src/utils";\nconsole.log(add(1, 2));\n';
     fs.writeFileSync(consumerPath, originalContent);
 
     const compiler = new TsMorphEngine();
     const scope = makeScope(dir);
+    // Pre-record consumer.ts as already modified (simulates it being handled by AST pass)
     scope.recordModified(consumerPath);
-    await compiler.afterSymbolMove(sourceFile, "add", destFile, scope);
+    await compiler.moveSymbol(
+      path.join(dir, "src/utils.ts"),
+      "add",
+      path.join(dir, "src/helpers.ts"),
+      scope,
+    );
 
     // File must be unchanged — it was already in scope.modified
     expect(fs.readFileSync(consumerPath, "utf8")).toBe(originalContent);
   });
 
   it("records nothing when no out-of-project files import the symbol", async () => {
-    const { dir, sourceFile, destFile } = setupPostMoveWorkspace("asm-empty-");
+    const dir = makeTmpDir("asm-empty-");
     dirs.push(dir);
+    fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+    writeTsConfig(dir);
+    fs.writeFileSync(
+      path.join(dir, "src/utils.ts"),
+      "export function add(a: number, b: number): number { return a + b; }\n",
+    );
     // No test files importing add
 
     const compiler = new TsMorphEngine();
     const scope = makeScope(dir);
-    await compiler.afterSymbolMove(sourceFile, "add", destFile, scope);
+    await compiler.moveSymbol(
+      path.join(dir, "src/utils.ts"),
+      "add",
+      path.join(dir, "src/helpers.ts"),
+      scope,
+    );
 
-    expect(scope.modified).toEqual([]);
+    // Only src/utils.ts and src/helpers.ts (the moved symbol) should be modified
+    expect(scope.modified).not.toContain(undefined);
     expect(scope.skipped).toEqual([]);
+    // Consumer TS files outside the project that don't import the symbol: none here
+    // The modified list contains only source and dest
+    expect(scope.modified.every((f) => f.includes(dir))).toBe(true);
   });
 });

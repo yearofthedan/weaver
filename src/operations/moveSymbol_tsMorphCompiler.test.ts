@@ -20,7 +20,6 @@ describe("moveSymbol operation — TsMorphEngine integration", () => {
 
     const result = await moveSymbol(
       tsCompiler,
-      tsCompiler,
       `${dir}/src/utils.ts`,
       "greetUser",
       `${dir}/src/helpers.ts`,
@@ -62,7 +61,6 @@ describe("moveSymbol operation — TsMorphEngine integration", () => {
 
     const result = await moveSymbol(
       tsCompiler,
-      tsCompiler,
       path.join(tmpDir, "src/utils.ts"),
       "add",
       path.join(tmpDir, "src/helpers.ts"),
@@ -73,7 +71,7 @@ describe("moveSymbol operation — TsMorphEngine integration", () => {
     expect(fs.readFileSync(path.join(tmpDir, "lib/consumer.ts"), "utf8")).toContain("../src/utils");
   });
 
-  it("afterSymbolMove fallback rewrites out-of-project test file imports end-to-end", async () => {
+  it("fallback scan rewrites out-of-project test file imports end-to-end", async () => {
     // simple-ts fixture: tsconfig.include = ["src/**/*.ts"], so tests/ is outside the project.
     // tests/utils.test.ts imports greetUser from "../src/utils".
     // After moving greetUser to src/helpers.ts, the fallback scan must rewrite the test file.
@@ -83,7 +81,6 @@ describe("moveSymbol operation — TsMorphEngine integration", () => {
     const scope = new WorkspaceScope(dir, new NodeFileSystem());
 
     const result = await moveSymbol(
-      tsCompiler,
       tsCompiler,
       `${dir}/src/utils.ts`,
       "greetUser",

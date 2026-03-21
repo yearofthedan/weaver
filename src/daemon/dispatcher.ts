@@ -106,13 +106,10 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         destFile: string;
         force?: boolean;
       };
-      const tsEngine = await registry.tsEngine();
-      const projectEngine = await registry.projectEngine();
+      const engine = await registry.projectEngine();
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
       const { moveSymbol } = await import("../operations/moveSymbol.js");
-      return moveSymbol(tsEngine, projectEngine, sourceFile, symbolName, destFile, scope, {
-        force,
-      });
+      return moveSymbol(engine, sourceFile, symbolName, destFile, scope, { force });
     },
   },
 

@@ -191,12 +191,17 @@ export class VolarCompiler implements Engine {
     if (cached) cached.fileContents.set(filePath, content);
   }
 
-  async afterSymbolMove(
+  async moveSymbol(
     sourceFile: string,
     symbolName: string,
     destFile: string,
     scope: WorkspaceScope,
+    options?: { force?: boolean },
   ): Promise<void> {
+    // Delegate TS work (AST surgery + fallback scan for out-of-project TS/JS files).
+    await this.tsEngine.moveSymbol(sourceFile, symbolName, destFile, scope, options);
+
+    // Vue SFC scanning: walk .vue files and rewrite imports in <script> blocks.
     const tsConfig = findTsConfigForFile(sourceFile);
     const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
     const rewriter = new ImportRewriter();

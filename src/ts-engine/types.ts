@@ -51,19 +51,22 @@ export interface Engine {
   moveFile(oldPath: string, newPath: string, scope: WorkspaceScope): Promise<MoveFileActionResult>;
 
   /**
-   * Called after a named export has been moved from `sourceFile` to `destFile`.
-   * Compilers scan for imports of the specific symbol and rewrite them.
-   * `TsMorphEngine` walks workspace TS files to catch out-of-project importers.
-   * `VolarCompiler` scans `.vue` SFC script blocks.
+   * Full moveSymbol workflow: performs AST surgery on in-project files via the
+   * TypeScript language service, then scans all workspace files for any import
+   * of `symbolName` from `sourceFile` that the language service missed
+   * (e.g. files outside `tsconfig.include`, Vue SFC script blocks).
    *
-   * Files already in `scope.modified` are skipped to avoid double-rewriting.
-   * Modified and skipped files are recorded directly into `scope`.
+   * `sourceFile` must be an absolute path that exists. `destFile` is created
+   * if it doesn't exist. All side effects are recorded into `scope`.
+   * Throws `SYMBOL_NOT_FOUND` if the symbol is absent, `SYMBOL_EXISTS` if the
+   * symbol already exists in `destFile` (unless `options.force` is `true`).
    */
-  afterSymbolMove(
+  moveSymbol(
     sourceFile: string,
     symbolName: string,
     destFile: string,
     scope: WorkspaceScope,
+    options?: { force?: boolean },
   ): Promise<void>;
 
   /**

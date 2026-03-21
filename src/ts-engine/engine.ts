@@ -347,26 +347,6 @@ export class TsMorphEngine implements Engine {
   }
 
   /**
-   * Fallback scan run after a named symbol has been moved from `sourceFile` to `destFile`.
-   *
-   * The ts-morph project only covers files in `tsconfig.include`. This scan walks
-   * all workspace TS/JS files and rewrites any named import or re-export of
-   * `symbolName` from `sourceFile` that ts-morph missed — most commonly test
-   * files and scripts excluded from the project by tsconfig.
-   *
-   * Files already in `scope.modified` are skipped to avoid double-rewriting.
-   * Modified and skipped files are recorded directly into `scope`.
-   */
-  async afterSymbolMove(
-    _sourceFile: string,
-    _symbolName: string,
-    _destFile: string,
-    _scope: WorkspaceScope,
-  ): Promise<void> {
-    // No-op: fallback scan is now performed inside moveSymbol().
-  }
-
-  /**
    * Fallback scan run after the physical rename.
    *
    * Invalidates the project so subsequent operations see the file at its new

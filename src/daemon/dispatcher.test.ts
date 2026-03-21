@@ -21,7 +21,7 @@ describe("makeRegistry", () => {
     const engine = await registry.tsEngine();
     expect(engine).toBeInstanceOf(TsMorphEngine);
     expect(typeof engine.resolveOffset).toBe("function");
-    expect(typeof engine.afterSymbolMove).toBe("function");
+    expect(typeof engine.moveSymbol).toBe("function");
   }, 10_000);
 
   it("projectEngine resolves to a TsMorphEngine for a TS-only project", async () => {

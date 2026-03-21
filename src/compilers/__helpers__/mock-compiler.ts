@@ -11,7 +11,7 @@ export function makeMockCompiler(overrides: Partial<Engine> = {}): Engine {
     readFile: vi.fn().mockReturnValue(""),
     notifyFileWritten: vi.fn(),
     moveFile: vi.fn().mockResolvedValue({ oldPath: "", newPath: "" }),
-    afterSymbolMove: vi.fn().mockResolvedValue(undefined),
+    moveSymbol: vi.fn().mockResolvedValue(undefined),
     moveDirectory: vi.fn().mockResolvedValue({ filesMoved: [] }),
     deleteFile: vi.fn().mockResolvedValue({ importRefsRemoved: 0 }),
     ...overrides,

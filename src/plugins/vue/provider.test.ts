@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../../__testHelpers__/helpers.js";
+import type { WorkspaceScope as WS } from "../../domain/workspace-scope.js";
 import { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { NodeFileSystem } from "../../ports/node-filesystem.js";
 import { TsMorphEngine } from "../../ts-engine/engine.js";
@@ -10,6 +11,22 @@ import { VolarCompiler } from "./compiler.js";
 
 function makeScope(root: string): WorkspaceScope {
   return new WorkspaceScope(root, new NodeFileSystem());
+}
+
+/**
+ * A TsMorphEngine stub whose moveSymbol is a no-op.
+ * Used to isolate the Vue SFC scanning portion of VolarCompiler.moveSymbol.
+ */
+class NoOpTsEngine extends TsMorphEngine {
+  override async moveSymbol(
+    _sourceFile: string,
+    _symbolName: string,
+    _destFile: string,
+    _scope: WS,
+    _options?: { force?: boolean },
+  ): Promise<void> {
+    // no-op: TS AST surgery is not under test here
+  }
 }
 
 describe("VolarCompiler", () => {
@@ -32,16 +49,17 @@ describe("VolarCompiler", () => {
     expect(typeof p.readFile).toBe("function");
     expect(typeof p.notifyFileWritten).toBe("function");
     expect(typeof p.moveFile).toBe("function");
-    expect(typeof p.afterSymbolMove).toBe("function");
+    expect(typeof p.moveSymbol).toBe("function");
   });
 
-  it("afterSymbolMove is a no-op when no matching .vue files exist", async () => {
+  it("Vue SFC scanning is a no-op when no matching .vue files exist", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vue-noop-"));
     fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "src/a.ts"), "export const foo = 1;\n");
     try {
-      const p = new VolarCompiler(new TsMorphEngine());
+      const p = new VolarCompiler(new NoOpTsEngine());
       const scope = makeScope(tmpDir);
-      await p.afterSymbolMove(
+      await p.moveSymbol(
         path.join(tmpDir, "src/a.ts"),
         "foo",
         path.join(tmpDir, "src/b.ts"),
@@ -135,13 +153,13 @@ describe("VolarCompiler", () => {
     expect(scope.modified).toContain(newPath);
   });
 
-  it("afterSymbolMove records nothing into scope when no .vue files match", async () => {
+  it("Vue SFC scanning records nothing when no .vue files exist in the project", async () => {
     // Use a plain TS fixture (no .vue files) so nothing is modified or skipped.
     const tsDir = copyFixture(FIXTURES.simpleTs.name);
     dirs.push(tsDir);
-    const p = new VolarCompiler(new TsMorphEngine());
+    const p = new VolarCompiler(new NoOpTsEngine());
     const scope = makeScope(tsDir);
-    await p.afterSymbolMove(
+    await p.moveSymbol(
       path.join(tsDir, "src/utils.ts"),
       "greetUser",
       path.join(tsDir, "src/helpers.ts"),
@@ -151,15 +169,15 @@ describe("VolarCompiler", () => {
     expect(scope.skipped).toEqual([]);
   });
 
-  it("afterSymbolMove rewrites a matching named import in a .vue file", async () => {
+  it("Vue SFC scanning rewrites a matching named import in a .vue file", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const p = new VolarCompiler(new TsMorphEngine());
+    const p = new VolarCompiler(new NoOpTsEngine());
     const scope = makeScope(dir);
     // App.vue imports useCounter from composables/useCounter
     const sourceFile = path.join(dir, "src/composables/useCounter.ts");
     const destFile = path.join(dir, "src/composables/useTimer.ts");
-    await p.afterSymbolMove(sourceFile, "useCounter", destFile, scope);
+    await p.moveSymbol(sourceFile, "useCounter", destFile, scope);
 
     const appVue = path.join(dir, "src/App.vue");
     expect(scope.modified).toContain(appVue);
@@ -169,10 +187,10 @@ describe("VolarCompiler", () => {
     expect(content).not.toContain('from "./composables/useCounter"');
   });
 
-  it("afterSymbolMove does not rewrite a .vue file already in scope.modified", async () => {
+  it("Vue SFC scanning skips .vue files already in scope.modified", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const p = new VolarCompiler(new TsMorphEngine());
+    const p = new VolarCompiler(new NoOpTsEngine());
     const scope = makeScope(dir);
     const appVue = path.join(dir, "src/App.vue");
     // Pre-mark App.vue as already modified
@@ -181,22 +199,22 @@ describe("VolarCompiler", () => {
 
     const sourceFile = path.join(dir, "src/composables/useCounter.ts");
     const destFile = path.join(dir, "src/composables/useTimer.ts");
-    await p.afterSymbolMove(sourceFile, "useCounter", destFile, scope);
+    await p.moveSymbol(sourceFile, "useCounter", destFile, scope);
 
-    // App.vue was already modified; afterSymbolMove must skip it
+    // App.vue was already modified; Vue SFC scanning must skip it
     const contentAfter = fs.readFileSync(appVue, "utf8");
     expect(contentAfter).toBe(contentBefore);
   });
 
-  it("afterSymbolMove does not modify .vue files that do not import the symbol", async () => {
+  it("Vue SFC scanning does not modify .vue files that do not import the symbol", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const p = new VolarCompiler(new TsMorphEngine());
+    const p = new VolarCompiler(new NoOpTsEngine());
     const scope = makeScope(dir);
     // Move a symbol that App.vue does not import
     const sourceFile = path.join(dir, "src/composables/useCounter.ts");
     const destFile = path.join(dir, "src/composables/useTimer.ts");
-    await p.afterSymbolMove(sourceFile, "nonExistentSymbol", destFile, scope);
+    await p.moveSymbol(sourceFile, "nonExistentSymbol", destFile, scope);
 
     expect(scope.modified).toEqual([]);
   });

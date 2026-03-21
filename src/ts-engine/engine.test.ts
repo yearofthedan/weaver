@@ -37,7 +37,7 @@ describe("TsMorphEngine", () => {
     expect(typeof p.readFile).toBe("function");
     expect(typeof p.notifyFileWritten).toBe("function");
     expect(typeof p.afterFileRename).toBe("function");
-    expect(typeof p.afterSymbolMove).toBe("function");
+    expect(typeof p.moveSymbol).toBe("function");
   });
 
   it("resolveOffset converts 1-based line/col to 0-based offset", () => {

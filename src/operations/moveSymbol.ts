@@ -1,6 +1,5 @@
 import * as path from "node:path";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import type { TsMorphEngine } from "../ts-engine/engine.js";
 import type { Engine } from "../ts-engine/types.js";
 import { assertFileExists } from "../utils/assert-file.js";
 import type { MoveSymbolResult } from "./types.js";
@@ -9,13 +8,11 @@ import type { MoveSymbolResult } from "./types.js";
  * Move a named export from `sourceFile` to `destFile`, updating all importers
  * within the workspace.
  *
- * `tsCompiler` performs the AST surgery on TypeScript files.
- * `projectCompiler.afterSymbolMove` runs a post-step for any files the TypeScript
- * language service doesn't see (e.g. `.vue` SFC script blocks in a Vue project).
+ * Delegates the full workflow — AST surgery, import rewriting, and any
+ * project-specific scanning (e.g. Vue SFC script blocks) — to `engine.moveSymbol`.
  */
 export async function moveSymbol(
-  tsCompiler: TsMorphEngine,
-  projectCompiler: Engine,
+  engine: Engine,
   sourceFile: string,
   symbolName: string,
   destFile: string,
@@ -25,12 +22,7 @@ export async function moveSymbol(
   const absSource = assertFileExists(sourceFile);
   const absDest = path.resolve(destFile);
 
-  await tsCompiler.moveSymbol(absSource, symbolName, absDest, scope, options);
-
-  // Post-step: let the project compiler handle any files ts-morph didn't see
-  // (e.g. .vue SFC script blocks in a Vue project, or TS files outside tsconfig.include).
-  // scope.modified already contains files rewritten by the ts-morph AST pass.
-  await projectCompiler.afterSymbolMove(absSource, symbolName, absDest, scope);
+  await engine.moveSymbol(absSource, symbolName, absDest, scope, options);
 
   return {
     filesModified: scope.modified,
