@@ -1,5 +1,6 @@
 import { applyRenameEdits } from "../domain/apply-rename-edits.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
+import { tsAfterFileRename } from "./after-file-rename.js";
 import type { TsMorphEngine } from "./engine.js";
 import type { MoveFileActionResult } from "./types.js";
 
@@ -25,10 +26,7 @@ export async function tsMoveFile(
   }
   scope.fs.rename(oldPath, newPath);
 
-  // afterFileRename: update project graph + rewrite own imports + fallback importer scan.
-  // afterFileRename stays on TsMorphEngine as a class method (not on Engine interface)
-  // until the moveDirectory spec removes it.
-  await engine.afterFileRename(oldPath, newPath, scope);
+  await tsAfterFileRename(engine, oldPath, newPath, scope);
 
   scope.recordModified(newPath);
 

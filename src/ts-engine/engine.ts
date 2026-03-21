@@ -3,16 +3,14 @@ import * as path from "node:path";
 import { Project } from "ts-morph";
 import type ts from "typescript";
 import { tsMoveSymbol } from "../compilers/ts-move-symbol.js";
-import { applyRenameEdits, mergeFileEdits } from "../domain/apply-rename-edits.js";
 import { ImportRewriter } from "../domain/import-rewriter.js";
-import { rewriteImportersOfMovedFile } from "../domain/rewrite-importers-of-moved-file.js";
-import { rewriteMovedFileOwnImports } from "../domain/rewrite-own-imports.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { EngineError } from "../utils/errors.js";
 import { JS_EXTENSIONS, TS_EXTENSIONS } from "../utils/extensions.js";
-import { SKIP_DIRS, walkFiles } from "../utils/file-walk.js";
+import { walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 import { tsDeleteFile } from "./delete-file.js";
+import { tsMoveDirectory } from "./move-directory.js";
 import { tsMoveFile } from "./move-file.js";
 import { tsRemoveImportersOf } from "./remove-importers.js";
 import type {
@@ -76,6 +74,16 @@ export class TsMorphEngine implements Engine {
   invalidateProject(filePath: string): void {
     const tsConfigPath = findTsConfigForFile(filePath);
     this.projects.delete(tsConfigPath ?? "__no_tsconfig__");
+  }
+
+  /**
+   * Returns the cached project for the tsconfig that covers `filePath`, or
+   * `undefined` if the project has not been loaded yet. Does not create a
+   * new project — use `getProject` for that.
+   */
+  getCachedProjectForFile(filePath: string): import("ts-morph").Project | undefined {
+    const tsConfigPath = findTsConfigForFile(filePath);
+    return this.projects.get(tsConfigPath ?? "__no_tsconfig__");
   }
 
   /**
@@ -347,123 +355,17 @@ export class TsMorphEngine implements Engine {
   }
 
   /**
-   * Fallback scan run after the physical rename.
-   *
-   * Invalidates the project so subsequent operations see the file at its new
-   * location, then walks all workspace files to rewrite any import/export
-   * specifier still pointing at the old path. This catches cases the TS language
-   * service misses — e.g. `.js` extension imports under `moduleResolution: "node"`,
-   * or files added to disk after the project was loaded.
-   *
-   * `alreadyModified` skips files already rewritten by `getEditsForFileRename`
-   * to prevent double-rewrites. Matching is exact (full specifier), not substring,
-   * so `./utils` never matches `./my-utils`. For specifiers with a JS-family
-   * extension (`.js`, `.jsx`, `.mjs`, `.cjs`), the rewrite is skipped if a real
-   * file with that extension exists on disk alongside the moved `.ts` file —
-   * that import refers to the JS file, not the TypeScript source.
-   */
-  async afterFileRename(oldPath: string, newPath: string, scope: WorkspaceScope): Promise<void> {
-    // Incrementally update the project graph so subsequent operations see the file at its new
-    // location. Invalidating and rebuilding would lose knowledge of previous moves within the
-    // same session and cause ENOENT on the next call.
-    const tsConfigPath = findTsConfigForFile(newPath);
-    const cacheKey = tsConfigPath ?? "__no_tsconfig__";
-    const project = this.projects.get(cacheKey);
-    if (project) {
-      const oldSf = project.getSourceFile(oldPath);
-      if (oldSf) {
-        project.removeSourceFile(oldSf);
-      }
-      try {
-        project.addSourceFileAtPath(newPath);
-      } catch {
-        // newPath may be outside tsconfig's include — that's fine; the fallback scan covers it.
-      }
-    }
-
-    rewriteMovedFileOwnImports(oldPath, newPath, scope);
-
-    rewriteImportersOfMovedFile(oldPath, newPath, scope, walkFiles(scope.root, [...TS_EXTENSIONS]));
-  }
-
-  /**
-   * Move all source files from `oldPath` to `newPath` using the TS language
-   * service for import rewriting. Computes all edits before any physical move
-   * so the language service sees a consistent project state. Intra-directory
-   * edits are filtered out — files that move together keep their relative imports.
+   * Full moveDirectory workflow: rewrite imports for all source files
+   * atomically, physically move the entire directory tree (source and
+   * non-source files), and record all moved files into scope.
    */
   async moveDirectory(
     oldPath: string,
     newPath: string,
     scope: WorkspaceScope,
   ): Promise<{ filesMoved: string[] }> {
-    const absOld = path.resolve(oldPath);
-    const absNew = path.resolve(newPath);
-    const project = this.getProjectForDirectory(absOld);
-
-    const sourceFiles = enumerateSourceFiles(absOld);
-    for (const filePath of sourceFiles) {
-      if (!project.getSourceFile(filePath)) {
-        project.addSourceFileAtPath(filePath);
-      }
-    }
-
-    if (sourceFiles.length === 0) {
-      return { filesMoved: [] };
-    }
-
-    const mappings = sourceFiles.map((oldFilePath) => ({
-      oldFilePath,
-      newFilePath: path.join(absNew, path.relative(absOld, oldFilePath)),
-    }));
-
-    const allEdits: FileTextEdit[][] = [];
-    for (const { oldFilePath, newFilePath } of mappings) {
-      allEdits.push(await this.getEditsForFileRename(oldFilePath, newFilePath));
-    }
-
-    // Filter out edits targeting files inside the moved directory — the language
-    // service doesn't know about the batch move and would corrupt intra-directory
-    // specifiers that are still valid after the move.
-    const externalEdits = mergeFileEdits(allEdits).filter(
-      (e) => !e.fileName.startsWith(absOld + path.sep) && e.fileName !== absOld,
-    );
-    applyRenameEdits(this, externalEdits, scope);
-
-    fs.mkdirSync(path.dirname(absNew), { recursive: true });
-    fs.renameSync(absOld, absNew);
-
-    for (const { oldFilePath, newFilePath } of mappings) {
-      await this.afterFileRename(oldFilePath, newFilePath, scope);
-    }
-
-    const filesMoved = mappings.map(({ newFilePath }) => newFilePath);
-    for (const newFilePath of filesMoved) {
-      scope.recordModified(newFilePath);
-    }
-
-    return { filesMoved };
+    return tsMoveDirectory(this, oldPath, newPath, scope);
   }
-}
-
-function enumerateSourceFiles(dir: string): string[] {
-  const results: string[] = [];
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return results;
-  }
-  for (const entry of entries) {
-    if (SKIP_DIRS.has(entry.name)) continue;
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...enumerateSourceFiles(full));
-    } else if (entry.isFile() && TS_EXTENSIONS.has(path.extname(entry.name))) {
-      results.push(full);
-    }
-  }
-  return results;
 }
 
 /**

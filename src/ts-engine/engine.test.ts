@@ -36,7 +36,6 @@ describe("TsMorphEngine", () => {
     expect(typeof p.getEditsForFileRename).toBe("function");
     expect(typeof p.readFile).toBe("function");
     expect(typeof p.notifyFileWritten).toBe("function");
-    expect(typeof p.afterFileRename).toBe("function");
     expect(typeof p.moveSymbol).toBe("function");
   });
 
@@ -180,70 +179,6 @@ describe("TsMorphEngine", () => {
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
-  });
-
-  it("afterFileRename does not touch files outside the workspace boundary", async () => {
-    const dir = setup();
-    const p = new TsMorphEngine();
-    // Use a narrow workspace that only covers an empty subdirectory.
-    // A file outside this boundary that imports the moved file must not be written.
-    const narrowDir = path.join(dir, "src", "nested");
-    fs.mkdirSync(narrowDir, { recursive: true });
-    const outsideFile = path.join(dir, "src/main.ts");
-    const originalContent = fs.readFileSync(outsideFile, "utf8");
-
-    const scope = makeScope(narrowDir);
-    const oldPath = path.join(dir, "src/utils.ts");
-    const newPath = path.join(dir, "src/helpers.ts");
-    await p.afterFileRename(oldPath, newPath, scope);
-
-    // main.ts is outside the narrow workspace — must not be modified
-    expect(scope.modified).not.toContain(outsideFile);
-    expect(fs.readFileSync(outsideFile, "utf8")).toBe(originalContent);
-  });
-
-  it("afterFileRename does not rewrite files that do not import the old path", async () => {
-    const dir = setup();
-    const p = new TsMorphEngine();
-    const mainPath = path.join(dir, "src/main.ts");
-    const originalContent = fs.readFileSync(mainPath, "utf8");
-    // Moving a file that main.ts doesn't import — main.ts must not be touched.
-    const unrelatedOld = path.join(dir, "src/unrelated.ts");
-    const unrelatedNew = path.join(dir, "src/other.ts");
-    const scope = makeScope(dir);
-    await p.afterFileRename(unrelatedOld, unrelatedNew, scope);
-    expect(fs.readFileSync(mainPath, "utf8")).toBe(originalContent);
-    expect(scope.modified).not.toContain(mainPath);
-  });
-
-  it("afterFileRename skips files already in scope.modified", async () => {
-    const dir = setup();
-    const p = new TsMorphEngine();
-    const mainPath = path.join(dir, "src/main.ts");
-    const originalContent = fs.readFileSync(mainPath, "utf8");
-    const utils = path.join(dir, "src/utils.ts");
-    const helpers = path.join(dir, "src/helpers.ts");
-    // Pre-populate scope.modified with mainPath so the scan skips it.
-    const scope = makeScope(dir);
-    scope.recordModified(mainPath);
-    await p.afterFileRename(utils, helpers, scope);
-    // File content unchanged — it was skipped by the scan.
-    expect(fs.readFileSync(mainPath, "utf8")).toBe(originalContent);
-  });
-
-  it("afterFileRename records the modified file in scope.modified", async () => {
-    const dir = setup();
-    const p = new TsMorphEngine();
-    const utils = path.join(dir, "src/utils.ts");
-    const helpers = path.join(dir, "src/helpers.ts");
-    // Physically rename the file so the new path exists for the project refresh.
-    fs.renameSync(utils, helpers);
-    const scope = makeScope(dir);
-    await p.afterFileRename(utils, helpers, scope);
-    const mainPath = path.join(dir, "src/main.ts");
-    expect(scope.modified).toContain(mainPath);
-    expect(scope.modified.length).toBeGreaterThan(0);
-    expect(scope.skipped).toEqual([]);
   });
 
   describe("symlink path resolution", () => {
