@@ -86,7 +86,7 @@ src/
   plugins/
     vue/
       plugin.ts   ← createVueLanguagePlugin(); Vue/Volar LanguagePlugin factory (project detection, lifecycle)
-      compiler.ts ← VolarCompiler: implements Engine; delegates TS work to TsMorphEngine; scans .vue files for imports
+      engine.ts   ← VolarEngine: implements Engine; delegates TS work to TsMorphEngine; scans .vue files for imports
       scan.ts     ← updateVueImportsAfterMove + removeVueImportsOfDeletedFile + updateVueNamedImportAfterSymbolMove
       service.ts  ← buildVolarService() — Volar service factory
       *.test.ts   ← colocated unit tests
@@ -146,7 +146,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P1 — Very high value bugs and tech debt
-- **Engine layer: `moveDirectory` action** → [`docs/specs/20260321-engine-layer-move-directory.md`](specs/20260321-engine-layer-move-directory.md)
 - **Engine layer: `rename` action** `[needs design]` — Create `tsRename()` standalone function that owns the full workflow (getRenameLocations + apply edits + notifyFileWritten). Add `rename()` to the `Engine` interface. Remove `getRenameLocations` and `notifyFileWritten` from the `Engine` interface (they become internal). VolarEngine implements `rename()` by delegating to its language service.
 - **Engine layer: `extractFunction` action** → [`docs/specs/20260321-engine-layer-extract-function.md`](specs/20260321-engine-layer-extract-function.md)
 - **Note: `applyRenameEdits` ordering constraint** — `applyRenameEdits` (`src/domain/apply-rename-edits.ts`) takes `Engine` and calls `readFile` + `notifyFileWritten`. Once `notifyFileWritten` comes off the `Engine` interface, `applyRenameEdits` breaks. All callers (`moveFile`, `moveDirectory`, `rename`) must migrate to engine actions before `notifyFileWritten` is removed. The spec ordering (moveFile → moveDirectory → rename) handles this — `notifyFileWritten` stays on the interface until the `rename` spec removes it last.
@@ -208,9 +207,9 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ## Technical context
 
-- **`docs/tech/volar-v3.md`** — how the Vue compiler works around TypeScript's refusal to process `.vue` files. Read this before touching `src/plugins/vue/compiler.ts`.
+- **`docs/tech/volar-v3.md`** — how the Vue compiler works around TypeScript's refusal to process `.vue` files. Read this before touching `src/plugins/vue/engine.ts`.
 - **`docs/tech/tech-debt.md`** — known structural issues. Includes the `ensureDaemon` one-shot bug.
-- **`@volar/language-core` version skew** — `@vue/language-core` and `@volar/typescript` previously depended on different patch versions of `@volar/language-core`, causing type mismatches. Fixed via `pnpm.overrides` in `package.json` pinning to 2.4.28. `@volar/language-core` is also a direct `devDependency` so TypeScript can resolve the `Language<string>` type import in `src/plugins/vue/compiler.ts`.
+- **`@volar/language-core` version skew** — `@vue/language-core` and `@volar/typescript` previously depended on different patch versions of `@volar/language-core`, causing type mismatches. Fixed via `pnpm.overrides` in `package.json` pinning to 2.4.28. `@volar/language-core` is also a direct `devDependency` so TypeScript can resolve the `Language<string>` type import in `src/plugins/vue/engine.ts`.
 
 ---
 

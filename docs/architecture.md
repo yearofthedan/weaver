@@ -25,6 +25,8 @@ src/ts-engine/          ← TypeScript engine layer (stateful compiler + action 
   engine.ts             ← TsMorphEngine — ts-morph Project; per-tsconfig cache; always-available TS fallback
   delete-file.ts        ← tsDeleteFile() — standalone action function for file deletion
   move-file.ts          ← tsMoveFile() — standalone action function for file move (edits + physical + fallback scan)
+  move-directory.ts     ← tsMoveDirectory() — standalone action function for directory move (batch edits + OS rename + non-source files)
+  after-file-rename.ts  ← tsAfterFileRename() — project graph update + own-import rewrite + fallback importer scan; called per file by tsMoveFile and tsMoveDirectory
   remove-importers.ts   ← tsRemoveImportersOf() — remove all importers of a deleted/moved file
 
 src/operations/          ← standalone orchestrator functions (one per operation)
@@ -42,7 +44,7 @@ src/operations/          ← standalone orchestrator functions (one per operatio
 src/plugins/             ← language plugin feature folders (one per framework)
   vue/
     plugin.ts           ← createVueLanguagePlugin() — LanguagePlugin factory (project detection, lifecycle)
-    compiler.ts         ← VolarCompiler — implements Engine; Volar proxy; virtual↔real path translation
+    engine.ts           ← VolarEngine — implements Engine; Volar proxy; virtual↔real path translation
     scan.ts             ← updateVueImportsAfterMove, removeVueImportsOfDeletedFile
     service.ts          ← buildVolarService() factory
 ```
@@ -176,13 +178,11 @@ interface Engine {
   deleteFile(targetFile, scope: WorkspaceScope): Promise<{ importRefsRemoved: number }>
   moveFile(oldPath, newPath, scope: WorkspaceScope): Promise<{ oldPath: string; newPath: string }>
   moveSymbol(sourceFile, symbolName, destFile, scope: WorkspaceScope, options?: { force?: boolean }): Promise<void>
-
-  // Legacy methods (migrated to actions in subsequent specs)
   moveDirectory(oldPath, newPath, scope: WorkspaceScope): Promise<{ filesMoved: string[] }>
 }
 ```
 
-The engine layer is progressively migrating from the legacy interface methods (queries + post-step hooks) to actions that own the full workflow. `deleteFile`, `moveFile`, and `moveSymbol` are action methods — their implementations in `TsMorphEngine` delegate to standalone functions (`tsDeleteFile`, `tsMoveFile`, `tsMoveSymbol`) in `src/ts-engine/` and `src/compilers/`. Subsequent specs will add `moveDirectory` and `rename` as actions, removing the remaining legacy methods.
+The engine layer is progressively migrating to actions that own the full workflow. `deleteFile`, `moveFile`, `moveSymbol`, and `moveDirectory` are action methods — their implementations in `TsMorphEngine` delegate to standalone functions (`tsDeleteFile`, `tsMoveFile`, `tsMoveSymbol`, `tsMoveDirectory`) in `src/ts-engine/` and `src/compilers/`. The `rename` spec will complete the migration by adding `rename()` as an action and removing `notifyFileWritten` and `getRenameLocations` from the interface.
 
 `TsMorphEngine` delegates to standalone action functions in `src/ts-engine/` (e.g. `tsDeleteFile()` for the delete action). `VolarEngine` delegates to `TsMorphEngine` for TS/JS work, then adds Vue-specific scanning (e.g. scanning `.vue` SFCs for imports of deleted files).
 
@@ -262,9 +262,9 @@ Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and on
 | Operation | Compilers used | Notes |
 |-----------|---------------|-------|
 | `rename` | `projectCompiler` | Calls `getRenameLocations`; applies edits; returns `filesModified`, `filesSkipped` |
-| `moveFile` | `projectCompiler` | Delegates to `engine.moveFile()` (action). `TsMorphEngine` runs `tsMoveFile()`: computes edits, applies them, physically moves the file, updates the project graph, and runs the fallback importer scan. `VolarCompiler` delegates TS work to `tsMoveFile()` then scans `.vue` SFCs for import updates. |
-| `moveSymbol` | `projectCompiler` | Delegates to `engine.moveSymbol()` (action). `TsMorphEngine` runs `tsMoveSymbol()` for AST surgery, then walks files outside `tsconfig.include` for fallback import rewriting. `VolarCompiler` delegates TS work to `TsMorphEngine.moveSymbol()` then scans `.vue` SFCs for import updates. |
-| `moveDirectory` | `projectCompiler` | Calls `compiler.moveDirectory()` for atomic batch move of all source files using ts-morph `directory.move()`; then moves non-source files physically via `scope.fs.rename`. Intra-directory imports are preserved because all files move together in the project graph before any disk writes. |
+| `moveFile` | `projectCompiler` | Delegates to `engine.moveFile()` (action). `TsMorphEngine` runs `tsMoveFile()`: computes edits, applies them, physically moves the file, updates the project graph, and runs the fallback importer scan. `VolarEngine` delegates TS work to `tsMoveFile()` then scans `.vue` SFCs for import updates. |
+| `moveSymbol` | `projectCompiler` | Delegates to `engine.moveSymbol()` (action). `TsMorphEngine` runs `tsMoveSymbol()` for AST surgery, then walks files outside `tsconfig.include` for fallback import rewriting. `VolarEngine` delegates TS work to `TsMorphEngine.moveSymbol()` then scans `.vue` SFCs for import updates. |
+| `moveDirectory` | `projectCompiler` | Delegates to `engine.moveDirectory()` (action). `TsMorphEngine` runs `tsMoveDirectory()`: batch-computes import edits, filters intra-directory edits, applies external edits, atomically renames the directory on disk, updates the project graph per source file, and records all moved files (source + non-source) in scope. `VolarEngine` delegates to `TsMorphEngine.moveDirectory()`. |
 | `deleteFile` | `tsCompiler` | Removes import/export declarations referencing the deleted file across in-project, out-of-project, and Vue SFC files; physically deletes the file |
 | `extractFunction` | `tsCompiler` | Delegates to the TS language service's "Extract Symbol" refactor; replaces auto-generated name with caller-provided name |
 
