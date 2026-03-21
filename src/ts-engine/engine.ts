@@ -193,7 +193,10 @@ export class TsMorphEngine implements Engine {
     scope: WorkspaceScope,
     options?: { force?: boolean },
   ): Promise<void> {
-    return tsMoveSymbol(this, sourceFile, symbolName, destFile, scope, options);
+    await tsMoveSymbol(this, sourceFile, symbolName, destFile, scope, options);
+    const alreadyModified = new Set(scope.modified);
+    const files = walkFiles(scope.root, [...TS_EXTENSIONS]).filter((f) => !alreadyModified.has(f));
+    new ImportRewriter().rewrite(files, symbolName, sourceFile, destFile, scope);
   }
 
   /**
@@ -355,14 +358,12 @@ export class TsMorphEngine implements Engine {
    * Modified and skipped files are recorded directly into `scope`.
    */
   async afterSymbolMove(
-    sourceFile: string,
-    symbolName: string,
-    destFile: string,
-    scope: WorkspaceScope,
+    _sourceFile: string,
+    _symbolName: string,
+    _destFile: string,
+    _scope: WorkspaceScope,
   ): Promise<void> {
-    const alreadyModified = new Set(scope.modified);
-    const files = walkFiles(scope.root, [...TS_EXTENSIONS]).filter((f) => !alreadyModified.has(f));
-    new ImportRewriter().rewrite(files, symbolName, sourceFile, destFile, scope);
+    // No-op: fallback scan is now performed inside moveSymbol().
   }
 
   /**
