@@ -223,6 +223,26 @@ describe("searchText operation", () => {
     expect(result.matches.some((m) => m.file.endsWith("hello.ts"))).toBe(true);
   });
 
+  it("records unreadable files as skipped", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-skip-"));
+    dirs.push(dir);
+
+    fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "src/ok.ts"), "export const greeting = 'hello';\n");
+    const unreadable = path.join(dir, "src/secret.ts");
+    fs.writeFileSync(unreadable, "export const greeting = 'secret';\n");
+    fs.chmodSync(unreadable, 0o000);
+
+    const scope = makeScope(dir);
+    const result = await searchText("greeting", scope);
+
+    expect(result.matches.some((m) => m.file.endsWith("ok.ts"))).toBe(true);
+    expect(result.matches.every((m) => !m.file.endsWith("secret.ts"))).toBe(true);
+    expect(scope.skipped).toContain(unreadable);
+
+    fs.chmodSync(unreadable, 0o644);
+  });
+
   it("each match reports the correct matchText", async () => {
     // Verifies that m[0] (the actual match) is stored, not a mutated value.
     const dir = copyFixture(FIXTURES.simpleTs.name);

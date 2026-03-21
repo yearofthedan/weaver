@@ -17,6 +17,10 @@ export function lockfilePath(workspaceRoot: string): string {
   return path.join(CACHE_DIR, `${workspaceHash(workspaceRoot)}.pid`);
 }
 
+export function logfilePath(workspaceRoot: string): string {
+  return path.join(CACHE_DIR, `${workspaceHash(workspaceRoot)}.log`);
+}
+
 export function ensureCacheDir(): void {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
 }

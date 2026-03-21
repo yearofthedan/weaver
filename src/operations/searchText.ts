@@ -137,6 +137,7 @@ export async function searchText(
     try {
       content = scope.fs.readFile(filePath);
     } catch {
+      scope.recordSkipped(filePath);
       continue;
     }
     if (isBinaryContent(content)) continue;

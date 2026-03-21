@@ -7,6 +7,8 @@ import { EngineError } from "../utils/errors.js";
 import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../utils/extensions.js";
 import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
 import { dispatchRequest, invalidateAll, invalidateFile } from "./dispatcher.js";
+import type { DaemonLogger } from "./logger.js";
+import { createLogger, stripWorkspacePrefix } from "./logger.js";
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
 import { startWatcher } from "./watcher.js";
 
@@ -125,7 +127,12 @@ export async function runStop(opts: { workspace: string }): Promise<void> {
   process.stdout.write(`${JSON.stringify({ ok: true, stopped: true })}\n`);
 }
 
-export async function runDaemon(opts: { workspace: string }): Promise<void> {
+function resolveVerbose(opts: { verbose?: boolean }): boolean {
+  if (opts.verbose !== undefined) return opts.verbose;
+  return process.env.LIGHT_BRIDGE_VERBOSE === "1";
+}
+
+export async function runDaemon(opts: { workspace: string; verbose?: boolean }): Promise<void> {
   // 1. Validate workspace (existence, directory, not a restricted system path)
   const wsResult = validateWorkspace(opts.workspace);
   if (!wsResult.ok) {
@@ -135,12 +142,14 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
     process.exit(1);
   }
   const absWorkspace = wsResult.workspace;
+  const verbose = resolveVerbose(opts);
 
   // 2. Ensure cache dir exists
   ensureCacheDir();
 
   const sockPath = socketPath(absWorkspace);
   const pidPath = lockfilePath(absWorkspace);
+  const logger = verbose ? createLogger(absWorkspace) : null;
 
   // 3. Remove any leftover socket/lockfile from a previous run
   removeDaemonFiles(absWorkspace);
@@ -163,11 +172,23 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
       for (const line of lines) {
         if (line.trim()) {
           const trimmed = line.trim();
-          queue = queue.then(() => handleSocketRequest(socket, trimmed, absWorkspace));
+          queue = queue.then(() => handleSocketRequest(socket, trimmed, absWorkspace, logger));
         }
       }
     });
-    socket.on("error", () => {});
+    socket.on("error", (err) => {
+      if (logger) {
+        const code = (err as NodeJS.ErrnoException).code ?? "UNKNOWN";
+        logger.log({
+          ts: new Date().toISOString(),
+          method: "socket.error",
+          durationMs: 0,
+          ok: false,
+          error: code,
+          message: err.message,
+        });
+      }
+    });
   });
 
   server.listen(sockPath);
@@ -193,6 +214,7 @@ export async function runDaemon(opts: { workspace: string }): Promise<void> {
   function shutdown(): void {
     void watcher.stop();
     server.close();
+    logger?.cleanup();
     removeDaemonFiles(absWorkspace);
     process.exit(0);
   }
@@ -206,24 +228,44 @@ const RequestEnvelopeSchema = z.object({
   params: z.record(z.string(), z.unknown()).default({}),
 });
 
+/** Write operations that return a filesModified count in their response. */
+const WRITE_METHODS = new Set([
+  "rename",
+  "moveFile",
+  "moveDirectory",
+  "moveSymbol",
+  "extractFunction",
+  "deleteFile",
+  "replaceText",
+]);
+
 async function handleSocketRequest(
   socket: net.Socket,
   line: string,
   workspace: string,
+  logger: DaemonLogger | null,
 ): Promise<void> {
+  const start = Date.now();
+  let method = "unknown";
   let response: object;
+  let caughtError: unknown = null;
+
   try {
     const raw: unknown = JSON.parse(line);
     const envelope = RequestEnvelopeSchema.safeParse(raw);
     if (!envelope.success) {
       const message = envelope.error.issues.map((i) => i.message).join("; ");
       response = { ok: false, error: "PARSE_ERROR", message };
-    } else if (envelope.data.method === "ping") {
-      response = { ok: true, version: PROTOCOL_VERSION };
     } else {
-      response = await dispatchRequest(envelope.data, workspace);
+      method = envelope.data.method;
+      if (method === "ping") {
+        response = { ok: true, version: PROTOCOL_VERSION };
+      } else {
+        response = await dispatchRequest(envelope.data, workspace);
+      }
     }
   } catch (err) {
+    caughtError = err;
     response = {
       ok: false,
       error: EngineError.is(err)
@@ -234,5 +276,38 @@ async function handleSocketRequest(
       message: err instanceof Error ? err.message : String(err),
     };
   }
+
   socket.write(`${JSON.stringify(response)}\n`);
+
+  if (logger && method !== "ping") {
+    const durationMs = Date.now() - start;
+    const res = response as Record<string, unknown>;
+    const ok = res.ok === true;
+    const entry: import("./logger.js").LogEntry = {
+      ts: new Date().toISOString(),
+      method,
+      durationMs,
+      ok,
+    };
+
+    if (!ok) {
+      if (typeof res.error === "string") entry.error = res.error;
+      if (typeof res.message === "string") entry.message = res.message;
+    }
+
+    if (ok && WRITE_METHODS.has(method)) {
+      const modified = res.filesModified;
+      if (Array.isArray(modified)) {
+        entry.filesModified = modified.length;
+      } else if (typeof modified === "number") {
+        entry.filesModified = modified;
+      }
+    }
+
+    if (caughtError instanceof Error && caughtError.stack) {
+      entry.stack = stripWorkspacePrefix(caughtError.stack, workspace);
+    }
+
+    logger.log(entry);
+  }
 }

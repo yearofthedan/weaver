@@ -26,6 +26,7 @@ program
   .command("daemon")
   .description("Start a long-lived daemon process for a workspace")
   .option("--workspace <path>", "Root directory of the project to serve", process.cwd())
+  .option("--verbose", "Write structured JSON log lines to the cache directory")
   .exitOverride(commanderExitOverride)
   .action(async (opts) => {
     await runDaemon(opts);

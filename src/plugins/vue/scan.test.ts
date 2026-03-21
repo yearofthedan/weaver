@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { NodeFileSystem } from "../../ports/node-filesystem.js";
-import { updateVueImportsAfterMove } from "./scan.js";
+import { removeVueImportsOfDeletedFile, updateVueImportsAfterMove } from "./scan.js";
 
 // rewriteImports and computeRelativeSpecifier are private to their modules;
 // tested here through the public updateVueImportsAfterMove API.
@@ -156,5 +156,62 @@ describe("updateVueImportsAfterMove", () => {
     const result = fs.readFileSync(vueFile, "utf8");
     expect(result).toContain("from './helpers.js'");
     expect(result).not.toContain("'./utils'");
+  });
+
+  it("records unreadable .vue files as skipped", () => {
+    const oldPath = path.join(tmpDir, "src/utils.ts");
+    const newPath = path.join(tmpDir, "src/helpers.ts");
+    const vueFile = writeVue(
+      "src/Comp.vue",
+      `<script setup>\nimport foo from './utils'\n</script>`,
+    );
+    fs.chmodSync(vueFile, 0o000);
+
+    const scope = makeScope(tmpDir);
+    updateVueImportsAfterMove(oldPath, newPath, tmpDir, scope);
+
+    expect(scope.skipped).toContain(vueFile);
+    expect(scope.modified).toHaveLength(0);
+
+    fs.chmodSync(vueFile, 0o644);
+  });
+});
+
+describe("removeVueImportsOfDeletedFile", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "scan-rm-test-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function writeVue(relPath: string, content: string): string {
+    const full = path.join(tmpDir, relPath);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, content, "utf8");
+    return full;
+  }
+
+  function makeScope(dir: string): WorkspaceScope {
+    return new WorkspaceScope(dir, new NodeFileSystem());
+  }
+
+  it("records unreadable .vue files as skipped", () => {
+    const deletedFile = path.join(tmpDir, "src/utils.ts");
+    const vueFile = writeVue(
+      "src/Comp.vue",
+      `<script setup>\nimport foo from './utils'\n</script>`,
+    );
+    fs.chmodSync(vueFile, 0o000);
+
+    const scope = makeScope(tmpDir);
+    removeVueImportsOfDeletedFile(deletedFile, tmpDir, scope);
+
+    expect(scope.skipped).toContain(vueFile);
+
+    fs.chmodSync(vueFile, 0o644);
   });
 });

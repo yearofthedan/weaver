@@ -29,6 +29,7 @@ export function updateVueImportsAfterMove(
     try {
       content = scope.fs.readFile(vueFile);
     } catch {
+      scope.recordSkipped(vueFile);
       continue;
     }
 
@@ -91,6 +92,7 @@ export function removeVueImportsOfDeletedFile(
     try {
       content = scope.fs.readFile(vueFile);
     } catch {
+      scope.recordSkipped(vueFile);
       continue;
     }
 

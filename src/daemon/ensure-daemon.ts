@@ -57,7 +57,8 @@ export async function ensureDaemon(absWorkspace: string): Promise<void> {
   }
 
   // Auto-spawn the daemon as a detached child so it outlives this process.
-  await spawnDaemon(absWorkspace);
+  const verbose = process.env.LIGHT_BRIDGE_VERBOSE === "1";
+  await spawnDaemon(absWorkspace, { verbose });
   versionVerified = true;
 }
 
@@ -98,9 +99,11 @@ export function callDaemon(
   });
 }
 
-function spawnDaemon(absWorkspace: string): Promise<void> {
+function spawnDaemon(absWorkspace: string, opts: { verbose?: boolean } = {}): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [CLI_ENTRY, "daemon", "--workspace", absWorkspace], {
+    const args = [CLI_ENTRY, "daemon", "--workspace", absWorkspace];
+    if (opts.verbose) args.push("--verbose");
+    const child = spawn(process.execPath, args, {
       stdio: ["ignore", "ignore", "pipe"],
       detached: true,
     });

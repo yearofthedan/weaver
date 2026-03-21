@@ -80,6 +80,7 @@ function applyPatternReplace(
     try {
       content = scope.fs.readFile(filePath);
     } catch {
+      scope.recordSkipped(filePath);
       continue;
     }
 

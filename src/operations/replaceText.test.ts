@@ -79,6 +79,24 @@ describe("replaceText operation", () => {
       expect(after).toContain("GREET(greetUser)");
     });
 
+    it("records unreadable files as skipped", async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-replace-skip-"));
+      dirs.push(dir);
+
+      fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(dir, "src/ok.ts"), "export const foo = 'bar';\n");
+      const unreadable = path.join(dir, "src/secret.ts");
+      fs.writeFileSync(unreadable, "export const foo = 'secret';\n");
+      fs.chmodSync(unreadable, 0o000);
+
+      const scope = makeScope(dir);
+      await replaceText(scope, { pattern: "foo", replacement: "baz" });
+
+      expect(scope.skipped).toContain(unreadable);
+
+      fs.chmodSync(unreadable, 0o644);
+    });
+
     it("returns empty result when no files match the pattern", async () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
       dirs.push(dir);
