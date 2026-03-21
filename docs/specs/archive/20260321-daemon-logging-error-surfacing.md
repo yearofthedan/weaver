@@ -122,5 +122,16 @@ Already exists in the response shape via `WorkspaceScope.skipped`. AC4 makes it 
       - `docs/features/daemon.md` updated with verbose logging section
       - `README.md` CLI command table updated if daemon flags are listed there
       - `handoff.md` current-state section updated (daemon.ts description)
-- [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Tech debt discovered during implementation added to handoff.md as [needs design]
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+All 5 ACs delivered in commit `f1ad188` (`feat(daemon): add opt-in verbose logging and surface skipped files`).
+
+- New `src/daemon/logger.ts` (85 lines) — `createLogger`, `stripWorkspacePrefix`, `LogEntry` interface, 10 MB cap with head-truncation, `0o600` file mode
+- New `src/daemon/logger.test.ts` — tests for `logfilePath`, `stripWorkspacePrefix`, `createLogger`
+- `searchText.ts`, `replaceText.ts`, `scan.ts` (2 sites) — added `scope.recordSkipped()` to silent catch blocks
+- New tests in `searchText.test.ts`, `replaceText.test.ts`, `scan.test.ts` for skipped file recording
+- `--verbose` flag on CLI `daemon` command, `LIGHT_BRIDGE_VERBOSE=1` env var support
+- `ensure-daemon.ts` forwards verbose setting to `spawnDaemon`

@@ -100,6 +100,22 @@ Exported from `daemon.ts`. Reads the lockfile PID, sends SIGTERM, polls until `i
 **`PROTOCOL_VERSION` lives in `daemon.ts`; increment it whenever the operation set changes.**
 Both the daemon (ping handler) and `ensure-daemon.ts` (`ensureDaemon`) import it from there. `ensureDaemon` uses a `versionVerified` module-level flag so the ping check runs only once per daemon process lifetime. Reset the flag whenever the daemon is detected as dead so the next spawn is re-verified.
 
+## Verbose logging
+
+Opt-in per-request logging for debugging daemon issues. Disabled by default — no log file is created unless explicitly enabled.
+
+```bash
+light-bridge daemon --workspace /path --verbose
+# or
+LIGHT_BRIDGE_VERBOSE=1 light-bridge daemon --workspace /path
+```
+
+When enabled, the daemon writes structured JSON log lines to `~/.cache/light-bridge/<workspace-hash>.log`. Each request produces one line with: timestamp, method, duration, success/failure, error details, and stack traces (with workspace paths stripped to relative).
+
+The log file is deleted on clean shutdown (alongside socket and lockfile). On crash, it survives for post-mortem inspection. Capped at 10 MB with head truncation. File permissions are `0o600` (owner-only).
+
+When `serve` auto-spawns a daemon, it forwards `LIGHT_BRIDGE_VERBOSE=1` to `spawnDaemon`.
+
 ## Out of scope
 
 - Multiple workspaces per daemon — one daemon per workspace keeps state isolated
