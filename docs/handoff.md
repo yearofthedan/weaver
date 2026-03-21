@@ -75,9 +75,10 @@ src/
   security.ts     ← isWithinWorkspace() + isSensitiveFile() + validateFilePath() — boundary, sensitive file blocklist, path validation
   security.test.ts ← colocated unit test
   daemon/
-    daemon.ts                    ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher
-    ensure-daemon.ts             ← ensureDaemon (version check + auto-spawn); callDaemon (socket client); spawnDaemon
-    paths.ts                     ← socketPath, lockfilePath, ensureCacheDir only
+    daemon.ts                    ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher; --verbose per-request logging
+    ensure-daemon.ts             ← ensureDaemon (version check + auto-spawn); callDaemon (socket client); spawnDaemon; forwards --verbose
+    logger.ts                    ← DaemonLogger: structured JSON log file, 10 MB cap, workspace-prefix stripping
+    paths.ts                     ← socketPath, lockfilePath, logfilePath, ensureCacheDir
     dispatcher.ts                ← dispatchRequest; OPERATIONS table; re-exports registry functions
     language-plugin-registry.ts  ← LanguagePlugin registry; makeRegistry; invalidateFile/invalidateAll; registers built-in Vue plugin
     watcher.ts                   ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
@@ -146,13 +147,11 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P1 — Very high value bugs and tech debt
-- **Engine layer: `rename` action** `[needs design]` — Create `tsRename()` standalone function that owns the full workflow (getRenameLocations + apply edits + notifyFileWritten). Add `rename()` to the `Engine` interface. Remove `getRenameLocations` and `notifyFileWritten` from the `Engine` interface (they become internal). VolarEngine implements `rename()` by delegating to its language service.
+- **Engine layer: `rename` action** → [`docs/specs/20260321-engine-layer-rename.md`](specs/20260321-engine-layer-rename.md)
 - **Engine layer: `extractFunction` action** → [`docs/specs/20260321-engine-layer-extract-function.md`](specs/20260321-engine-layer-extract-function.md)
 - **Note: `applyRenameEdits` ordering constraint** — `applyRenameEdits` (`src/domain/apply-rename-edits.ts`) takes `Engine` and calls `readFile` + `notifyFileWritten`. Once `notifyFileWritten` comes off the `Engine` interface, `applyRenameEdits` breaks. All callers (`moveFile`, `moveDirectory`, `rename`) must migrate to engine actions before `notifyFileWritten` is removed. The spec ordering (moveFile → moveDirectory → rename) handles this — `notifyFileWritten` stays on the interface until the `rename` spec removes it last.
 - **Note: `domain/` cleanup after engine migration** — Once all engine action specs land, most of `domain/` (`import-rewriter.ts`, `rewrite-own-imports.ts`, `rewrite-importers-of-moved-file.ts`, `apply-rename-edits.ts`) will only have imports from `ts-engine/`. Move them into `ts-engine/` at that point. `workspace-scope.ts` stays in `domain/` — it's genuinely cross-cutting.
 - **Source refactoring for mutation speed** → [`docs/specs/20260315-source-refactor-mutation-speed.md`](specs/20260315-source-refactor-mutation-speed.md) — Extract misplaced utilities from operations (`searchText`, `security`, `getTypeErrors`), optimize fixture copying for `perTest` coverage analysis, exclude redundant dispatcher tests from Stryker. Depends on test colocation landing first.
-
-- **Daemon logging and error surfacing** → [`docs/specs/20260321-daemon-logging-error-surfacing.md`](specs/20260321-daemon-logging-error-surfacing.md)
 
 - **`getTypeErrors` / write operations: add `warn` status level** `[needs design]` — Currently status is binary (`ok: true/false`). Type errors after a write operation (e.g. `moveFile` returns `ok: true` with `typeErrorCount > 0`) should surface as `status: "warn"` so agents know the operation succeeded structurally but left unresolved references. Supersedes the P4 "moveFile type error return contract" entry. Note: `warn` alone won't catch all failures — `moveFile` can return `ok: true, typeErrorCount: 0` despite broken imports, because `getTypeErrorsForFiles` always uses TsMorphCompiler regardless of which compiler performed the operation. If VolarCompiler performed the move and left broken specifiers, TsMorphCompiler's post-write type check may not detect the resolution failures depending on module resolution settings. Reliable detection may need the post-write type check to run through the same compiler that performed the operation.
 
@@ -173,7 +172,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
-- **Audit silent error swallowing across operations** — Folded into [daemon logging and error surfacing spec](specs/20260321-daemon-logging-error-surfacing.md) (AC4).
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks; depends on buildVolarService refactoring
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; depends on buildVolarService refactoring; see [moveSymbol.md](features/moveSymbol.md)
