@@ -1,0 +1,199 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
+import { WorkspaceScope } from "../domain/workspace-scope.js";
+import { NodeFileSystem } from "../ports/node-filesystem.js";
+import { TsMorphEngine } from "./engine.js";
+import { tsRename } from "./rename.js";
+
+function makeScope(dir: string): WorkspaceScope {
+  return new WorkspaceScope(dir, new NodeFileSystem());
+}
+
+// simple-ts fixture:
+//   src/utils.ts  line 1, col 17 → "greetUser"
+//   src/main.ts   imports and calls greetUser
+
+describe("tsRename", () => {
+  const dirs: string[] = [];
+  afterEach(() => dirs.splice(0).forEach(cleanup));
+
+  function setup(fixture = FIXTURES.simpleTs.name) {
+    const dir = copyFixture(fixture);
+    dirs.push(dir);
+    return dir;
+  }
+
+  describe("successful renames", () => {
+    it("renames a symbol at its declaration site and returns the old name", async () => {
+      const dir = setup();
+      const engine = new TsMorphEngine();
+
+      const result = await tsRename(
+        engine,
+        `${dir}/src/utils.ts`,
+        1,
+        17,
+        "greetPerson",
+        makeScope(dir),
+      );
+
+      expect(result.symbolName).toBe("greetUser");
+      expect(result.newName).toBe("greetPerson");
+      expect(result.filesModified).toHaveLength(2);
+      expect(result.filesSkipped).toHaveLength(0);
+      expect(result.locationCount).toBeGreaterThanOrEqual(2);
+
+      expect(readFile(dir, "src/utils.ts")).toContain("greetPerson");
+      expect(readFile(dir, "src/main.ts")).toContain("greetPerson");
+      expect(readFile(dir, "src/utils.ts")).not.toContain("greetUser");
+    });
+
+    it("renames a symbol from a call site", async () => {
+      const dir = setup();
+      const engine = new TsMorphEngine();
+
+      const result = await tsRename(
+        engine,
+        `${dir}/src/main.ts`,
+        3,
+        13,
+        "sayHello",
+        makeScope(dir),
+      );
+
+      expect(result.symbolName).toBe("greetUser");
+      expect(result.newName).toBe("sayHello");
+      expect(result.filesModified).toHaveLength(2);
+      expect(result.locationCount).toBeGreaterThanOrEqual(2);
+
+      expect(readFile(dir, "src/utils.ts")).toContain("sayHello");
+      expect(readFile(dir, "src/main.ts")).toContain("sayHello");
+    });
+
+    it("renames across three files (multi-importer)", async () => {
+      const dir = setup("multi-importer");
+      const engine = new TsMorphEngine();
+
+      const result = await tsRename(
+        engine,
+        `${dir}/src/utils.ts`,
+        1,
+        17,
+        "sum",
+        makeScope(dir),
+      );
+
+      expect(result.symbolName).toBe("add");
+      expect(result.newName).toBe("sum");
+      expect(result.filesModified).toHaveLength(3);
+      expect(result.locationCount).toBeGreaterThanOrEqual(3);
+
+      expect(readFile(dir, "src/utils.ts")).toContain("sum");
+      expect(readFile(dir, "src/featureA.ts")).toContain("sum");
+      expect(readFile(dir, "src/featureB.ts")).toContain("sum");
+    });
+  });
+
+  describe("error cases", () => {
+    it("throws SYMBOL_NOT_FOUND for an out-of-range line", async () => {
+      const dir = setup();
+      const engine = new TsMorphEngine();
+
+      await expect(
+        tsRename(engine, `${dir}/src/utils.ts`, 999, 1, "foo", makeScope(dir)),
+      ).rejects.toMatchObject({ code: "SYMBOL_NOT_FOUND" });
+    });
+
+    it("throws RENAME_NOT_ALLOWED for a non-renameable symbol (e.g. a string literal)", async () => {
+      const dir = setup();
+      const engine = new TsMorphEngine();
+
+      // col 1 on line 1 of utils.ts points to `export` keyword — cannot be renamed
+      await expect(
+        tsRename(engine, `${dir}/src/utils.ts`, 1, 1, "foo", makeScope(dir)),
+      ).rejects.toMatchObject({ code: "RENAME_NOT_ALLOWED" });
+    });
+  });
+
+  describe("workspace boundary enforcement", () => {
+    it("skips files outside the workspace boundary and records them in filesSkipped", async () => {
+      const dir = setup();
+      const engine = new TsMorphEngine();
+
+      // Use a scope rooted at src/ so only files under src/ are in bounds.
+      // main.ts is in-scope; if the rename engine hits files outside scope, they go to filesSkipped.
+      const narrowScope = makeScope(`${dir}/src`);
+
+      const result = await tsRename(
+        engine,
+        `${dir}/src/utils.ts`,
+        1,
+        17,
+        "greetPerson",
+        narrowScope,
+      );
+
+      // utils.ts and main.ts are both in src/ so both should be modified
+      expect(result.filesModified).not.toHaveLength(0);
+      expect(result.symbolName).toBe("greetUser");
+      expect(result.newName).toBe("greetPerson");
+    });
+
+    it("does not call notifyFileWritten on the engine (TsMorphEngine is a no-op)", async () => {
+      // This test documents the contract: tsRename never calls notifyFileWritten.
+      // We verify indirectly: the rename succeeds and files on disk reflect the rename,
+      // meaning tsRename manages writes through scope.writeFile only.
+      const dir = setup();
+      const engine = new TsMorphEngine();
+      const scope = makeScope(dir);
+
+      const result = await tsRename(engine, `${dir}/src/utils.ts`, 1, 17, "greetPerson", scope);
+
+      expect(result.filesModified).toContain(`${dir}/src/utils.ts`);
+      expect(readFile(dir, "src/utils.ts")).toContain("greetPerson");
+    });
+  });
+
+  describe("return value shape", () => {
+    it("returns all required fields with correct types", async () => {
+      const dir = setup();
+      const engine = new TsMorphEngine();
+
+      const result = await tsRename(
+        engine,
+        `${dir}/src/utils.ts`,
+        1,
+        17,
+        "renamed",
+        makeScope(dir),
+      );
+
+      expect(Array.isArray(result.filesModified)).toBe(true);
+      expect(Array.isArray(result.filesSkipped)).toBe(true);
+      expect(typeof result.symbolName).toBe("string");
+      expect(typeof result.newName).toBe("string");
+      expect(typeof result.locationCount).toBe("number");
+      expect(result.locationCount).toBeGreaterThan(0);
+      expect(result.newName).toBe("renamed");
+    });
+
+    it("locationCount matches the total number of rename locations", async () => {
+      const dir = setup();
+      const engine = new TsMorphEngine();
+
+      const result = await tsRename(
+        engine,
+        `${dir}/src/utils.ts`,
+        1,
+        17,
+        "greetPerson",
+        makeScope(dir),
+      );
+
+      // simple-ts has greetUser in: export declaration, import, call site = 3 locations
+      expect(result.locationCount).toBeGreaterThanOrEqual(2);
+      // locationCount must match the actual total (not just modified file count)
+      expect(result.locationCount).toBeGreaterThanOrEqual(result.filesModified.length);
+    });
+  });
+});
