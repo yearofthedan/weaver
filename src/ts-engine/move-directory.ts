@@ -16,8 +16,7 @@ import type { FileTextEdit } from "./types.js";
  * the project graph for each moved source file, and records all moved files
  * (source and non-source) in scope.
  *
- * Precondition: `oldPath` must exist and be a valid directory. Validation is
- * the caller's responsibility.
+ * Precondition: `oldPath` must exist and be a valid directory.
  */
 export async function tsMoveDirectory(
   engine: TsMorphEngine,

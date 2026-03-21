@@ -9,7 +9,7 @@ import type { MoveFileActionResult } from "./types.js";
  * Computes import edits, applies them, physically moves the file,
  * and runs the post-rename fallback scan.
  *
- * Precondition: `oldPath` must exist. Validation is the caller's responsibility.
+ * Precondition: `oldPath` must exist.
  */
 export async function tsMoveFile(
   engine: TsMorphEngine,

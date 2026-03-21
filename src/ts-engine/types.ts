@@ -46,7 +46,7 @@ export interface Engine {
    * the file, run post-rename scans (own imports + importers), and record the
    * new path as modified.
    *
-   * Precondition: `oldPath` must exist. Validation is the caller's responsibility.
+   * Precondition: `oldPath` must exist.
    */
   moveFile(oldPath: string, newPath: string, scope: WorkspaceScope): Promise<MoveFileActionResult>;
 
