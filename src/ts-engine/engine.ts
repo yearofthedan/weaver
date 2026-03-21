@@ -13,12 +13,14 @@ import { JS_EXTENSIONS, TS_EXTENSIONS } from "../utils/extensions.js";
 import { SKIP_DIRS, walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 import { tsDeleteFile } from "./delete-file.js";
+import { tsMoveFile } from "./move-file.js";
 import { tsRemoveImportersOf } from "./remove-importers.js";
 import type {
   DefinitionLocation,
   DeleteFileActionResult,
   Engine,
   FileTextEdit,
+  MoveFileActionResult,
   SpanLocation,
 } from "./types.js";
 
@@ -90,6 +92,18 @@ export class TsMorphEngine implements Engine {
    */
   async deleteFile(targetFile: string, scope: WorkspaceScope): Promise<DeleteFileActionResult> {
     return tsDeleteFile(this, targetFile, scope);
+  }
+
+  /**
+   * Full moveFile workflow: delegates to `tsMoveFile` which handles import
+   * rewriting, physical move, project graph update, and fallback importer scan.
+   */
+  async moveFile(
+    oldPath: string,
+    newPath: string,
+    scope: WorkspaceScope,
+  ): Promise<MoveFileActionResult> {
+    return tsMoveFile(this, oldPath, newPath, scope);
   }
 
   /**

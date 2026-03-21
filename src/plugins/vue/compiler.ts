@@ -1,19 +1,18 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { ImportRewriter } from "../../domain/import-rewriter.js";
-import { rewriteImportersOfMovedFile } from "../../domain/rewrite-importers-of-moved-file.js";
-import { rewriteMovedFileOwnImports } from "../../domain/rewrite-own-imports.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type { TsMorphEngine } from "../../ts-engine/engine.js";
+import { tsMoveFile } from "../../ts-engine/move-file.js";
 import type {
   DefinitionLocation,
   DeleteFileActionResult,
   Engine,
   FileTextEdit,
+  MoveFileActionResult,
   SpanLocation,
 } from "../../ts-engine/types.js";
 import { EngineError } from "../../utils/errors.js";
-import { TS_EXTENSIONS } from "../../utils/extensions.js";
 import { walkFiles } from "../../utils/file-walk.js";
 import { lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
@@ -229,14 +228,17 @@ export class VolarCompiler implements Engine {
     }
   }
 
-  async afterFileRename(oldPath: string, newPath: string, scope: WorkspaceScope): Promise<void> {
+  async moveFile(
+    oldPath: string,
+    newPath: string,
+    scope: WorkspaceScope,
+  ): Promise<MoveFileActionResult> {
+    const result = await tsMoveFile(this.tsEngine, oldPath, newPath, scope);
     this.invalidateService(oldPath);
-
     const tsConfig = findTsConfigForFile(oldPath);
     const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
     updateVueImportsAfterMove(oldPath, newPath, searchRoot, scope);
-    rewriteMovedFileOwnImports(oldPath, newPath, scope);
-    rewriteImportersOfMovedFile(oldPath, newPath, scope, walkFiles(scope.root, [...TS_EXTENSIONS]));
+    return result;
   }
 
   async moveDirectory(

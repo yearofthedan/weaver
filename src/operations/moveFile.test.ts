@@ -17,42 +17,38 @@ function workspaceFromUrl(steps: string): string {
 
 describe("moveFile action", () => {
   describe("workspace boundary and scope tracking", () => {
-    it("skips files outside workspace and records them in filesSkipped", async () => {
+    it("delegates to engine.moveFile with resolved paths", async () => {
       const workspace = workspaceFromUrl("../..");
-      const outFile = "/outside/consumer.ts";
+      const newFilePath = `${workspace}/moved-file.ts`;
 
-      const compiler = makeMockCompiler({
-        getEditsForFileRename: vi.fn().mockResolvedValue([
-          {
-            fileName: outFile,
-            textChanges: [],
-          },
-        ]),
+      const moveFileFn = vi.fn().mockImplementation((_old, _new, scope) => {
+        scope.recordModified(_new);
+        return Promise.resolve({ oldPath: EXISTING_FILE, newPath: newFilePath });
       });
+      const compiler = makeMockCompiler({ moveFile: moveFileFn });
 
       const memFs = new InMemoryFileSystem();
       memFs.writeFile(EXISTING_FILE, "// source content");
       const scope = new WorkspaceScope(workspace, memFs);
 
-      const result = await moveFile(compiler, EXISTING_FILE, `${EXISTING_FILE}.moved`, scope);
+      const result = await moveFile(compiler, EXISTING_FILE, newFilePath, scope);
 
-      expect(result.filesSkipped).toContain(outFile);
-      expect(result.filesModified).not.toContain(outFile);
+      expect(moveFileFn).toHaveBeenCalledWith(EXISTING_FILE, newFilePath, scope);
+      expect(result.oldPath).toBe(EXISTING_FILE);
+      expect(result.newPath).toBe(newFilePath);
     });
 
-    it("records modified files in filesModified", async () => {
+    it("records modified files from scope into result", async () => {
       const workspace = workspaceFromUrl("../..");
       const inFile = `${workspace}/some-file.ts`;
       const newFilePath = `${workspace}/some-file-new.ts`;
 
       const compiler = makeMockCompiler({
-        getEditsForFileRename: vi.fn().mockResolvedValue([
-          {
-            fileName: inFile,
-            textChanges: [{ span: { start: 0, length: 7 }, newText: "updated" }],
-          },
-        ]),
-        readFile: vi.fn().mockReturnValue("content"),
+        moveFile: vi.fn().mockImplementation((_old, _new, scope) => {
+          scope.recordModified(inFile);
+          scope.recordModified(_new);
+          return Promise.resolve({ oldPath: _old, newPath: _new });
+        }),
       });
 
       const memFs = new InMemoryFileSystem();
@@ -65,81 +61,14 @@ describe("moveFile action", () => {
       expect(result.filesModified).toContain(newFilePath);
     });
 
-    it("writes updated file content through scope", async () => {
+    it("records skipped files from scope into result", async () => {
       const workspace = workspaceFromUrl("../..");
-      const inFile = `${workspace}/some-file.ts`;
-      const newFilePath = `${workspace}/some-file-new.ts`;
-      const originalContent = 'import { foo } from "./old"';
-      const updatedContent = 'import { foo } from "./new"';
+      const outFile = "/outside/consumer.ts";
 
       const compiler = makeMockCompiler({
-        getEditsForFileRename: vi.fn().mockResolvedValue([
-          {
-            fileName: inFile,
-            textChanges: [{ span: { start: 21, length: 5 }, newText: "./new" }],
-          },
-        ]),
-        readFile: vi.fn().mockReturnValue(originalContent),
-      });
-
-      const memFs = new InMemoryFileSystem();
-      memFs.writeFile(EXISTING_FILE, "// source content");
-      const scope = new WorkspaceScope(workspace, memFs);
-
-      await moveFile(compiler, EXISTING_FILE, newFilePath, scope);
-
-      expect(memFs.readFile(inFile)).toBe(updatedContent);
-    });
-
-    it("creates destination directory when it does not exist", async () => {
-      const workspace = workspaceFromUrl("../..");
-      const newFilePath = `${workspace}/deep/nested/dir/some-file.ts`;
-
-      const compiler = makeMockCompiler({
-        getEditsForFileRename: vi.fn().mockResolvedValue([]),
-      });
-
-      const memFs = new InMemoryFileSystem();
-      memFs.writeFile(EXISTING_FILE, "// source content");
-      const scope = new WorkspaceScope(workspace, memFs);
-
-      await moveFile(compiler, EXISTING_FILE, newFilePath, scope);
-
-      // Destination directory marker should exist
-      expect(memFs.exists(`${workspace}/deep/nested/dir`)).toBe(true);
-    });
-
-    it("moves the physical file (old path gone, new path exists)", async () => {
-      const workspace = workspaceFromUrl("../..");
-      const newFilePath = `${workspace}/moved-file.ts`;
-
-      const compiler = makeMockCompiler({
-        getEditsForFileRename: vi.fn().mockResolvedValue([]),
-      });
-
-      const memFs = new InMemoryFileSystem();
-      memFs.writeFile(EXISTING_FILE, "// source content");
-      const scope = new WorkspaceScope(workspace, memFs);
-
-      await moveFile(compiler, EXISTING_FILE, newFilePath, scope);
-
-      expect(memFs.exists(newFilePath)).toBe(true);
-      expect(memFs.exists(EXISTING_FILE)).toBe(false);
-    });
-
-    it("compiler writes additional modified and skipped files directly into scope", async () => {
-      const workspace = workspaceFromUrl("../..");
-      const newFilePath = `${workspace}/moved-file.ts`;
-      const extraModified = `${workspace}/extra-modified.ts`;
-      const extraSkipped = "/outside/extra-skipped.ts";
-
-      // afterFileRename now records directly into scope — simulate compiler doing so
-      const compiler = makeMockCompiler({
-        getEditsForFileRename: vi.fn().mockResolvedValue([]),
-        afterFileRename: vi.fn().mockImplementation((_old, _new, scope) => {
-          scope.recordModified(extraModified);
-          scope.recordSkipped(extraSkipped);
-          return Promise.resolve();
+        moveFile: vi.fn().mockImplementation((_old, _new, scope) => {
+          scope.recordSkipped(outFile);
+          return Promise.resolve({ oldPath: _old, newPath: _new });
         }),
       });
 
@@ -147,10 +76,21 @@ describe("moveFile action", () => {
       memFs.writeFile(EXISTING_FILE, "// source content");
       const scope = new WorkspaceScope(workspace, memFs);
 
-      const result = await moveFile(compiler, EXISTING_FILE, newFilePath, scope);
+      const result = await moveFile(compiler, EXISTING_FILE, `${EXISTING_FILE}.moved`, scope);
 
-      expect(result.filesModified).toContain(extraModified);
-      expect(result.filesSkipped).toContain(extraSkipped);
+      expect(result.filesSkipped).toContain(outFile);
+      expect(result.filesModified).not.toContain(outFile);
+    });
+
+    it("throws FILE_NOT_FOUND when source file does not exist", async () => {
+      const workspace = workspaceFromUrl("../..");
+      const compiler = makeMockCompiler();
+      const memFs = new InMemoryFileSystem();
+      const scope = new WorkspaceScope(workspace, memFs);
+
+      await expect(
+        moveFile(compiler, `${workspace}/does-not-exist.ts`, `${workspace}/out.ts`, scope),
+      ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
   });
 });

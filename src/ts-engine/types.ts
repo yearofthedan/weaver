@@ -32,9 +32,6 @@ export interface Engine {
   /** Return definition locations or `null` if no symbol at `offset`. */
   getDefinitionAtPosition(file: string, offset: number): Promise<DefinitionLocation[] | null>;
 
-  /** Return text edits to apply when `oldPath` is moved to `newPath`. */
-  getEditsForFileRename(oldPath: string, newPath: string): Promise<FileTextEdit[]>;
-
   /**
    * Read file content — may consult an internal cache.
    * Called by the shared engine layer before and after writes.
@@ -45,13 +42,13 @@ export interface Engine {
   notifyFileWritten(path: string, content: string): void;
 
   /**
-   * Called after the physical file rename on disk.
-   * Compiler invalidates its cache, runs any post-move scans, and records
-   * any additional files touched directly into `scope`.
+   * Full moveFile workflow: compute import edits, apply them, physically move
+   * the file, run post-rename scans (own imports + importers), and record the
+   * new path as modified.
    *
-   * Files already in `scope.modified` are skipped to avoid double-rewriting.
+   * Precondition: `oldPath` must exist. Validation is the caller's responsibility.
    */
-  afterFileRename(oldPath: string, newPath: string, scope: WorkspaceScope): Promise<void>;
+  moveFile(oldPath: string, newPath: string, scope: WorkspaceScope): Promise<MoveFileActionResult>;
 
   /**
    * Called after a named export has been moved from `sourceFile` to `destFile`.

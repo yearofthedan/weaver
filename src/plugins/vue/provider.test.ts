@@ -31,7 +31,7 @@ describe("VolarCompiler", () => {
     expect(typeof p.getEditsForFileRename).toBe("function");
     expect(typeof p.readFile).toBe("function");
     expect(typeof p.notifyFileWritten).toBe("function");
-    expect(typeof p.afterFileRename).toBe("function");
+    expect(typeof p.moveFile).toBe("function");
     expect(typeof p.afterSymbolMove).toBe("function");
   });
 
@@ -122,15 +122,17 @@ describe("VolarCompiler", () => {
     expect(() => p.notifyFileWritten(file, "export const x = 1;\n")).not.toThrow();
   });
 
-  it("afterFileRename records modified files into scope and no skipped files", async () => {
+  it("moveFile moves the file and records it as modified", async () => {
     const dir = setup();
     const p = new VolarCompiler(new TsMorphEngine());
     const oldPath = path.join(dir, "src/composables/useCounter.ts");
     const newPath = path.join(dir, "src/composables/useTimer.ts");
     const scope = makeScope(dir);
-    await p.afterFileRename(oldPath, newPath, scope);
-    // No .vue files import useCounter in this fixture, so nothing is modified
+    const result = await p.moveFile(oldPath, newPath, scope);
+    expect(result.oldPath).toBe(oldPath);
+    expect(result.newPath).toBe(newPath);
     expect(scope.skipped).toEqual([]);
+    expect(scope.modified).toContain(newPath);
   });
 
   it("afterSymbolMove records nothing into scope when no .vue files match", async () => {
