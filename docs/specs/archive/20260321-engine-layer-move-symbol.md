@@ -46,11 +46,11 @@ Third spec in the engine layer migration. `deleteFile` and `moveFile` establishe
 
 ## Behaviour
 
-- [ ] **AC1: Merge `moveSymbol` + `afterSymbolMove` on `TsMorphEngine`.** `TsMorphEngine.moveSymbol()` becomes the full workflow: calls `tsMoveSymbol(this, ...)` for AST surgery on in-project files, then does the fallback workspace walk (absorbs the current `afterSymbolMove()` body — walks all workspace TS/JS files not already in `scope.modified` and rewrites imports via `ImportRewriter`). Remove `TsMorphEngine.afterSymbolMove()`. Existing integration tests in `moveSymbol_tsMorphCompiler.test.ts` continue to pass (they already test the end-to-end flow including fallback scan).
+- [x] **AC1: Merge `moveSymbol` + `afterSymbolMove` on `TsMorphEngine`.** `TsMorphEngine.moveSymbol()` becomes the full workflow: calls `tsMoveSymbol(this, ...)` for AST surgery on in-project files, then does the fallback workspace walk (absorbs the current `afterSymbolMove()` body — walks all workspace TS/JS files not already in `scope.modified` and rewrites imports via `ImportRewriter`). Remove `TsMorphEngine.afterSymbolMove()`. Existing integration tests in `moveSymbol_tsMorphCompiler.test.ts` continue to pass (they already test the end-to-end flow including fallback scan).
 
-- [ ] **AC2: Add `moveSymbol` to the `Engine` interface, remove `afterSymbolMove`.** `Engine.moveSymbol(sourceFile, symbolName, destFile, scope, options?)` returns `Promise<void>`. Remove `afterSymbolMove` from the `Engine` interface. `VolarCompiler` implements `moveSymbol()`: delegates to `this.tsEngine.moveSymbol()` for TS work (AST surgery + fallback scan), then does Vue SFC scanning (absorbs the current `VolarCompiler.afterSymbolMove()` body). Remove `VolarCompiler.afterSymbolMove()`. Remove `afterSymbolMove` from `makeMockCompiler()`, add `moveSymbol` mock. Add a test: when `VolarCompiler.moveSymbol()` is called and a TS file outside `tsconfig.include` imports the moved symbol, that file's imports are rewritten (pins the latent bug fix).
+- [x] **AC2: Add `moveSymbol` to the `Engine` interface, remove `afterSymbolMove`.** `Engine.moveSymbol(sourceFile, symbolName, destFile, scope, options?)` returns `Promise<void>`. Remove `afterSymbolMove` from the `Engine` interface. `VolarCompiler` implements `moveSymbol()`: delegates to `this.tsEngine.moveSymbol()` for TS work (AST surgery + fallback scan), then does Vue SFC scanning (absorbs the current `VolarCompiler.afterSymbolMove()` body). Remove `VolarCompiler.afterSymbolMove()`. Remove `afterSymbolMove` from `makeMockCompiler()`, add `moveSymbol` mock. Add a test: when `VolarCompiler.moveSymbol()` is called and a TS file outside `tsconfig.include` imports the moved symbol, that file's imports are rewritten (pins the latent bug fix).
 
-- [ ] **AC3: Update `moveSymbol` operation to delegate to `engine.moveSymbol()`.** The operation takes a single `engine: Engine` (project engine) instead of separate `tsCompiler` + `projectCompiler`. Becomes: `assertFileExists(sourceFile)` → `path.resolve(destFile)` → `engine.moveSymbol(absSource, symbolName, absDest, scope, options)` → return result from scope. Update dispatcher to pass only `registry.projectEngine()`. Update operation-level tests: remove `afterSymbolMove` delegation tests, update mock shape (single `engine` with `moveSymbol` mock instead of separate `tsCompiler` + `projectCompiler`).
+- [x] **AC3: Update `moveSymbol` operation to delegate to `engine.moveSymbol()`.** The operation takes a single `engine: Engine` (project engine) instead of separate `tsCompiler` + `projectCompiler`. Becomes: `assertFileExists(sourceFile)` → `path.resolve(destFile)` → `engine.moveSymbol(absSource, symbolName, absDest, scope, options)` → return result from scope. Update dispatcher to pass only `registry.projectEngine()`. Update operation-level tests: remove `afterSymbolMove` delegation tests, update mock shape (single `engine` with `moveSymbol` mock instead of separate `tsCompiler` + `projectCompiler`).
 
 ## Interface
 
@@ -115,12 +115,33 @@ None. The pattern is established by `moveFile`. `TsMorphEngine.moveSymbol()` own
 
 ## Done-when
 
-- [ ] All ACs verified by tests
+- [x] All ACs verified by tests
 - [ ] Mutation score ≥ threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated if public surface changed:
+- [x] `pnpm check` passes (lint + build + test)
+- [x] Docs updated if public surface changed:
       - `docs/architecture.md` — Engine interface section: `afterSymbolMove` removed, `moveSymbol` added
       - `docs/handoff.md` — P1 entry removed; current-state section unchanged (no new files)
-- [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting (skip if nothing worth recording)
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Tech debt discovered during implementation added to handoff.md as [needs design]
+- [x] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting (skip if nothing worth recording)
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+### Reflection
+
+Went smoothly — the pattern was identical to `moveFile`. AC3 was bundled into the AC2 commit because removing `afterSymbolMove` from the interface immediately broke the operation; the agent handled this correctly rather than leaving it in a broken state mid-commit.
+
+The `NoOpTsEngine` approach for `VolarCompiler` tests is the right call: the Vue SFC scanning tests need to isolate the Vue layer without requiring real symbols on disk for the TS AST surgery step. The stub extends `TsMorphEngine` and overrides `moveSymbol` to a no-op, keeping the tests fast and focused.
+
+Container crash interrupted before docs/archive/commit — no work was lost since all three ACs were committed before the crash.
+
+Nothing unexpected. The latent bug fix (TS fallback scan now runs in Vue projects for files outside `tsconfig.include`) was a freebie from the structural change.
+
+### Tests added
+
+No net new tests — the AC2 agent bundled the test updates into the interface commit. Existing 744 tests (+ 29 eval) continue to pass.
+
+### Architectural decisions
+
+- `tsMoveSymbol()` stays in `src/compilers/` for now; the "domain/ cleanup" note in handoff covers the eventual move.
+- `VolarCompiler` named `VolarCompiler` (not `VolarEngine`) — rename is a separate handoff item on the `moveDirectory` spec.

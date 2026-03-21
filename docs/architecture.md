@@ -124,19 +124,18 @@ sequenceDiagram
     participant T as Transport (MCP/CLI)
     participant D as Dispatcher
     participant O as moveSymbol operation
-    participant C as TsMorphCompiler
+    participant E as engine (TsMorphEngine or VolarEngine)
     participant TMS as tsMoveSymbol
     participant IR as ImportRewriter
     participant SR as SymbolRef
-    participant PC as projectCompiler.afterSymbolMove
     participant WS as WorkspaceScope
 
     T->>D: moveSymbol(sourceFile, symbolName, destFile)
     D->>D: validate params, resolve workspace
     D->>WS: new WorkspaceScope(root, NodeFileSystem)
-    D->>O: moveSymbol(tsCompiler, projectCompiler, ..., scope)
-    O->>C: moveSymbol(source, symbol, dest, scope)
-    C->>TMS: tsMoveSymbol(project, source, symbol, dest, scope)
+    D->>O: moveSymbol(engine, ..., scope)
+    O->>E: moveSymbol(source, symbol, dest, scope)
+    E->>TMS: tsMoveSymbol(project, source, symbol, dest, scope)
     TMS->>SR: SymbolRef.from(sourceFile, symbolName)
     SR-->>TMS: resolved symbol ref
     TMS->>TMS: AST surgery (copy decl, add export)
@@ -144,9 +143,9 @@ sequenceDiagram
     IR->>WS: writeFile() for each rewritten importer
     TMS->>SR: remove() from source file
     TMS->>WS: writeFile(source), writeFile(dest)
-    C-->>O: done
-    O->>PC: afterSymbolMove(source, symbol, dest, scope)
-    PC->>WS: writeFile() for additional importers (.vue, out-of-project)
+    E->>E: fallback walk (files outside tsconfig.include) + Vue SFC scan
+    E->>WS: writeFile() for additional importers
+    E-->>O: done
     O-->>D: { filesModified: scope.modified, filesSkipped: scope.skipped }
     D-->>T: { ok: true, filesModified, filesSkipped }
 ```
@@ -176,14 +175,14 @@ interface Engine {
   // Actions (own the full workflow)
   deleteFile(targetFile, scope: WorkspaceScope): Promise<{ importRefsRemoved: number }>
   moveFile(oldPath, newPath, scope: WorkspaceScope): Promise<{ oldPath: string; newPath: string }>
+  moveSymbol(sourceFile, symbolName, destFile, scope: WorkspaceScope, options?: { force?: boolean }): Promise<void>
 
   // Legacy methods (migrated to actions in subsequent specs)
-  afterSymbolMove(sourceFile, symbolName, destFile, scope: WorkspaceScope): Promise<void>
   moveDirectory(oldPath, newPath, scope: WorkspaceScope): Promise<{ filesMoved: string[] }>
 }
 ```
 
-The engine layer is progressively migrating from the legacy interface methods (queries + post-step hooks) to actions that own the full workflow. `deleteFile` and `moveFile` are action methods — their implementations in `TsMorphEngine` delegate to standalone functions (`tsDeleteFile`, `tsMoveFile`) in `src/ts-engine/`. Subsequent specs will add `moveSymbol` and `rename` as actions, removing the remaining legacy methods.
+The engine layer is progressively migrating from the legacy interface methods (queries + post-step hooks) to actions that own the full workflow. `deleteFile`, `moveFile`, and `moveSymbol` are action methods — their implementations in `TsMorphEngine` delegate to standalone functions (`tsDeleteFile`, `tsMoveFile`, `tsMoveSymbol`) in `src/ts-engine/` and `src/compilers/`. Subsequent specs will add `moveDirectory` and `rename` as actions, removing the remaining legacy methods.
 
 `TsMorphEngine` delegates to standalone action functions in `src/ts-engine/` (e.g. `tsDeleteFile()` for the delete action). `VolarEngine` delegates to `TsMorphEngine` for TS/JS work, then adds Vue-specific scanning (e.g. scanning `.vue` SFCs for imports of deleted files).
 
@@ -226,7 +225,7 @@ interface EngineRegistry {
 
 `projectEngine` resolution creates a `TsMorphEngine`, finds the tsconfig, then iterates registered `LanguagePlugin` entries. The first plugin's `supportsProject()` that returns true calls its `createEngine(tsEngine)` to create the project engine (usually a wrapper like `VolarEngine` that delegates TS work to the shared engine). If no plugin matches (or no tsconfig exists), `TsMorphEngine` is used as the default fallback.
 
-`tsEngine` is not subject to plugin resolution — it always returns `TsMorphEngine` for operations needing direct ts-morph AST access (e.g. `moveSymbol`, `extractFunction`).
+`tsEngine` is not subject to plugin resolution — it always returns `TsMorphEngine` for operations needing direct ts-morph AST access (e.g. `extractFunction`).
 
 In a monorepo each package resolves to its own tsconfig and gets the right engine automatically. Engines are lazy singletons; each manages a per-tsconfig cache internally.
 
@@ -264,7 +263,7 @@ Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and on
 |-----------|---------------|-------|
 | `rename` | `projectCompiler` | Calls `getRenameLocations`; applies edits; returns `filesModified`, `filesSkipped` |
 | `moveFile` | `projectCompiler` | Delegates to `engine.moveFile()` (action). `TsMorphEngine` runs `tsMoveFile()`: computes edits, applies them, physically moves the file, updates the project graph, and runs the fallback importer scan. `VolarCompiler` delegates TS work to `tsMoveFile()` then scans `.vue` SFCs for import updates. |
-| `moveSymbol` | `tsCompiler` + `projectCompiler` | Thin orchestrator using `WorkspaceScope`; compiler work in `TsMorphCompiler.moveSymbol()` (impl: `src/compilers/ts-move-symbol.ts`); `afterSymbolMove` hook for Vue SFC importers |
+| `moveSymbol` | `projectCompiler` | Delegates to `engine.moveSymbol()` (action). `TsMorphEngine` runs `tsMoveSymbol()` for AST surgery, then walks files outside `tsconfig.include` for fallback import rewriting. `VolarCompiler` delegates TS work to `TsMorphEngine.moveSymbol()` then scans `.vue` SFCs for import updates. |
 | `moveDirectory` | `projectCompiler` | Calls `compiler.moveDirectory()` for atomic batch move of all source files using ts-morph `directory.move()`; then moves non-source files physically via `scope.fs.rename`. Intra-directory imports are preserved because all files move together in the project graph before any disk writes. |
 | `deleteFile` | `tsCompiler` | Removes import/export declarations referencing the deleted file across in-project, out-of-project, and Vue SFC files; physically deletes the file |
 | `extractFunction` | `tsCompiler` | Delegates to the TS language service's "Extract Symbol" refactor; replaces auto-generated name with caller-provided name |
