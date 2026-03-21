@@ -146,7 +146,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P1 — Very high value bugs and tech debt
-- **Engine layer: `moveDirectory` action** `[needs design]` — Create `tsMoveDirectory()` standalone function. Add `moveDirectory()` as a full-workflow action on the `Engine` interface (replacing the current version that leaks intermediate steps). Rename `VolarCompiler` → `VolarEngine`, `compiler.ts` → `engine.ts`.
+- **Engine layer: `moveDirectory` action** → [`docs/specs/20260321-engine-layer-move-directory.md`](specs/20260321-engine-layer-move-directory.md)
 - **Engine layer: `rename` action** `[needs design]` — Create `tsRename()` standalone function that owns the full workflow (getRenameLocations + apply edits + notifyFileWritten). Add `rename()` to the `Engine` interface. Remove `getRenameLocations` and `notifyFileWritten` from the `Engine` interface (they become internal). VolarEngine implements `rename()` by delegating to its language service.
 - **Engine layer: `extractFunction` action** `[needs design]` — Create `tsExtractFunction()` standalone function. Add `extractFunction()` to the `Engine` interface. Currently TS-only; VolarEngine throws `NOT_SUPPORTED` for `.vue` files until Vue support lands.
 - **Note: `applyRenameEdits` ordering constraint** — `applyRenameEdits` (`src/domain/apply-rename-edits.ts`) takes `Engine` and calls `readFile` + `notifyFileWritten`. Once `notifyFileWritten` comes off the `Engine` interface, `applyRenameEdits` breaks. All callers (`moveFile`, `moveDirectory`, `rename`) must migrate to engine actions before `notifyFileWritten` is removed. The spec ordering (moveFile → moveDirectory → rename) handles this — `notifyFileWritten` stays on the interface until the `rename` spec removes it last.
