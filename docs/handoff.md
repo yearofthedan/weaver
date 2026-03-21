@@ -146,7 +146,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P1 — Very high value bugs and tech debt
-- **Engine layer: `moveSymbol` action** `[needs design]` — `tsMoveSymbol()` already exists as a standalone function. Remove the `TsMorphEngine.moveSymbol()` delegate method. Update the `moveSymbol` operation to call `tsMoveSymbol()` directly (it already takes `TsMorphCompiler`/`TsMorphEngine` as first arg). Remove `afterSymbolMove` from the `Engine` interface. VolarEngine implements `moveSymbol()` by calling `tsMoveSymbol()` via its injected `TsMorphEngine` then doing Vue SFC scanning.
+- **Engine layer: `moveSymbol` action** → [`docs/specs/20260321-engine-layer-move-symbol.md`](specs/20260321-engine-layer-move-symbol.md)
 - **Engine layer: `moveDirectory` action** `[needs design]` — Create `tsMoveDirectory()` standalone function. Add `moveDirectory()` as a full-workflow action on the `Engine` interface (replacing the current version that leaks intermediate steps). Rename `VolarCompiler` → `VolarEngine`, `compiler.ts` → `engine.ts`.
 - **Engine layer: `rename` action** `[needs design]` — Create `tsRename()` standalone function that owns the full workflow (getRenameLocations + apply edits + notifyFileWritten). Add `rename()` to the `Engine` interface. Remove `getRenameLocations` and `notifyFileWritten` from the `Engine` interface (they become internal). VolarEngine implements `rename()` by delegating to its language service.
 - **Engine layer: `extractFunction` action** `[needs design]` — Create `tsExtractFunction()` standalone function. Add `extractFunction()` to the `Engine` interface. Currently TS-only; VolarEngine throws `NOT_SUPPORTED` for `.vue` files until Vue support lands.
