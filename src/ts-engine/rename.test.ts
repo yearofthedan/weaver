@@ -74,14 +74,7 @@ describe("tsRename", () => {
       const dir = setup("multi-importer");
       const engine = new TsMorphEngine();
 
-      const result = await tsRename(
-        engine,
-        `${dir}/src/utils.ts`,
-        1,
-        17,
-        "sum",
-        makeScope(dir),
-      );
+      const result = await tsRename(engine, `${dir}/src/utils.ts`, 1, 17, "sum", makeScope(dir));
 
       expect(result.symbolName).toBe("add");
       expect(result.newName).toBe("sum");
@@ -108,9 +101,10 @@ describe("tsRename", () => {
       const dir = setup();
       const engine = new TsMorphEngine();
 
-      // col 1 on line 1 of utils.ts points to `export` keyword — cannot be renamed
+      // line 2 of utils.ts is `  return \`Hello, ${name}\`;`
+      // col 12 points inside the string literal "Hello, " — cannot be renamed
       await expect(
-        tsRename(engine, `${dir}/src/utils.ts`, 1, 1, "foo", makeScope(dir)),
+        tsRename(engine, `${dir}/src/utils.ts`, 2, 12, "foo", makeScope(dir)),
       ).rejects.toMatchObject({ code: "RENAME_NOT_ALLOWED" });
     });
   });

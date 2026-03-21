@@ -5,11 +5,16 @@ import type { Engine } from "../../ts-engine/types.js";
 export function makeMockCompiler(overrides: Partial<Engine> = {}): Engine {
   return {
     resolveOffset: vi.fn().mockReturnValue(0),
-    getRenameLocations: vi.fn().mockResolvedValue(null),
     getReferencesAtPosition: vi.fn().mockResolvedValue(null),
     getDefinitionAtPosition: vi.fn().mockResolvedValue(null),
     readFile: vi.fn().mockReturnValue(""),
-    notifyFileWritten: vi.fn(),
+    rename: vi.fn().mockResolvedValue({
+      filesModified: [],
+      filesSkipped: [],
+      symbolName: "",
+      newName: "",
+      locationCount: 0,
+    }),
     moveFile: vi.fn().mockResolvedValue({ oldPath: "", newPath: "" }),
     moveSymbol: vi.fn().mockResolvedValue(undefined),
     moveDirectory: vi.fn().mockResolvedValue({ filesMoved: [] }),

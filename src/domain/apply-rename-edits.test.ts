@@ -3,12 +3,9 @@ import type { Engine, FileTextEdit } from "../ts-engine/types.js";
 import { applyRenameEdits, mergeFileEdits } from "./apply-rename-edits.js";
 import type { WorkspaceScope } from "./workspace-scope.js";
 
-function makeCompiler(
-  fileContents: Record<string, string>,
-): Pick<Engine, "readFile" | "notifyFileWritten"> {
+function makeCompiler(fileContents: Record<string, string>): Pick<Engine, "readFile"> {
   return {
     readFile: (path: string) => fileContents[path] ?? "",
-    notifyFileWritten: vi.fn(),
   };
 }
 
@@ -135,7 +132,7 @@ describe("mergeFileEdits", () => {
 
 describe("applyRenameEdits", () => {
   describe("files within scope", () => {
-    it("applies text edits to files inside the workspace and notifies the compiler", () => {
+    it("applies text edits to files inside the workspace", () => {
       const edits: FileTextEdit[] = [
         {
           fileName: "/workspace/src/importer.ts",
@@ -150,10 +147,6 @@ describe("applyRenameEdits", () => {
 
       expect(scope._written.has("/workspace/src/importer.ts")).toBe(true);
       expect(scope._written.get("/workspace/src/importer.ts")).toContain("./lib/a");
-      expect(compiler.notifyFileWritten).toHaveBeenCalledWith(
-        "/workspace/src/importer.ts",
-        expect.any(String),
-      );
     });
   });
 
@@ -172,7 +165,6 @@ describe("applyRenameEdits", () => {
 
       expect(scope._skipped).toContain("/outside/other.ts");
       expect(scope._written.has("/outside/other.ts")).toBe(false);
-      expect(compiler.notifyFileWritten).not.toHaveBeenCalled();
     });
 
     it("processes in-scope files even when mixed with out-of-scope files", () => {

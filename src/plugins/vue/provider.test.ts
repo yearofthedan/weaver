@@ -39,17 +39,17 @@ describe("VolarEngine", () => {
     return dir;
   }
 
-  it("implements Compiler shape", () => {
+  it("implements Engine interface shape", () => {
     const p = new VolarEngine(new TsMorphEngine());
     expect(typeof p.resolveOffset).toBe("function");
-    expect(typeof p.getRenameLocations).toBe("function");
     expect(typeof p.getReferencesAtPosition).toBe("function");
     expect(typeof p.getDefinitionAtPosition).toBe("function");
-    expect(typeof p.getEditsForFileRename).toBe("function");
     expect(typeof p.readFile).toBe("function");
-    expect(typeof p.notifyFileWritten).toBe("function");
+    expect(typeof p.rename).toBe("function");
     expect(typeof p.moveFile).toBe("function");
     expect(typeof p.moveSymbol).toBe("function");
+    expect(typeof p.moveDirectory).toBe("function");
+    expect(typeof p.deleteFile).toBe("function");
   });
 
   it("Vue SFC scanning is a no-op when no matching .vue files exist", async () => {

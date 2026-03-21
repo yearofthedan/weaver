@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { ImportRewriter } from "../../domain/import-rewriter.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
+import type { RenameResult } from "../../operations/types.js";
 import type { TsMorphEngine } from "../../ts-engine/engine.js";
 import { tsMoveFile } from "../../ts-engine/move-file.js";
 import type {
@@ -14,7 +15,7 @@ import type {
 } from "../../ts-engine/types.js";
 import { EngineError } from "../../utils/errors.js";
 import { walkFiles } from "../../utils/file-walk.js";
-import { lineColToOffset } from "../../utils/text-utils.js";
+import { applyTextEdits, lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
 import { removeVueImportsOfDeletedFile, updateVueImportsAfterMove } from "./scan.js";
 import { buildVolarService, type CachedService } from "./service.js";
@@ -269,5 +270,63 @@ export class VolarEngine implements Engine {
     for (const f of vueSkipped) scope.recordSkipped(f);
 
     return { importRefsRemoved: importRefsRemoved + vueRefs };
+  }
+
+  async rename(
+    file: string,
+    line: number,
+    col: number,
+    newName: string,
+    scope: WorkspaceScope,
+  ): Promise<RenameResult> {
+    const service = await this.getService(file);
+    const offset = this.resolveOffset(file, line, col);
+    const locs = await this.getRenameLocations(file, offset);
+
+    if (!locs) {
+      throw new EngineError(
+        `No renameable symbol at line ${line}, col ${col} in ${file}`,
+        "SYMBOL_NOT_FOUND",
+      );
+    }
+
+    const firstLoc = locs[0];
+    const firstContent = this.readFile(firstLoc.fileName);
+    const oldName = firstContent.slice(
+      firstLoc.textSpan.start,
+      firstLoc.textSpan.start + firstLoc.textSpan.length,
+    );
+
+    const editsByFile = new Map<
+      string,
+      { span: { start: number; length: number }; newText: string }[]
+    >();
+    for (const loc of locs) {
+      let fileEdits = editsByFile.get(loc.fileName);
+      if (!fileEdits) {
+        fileEdits = [];
+        editsByFile.set(loc.fileName, fileEdits);
+      }
+      fileEdits.push({ span: loc.textSpan, newText: newName });
+    }
+
+    for (const [fileName, edits] of editsByFile) {
+      if (!scope.contains(fileName)) {
+        scope.recordSkipped(fileName);
+        continue;
+      }
+      const original = this.readFile(fileName);
+      const updated = applyTextEdits(original, edits);
+      scope.writeFile(fileName, updated);
+      service.fileContents.set(fileName, updated);
+    }
+
+    return {
+      filesModified: scope.modified,
+      filesSkipped: scope.skipped,
+      symbolName: oldName,
+      newName,
+      locationCount: locs.length,
+    };
   }
 }

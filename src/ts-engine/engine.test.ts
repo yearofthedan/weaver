@@ -27,16 +27,17 @@ describe("TsMorphEngine", () => {
     return dir;
   }
 
-  it("implements Compiler shape", () => {
+  it("implements Engine interface shape", () => {
     const p = new TsMorphEngine();
     expect(typeof p.resolveOffset).toBe("function");
-    expect(typeof p.getRenameLocations).toBe("function");
     expect(typeof p.getReferencesAtPosition).toBe("function");
     expect(typeof p.getDefinitionAtPosition).toBe("function");
-    expect(typeof p.getEditsForFileRename).toBe("function");
     expect(typeof p.readFile).toBe("function");
-    expect(typeof p.notifyFileWritten).toBe("function");
+    expect(typeof p.rename).toBe("function");
+    expect(typeof p.moveFile).toBe("function");
     expect(typeof p.moveSymbol).toBe("function");
+    expect(typeof p.moveDirectory).toBe("function");
+    expect(typeof p.deleteFile).toBe("function");
   });
 
   it("resolveOffset converts 1-based line/col to 0-based offset", () => {

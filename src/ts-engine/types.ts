@@ -1,4 +1,5 @@
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
+import type { RenameResult } from "../operations/types.js";
 
 export interface SpanLocation {
   fileName: string;
@@ -19,13 +20,6 @@ export interface Engine {
   /** Convert 1-based line/col to a 0-based byte offset. Synchronous — no I/O. */
   resolveOffset(file: string, line: number, col: number): number;
 
-  /**
-   * Return rename locations or `null` if no renameable symbol exists at
-   * `offset`. Throws `EngineError("RENAME_NOT_ALLOWED")` if the symbol exists
-   * but cannot be renamed.
-   */
-  getRenameLocations(file: string, offset: number): Promise<SpanLocation[] | null>;
-
   /** Return reference locations or `null` if no symbol at `offset`. */
   getReferencesAtPosition(file: string, offset: number): Promise<SpanLocation[] | null>;
 
@@ -38,8 +32,23 @@ export interface Engine {
    */
   readFile(path: string): string;
 
-  /** Called by the engine layer after writing `path`; compilers update caches. */
-  notifyFileWritten(path: string, content: string): void;
+  /**
+   * Full rename workflow: resolve the symbol at `file`:`line`:`col`, collect all
+   * rename locations from the language service, apply text edits within the
+   * workspace boundary, and return the result.
+   *
+   * Throws `SYMBOL_NOT_FOUND` when no renameable symbol exists at the position.
+   * Throws `RENAME_NOT_ALLOWED` when the symbol exists but cannot be renamed.
+   *
+   * Precondition: `file` must exist (validated by the operation layer).
+   */
+  rename(
+    file: string,
+    line: number,
+    col: number,
+    newName: string,
+    scope: WorkspaceScope,
+  ): Promise<RenameResult>;
 
   /**
    * Full moveFile workflow: compute import edits, apply them, physically move

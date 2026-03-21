@@ -15,14 +15,20 @@ const PROJECT_FILE = path.resolve("src/types.ts");
 function stubCompiler(tag = "stub"): Engine {
   return {
     resolveOffset: () => 0,
-    getRenameLocations: async () => null,
     getReferencesAtPosition: async () => null,
     getDefinitionAtPosition: async () => null,
-    getEditsForFileRename: async () => [],
     readFile: () => "",
-    notifyFileWritten: () => {},
-    afterFileRename: async () => ({ modified: [], skipped: [] }),
-    afterSymbolMove: async () => ({ modified: [], skipped: [] }),
+    rename: async () => ({
+      filesModified: [],
+      filesSkipped: [],
+      symbolName: "",
+      newName: "",
+      locationCount: 0,
+    }),
+    moveFile: async () => ({ oldPath: "", newPath: "" }),
+    moveSymbol: async () => undefined,
+    moveDirectory: async () => ({ filesMoved: [] }),
+    deleteFile: async () => ({ importRefsRemoved: 0 }),
     _tag: tag,
   } as Engine & { _tag: string };
 }

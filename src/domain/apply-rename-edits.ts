@@ -5,7 +5,7 @@ import type { WorkspaceScope } from "./workspace-scope.js";
 /**
  * Apply an array of file text edits produced by `getEditsForFileRename`.
  * Files outside the workspace boundary are recorded as skipped.
- * Files inside the boundary are written and the compiler is notified.
+ * Files inside the boundary are written via scope.
  */
 export function applyRenameEdits(
   compiler: Engine,
@@ -20,7 +20,6 @@ export function applyRenameEdits(
     const original = compiler.readFile(edit.fileName);
     const updated = applyTextEdits(original, edit.textChanges);
     scope.writeFile(edit.fileName, updated);
-    compiler.notifyFileWritten(edit.fileName, updated);
   }
 }
 

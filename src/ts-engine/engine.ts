@@ -5,6 +5,7 @@ import type ts from "typescript";
 import { tsMoveSymbol } from "../compilers/ts-move-symbol.js";
 import { ImportRewriter } from "../domain/import-rewriter.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
+import type { RenameResult } from "../operations/types.js";
 import { EngineError } from "../utils/errors.js";
 import { JS_EXTENSIONS, TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
@@ -13,6 +14,7 @@ import { tsDeleteFile } from "./delete-file.js";
 import { tsMoveDirectory } from "./move-directory.js";
 import { tsMoveFile } from "./move-file.js";
 import { tsRemoveImportersOf } from "./remove-importers.js";
+import { tsRename } from "./rename.js";
 import type {
   DefinitionLocation,
   DeleteFileActionResult,
@@ -365,6 +367,21 @@ export class TsMorphEngine implements Engine {
     scope: WorkspaceScope,
   ): Promise<{ filesMoved: string[] }> {
     return tsMoveDirectory(this, oldPath, newPath, scope);
+  }
+
+  /**
+   * Full rename workflow: delegates to `tsRename` which resolves the symbol,
+   * collects rename locations from the TS language service, and applies edits
+   * within the workspace boundary.
+   */
+  async rename(
+    file: string,
+    line: number,
+    col: number,
+    newName: string,
+    scope: WorkspaceScope,
+  ): Promise<RenameResult> {
+    return tsRename(this, file, line, col, newName, scope);
   }
 }
 

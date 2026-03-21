@@ -7,7 +7,6 @@ import { VolarEngine } from "../plugins/vue/engine.js";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
-import type { SpanLocation } from "../ts-engine/types.js";
 import { rename } from "./rename.js";
 
 // assertFileExists (called inside rename) still uses the real filesystem — it is not yet
@@ -183,13 +182,31 @@ describe("rename action", () => {
     });
   });
 
-  describe("workspace boundary and scope tracking", () => {
-    it("throws SYMBOL_NOT_FOUND when compiler returns null locations", async () => {
+  describe("via mock engine", () => {
+    it("delegates to engine.rename() and returns the result", async () => {
+      const workspace = new URL("../..", import.meta.url).pathname;
+      const expected = {
+        filesModified: [EXISTING_FILE],
+        filesSkipped: [],
+        symbolName: "greetUser",
+        newName: "greetPerson",
+        locationCount: 2,
+      };
+      const compiler = makeMockCompiler({
+        rename: vi.fn().mockResolvedValue(expected),
+      });
+
+      const scope = new WorkspaceScope(workspace, new InMemoryFileSystem());
+      const result = await rename(compiler, EXISTING_FILE, 1, 17, "greetPerson", scope);
+
+      expect(result).toEqual(expected);
+      expect(compiler.rename).toHaveBeenCalledWith(EXISTING_FILE, 1, 17, "greetPerson", scope);
+    });
+
+    it("propagates errors thrown by engine.rename()", async () => {
       const workspace = new URL("../..", import.meta.url).pathname;
       const compiler = makeMockCompiler({
-        resolveOffset: vi.fn().mockReturnValue(17),
-        getRenameLocations: vi.fn().mockResolvedValue(null),
-        readFile: vi.fn().mockReturnValue("export function greetUser() {}"),
+        rename: vi.fn().mockRejectedValue({ code: "SYMBOL_NOT_FOUND" }),
       });
 
       const scope = new WorkspaceScope(workspace, new InMemoryFileSystem());
@@ -197,41 +214,6 @@ describe("rename action", () => {
       await expect(rename(compiler, EXISTING_FILE, 1, 17, "newName", scope)).rejects.toMatchObject({
         code: "SYMBOL_NOT_FOUND",
       });
-
-      expect(scope.modified).toHaveLength(0);
-      expect(scope.skipped).toHaveLength(0);
-    });
-
-    it("writes in-workspace files and skips out-of-workspace files", async () => {
-      const workspace = new URL("../..", import.meta.url).pathname;
-      const outFile = "/outside/consumer.ts";
-      const originalContent = "export function greetUser() {}";
-
-      // "greetUser" starts at index 16 and is 9 chars long
-      const locs: SpanLocation[] = [
-        { fileName: EXISTING_FILE, textSpan: { start: 16, length: 9 } },
-        { fileName: outFile, textSpan: { start: 16, length: 9 } },
-      ];
-
-      const compiler = makeMockCompiler({
-        resolveOffset: vi.fn().mockReturnValue(17),
-        getRenameLocations: vi.fn().mockResolvedValue(locs),
-        readFile: vi.fn().mockReturnValue(originalContent),
-      });
-
-      const memFs = new InMemoryFileSystem();
-      const scope = new WorkspaceScope(workspace, memFs);
-      const result = await rename(compiler, EXISTING_FILE, 1, 17, "greetPerson", scope);
-
-      expect(result.filesModified).toContain(EXISTING_FILE);
-      expect(result.filesModified).not.toContain(outFile);
-      expect(memFs.readFile(EXISTING_FILE)).toContain("greetPerson");
-
-      expect(result.filesSkipped).toContain(outFile);
-      expect(() => memFs.readFile(outFile)).toThrow();
-
-      expect(compiler.notifyFileWritten).toHaveBeenCalledWith(EXISTING_FILE, expect.any(String));
-      expect(compiler.notifyFileWritten).not.toHaveBeenCalledWith(outFile, expect.any(String));
     });
   });
 });
