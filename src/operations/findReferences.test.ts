@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
-import { VolarCompiler } from "../plugins/vue/compiler.js";
+import { VolarEngine } from "../plugins/vue/engine.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import { findReferences } from "./findReferences.js";
 
@@ -66,10 +66,10 @@ describe("findReferences action", () => {
     });
   });
 
-  describe("with VolarCompiler", () => {
+  describe("with VolarEngine", () => {
     it("finds references to a composable across .ts and .vue files", async () => {
       const dir = setup("vue-project");
-      const compiler = new VolarCompiler(new TsMorphEngine());
+      const compiler = new VolarEngine(new TsMorphEngine());
 
       const result = await findReferences(compiler, `${dir}/src/composables/useCounter.ts`, 1, 17);
 
@@ -89,7 +89,7 @@ describe("findReferences action", () => {
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
       const dir = setup("vue-project");
-      const compiler = new VolarCompiler(new TsMorphEngine());
+      const compiler = new VolarEngine(new TsMorphEngine());
 
       await expect(
         findReferences(compiler, `${dir}/src/doesNotExist.ts`, 1, 1),

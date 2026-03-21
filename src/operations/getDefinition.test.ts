@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
-import { VolarCompiler } from "../plugins/vue/compiler.js";
+import { VolarEngine } from "../plugins/vue/engine.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import { getDefinition } from "./getDefinition.js";
 
@@ -74,10 +74,10 @@ describe("getDefinition action", () => {
     });
   });
 
-  describe("with VolarCompiler", () => {
+  describe("with VolarEngine", () => {
     it("resolves a composable definition from a .vue call site", async () => {
       const dir = setup("vue-ts-boundary");
-      const compiler = new VolarCompiler(new TsMorphEngine());
+      const compiler = new VolarEngine(new TsMorphEngine());
 
       const appVue = `${dir}/src/App.vue`;
       const content = fs.readFileSync(appVue, "utf8");
@@ -101,7 +101,7 @@ describe("getDefinition action", () => {
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
       const dir = setup("vue-project");
-      const compiler = new VolarCompiler(new TsMorphEngine());
+      const compiler = new VolarEngine(new TsMorphEngine());
 
       await expect(
         getDefinition(compiler, `${dir}/src/doesNotExist.ts`, 1, 1),
@@ -109,9 +109,9 @@ describe("getDefinition action", () => {
     });
 
     it("throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", async () => {
-      // Exercises the resolveOffset catch block in VolarCompiler (volar.ts line 103).
+      // Exercises the resolveOffset catch block in VolarEngine (volar.ts line 103).
       const dir = setup("vue-ts-boundary");
-      const compiler = new VolarCompiler(new TsMorphEngine());
+      const compiler = new VolarEngine(new TsMorphEngine());
 
       await expect(getDefinition(compiler, `${dir}/src/App.vue`, 999, 1)).rejects.toMatchObject({
         code: "SYMBOL_NOT_FOUND",

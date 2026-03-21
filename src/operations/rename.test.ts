@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
 import { makeMockCompiler } from "../compilers/__helpers__/mock-compiler.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
-import { VolarCompiler } from "../plugins/vue/compiler.js";
+import { VolarEngine } from "../plugins/vue/engine.js";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
@@ -106,7 +106,7 @@ describe("rename action", () => {
     });
   });
 
-  describe("with VolarCompiler", () => {
+  describe("with VolarEngine", () => {
     function vueSetup(fixture = FIXTURES.vueProject.name) {
       const dir = copyFixture(fixture);
       dirs.push(dir);
@@ -115,7 +115,7 @@ describe("rename action", () => {
 
     it("renames a composable in a .ts file and updates .vue files", async () => {
       const dir = vueSetup();
-      const compiler = new VolarCompiler(new TsMorphEngine());
+      const compiler = new VolarEngine(new TsMorphEngine());
 
       const filePath = `${dir}/src/composables/useCounter.ts`;
       const result = await rename(compiler, filePath, 1, 17, "useCount", makeScope(dir));
@@ -134,7 +134,7 @@ describe("rename action", () => {
 
     it("renames across TypeScript/Vue boundary", async () => {
       const dir = vueSetup("vue-ts-boundary");
-      const compiler = new VolarCompiler(new TsMorphEngine());
+      const compiler = new VolarEngine(new TsMorphEngine());
 
       const result = await rename(
         compiler,
@@ -156,7 +156,7 @@ describe("rename action", () => {
 
     it("does not rename symbols in dist/ .vue files", async () => {
       const dir = vueSetup();
-      const compiler = new VolarCompiler(new TsMorphEngine());
+      const compiler = new VolarEngine(new TsMorphEngine());
 
       // dist/ is conventionally gitignored so it can't live in the committed fixture
       fs.mkdirSync(`${dir}/dist`, { recursive: true });
@@ -175,7 +175,7 @@ describe("rename action", () => {
 
     it("throws FILE_NOT_FOUND for non-existent file", async () => {
       const dir = vueSetup();
-      const compiler = new VolarCompiler(new TsMorphEngine());
+      const compiler = new VolarEngine(new TsMorphEngine());
 
       await expect(
         rename(compiler, `${dir}/src/doesNotExist.ts`, 1, 1, "foo", makeScope(dir)),

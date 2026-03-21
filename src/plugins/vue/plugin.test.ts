@@ -21,14 +21,14 @@ describe("Vue LanguagePlugin integration", () => {
 
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
-  it("projectEngine returns VolarCompiler for a Vue project", async () => {
+  it("projectEngine returns VolarEngine for a Vue project", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const { VolarCompiler } = await import("./compiler.js");
+    const { VolarEngine } = await import("./engine.js");
 
     const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
     const compiler = await registry.projectEngine();
-    expect(compiler).toBeInstanceOf(VolarCompiler);
+    expect(compiler).toBeInstanceOf(VolarEngine);
   }, 10_000);
 
   it("projectEngine returns TsMorphEngine for a non-Vue project", async () => {
@@ -51,15 +51,15 @@ describe("Vue LanguagePlugin integration", () => {
   it("invalidateAll clears cached engine so next createEngine call rebuilds it", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const { VolarCompiler } = await import("./compiler.js");
+    const { VolarEngine } = await import("./engine.js");
 
     const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
     const first = await registry.projectEngine();
     invalidateAll();
     const second = await registry.projectEngine();
 
-    expect(first).toBeInstanceOf(VolarCompiler);
-    expect(second).toBeInstanceOf(VolarCompiler);
+    expect(first).toBeInstanceOf(VolarEngine);
+    expect(second).toBeInstanceOf(VolarEngine);
     expect(first).not.toBe(second);
   }, 15_000);
 });

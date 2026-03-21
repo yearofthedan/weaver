@@ -19,7 +19,7 @@ import { findTsConfigForFile } from "../../utils/ts-project.js";
 import { removeVueImportsOfDeletedFile, updateVueImportsAfterMove } from "./scan.js";
 import { buildVolarService, type CachedService } from "./service.js";
 
-export class VolarCompiler implements Engine {
+export class VolarEngine implements Engine {
   private services = new Map<string, CachedService>();
   private tsEngine: TsMorphEngine;
 

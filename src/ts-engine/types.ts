@@ -74,7 +74,8 @@ export interface Engine {
    * physically move the entire directory tree (source and non-source), and record
    * all moved files into scope.
    *
-   * Precondition: `oldPath` must exist and be a valid directory.
+   * Precondition: `oldPath` must exist and be a valid directory. Validation is
+   * the caller's responsibility.
    */
   moveDirectory(
     oldPath: string,

@@ -9,7 +9,7 @@ import type { DeleteFileActionResult } from "./types.js";
  * and invalidate the engine project cache.
  *
  * Vue SFC cleanup is NOT done here — that is the responsibility of the
- * caller (e.g. VolarCompiler.deleteFile) so that the core engine does not
+ * caller (e.g. VolarEngine.deleteFile) so that the core engine does not
  * depend on the Vue plugin layer.
  *
  * `targetFile` must be an absolute path. `scope` controls workspace boundary

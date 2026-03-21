@@ -3,7 +3,7 @@ import type { Engine, LanguagePlugin } from "../../ts-engine/types.js";
 import { isVueProject } from "../../utils/ts-project.js";
 
 export function createVueLanguagePlugin(): LanguagePlugin {
-  let cachedCompiler: import("./compiler.js").VolarCompiler | undefined;
+  let cachedCompiler: import("./engine.js").VolarEngine | undefined;
   return {
     id: "vue-volar",
     supportsProject(tsconfigPath: string): boolean {
@@ -11,8 +11,8 @@ export function createVueLanguagePlugin(): LanguagePlugin {
     },
     async createEngine(tsEngine: TsMorphEngine): Promise<Engine> {
       if (!cachedCompiler) {
-        const { VolarCompiler } = await import("./compiler.js");
-        cachedCompiler = new VolarCompiler(tsEngine);
+        const { VolarEngine } = await import("./engine.js");
+        cachedCompiler = new VolarEngine(tsEngine);
       }
       return cachedCompiler;
     },
