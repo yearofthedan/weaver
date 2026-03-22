@@ -35,6 +35,9 @@ const config = {
     // is resolved. Run `pnpm exec stryker run --mutate src/daemon/dispatcher.ts`
     // to check the new-code score in isolation.
     "!src/daemon/dispatcher.ts",
+    // Fixture and test helper files — instrumentation shifts line/col positions,
+    // breaking tests that assert on hardcoded offsets.
+    "!src/**/__testHelpers__/**",
   ],
   mutator: {
     excludedMutations: ["StringLiteral", "ArrayDeclaration"],
