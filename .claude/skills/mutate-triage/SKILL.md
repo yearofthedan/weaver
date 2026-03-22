@@ -114,3 +114,4 @@ Triage complete.
 - Never create issues for `"Killed"`, `"Timeout"`, or `"CompileError"` mutants.
 - If you run out of turns before addressing all fixable survivors, commit what you have, push, open the PR, and note the remaining unaddressed survivors in the PR body under a "Not addressed in this run" section.
 - Do not modify `docs/quality.md` directly — the issue you create is the signal that a human should update it.
+- After any mutation run, commit the updated `reports/stryker-incremental.json` cache file. This is committed to the repo so future runs (local and CI) reuse results for unchanged mutants. Use `pnpm test:mutate:file <path>` for targeted runs — results accumulate across runs.

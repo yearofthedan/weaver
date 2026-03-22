@@ -58,6 +58,7 @@ const config = {
   // container. Stryker's sandbox copy follows symlinks and fails with ENOENT
   // when the link targets don't exist in the sandbox context.
   ignorePatterns: [".pnpm-store"],
+  incremental: true,
   coverageAnalysis: "perTest",
   timeoutMS: 120_000,
   concurrency: 2,

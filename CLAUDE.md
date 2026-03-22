@@ -19,6 +19,8 @@ pnpm check        # biome check + build + test
 pnpm lint         # lint only
 pnpm format       # format in place (whitespace/style only — does NOT fix import ordering)
 pnpm exec biome check --write .  # fix everything: format + lint assists (organizeImports etc.)
+pnpm test:mutate              # full mutation run (slow — hours)
+pnpm test:mutate:file <path>  # targeted mutation on one file (minutes)
 ```
 
 ## Agent rules
@@ -68,6 +70,9 @@ Before applying a fix, confirm the failure with a reproducible command or a fail
 
 **Rule 15: Pipe long-running commands through `tee`.**
 Always use `| tee /tmp/descriptive-name.log` for commands that take more than a few seconds (test suites, Stryker, builds). This preserves the full output for re-reading without re-running. Tail the tee output for immediate feedback: `command 2>&1 | tee /tmp/name.log | tail -20`.
+
+**Rule 16: Commit the Stryker incremental cache after mutation runs.**
+`reports/stryker-incremental.json` is committed to the repo so every developer and agent starts from the last known baseline. After any `pnpm test:mutate` or `pnpm test:mutate:file` run, commit the updated cache file. Targeted runs accumulate — run a few files at a time and the cache builds up.
 
 ---
 

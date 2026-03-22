@@ -24,6 +24,7 @@
     "coverage": "vitest run --coverage",
     "clean": "rm -rf dist .stryker-tmp",
     "test:mutate": "rm -rf .stryker-tmp && stryker run",
+    "test:mutate:file": "rm -rf .stryker-tmp && stryker run --mutate",
     "eval": "tsx eval/run-eval.ts",
     "check": "biome check . && pnpm build && pnpm test",
     "prepare": "husky",
