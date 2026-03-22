@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { walkFiles } from "./file-walk.js";
+import { walkFiles, walkWorkspaceFiles } from "./file-walk.js";
 
 describe("walkFiles", () => {
   let tmpDir: string;
@@ -188,6 +188,203 @@ describe("walkFiles", () => {
       const names = result.map((f) => path.basename(f));
       expect(names).toContain("a.ts");
       expect(names).not.toContain("b.ts");
+    });
+  });
+});
+
+describe("walkWorkspaceFiles", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "walk-workspace-test-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function write(relPath: string, content = ""): string {
+    const full = path.join(tmpDir, relPath);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, content, "utf8");
+    return full;
+  }
+
+  // ── non-git fallback ──────────────────────────────────────────────────────
+
+  describe("non-git fallback (no .git dir)", () => {
+    it("returns all files when no glob is given", () => {
+      write("src/a.ts");
+      write("src/b.js");
+      write("README.md");
+
+      const result = walkWorkspaceFiles(tmpDir);
+      const names = result.map((f) => path.basename(f)).sort();
+      expect(names).toEqual(["README.md", "a.ts", "b.js"]);
+    });
+
+    it("returns empty array when directory does not exist", () => {
+      const nonExistent = path.join(tmpDir, "does-not-exist");
+      expect(walkWorkspaceFiles(nonExistent)).toEqual([]);
+    });
+
+    it("filters by glob pattern", () => {
+      write("src/a.ts");
+      write("src/b.js");
+      write("src/c.vue");
+
+      const result = walkWorkspaceFiles(tmpDir, "**/*.ts");
+      const names = result.map((f) => path.basename(f));
+      expect(names).toContain("a.ts");
+      expect(names).not.toContain("b.js");
+      expect(names).not.toContain("c.vue");
+    });
+
+    it("skips SKIP_DIRS", () => {
+      write("src/a.ts");
+      write("node_modules/dep/index.ts");
+      write("dist/bundle.ts");
+
+      const result = walkWorkspaceFiles(tmpDir);
+      const names = result.map((f) => path.basename(f));
+      expect(names).toContain("a.ts");
+      expect(names).not.toContain("index.ts");
+      expect(names).not.toContain("bundle.ts");
+    });
+
+    it("returns absolute paths", () => {
+      write("src/a.ts");
+      const result = walkWorkspaceFiles(tmpDir);
+      expect(result.length).toBeGreaterThan(0);
+      expect(path.isAbsolute(result[0])).toBe(true);
+    });
+
+    it("glob matching a basename pattern matches across all directories", () => {
+      write("src/main.ts");
+      write("lib/main.ts");
+      write("src/utils.ts");
+
+      const result = walkWorkspaceFiles(tmpDir, "main.ts");
+      const names = result.map((f) => path.basename(f));
+      expect(names.every((n) => n === "main.ts")).toBe(true);
+      expect(result).toHaveLength(2);
+    });
+  });
+
+  // ── git repo ──────────────────────────────────────────────────────────────
+
+  describe("git repo", () => {
+    const gitEnv = { ...process.env, GIT_CONFIG_NOSYSTEM: "1" };
+
+    function initGit() {
+      execSync("git init", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
+      execSync("git config user.email test@test.com", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
+      execSync("git config user.name Test", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
+    }
+
+    it("returns all tracked and untracked files without a glob", () => {
+      initGit();
+      write("src/a.ts");
+      write("src/b.js");
+      execSync("git add src/a.ts", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
+      // b.js is untracked
+
+      const result = walkWorkspaceFiles(tmpDir);
+      const names = result.map((f) => path.basename(f)).sort();
+      expect(names).toContain("a.ts");
+      expect(names).toContain("b.js");
+    });
+
+    it("excludes gitignored files", () => {
+      initGit();
+      write(".gitignore", "dist/\n");
+      write("src/a.ts");
+      write("dist/bundle.ts");
+      execSync("git add .", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
+
+      const result = walkWorkspaceFiles(tmpDir);
+      const names = result.map((f) => path.basename(f));
+      expect(names).toContain("a.ts");
+      expect(names).not.toContain("bundle.ts");
+    });
+
+    it("filters by glob in git mode", () => {
+      initGit();
+      write("src/a.ts");
+      write("src/b.js");
+      execSync("git add .", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
+
+      const result = walkWorkspaceFiles(tmpDir, "**/*.ts");
+      const names = result.map((f) => path.basename(f));
+      expect(names).toContain("a.ts");
+      expect(names).not.toContain("b.js");
+    });
+
+    it("excludes gitignored files in directories not in SKIP_DIRS", () => {
+      // "private/" is not in SKIP_DIRS so the fallback would include it,
+      // but git mode must honor .gitignore and exclude it.
+      initGit();
+      write(".gitignore", "private/\n");
+      write("src/a.ts");
+      write("private/secret.ts");
+      execSync("git add .", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
+
+      const result = walkWorkspaceFiles(tmpDir);
+      const names = result.map((f) => path.basename(f));
+      expect(names).toContain("a.ts");
+      expect(names).not.toContain("secret.ts");
+    });
+
+    it("all returned paths exist on disk (empty git output lines are filtered)", () => {
+      // git ls-files output ends with a newline, producing an empty last element.
+      // Removing filter(Boolean) would cause path.join(workspace, '') = workspace dir itself.
+      initGit();
+      write("src/a.ts");
+      execSync("git add .", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
+
+      const result = walkWorkspaceFiles(tmpDir);
+      for (const f of result) {
+        expect(fs.statSync(f).isFile()).toBe(true);
+      }
+      // Exactly 1 file, not a spurious workspace-root entry
+      expect(result).toHaveLength(1);
+    });
+
+    it("does not include directories in the file list", () => {
+      // Verifies walkRecursive only pushes files, not directories.
+      initGit();
+      write("src/a.ts");
+      execSync("git add .", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
+
+      const result = walkWorkspaceFiles(tmpDir);
+      for (const f of result) {
+        expect(fs.statSync(f).isFile()).toBe(true);
+      }
+    });
+  });
+
+  describe("non-git fallback directory check", () => {
+    let tmpDir2: string;
+
+    beforeEach(() => {
+      tmpDir2 = fs.mkdtempSync(path.join(os.tmpdir(), "walk-workspace-nofile-"));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir2, { recursive: true, force: true });
+    });
+
+    it("does not include directories in the file list from recursive walk", () => {
+      // Verifies the else-if (entry.isFile()) guard: directories must not be in output.
+      const srcDir = path.join(tmpDir2, "src");
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.writeFileSync(path.join(srcDir, "a.ts"), "");
+
+      const result = walkWorkspaceFiles(tmpDir2);
+      for (const f of result) {
+        expect(fs.statSync(f).isFile()).toBe(true);
+      }
+      expect(result.map((f) => path.basename(f))).toContain("a.ts");
     });
   });
 });

@@ -5,43 +5,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
-import { globToRegex, searchText } from "./searchText.js";
+import { searchText } from "./searchText.js";
 
 function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
 }
-
-describe("globToRegex", () => {
-  it("matches basename when pattern has no slash (prepends **/ internally)", () => {
-    // "*.ts" → "**/\*.ts" → regex ^.*/[^/]*\.ts$ — matches any dir/basename.ts
-    const re = globToRegex("*.ts");
-    expect(re.test("src/foo.ts")).toBe(true);
-    expect(re.test("deep/nested/foo.ts")).toBe(true);
-    expect(re.test("src/foo.tsx")).toBe(false);
-    expect(re.test("src/foo.js")).toBe(false);
-  });
-
-  it("matches full relative path when pattern includes a slash", () => {
-    const re = globToRegex("src/*.ts");
-    expect(re.test("src/foo.ts")).toBe(true);
-    expect(re.test("lib/foo.ts")).toBe(false);
-    expect(re.test("src/nested/foo.ts")).toBe(false);
-  });
-
-  it("** matches any number of path segments", () => {
-    const re = globToRegex("**/*.test.ts");
-    expect(re.test("tests/utils/foo.test.ts")).toBe(true);
-    expect(re.test("src/foo.test.ts")).toBe(true);
-    expect(re.test("src/foo.ts")).toBe(false);
-  });
-
-  it("? matches exactly one non-slash character", () => {
-    const re = globToRegex("src/?.ts");
-    expect(re.test("src/a.ts")).toBe(true);
-    expect(re.test("src/ab.ts")).toBe(false);
-    expect(re.test("src/.ts")).toBe(false);
-  });
-});
 
 describe("searchText operation", () => {
   const dirs: string[] = [];
