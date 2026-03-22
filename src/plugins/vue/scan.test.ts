@@ -2,9 +2,14 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { cleanup, copyFixture, FIXTURES } from "../../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { NodeFileSystem } from "../../ports/node-filesystem.js";
-import { removeVueImportsOfDeletedFile, updateVueImportsAfterMove } from "./scan.js";
+import {
+  removeVueImportsOfDeletedFile,
+  updateVueImportsAfterMove,
+  updateVueImportsAfterSymbolMove,
+} from "./scan.js";
 
 // rewriteImports and computeRelativeSpecifier are private to their modules;
 // tested here through the public updateVueImportsAfterMove API.
@@ -174,6 +179,95 @@ describe("updateVueImportsAfterMove", () => {
     expect(scope.modified).toHaveLength(0);
 
     fs.chmodSync(vueFile, 0o644);
+  });
+});
+
+describe("updateVueImportsAfterSymbolMove", () => {
+  const dirs: string[] = [];
+  afterEach(() => dirs.splice(0).forEach(cleanup));
+
+  function makeScope(dir: string): WorkspaceScope {
+    return new WorkspaceScope(dir, new NodeFileSystem());
+  }
+
+  it("is a no-op when no matching .vue files exist", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vue-noop-"));
+    fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "src/a.ts"), "export const foo = 1;\n");
+    try {
+      const scope = makeScope(tmpDir);
+      updateVueImportsAfterSymbolMove(
+        "foo",
+        path.join(tmpDir, "src/a.ts"),
+        path.join(tmpDir, "src/b.ts"),
+        tmpDir,
+        scope,
+      );
+      expect(scope.modified).toEqual([]);
+      expect(scope.skipped).toEqual([]);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("records nothing when no .vue files exist in the project", () => {
+    const tsDir = copyFixture(FIXTURES.simpleTs.name);
+    dirs.push(tsDir);
+    const scope = makeScope(tsDir);
+    updateVueImportsAfterSymbolMove(
+      "greetUser",
+      path.join(tsDir, "src/utils.ts"),
+      path.join(tsDir, "src/helpers.ts"),
+      tsDir,
+      scope,
+    );
+    expect(scope.modified).toEqual([]);
+    expect(scope.skipped).toEqual([]);
+  });
+
+  it("rewrites a matching named import in a .vue file", () => {
+    const dir = copyFixture(FIXTURES.vueProject.name);
+    dirs.push(dir);
+    const scope = makeScope(dir);
+    const sourceFile = path.join(dir, "src/composables/useCounter.ts");
+    const destFile = path.join(dir, "src/composables/useTimer.ts");
+    updateVueImportsAfterSymbolMove("useCounter", sourceFile, destFile, dir, scope);
+
+    const appVue = path.join(dir, "src/App.vue");
+    expect(scope.modified).toContain(appVue);
+    const content = fs.readFileSync(appVue, "utf8");
+    expect(content).toContain("useTimer");
+    expect(content).not.toContain("useCounter.js");
+    expect(content).not.toContain('from "./composables/useCounter"');
+  });
+
+  it("skips .vue files already in scope.modified", () => {
+    const dir = copyFixture(FIXTURES.vueProject.name);
+    dirs.push(dir);
+    const scope = makeScope(dir);
+    const appVue = path.join(dir, "src/App.vue");
+    // Pre-mark App.vue as already modified
+    scope.writeFile(appVue, fs.readFileSync(appVue, "utf8"));
+    const contentBefore = fs.readFileSync(appVue, "utf8");
+
+    const sourceFile = path.join(dir, "src/composables/useCounter.ts");
+    const destFile = path.join(dir, "src/composables/useTimer.ts");
+    updateVueImportsAfterSymbolMove("useCounter", sourceFile, destFile, dir, scope);
+
+    // App.vue was already modified; Vue SFC scanning must skip it
+    const contentAfter = fs.readFileSync(appVue, "utf8");
+    expect(contentAfter).toBe(contentBefore);
+  });
+
+  it("does not modify .vue files that do not import the symbol", () => {
+    const dir = copyFixture(FIXTURES.vueProject.name);
+    dirs.push(dir);
+    const scope = makeScope(dir);
+    const sourceFile = path.join(dir, "src/composables/useCounter.ts");
+    const destFile = path.join(dir, "src/composables/useTimer.ts");
+    updateVueImportsAfterSymbolMove("nonExistentSymbol", sourceFile, destFile, dir, scope);
+
+    expect(scope.modified).toEqual([]);
   });
 });
 

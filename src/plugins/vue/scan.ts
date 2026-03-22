@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
+import { ImportRewriter } from "../../ts-engine/import-rewriter.js";
 import { stripExt } from "../../utils/extensions.js";
 import { walkFiles } from "../../utils/file-walk.js";
 import { computeRelativeImportPath } from "../../utils/relative-path.js";
@@ -58,6 +59,51 @@ function rewriteImports(
     const rel = computeRelativeImportPath(fromFile, newPath);
     return `from ${quote}${rel}${quote}`;
   });
+}
+
+const SCRIPT_BLOCK = /(<script[^>]*>)([\s\S]*?)(<\/script>)/;
+
+/**
+ * After a symbol move, scan all .vue files under searchRoot and rewrite any
+ * named imports of symbolName that reference sourceFile so they point to
+ * destFile instead. Files already listed in scope.modified are skipped.
+ *
+ * This is the "manual scan" approach: the TypeScript language service is blind
+ * to imports inside <script> blocks in .vue SFCs, so we handle them ourselves.
+ */
+export function updateVueImportsAfterSymbolMove(
+  symbolName: string,
+  sourceFile: string,
+  destFile: string,
+  searchRoot: string,
+  scope: WorkspaceScope,
+): void {
+  const rewriter = new ImportRewriter();
+  const alreadyModified = new Set(scope.modified);
+
+  for (const vueFile of walkFiles(searchRoot, [".vue"])) {
+    if (alreadyModified.has(vueFile)) continue;
+
+    const fileContent = scope.fs.readFile(vueFile);
+    const match = SCRIPT_BLOCK.exec(fileContent);
+    if (!match) continue;
+
+    const [, openTag, scriptContent, closeTag] = match;
+    const rewritten = rewriter.rewriteScript(
+      vueFile,
+      scriptContent,
+      symbolName,
+      sourceFile,
+      destFile,
+      scope,
+    );
+    if (rewritten !== null) {
+      scope.writeFile(
+        vueFile,
+        fileContent.replace(SCRIPT_BLOCK, `${openTag}${rewritten}${closeTag}`),
+      );
+    }
+  }
 }
 
 /**

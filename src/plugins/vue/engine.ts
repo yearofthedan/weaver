@@ -3,7 +3,6 @@ import * as path from "node:path";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type { RenameResult } from "../../operations/types.js";
 import type { TsMorphEngine } from "../../ts-engine/engine.js";
-import { ImportRewriter } from "../../ts-engine/import-rewriter.js";
 import { tsMoveFile } from "../../ts-engine/move-file.js";
 import type {
   DefinitionLocation,
@@ -15,10 +14,13 @@ import type {
   SpanLocation,
 } from "../../ts-engine/types.js";
 import { EngineError } from "../../utils/errors.js";
-import { walkFiles } from "../../utils/file-walk.js";
 import { applyTextEdits, lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
-import { removeVueImportsOfDeletedFile, updateVueImportsAfterMove } from "./scan.js";
+import {
+  removeVueImportsOfDeletedFile,
+  updateVueImportsAfterMove,
+  updateVueImportsAfterSymbolMove,
+} from "./scan.js";
 import { buildVolarService, type CachedService } from "./service.js";
 
 export class VolarEngine implements Engine {
@@ -206,33 +208,7 @@ export class VolarEngine implements Engine {
     // Vue SFC scanning: walk .vue files and rewrite imports in <script> blocks.
     const tsConfig = findTsConfigForFile(sourceFile);
     const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
-    const rewriter = new ImportRewriter();
-    const SCRIPT_BLOCK = /(<script[^>]*>)([\s\S]*?)(<\/script>)/;
-
-    const alreadyModified = new Set(scope.modified);
-    for (const vueFile of walkFiles(searchRoot, [".vue"])) {
-      if (alreadyModified.has(vueFile)) continue;
-
-      const fileContent = scope.fs.readFile(vueFile);
-      const match = SCRIPT_BLOCK.exec(fileContent);
-      if (!match) continue;
-
-      const [, openTag, scriptContent, closeTag] = match;
-      const rewritten = rewriter.rewriteScript(
-        vueFile,
-        scriptContent,
-        symbolName,
-        sourceFile,
-        destFile,
-        scope,
-      );
-      if (rewritten !== null) {
-        scope.writeFile(
-          vueFile,
-          fileContent.replace(SCRIPT_BLOCK, `${openTag}${rewritten}${closeTag}`),
-        );
-      }
-    }
+    updateVueImportsAfterSymbolMove(symbolName, sourceFile, destFile, searchRoot, scope);
   }
 
   async moveFile(
