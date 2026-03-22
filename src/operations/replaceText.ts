@@ -1,9 +1,9 @@
 import * as path from "node:path";
 import safeRegex from "safe-regex2";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import { isSensitiveFile } from "../security.js";
 import { EngineError } from "../utils/errors.js";
 import { walkWorkspaceFiles } from "../utils/file-walk.js";
+import { isSensitiveFile } from "../utils/sensitive-files.js";
 import type { ReplaceTextResult, TextEdit } from "./types.js";
 
 /**

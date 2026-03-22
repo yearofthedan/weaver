@@ -1,8 +1,8 @@
 import safeRegex from "safe-regex2";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import { isSensitiveFile } from "../security.js";
 import { EngineError } from "../utils/errors.js";
 import { walkWorkspaceFiles } from "../utils/file-walk.js";
+import { isSensitiveFile } from "../utils/sensitive-files.js";
 import type { ContextLine, SearchMatch, SearchTextResult } from "./types.js";
 
 const DEFAULT_MAX_RESULTS = 500;
