@@ -125,10 +125,10 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         endCol: number;
         functionName: string;
       };
-      const tsEngine = await registry.tsEngine();
+      const engine = await registry.projectEngine();
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
       return extractFunction(
-        tsEngine,
+        engine,
         file,
         startLine,
         startCol,
