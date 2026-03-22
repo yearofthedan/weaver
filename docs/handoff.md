@@ -70,7 +70,7 @@ src/
   domain/
     workspace-scope.ts    ← WorkspaceScope boundary tracking + modification recording
     *.test.ts              ← colocated unit tests
-  security.ts     ← isWithinWorkspace() + isSensitiveFile() + validateFilePath() — boundary, sensitive file blocklist, path validation
+  security.ts     ← isWithinWorkspace() + validateWorkspace() — workspace boundary checks
   security.test.ts ← colocated unit test
   daemon/
     daemon.ts                    ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher; --verbose per-request logging
@@ -78,6 +78,7 @@ src/
     logger.ts                    ← DaemonLogger: structured JSON log file, 10 MB cap, workspace-prefix stripping
     paths.ts                     ← socketPath, lockfilePath, logfilePath, ensureCacheDir
     dispatcher.ts                ← dispatchRequest; OPERATIONS table; re-exports registry functions
+    post-write-diagnostics.ts    ← getTypeErrorsForFiles — post-write type error enrichment for dispatcher
     language-plugin-registry.ts  ← LanguagePlugin registry; makeRegistry; invalidateFile/invalidateAll; registers built-in Vue plugin
     watcher.ts                   ← startWatcher(root, extensions, callbacks); chokidar + 200ms debounce
     *.test.ts                    ← colocated unit tests
@@ -93,12 +94,12 @@ src/
     rename.ts          ← rename(engine, filePath, line, col, newName, scope: WorkspaceScope)
     findReferences.ts  ← findReferences(engine, filePath, line, col)
     getDefinition.ts   ← getDefinition(engine, filePath, line, col)
-    getTypeErrors.ts   ← getTypeErrors(tsEngine, file?, scope: WorkspaceScope) — errors-only, cap 100
+    getTypeErrors.ts   ← getTypeErrors(tsEngine, file?, scope: WorkspaceScope) — errors-only, cap 100; exports toDiagnostic + MAX_DIAGNOSTICS
     moveFile.ts        ← moveFile(engine, oldPath, newPath, scope: WorkspaceScope)
     moveDirectory.ts   ← moveDirectory(engine, oldPath, newPath, scope: WorkspaceScope)
     moveSymbol.ts      ← moveSymbol(tsEngine, projectEngine, sourceFile, symbolName, destFile, scope: WorkspaceScope)
     extractFunction.ts ← extractFunction(tsEngine, file, startLine, startCol, endLine, endCol, functionName, scope: WorkspaceScope)
-    searchText.ts      ← searchText(pattern, scope: WorkspaceScope, { glob, context, maxResults })
+    searchText.ts      ← searchText(pattern, scope: WorkspaceScope, { glob, context, maxResults }) — no utility exports
     replaceText.ts     ← replaceText(scope: WorkspaceScope, { pattern, replacement, glob } | { edits })
     deleteFile.ts      ← deleteFile(engine, file, scope: WorkspaceScope) — delegates to engine.deleteFile()
     types.ts           ← result types for all operations (RenameResult, MoveResult, FindReferencesResult, etc.)
@@ -123,11 +124,13 @@ src/
     __testHelpers__/      ← mock-compiler.ts (makeMockCompiler) shared test helper
     *.test.ts             ← colocated unit tests
   utils/
-    errors.ts     ← EngineError class + ErrorCode union
-    text-utils.ts ← applyTextEdits(), offsetToLineCol()
-    file-walk.ts  ← walkFiles() + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS
-    ts-project.ts ← findTsConfig, findTsConfigForFile, isVueProject
-    *.test.ts     ← colocated unit tests
+    errors.ts          ← EngineError class + ErrorCode union
+    text-utils.ts      ← applyTextEdits(), offsetToLineCol()
+    file-walk.ts       ← walkFiles() + walkWorkspaceFiles() + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS
+    globs.ts           ← globToRegex() — glob pattern to RegExp conversion
+    sensitive-files.ts ← isSensitiveFile() + sensitive file constant tables
+    ts-project.ts      ← findTsConfig, findTsConfigForFile, isVueProject
+    *.test.ts          ← colocated unit tests
   *.integration.test.ts ← cross-cutting integration tests (cli-workspace-default, eval, agent-conventions, skill-file)
   __testHelpers__/
     helpers.ts        ← shared test utilities (cleanup, readFile, fileExists, PROJECT_ROOT); re-exports copyFixture
@@ -151,8 +154,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P1 — Very high value bugs and tech debt
-- **Source refactoring for mutation speed** → [`docs/specs/20260315-source-refactor-mutation-speed.md`](specs/20260315-source-refactor-mutation-speed.md) — Extract misplaced utilities from operations (`searchText`, `security`, `getTypeErrors`), optimize fixture copying for `perTest` coverage analysis, exclude redundant dispatcher tests from Stryker. Test colocation prerequisite is satisfied (both colocate specs archived).
-
 - **Expand project graph to full workspace scope** → [`docs/specs/20260322-expand-project-graph-to-workspace.md`](specs/20260322-expand-project-graph-to-workspace.md) — Both engines use `tsconfig.include` as file scope; test files and other excluded files are invisible. Fix: load all workspace source files at bootstrap.
 
 - **`searchText` output noise** `[needs design]` — context array adds ~70% JSON overhead (~150-200 bytes/match), producing large noisy responses that degrade agent workflows. Fix: (a) return `line`/`col` only by default; (b) only include context lines when explicitly requested; (c) sparse representation for non-matching context lines.
@@ -174,7 +175,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 - **Remove per-operation fallback workspace walks** `[needs design]` — `moveSymbol` (engine.ts:210-211), `removeImportersOf`, and `afterFileRename` each walk the workspace independently to catch files outside tsconfig.include. Once the project graph expansion (P1 spec) ships, these fallback walks are redundant. Audit each, confirm they're dead code, and remove.
 
-- **`utils/` vs `domain/` boundary audit** `[needs design]` — `walkWorkspaceFiles`, `file-walk.ts` (with `SKIP_DIRS`), `sensitive-files.ts` and `ts-project.ts` are workspace-aware concepts currently in `utils/`. They may belong in `domain/` alongside `workspace-scope.ts`. Similarly, `security.ts` has `isWithinWorkspace` which could be of questionable placement. Audit the boundary and decide what's a generic utility vs a domain concept.
+- **`utils/` vs `domain/` boundary audit** `[needs design]` — `walkWorkspaceFiles`, `file-walk.ts` (with `SKIP_DIRS`), `sensitive-files.ts` and `ts-project.ts` are workspace-aware concepts currently in `utils/`. They may belong in `domain/` alongside `workspace-scope.ts`. Similarly, `security.ts` has `isWithinWorkspace` which could be of questionable placement. And some utils have heavy fs usage. Could this live with `ports/filesystem.ts`? Audit the boundary and decide what's a generic utility vs a domain concept.
 
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks
