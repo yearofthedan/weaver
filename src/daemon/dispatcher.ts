@@ -15,7 +15,7 @@ import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { extractFunction } from "../operations/extractFunction.js";
 import { findReferences } from "../operations/findReferences.js";
 import { getDefinition } from "../operations/getDefinition.js";
-import { getTypeErrors, getTypeErrorsForFiles } from "../operations/getTypeErrors.js";
+import { getTypeErrors } from "../operations/getTypeErrors.js";
 import { moveDirectory } from "../operations/moveDirectory.js";
 import { moveFile } from "../operations/moveFile.js";
 import { rename } from "../operations/rename.js";
@@ -25,6 +25,7 @@ import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { isWithinWorkspace, validateFilePath } from "../security.js";
 import type { EngineRegistry } from "../ts-engine/types.js";
 import { makeRegistry } from "./language-plugin-registry.js";
+import { getTypeErrorsForFiles } from "./post-write-diagnostics.js";
 
 export { createVueLanguagePlugin } from "../plugins/vue/plugin.js";
 export type { LanguagePlugin } from "../ts-engine/types.js";

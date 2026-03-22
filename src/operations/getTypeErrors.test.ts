@@ -1,27 +1,23 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
-import { getTypeErrors, getTypeErrorsForFiles } from "./getTypeErrors.js";
+import { getTypeErrors } from "./getTypeErrors.js";
 
 function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
 }
 
 describe("getTypeErrors operation", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
-
-  function setup(fixture = FIXTURES.tsErrors.name) {
-    const dir = copyFixture(fixture);
-    dirs.push(dir);
-    return dir;
-  }
-
   describe("single file mode (file param provided)", () => {
+    let dir: string;
+    beforeAll(() => {
+      dir = copyFixture(FIXTURES.tsErrors.name);
+    });
+    afterAll(() => cleanup(dir));
+
     it("returns type errors with correct shape for a file with errors", async () => {
-      const dir = setup();
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
@@ -43,7 +39,6 @@ describe("getTypeErrors operation", () => {
     });
 
     it("pins the exact error codes, positions and messages for broken.ts", async () => {
-      const dir = setup();
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
@@ -71,7 +66,6 @@ describe("getTypeErrors operation", () => {
     });
 
     it("returns only the top-level message for chained diagnostics, not the full chain", async () => {
-      const dir = setup();
       const compiler = new TsMorphEngine();
 
       // chained-error.ts: function argument with wrong property type — produces a
@@ -92,7 +86,6 @@ describe("getTypeErrors operation", () => {
     });
 
     it("returns empty diagnostics for a clean file", async () => {
-      const dir = setup();
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/clean.ts`, makeScope(dir));
@@ -103,7 +96,6 @@ describe("getTypeErrors operation", () => {
     });
 
     it("throws FILE_NOT_FOUND for a non-existent file", async () => {
-      const dir = setup();
       const compiler = new TsMorphEngine();
 
       await expect(
@@ -112,7 +104,6 @@ describe("getTypeErrors operation", () => {
     });
 
     it("throws WORKSPACE_VIOLATION for a file outside the workspace", async () => {
-      const dir = setup();
       const compiler = new TsMorphEngine();
 
       await expect(getTypeErrors(compiler, "/etc/hosts", makeScope(dir))).rejects.toMatchObject({
@@ -121,7 +112,6 @@ describe("getTypeErrors operation", () => {
     });
 
     it("errorCount equals diagnostics.length when not truncated", async () => {
-      const dir = setup();
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
@@ -132,7 +122,6 @@ describe("getTypeErrors operation", () => {
     });
 
     it("caps at 100 and sets truncated=true when a single file has more than 100 errors", async () => {
-      const dir = setup();
       const compiler = new TsMorphEngine();
 
       // many-errors.ts has 105 deliberate type errors
@@ -144,20 +133,33 @@ describe("getTypeErrors operation", () => {
     });
 
     it("is not truncated and errorCount equals 100 when a file has exactly 100 errors", async () => {
-      const dir = setup("ts-100-errors");
-      const compiler = new TsMorphEngine();
+      const ts100Dir = copyFixture(FIXTURES.ts100Errors.name);
+      try {
+        const compiler = new TsMorphEngine();
 
-      const result = await getTypeErrors(compiler, `${dir}/src/exactly-100.ts`, makeScope(dir));
+        const result = await getTypeErrors(
+          compiler,
+          `${ts100Dir}/src/exactly-100.ts`,
+          makeScope(ts100Dir),
+        );
 
-      expect(result.truncated).toBe(false);
-      expect(result.errorCount).toBe(100);
-      expect(result.diagnostics).toHaveLength(100);
+        expect(result.truncated).toBe(false);
+        expect(result.errorCount).toBe(100);
+        expect(result.diagnostics).toHaveLength(100);
+      } finally {
+        cleanup(ts100Dir);
+      }
     });
   });
 
   describe("project-wide mode (no file param)", () => {
+    let dir: string;
+    beforeAll(() => {
+      dir = copyFixture(FIXTURES.tsErrors.name);
+    });
+    afterAll(() => cleanup(dir));
+
     it("returns errors from all files in the project", async () => {
-      const dir = setup();
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
@@ -169,7 +171,6 @@ describe("getTypeErrors operation", () => {
     });
 
     it("caps at 100 and sets truncated=true; errorCount reflects the full total", async () => {
-      const dir = setup();
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
@@ -182,29 +183,36 @@ describe("getTypeErrors operation", () => {
     });
 
     it("is not truncated and errorCount equals 100 when the project has exactly 100 errors", async () => {
-      const dir = setup("ts-100-errors");
-      const compiler = new TsMorphEngine();
+      const ts100Dir = copyFixture(FIXTURES.ts100Errors.name);
+      try {
+        const compiler = new TsMorphEngine();
 
-      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
+        const result = await getTypeErrors(compiler, undefined, makeScope(ts100Dir));
 
-      expect(result.truncated).toBe(false);
-      expect(result.errorCount).toBe(100);
-      expect(result.diagnostics).toHaveLength(100);
+        expect(result.truncated).toBe(false);
+        expect(result.errorCount).toBe(100);
+        expect(result.diagnostics).toHaveLength(100);
+      } finally {
+        cleanup(ts100Dir);
+      }
     });
 
     it("returns empty result for a project with no errors", async () => {
-      const dir = setup("simple-ts");
-      const compiler = new TsMorphEngine();
+      const simpleDir = copyFixture(FIXTURES.simpleTs.name);
+      try {
+        const compiler = new TsMorphEngine();
 
-      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
+        const result = await getTypeErrors(compiler, undefined, makeScope(simpleDir));
 
-      expect(result.diagnostics).toHaveLength(0);
-      expect(result.errorCount).toBe(0);
-      expect(result.truncated).toBe(false);
+        expect(result.diagnostics).toHaveLength(0);
+        expect(result.errorCount).toBe(0);
+        expect(result.truncated).toBe(false);
+      } finally {
+        cleanup(simpleDir);
+      }
     });
 
     it("each diagnostic in project-wide results has the correct shape", async () => {
-      const dir = setup();
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
@@ -220,122 +228,5 @@ describe("getTypeErrors operation", () => {
         expect(diag.message.length).toBeGreaterThan(0);
       }
     });
-  });
-});
-
-describe("getTypeErrorsForFiles helper", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
-
-  function setup(fixture = FIXTURES.tsErrors.name) {
-    const dir = copyFixture(fixture);
-    dirs.push(dir);
-    return dir;
-  }
-
-  it("returns an empty result for an empty file list", () => {
-    setup(); // create fixture dir so afterEach cleanup runs
-    const compiler = new TsMorphEngine();
-
-    const result = getTypeErrorsForFiles(compiler, [], new NodeFileSystem());
-
-    expect(result.typeErrors).toEqual([]);
-    expect(result.typeErrorCount).toBe(0);
-    expect(result.typeErrorsTruncated).toBe(false);
-  });
-
-  it("silently skips non-.ts files and returns empty", () => {
-    const dir = setup();
-    const compiler = new TsMorphEngine();
-
-    const result = getTypeErrorsForFiles(
-      compiler,
-      [`${dir}/some-component.vue`, `${dir}/config.json`],
-      new NodeFileSystem(),
-    );
-
-    expect(result.typeErrors).toEqual([]);
-    expect(result.typeErrorCount).toBe(0);
-    expect(result.typeErrorsTruncated).toBe(false);
-  });
-
-  it("returns type errors with correct shape for a .ts file with errors", () => {
-    const dir = setup();
-    const compiler = new TsMorphEngine();
-
-    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/broken.ts`], new NodeFileSystem());
-
-    // broken.ts has exactly 3 deliberate errors
-    expect(result.typeErrorCount).toBe(3);
-    expect(result.typeErrors).toHaveLength(3);
-    expect(result.typeErrorsTruncated).toBe(false);
-    for (const d of result.typeErrors) {
-      expect(d.file).toBe(`${dir}/src/broken.ts`);
-      expect(d.line).toBeGreaterThan(0);
-      expect(d.col).toBeGreaterThan(0);
-      expect(typeof d.code).toBe("number");
-      expect(d.code).toBeGreaterThan(0);
-      expect(d.message.length).toBeGreaterThan(0);
-    }
-  });
-
-  it("returns typeErrors:[], typeErrorCount:0, typeErrorsTruncated:false for a clean .ts file", () => {
-    const dir = setup();
-    const compiler = new TsMorphEngine();
-
-    // AC2 equivalent: clean file → all three fields present but empty/zero/false
-    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/clean.ts`], new NodeFileSystem());
-
-    expect(result.typeErrors).toEqual([]);
-    expect(result.typeErrorCount).toBe(0);
-    expect(result.typeErrorsTruncated).toBe(false);
-  });
-
-  it("only checks the provided files — errors in other files are not included", () => {
-    const dir = setup(); // ts-errors fixture: broken.ts has 3 errors, clean.ts has 0
-    const compiler = new TsMorphEngine();
-
-    // AC4 equivalent: provide only clean.ts; broken.ts has errors but is not listed
-    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/clean.ts`], new NodeFileSystem());
-
-    expect(result.typeErrors).toEqual([]);
-    expect(result.typeErrorCount).toBe(0);
-    // Verify we're not accidentally including broken.ts errors
-    const files = result.typeErrors.map((d) => d.file);
-    expect(files.every((f) => f.endsWith("clean.ts"))).toBe(true);
-  });
-
-  it("aggregates errors across multiple files with correct total count", () => {
-    const dir = setup();
-    const compiler = new TsMorphEngine();
-
-    // broken.ts: 3 errors, chained-error.ts: 1 error
-    const result = getTypeErrorsForFiles(
-      compiler,
-      [`${dir}/src/broken.ts`, `${dir}/src/chained-error.ts`],
-      new NodeFileSystem(),
-    );
-
-    expect(result.typeErrorCount).toBe(4);
-    expect(result.typeErrors).toHaveLength(4);
-    expect(result.typeErrorsTruncated).toBe(false);
-    const files = new Set(result.typeErrors.map((d) => d.file));
-    expect(files.size).toBe(2);
-  });
-
-  it("caps typeErrors at 100 and sets typeErrorsTruncated:true when a file exceeds the limit", () => {
-    const dir = setup();
-    const compiler = new TsMorphEngine();
-
-    // many-errors.ts has 105 errors
-    const result = getTypeErrorsForFiles(
-      compiler,
-      [`${dir}/src/many-errors.ts`],
-      new NodeFileSystem(),
-    );
-
-    expect(result.typeErrorsTruncated).toBe(true);
-    expect(result.typeErrors).toHaveLength(100);
-    expect(result.typeErrorCount).toBe(105);
   });
 });
