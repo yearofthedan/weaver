@@ -1,6 +1,15 @@
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { RenameResult } from "../operations/types.js";
 
+export interface ExtractFunctionResult {
+  filesModified: string[];
+  /** Always empty — extractFunction is a single-file operation. */
+  filesSkipped: string[];
+  functionName: string;
+  /** Number of parameters on the extracted function. */
+  parameterCount: number;
+}
+
 export interface SpanLocation {
   fileName: string;
   textSpan: { start: number; length: number };
@@ -102,6 +111,24 @@ export interface Engine {
    * boundary enforcement and file write tracking.
    */
   deleteFile(targetFile: string, scope: WorkspaceScope): Promise<DeleteFileActionResult>;
+
+  /**
+   * Full extractFunction workflow: compute extraction edits via the TypeScript
+   * language service, substitute the caller-provided name for the compiler's
+   * generated name, write the result, and return the function metadata.
+   *
+   * `.vue` paths throw `NOT_SUPPORTED`. Precondition: `file` must exist
+   * (validated by the operation layer).
+   */
+  extractFunction(
+    file: string,
+    startLine: number,
+    startCol: number,
+    endLine: number,
+    endCol: number,
+    functionName: string,
+    scope: WorkspaceScope,
+  ): Promise<ExtractFunctionResult>;
 }
 
 export interface LanguagePlugin {

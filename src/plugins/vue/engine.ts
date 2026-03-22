@@ -9,6 +9,7 @@ import type {
   DefinitionLocation,
   DeleteFileActionResult,
   Engine,
+  ExtractFunctionResult,
   FileTextEdit,
   MoveFileActionResult,
   SpanLocation,
@@ -270,6 +271,32 @@ export class VolarEngine implements Engine {
     for (const f of vueSkipped) scope.recordSkipped(f);
 
     return { importRefsRemoved: importRefsRemoved + vueRefs };
+  }
+
+  async extractFunction(
+    file: string,
+    startLine: number,
+    startCol: number,
+    endLine: number,
+    endCol: number,
+    functionName: string,
+    scope: WorkspaceScope,
+  ): Promise<ExtractFunctionResult> {
+    if (file.endsWith(".vue")) {
+      throw new EngineError(
+        "extractFunction is not supported for .vue files; use a .ts or .tsx file",
+        "NOT_SUPPORTED",
+      );
+    }
+    return this.tsEngine.extractFunction(
+      file,
+      startLine,
+      startCol,
+      endLine,
+      endCol,
+      functionName,
+      scope,
+    );
   }
 
   async rename(

@@ -24,14 +24,7 @@ export interface MoveSymbolResult {
   destFile: string;
 }
 
-export interface ExtractFunctionResult {
-  filesModified: string[];
-  /** Always empty — extractFunction is a single-file operation. */
-  filesSkipped: string[];
-  functionName: string;
-  /** Number of parameters on the extracted function. */
-  parameterCount: number;
-}
+export type { ExtractFunctionResult } from "../ts-engine/types.js";
 
 export interface Reference {
   file: string;

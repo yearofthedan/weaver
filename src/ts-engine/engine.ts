@@ -11,6 +11,7 @@ import { JS_EXTENSIONS, TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 import { tsDeleteFile } from "./delete-file.js";
+import { tsExtractFunction } from "./extract-function.js";
 import { tsMoveDirectory } from "./move-directory.js";
 import { tsMoveFile } from "./move-file.js";
 import { tsRemoveImportersOf } from "./remove-importers.js";
@@ -19,6 +20,7 @@ import type {
   DefinitionLocation,
   DeleteFileActionResult,
   Engine,
+  ExtractFunctionResult,
   FileTextEdit,
   MoveFileActionResult,
   SpanLocation,
@@ -382,6 +384,23 @@ export class TsMorphEngine implements Engine {
     scope: WorkspaceScope,
   ): Promise<RenameResult> {
     return tsRename(this, file, line, col, newName, scope);
+  }
+
+  /**
+   * Full extractFunction workflow: delegates to `tsExtractFunction` which
+   * computes extraction edits via the TypeScript language service, substitutes
+   * the caller-provided name, writes the result, and returns function metadata.
+   */
+  async extractFunction(
+    file: string,
+    startLine: number,
+    startCol: number,
+    endLine: number,
+    endCol: number,
+    functionName: string,
+    scope: WorkspaceScope,
+  ): Promise<ExtractFunctionResult> {
+    return tsExtractFunction(this, file, startLine, startCol, endLine, endCol, functionName, scope);
   }
 }
 
