@@ -65,12 +65,10 @@ src/
     filesystem.ts         ← FileSystem interface + barrel re-exports
     node-filesystem.ts    ← NodeFileSystem wrapping node:fs (production)
     in-memory-filesystem.ts ← InMemoryFileSystem Map-backed (unit tests)
-    __helpers__/           ← filesystem-conformance.ts shared test suite
+    __testHelpers__/       ← filesystem-conformance.ts shared conformance test suite
     *.test.ts              ← colocated unit tests
   domain/
     workspace-scope.ts    ← WorkspaceScope boundary tracking + modification recording
-    import-rewriter.ts    ← ImportRewriter — rewrites named imports/re-exports of a moved symbol across files
-    rewrite-own-imports.ts ← rewriteMovedFileOwnImports — adjusts a moved file's own relative specifiers
     *.test.ts              ← colocated unit tests
   security.ts     ← isWithinWorkspace() + isSensitiveFile() + validateFilePath() — boundary, sensitive file blocklist, path validation
   security.test.ts ← colocated unit test
@@ -114,13 +112,15 @@ src/
     after-file-rename.ts  ← tsAfterFileRename(): project graph update + own-import rewrite + fallback scan; called by tsMoveFile and tsMoveDirectory
     rename.ts             ← tsRename(): resolve offset, get locations, apply edits, boundary-filter, write via scope — standalone action
     extract-function.ts   ← tsExtractFunction(): TS Extract Symbol refactor, name substitution, cache invalidation — standalone action
-    remove-importers.ts   ← tsRemoveImportersOf(): remove all import/export declarations referencing a deleted file
-    *.test.ts             ← colocated unit tests
-  compilers/
-    ts-move-symbol.ts     ← tsMoveSymbol(): compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
-    throwaway-project.ts  ← createThrowawaySourceFile(): in-memory ts-morph project for one-off AST parsing
+    move-symbol.ts        ← tsMoveSymbol(): compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
     symbol-ref.ts         ← SymbolRef — resolved exported symbol value object (lookup, unwrap, remove)
-    __helpers__/          ← mock-compiler.ts shared test helper
+    throwaway-project.ts  ← createThrowawaySourceFile(): in-memory ts-morph project for one-off AST parsing
+    import-rewriter.ts    ← ImportRewriter — rewrites named imports/re-exports of a moved symbol across files
+    rewrite-own-imports.ts ← rewriteMovedFileOwnImports — adjusts a moved file's own relative specifiers
+    rewrite-importers-of-moved-file.ts ← rewriteImportersOfMovedFile — rewrites external importers after a file move
+    apply-rename-edits.ts ← applyRenameEdits — applies TS LS rename edits; called by tsMoveFile and tsMoveDirectory
+    remove-importers.ts   ← tsRemoveImportersOf(): remove all import/export declarations referencing a deleted file
+    __testHelpers__/      ← mock-compiler.ts (makeMockCompiler) shared test helper
     *.test.ts             ← colocated unit tests
   utils/
     errors.ts     ← EngineError class + ErrorCode union
@@ -151,7 +151,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P1 — Very high value bugs and tech debt
-- **`domain/` and `compilers/` consolidation after engine migration** → [`docs/specs/20260322-consolidate-ts-engine.md`](specs/20260322-consolidate-ts-engine.md) — The engine layer migration is complete. Scope: (1) Move `domain/` files that now only import from `ts-engine/` (`import-rewriter.ts`, `rewrite-own-imports.ts`, `rewrite-importers-of-moved-file.ts`, `apply-rename-edits.ts`) into `ts-engine/`. Note: `apply-rename-edits.ts` is still actively called by `tsMoveFile` and `tsMoveDirectory` — it moves, it doesn't get deleted. `workspace-scope.ts` stays in `domain/` — genuinely cross-cutting. (2) Move `compilers/ts-move-symbol.ts`, `symbol-ref.ts`, and `throwaway-project.ts` into `ts-engine/` — every other standalone action function already lives there; `compilers/` would then only hold the test helper mock, which can fold into `ts-engine/__helpers__/`. (3) Remove stale `notifyFileWritten: vi.fn()` from the `deleteFile.test.ts` mock stub.
 - **`buildVolarService` refactoring** `[needs design]` — extract named sub-functions from the ~176-line monolith; prerequisite for `getTypeErrors` Vue support, `extractFunction` Vue support, and `moveSymbol` from `.vue` — all currently blocked on this. Now that the engine layer is clean, this is the next structural unlock for Vue operations.
 - **Source refactoring for mutation speed** → [`docs/specs/20260315-source-refactor-mutation-speed.md`](specs/20260315-source-refactor-mutation-speed.md) — Extract misplaced utilities from operations (`searchText`, `security`, `getTypeErrors`), optimize fixture copying for `perTest` coverage analysis, exclude redundant dispatcher tests from Stryker. Test colocation prerequisite is satisfied (both colocate specs archived).
 

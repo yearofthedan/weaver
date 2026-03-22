@@ -1,6 +1,6 @@
 # Architecture
 
-**Purpose:** Architecture reference for compilers, operations, and dispatch. Read before touching anything in `src/operations/`, `src/compilers/`, or `src/daemon/dispatcher.ts`.
+**Purpose:** Architecture reference for compilers, operations, and dispatch. Read before touching anything in `src/operations/`, `src/ts-engine/`, or `src/daemon/dispatcher.ts`.
 
 See also: `docs/tech/volar-v3.md` (Vue compiler internals), `docs/tech/tech-debt.md` (known issues).
 
@@ -15,12 +15,12 @@ src/ports/               ← I/O abstractions (hexagonal ports)
   filesystem.ts         ← FileSystem interface + barrel re-exports
   node-filesystem.ts    ← NodeFileSystem — wraps node:fs (production)
   in-memory-filesystem.ts ← InMemoryFileSystem — Map-backed (unit tests)
+  __testHelpers__/      ← filesystem-conformance.ts shared conformance test suite
 
 src/domain/              ← domain logic independent of I/O
   workspace-scope.ts    ← WorkspaceScope — boundary enforcement + modification tracking
-  import-rewriter.ts    ← ImportRewriter — rewrites named imports/re-exports of a moved symbol
 
-src/ts-engine/          ← TypeScript engine layer (stateful compiler + action functions)
+src/ts-engine/          ← TypeScript engine layer (stateful compiler + action functions + helpers)
   types.ts              ← Engine interface (compiler contract + action methods); EngineRegistry
   engine.ts             ← TsMorphEngine — ts-morph Project; per-tsconfig cache; always-available TS fallback
   delete-file.ts        ← tsDeleteFile() — standalone action function for file deletion
@@ -30,6 +30,14 @@ src/ts-engine/          ← TypeScript engine layer (stateful compiler + action 
   rename.ts             ← tsRename() — standalone action function for symbol rename (resolve offset, get locations, apply edits, boundary-filter, write via scope)
   extract-function.ts   ← tsExtractFunction() — standalone action function for TS Extract Symbol refactor (offset calc, LS calls, name substitution, cache invalidation)
   remove-importers.ts   ← tsRemoveImportersOf() — remove all importers of a deleted/moved file
+  move-symbol.ts        ← tsMoveSymbol() — compiler work for moveSymbol (symbol lookup, AST surgery, import rewriting)
+  symbol-ref.ts         ← SymbolRef — resolved exported symbol value object (lookup, unwrap, remove)
+  throwaway-project.ts  ← createThrowawaySourceFile() — in-memory ts-morph project for one-off AST parsing
+  import-rewriter.ts    ← ImportRewriter — rewrites named imports/re-exports of a moved symbol across files
+  rewrite-own-imports.ts ← rewriteMovedFileOwnImports — adjusts a moved file's own relative specifiers
+  rewrite-importers-of-moved-file.ts ← rewriteImportersOfMovedFile — rewrites external importers after a file move
+  apply-rename-edits.ts ← applyRenameEdits — applies TS LS rename edits grouped by file; called by tsMoveFile and tsMoveDirectory
+  __testHelpers__/      ← mock-compiler.ts (makeMockCompiler) shared test helper
 
 src/operations/          ← standalone orchestrator functions (one per operation)
   rename.ts
