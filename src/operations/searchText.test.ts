@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
@@ -12,14 +12,22 @@ function makeScope(dir: string): WorkspaceScope {
 }
 
 describe("searchText operation", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
+  let sharedDir: string;
+  beforeAll(() => {
+    sharedDir = copyFixture(FIXTURES.simpleTs.name);
+  });
+  afterAll(() => cleanup(sharedDir));
+
+  // Tests that write extra files into the shared dir clean up after themselves
+  afterEach(() => {
+    const envFile = path.join(sharedDir, ".env");
+    if (fs.existsSync(envFile)) fs.rmSync(envFile);
+    const binaryFile = path.join(sharedDir, "src/binary.bin");
+    if (fs.existsSync(binaryFile)) fs.rmSync(binaryFile);
+  });
 
   it("finds all occurrences of a pattern across workspace files", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-
-    const result = await searchText("greetUser", makeScope(dir));
+    const result = await searchText("greetUser", makeScope(sharedDir));
 
     expect(result.truncated).toBe(false);
     expect(result.matches.length).toBeGreaterThanOrEqual(2);
@@ -36,10 +44,7 @@ describe("searchText operation", () => {
   });
 
   it("returns context lines when requested", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-
-    const result = await searchText("greetUser", makeScope(dir), { context: 1 });
+    const result = await searchText("greetUser", makeScope(sharedDir), { context: 1 });
 
     expect(result.matches.length).toBeGreaterThan(0);
     const match = result.matches[0];
@@ -51,42 +56,30 @@ describe("searchText operation", () => {
   });
 
   it("filters files by glob pattern", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-
     // Only search main.ts
-    const result = await searchText("greetUser", makeScope(dir), { glob: "**/main.ts" });
+    const result = await searchText("greetUser", makeScope(sharedDir), { glob: "**/main.ts" });
 
     expect(result.matches.every((m) => m.file.endsWith("main.ts"))).toBe(true);
     expect(result.matches.some((m) => m.file.endsWith("utils.ts"))).toBe(false);
   });
 
   it("returns empty matches when pattern is not found", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-
-    const result = await searchText("zzz_does_not_exist_zzz", makeScope(dir));
+    const result = await searchText("zzz_does_not_exist_zzz", makeScope(sharedDir));
 
     expect(result.matches).toHaveLength(0);
     expect(result.truncated).toBe(false);
   });
 
   it("throws PARSE_ERROR for invalid regex", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-
-    await expect(searchText("[invalid", makeScope(dir))).rejects.toMatchObject({
+    await expect(searchText("[invalid", makeScope(sharedDir))).rejects.toMatchObject({
       code: "PARSE_ERROR",
     });
   });
 
   it("reports 1-based line and col", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-
     // utils.ts line 1: "export function greetUser(name: string): string {"
     // "greetUser" starts at col 17
-    const result = await searchText("greetUser", makeScope(dir), { glob: "**/utils.ts" });
+    const result = await searchText("greetUser", makeScope(sharedDir), { glob: "**/utils.ts" });
 
     expect(result.matches).toHaveLength(1);
     expect(result.matches[0].line).toBe(1);
@@ -94,58 +87,45 @@ describe("searchText operation", () => {
   });
 
   it("skips sensitive files", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-
     // Create a .env file in the fixture that contains the search term
-    fs.writeFileSync(path.join(dir, ".env"), "greetUser=secret\n");
+    fs.writeFileSync(path.join(sharedDir, ".env"), "greetUser=secret\n");
 
-    const result = await searchText("greetUser", makeScope(dir));
+    const result = await searchText("greetUser", makeScope(sharedDir));
 
     // .env should not appear in results
     expect(result.matches.every((m) => !m.file.endsWith(".env"))).toBe(true);
   });
 
   it("respects maxResults cap and sets truncated=true", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-
     // "e" appears many times; cap at 2
-    const result = await searchText("e", makeScope(dir), { maxResults: 2 });
+    const result = await searchText("e", makeScope(sharedDir), { maxResults: 2 });
 
     expect(result.matches.length).toBeLessThanOrEqual(2);
     expect(result.truncated).toBe(true);
   });
 
   it("throws REDOS for a catastrophic backtracking pattern", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-
-    await expect(searchText("(a+)+$", makeScope(dir))).rejects.toMatchObject({ code: "REDOS" });
+    await expect(searchText("(a+)+$", makeScope(sharedDir))).rejects.toMatchObject({
+      code: "REDOS",
+    });
   });
 
   it("skips binary files (files containing a null byte)", async () => {
     // Exercises the isBinaryContent path: charCodeAt === 0 must return true.
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-
     const binaryContent = Buffer.concat([
       Buffer.from("greetUser"),
       Buffer.from([0x00]), // null byte marks it as binary
       Buffer.from("more content"),
     ]);
-    fs.writeFileSync(path.join(dir, "src/binary.bin"), binaryContent);
+    fs.writeFileSync(path.join(sharedDir, "src/binary.bin"), binaryContent);
 
-    const result = await searchText("greetUser", makeScope(dir));
+    const result = await searchText("greetUser", makeScope(sharedDir));
     expect(result.matches.every((m) => !m.file.endsWith("binary.bin"))).toBe(true);
   });
 
   it("context lines do not extend before line 1", async () => {
     // Exercises Math.max(0, lineIdx - context): start must be >= 1 even on first line.
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-
-    const result = await searchText("greetUser", makeScope(dir), {
+    const result = await searchText("greetUser", makeScope(sharedDir), {
       glob: "**/utils.ts",
       context: 5,
     });
@@ -157,13 +137,10 @@ describe("searchText operation", () => {
 
   it("context lines do not extend past the last line of the file", async () => {
     // Exercises Math.min(lines.length - 1, lineIdx + context): end must not exceed EOF.
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-
-    const content = fs.readFileSync(path.join(dir, "src/utils.ts"), "utf8");
+    const content = fs.readFileSync(path.join(sharedDir, "src/utils.ts"), "utf8");
     const totalLines = content.split("\n").length;
 
-    const result = await searchText("greetUser", makeScope(dir), {
+    const result = await searchText("greetUser", makeScope(sharedDir), {
       glob: "**/utils.ts",
       context: 100,
     });
@@ -180,43 +157,44 @@ describe("searchText operation", () => {
   it("searches in a non-git workspace (exercises the walkRecursive fallback)", async () => {
     // Create a bare temp dir with no .git so the git path fails and falls back to walkRecursive.
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-nogit-"));
-    dirs.push(tmpDir);
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, "src/hello.ts"), "export const greeting = 'hello';\n");
 
-    fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
-    fs.writeFileSync(path.join(tmpDir, "src/hello.ts"), "export const greeting = 'hello';\n");
+      const result = await searchText("greeting", makeScope(tmpDir));
 
-    const result = await searchText("greeting", makeScope(tmpDir));
-
-    expect(result.matches.length).toBeGreaterThan(0);
-    expect(result.matches.some((m) => m.file.endsWith("hello.ts"))).toBe(true);
+      expect(result.matches.length).toBeGreaterThan(0);
+      expect(result.matches.some((m) => m.file.endsWith("hello.ts"))).toBe(true);
+    } finally {
+      cleanup(tmpDir);
+    }
   });
 
   it("records unreadable files as skipped", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-skip-"));
-    dirs.push(dir);
+    try {
+      fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(dir, "src/ok.ts"), "export const greeting = 'hello';\n");
+      const unreadable = path.join(dir, "src/secret.ts");
+      fs.writeFileSync(unreadable, "export const greeting = 'secret';\n");
+      fs.chmodSync(unreadable, 0o000);
 
-    fs.mkdirSync(path.join(dir, "src"), { recursive: true });
-    fs.writeFileSync(path.join(dir, "src/ok.ts"), "export const greeting = 'hello';\n");
-    const unreadable = path.join(dir, "src/secret.ts");
-    fs.writeFileSync(unreadable, "export const greeting = 'secret';\n");
-    fs.chmodSync(unreadable, 0o000);
+      const scope = makeScope(dir);
+      const result = await searchText("greeting", scope);
 
-    const scope = makeScope(dir);
-    const result = await searchText("greeting", scope);
+      expect(result.matches.some((m) => m.file.endsWith("ok.ts"))).toBe(true);
+      expect(result.matches.every((m) => !m.file.endsWith("secret.ts"))).toBe(true);
+      expect(scope.skipped).toContain(unreadable);
 
-    expect(result.matches.some((m) => m.file.endsWith("ok.ts"))).toBe(true);
-    expect(result.matches.every((m) => !m.file.endsWith("secret.ts"))).toBe(true);
-    expect(scope.skipped).toContain(unreadable);
-
-    fs.chmodSync(unreadable, 0o644);
+      fs.chmodSync(unreadable, 0o644);
+    } finally {
+      cleanup(dir);
+    }
   });
 
   it("each match reports the correct matchText", async () => {
     // Verifies that m[0] (the actual match) is stored, not a mutated value.
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-
-    const result = await searchText("Hello", makeScope(dir), { glob: "**/utils.ts" });
+    const result = await searchText("Hello", makeScope(sharedDir), { glob: "**/utils.ts" });
 
     expect(result.matches.length).toBeGreaterThan(0);
     for (const match of result.matches) {

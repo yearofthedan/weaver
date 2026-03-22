@@ -67,7 +67,7 @@ No public API changes. Internal import changes only:
 ## Done-when
 
 - [x] `pnpm check` passes (lint + build + test)
-- [ ] `pnpm test:mutate` score >= 75 and not lower than before — not yet run post-completion
+- [ ] `pnpm test:mutate` score >= 75 and not lower than before — blocked by pre-existing `engine.test.ts` failure in Stryker sandbox (see handoff P1)
 - [x] No file in `src/operations/` exports utilities imported by another operation
 - [x] `security.ts` imports only `node:fs`, `node:os`, `node:path` (no pattern-matching constants)
 - [x] `getTypeErrors.ts` does not export `getTypeErrorsForFiles`
