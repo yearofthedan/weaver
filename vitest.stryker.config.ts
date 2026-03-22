@@ -8,6 +8,12 @@ export default defineConfig({
     environment: "node",
     testTimeout: 60_000,
     include: ["src/**/*.test.ts"],
-    exclude: ["src/__testHelpers__/**", "src/**/*.integration.test.ts"],
+    exclude: [
+      "src/__testHelpers__/**",
+      "src/**/*.integration.test.ts",
+      // dispatcher.ts is excluded from mutation (stryker.config.mjs). Its tests
+      // redundantly cover getTypeErrors.ts mutants without killing unique ones.
+      "src/daemon/dispatcher.test.ts",
+    ],
   },
 });
