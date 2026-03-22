@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
 import {
   isCoexistingJsFile,
   rewriteImportersOfMovedFile,
   rewriteSpecifier,
 } from "./rewrite-importers-of-moved-file.js";
-import { WorkspaceScope } from "./workspace-scope.js";
 
 const ROOT = "/project";
 

@@ -1,10 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { applyRenameEdits, mergeFileEdits } from "../domain/apply-rename-edits.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { TS_EXTENSIONS } from "../utils/extensions.js";
 import { SKIP_DIRS } from "../utils/file-walk.js";
 import { tsAfterFileRename } from "./after-file-rename.js";
+import { applyRenameEdits, mergeFileEdits } from "./apply-rename-edits.js";
 import type { TsMorphEngine } from "./engine.js";
 import type { FileTextEdit } from "./types.js";
 

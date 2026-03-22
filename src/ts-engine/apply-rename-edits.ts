@@ -1,6 +1,6 @@
-import type { Engine, FileTextEdit } from "../ts-engine/types.js";
+import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { applyTextEdits } from "../utils/text-utils.js";
-import type { WorkspaceScope } from "./workspace-scope.js";
+import type { Engine, FileTextEdit } from "./types.js";
 
 /**
  * Apply an array of file text edits produced by `getEditsForFileRename`.

@@ -1,8 +1,8 @@
 import * as path from "node:path";
-import { createThrowawaySourceFile } from "../ts-engine/throwaway-project.js";
+import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { JS_TS_PAIRS } from "../utils/extensions.js";
 import { computeRelativeImportPath, toRelBase } from "../utils/relative-path.js";
-import type { WorkspaceScope } from "./workspace-scope.js";
+import { createThrowawaySourceFile } from "./throwaway-project.js";
 
 /**
  * Rewrites named imports and re-exports of a moved symbol across a set of files.

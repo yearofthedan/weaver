@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { ImportRewriter } from "../../domain/import-rewriter.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type { RenameResult } from "../../operations/types.js";
 import type { TsMorphEngine } from "../../ts-engine/engine.js";
+import { ImportRewriter } from "../../ts-engine/import-rewriter.js";
 import { tsMoveFile } from "../../ts-engine/move-file.js";
 import type {
   DefinitionLocation,

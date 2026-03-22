@@ -1,9 +1,9 @@
-import { rewriteImportersOfMovedFile } from "../domain/rewrite-importers-of-moved-file.js";
-import { rewriteMovedFileOwnImports } from "../domain/rewrite-own-imports.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
 import type { TsMorphEngine } from "./engine.js";
+import { rewriteImportersOfMovedFile } from "./rewrite-importers-of-moved-file.js";
+import { rewriteMovedFileOwnImports } from "./rewrite-own-imports.js";
 
 /**
  * Fallback scan run after the physical rename of a single source file.

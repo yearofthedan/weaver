@@ -1,6 +1,6 @@
-import { applyRenameEdits } from "../domain/apply-rename-edits.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { tsAfterFileRename } from "./after-file-rename.js";
+import { applyRenameEdits } from "./apply-rename-edits.js";
 import type { TsMorphEngine } from "./engine.js";
 import type { MoveFileActionResult } from "./types.js";
 

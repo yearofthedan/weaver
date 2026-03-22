@@ -1,7 +1,7 @@
 import * as path from "node:path";
-import { createThrowawaySourceFile } from "../ts-engine/throwaway-project.js";
+import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { JS_TS_PAIRS } from "../utils/extensions.js";
-import type { WorkspaceScope } from "./workspace-scope.js";
+import { createThrowawaySourceFile } from "./throwaway-project.js";
 
 const RESOLVABLE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"];
 

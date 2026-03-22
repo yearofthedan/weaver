@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Engine, FileTextEdit } from "../ts-engine/types.js";
+import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { applyRenameEdits, mergeFileEdits } from "./apply-rename-edits.js";
-import type { WorkspaceScope } from "./workspace-scope.js";
+import type { Engine, FileTextEdit } from "./types.js";
 
 function makeCompiler(fileContents: Record<string, string>): Pick<Engine, "readFile"> {
   return {

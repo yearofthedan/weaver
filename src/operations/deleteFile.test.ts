@@ -21,7 +21,6 @@ function makeStubEngine(overrides: Partial<Engine> = {}): Engine {
     getDefinitionAtPosition: vi.fn(),
     getEditsForFileRename: vi.fn(),
     readFile: vi.fn(),
-    notifyFileWritten: vi.fn(),
     afterFileRename: vi.fn(),
     afterSymbolMove: vi.fn(),
     moveDirectory: vi.fn(),

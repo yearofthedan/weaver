@@ -1,9 +1,9 @@
 import * as path from "node:path";
 import type { SourceFile } from "ts-morph";
-import { ImportRewriter } from "../domain/import-rewriter.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { EngineError } from "../utils/errors.js";
 import type { TsMorphEngine } from "./engine.js";
+import { ImportRewriter } from "./import-rewriter.js";
 import { SymbolRef } from "./symbol-ref.js";
 
 /**
