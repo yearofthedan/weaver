@@ -66,6 +66,9 @@ Read target files before extending them. Ideal file length is 150 lines; review 
 **Rule 14: When fixing a bug, establish a failing state first.**
 Before applying a fix, confirm the failure with a reproducible command or a failing test. After applying the fix, verify that the same command or test now passes. Reading code and reasoning about why it should work is not verification.
 
+**Rule 15: Pipe long-running commands through `tee`.**
+Always use `| tee /tmp/descriptive-name.log` for commands that take more than a few seconds (test suites, Stryker, builds). This preserves the full output for re-reading without re-running. Tail the tee output for immediate feedback: `command 2>&1 | tee /tmp/name.log | tail -20`.
+
 ---
 
 ## Commits
