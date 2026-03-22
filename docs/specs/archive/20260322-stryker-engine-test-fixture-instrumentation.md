@@ -59,7 +59,17 @@ None — this is a clean config fix.
 
 ## Done-when
 
-- [ ] `!src/**/__testHelpers__/**` in mutate exclusions
-- [ ] Stryker dry run passes for `engine.test.ts`
-- [ ] `pnpm check` passes
-- [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+- [x] `!src/**/__testHelpers__/**` in mutate exclusions
+- [x] Stryker dry run passes for `engine.test.ts`
+- [x] `pnpm check` passes
+- [x] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+## Outcome
+
+**Reflection:** Straightforward config bug. Root cause was immediately clear from reading the mutate glob and understanding Stryker's instrumentation model. The user's catch on `__testHelpers__` at any depth was important — the original exclusion `!src/__testHelpers__/**` would have missed `src/ts-engine/__testHelpers__/` and `src/ports/__testHelpers__/`. One-line fix, verified by dry run (716 tests, 51 seconds).
+
+**Process lesson:** The original spec split this into two "ACs" (add exclusion + verify dry run), which forced unnecessary overhead — the execution agent implemented AC1 without verification, then the orchestrator ran AC2 manually. Verification is not an AC; it's part of Done-when. Bugs don't have ACs — the Expected section defines the target, the Fix section describes the implementation path, and Done-when defines verification. Updated the bug template, spec skill, and slice skill accordingly.
+
+- Tests added: 0 (config-only fix; dry run is the verification)
+- Mutation score: N/A (no production code changed)
+- Files changed: `stryker.config.mjs` (1 line added), plus bug template and skill updates

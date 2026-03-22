@@ -28,13 +28,19 @@ Steps 1-2 and 4-8 run in the main conversation (interactive spec and review work
 
    **Document the decision** in the spec file: replace the open question with the chosen approach, the reasoning, and the consequences (what this enables, what it rules out, what to watch for). This becomes the implementation instruction for the execution agent. Never forward an unresolved architectural fork to the execution agent — it is optimised for mechanical code changes, not design judgment.
 
-   **Implement one AC at a time.** For each AC in the spec's Fix/Behaviour section, dispatch a **single** `execution-agent` call with:
+   **Changes: implement one AC at a time.** For each AC in the spec's Behaviour section, dispatch a **single** `execution-agent` call with:
    - The spec file path
    - Which AC to implement (quote the AC text)
    - Explicit instruction: "Write failing tests, implement, run `pnpm check`, commit, then stop."
    - Any context from previous ACs (e.g. files already created, patterns established)
 
-   **Do NOT batch multiple ACs into one agent call.** Each call produces one commit. After each call:
+   **Do NOT batch multiple ACs into one agent call.** Each call produces one commit.
+
+   **Bugs: dispatch the fix as a single unit.** Bug specs have a Fix section (not ACs) and verification in Done-when. Dispatch one `execution-agent` call with:
+   - The spec file path
+   - Explicit instruction: "Apply the fix described in the Fix section. Write a regression test for the reproduction case. Verify Done-when criteria. Run `pnpm check`, commit, then stop."
+
+   After each call:
    - Read the agent's notes file from `.claude/agent-notes/` — it logs deviations, assumptions, and surprises as they happen
    - If the agent reported assumptions or spec mismatches, decide whether to adjust the next AC's instructions, fix something, or ask the user
    - Verify the commit exists and `pnpm check` passes before dispatching the next AC

@@ -47,22 +47,16 @@ is wrong."
 > review [`docs/agent-users.md`](../../agent-users.md) — the fix should respect
 > agent-user constraints (structured errors, distinct codes, bounded output).
 
-Acceptance criteria for the fix:
-
-- [ ] [reproduction case] now produces [expected output]
-- [ ] Regression test covers the exact failing case
-
-> **Prompt:** For each criterion, ask: "what's the narrowest fix that passes this
-> line but leaves a related case broken?" If you can think of one, add that case.
->
-> **After writing all ACs, re-read the entire spec for contradictions.** An
-> implementer following the spec faithfully must not be able to produce
-> conflicting behaviour.
+Describe what to change — files, functions, config — so the Expected
+behaviour is restored. This is an implementation path, not acceptance
+criteria. Bugs don't have ACs; the **Expected** section already defines
+the target behaviour, and **Done-when** defines verification.
 
 > **Prompt:** What are the **adjacent inputs** — variations of the failing input
 > that might also be broken? A string with different length, a path with different
 > depth, a collection with 0 or 1 elements instead of N. If the bug is in a
-> boundary condition, the adjacent inputs often reveal siblings.
+> boundary condition, the adjacent inputs often reveal siblings. Mention them
+> here so the executor writes regression tests for them too.
 
 ## Security
 
@@ -91,7 +85,8 @@ the reported symptom.
 
 ## Done-when
 
-- [ ] All fix criteria verified by tests
+- [ ] Reproduction case now produces expected output
+- [ ] Regression test covers the exact failing case
 - [ ] Mutation score ≥ threshold for touched files
 - [ ] `pnpm check` passes (lint + build + test)
 - [ ] Docs updated if public surface changed (use `docs/specs/templates/feature.md` for new feature docs)

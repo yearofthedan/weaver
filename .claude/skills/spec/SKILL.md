@@ -23,10 +23,9 @@ description: Create or refine a task specification from a handoff.md entry — p
 6. **Fill in the Value / Effort section.** Articulate why this is worth doing now and what the implementation surface looks like. Use the template prompts. If value is low or effort is high relative to alternatives, flag this to the user before continuing.
 
 7. **Draft the Behaviour / Fix section with the user.** This is the core of the spec.
-   - Write concrete ACs as input → output pairs wherever possible
-   - For each AC, apply the template prompts: "what's the laziest wrong implementation?", "what's the narrowest fix that leaves siblings broken?"
-   - If you have more than 5 ACs, stop and discuss splitting with the user (see template guidance)
-   - Do NOT proceed past this step without user agreement on the ACs
+   - **Changes:** Write concrete ACs as input → output pairs wherever possible. For each AC, apply the template prompts: "what's the laziest wrong implementation?", "what's the narrowest fix that leaves siblings broken?" If you have more than 5 ACs, stop and discuss splitting with the user (see template guidance).
+   - **Bugs:** Describe the fix — what to change and where. Bugs don't have ACs; the Expected section defines the target behaviour. Verification criteria go in Done-when ("reproduction case now produces expected output", "regression test covers the failing case"). The fix is dispatched as a single unit to the execution agent.
+   - Do NOT proceed past this step without user agreement
 
 8. **Flag open implementation decisions.** As you explored the codebase, you may have found places where the implementation has a meaningful fork — e.g. AST vs regex, sync vs async, new abstraction vs inline. For each fork where the approaches have **different correctness or risk profiles**, add an `## Open decisions` section to the spec with:
    - The decision to make (framed as a question)
@@ -55,8 +54,8 @@ description: Create or refine a task specification from a handoff.md entry — p
 13. **Update handoff.md.** Change the entry from `[needs design]` to a link to the new spec file. Remove inline ACs or description that moved to the spec — the handoff entry becomes one line.
 
 14. **Confirm with the user.** Show a summary of the spec before finishing:
-    - Number of ACs
-    - Key interface decisions
+    - **Changes:** Number of ACs, key interface decisions
+    - **Bugs:** Fix approach summary, verification criteria in Done-when
     - Any open decisions flagged in step 8
     - Ask: "Ready to implement, or want to revise?"
 
