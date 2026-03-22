@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { conformanceSuite } from "./__helpers__/filesystem-conformance.js";
+import { conformanceSuite } from "./__testHelpers__/filesystem-conformance.js";
 import { NodeFileSystem } from "./node-filesystem.js";
 
 conformanceSuite("NodeFileSystem", () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { makeMockCompiler } from "../compilers/__helpers__/mock-compiler.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
+import { makeMockCompiler } from "../ts-engine/__testHelpers__/mock-compiler.js";
 import { moveFile } from "./moveFile.js";
 
 // assertFileExists (called inside moveFile) still uses the real filesystem — it is not yet

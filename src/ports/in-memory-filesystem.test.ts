@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conformanceSuite } from "./__helpers__/filesystem-conformance.js";
+import { conformanceSuite } from "./__testHelpers__/filesystem-conformance.js";
 import { InMemoryFileSystem } from "./in-memory-filesystem.js";
 
 conformanceSuite("InMemoryFileSystem", () => ({

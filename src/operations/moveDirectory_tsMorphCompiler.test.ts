@@ -8,9 +8,9 @@ import {
   fileExists,
   readFile,
 } from "../__testHelpers__/helpers.js";
-import { makeMockCompiler } from "../compilers/__helpers__/mock-compiler.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
+import { makeMockCompiler } from "../ts-engine/__testHelpers__/mock-compiler.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import { moveDirectory } from "./moveDirectory.js";
 

@@ -2,9 +2,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { makeMockCompiler } from "../compilers/__helpers__/mock-compiler.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
+import { makeMockCompiler } from "../ts-engine/__testHelpers__/mock-compiler.js";
 import { moveSymbol } from "./moveSymbol.js";
 
 /**

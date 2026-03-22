@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { Engine } from "../../ts-engine/types.js";
+import type { Engine } from "../types.js";
 // TODO: replace with a shared TestCompiler class once one exists — a class
 // with injectable stubs would be cleaner than vi.fn() mocks here.
 export function makeMockCompiler(overrides: Partial<Engine> = {}): Engine {

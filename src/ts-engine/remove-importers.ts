@@ -4,11 +4,11 @@ import type {
   ImportDeclaration,
   SourceFile as TsMorphSourceFile,
 } from "ts-morph";
-import { createThrowawaySourceFile } from "../compilers/throwaway-project.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { stripExt, TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
 import type { TsMorphEngine } from "./engine.js";
+import { createThrowawaySourceFile } from "./throwaway-project.js";
 
 /**
  * Removes all import and export declarations that reference `targetFile` from

@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
-import { TsMorphEngine } from "../ts-engine/engine.js";
-import { tsMoveSymbol } from "./ts-move-symbol.js";
+import { TsMorphEngine } from "./engine.js";
+import { tsMoveSymbol } from "./move-symbol.js";
 
 function makeScope(root: string): WorkspaceScope {
   return new WorkspaceScope(root, new NodeFileSystem());

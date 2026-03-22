@@ -16,7 +16,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
-import { TsMorphEngine } from "../ts-engine/engine.js";
+import { TsMorphEngine } from "./engine.js";
 
 function makeTmpDir(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));

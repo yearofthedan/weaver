@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { createThrowawaySourceFile } from "../compilers/throwaway-project.js";
+import { createThrowawaySourceFile } from "../ts-engine/throwaway-project.js";
 import { JS_TS_PAIRS } from "../utils/extensions.js";
 import type { WorkspaceScope } from "./workspace-scope.js";
 

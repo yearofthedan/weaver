@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { Project } from "ts-morph";
 import type ts from "typescript";
-import { tsMoveSymbol } from "../compilers/ts-move-symbol.js";
 import { ImportRewriter } from "../domain/import-rewriter.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { RenameResult } from "../operations/types.js";
@@ -14,6 +13,7 @@ import { tsDeleteFile } from "./delete-file.js";
 import { tsExtractFunction } from "./extract-function.js";
 import { tsMoveDirectory } from "./move-directory.js";
 import { tsMoveFile } from "./move-file.js";
+import { tsMoveSymbol } from "./move-symbol.js";
 import { tsRemoveImportersOf } from "./remove-importers.js";
 import { tsRename } from "./rename.js";
 import type {

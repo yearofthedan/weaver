@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { FileSystem } from "../../../src/ports/filesystem.js";
+import type { FileSystem } from "../filesystem.js";
 
 /**
  * Conformance test suite shared between all FileSystem implementations.
