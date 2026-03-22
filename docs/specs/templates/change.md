@@ -94,6 +94,11 @@ Acceptance criteria as concrete **input → output** statements.
 - [ ] Given [empty/zero case], produces [specific handling]
 - [ ] Given [boundary input], produces [specific outcome]
 
+> **Each AC must describe an independently observable behaviour.** If implementing
+> AC X necessarily produces outcome Y, then Y is not a separate AC — it's a
+> verification detail within X's tests. Mechanical consequences don't need their
+> own acceptance criteria; they need assertions.
+>
 > **If you have more than 5 ACs, split the spec.** Each spec should deliver in a
 > single slice. Too many criteria means the scope is too wide or the criteria are
 > too granular. The Edges section handles constraints that aren't ACs.
