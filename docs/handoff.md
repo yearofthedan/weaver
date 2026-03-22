@@ -153,7 +153,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ### P1 — Very high value bugs and tech debt
 - **Source refactoring for mutation speed** → [`docs/specs/20260315-source-refactor-mutation-speed.md`](specs/20260315-source-refactor-mutation-speed.md) — Extract misplaced utilities from operations (`searchText`, `security`, `getTypeErrors`), optimize fixture copying for `perTest` coverage analysis, exclude redundant dispatcher tests from Stryker. Test colocation prerequisite is satisfied (both colocate specs archived).
 
-- **`rename` misses files outside `tsconfig.include`** `[needs design]` — The language service only tracks files in the project graph. Test files and other excluded files are silently skipped — `mcp__light-bridge__rename` updated 5 of ~76 locations in one real case, with no indication the rest were missed. Fix: add a fallback text scan (similar to `moveSymbol`'s fallback walk) for files outside the project graph.
+- **Expand project graph to full workspace scope** → [`docs/specs/20260322-expand-project-graph-to-workspace.md`](specs/20260322-expand-project-graph-to-workspace.md) — Both engines use `tsconfig.include` as file scope; test files and other excluded files are invisible. Fix: load all workspace source files at bootstrap.
 
 - **`searchText` output noise** `[needs design]` — context array adds ~70% JSON overhead (~150-200 bytes/match), producing large noisy responses that degrade agent workflows. Fix: (a) return `line`/`col` only by default; (b) only include context lines when explicitly requested; (c) sparse representation for non-matching context lines.
 
@@ -171,6 +171,10 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P3 — Medium-value features / bugs / tech debt
+
+- **Remove per-operation fallback workspace walks** `[needs design]` — `moveSymbol` (engine.ts:210-211), `removeImportersOf`, and `afterFileRename` each walk the workspace independently to catch files outside tsconfig.include. Once the project graph expansion (P1 spec) ships, these fallback walks are redundant. Audit each, confirm they're dead code, and remove.
+
+- **`utils/` vs `domain/` boundary audit** `[needs design]` — `walkWorkspaceFiles`, `file-walk.ts` (with `SKIP_DIRS`), `sensitive-files.ts` and `ts-project.ts` are workspace-aware concepts currently in `utils/`. They may belong in `domain/` alongside `workspace-scope.ts`. Similarly, `security.ts` has `isWithinWorkspace` which could be of questionable placement. Audit the boundary and decide what's a generic utility vs a domain concept.
 
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks
