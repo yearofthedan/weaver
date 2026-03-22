@@ -51,6 +51,10 @@ const config = {
     low: 60,
     break: 75,
   },
+  // pnpm's content-addressed store lives inside the project root in this dev
+  // container. Stryker's sandbox copy follows symlinks and fails with ENOENT
+  // when the link targets don't exist in the sandbox context.
+  ignorePatterns: [".pnpm-store"],
   coverageAnalysis: "perTest",
   timeoutMS: 120_000,
   concurrency: 2,

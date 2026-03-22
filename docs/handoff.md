@@ -113,6 +113,7 @@ src/
     move-directory.ts     ← tsMoveDirectory(): batch edits + OS rename + non-source files — standalone action
     after-file-rename.ts  ← tsAfterFileRename(): project graph update + own-import rewrite + fallback scan; called by tsMoveFile and tsMoveDirectory
     rename.ts             ← tsRename(): resolve offset, get locations, apply edits, boundary-filter, write via scope — standalone action
+    extract-function.ts   ← tsExtractFunction(): TS Extract Symbol refactor, name substitution, cache invalidation — standalone action
     remove-importers.ts   ← tsRemoveImportersOf(): remove all import/export declarations referencing a deleted file
     *.test.ts             ← colocated unit tests
   compilers/
@@ -150,7 +151,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P1 — Very high value bugs and tech debt
-- **Engine layer: `extractFunction` action** → [`docs/specs/20260321-engine-layer-extract-function.md`](specs/20260321-engine-layer-extract-function.md)
 - **`domain/` cleanup after engine migration** `[needs design]` — The engine layer migration is complete. Most of `domain/` (`import-rewriter.ts`, `rewrite-own-imports.ts`, `rewrite-importers-of-moved-file.ts`, `apply-rename-edits.ts`) now only imports from `ts-engine/`. Move them into `ts-engine/` at that point. `workspace-scope.ts` stays in `domain/` — it's genuinely cross-cutting.
 - **Source refactoring for mutation speed** → [`docs/specs/20260315-source-refactor-mutation-speed.md`](specs/20260315-source-refactor-mutation-speed.md) — Extract misplaced utilities from operations (`searchText`, `security`, `getTypeErrors`), optimize fixture copying for `perTest` coverage analysis, exclude redundant dispatcher tests from Stryker. Depends on test colocation landing first.
 

@@ -28,6 +28,7 @@ src/ts-engine/          ← TypeScript engine layer (stateful compiler + action 
   move-directory.ts     ← tsMoveDirectory() — standalone action function for directory move (batch edits + OS rename + non-source files)
   after-file-rename.ts  ← tsAfterFileRename() — project graph update + own-import rewrite + fallback importer scan; called per file by tsMoveFile and tsMoveDirectory
   rename.ts             ← tsRename() — standalone action function for symbol rename (resolve offset, get locations, apply edits, boundary-filter, write via scope)
+  extract-function.ts   ← tsExtractFunction() — standalone action function for TS Extract Symbol refactor (offset calc, LS calls, name substitution, cache invalidation)
   remove-importers.ts   ← tsRemoveImportersOf() — remove all importers of a deleted/moved file
 
 src/operations/          ← standalone orchestrator functions (one per operation)
@@ -266,7 +267,7 @@ Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and on
 | `moveSymbol` | `projectCompiler` | Delegates to `engine.moveSymbol()` (action). `TsMorphEngine` runs `tsMoveSymbol()` for AST surgery, then walks files outside `tsconfig.include` for fallback import rewriting. `VolarEngine` delegates TS work to `TsMorphEngine.moveSymbol()` then scans `.vue` SFCs for import updates. |
 | `moveDirectory` | `projectCompiler` | Delegates to `engine.moveDirectory()` (action). `TsMorphEngine` runs `tsMoveDirectory()`: batch-computes import edits, filters intra-directory edits, applies external edits, atomically renames the directory on disk, updates the project graph per source file, and records all moved files (source + non-source) in scope. `VolarEngine` delegates to `TsMorphEngine.moveDirectory()`. |
 | `deleteFile` | `tsCompiler` | Removes import/export declarations referencing the deleted file across in-project, out-of-project, and Vue SFC files; physically deletes the file |
-| `extractFunction` | `tsCompiler` | Delegates to the TS language service's "Extract Symbol" refactor; replaces auto-generated name with caller-provided name |
+| `extractFunction` | `projectCompiler` | Delegates to `engine.extractFunction()` (action). `TsMorphEngine` runs `tsExtractFunction()`: computes offsets, calls TS LS "Extract Symbol" refactor, substitutes caller-provided name, writes via `scope`, returns `parameterCount`. `VolarEngine` throws `NOT_SUPPORTED` for `.vue` files and delegates to `tsEngine` for TS/TSX. |
 
 ### Read-only
 
