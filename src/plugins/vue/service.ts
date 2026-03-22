@@ -40,6 +40,92 @@ export interface CachedService {
   vueVirtualToReal: Map<string, string>;
 }
 
+function parseTsConfig(
+  tsConfigPath: string | null,
+  ts: typeof import("typescript"),
+): { compilerOptions: import("typescript").CompilerOptions; fileNames: string[] } {
+  if (!tsConfigPath) {
+    return { compilerOptions: {}, fileNames: [] };
+  }
+  const parsed = ts.readConfigFile(tsConfigPath, ts.sys.readFile);
+  if (parsed.error) {
+    return { compilerOptions: {}, fileNames: [] };
+  }
+  const result = ts.parseJsonConfigFileContent(parsed.config, ts.sys, path.dirname(tsConfigPath));
+  return { compilerOptions: result.options, fileNames: result.fileNames };
+}
+
+function buildLanguageServiceHost(params: {
+  compilerOptions: import("typescript").CompilerOptions;
+  scriptFileNames: string[];
+  vueVirtualToReal: Map<string, string>;
+  languageRef: { current: Language<string> | undefined };
+  tsConfigPath: string | null;
+  readFile: (filePath: string) => string | undefined;
+  ts: typeof import("typescript");
+}): import("typescript").LanguageServiceHost {
+  const {
+    compilerOptions,
+    scriptFileNames,
+    vueVirtualToReal,
+    languageRef,
+    tsConfigPath,
+    readFile,
+    ts,
+  } = params;
+  const versions = new Map<string, number>();
+  const getVersion = (filePath: string) => String(versions.get(filePath) ?? 0);
+
+  return {
+    getCompilationSettings: () => compilerOptions,
+    getScriptFileNames: () => scriptFileNames,
+    getScriptVersion: (filePath) => {
+      const realPath = vueVirtualToReal.get(filePath) ?? filePath;
+      return getVersion(realPath);
+    },
+    getScriptSnapshot: (filePath) => {
+      const realVuePath = vueVirtualToReal.get(filePath);
+      if (realVuePath !== undefined) {
+        const sourceScript = languageRef.current?.scripts.get(realVuePath);
+        if (sourceScript?.generated) {
+          const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(
+            sourceScript.generated.root,
+          );
+          if (serviceScript) return serviceScript.code.snapshot;
+        }
+        return undefined;
+      }
+      const content = readFile(filePath);
+      return content !== undefined ? ts.ScriptSnapshot.fromString(content) : undefined;
+    },
+    getCurrentDirectory: () => (tsConfigPath ? path.dirname(tsConfigPath) : process.cwd()),
+    getDefaultLibFileName: ts.getDefaultLibFilePath,
+    fileExists: (filePath) => {
+      if (vueVirtualToReal.has(filePath)) return true;
+      return ts.sys.fileExists(filePath);
+    },
+    readFile: (filePath) => {
+      const realVuePath = vueVirtualToReal.get(filePath);
+      if (realVuePath !== undefined) {
+        const sourceScript = languageRef.current?.scripts.get(realVuePath);
+        if (sourceScript?.generated) {
+          const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(
+            sourceScript.generated.root,
+          );
+          if (serviceScript) {
+            return serviceScript.code.snapshot.getText(0, serviceScript.code.snapshot.getLength());
+          }
+        }
+        return undefined;
+      }
+      return ts.sys.readFile(filePath);
+    },
+    readDirectory: ts.sys.readDirectory,
+    directoryExists: ts.sys.directoryExists,
+    getDirectories: ts.sys.getDirectories,
+  };
+}
+
 export async function buildVolarService(
   tsConfigPath: string | null,
   rootFilePath: string,
@@ -64,19 +150,7 @@ export async function buildVolarService(
     }
   };
 
-  let compilerOptions: import("typescript").CompilerOptions = {};
-
-  if (tsConfigPath) {
-    const parsed = ts.readConfigFile(tsConfigPath, ts.sys.readFile);
-    if (!parsed.error) {
-      const result = ts.parseJsonConfigFileContent(
-        parsed.config,
-        ts.sys,
-        path.dirname(tsConfigPath),
-      );
-      compilerOptions = result.options;
-    }
-  }
+  const { compilerOptions, fileNames: tsConfigFileNames } = parseTsConfig(tsConfigPath, ts);
 
   const vueCompilerOptions = getDefaultCompilerOptions();
 
@@ -88,17 +162,8 @@ export async function buildVolarService(
   );
 
   // Collect project files from tsconfig (or fall back to the root file alone).
-  const projectFiles: string[] = [];
+  const projectFiles: string[] = tsConfigPath ? [...tsConfigFileNames] : [rootFilePath];
   const projectRoot = tsConfigPath ? path.dirname(tsConfigPath) : path.dirname(rootFilePath);
-  if (tsConfigPath) {
-    const parsed = ts.readConfigFile(tsConfigPath, ts.sys.readFile);
-    if (!parsed.error) {
-      const result = ts.parseJsonConfigFileContent(parsed.config, ts.sys, projectRoot);
-      projectFiles.push(...result.fileNames);
-    }
-  } else {
-    projectFiles.push(rootFilePath);
-  }
 
   // Always include .vue files from the project directory, even when the
   // tsconfig does not list them (e.g. bundler-only Vue setups).
@@ -113,7 +178,7 @@ export async function buildVolarService(
 
   // languageRef is assigned synchronously after createLanguage returns.
   // The sync callback is only invoked lazily — never during construction.
-  let languageRef: Language<string>;
+  const languageRef: { current: Language<string> | undefined } = { current: undefined };
 
   const language = createLanguage<string>(
     [vuePlugin],
@@ -123,12 +188,16 @@ export async function buildVolarService(
         const content = readFile(id);
         if (content !== undefined) {
           const snapshot = ts.ScriptSnapshot.fromString(content);
-          languageRef.scripts.set(id, snapshot, id.endsWith(".vue") ? "vue" : "typescript");
+          languageRef.current?.scripts.set(
+            id,
+            snapshot,
+            id.endsWith(".vue") ? "vue" : "typescript",
+          );
         }
       }
     },
   );
-  languageRef = language;
+  languageRef.current = language;
 
   // Pre-load all project files so Volar generates their virtual TypeScript
   // before any language service operation runs.
@@ -151,57 +220,15 @@ export async function buildVolarService(
   // Replace .vue entries with their virtual .vue.ts equivalents.
   const scriptFileNames = projectFiles.map((f) => (f.endsWith(".vue") ? `${f}.ts` : f));
 
-  const versions = new Map<string, number>();
-  const getVersion = (filePath: string) => String(versions.get(filePath) ?? 0);
-
-  const host: import("typescript").LanguageServiceHost = {
-    getCompilationSettings: () => compilerOptions,
-    getScriptFileNames: () => scriptFileNames,
-    getScriptVersion: (filePath) => {
-      const realPath = vueVirtualToReal.get(filePath) ?? filePath;
-      return getVersion(realPath);
-    },
-    getScriptSnapshot: (filePath) => {
-      const realVuePath = vueVirtualToReal.get(filePath);
-      if (realVuePath !== undefined) {
-        const sourceScript = languageRef?.scripts.get(realVuePath);
-        if (sourceScript?.generated) {
-          const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(
-            sourceScript.generated.root,
-          );
-          if (serviceScript) return serviceScript.code.snapshot;
-        }
-        return undefined;
-      }
-      const content = readFile(filePath);
-      return content !== undefined ? ts.ScriptSnapshot.fromString(content) : undefined;
-    },
-    getCurrentDirectory: () => (tsConfigPath ? path.dirname(tsConfigPath) : process.cwd()),
-    getDefaultLibFileName: ts.getDefaultLibFilePath,
-    fileExists: (filePath) => {
-      if (vueVirtualToReal.has(filePath)) return true;
-      return ts.sys.fileExists(filePath);
-    },
-    readFile: (filePath) => {
-      const realVuePath = vueVirtualToReal.get(filePath);
-      if (realVuePath !== undefined) {
-        const sourceScript = languageRef?.scripts.get(realVuePath);
-        if (sourceScript?.generated) {
-          const serviceScript = sourceScript.generated.languagePlugin.typescript?.getServiceScript(
-            sourceScript.generated.root,
-          );
-          if (serviceScript) {
-            return serviceScript.code.snapshot.getText(0, serviceScript.code.snapshot.getLength());
-          }
-        }
-        return undefined;
-      }
-      return ts.sys.readFile(filePath);
-    },
-    readDirectory: ts.sys.readDirectory,
-    directoryExists: ts.sys.directoryExists,
-    getDirectories: ts.sys.getDirectories,
-  };
+  const host = buildLanguageServiceHost({
+    compilerOptions,
+    scriptFileNames,
+    vueVirtualToReal,
+    languageRef,
+    tsConfigPath,
+    readFile,
+    ts,
+  });
 
   decorateLanguageServiceHost(ts, language, host);
 
