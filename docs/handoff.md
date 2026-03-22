@@ -154,7 +154,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P1 — Very high value bugs and tech debt
-- **`engine.test.ts` fails in Stryker sandbox** `[needs design]` — `TsMorphEngine getDefinitionAtPosition returns definition location` fails consistently in Stryker's dry run with "No symbol at line 3, col 13". Passes in normal `pnpm test`. Blocks all mutation testing. Pre-existing (present before the source-refactor-mutation-speed changes). Likely caused by Stryker's instrumentation shifting offsets in the fixture file, or a test isolation issue in the sandbox environment.
+- **`engine.test.ts` fails in Stryker sandbox** → [`docs/specs/20260322-stryker-engine-test-fixture-instrumentation.md`](specs/20260322-stryker-engine-test-fixture-instrumentation.md)
 - **Expand project graph to full workspace scope** → [`docs/specs/20260322-expand-project-graph-to-workspace.md`](specs/20260322-expand-project-graph-to-workspace.md) — Both engines use `tsconfig.include` as file scope; test files and other excluded files are invisible. Fix: load all workspace source files at bootstrap.
 
 - **`searchText` output noise** `[needs design]` — context array adds ~70% JSON overhead (~150-200 bytes/match), producing large noisy responses that degrade agent workflows. Fix: (a) return `line`/`col` only by default; (b) only include context lines when explicitly requested; (c) sparse representation for non-matching context lines.
