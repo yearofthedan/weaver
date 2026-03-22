@@ -35,6 +35,9 @@ Use an explicit env var (e.g. `STRYKER_RELATED=false`) and two named scripts (`t
 **Stryker JSON reporter must be explicitly enabled.**
 The config must list `json` in `reporters` and configure `jsonReporter.fileName`. It is not on by default. Required for the `/mutate-triage` skill to parse structured output.
 
+**`.pnpm-store` must be in `ignorePatterns`.**
+The dev container keeps pnpm's content-addressed store at `/workspaces/light-bridge/.pnpm-store`. Stryker's sandbox copy resolves symlinks and fails with `ENOENT` when link targets don't exist in the sandbox (e.g. stale worktree symlinks in `.pnpm-store/v10/projects/`). Adding `".pnpm-store"` to `ignorePatterns` excludes it from the copy.
+
 **Kill stryker processes before cleaning `.stryker-tmp`.**
 Stryker's sandbox directories (`.stryker-tmp/sandbox-*`) can't be removed by `rm -rf` while worker processes still have them open. Run `pkill -f stryker` and wait a moment before cleaning. Stale sandboxes also cause Biome to error with "Found a nested root configuration" — run `rm -rf .stryker-tmp` before `pnpm check`.
 

@@ -63,6 +63,9 @@ Ranges let a compromised patch release auto-install on the next `pnpm install`, 
 **Rule 13: Follow `docs/code-standards.md` for file size and reuse.**
 Read target files before extending them. Ideal file length is 150 lines; review at 300; hard flag at 500. Search for existing utilities before writing new ones. See `docs/code-standards.md` for the full set of refactoring triggers.
 
+**Rule 14: When fixing a bug, establish a failing state first.**
+Before applying a fix, confirm the failure with a reproducible command or a failing test. After applying the fix, verify that the same command or test now passes. Reading code and reasoning about why it should work is not verification.
+
 ---
 
 ## Commits
