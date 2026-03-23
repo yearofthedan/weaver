@@ -18,7 +18,24 @@ Enforces workspace boundaries, skips sensitive files automatically, and provides
 }
 ```
 
-Response:
+Response (without context):
+
+```json
+{
+  "ok": true,
+  "matches": [
+    {
+      "file": "/path/to/project/src/utils.ts",
+      "line": 12,
+      "col": 14,
+      "matchText": "calculateTotal"
+    }
+  ],
+  "truncated": false
+}
+```
+
+Response (with `"context": 2`):
 
 ```json
 {
@@ -29,17 +46,14 @@ Response:
       "line": 12,
       "col": 14,
       "matchText": "calculateTotal",
-      "context": [
-        { "line": 10, "text": "// Compute the order total", "isMatch": false },
-        { "line": 12, "text": "  return calculateTotal(items);", "isMatch": true }
-      ]
+      "surroundingText": "// Compute the order total\n\n  return calculateTotal(items);\n  const tax = computeTax(total);\n  return { total, tax };"
     }
   ],
   "truncated": false
 }
 ```
 
-`line` and `col` are 1-based. When `truncated` is true, narrow the search with a more specific pattern or glob. Default cap is 500 matches; pass `maxResults` to adjust.
+`line` and `col` are 1-based. When `context` is omitted or 0, matches contain only `file`, `line`, `col`, and `matchText` — no `surroundingText` field. When `context` is provided, `surroundingText` is a string of the surrounding lines joined by `\n`. When `truncated` is true, narrow the search with a more specific pattern or glob. Default cap is 500 matches; pass `maxResults` to adjust.
 
 ## How it works
 
@@ -54,7 +68,7 @@ tool call
   │   │     fallback: recursive readdir skipping SKIP_DIRS (non-git workspaces)
   │   │     apply glob filter; skip binary files (null-byte check on first 512 bytes)
   │   │     skip sensitive files via isSensitiveFile()
-  │   └─ per-file: split into lines, apply regex per line, collect matches + context lines
+  │   └─ per-file: split into lines, apply regex per line, collect matches + optional surroundingText
   ▼ result { ok, matches[], truncated }
 ```
 

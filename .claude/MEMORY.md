@@ -98,6 +98,9 @@ For straightforward docs updates (fixing text, adding diagrams, updating tables)
 **Stryker CLI: use `--mutate`, not `--include`.**
 To scope a mutation run to specific files: `pnpm exec stryker run --mutate 'src/foo.ts'`. For multiple files use a comma-separated glob or multiple `--mutate` flags. There is no `--include` flag — that causes `too many arguments for 'run'`.
 
+**Stryker incremental cache: use `--force` after adding tests to kill survivors.**
+The incremental cache (`reports/stryker-incremental.json`) stores per-mutant results. When new tests are added, re-running without `--force` reuses cached results — new tests never get evaluated against existing mutants. Use `pnpm test:mutate:file src/foo.ts --force` to force re-evaluation. For even faster feedback, scope to specific lines: `--mutate 'src/foo.ts:68-70'`.
+
 **Execution agent prompts: no step comments, test at the right layer.**
 Implementation instructions to the execution agent describe *what to do*, not *what comments to leave*. Never write "Step 1:", "Step 2:" in prompts — the agent transcribes them as code comments. Use a JSDoc on the method instead. For tests, say "test at the lowest layer that can verify the behaviour" (per `docs/code-standards.md`) — do not write the same assertion at both compiler and operation layers.
 
