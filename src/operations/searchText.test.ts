@@ -40,6 +40,10 @@ describe("searchText operation", () => {
       expect(match.line).toBeGreaterThan(0);
       expect(match.col).toBeGreaterThan(0);
       expect(match.matchText).toBe("greetUser");
+      // Default response must have exactly 4 keys — no context or surroundingText
+      expect(Object.keys(match)).toEqual(["file", "line", "col", "matchText"]);
+      expect("context" in match).toBe(false);
+      expect("surroundingText" in match).toBe(false);
     }
   });
 
@@ -48,11 +52,20 @@ describe("searchText operation", () => {
 
     expect(result.matches.length).toBeGreaterThan(0);
     const match = result.matches[0];
-    // context lines should surround the match
-    expect(match.context.length).toBeGreaterThan(0);
-    const matchLines = match.context.filter((c) => c.isMatch);
-    expect(matchLines.length).toBe(1);
-    expect(matchLines[0].line).toBe(match.line);
+    // surroundingText should be a non-empty string containing the match line
+    expect(typeof match.surroundingText).toBe("string");
+    expect(match.surroundingText).toBeTruthy();
+    // surroundingText uses \n as line separator (not terminator), so splitting it
+    // yields the individual lines (including any blank lines in context)
+    const surroundingLines = (match.surroundingText as string).split("\n");
+    expect(surroundingLines.length).toBeGreaterThan(0);
+    // No double newline at the end — lines are joined without a trailing \n\n
+    expect(match.surroundingText).not.toMatch(/\n\n$/);
+    // context: 1 gives up to 3 lines (before + match + after); at least 1
+    expect(surroundingLines.length).toBeGreaterThanOrEqual(1);
+    expect(surroundingLines.length).toBeLessThanOrEqual(3);
+    // No context array present
+    expect("context" in match).toBe(false);
   });
 
   it("filters files by glob pattern", async () => {
@@ -131,8 +144,15 @@ describe("searchText operation", () => {
     });
 
     expect(result.matches).toHaveLength(1);
-    const lineNums = result.matches[0].context.map((c) => c.line);
-    expect(Math.min(...lineNums)).toBeGreaterThanOrEqual(1);
+    const surroundingText = result.matches[0].surroundingText as string;
+    expect(typeof surroundingText).toBe("string");
+    // surroundingText is bounded — cannot have more lines than exist in the file
+    const surroundingLines = surroundingText.split("\n");
+    expect(surroundingLines.length).toBeGreaterThanOrEqual(1);
+    // context: 5 at line 1 → clamped, so we must not have more than min(2*5+1, fileLines)
+    const content = fs.readFileSync(path.join(sharedDir, "src/utils.ts"), "utf8");
+    const totalLines = content.split("\n").length;
+    expect(surroundingLines.length).toBeLessThanOrEqual(Math.min(11, totalLines));
   });
 
   it("context lines do not extend past the last line of the file", async () => {
@@ -147,10 +167,12 @@ describe("searchText operation", () => {
 
     expect(result.matches.length).toBeGreaterThan(0);
     for (const match of result.matches) {
-      for (const ctx of match.context) {
-        expect(ctx.line).toBeGreaterThanOrEqual(1);
-        expect(ctx.line).toBeLessThanOrEqual(totalLines);
-      }
+      const surroundingText = match.surroundingText as string;
+      expect(typeof surroundingText).toBe("string");
+      const surroundingLines = surroundingText.split("\n");
+      // clamped to file size — cannot exceed totalLines
+      expect(surroundingLines.length).toBeLessThanOrEqual(totalLines);
+      expect(surroundingLines.length).toBeGreaterThanOrEqual(1);
     }
   });
 
@@ -199,6 +221,91 @@ describe("searchText operation", () => {
     expect(result.matches.length).toBeGreaterThan(0);
     for (const match of result.matches) {
       expect(match.matchText).toBe("Hello");
+    }
+  });
+
+  it("file trailing newline does not produce an extra empty line in results", async () => {
+    // Verifies that rawLines stripping removes the trailing empty string from
+    // content.split('\n') for files ending with \n, so no phantom match on an
+    // empty final line.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-trailing-"));
+    try {
+      fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+      // File has exactly 2 real lines plus a trailing newline
+      fs.writeFileSync(path.join(dir, "src/two.ts"), "const a = 1;\nconst b = 2;\n");
+
+      // Match something only on line 2; with context 0 we should get exactly 1 match
+      const result = await searchText("const b", makeScope(dir));
+
+      expect(result.matches).toHaveLength(1);
+      expect(result.matches[0].line).toBe(2);
+      expect("surroundingText" in result.matches[0]).toBe(false);
+    } finally {
+      cleanup(dir);
+    }
+  });
+
+  it("surroundingText contains exactly the right window of lines", async () => {
+    // Verifies that lines.slice(start, end + 1) correctly limits the window:
+    // a 5-line file with a match on line 3 and context 1 should give exactly 3 lines.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-window-"));
+    try {
+      fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(dir, "src/five.ts"), "line1\nline2\nMATCH\nline4\nline5\n");
+
+      const result = await searchText("MATCH", makeScope(dir), { context: 1 });
+
+      expect(result.matches).toHaveLength(1);
+      const surrounding = result.matches[0].surroundingText as string;
+      const surroundingLines = surrounding.split("\n");
+      // context 1 around line 3 in a 5-line file → lines 2, 3, 4 = exactly 3
+      expect(surroundingLines).toHaveLength(3);
+      expect(surroundingLines[0]).toBe("line2");
+      expect(surroundingLines[1]).toBe("MATCH");
+      expect(surroundingLines[2]).toBe("line4");
+    } finally {
+      cleanup(dir);
+    }
+  });
+
+  it("surroundingText is clamped to exact file boundaries (not beyond)", async () => {
+    // Exercises Math.min(lines.length - 1, lineIdx + context): with match on last line
+    // and context 5, the window must be exactly the available lines, not beyond.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-clamp-"));
+    try {
+      fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+      // 3-line file; match on line 3 (last line) with context 5
+      fs.writeFileSync(path.join(dir, "src/three.ts"), "line1\nline2\nMATCH\n");
+
+      const result = await searchText("MATCH", makeScope(dir), { context: 5 });
+
+      expect(result.matches).toHaveLength(1);
+      const surrounding = result.matches[0].surroundingText as string;
+      const surroundingLines = surrounding.split("\n");
+      // Only 3 lines exist; clamped to [0..2] so all 3 lines appear
+      expect(surroundingLines).toHaveLength(3);
+      expect(surroundingLines[2]).toBe("MATCH");
+    } finally {
+      cleanup(dir);
+    }
+  });
+
+  it("zero-length match patterns do not cause infinite loops", async () => {
+    // Exercises the re.lastIndex++ guard: patterns that match empty strings (like
+    // /(?:)/) must advance lastIndex to prevent infinite loops.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-zeroLen-"));
+    try {
+      fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(dir, "src/short.ts"), "abc\n");
+
+      // The /(?:)/ pattern matches the empty string at every position
+      const result = await searchText("(?:)", makeScope(dir), { maxResults: 10 });
+
+      // Should return up to maxResults matches without hanging, all with empty matchText
+      expect(result.matches.length).toBeGreaterThan(0);
+      expect(result.matches.every((m) => m.matchText === "")).toBe(true);
+    } finally {
+      cleanup(dir);
     }
   });
 });

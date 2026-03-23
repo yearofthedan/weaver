@@ -50,18 +50,12 @@ export interface GetDefinitionResult {
   definitions: Definition[];
 }
 
-export interface ContextLine {
-  line: number;
-  text: string;
-  isMatch: boolean;
-}
-
 export interface SearchMatch {
   file: string;
   line: number;
   col: number;
   matchText: string;
-  context: ContextLine[];
+  surroundingText?: string;
 }
 
 export interface SearchTextResult {

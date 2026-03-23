@@ -3,7 +3,7 @@ import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { EngineError } from "../utils/errors.js";
 import { walkWorkspaceFiles } from "../utils/file-walk.js";
 import { isSensitiveFile } from "../utils/sensitive-files.js";
-import type { ContextLine, SearchMatch, SearchTextResult } from "./types.js";
+import type { SearchMatch, SearchTextResult } from "./types.js";
 
 const DEFAULT_MAX_RESULTS = 500;
 
@@ -61,7 +61,13 @@ export async function searchText(
     }
     if (isBinaryContent(content)) continue;
 
-    const lines = content.split("\n");
+    // Split into lines; trim the trailing empty string that results from a
+    // final newline (virtually all text files end with one).
+    const rawLines = content.split("\n");
+    const lines =
+      rawLines.length > 0 && rawLines[rawLines.length - 1] === ""
+        ? rawLines.slice(0, -1)
+        : rawLines;
 
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
       const lineText = lines[lineIdx];
@@ -73,27 +79,20 @@ export async function searchText(
         const lineNum = lineIdx + 1; // 1-based
         const colNum = m.index + 1; // 1-based
 
-        // Build context lines
-        const contextLines: ContextLine[] = [];
-        if (context > 0) {
-          const start = Math.max(0, lineIdx - context);
-          const end = Math.min(lines.length - 1, lineIdx + context);
-          for (let ci = start; ci <= end; ci++) {
-            contextLines.push({
-              line: ci + 1,
-              text: lines[ci],
-              isMatch: ci === lineIdx,
-            });
-          }
-        }
-
-        matches.push({
+        const match: SearchMatch = {
           file: filePath,
           line: lineNum,
           col: colNum,
           matchText: m[0],
-          context: contextLines,
-        });
+        };
+
+        if (context > 0) {
+          const start = Math.max(0, lineIdx - context);
+          const end = Math.min(lines.length - 1, lineIdx + context);
+          match.surroundingText = lines.slice(start, end + 1).join("\n");
+        }
+
+        matches.push(match);
 
         if (matches.length >= maxResults) {
           truncated = true;
