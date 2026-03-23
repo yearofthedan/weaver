@@ -169,7 +169,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
-- **`utils/` vs `domain/` boundary audit** `[needs design]` — `walkWorkspaceFiles`, `file-walk.ts` (with `SKIP_DIRS`), `sensitive-files.ts` and `ts-project.ts` are workspace-aware concepts currently in `utils/`. They may belong in `domain/` alongside `workspace-scope.ts`. Similarly, `security.ts` has `isWithinWorkspace` which could be of questionable placement. And some utils have heavy fs usage. Could this live with `ports/filesystem.ts`? Audit the boundary and decide what's a generic utility vs a domain concept.
+- **`utils/` vs `domain/` boundary audit** → [`docs/specs/20260323-utils-domain-boundary.md`](specs/20260323-utils-domain-boundary.md)
 
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks
