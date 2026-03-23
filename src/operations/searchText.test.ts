@@ -224,22 +224,23 @@ describe("searchText operation", () => {
     }
   });
 
-  it("file trailing newline does not produce an extra empty line in results", async () => {
-    // Verifies that rawLines stripping removes the trailing empty string from
-    // content.split('\n') for files ending with \n, so no phantom match on an
-    // empty final line.
+  it("trailing newline stripping: identical results for files with and without trailing newline", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-trailing-"));
     try {
       fs.mkdirSync(path.join(dir, "src"), { recursive: true });
-      // File has exactly 2 real lines plus a trailing newline
-      fs.writeFileSync(path.join(dir, "src/two.ts"), "const a = 1;\nconst b = 2;\n");
+      fs.writeFileSync(path.join(dir, "src/with.ts"), "aaa\nbbb\nccc\n");
+      fs.writeFileSync(path.join(dir, "src/without.ts"), "aaa\nbbb\nccc");
 
-      // Match something only on line 2; with context 0 we should get exactly 1 match
-      const result = await searchText("const b", makeScope(dir));
+      const withNl = await searchText("bbb", makeScope(dir), { glob: "**/with.ts", context: 10 });
+      const withoutNl = await searchText("bbb", makeScope(dir), {
+        glob: "**/without.ts",
+        context: 10,
+      });
 
-      expect(result.matches).toHaveLength(1);
-      expect(result.matches[0].line).toBe(2);
-      expect("surroundingText" in result.matches[0]).toBe(false);
+      expect(withNl.matches[0].surroundingText).toBe("aaa\nbbb\nccc");
+      expect(withoutNl.matches[0].surroundingText).toBe("aaa\nbbb\nccc");
+      expect(withNl.matches[0].surroundingText!.split("\n")).toHaveLength(3);
+      expect(withoutNl.matches[0].surroundingText!.split("\n")).toHaveLength(3);
     } finally {
       cleanup(dir);
     }
@@ -290,19 +291,17 @@ describe("searchText operation", () => {
     }
   });
 
-  it("zero-length match patterns do not cause infinite loops", async () => {
-    // Exercises the re.lastIndex++ guard: patterns that match empty strings (like
-    // /(?:)/) must advance lastIndex to prevent infinite loops.
+  it("zero-length match advances through all positions without skipping", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-zeroLen-"));
     try {
       fs.mkdirSync(path.join(dir, "src"), { recursive: true });
-      fs.writeFileSync(path.join(dir, "src/short.ts"), "abc\n");
+      fs.writeFileSync(path.join(dir, "src/short.ts"), "ab");
 
-      // The /(?:)/ pattern matches the empty string at every position
-      const result = await searchText("(?:)", makeScope(dir), { maxResults: 10 });
+      const result = await searchText("(?:)", makeScope(dir), { maxResults: 100 });
 
-      // Should return up to maxResults matches without hanging, all with empty matchText
-      expect(result.matches.length).toBeGreaterThan(0);
+      // "ab" has 3 zero-length match positions: before 'a', before 'b', after 'b'
+      expect(result.matches).toHaveLength(3);
+      expect(result.matches.map((m) => m.col)).toEqual([1, 2, 3]);
       expect(result.matches.every((m) => m.matchText === "")).toBe(true);
     } finally {
       cleanup(dir);
