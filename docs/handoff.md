@@ -154,8 +154,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P1 — Very high value bugs and tech debt
-- **Expand project graph to full workspace scope** → [`docs/specs/20260322-expand-project-graph-to-workspace.md`](specs/20260322-expand-project-graph-to-workspace.md) — Both engines use `tsconfig.include` as file scope; test files and other excluded files are invisible. Fix: load all workspace source files at bootstrap.
-
 - **`getTypeErrors` / write operations: add `warn` status level** `[needs design]` — Currently status is binary (`ok: true/false`). Type errors after a write operation (e.g. `moveFile` returns `ok: true` with `typeErrorCount > 0`) should surface as `status: "warn"` so agents know the operation succeeded structurally but left unresolved references. Supersedes the P4 "moveFile type error return contract" entry. Note: `warn` alone won't catch all failures — `moveFile` can return `ok: true, typeErrorCount: 0` despite broken imports, because `getTypeErrorsForFiles` always uses TsMorphCompiler regardless of which compiler performed the operation. If VolarCompiler performed the move and left broken specifiers, TsMorphCompiler's post-write type check may not detect the resolution failures depending on module resolution settings. Reliable detection may need the post-write type check to run through the same compiler that performed the operation.
 
 ---

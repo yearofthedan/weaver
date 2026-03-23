@@ -53,7 +53,6 @@ See [security.md](../security.md) for the full threat model.
 - `newName` must be a valid JavaScript/TypeScript identifier (validated at MCP input; non-identifiers are rejected before reaching the engine).
 - Rename does not detect naming collisions with existing symbols in scope.
 - `.js`/`.jsx` files are updated only when they are part of the project graph (tsconfig `allowJs`).
-- **Files outside `tsconfig.include` are not updated.** The language service only tracks files in the project graph. Test files, config files, or source files excluded via `tsconfig.include`/`exclude` will not have their references rewritten. Follow up with `replaceText` for those files if needed.
 - Cross-type reference tracking (a rename in a `.ts` file updating `.vue` references) requires the Vue engine — both files must be in the same Volar project.
 
 ## Technical decisions

@@ -48,17 +48,21 @@ No public interface changes. `RenameResult`, `FindReferencesResult`, and tool de
 
 The one internal interface change: `TsMorphEngine` needs access to the workspace root. See open decision below.
 
-## Open decisions
+## Resolved decisions
 
 ### Where does TsMorphEngine get the workspace root?
 
-`getProject(filePath)` currently derives the project from the tsconfig path alone. To walk workspace files, it needs a root directory.
+**Chosen: (a) Constructor parameter.** `new TsMorphEngine(workspaceRoot)`.
 
-- **(a) Constructor parameter.** `new TsMorphEngine(workspaceRoot)`. Clean, explicit, set once at daemon startup. Matches VolarEngine's pattern where `buildVolarService` already derives a `projectRoot`.
-- **(b) Derive from tsconfig location.** Use `path.dirname(tsConfigPath)` as the walk root. No interface change, but assumes tsconfig is at the workspace root — wrong for monorepos where tsconfig lives in a subdirectory.
-- **(c) Thread `scope.root` into `getProject()`.** Pass the workspace root per-call from the operation layer. More explicit but adds a parameter to every call chain.
+**Reasoning:** The `TsMorphEngine` singleton is created once per daemon lifetime in `language-plugin-registry.ts` via `getTsMorphEngine()`. The daemon already knows the workspace root and passes it through `dispatchRequest` → `makeRegistry`. Threading it one level deeper to `getTsMorphEngine(workspaceRoot)` → `new TsMorphEngine(workspaceRoot)` is minimal and explicit.
 
-**Recommendation: (a).** The daemon already knows the workspace root. The engine is created once per daemon lifetime. Making it a constructor parameter is honest about the dependency and requires no per-call threading.
+**Implementation detail:** In `getProject()`, after creating the `Project` from tsconfig, call `walkFiles(this.workspaceRoot, [...TS_EXTENSIONS])` and `addSourceFileAtPath` for each file not already in the project. The walk root is `this.workspaceRoot` (not `path.dirname(tsConfigPath)`) because the workspace root is the correct boundary — it includes `tests/`, `scripts/`, etc. that live alongside `src/`. For monorepo subprojects that already have their own tsconfig, `getProject` already caches per-tsconfig, so each subproject gets its own expansion.
+
+**Changes needed:**
+1. `TsMorphEngine` constructor: accept `workspaceRoot: string`, store as field
+2. `getProject()` / `getProjectForDirectory()`: after creating a new project, walk `this.workspaceRoot` for TS/JS files and add any not already in the project
+3. `language-plugin-registry.ts`: `getTsMorphEngine(workspaceRoot)` passes to constructor; `makeRegistry(filePath, workspaceRoot)` passes to `getTsMorphEngine`
+4. `dispatcher.ts`: `makeRegistry(filePath, workspace)` passes workspace root
 
 ## Security
 
@@ -84,3 +88,23 @@ The one internal interface change: `TsMorphEngine` needs access to the workspace
 - [ ] Follow-up `[needs design]` entry added to handoff.md for removing per-operation fallback walks
 - [ ] handoff.md entry updated from `[needs design]` to spec link
 - [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+## Outcome
+
+**Tests added:** 5 (2 in `rename.test.ts` for AC1, 3 in `engine.test.ts` for AC2)
+
+**Performance:** walkFiles + addSourceFileAtPath adds ~700ms on first project creation (cold cache, 3-file fixture). In production this runs once per daemon lifetime — negligible. `git ls-files` is the walker, so it scales well.
+
+**Files changed:**
+- `src/ts-engine/engine.ts` — constructor accepts `workspaceRoot`, `addWorkspaceFiles()` helper
+- `src/plugins/vue/engine.ts` — constructor accepts `workspaceRoot`, passes to `buildVolarService`
+- `src/plugins/vue/service.ts` — `buildVolarService` accepts `workspaceRoot`, walks TS/JS files
+- `src/plugins/vue/plugin.ts` — `createEngine` forwards `workspaceRoot`
+- `src/ts-engine/types.ts` — `LanguagePlugin.createEngine` signature updated
+- `src/daemon/language-plugin-registry.ts` — `makeRegistry` and `getTsMorphEngine` accept `workspaceRoot`
+- `src/daemon/dispatcher.ts` — passes `workspace` to `makeRegistry`
+
+**Reflection:**
+- What went well: The existing `walkFiles` and fixture infrastructure made this straightforward. The `simple-ts` and `vue-project` fixtures already had test files outside tsconfig.include, so no fixture changes were needed.
+- What didn't go well: The AC2 rename test initially failed because the assertion `not.toContain("useCounter")` matched the module specifier path (`../../src/composables/useCounter`), not just the binding. Changed to `not.toContain("import { useCounter }")` to be precise.
+- Recommendation for follow-up: The P3 entry "Remove per-operation fallback workspace walks" is now unblocked — `moveSymbol`, `removeImportersOf`, and `afterFileRename` each have their own `walkFiles` call that should now be redundant. Verify with tests before removing.
