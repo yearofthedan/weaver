@@ -1,3 +1,4 @@
+import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
@@ -145,6 +146,34 @@ describe("tsRename", () => {
 
       expect(result.filesModified).toContain(`${dir}/src/utils.ts`);
       expect(readFile(dir, "src/utils.ts")).toContain("greetPerson");
+    });
+  });
+
+  describe("workspace expansion — files outside tsconfig.include", () => {
+    it("rename updates a test file that is outside tsconfig.include", async () => {
+      const dir = setup();
+      const engine = new TsMorphEngine(dir);
+      const utilsPath = path.join(dir, "src/utils.ts");
+
+      await tsRename(engine, utilsPath, 1, 17, "welcomeUser", makeScope(dir));
+
+      const testFileContent = readFile(dir, "tests/utils.test.ts");
+      expect(testFileContent).toContain("welcomeUser");
+      expect(testFileContent).not.toContain("greetUser");
+    });
+
+    it("findReferences returns a location in a test file outside tsconfig.include", async () => {
+      const dir = setup();
+      const engine = new TsMorphEngine(dir);
+      const utilsPath = path.join(dir, "src/utils.ts");
+
+      const offset = engine.resolveOffset(utilsPath, 1, 17);
+      const refs = await engine.getReferencesAtPosition(utilsPath, offset);
+
+      expect(refs).not.toBeNull();
+      const testFile = path.join(dir, "tests/utils.test.ts");
+      const refInTestFile = refs!.find((r) => r.fileName === testFile);
+      expect(refInTestFile).toBeDefined();
     });
   });
 

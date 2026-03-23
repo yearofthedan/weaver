@@ -7,18 +7,20 @@ const pluginCompilers = new Map<string, Engine>();
 
 let tsMorphEngineSingleton: import("../ts-engine/engine.js").TsMorphEngine | undefined;
 
-async function getTsMorphEngine(): Promise<import("../ts-engine/engine.js").TsMorphEngine> {
+async function getTsMorphEngine(
+  workspaceRoot: string,
+): Promise<import("../ts-engine/engine.js").TsMorphEngine> {
   if (!tsMorphEngineSingleton) {
     const { TsMorphEngine } = await import("../ts-engine/engine.js");
-    tsMorphEngineSingleton = new TsMorphEngine();
+    tsMorphEngineSingleton = new TsMorphEngine(workspaceRoot);
   }
   return tsMorphEngineSingleton;
 }
 
-async function getPluginEngine(plugin: LanguagePlugin): Promise<Engine> {
+async function getPluginEngine(plugin: LanguagePlugin, workspaceRoot: string): Promise<Engine> {
   let engine = pluginCompilers.get(plugin.id);
   if (!engine) {
-    const tsEngine = await getTsMorphEngine();
+    const tsEngine = await getTsMorphEngine(workspaceRoot);
     engine = await plugin.createEngine(tsEngine);
     pluginCompilers.set(plugin.id, engine);
   }
@@ -41,21 +43,21 @@ export function clearLanguagePlugins(): void {
  * with TsMorphEngine as the default fallback.
  * `tsEngine` always returns TsMorphEngine for AST-level operations (e.g. moveSymbol).
  */
-export function makeRegistry(filePath: string): EngineRegistry {
+export function makeRegistry(filePath: string, workspaceRoot: string): EngineRegistry {
   return {
     async projectEngine(): Promise<Engine> {
       const tsConfigPath = findTsConfigForFile(filePath);
       if (tsConfigPath) {
         for (const plugin of languagePlugins) {
           if (plugin.supportsProject(tsConfigPath)) {
-            return getPluginEngine(plugin);
+            return getPluginEngine(plugin, workspaceRoot);
           }
         }
       }
-      return getTsMorphEngine();
+      return getTsMorphEngine(workspaceRoot);
     },
     async tsEngine() {
-      return getTsMorphEngine();
+      return getTsMorphEngine(workspaceRoot);
     },
   };
 }

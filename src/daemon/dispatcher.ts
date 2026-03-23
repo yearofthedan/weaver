@@ -262,8 +262,8 @@ export async function dispatchRequest(
 
   const registry =
     descriptor.pathParams.length > 0
-      ? makeRegistry(req.params[descriptor.pathParams[0]] as string)
-      : makeRegistry(workspace);
+      ? makeRegistry(req.params[descriptor.pathParams[0]] as string, workspace)
+      : makeRegistry(workspace, workspace);
 
   const result = (await descriptor.invoke(registry, parsed.data, workspace)) as Record<
     string,

@@ -28,6 +28,21 @@ import type {
 
 export class TsMorphEngine implements Engine {
   private projects = new Map<string, Project>();
+  private workspaceRoot: string;
+
+  constructor(workspaceRoot = "") {
+    this.workspaceRoot = workspaceRoot;
+  }
+
+  private addWorkspaceFiles(project: Project): void {
+    if (!this.workspaceRoot) return;
+    const existing = new Set(project.getSourceFiles().map((sf) => sf.getFilePath() as string));
+    for (const file of walkFiles(this.workspaceRoot, [...TS_EXTENSIONS])) {
+      if (!existing.has(file)) {
+        project.addSourceFileAtPath(file);
+      }
+    }
+  }
 
   private getProject(filePath: string): Project {
     const tsConfigPath = findTsConfigForFile(filePath);
@@ -42,6 +57,7 @@ export class TsMorphEngine implements Engine {
       } else {
         project = new Project({ useInMemoryFileSystem: false });
       }
+      this.addWorkspaceFiles(project);
       this.projects.set(cacheKey, project);
     }
     return project;
@@ -70,6 +86,7 @@ export class TsMorphEngine implements Engine {
       } else {
         project = new Project({ useInMemoryFileSystem: false });
       }
+      this.addWorkspaceFiles(project);
       this.projects.set(cacheKey, project);
     }
     return project;
