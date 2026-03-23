@@ -35,8 +35,8 @@ describe("moveSymbol operation — VolarEngine integration", () => {
   it("rewrites imports in a TS file outside tsconfig.include when VolarEngine.moveSymbol is called", async () => {
     // vue-project fixture tsconfig: include = ["src/**/*.ts", "src/**/*.vue"]
     // A file outside that pattern (e.g. tests/consumer.ts) imports the moved symbol.
-    // VolarEngine.moveSymbol delegates to tsEngine.moveSymbol which includes the
-    // fallback scan — the out-of-project file must be rewritten.
+    // VolarEngine.moveSymbol delegates to tsEngine.moveSymbol which uses the
+    // expanded project graph — the out-of-project file must be rewritten.
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
 
@@ -48,7 +48,7 @@ describe("moveSymbol operation — VolarEngine integration", () => {
         "export const c = useCounter();\n",
     );
 
-    const volarCompiler = new VolarEngine(new TsMorphEngine());
+    const volarCompiler = new VolarEngine(new TsMorphEngine(dir), dir);
     const srcPath = `${dir}/src/composables/useCounter.ts`;
     const dstPath = `${dir}/src/shared.ts`;
     const scope = new WorkspaceScope(dir, new NodeFileSystem());

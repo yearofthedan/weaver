@@ -10,7 +10,6 @@ import { walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 import { tsDeleteFile } from "./delete-file.js";
 import { tsExtractFunction } from "./extract-function.js";
-import { ImportRewriter } from "./import-rewriter.js";
 import { tsMoveDirectory } from "./move-directory.js";
 import { tsMoveFile } from "./move-file.js";
 import { tsMoveSymbol } from "./move-symbol.js";
@@ -223,9 +222,6 @@ export class TsMorphEngine implements Engine {
     options?: { force?: boolean },
   ): Promise<void> {
     await tsMoveSymbol(this, sourceFile, symbolName, destFile, scope, options);
-    const alreadyModified = new Set(scope.modified);
-    const files = walkFiles(scope.root, [...TS_EXTENSIONS]).filter((f) => !alreadyModified.has(f));
-    new ImportRewriter().rewrite(files, symbolName, sourceFile, destFile, scope);
   }
 
   /**
