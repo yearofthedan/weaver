@@ -71,13 +71,15 @@ describe("tsDeleteFile", () => {
     });
   });
 
-  describe("out-of-project TS/JS importer removal", () => {
-    it("removes imports from files not included in tsconfig", async () => {
+  describe("workspace-wide importer removal", () => {
+    it("removes imports from files not included in tsconfig.include", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
 
+      // TsMorphEngine(dir) expands the project graph to include all workspace files,
+      // so tests/out-of-project.ts is handled by the in-project phase.
       const scope = makeScope(dir);
-      await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
+      await tsDeleteFile(new TsMorphEngine(dir), `${dir}/src/target.ts`, scope);
 
       expect(scope.modified).toContain(`${dir}/tests/out-of-project.ts`);
       expect(readFile(dir, "tests/out-of-project.ts")).not.toMatch(/from ['"][^'"]*target['"]/);
@@ -95,7 +97,7 @@ describe("tsDeleteFile", () => {
       );
 
       const scope = makeScope(dir);
-      await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
+      await tsDeleteFile(new TsMorphEngine(dir), `${dir}/src/target.ts`, scope);
 
       expect(scope.modified).toContain(extra);
       expect(fs.readFileSync(extra, "utf8")).not.toMatch(/from ['"][^'"]*target/);
@@ -135,9 +137,9 @@ describe("tsDeleteFile", () => {
 
       // importer.ts: 2 decls (named import + type import)
       // barrel.ts:   2 decls (export * + named re-export)
-      // tests/out-of-project.ts: 1 decl
+      // tests/out-of-project.ts: 1 decl (included via expanded project graph)
       const scope = makeScope(dir);
-      const result = await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
+      const result = await tsDeleteFile(new TsMorphEngine(dir), `${dir}/src/target.ts`, scope);
 
       expect(result.importRefsRemoved).toBe(5);
     });

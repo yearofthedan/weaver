@@ -395,10 +395,11 @@ describe("TsMorphEngine", () => {
       expect(content.trim()).toBe("");
     });
 
-    it("removes out-of-project imports matched by specifier path", async () => {
+    it("removes imports from files not covered by tsconfig.include", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
-      const p = new TsMorphEngine();
+      // TsMorphEngine(dir) expands the project graph to include all workspace files
+      const p = new TsMorphEngine(dir);
       const target = path.join(dir, "src/target.ts");
       const scope = makeScope(dir);
 
@@ -408,12 +409,13 @@ describe("TsMorphEngine", () => {
       expect(content).not.toMatch(/from ['"][^'"]*target['"]/);
     });
 
-    it("handles out-of-project imports that use an explicit .ts extension", async () => {
+    it("handles imports that use an explicit .ts extension in files outside tsconfig.include", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
       const extra = path.join(dir, "tests", "explicit-ext.ts");
       fs.writeFileSync(extra, 'import { targetFn } from "../src/target.ts";\n', "utf8");
-      const p = new TsMorphEngine();
+      // TsMorphEngine(dir) expands the project graph to include all workspace files
+      const p = new TsMorphEngine(dir);
       const target = path.join(dir, "src/target.ts");
       const scope = makeScope(dir);
 
@@ -425,13 +427,14 @@ describe("TsMorphEngine", () => {
     it("returns the total count of declarations removed", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
-      const p = new TsMorphEngine();
+      // TsMorphEngine(dir) expands the project graph to include all workspace files
+      const p = new TsMorphEngine(dir);
       const target = path.join(dir, "src/target.ts");
       const scope = makeScope(dir);
 
       // importer.ts: 2 (named import + type-only import)
       // barrel.ts:   2 (export * + named re-export)
-      // tests/out-of-project.ts: 1
+      // tests/out-of-project.ts: 1 (included via expanded project graph)
       const count = await p.removeImportersOf(target, scope);
 
       expect(count).toBe(5);
@@ -450,10 +453,11 @@ describe("TsMorphEngine", () => {
       expect(count).toBe(0);
     });
 
-    it("records modified files in scope", async () => {
+    it("records modified files in scope including files outside tsconfig.include", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);
       dirs.push(dir);
-      const p = new TsMorphEngine();
+      // TsMorphEngine(dir) expands the project graph to include all workspace files
+      const p = new TsMorphEngine(dir);
       const target = path.join(dir, "src/target.ts");
       const scope = makeScope(dir);
 

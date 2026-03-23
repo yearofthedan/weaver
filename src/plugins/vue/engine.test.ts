@@ -453,8 +453,9 @@ describe("VolarEngine", () => {
 
       // TS files: importer.ts (2) + barrel.ts (2) + tests/out-of-project.ts (1) = 5
       // Vue file adds 2 more = 7 total
+      // TsMorphEngine(dir) expands the project graph to include tests/out-of-project.ts
       const scope = makeScope(dir);
-      const p = new VolarEngine(new TsMorphEngine());
+      const p = new VolarEngine(new TsMorphEngine(dir));
       const result = await p.deleteFile(`${dir}/src/target.ts`, scope);
 
       expect(result.importRefsRemoved).toBe(7);
