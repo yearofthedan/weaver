@@ -26,9 +26,11 @@ import { buildVolarService, type CachedService } from "./service.js";
 export class VolarEngine implements Engine {
   private services = new Map<string, CachedService>();
   private tsEngine: TsMorphEngine;
+  private workspaceRoot: string;
 
-  constructor(tsEngine: TsMorphEngine) {
+  constructor(tsEngine: TsMorphEngine, workspaceRoot = "") {
     this.tsEngine = tsEngine;
+    this.workspaceRoot = workspaceRoot;
   }
 
   private cacheKey(tsConfigPath: string | null, filePath: string): string {
@@ -41,7 +43,7 @@ export class VolarEngine implements Engine {
 
     let cached = this.services.get(cacheKey);
     if (!cached) {
-      cached = await buildVolarService(tsConfigPath, filePath);
+      cached = await buildVolarService(tsConfigPath, filePath, this.workspaceRoot || undefined);
       this.services.set(cacheKey, cached);
     }
     return cached;

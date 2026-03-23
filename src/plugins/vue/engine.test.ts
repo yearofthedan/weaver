@@ -318,6 +318,50 @@ describe("VolarEngine", () => {
     }
   }, 30_000);
 
+  describe("workspace expansion — files outside tsconfig.include", () => {
+    it("getRenameLocations includes test file outside tsconfig.include", async () => {
+      const dir = setup();
+      const p = new VolarEngine(new TsMorphEngine(dir), dir);
+      const file = path.join(dir, "src/composables/useCounter.ts");
+      const offset = p.resolveOffset(file, 1, 17);
+      const locs = await p.getRenameLocations(file, offset);
+
+      expect(locs).not.toBeNull();
+      const testFile = path.join(dir, "tests/unit/counter.test.ts");
+      const locsInTest = locs!.filter((l) => l.fileName === testFile);
+      expect(locsInTest.length).toBeGreaterThan(0);
+    }, 30_000);
+
+    it("rename in a Vue project updates a test file outside tsconfig.include", async () => {
+      const dir = setup();
+      const p = new VolarEngine(new TsMorphEngine(dir), dir);
+      const file = path.join(dir, "src/composables/useCounter.ts");
+
+      const result = await p.rename(file, 1, 17, "useTimer", makeScope(dir));
+
+      expect(result.symbolName).toBe("useCounter");
+      expect(result.newName).toBe("useTimer");
+      const testContent = fs.readFileSync(path.join(dir, "tests/unit/counter.test.ts"), "utf8");
+      // The import binding should be renamed, but the module specifier path
+      // still contains "useCounter" as a filename — check the binding only.
+      expect(testContent).toContain("import { useTimer }");
+      expect(testContent).not.toContain("import { useCounter }");
+    }, 30_000);
+
+    it("findReferences in a Vue project returns a location in a test file outside tsconfig.include", async () => {
+      const dir = setup();
+      const p = new VolarEngine(new TsMorphEngine(dir), dir);
+      const file = path.join(dir, "src/composables/useCounter.ts");
+      const offset = p.resolveOffset(file, 1, 17);
+      const refs = await p.getReferencesAtPosition(file, offset);
+
+      expect(refs).not.toBeNull();
+      const testFile = path.join(dir, "tests/unit/counter.test.ts");
+      const refInTest = refs!.find((r) => r.fileName === testFile);
+      expect(refInTest).toBeDefined();
+    }, 30_000);
+  });
+
   describe("deleteFile", () => {
     it("removes named and type-only import lines from Vue script blocks", async () => {
       const dir = copyFixture(FIXTURES.deleteFileTs.name);

@@ -140,7 +140,10 @@ export interface LanguagePlugin {
    * Lazy factory — called once per plugin lifetime, result cached by the registry.
    * Receives the TsMorphEngine so the plugin can delegate TS operations to it.
    */
-  createEngine(tsEngine: import("./engine.js").TsMorphEngine): Promise<Engine>;
+  createEngine(
+    tsEngine: import("./engine.js").TsMorphEngine,
+    workspaceRoot?: string,
+  ): Promise<Engine>;
   /** Selective cache refresh (watcher `change` events). */
   invalidateFile?(filePath: string): void;
   /** Full cache drop (watcher `add`/`unlink` events). */

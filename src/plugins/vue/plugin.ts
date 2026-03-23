@@ -9,10 +9,10 @@ export function createVueLanguagePlugin(): LanguagePlugin {
     supportsProject(tsconfigPath: string): boolean {
       return isVueProject(tsconfigPath);
     },
-    async createEngine(tsEngine: TsMorphEngine): Promise<Engine> {
+    async createEngine(tsEngine: TsMorphEngine, workspaceRoot?: string): Promise<Engine> {
       if (!cachedCompiler) {
         const { VolarEngine } = await import("./engine.js");
-        cachedCompiler = new VolarEngine(tsEngine);
+        cachedCompiler = new VolarEngine(tsEngine, workspaceRoot);
       }
       return cachedCompiler;
     },

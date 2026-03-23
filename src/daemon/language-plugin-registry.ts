@@ -21,7 +21,7 @@ async function getPluginEngine(plugin: LanguagePlugin, workspaceRoot: string): P
   let engine = pluginCompilers.get(plugin.id);
   if (!engine) {
     const tsEngine = await getTsMorphEngine(workspaceRoot);
-    engine = await plugin.createEngine(tsEngine);
+    engine = await plugin.createEngine(tsEngine, workspaceRoot);
     pluginCompilers.set(plugin.id, engine);
   }
   return engine;

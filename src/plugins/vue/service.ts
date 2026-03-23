@@ -1,7 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Language } from "@volar/language-core";
-import { SKIP_DIRS } from "../../utils/file-walk.js";
+import { TS_EXTENSIONS } from "../../utils/extensions.js";
+import { SKIP_DIRS, walkFiles } from "../../utils/file-walk.js";
 
 interface VolarLanguageService {
   findRenameLocations(
@@ -129,6 +130,7 @@ function buildLanguageServiceHost(params: {
 export async function buildVolarService(
   tsConfigPath: string | null,
   rootFilePath: string,
+  workspaceRoot?: string,
 ): Promise<CachedService> {
   const ts = await import("typescript");
   const { createVueLanguagePlugin, getDefaultCompilerOptions } = await import("@vue/language-core");
@@ -172,6 +174,15 @@ export async function buildVolarService(
     .filter((f) => !f.split("/").some((seg) => SKIP_DIRS.has(seg)));
   for (const f of vueFilesOnDisk) {
     if (!projectFiles.includes(f)) projectFiles.push(f);
+  }
+
+  // Include all workspace TS/JS files so test files and scripts outside
+  // tsconfig.include are visible to the Volar language service.
+  if (workspaceRoot) {
+    const existingSet = new Set(projectFiles);
+    for (const f of walkFiles(workspaceRoot, [...TS_EXTENSIONS])) {
+      if (!existingSet.has(f)) projectFiles.push(f);
+    }
   }
 
   const scriptRegistry = new Map();
