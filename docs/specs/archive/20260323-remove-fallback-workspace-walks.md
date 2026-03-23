@@ -63,3 +63,13 @@ No public interface changes. Internal only — removing dead code paths.
 - [ ] All ACs verified by tests
 - [ ] `pnpm check` passes (lint + build + test)
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Tests added:** 0 new tests. Existing tests updated to pass workspace root to `TsMorphEngine`/`VolarEngine` constructors (5 test files touched).
+
+**Code removed:** ~50 lines across `engine.ts` (fallback walk in moveSymbol) and `remove-importers.ts` (entire `removeOutOfProjectImporters` function + simplified return type of `removeInProjectImporters`). Unused imports cleaned up.
+
+**Reflection:**
+- What went well: Clean removal — the expanded project graph made both fallback paths provably redundant. Existing tests caught the constructor updates needed.
+- What to watch: `after-file-rename.ts` still has its own `walkFiles` call. It was deliberately kept because it provides correctness guarantees (text-based specifier matching for `.js` extensions) beyond what the compiler's `getEditsForFileRename` handles. If that assumption is later proven wrong, it can be removed too.
