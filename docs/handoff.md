@@ -169,7 +169,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
-- **Remove per-operation fallback workspace walks** `[needs design]` — `moveSymbol` (engine.ts:210-211), `removeImportersOf`, and `afterFileRename` each walk the workspace independently to catch files outside tsconfig.include. Once the project graph expansion (P1 spec) ships, these fallback walks are redundant. Audit each, confirm they're dead code, and remove.
+- **Remove per-operation fallback workspace walks** → [`docs/specs/20260323-remove-fallback-workspace-walks.md`](specs/20260323-remove-fallback-workspace-walks.md) — `moveSymbol` and `removeImportersOf` each walk the workspace independently to catch files outside tsconfig.include. Now that the project graph includes all workspace files, these walks are dead code. `afterFileRename` is kept — it provides correctness guarantees beyond scope expansion.
 
 - **`utils/` vs `domain/` boundary audit** `[needs design]` — `walkWorkspaceFiles`, `file-walk.ts` (with `SKIP_DIRS`), `sensitive-files.ts` and `ts-project.ts` are workspace-aware concepts currently in `utils/`. They may belong in `domain/` alongside `workspace-scope.ts`. Similarly, `security.ts` has `isWithinWorkspace` which could be of questionable placement. And some utils have heavy fs usage. Could this live with `ports/filesystem.ts`? Audit the boundary and decide what's a generic utility vs a domain concept.
 
