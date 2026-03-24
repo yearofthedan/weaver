@@ -64,13 +64,33 @@ All tools use position-based parameters where applicable, consistent with LSP co
 
 Every tool call returns a JSON object. The agent acts on the response without reading any modified files.
 
+Every response contains a `status` field: `"success"`, `"warn"`, or `"error"`.
+
+| Status | Meaning | When |
+|--------|---------|------|
+| `"success"` | Operation completed cleanly | No errors, or `checkTypeErrors: false`, or zero files modified |
+| `"warn"` | Operation completed but left type errors | `typeErrorCount > 0` after post-write diagnostics |
+| `"error"` | Operation failed | Validation, boundary, engine, or internal error |
+
 Mutating operations (success):
 
 ```json
 {
-  "ok": true,
+  "status": "success",
   "filesModified": ["src/components/Button.vue", "src/App.vue"],
   "filesSkipped": []
+}
+```
+
+Mutating operations (warn — type errors after write):
+
+```json
+{
+  "status": "warn",
+  "filesModified": ["src/a.ts"],
+  "typeErrors": [{ "file": "src/a.ts", "line": 3, "col": 7, "code": 2322, "message": "..." }],
+  "typeErrorCount": 1,
+  "typeErrorsTruncated": false
 }
 ```
 
@@ -78,7 +98,7 @@ Read-only operations (success):
 
 ```json
 {
-  "ok": true,
+  "status": "success",
   "symbolName": "Button",
   "references": [
     { "file": "src/App.vue", "line": 5, "col": 3, "length": 6 }
@@ -90,7 +110,7 @@ Failure:
 
 ```json
 {
-  "ok": false,
+  "status": "error",
   "error": "ERROR_CODE",
   "message": "Human-readable description of the problem"
 }

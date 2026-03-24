@@ -154,7 +154,8 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P1 — Very high value bugs and tech debt
-- **Replace `ok` with three-value `status` field** → [`docs/specs/20260323-warn-status-level.md`](specs/20260323-warn-status-level.md)
+
+(empty — next priority is P2)
 
 ---
 
