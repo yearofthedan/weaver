@@ -182,7 +182,7 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
       dir,
     )) as Record<string, unknown>;
 
-    expect(result.status).toBe("success");
+    expect(result.status).toBe("warn");
     expect(result).toHaveProperty("typeErrors");
     expect(result).toHaveProperty("typeErrorCount");
     expect(result).toHaveProperty("typeErrorsTruncated");

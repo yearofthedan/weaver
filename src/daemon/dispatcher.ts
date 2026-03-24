@@ -290,5 +290,9 @@ export async function dispatchRequest(
     result.typeErrorsTruncated = diagnostics.typeErrorsTruncated;
   }
 
-  return { status: "success" as const, ...result };
+  const status =
+    typeof result.typeErrorCount === "number" && result.typeErrorCount > 0
+      ? ("warn" as const)
+      : ("success" as const);
+  return { status, ...result };
 }
