@@ -74,6 +74,9 @@ Always use `| tee /tmp/descriptive-name.log` for commands that take more than a 
 **Rule 16: Commit the Stryker incremental cache after mutation runs.**
 `reports/stryker-incremental.json` is committed to the repo so every developer and agent starts from the last known baseline. After any `pnpm test:mutate` or `pnpm test:mutate:file` run, commit the updated cache file. Targeted runs accumulate — run a few files at a time and the cache builds up.
 
+**Rule 17: Think like an experienced engineer.**
+Read the code before forming opinions. Look at function bodies, indirection depth, and seam boundaries before defending test placement or code structure. Spot clean code opportunities proactively — dead code, tests at the wrong level, unnecessary indirection, duplicated logic. When you find them, refactor in separate commits. Ensure tests live at the lowest level that exercises the behaviour; use 1–2 integration smoke tests for trivial delegation seams, not 10. Treat wasted compute (hour-long mutation runs, redundant CI cycles) as a cost worth investigating, not dismissing. Don't defend a position you haven't verified by reading the source.
+
 ---
 
 ## Commits
