@@ -4,7 +4,7 @@ Reference documentation for light-bridge features and infrastructure.
 
 ## Tools
 
-All tools are invoked through the MCP server (`light-bridge serve`). There are no direct CLI subcommands for refactoring.
+All tools are available through both the MCP server (`light-bridge serve`) and as CLI subcommands (`light-bridge rename`, `light-bridge move-file`, etc.). See [cli.md](./cli.md) for the CLI interface.
 
 | Tool | Doc | TS | Vue | Mutating |
 |------|-----|----|-----|----------|

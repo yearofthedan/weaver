@@ -10,7 +10,7 @@ The CLI is the primary binary for light-bridge. It has three subcommands:
 - `serve` — start an MCP server session for an agent
 - `stop` — stop a running daemon for a workspace
 
-All refactoring operations (`rename`, `moveFile`, `moveSymbol`, `findReferences`, `getDefinition`, `searchText`, `replaceText`) are exposed through the MCP server — not as direct CLI subcommands. The CLI is how the daemon is managed and how the MCP server is started; MCP tools are how operations are invoked.
+All 11 refactoring operations are available as both CLI subcommands and MCP tools. The CLI subcommands talk to the same daemon — they're a thin adapter that parses JSON, calls the daemon over the Unix socket, and prints the response.
 
 ## Commands
 
@@ -78,6 +78,30 @@ If no daemon is running for that workspace:
 { "ok": true, "stopped": false, "message": "No daemon running for this workspace" }
 ```
 
+## Operation subcommands
+
+All 11 operations are available as kebab-case CLI subcommands. Each accepts a single JSON argument (or reads from stdin when not a TTY) and prints the daemon's JSON response to stdout.
+
+```bash
+light-bridge rename '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
+light-bridge move-file '{"oldPath": "src/old.ts", "newPath": "src/new.ts"}'
+light-bridge find-references '{"file": "src/a.ts", "line": 10, "col": 5}'
+```
+
+Available subcommands: `rename`, `move-file`, `move-directory`, `move-symbol`, `extract-function`, `find-references`, `get-definition`, `get-type-errors`, `search-text`, `delete-file`, `replace-text`.
+
+JSON keys match the Zod schema field names (camelCase). Path-valued keys (`file`, `oldPath`, `newPath`, `sourceFile`, `destFile`) are resolved relative to `--workspace` (or cwd) if not absolute.
+
+Stdin piping works for longer JSON:
+
+```bash
+echo '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}' | light-bridge rename
+```
+
+Exit codes: `0` for `status: "success"` or `"warn"`, `1` for `status: "error"` or CLI-level failures.
+
+The daemon auto-spawns if not already running (same as `serve`).
+
 ## Shutdown
 
 `serve` shuts down cleanly on SIGTERM — this ends the agent session but does not stop the daemon. The daemon shuts down cleanly on SIGTERM and can be stopped via `light-bridge stop` or your process manager.
@@ -96,7 +120,6 @@ If no daemon is running for that workspace:
 
 ## Out of scope
 
-- Direct CLI invocation of refactoring operations (rename, moveFile, etc.) — use `serve` + an MCP client
 - Interactive/TUI mode
 - Config file
 

@@ -97,9 +97,27 @@ Output (stdout):
 { "ok": true, "stopped": true }
 ```
 
+## CLI operations
+
+All operations are available as CLI subcommands. Each accepts a JSON argument and prints the daemon's response to stdout:
+
+```bash
+light-bridge rename '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
+light-bridge move-file '{"oldPath": "src/old.ts", "newPath": "src/new.ts"}'
+light-bridge find-references '{"file": "src/a.ts", "line": 10, "col": 5}'
+```
+
+Path params can be relative (resolved against `--workspace` or cwd):
+
+```bash
+light-bridge rename --workspace /path/to/project '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
+```
+
+The daemon auto-spawns if not already running. Exit code is `0` for success/warn, `1` for errors. Pipe JSON via stdin for longer inputs.
+
 ## MCP tools
 
-All refactoring operations are exposed as MCP tools via `light-bridge serve`. The agent host calls them; light-bridge handles the cascade.
+All refactoring operations are also exposed as MCP tools via `light-bridge serve`. The agent host calls them; light-bridge handles the cascade.
 
 | Tool | TS | Vue | Read-only | Notes |
 |---|---|---|---|---|

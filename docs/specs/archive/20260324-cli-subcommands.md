@@ -131,3 +131,17 @@ Identical to the daemon's response — same shape as MCP responses. The CLI adds
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Tests added:** 5 integration tests (end-to-end rename, relative path resolution, daemon error exit, invalid JSON, empty stdin).
+
+**Mutation score:** Not yet run for operations.ts.
+
+**Reflection:**
+
+The execution agent was dispatched for AC1 and produced a working-but-flawed implementation (74 tool calls, 3 discarded test strategies). Issues it missed: bare `exitOverride()` inconsistent with existing pattern, no output on missing input, no daemon error handling, `require()` in ESM test. These are judgment calls — matching codebase patterns, anticipating edge cases — that the "write failing test → make it pass" loop doesn't catch. The main conversation fixed the code directly. A P1 handoff entry was added to address the execution agent quality problem systemically.
+
+AC2 (relative path resolution) was folded into the same module since it's a 5-line addition to the action handler. AC3 (daemon errors) and AC4 (invalid JSON) were similarly trivial — all four ACs landed in one module.
+
+Discovered a pre-existing flaky test (`stop.integration.test.ts` timeout) — added to handoff as P1.
