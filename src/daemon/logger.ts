@@ -7,7 +7,7 @@ export interface LogEntry {
   ts: string;
   method: string;
   durationMs: number;
-  ok: boolean;
+  status: "success" | "warn" | "error";
   error?: string;
   message?: string;
   filesModified?: number;

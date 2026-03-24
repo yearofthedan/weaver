@@ -73,14 +73,14 @@ describe("createLogger", () => {
       ts: "2026-03-21T00:00:00.000Z",
       method: "rename",
       durationMs: 42,
-      ok: true,
+      status: "success",
       filesModified: 3,
     });
     logger.log({
       ts: "2026-03-21T00:00:01.000Z",
       method: "moveFile",
       durationMs: 100,
-      ok: false,
+      status: "error",
       error: "PARSE_ERROR",
       message: "bad input",
     });
@@ -93,19 +93,26 @@ describe("createLogger", () => {
       ts: "2026-03-21T00:00:00.000Z",
       method: "rename",
       durationMs: 42,
-      ok: true,
+      status: "success",
       filesModified: 3,
     });
+    expect(first).not.toHaveProperty("ok");
 
     const second = JSON.parse(lines[1]);
-    expect(second).toMatchObject({ ok: false, error: "PARSE_ERROR", message: "bad input" });
+    expect(second).toMatchObject({ status: "error", error: "PARSE_ERROR", message: "bad input" });
+    expect(second).not.toHaveProperty("ok");
 
     logger.cleanup();
   });
 
   it("cleanup removes the log file", () => {
     const logger = createLogger(workspace);
-    logger.log({ ts: "2026-03-21T00:00:00.000Z", method: "ping", durationMs: 1, ok: true });
+    logger.log({
+      ts: "2026-03-21T00:00:00.000Z",
+      method: "ping",
+      durationMs: 1,
+      status: "success",
+    });
     expect(fs.existsSync(logger.logPath)).toBe(true);
     logger.cleanup();
     expect(fs.existsSync(logger.logPath)).toBe(false);

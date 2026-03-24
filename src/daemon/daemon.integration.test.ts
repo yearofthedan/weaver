@@ -117,7 +117,7 @@ describe("daemon command", () => {
       params: { file: utilsPath, line: 1, col: 17 },
     });
 
-    expect(response.ok).toBe(true);
+    expect(response.status).toBe("success");
     const refs = (response as { references: Array<{ file: string }> }).references;
     expect(refs.some((r) => r.file === newFile)).toBe(true);
   });
@@ -165,7 +165,7 @@ describe("daemon command", () => {
         dir,
         req as { method: string; params: Record<string, unknown> },
       );
-      expect(response).toMatchObject({ ok: false, error: "PARSE_ERROR" });
+      expect(response).toMatchObject({ status: "error", error: "PARSE_ERROR" });
     });
   });
 
@@ -177,7 +177,7 @@ describe("daemon command", () => {
     // Invalid JSON causes JSON.parse to throw a SyntaxError — that's a genuine parse
     // error, so the daemon returns PARSE_ERROR (not INTERNAL_ERROR).
     const response = await sendRawToSocket(dir, "not valid json {{{");
-    expect(response).toMatchObject({ ok: false, error: "PARSE_ERROR" });
+    expect(response).toMatchObject({ status: "error", error: "PARSE_ERROR" });
     expect(typeof response.message).toBe("string");
     expect((response.message as string).length).toBeGreaterThan(0);
   });

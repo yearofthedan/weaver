@@ -19,7 +19,7 @@ describe("MCP transport — findReferences tool", () => {
 
     const result = parseMcpResult(resp);
 
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     expect(result.symbolName).toBe("greetUser");
     expect((result.references as { file: string }[]).length).toBeGreaterThanOrEqual(2);
     expect((result.references as { file: string }[]).some((r) => r.file.endsWith("utils.ts"))).toBe(

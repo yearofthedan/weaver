@@ -43,7 +43,7 @@ vi.mock("node:child_process", async (importOriginal) => {
 
 const WORKSPACE = "/test/workspace";
 
-/** Unix socket server that responds to any request with { ok: true, version }. */
+/** Unix socket server that responds to any request with { status: "success", version }. */
 function createPingServer(sockPath: string, version: number): Promise<net.Server> {
   return new Promise((resolve) => {
     const server = net.createServer((conn) => {
@@ -51,7 +51,7 @@ function createPingServer(sockPath: string, version: number): Promise<net.Server
       conn.on("data", (chunk: Buffer) => {
         buf += chunk.toString();
         if (buf.includes("\n")) {
-          conn.write(`${JSON.stringify({ ok: true, version })}\n`);
+          conn.write(`${JSON.stringify({ status: "success", version })}\n`);
           conn.end();
         }
       });

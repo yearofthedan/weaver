@@ -24,7 +24,7 @@ describe("MCP transport — rename tool", () => {
 
     const result = parseMcpResult(resp);
 
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     expect(readFile(dir, "src/utils.ts")).not.toContain("greetUser");
     expect(readFile(dir, "src/utils.ts")).toContain("greetPerson");
     expect(readFile(dir, "src/main.ts")).not.toContain("greetUser");

@@ -75,14 +75,15 @@ describe("protocol version", () => {
     return dir;
   }
 
-  it("ping returns { ok: true, version: PROTOCOL_VERSION }", async () => {
+  it("ping returns { status: 'success', version: PROTOCOL_VERSION }", async () => {
     const dir = await setup();
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
 
     const response = await callDaemonSocket(dir, { method: "ping", params: {} });
 
-    expect(response).toMatchObject({ ok: true, version: PROTOCOL_VERSION });
+    expect(response).toMatchObject({ status: "success", version: PROTOCOL_VERSION });
+    expect(response).not.toHaveProperty("ok");
     expect(typeof response.version).toBe("number");
   });
 

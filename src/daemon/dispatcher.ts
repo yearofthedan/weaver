@@ -229,13 +229,17 @@ export async function dispatchRequest(
 ): Promise<object> {
   const descriptor = OPERATIONS[req.method];
   if (!descriptor) {
-    return { ok: false, error: "UNKNOWN_METHOD", message: `Unknown method: ${req.method}` };
+    return {
+      status: "error" as const,
+      error: "UNKNOWN_METHOD",
+      message: `Unknown method: ${req.method}`,
+    };
   }
 
   const parsed = descriptor.schema.safeParse(req.params);
   if (!parsed.success) {
     const message = parsed.error.issues.map((i) => i.message).join("; ");
-    return { ok: false, error: "VALIDATION_ERROR", message };
+    return { status: "error" as const, error: "VALIDATION_ERROR", message };
   }
 
   for (const paramKey of descriptor.pathParams) {
@@ -243,7 +247,7 @@ export async function dispatchRequest(
     const pathResult = validateFilePath(value);
     if (!pathResult.ok) {
       return {
-        ok: false,
+        status: "error" as const,
         error: "INVALID_PATH",
         message:
           pathResult.reason === "CONTROL_CHARS"
@@ -253,7 +257,7 @@ export async function dispatchRequest(
     }
     if (!isWithinWorkspace(value, workspace)) {
       return {
-        ok: false,
+        status: "error" as const,
         error: "WORKSPACE_VIOLATION",
         message: `${paramKey} is outside the workspace: ${value}`,
       };
@@ -286,5 +290,5 @@ export async function dispatchRequest(
     result.typeErrorsTruncated = diagnostics.typeErrorsTruncated;
   }
 
-  return { ok: true, ...result };
+  return { status: "success" as const, ...result };
 }

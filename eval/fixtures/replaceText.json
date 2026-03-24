@@ -1,5 +1,5 @@
 {
-  "ok": true,
+  "status": "success",
   "filesModified": ["/tmp/light-bridge-eval/src/auth.ts", "/tmp/light-bridge-eval/src/api.ts"],
   "replacementCount": 3,
   "filesSkipped": []

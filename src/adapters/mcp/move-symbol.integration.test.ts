@@ -22,7 +22,7 @@ describe("MCP transport — moveSymbol tool", () => {
 
     const result = parseMcpResult(resp);
 
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
 
     // Symbol moved to dest file
     expect(readFile(dir, "src/helpers.ts")).toContain("greetUser");

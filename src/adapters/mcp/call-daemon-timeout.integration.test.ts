@@ -48,7 +48,7 @@ describe("callDaemon timeout", () => {
     await closeServer();
     if (fs.existsSync(sockPath)) fs.unlinkSync(sockPath);
 
-    const response = { ok: true, filesModified: [] };
+    const response = { status: "success", filesModified: [] };
 
     await new Promise<void>((resolve) => {
       server = net.createServer((conn) => {

@@ -20,7 +20,7 @@ describe("MCP transport — workspace security", () => {
     });
 
     const result = parseMcpResult(resp);
-    expect(result.ok).toBe(false);
+    expect(result.status).toBe("error");
     expect(result.error).toBe("WORKSPACE_VIOLATION");
   }, 60_000);
 
@@ -36,7 +36,7 @@ describe("MCP transport — workspace security", () => {
     });
 
     const result = parseMcpResult(resp);
-    expect(result.ok).toBe(false);
+    expect(result.status).toBe("error");
     expect(result.error).toBe("WORKSPACE_VIOLATION");
   }, 60_000);
 
@@ -52,7 +52,7 @@ describe("MCP transport — workspace security", () => {
     });
 
     const result = parseMcpResult(resp);
-    expect(result.ok).toBe(false);
+    expect(result.status).toBe("error");
     expect(result.error).toBe("WORKSPACE_VIOLATION");
   }, 60_000);
 
@@ -73,7 +73,7 @@ describe("MCP transport — workspace security", () => {
     });
 
     const result = parseMcpResult(resp);
-    expect(result.ok).toBe(false);
+    expect(result.status).toBe("error");
     expect(result.error).toBe("WORKSPACE_VIOLATION");
   }, 60_000);
 
@@ -113,7 +113,7 @@ describe("MCP transport — workspace security", () => {
     // Should get exactly one response (WORKSPACE_VIOLATION or FILE_NOT_FOUND),
     // demonstrating the newline was escaped and only one request reached the daemon.
     const result = parseMcpResult(resp);
-    expect(result.ok).toBe(false);
+    expect(result.status).toBe("error");
 
     // Daemon is still alive and responsive after the attempt
     const followUp = await client.request(7, "tools/call", {
@@ -125,6 +125,6 @@ describe("MCP transport — workspace security", () => {
         newName: "greetPerson",
       },
     });
-    expect(parseMcpResult(followUp).ok).toBe(true);
+    expect(parseMcpResult(followUp).status).toBe("success");
   }, 60_000);
 });

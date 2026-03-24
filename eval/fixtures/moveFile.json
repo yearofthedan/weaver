@@ -1,5 +1,5 @@
 {
-  "ok": true,
+  "status": "success",
   "oldPath": "/tmp/light-bridge-eval/src/auth.ts",
   "newPath": "/tmp/light-bridge-eval/src/authentication/auth.ts",
   "filesModified": [

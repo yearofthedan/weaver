@@ -20,7 +20,7 @@ describe("MCP transport — getDefinition tool", () => {
 
     const result = parseMcpResult(resp);
 
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     expect(result.symbolName).toBe("greetUser");
     expect((result.definitions as { file: string }[]).length).toBeGreaterThanOrEqual(1);
     // Definition must point back to utils.ts

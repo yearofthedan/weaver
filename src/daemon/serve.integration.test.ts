@@ -84,7 +84,7 @@ describe("serve command — daemon integration", () => {
     });
 
     const result = JSON.parse((resp.result as { content: { text: string }[] }).content[0].text);
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     expect(result.references).toBeDefined();
   }, 90_000);
 

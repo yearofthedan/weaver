@@ -1,5 +1,5 @@
 {
-  "ok": true,
+  "status": "success",
   "deletedFile": "/tmp/light-bridge-eval/src/old-helper.ts",
   "filesModified": [
     "/tmp/light-bridge-eval/src/api.ts",

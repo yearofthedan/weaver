@@ -85,7 +85,7 @@ export async function runStop(opts: { workspace: string }): Promise<void> {
   const wsResult = validateWorkspace(opts.workspace);
   if (!wsResult.ok) {
     process.stdout.write(
-      `${JSON.stringify({ ok: false, error: "VALIDATION_ERROR", message: wsResult.error })}\n`,
+      `${JSON.stringify({ status: "error", error: "VALIDATION_ERROR", message: wsResult.error })}\n`,
     );
     process.exit(1);
   }
@@ -93,7 +93,7 @@ export async function runStop(opts: { workspace: string }): Promise<void> {
 
   if (!isDaemonAlive(absWorkspace)) {
     process.stdout.write(
-      `${JSON.stringify({ ok: true, stopped: false, message: "No daemon running for this workspace" })}\n`,
+      `${JSON.stringify({ status: "success", stopped: false, message: "No daemon running for this workspace" })}\n`,
     );
     return;
   }
@@ -101,7 +101,7 @@ export async function runStop(opts: { workspace: string }): Promise<void> {
   const lock = readLockfile(absWorkspace);
   if (lock === null) {
     process.stdout.write(
-      `${JSON.stringify({ ok: false, error: "ENGINE_ERROR", message: "Could not read lockfile" })}\n`,
+      `${JSON.stringify({ status: "error", error: "ENGINE_ERROR", message: "Could not read lockfile" })}\n`,
     );
     process.exit(1);
   }
@@ -119,12 +119,12 @@ export async function runStop(opts: { workspace: string }): Promise<void> {
 
   if (isDaemonAlive(absWorkspace)) {
     process.stdout.write(
-      `${JSON.stringify({ ok: false, error: "ENGINE_ERROR", message: "Daemon did not stop within the timeout" })}\n`,
+      `${JSON.stringify({ status: "error", error: "ENGINE_ERROR", message: "Daemon did not stop within the timeout" })}\n`,
     );
     process.exit(1);
   }
 
-  process.stdout.write(`${JSON.stringify({ ok: true, stopped: true })}\n`);
+  process.stdout.write(`${JSON.stringify({ status: "success", stopped: true })}\n`);
 }
 
 function resolveVerbose(opts: { verbose?: boolean }): boolean {
@@ -137,7 +137,7 @@ export async function runDaemon(opts: { workspace: string; verbose?: boolean }):
   const wsResult = validateWorkspace(opts.workspace);
   if (!wsResult.ok) {
     process.stdout.write(
-      `${JSON.stringify({ ok: false, error: "VALIDATION_ERROR", message: wsResult.error })}\n`,
+      `${JSON.stringify({ status: "error", error: "VALIDATION_ERROR", message: wsResult.error })}\n`,
     );
     process.exit(1);
   }
@@ -183,7 +183,7 @@ export async function runDaemon(opts: { workspace: string; verbose?: boolean }):
           ts: new Date().toISOString(),
           method: "socket.error",
           durationMs: 0,
-          ok: false,
+          status: "error",
           error: code,
           message: err.message,
         });
@@ -255,11 +255,11 @@ async function handleSocketRequest(
     const envelope = RequestEnvelopeSchema.safeParse(raw);
     if (!envelope.success) {
       const message = envelope.error.issues.map((i) => i.message).join("; ");
-      response = { ok: false, error: "PARSE_ERROR", message };
+      response = { status: "error" as const, error: "PARSE_ERROR", message };
     } else {
       method = envelope.data.method;
       if (method === "ping") {
-        response = { ok: true, version: PROTOCOL_VERSION };
+        response = { status: "success" as const, version: PROTOCOL_VERSION };
       } else {
         response = await dispatchRequest(envelope.data, workspace);
       }
@@ -267,7 +267,7 @@ async function handleSocketRequest(
   } catch (err) {
     caughtError = err;
     response = {
-      ok: false,
+      status: "error" as const,
       error: EngineError.is(err)
         ? err.code
         : err instanceof SyntaxError
@@ -282,20 +282,21 @@ async function handleSocketRequest(
   if (logger && method !== "ping") {
     const durationMs = Date.now() - start;
     const res = response as Record<string, unknown>;
-    const ok = res.ok === true;
+    const status =
+      typeof res.status === "string" ? (res.status as "success" | "warn" | "error") : "error";
     const entry: import("./logger.js").LogEntry = {
       ts: new Date().toISOString(),
       method,
       durationMs,
-      ok,
+      status,
     };
 
-    if (!ok) {
+    if (status === "error") {
       if (typeof res.error === "string") entry.error = res.error;
       if (typeof res.message === "string") entry.message = res.message;
     }
 
-    if (ok && WRITE_METHODS.has(method)) {
+    if (status !== "error" && WRITE_METHODS.has(method)) {
       const modified = res.filesModified;
       if (Array.isArray(modified)) {
         entry.filesModified = modified.length;

@@ -22,7 +22,7 @@ describe("MCP transport — moveFile tool", () => {
 
     const result = parseMcpResult(resp);
 
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     expect(readFile(dir, "src/featureA.ts")).not.toContain("./utils");
     expect(readFile(dir, "src/featureA.ts")).toContain("./helpers");
     expect(readFile(dir, "src/featureB.ts")).not.toContain("./utils");

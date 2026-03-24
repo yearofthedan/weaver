@@ -72,23 +72,24 @@ describe("dispatchRequest param validation", () => {
     ["replaceText with neither pattern nor edits", { method: "replaceText", params: {} }],
   ])("returns VALIDATION_ERROR — %s", async (_desc, request) => {
     const result = await dispatchRequest(request, workspace);
-    expect(result).toMatchObject({ ok: false, error: "VALIDATION_ERROR" });
+    expect(result).toMatchObject({ status: "error", error: "VALIDATION_ERROR" });
   });
 
   it("returns UNKNOWN_METHOD for an unrecognised method", async () => {
     const result = await dispatchRequest({ method: "doSomethingFake", params: {} }, workspace);
-    expect(result).toMatchObject({ ok: false, error: "UNKNOWN_METHOD" });
+    expect(result).toMatchObject({ status: "error", error: "UNKNOWN_METHOD" });
   });
 });
 
 describe("dispatchRequest success format", () => {
-  it("returns ok:true and result fields without a message field", async () => {
+  it("returns status:success and result fields without an ok or message field", async () => {
     // searchText on a pattern that matches nothing is the cheapest operation to invoke
     const result = (await dispatchRequest(
       { method: "searchText", params: { pattern: "__nonexistent_pattern_xyz__" } },
       "/tmp",
     )) as Record<string, unknown>;
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
+    expect(result).not.toHaveProperty("ok");
     expect(result).toHaveProperty("matches");
     expect(result).toHaveProperty("truncated");
     expect(result).not.toHaveProperty("message");
@@ -115,7 +116,7 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
       dir,
     )) as Record<string, unknown>;
 
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     expect((result.filesModified as string[]).length).toBeGreaterThan(0);
     expect(result).toHaveProperty("typeErrors");
     expect(result).toHaveProperty("typeErrorCount");
@@ -139,7 +140,7 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
       dir,
     )) as Record<string, unknown>;
 
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     expect((result.filesModified as string[]).length).toBeGreaterThan(0);
     expect(result).not.toHaveProperty("typeErrors");
     expect(result).not.toHaveProperty("typeErrorCount");
@@ -158,7 +159,7 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
       dir,
     )) as Record<string, unknown>;
 
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     expect((result.filesModified as string[]).length).toBe(0);
     expect(result).not.toHaveProperty("typeErrors");
     expect(result).not.toHaveProperty("typeErrorCount");
@@ -181,7 +182,7 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
       dir,
     )) as Record<string, unknown>;
 
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     expect(result).toHaveProperty("typeErrors");
     expect(result).toHaveProperty("typeErrorCount");
     expect(result).toHaveProperty("typeErrorsTruncated");
@@ -221,7 +222,7 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
       dir,
     )) as Record<string, unknown>;
 
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     expect(result.typeErrorCount).toBe(0);
     const typeErrors = result.typeErrors as Array<{ file: string }>;
     expect(typeErrors.every((d) => d.file.endsWith("clean.ts"))).toBe(true);
@@ -243,7 +244,7 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
       dir,
     )) as Record<string, unknown>;
 
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     expect(result).toHaveProperty("filesModified");
     expect(result).toHaveProperty("typeErrors");
     expect(result).toHaveProperty("typeErrorCount");
@@ -265,7 +266,7 @@ describe("dispatchRequest per-operation dispatch", () => {
       string,
       unknown
     >;
-    expect(result.ok).toBe(true);
+    expect(result.status).toBe("success");
     expect(result).toHaveProperty("diagnostics");
     expect(result).toHaveProperty("errorCount");
     expect(result).toHaveProperty("truncated");
@@ -279,8 +280,8 @@ describe("dispatchRequest per-operation dispatch", () => {
       { method: "findReferences", params: { file, line: 1, col: 17 } },
       dir,
     )) as Record<string, unknown>;
-    expect(typeof result.ok).toBe("boolean");
-    if (result.ok) {
+    expect(typeof result.status).toBe("string");
+    if (result.status === "success") {
       expect(result).toHaveProperty("references");
     } else {
       expect(result).toHaveProperty("error");
@@ -295,8 +296,8 @@ describe("dispatchRequest per-operation dispatch", () => {
       { method: "getDefinition", params: { file, line: 1, col: 17 } },
       dir,
     )) as Record<string, unknown>;
-    expect(typeof result.ok).toBe("boolean");
-    if (result.ok) {
+    expect(typeof result.status).toBe("string");
+    if (result.status === "success") {
       expect(result).toHaveProperty("definitions");
     } else {
       expect(result).toHaveProperty("error");
@@ -311,8 +312,8 @@ describe("dispatchRequest per-operation dispatch", () => {
       { method: "rename", params: { file, line: 1, col: 17, newName: "multiplied" } },
       dir,
     )) as Record<string, unknown>;
-    expect(typeof result.ok).toBe("boolean");
-    if (result.ok) {
+    expect(typeof result.status).toBe("string");
+    if (result.status === "success") {
       expect(result).toHaveProperty("filesModified");
     } else {
       expect(result).toHaveProperty("error");
@@ -328,8 +329,8 @@ describe("dispatchRequest per-operation dispatch", () => {
       { method: "moveFile", params: { oldPath, newPath } },
       dir,
     )) as Record<string, unknown>;
-    expect(typeof result.ok).toBe("boolean");
-    if (result.ok) {
+    expect(typeof result.status).toBe("string");
+    if (result.status === "success") {
       expect(result).toHaveProperty("filesModified");
     } else {
       expect(result).toHaveProperty("error");
@@ -345,8 +346,8 @@ describe("dispatchRequest per-operation dispatch", () => {
       { method: "moveSymbol", params: { sourceFile, symbolName: "multiply", destFile } },
       dir,
     )) as Record<string, unknown>;
-    expect(typeof result.ok).toBe("boolean");
-    if (result.ok) {
+    expect(typeof result.status).toBe("string");
+    if (result.status === "success") {
       expect(result).toHaveProperty("filesModified");
     } else {
       expect(result).toHaveProperty("error");
@@ -363,7 +364,7 @@ describe("dispatchRequest workspace boundary enforcement", () => {
       },
       "/tmp/workspace",
     )) as Record<string, unknown>;
-    expect(result.ok).toBe(false);
+    expect(result.status).toBe("error");
     expect(result.error).toBe("WORKSPACE_VIOLATION");
     expect(result).toHaveProperty("message");
   });
@@ -382,7 +383,7 @@ describe("dispatchRequest path character validation", () => {
       },
       "/tmp/workspace",
     )) as Record<string, unknown>;
-    expect(result.ok).toBe(false);
+    expect(result.status).toBe("error");
     expect(result.error).toBe("INVALID_PATH");
     expect(result.message).toBe("path contains control characters: file");
   });
@@ -395,7 +396,7 @@ describe("dispatchRequest path character validation", () => {
       { method: "rename", params: { file: filePath, line: 1, col: 1, newName: "x" } },
       "/tmp/workspace",
     )) as Record<string, unknown>;
-    expect(result.ok).toBe(false);
+    expect(result.status).toBe("error");
     expect(result.error).toBe("INVALID_PATH");
     expect(result.message).toContain("URI fragment or query character");
     expect(result.message).toContain("file");

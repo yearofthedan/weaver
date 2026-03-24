@@ -1,5 +1,5 @@
 {
-  "ok": true,
+  "status": "success",
   "symbolName": "authenticate",
   "references": [
     { "file": "/tmp/light-bridge-eval/src/auth.ts", "line": 5, "col": 17, "length": 12 },

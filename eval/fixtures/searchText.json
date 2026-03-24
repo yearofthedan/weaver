@@ -1,5 +1,5 @@
 {
-  "ok": true,
+  "status": "success",
   "matches": [
     {
       "file": "/tmp/light-bridge-eval/src/auth.ts",

@@ -1,5 +1,5 @@
 {
-  "ok": true,
+  "status": "success",
   "definitions": [
     {
       "file": "/tmp/light-bridge-eval/src/types.ts",

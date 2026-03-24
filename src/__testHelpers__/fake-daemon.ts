@@ -1,7 +1,7 @@
 /**
  * Minimal fake daemon for protocol version tests.
  * Listens on the real socket path and responds to every request with
- * { ok: true, version: <N> } where N comes from --version <N>.
+ * { status: "success", version: <N> } where N comes from --version <N>.
  * Emits { status: "ready" } on stderr once the socket is open.
  *
  * Usage: tsx tests/fake-daemon.ts --workspace <dir> --version <N>
@@ -34,7 +34,7 @@ const server = net.createServer((socket) => {
     buf = lines.pop() ?? "";
     for (const line of lines) {
       if (line.trim()) {
-        socket.write(`${JSON.stringify({ ok: true, version })}\n`);
+        socket.write(`${JSON.stringify({ status: "success", version })}\n`);
       }
     }
   });

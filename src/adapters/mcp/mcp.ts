@@ -12,7 +12,7 @@ export async function runServe(opts: { workspace: string }): Promise<void> {
   const validation = validateWorkspace(opts.workspace);
   if (!validation.ok) {
     process.stdout.write(
-      `${JSON.stringify({ ok: false, error: "VALIDATION_ERROR", message: validation.error })}\n`,
+      `${JSON.stringify({ status: "error", error: "VALIDATION_ERROR", message: validation.error })}\n`,
     );
     process.exit(1);
   }
@@ -80,7 +80,11 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
             content: [
               {
                 type: "text" as const,
-                text: JSON.stringify({ ok: false, error: classifyDaemonError(err), message }),
+                text: JSON.stringify({
+                  status: "error" as const,
+                  error: classifyDaemonError(err),
+                  message,
+                }),
               },
             ],
             isError: true,

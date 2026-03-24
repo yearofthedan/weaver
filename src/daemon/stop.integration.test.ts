@@ -40,7 +40,7 @@ describe("stop command", () => {
     const result = await runCliCommand(["stop", "--workspace", dir]);
 
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout.trim())).toMatchObject({ ok: true, stopped: true });
+    expect(JSON.parse(result.stdout.trim())).toMatchObject({ status: "success", stopped: true });
     expect(fs.existsSync(socketPath(dir))).toBe(false);
     expect(fs.existsSync(lockfilePath(dir))).toBe(false);
   });
@@ -51,6 +51,6 @@ describe("stop command", () => {
     const result = await runCliCommand(["stop", "--workspace", dir]);
 
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout.trim())).toMatchObject({ ok: true, stopped: false });
+    expect(JSON.parse(result.stdout.trim())).toMatchObject({ status: "success", stopped: false });
   });
 });

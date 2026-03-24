@@ -1,5 +1,5 @@
 {
-  "ok": true,
+  "status": "success",
   "oldPath": "/tmp/light-bridge-eval/src/utils",
   "newPath": "/tmp/light-bridge-eval/src/lib/helpers",
   "filesMoved": [
