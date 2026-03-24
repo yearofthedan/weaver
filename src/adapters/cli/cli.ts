@@ -2,6 +2,7 @@
 import { Command, type CommanderError } from "commander";
 import { runDaemon, runStop } from "../../daemon/daemon.js";
 import { runServe } from "../mcp/mcp.js";
+import { registerOperationSubcommands } from "./operations.js";
 
 function jsonError(message: string): void {
   process.stdout.write(`${JSON.stringify({ ok: false, error: "VALIDATION_ERROR", message })}\n`);
@@ -49,6 +50,8 @@ program
   .action(async (opts) => {
     await runServe(opts);
   });
+
+registerOperationSubcommands(program, commanderExitOverride);
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   const message = err instanceof Error ? err.message : String(err);
