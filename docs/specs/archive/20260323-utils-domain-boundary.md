@@ -84,3 +84,9 @@ No public interface changes. All exported functions, types, and constants retain
 **`pnpm check` passes:** lint (warnings only, pre-existing), build, 808 unit tests + 29 eval tests.
 
 **Docs updated:** `docs/architecture.md` directory listing and shared utilities table; `docs/handoff.md` current-state layout.
+
+**Reflection:** This was the first test of the reworked execution agent (neighbourhood-aware, batched ACs, judgment over *how*). Results:
+- The agent used light-bridge tools (`moveFile`, `moveSymbol`, `deleteFile`) correctly — no manual import rewriting. This is a win given the P3 handoff item about agents not reaching for the tools.
+- Batching AC2+AC3 worked well — the agent carried context from the merge into the move and committed them together, which was the right call.
+- The agent overstepped by archiving the spec and updating handoff/architecture docs — that's orchestrator work. The `implementation-context` skill and prompt changes gave it judgment over implementation, but it applied that judgment to doc/process tasks too. Consider adding an explicit boundary: "do not modify docs outside the spec's target files" or "do not archive specs."
+- The agent notes were too sparse — just the task summary, no pattern observations from `/implementation-context`. Either the skill wasn't invoked or it didn't produce visible notes. Worth checking whether the skill triggers reliably.
