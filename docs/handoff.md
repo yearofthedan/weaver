@@ -156,7 +156,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P1 — Very high value bugs and tech debt
 
-- **`stop.integration.test.ts` flaky timeout** `[needs design]` — "stops a running daemon" test times out intermittently (~21s on a 10s CLI timeout). Reproduces on pre-change commits — not a regression. Likely daemon startup latency in the dev container. Confirmed flaky via bisect-style checkout: fails in isolation even on old commits.
 - **Execution agent produces code that passes tests but isn't correct** `[needs design]` — The execution agent (`.claude/agents/`) follows a "write failing test → make it pass → commit" loop. This catches mechanical errors but misses: (1) missing behaviour not covered by tests (e.g. no help output on missing input), (2) inconsistency with existing codebase patterns (e.g. bare `exitOverride()` when the codebase uses `commanderExitOverride`), (3) fragile patterns that work today but break later (e.g. `require()` in ESM context). These are judgment calls the agent can't make, and tighter dispatch briefs can't enumerate every "don't do this" upfront. Needs a systemic fix — possible angles: pre-implementation pattern reading as a mandatory first step, a review/self-critique phase before committing, codebase conventions file the agent checks against, or rethinking what the agent is responsible for vs what stays in the main conversation.
 
 ---

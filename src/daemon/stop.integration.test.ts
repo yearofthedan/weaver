@@ -37,7 +37,9 @@ describe("stop command", () => {
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
 
-    const result = await runCliCommand(["stop", "--workspace", dir]);
+    // 20s timeout: stop internally polls up to 5s after SIGTERM, plus socket
+    // ping overhead — the default 10s is too tight in slow environments.
+    const result = await runCliCommand(["stop", "--workspace", dir], 20_000);
 
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout.trim())).toMatchObject({ status: "success", stopped: true });
