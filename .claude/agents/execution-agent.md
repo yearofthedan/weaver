@@ -88,6 +88,7 @@ You have judgment over *how* to implement — patterns, naming, commit granulari
 - Do not browse the web or research APIs
 - Do not adjust mutation score thresholds without justification
 - Do not proceed past a failing `pnpm check`
+- Do not archive specs, remove handoff entries, or complete the spec's Done-when checklist — that's the orchestrator's job. If you notice docs that need updating, note it in your agent notes file so the orchestrator can handle it
 
 ## Key principle
 
