@@ -93,15 +93,16 @@ The architecture is identical: daemon + serve, communicating over a local Unix s
 
 Since MCP is the interface, the remote agent's integration code is the same as a local agent's. No adapter layer is needed.
 
-### Why MCP and not a CLI
+### Two transports: MCP and CLI
 
-light-bridge is an MCP server, not a command-line refactoring tool. This is a deliberate choice, but it does not rule out a CLI in the future.
+light-bridge offers two ways to reach the same daemon and operations:
 
-**Why MCP first:** The daemon architecture exists because loading a TypeScript project graph is expensive — it can take seconds for a large codebase. A CLI tool that boots, parses the project, performs one rename, and exits would pay that startup cost on every invocation. The daemon pays it once. MCP is the natural interface for a long-lived process that serves multiple requests: the agent host manages the connection lifecycle, and the daemon stays warm.
+- **MCP server** (`light-bridge serve`) — for agent hosts that speak MCP (Claude Code, Cursor, etc.). The host manages the connection; the agent gets structured tool calls with typed JSON responses.
+- **CLI subcommands** (`light-bridge rename '...'`) — for agents that can shell out but don't have MCP configured. Each subcommand auto-spawns the daemon, sends a JSON request over the Unix socket, and prints the JSON response to stdout.
 
-MCP also gives agents structured input and output. A CLI tool returns text; the agent has to parse it. An MCP tool returns typed JSON — the agent gets `filesModified` as an array, not a string it has to interpret.
+Both transports share the daemon — the project graph loads once and stays warm. The CLI avoids the cold-start penalty of a boot-per-command tool because it connects to the running daemon rather than loading the project itself.
 
-**Where a CLI could help:** Not every operation needs a language server. A text-based search-and-replace or a file move by path could run without loading a project graph at all. And even for compiler-driven operations like rename, some users would accept a cold-start delay if it means no daemon to manage — a single command that boots, refactors, and exits. A CLI is a plausible future addition — the engine layers are already separated from the MCP transport, and a CLI subcommand could either connect to a running daemon or load the project directly depending on what's available.
+**Why both?** MCP is the natural interface for agent hosts that manage tool lifecycles. But not every agent environment has MCP — some agents only have shell access. CLI subcommands give those agents the same compiler-aware refactoring with zero setup beyond installing the package.
 
 ## What already exists
 

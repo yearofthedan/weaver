@@ -49,7 +49,8 @@ eval/
   quality-feedback.yml ← mutation testing (weekly + on push to main); Claude Code triage step on score < 75
 .claude/skills/
   mutate-triage/       ← /mutate-triage skill: classify survivors, open issues for noise, fix PRs for fixable gaps
-  light-bridge-refactoring/ ← shipped with npm; agent workflow guidance for light-bridge tools (when to use, response handling, sequences)
+  light-bridge-refactoring/ ← shipped with npm; agent workflow guidance for MCP tools (when to use, response handling, sequences)
+  light-bridge-cli/        ← shipped with npm; agent workflow guidance for CLI subcommands (same content, shell invocation syntax)
 src/
   adapters/
     schema.ts         ← Zod schemas + inferred arg types for all operations (used by tools.ts + dispatcher)
@@ -152,16 +153,9 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ---
 
-### P1 — Very high value bugs and tech debt
-
-- **Execution agent produces code that passes tests but isn't correct** `[needs design]` — The execution agent (`.claude/agents/`) follows a "write failing test → make it pass → commit" loop. This catches mechanical errors but misses: (1) missing behaviour not covered by tests (e.g. no help output on missing input), (2) inconsistency with existing codebase patterns (e.g. bare `exitOverride()` when the codebase uses `commanderExitOverride`), (3) fragile patterns that work today but break later (e.g. `require()` in ESM context). These are judgment calls the agent can't make, and tighter dispatch briefs can't enumerate every "don't do this" upfront. Needs a systemic fix — possible angles: pre-implementation pattern reading as a mandatory first step, a review/self-critique phase before committing, codebase conventions file the agent checks against, or rethinking what the agent is responsible for vs what stays in the main conversation.
-
----
-
 ### P2 — High-value features / bugs / tech debt
 
-- **CLI subcommand skill file for agents** `[needs design]` — skill file teaching agents when to reach for `light-bridge <op> '{...}'` CLI subcommands vs MCP tools vs manual editing. Depends on CLI subcommands shipping first.
-  - **Pre-public release infrastructure** → [`docs/specs/20260304-pre-public-infra.md`](specs/20260304-pre-public-infra.md) — Release Please pipeline, CodeQL, branch protection, LICENSE, SECURITY.md, `package.json` modernisation
+- **Pre-public release infrastructure** → [`docs/specs/20260304-pre-public-infra.md`](specs/20260304-pre-public-infra.md) — Release Please pipeline, CodeQL, branch protection, LICENSE, SECURITY.md, `package.json` modernisation
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
 - **`moveDirectory` VolarEngine: Vue import specifiers not rewritten** `[needs design]` — `VolarEngine.moveDirectory()` delegates to `TsMorphEngine`, which doesn't track `.vue` files. Result: `.vue` files are physically moved (as non-source files), but TS files importing `.vue` components (e.g. `import Button from "./components/Button.vue"`) are NOT rewritten to the new path. Fix: implement the virtual `.vue.ts` stub approach — create a temporary ts-morph project with `.vue.ts` stubs, call `directory.move()`, transplant rewritten imports back into SFCs.
 

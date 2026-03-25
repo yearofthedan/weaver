@@ -10,15 +10,17 @@ AI agents can read and write files, but cross-file refactoring is expensive. Ren
 
 ## How it works
 
-light-bridge has two layers:
+light-bridge has a daemon and two transports:
 
 **Daemon** — a long-lived process that loads the project graph into memory and watches the filesystem for changes. It stays alive between agent sessions so the engine is always warm. Start it once; it handles the rest.
 
 **MCP server** (`light-bridge serve`) — a thin process started by the agent host for each session. It connects to the running daemon, receives tool calls from the agent over stdio, and returns semantic summaries. If no daemon is running, it spawns one automatically.
 
+**CLI subcommands** (`light-bridge rename '...'`) — for agents that can shell out but don't have MCP configured. Each subcommand connects to the running daemon (auto-spawning if needed) and prints the JSON response to stdout. Same operations, same daemon, no MCP setup.
+
 The underlying language intelligence comes from ts-morph (pure TypeScript projects) and Volar (projects containing Vue files), covering both `.ts` and `.vue` files in a unified project graph.
 
-The agent calls tools. light-bridge applies changes. The context window stays clean.
+The agent calls tools or CLI commands. light-bridge applies changes. The context window stays clean.
 
 ```mermaid
 flowchart TD
@@ -133,7 +135,7 @@ All refactoring operations are also exposed as MCP tools via `light-bridge serve
 | `searchText` | n/a | n/a | yes | Regex search across workspace files with optional glob/context controls |
 | `replaceText` | n/a | n/a | no | Regex replace-all (pattern mode) or exact-position edits (surgical mode) |
 
-All tools take absolute paths. Write operations return `filesModified` and `filesSkipped` (files outside the workspace boundary that were not touched). Write operations also accept `checkTypeErrors: true` to return type diagnostics for modified files in the same response — see `getTypeErrors` for the diagnostic shape.
+All tools take absolute paths. Write operations return `filesModified` and `filesSkipped` (files outside the workspace boundary that were not touched). Type errors in modified files are checked automatically and returned in the response (`typeErrors`, `typeErrorCount`); pass `checkTypeErrors: false` to suppress.
 
 \* `moveSymbol` supports moving exports from `.ts`/`.tsx` sources inside Vue workspaces and updates `.vue` importers in a post-step. Moving symbols from a `.vue` source file is still pending.
 
@@ -141,12 +143,23 @@ All tools take absolute paths. Write operations return `filesModified` and `file
 
 ## Response format
 
-All operations return a JSON summary:
+Every response contains a `status` field: `"success"`, `"warn"`, or `"error"`.
 
 ```json
 {
-  "ok": true,
+  "status": "success",
   "filesModified": ["src/utils/math.ts", "src/index.ts"]
+}
+```
+
+`"warn"` means the operation completed but left type errors — check `typeErrors` in the response:
+
+```json
+{
+  "status": "warn",
+  "filesModified": ["src/utils/math.ts"],
+  "typeErrorCount": 2,
+  "typeErrors": [...]
 }
 ```
 
@@ -154,7 +167,7 @@ On failure:
 
 ```json
 {
-  "ok": false,
+  "status": "error",
   "error": "SYMBOL_NOT_FOUND",
   "message": "Could not find symbol at line 5, column 10"
 }
@@ -224,19 +237,26 @@ Alternatively, if light-bridge is installed as a dependency, you can use the `li
 }
 ```
 
-### Guiding the agent (skill file)
+### Guiding the agent (skill files)
 
-The MCP tool descriptions tell agents what each tool does, but not when to reach for them. light-bridge ships a skill file that provides workflow guidance — when to use compiler-aware tools vs manual editing, how to handle responses, and common refactoring sequences.
+Tool descriptions tell agents what each operation does, but not when to reach for them. light-bridge ships two skill files that provide workflow guidance — when to use compiler-aware tools vs manual editing, how to handle responses, and common refactoring sequences.
 
-The skill file covers decision heuristics (rename vs search-and-replace, moveFile vs shell mv), response patterns (act on `typeErrors`, surface `filesSkipped`), common sequences, and error handling.
+| Skill | For agents that... | Path in package |
+|---|---|---|
+| `light-bridge-refactoring` | Have MCP tools connected | `.claude/skills/light-bridge-refactoring` |
+| `light-bridge-cli` | Shell out to CLI commands | `.claude/skills/light-bridge-cli` |
 
-The file is at `.claude/skills/light-bridge-refactoring` in the installed package. Reference it from your agent configuration, or write your own tailored to your use case. Similar to your MCP config, the correct location for skills files will depend upon your agent framework.
+Both cover the same decision heuristics, response patterns, common sequences, and error handling — just with different invocation syntax.
+
+Reference the appropriate skill from your agent configuration, or write your own tailored to your use case. The correct location for skill files depends on your agent framework.
 
 ```markdown
 ## Refactoring
 
-Load the light-bridge refactoring skill for cross-file refactoring guidance:
+Load the light-bridge skill for cross-file refactoring guidance:
 see `node_modules/@yearofthedan/light-bridge/.claude/skills/light-bridge-refactoring`
+# or for CLI-only agents:
+see `node_modules/@yearofthedan/light-bridge/.claude/skills/light-bridge-cli`
 ```
 
 ### Notes

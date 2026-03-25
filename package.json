@@ -8,7 +8,8 @@
   "type": "module",
   "files": [
     "dist",
-    ".claude/skills/light-bridge-refactoring"
+    ".claude/skills/light-bridge-refactoring",
+    ".claude/skills/light-bridge-cli"
   ],
   "main": "./dist/adapters/cli/cli.js",
   "scripts": {
