@@ -1,6 +1,6 @@
+import { EngineError } from "../domain/errors.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { RenameResult } from "../operations/types.js";
-import { EngineError } from "../utils/errors.js";
 import { applyTextEdits } from "../utils/text-utils.js";
 import type { TsMorphEngine } from "./engine.js";
 

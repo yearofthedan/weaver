@@ -1,5 +1,5 @@
 import { Node, type SourceFile } from "ts-morph";
-import { EngineError } from "../utils/errors.js";
+import { EngineError } from "../domain/errors.js";
 
 /**
  * A resolved, named export in a ts-morph SourceFile.

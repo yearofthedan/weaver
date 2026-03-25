@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { EngineError } from "./errors.js";
+import { EngineError } from "../domain/errors.js";
 
 /**
  * Resolve `filePath` to an absolute path and assert it exists.

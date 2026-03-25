@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { EngineError } from "../domain/errors.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { Engine } from "../ts-engine/types.js";
-import { EngineError } from "../utils/errors.js";
 import type { MoveDirectoryResult } from "./types.js";
 
 function resolveAbs(p: string): string {

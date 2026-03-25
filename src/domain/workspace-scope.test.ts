@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
-import { EngineError } from "../utils/errors.js";
+import { EngineError } from "./errors.js";
 import { WorkspaceScope } from "./workspace-scope.js";
 
 const ROOT = "/workspace";

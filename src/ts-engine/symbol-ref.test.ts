@@ -1,6 +1,6 @@
 import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
-import { EngineError } from "../utils/errors.js";
+import { EngineError } from "../domain/errors.js";
 import { SymbolRef } from "./symbol-ref.js";
 
 function makeSourceFile(content: string) {

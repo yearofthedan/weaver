@@ -3,9 +3,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { EngineError } from "../domain/errors.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
-import { EngineError } from "../utils/errors.js";
 import { TsMorphEngine } from "./engine.js";
 
 function makeScope(dir: string): WorkspaceScope {

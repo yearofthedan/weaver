@@ -1,8 +1,8 @@
 import * as path from "node:path";
 import ts from "typescript";
+import { EngineError } from "../domain/errors.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { TsMorphEngine } from "../ts-engine/engine.js";
-import { EngineError } from "../utils/errors.js";
 import type { GetTypeErrorsResult, TypeDiagnostic } from "./types.js";
 
 export const MAX_DIAGNOSTICS = 100;
