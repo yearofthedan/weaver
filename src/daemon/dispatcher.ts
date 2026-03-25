@@ -11,6 +11,7 @@ import {
   ReplaceTextArgsSchema,
   SearchTextArgsSchema,
 } from "../adapters/schema.js";
+import { isWithinWorkspace, validateFilePath } from "../domain/security.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { extractFunction } from "../operations/extractFunction.js";
 import { findReferences } from "../operations/findReferences.js";
@@ -22,7 +23,6 @@ import { rename } from "../operations/rename.js";
 import { replaceText } from "../operations/replaceText.js";
 import { searchText } from "../operations/searchText.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
-import { isWithinWorkspace, validateFilePath } from "../security.js";
 import type { EngineRegistry } from "../ts-engine/types.js";
 import { makeRegistry } from "./language-plugin-registry.js";
 import { getTypeErrorsForFiles } from "./post-write-diagnostics.js";

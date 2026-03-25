@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { callDaemon, ensureDaemon } from "../../daemon/ensure-daemon.js";
 import { socketPath } from "../../daemon/paths.js";
-import { validateWorkspace } from "../../security.js";
+import { validateWorkspace } from "../../domain/security.js";
 import { classifyDaemonError } from "./classify-error.js";
 import { TOOL_NAMES, TOOLS } from "./tools.js";
 

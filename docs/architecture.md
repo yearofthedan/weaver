@@ -19,6 +19,7 @@ src/ports/               ← I/O abstractions (hexagonal ports)
 
 src/domain/              ← domain logic independent of I/O
   workspace-scope.ts    ← WorkspaceScope — boundary enforcement + modification tracking
+  security.ts           ← validateFilePath(), validateWorkspace(), isWithinWorkspace(), isSensitiveFile() — all security policy
 
 src/ts-engine/          ← TypeScript engine layer (stateful compiler + action functions + helpers)
   types.ts              ← Engine interface (compiler contract + action methods); EngineRegistry
@@ -342,7 +343,8 @@ The watcher (`src/daemon/watcher.ts`) calls into the language plugin registry:
 | `src/utils/extensions.ts` | `TS_EXTENSIONS`, `JS_EXTENSIONS`, `VUE_EXTENSIONS`, `JS_TS_PAIRS` — file extension constants |
 | `src/utils/relative-path.ts` | `computeRelativeImportPath()`, `toRelBase()` — import specifier path calculation |
 | `src/utils/assert-file.ts` | `assertFileExists()` — resolves and validates file path, throws `FILE_NOT_FOUND` |
-| `src/utils/errors.ts` | `EngineError` class + `ErrorCode` union — structured error type |
+| `src/domain/errors.ts` | `EngineError` class + `ErrorCode` union — structured error type |
+| `src/domain/security.ts` | `validateFilePath()`, `validateWorkspace()`, `isWithinWorkspace()`, `isSensitiveFile()` — workspace boundary and sensitive file policy |
 | `src/plugins/vue/scan.ts` | `updateVueImportsAfterMove`, `updateVueNamedImportAfterSymbolMove` — regex scans for `.vue` SFC import strings |
 
 ## Implementation notes
@@ -350,7 +352,7 @@ The watcher (`src/daemon/watcher.ts`) calls into the language plugin registry:
 **Language plugin invalidation hooks must be error-isolated.**
 `invalidateFile` and `invalidateAll` iterate all registered plugins. Each plugin's hook is wrapped in try/catch so a crash in one plugin (e.g. a Volar service bug) doesn't prevent other plugins from refreshing their state. The TS compiler is invalidated separately (before the plugin loop) since it's not a plugin.
 
-**`isWithinWorkspace` and `isSensitiveFile` are both in `src/security.ts`.**
+**`isWithinWorkspace` and `isSensitiveFile` are both in `src/domain/security.ts`.**
 `isWithinWorkspace` enforces the workspace boundary at two points: the dispatcher (input path validation) and each operation's output loop (write filtering). It resolves symlinks via `fs.realpathSync` for existing paths to prevent symlink escape. `isSensitiveFile` is called by `searchText` (silently skips) and `replaceText` surgical mode (throws `SENSITIVE_FILE` before touching any file).
 
 **ts-morph internals — see [`docs/tech/ts-morph.md`](tech/ts-morph.md).**

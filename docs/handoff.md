@@ -70,9 +70,9 @@ src/
     *.test.ts              ← colocated unit tests
   domain/
     workspace-scope.ts    ← WorkspaceScope boundary tracking + modification recording
+    security.ts           ← validateFilePath(), validateWorkspace(), isWithinWorkspace(), isSensitiveFile() — all security policy
+    errors.ts             ← EngineError class + ErrorCode union
     *.test.ts              ← colocated unit tests
-  security.ts     ← isWithinWorkspace() + validateWorkspace() — workspace boundary checks
-  security.test.ts ← colocated unit test
   daemon/
     daemon.ts                    ← socket server; promise-chain mutex; isDaemonAlive + removeDaemonFiles lifecycle fns; starts watcher; --verbose per-request logging
     ensure-daemon.ts             ← ensureDaemon (version check + auto-spawn); callDaemon (socket client); spawnDaemon; forwards --verbose
@@ -125,11 +125,9 @@ src/
     __testHelpers__/      ← mock-compiler.ts (makeMockCompiler) shared test helper
     *.test.ts             ← colocated unit tests
   utils/
-    errors.ts          ← EngineError class + ErrorCode union
     text-utils.ts      ← applyTextEdits(), offsetToLineCol()
     file-walk.ts       ← walkFiles() + walkWorkspaceFiles() + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS
     globs.ts           ← globToRegex() — glob pattern to RegExp conversion
-    sensitive-files.ts ← isSensitiveFile() + sensitive file constant tables
     ts-project.ts      ← findTsConfig, findTsConfigForFile, isVueProject
     *.test.ts          ← colocated unit tests
   *.integration.test.ts ← cross-cutting integration tests (cli-workspace-default, eval, agent-conventions, skill-file)
@@ -171,7 +169,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
-- **`utils/` vs `domain/` boundary audit** → [`docs/specs/20260323-utils-domain-boundary.md`](specs/20260323-utils-domain-boundary.md)
 - **CLI `--dry-run` previews** `[needs design]` — add `--dry-run` flag to CLI operation subcommands that previews what would change without writing. Requires daemon-level support (compute-only mode that returns edits without applying them).
 - **CLI `--interactive` selection mode** `[needs design]` — interactive confirmation workflow for `replace-text` (present matches one-by-one like `git add -p`). Human-friendly; not useful for agents. Requires TTY detection and incremental confirmation loop.
 - **CLI human-friendly flag interface** `[needs design]` — add `--flag` aliases for JSON params on CLI subcommands (e.g. `light-bridge rename --file src/a.ts --line 5 --col 3 --new-name bar`). Syntactic sugar that constructs the same JSON. Layers on top of the JSON interface without breaking it.

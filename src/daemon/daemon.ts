@@ -3,7 +3,7 @@ import * as net from "node:net";
 import * as path from "node:path";
 import { z } from "zod";
 import { EngineError } from "../domain/errors.js";
-import { validateWorkspace } from "../security.js";
+import { validateWorkspace } from "../domain/security.js";
 import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../utils/extensions.js";
 import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
 import { dispatchRequest, invalidateAll, invalidateFile } from "./dispatcher.js";

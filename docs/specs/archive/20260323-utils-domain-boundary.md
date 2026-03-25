@@ -70,3 +70,17 @@ No public interface changes. All exported functions, types, and constants retain
       - `docs/handoff.md` current-state section
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**AC1:** Completed in a prior session (commit ac07e71). `src/utils/errors.ts` → `src/domain/errors.ts`; 19 importers rewritten via `moveFile`.
+
+**AC2:** `moveSymbol` used to move all 4 exports (`SENSITIVE_BASENAME_EXACT`, `SENSITIVE_EXTENSIONS`, `SENSITIVE_BASENAME_PATTERNS`, `isSensitiveFile`) from `sensitive-files.ts` into `security.ts`. The 3 operation importers (deleteFile, replaceText, searchText) were rewritten automatically. Tests from `sensitive-files.test.ts` merged into `security.test.ts` manually. Old source and test files deleted.
+
+**AC3:** `moveFile` used to move `src/security.ts` → `src/domain/security.ts`. 8 files rewritten (workspace-scope.ts now imports from `./security.js` sibling). Test file moved separately to `src/domain/security.test.ts`. Import ordering fixes applied via `biome check --write`.
+
+**Tests added:** 82 tests pass in the merged `security.test.ts` (isSensitiveFile suite absorbed from deleted file).
+
+**`pnpm check` passes:** lint (warnings only, pre-existing), build, 808 unit tests + 29 eval tests.
+
+**Docs updated:** `docs/architecture.md` directory listing and shared utilities table; `docs/handoff.md` current-state layout.

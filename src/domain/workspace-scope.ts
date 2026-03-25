@@ -1,6 +1,6 @@
 import type { FileSystem } from "../ports/filesystem.js";
-import { isWithinWorkspace } from "../security.js";
 import { EngineError } from "./errors.js";
+import { isWithinWorkspace } from "./security.js";
 
 /**
  * Tracks workspace boundary membership and records which files were modified

@@ -104,3 +104,51 @@ export function isWithinWorkspace(filePath: string, workspace: string): boolean 
   }
   return true;
 }
+
+export const SENSITIVE_BASENAME_EXACT = new Set([
+  "credentials",
+  ".credentials",
+  "known_hosts",
+  "authorized_keys",
+  "id_rsa",
+  "id_ecdsa",
+  "id_ed25519",
+  "id_dsa",
+  ".npmrc",
+  ".netrc",
+  ".vault-token",
+  ".htpasswd",
+  ".envrc",
+  "secrets.yaml",
+  "secrets.yml",
+]);
+
+export const SENSITIVE_EXTENSIONS = new Set([
+  ".pem",
+  ".key",
+  ".p12",
+  ".pfx",
+  ".jks",
+  ".keystore",
+  ".cert",
+  ".crt",
+  ".kdbx",
+]);
+
+export const SENSITIVE_BASENAME_PATTERNS: RegExp[] = [/^service-account.*\.json$/, /-key\.json$/];
+
+export function isSensitiveFile(filePath: string): boolean {
+  const base = path.basename(filePath);
+  const baseLower = base.toLowerCase();
+  const ext = path.extname(base).toLowerCase();
+
+  if (SENSITIVE_EXTENSIONS.has(ext)) return true;
+  if (SENSITIVE_BASENAME_EXACT.has(baseLower)) return true;
+  if (SENSITIVE_BASENAME_PATTERNS.some((re) => re.test(baseLower))) return true;
+
+  // .env, .env.local, .env.production, etc. — basename starts with ".env"
+  // followed by end-of-string, a dot, or an underscore.
+  if (/^\.env($|\.|_)/i.test(base)) return true;
+
+  return false;
+}
