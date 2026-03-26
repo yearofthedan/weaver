@@ -12,6 +12,12 @@
     ".claude/skills/light-bridge-cli"
   ],
   "main": "./dist/adapters/cli/cli.js",
+  "exports": {
+    ".": "./dist/adapters/cli/cli.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "rm -rf dist && tsc && chmod +x dist/adapters/cli/cli.js",
     "dev": "tsx src/adapters/cli/cli.ts",
