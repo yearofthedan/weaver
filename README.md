@@ -40,9 +40,9 @@ flowchart TD
 ## Installation
 
 ```bash
-pnpm add -D @yearofthedan/light-bridge
+pnpm add -D @yearofthedan/light-bridge@alpha
 # or
-npm install -D @yearofthedan/light-bridge
+npm install -D @yearofthedan/light-bridge@alpha
 ```
 
 Or install from GitHub for unreleased builds:
@@ -262,6 +262,10 @@ see `node_modules/@yearofthedan/light-bridge/.claude/skills/light-bridge-cli`
 ### Notes
 - The daemon auto-spawns on first tool call if not already running. For faster first-call response, start it manually: `light-bridge daemon --workspace /path/to/project`.
 - One `serve` instance per agent session; one daemon per workspace. The daemon keeps running between sessions.
+
+## Security
+
+To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## Contributing
 
