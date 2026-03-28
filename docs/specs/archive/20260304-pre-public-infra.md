@@ -79,3 +79,13 @@ Blocks `import '@yearofthedan/light-bridge/dist/internals'`; consumers only get 
 - [ ] README updated: add "Security" section pointing to SECURITY.md; update install instructions to use `@alpha` tag
 - [ ] handoff.md current-state section updated
 - [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+## Outcome
+
+**Reflection:** Straightforward infrastructure work — all config files, no source changes. The branch protection API was the only hiccup: rulesets don't support `OrganizationAdmin` bypass on personal repos, but `RepositoryRole` (admin) worked. The spec was written well in advance but held up perfectly against the current codebase state — no ACs needed adjustment. The CONTRIBUTING.md was stale (old project structure, no CI/release docs) so we added sections documenting the full CI, release, and security tooling setup.
+
+- **Tests added:** 0 (infrastructure-only change)
+- **Mutation score:** N/A (no source code touched)
+- **Files created:** LICENSE, SECURITY.md, `.github/workflows/release-please.yml`, `.github/workflows/codeql.yml`
+- **Files modified:** `package.json` (exports + engines), `.github/workflows/ci.yml` (pnpm audit), README.md (Security section, @alpha install), CONTRIBUTING.md (CI/release/security docs)
+- **GitHub settings:** Branch ruleset "Protect main" (PR required, admin bypass)

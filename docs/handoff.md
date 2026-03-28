@@ -155,7 +155,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P2 — High-value features / bugs / tech debt
 
-- **Pre-public release infrastructure** → [`docs/specs/20260304-pre-public-infra.md`](specs/20260304-pre-public-infra.md) — Release Please pipeline, CodeQL, branch protection, LICENSE, SECURITY.md, `package.json` modernisation
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
 - **`moveDirectory` VolarEngine: Vue import specifiers not rewritten** `[needs design]` — `VolarEngine.moveDirectory()` delegates to `TsMorphEngine`, which doesn't track `.vue` files. Result: `.vue` files are physically moved (as non-source files), but TS files importing `.vue` components (e.g. `import Button from "./components/Button.vue"`) are NOT rewritten to the new path. Fix: implement the virtual `.vue.ts` stub approach — create a temporary ts-morph project with `.vue.ts` stubs, call `directory.move()`, transplant rewritten imports back into SFCs.
 
