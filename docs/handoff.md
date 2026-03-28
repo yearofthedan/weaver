@@ -153,6 +153,12 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ---
 
+### P1 — Rename
+
+- **Rename project to Weaver** → [spec](specs/20260328-rename-to-weaver.md)
+
+---
+
 ### P2 — High-value features / bugs / tech debt
 
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
@@ -184,6 +190,8 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P4 — Low priority
+
+- **Consolidate `WEAVER_VERBOSE` env var into flag-only** `[needs design]` — the daemon has both a `--verbose` CLI flag and a `WEAVER_VERBOSE` env var that do the same thing. The env var exists because auto-spawn can't pass CLI flags, but `ensureDaemon` could forward `--verbose` to `spawnDaemon` directly. Consolidate to flag-only and remove the env var.
 
 - **`moveSymbol` for class methods** — extract a method to a standalone exported function. Deferred: the only safe subset (static methods / no-`this` instance methods) doesn't update call sites, so it always leaves broken code. Without call-site rewriting, the value over manual `searchText` + `replaceText` is low. Revisit if call-site rewriting becomes tractable.
 - **`inlineVariable` / `inlineFunction`** — less common refactoring pattern; complex to implement safely
