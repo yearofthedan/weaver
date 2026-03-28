@@ -69,7 +69,7 @@
     "@vitest/coverage-v8": "4.1.1",
     "@volar/language-core": "2.4.28",
     "husky": "9.1.7",
-    "promptfoo": "0.121.2",
+    "promptfoo": "0.121.3",
     "tsx": "4.21.0",
     "vitest": "4.1.1"
   }
