@@ -1,10 +1,7 @@
 {
   "status": "success",
-  "deletedFile": "/tmp/light-bridge-eval/src/old-helper.ts",
-  "filesModified": [
-    "/tmp/light-bridge-eval/src/api.ts",
-    "/tmp/light-bridge-eval/src/middleware.ts"
-  ],
+  "deletedFile": "/tmp/weaver-eval/src/old-helper.ts",
+  "filesModified": ["/tmp/weaver-eval/src/api.ts", "/tmp/weaver-eval/src/middleware.ts"],
   "filesSkipped": [],
   "importRefsRemoved": 3
 }

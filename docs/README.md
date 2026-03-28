@@ -1,17 +1,17 @@
 # Documentation Index
 
-**Purpose:** Navigate the light-bridge documentation by your role and needs.
+**Purpose:** Navigate the weaver documentation by your role and needs.
 
 ## Quick Start
 
-- **I want to use light-bridge** → [README](../README.md) — installation, CLI, MCP tools, agent integration
+- **I want to use weaver** → [README](../README.md) — installation, CLI, MCP tools, agent integration
 - **I'm implementing a feature** → [Handoff](handoff.md) — backlog, current state, finish checklist
 - **I'm reviewing security** → [Security](security.md), then specific [Features](features/)
 - **I'm debugging an issue** → [Tech Debt](tech/tech-debt.md)
 
 ## Product & Rationale
 
-- [Why light-bridge](why.md) — what it is, the problem it solves, design bar, ecosystem fit
+- [Why weaver](why.md) — what it is, the problem it solves, design bar, ecosystem fit
 
 ## Project Management
 

@@ -4,7 +4,7 @@
 
 ## What it is
 
-The CLI is the primary binary for light-bridge. It has three subcommands:
+The CLI is the primary binary for weaver. It has three subcommands:
 
 - `daemon` — start the long-lived engine host
 - `serve` — start an MCP server session for an agent
@@ -14,12 +14,12 @@ All 11 refactoring operations are available as both CLI subcommands and MCP tool
 
 ## Commands
 
-### `light-bridge daemon`
+### `weaver daemon`
 
 Starts the long-lived daemon process for a workspace. Loads the project graph into memory and listens on a local Unix socket for connections from `serve` instances.
 
 ```bash
-light-bridge daemon --workspace /path/to/project
+weaver daemon --workspace /path/to/project
 ```
 
 On ready, writes to stderr:
@@ -30,12 +30,12 @@ On ready, writes to stderr:
 
 The daemon can be started explicitly before an agent session (for pre-warming), or will be auto-spawned by `serve` if none is running.
 
-### `light-bridge serve`
+### `weaver serve`
 
 Starts the MCP server over stdio for an agent session. Connects to the running daemon for the workspace (auto-spawning it if necessary), then accepts tool calls from the agent host (e.g. Claude, Cursor).
 
 ```bash
-light-bridge serve --workspace /path/to/project
+weaver serve --workspace /path/to/project
 ```
 
 On ready, writes to stderr:
@@ -58,12 +58,12 @@ If the daemon is still initialising when a tool call arrives, `serve` responds i
 
 The agent is responsible for retrying. `serve` does not buffer or queue tool calls.
 
-### `light-bridge stop`
+### `weaver stop`
 
 Stops a running daemon process for a workspace.
 
 ```bash
-light-bridge stop --workspace /path/to/project
+weaver stop --workspace /path/to/project
 ```
 
 Success response (stdout):
@@ -83,9 +83,9 @@ If no daemon is running for that workspace:
 All 11 operations are available as kebab-case CLI subcommands. Each accepts a single JSON argument (or reads from stdin when not a TTY) and prints the daemon's JSON response to stdout.
 
 ```bash
-light-bridge rename '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
-light-bridge move-file '{"oldPath": "src/old.ts", "newPath": "src/new.ts"}'
-light-bridge find-references '{"file": "src/a.ts", "line": 10, "col": 5}'
+weaver rename '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
+weaver move-file '{"oldPath": "src/old.ts", "newPath": "src/new.ts"}'
+weaver find-references '{"file": "src/a.ts", "line": 10, "col": 5}'
 ```
 
 Available subcommands: `rename`, `move-file`, `move-directory`, `move-symbol`, `extract-function`, `find-references`, `get-definition`, `get-type-errors`, `search-text`, `delete-file`, `replace-text`.
@@ -95,7 +95,7 @@ JSON keys match the Zod schema field names (camelCase). Path-valued keys (`file`
 Stdin piping works for longer JSON:
 
 ```bash
-echo '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}' | light-bridge rename
+echo '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}' | weaver rename
 ```
 
 Exit codes: `0` for `status: "success"` or `"warn"`, `1` for `status: "error"` or CLI-level failures.
@@ -104,7 +104,7 @@ The daemon auto-spawns if not already running (same as `serve`).
 
 ## Shutdown
 
-`serve` shuts down cleanly on SIGTERM — this ends the agent session but does not stop the daemon. The daemon shuts down cleanly on SIGTERM and can be stopped via `light-bridge stop` or your process manager.
+`serve` shuts down cleanly on SIGTERM — this ends the agent session but does not stop the daemon. The daemon shuts down cleanly on SIGTERM and can be stopped via `weaver stop` or your process manager.
 
 ## Characteristics
 
@@ -129,7 +129,7 @@ The daemon auto-spawns if not already running (same as `serve`).
 Hardcoded workspace roots in the repo config (e.g. `/workspace/...` or `/workspaces/...`) break MCP startup on other hosts. Keep the committed config root-relative (`--workspace .`), and store machine-specific absolute-path overrides in user-level MCP settings (`claude mcp add ...`) rather than version-controlled files.
 
 **`npx` is the most portable MCP config option when path resolution fails.**
-Users report that `command: "npx"` with `args: ["-y", "@yearofthedan/light-bridge", "serve", "--workspace", "."]` avoids path resolution problems. The MCP host may spawn the process from a different working directory, so `light-bridge` from `node_modules/.bin` can fail to resolve. npx handles finding the package regardless of cwd.
+Users report that `command: "npx"` with `args: ["-y", "@yearofthedan/weaver", "serve", "--workspace", "."]` avoids path resolution problems. The MCP host may spawn the process from a different working directory, so `weaver` from `node_modules/.bin` can fail to resolve. npx handles finding the package regardless of cwd.
 
 **`pnpm agent:check` for policy, `pnpm agent:doctor` for runtime setup.**
 `agent:check` is a static conventions check (safe for CI): validates committed MCP config shape and portability policy. `agent:doctor` is a local runtime liveness check (spawn + initialize + tools/list) and should be run during environment setup/debugging, not on every push.

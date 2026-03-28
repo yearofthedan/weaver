@@ -14,7 +14,7 @@ import { startFixtureServer } from "./fixture-server.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
-const EVAL_WORKSPACE = "/tmp/light-bridge-eval";
+const EVAL_WORKSPACE = "/tmp/weaver-eval";
 const FIXTURES_DIR = path.join(__dirname, "fixtures");
 
 if (!process.env.ANTHROPIC_API_KEY) {

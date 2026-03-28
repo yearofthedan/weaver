@@ -129,7 +129,7 @@ export async function runStop(opts: { workspace: string }): Promise<void> {
 
 function resolveVerbose(opts: { verbose?: boolean }): boolean {
   if (opts.verbose !== undefined) return opts.verbose;
-  return process.env.LIGHT_BRIDGE_VERBOSE === "1";
+  return process.env.WEAVER_VERBOSE === "1";
 }
 
 export async function runDaemon(opts: { workspace: string; verbose?: boolean }): Promise<void> {

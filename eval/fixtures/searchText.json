@@ -2,7 +2,7 @@
   "status": "success",
   "matches": [
     {
-      "file": "/tmp/light-bridge-eval/src/auth.ts",
+      "file": "/tmp/weaver-eval/src/auth.ts",
       "line": 3,
       "col": 5,
       "matchText": "TODO: add rate limiting",
@@ -13,7 +13,7 @@
       ]
     },
     {
-      "file": "/tmp/light-bridge-eval/src/auth.ts",
+      "file": "/tmp/weaver-eval/src/auth.ts",
       "line": 12,
       "col": 9,
       "matchText": "userId",
@@ -24,7 +24,7 @@
       ]
     },
     {
-      "file": "/tmp/light-bridge-eval/src/api.ts",
+      "file": "/tmp/weaver-eval/src/api.ts",
       "line": 1,
       "col": 21,
       "matchText": "v1",
@@ -34,7 +34,7 @@
       ]
     },
     {
-      "file": "/tmp/light-bridge-eval/src/api.ts",
+      "file": "/tmp/weaver-eval/src/api.ts",
       "line": 18,
       "col": 5,
       "matchText": "TODO: handle pagination",

@@ -5,7 +5,7 @@ describe("validateLightBridgeServerConfig", () => {
   it("accepts the portable committed config pattern", () => {
     const issues = validateLightBridgeServerConfig(".mcp.json", {
       mcpServers: {
-        "light-bridge": {
+        weaver: {
           type: "stdio",
           command: "pnpm",
           args: ["exec", "tsx", "src/cli.ts", "serve", "--workspace", "."],
@@ -18,7 +18,7 @@ describe("validateLightBridgeServerConfig", () => {
   it("rejects host-specific absolute workspace paths", () => {
     const issues = validateLightBridgeServerConfig(".mcp.json", {
       mcpServers: {
-        "light-bridge": {
+        weaver: {
           type: "stdio",
           command: "pnpm",
           args: ["exec", "tsx", "src/cli.ts", "serve", "--workspace", "/workspace"],
@@ -31,10 +31,10 @@ describe("validateLightBridgeServerConfig", () => {
   it("rejects /workspace and /workspaces hardcoded args", () => {
     const issues = validateLightBridgeServerConfig(".mcp.json", {
       mcpServers: {
-        "light-bridge": {
+        weaver: {
           type: "stdio",
           command: "node",
-          args: ["/workspaces/light-bridge/dist/cli.js", "serve", "--workspace", "."],
+          args: ["/workspaces/weaver/dist/cli.js", "serve", "--workspace", "."],
         },
       },
     });
@@ -44,9 +44,9 @@ describe("validateLightBridgeServerConfig", () => {
   it("rejects absolute command paths", () => {
     const issues = validateLightBridgeServerConfig(".mcp.json", {
       mcpServers: {
-        "light-bridge": {
+        weaver: {
           type: "stdio",
-          command: "/usr/local/bin/light-bridge",
+          command: "/usr/local/bin/weaver",
           args: ["serve", "--workspace", "."],
         },
       },
@@ -57,7 +57,7 @@ describe("validateLightBridgeServerConfig", () => {
   it("requires a workspace flag", () => {
     const issues = validateLightBridgeServerConfig(".mcp.json", {
       mcpServers: {
-        "light-bridge": {
+        weaver: {
           type: "stdio",
           command: "pnpm",
           args: ["exec", "tsx", "src/cli.ts", "serve"],

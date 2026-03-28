@@ -1,11 +1,11 @@
 {
   "status": "success",
-  "oldPath": "/tmp/light-bridge-eval/src/auth.ts",
-  "newPath": "/tmp/light-bridge-eval/src/authentication/auth.ts",
+  "oldPath": "/tmp/weaver-eval/src/auth.ts",
+  "newPath": "/tmp/weaver-eval/src/authentication/auth.ts",
   "filesModified": [
-    "/tmp/light-bridge-eval/src/auth.ts",
-    "/tmp/light-bridge-eval/src/api.ts",
-    "/tmp/light-bridge-eval/src/middleware.ts"
+    "/tmp/weaver-eval/src/auth.ts",
+    "/tmp/weaver-eval/src/api.ts",
+    "/tmp/weaver-eval/src/middleware.ts"
   ],
   "filesSkipped": []
 }

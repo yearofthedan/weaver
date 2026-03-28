@@ -1,32 +1,32 @@
-# light-bridge
+# weaver
 
 A refactoring bridge between AI coding agents and the compiler APIs that understand your codebase.
 
 > **Experimental.** This project is in active development. The goal is deterministic, token-reducing refactoring for AI agents through compiler-driven semantics, drawing inspiration from IDE integration patterns. Core operations are stable and tested, but some features remain incomplete or will evolve as we explore better approaches.
 
-AI agents can read and write files, but cross-file refactoring is expensive. Renaming a shared symbol or moving a file means loading every affected file into context, manually patching import paths, and hoping nothing is missed. light-bridge removes that burden — the agent issues an intent, light-bridge handles the cascade, and the agent gets back a semantic summary without ever seeing the raw diffs.
+AI agents can read and write files, but cross-file refactoring is expensive. Renaming a shared symbol or moving a file means loading every affected file into context, manually patching import paths, and hoping nothing is missed. weaver removes that burden — the agent issues an intent, weaver handles the cascade, and the agent gets back a semantic summary without ever seeing the raw diffs.
 
-**[Why light-bridge?](docs/why.md)** — speed, determinism, and context efficiency; how it fits into the AI coding ecosystem.
+**[Why weaver?](docs/why.md)** — speed, determinism, and context efficiency; how it fits into the AI coding ecosystem.
 
 ## How it works
 
-light-bridge has a daemon and two transports:
+weaver has a daemon and two transports:
 
 **Daemon** — a long-lived process that loads the project graph into memory and watches the filesystem for changes. It stays alive between agent sessions so the engine is always warm. Start it once; it handles the rest.
 
-**MCP server** (`light-bridge serve`) — a thin process started by the agent host for each session. It connects to the running daemon, receives tool calls from the agent over stdio, and returns semantic summaries. If no daemon is running, it spawns one automatically.
+**MCP server** (`weaver serve`) — a thin process started by the agent host for each session. It connects to the running daemon, receives tool calls from the agent over stdio, and returns semantic summaries. If no daemon is running, it spawns one automatically.
 
-**CLI subcommands** (`light-bridge rename '...'`) — for agents that can shell out but don't have MCP configured. Each subcommand connects to the running daemon (auto-spawning if needed) and prints the JSON response to stdout. Same operations, same daemon, no MCP setup.
+**CLI subcommands** (`weaver rename '...'`) — for agents that can shell out but don't have MCP configured. Each subcommand connects to the running daemon (auto-spawning if needed) and prints the JSON response to stdout. Same operations, same daemon, no MCP setup.
 
 The underlying language intelligence comes from ts-morph (pure TypeScript projects) and Volar (projects containing Vue files), covering both `.ts` and `.vue` files in a unified project graph.
 
-The agent calls tools or CLI commands. light-bridge applies changes. The context window stays clean.
+The agent calls tools or CLI commands. weaver applies changes. The context window stays clean.
 
 ```mermaid
 flowchart TD
     A["Agent host\n(Claude Code / Roo / Cursor)"]
-    B["light-bridge serve\n(MCP server, stdio)"]
-    C["light-bridge daemon\n(project graph + watcher)"]
+    B["weaver serve\n(MCP server, stdio)"]
+    C["weaver daemon\n(project graph + watcher)"]
     D[ts-morph]
     E[Volar]
     F["Project files\n(.ts · .tsx · .vue)"]
@@ -40,25 +40,25 @@ flowchart TD
 ## Installation
 
 ```bash
-pnpm add -D @yearofthedan/light-bridge@alpha
+pnpm add -D @yearofthedan/weaver@alpha
 # or
-npm install -D @yearofthedan/light-bridge@alpha
+npm install -D @yearofthedan/weaver@alpha
 ```
 
 Or install from GitHub for unreleased builds:
 
 ```bash
-pnpm add -D github:yearofthedan/light-bridge
+pnpm add -D github:yearofthedan/weaver
 ```
 
 ## CLI Commands
 
-### `light-bridge daemon`
+### `weaver daemon`
 
 Start the daemon for a workspace. Loads the project graph, starts the filesystem watcher, and listens for connections from `serve` instances.
 
 ```bash
-light-bridge daemon --workspace /path/to/project
+weaver daemon --workspace /path/to/project
 ```
 
 Output (stderr):
@@ -69,12 +69,12 @@ Output (stderr):
 
 The daemon runs until terminated with SIGTERM or SIGINT. It does not exit when agent sessions end.
 
-### `light-bridge serve`
+### `weaver serve`
 
 Start the MCP server for an agent session. Connects to the running daemon (spawning it if needed) and accepts tool calls over stdio.
 
 ```bash
-light-bridge serve --workspace /path/to/project
+weaver serve --workspace /path/to/project
 ```
 
 Output (stderr):
@@ -85,12 +85,12 @@ Output (stderr):
 
 Terminates cleanly on SIGTERM. The daemon continues running after the session ends.
 
-### `light-bridge stop`
+### `weaver stop`
 
 Stop a running daemon for a workspace.
 
 ```bash
-light-bridge stop --workspace /path/to/project
+weaver stop --workspace /path/to/project
 ```
 
 Output (stdout):
@@ -104,22 +104,22 @@ Output (stdout):
 All operations are available as CLI subcommands. Each accepts a JSON argument and prints the daemon's response to stdout:
 
 ```bash
-light-bridge rename '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
-light-bridge move-file '{"oldPath": "src/old.ts", "newPath": "src/new.ts"}'
-light-bridge find-references '{"file": "src/a.ts", "line": 10, "col": 5}'
+weaver rename '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
+weaver move-file '{"oldPath": "src/old.ts", "newPath": "src/new.ts"}'
+weaver find-references '{"file": "src/a.ts", "line": 10, "col": 5}'
 ```
 
 Path params can be relative (resolved against `--workspace` or cwd):
 
 ```bash
-light-bridge rename --workspace /path/to/project '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
+weaver rename --workspace /path/to/project '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
 ```
 
 The daemon auto-spawns if not already running. Exit code is `0` for success/warn, `1` for errors. Pipe JSON via stdin for longer inputs.
 
 ## MCP tools
 
-All refactoring operations are also exposed as MCP tools via `light-bridge serve`. The agent host calls them; light-bridge handles the cascade.
+All refactoring operations are also exposed as MCP tools via `weaver serve`. The agent host calls them; weaver handles the cascade.
 
 | Tool | TS | Vue | Read-only | Notes |
 |---|---|---|---|---|
@@ -193,19 +193,19 @@ On failure:
 
 ## When NOT to use this
 
-light-bridge is a specialised tool. Use the right tool for the job:
+weaver is a specialised tool. Use the right tool for the job:
 
-| Alternative | Use instead when… | light-bridge wins when… |
+| Alternative | Use instead when… | weaver wins when… |
 |---|---|---|
 | Base agent tools (grep, read/write) | The change is in one file, or the agent's context window can hold everything comfortably | The change fans out across many files; missing one import breaks the build |
 | Claude's built-in `typescript-lsp` plugin | You only need diagnostics and navigation (jump to definition, find references) | You need to *apply* structural changes (rename, move, extract) — the two complement each other, not compete |
 | IntelliJ MCP | You're already running IntelliJ and want the full IDE refactoring suite | You're in a devcontainer, CI, or remote environment where a GUI IDE isn't available |
 
-See [docs/why.md](docs/why.md) for a broader look at where light-bridge fits in the AI coding ecosystem.
+See [docs/why.md](docs/why.md) for a broader look at where weaver fits in the AI coding ecosystem.
 
 ## Agent integration
 
-`light-bridge serve` is a stdio MCP server. Configure your agent host to launch it for the workspace you want to refactor.
+`weaver serve` is a stdio MCP server. Configure your agent host to launch it for the workspace you want to refactor.
 
 ### Installing the MCP server
 
@@ -214,23 +214,23 @@ Add a `.mcp.json` according to your project root. The location depends upon your
 ```json
 {
   "mcpServers": {
-    "light-bridge": {
+    "weaver": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@yearofthedan/light-bridge", "serve", "--workspace", "."]
+      "args": ["-y", "@yearofthedan/weaver", "serve", "--workspace", "."]
     }
   }
 }
 ```
 
-Alternatively, if light-bridge is installed as a dependency, you can use the `light-bridge` bin directly (requires `node_modules/.bin` to be on the host's PATH when it spawns the process):
+Alternatively, if weaver is installed as a dependency, you can use the `weaver` bin directly (requires `node_modules/.bin` to be on the host's PATH when it spawns the process):
 
 ```json
 {
   "mcpServers": {
-    "light-bridge": {
+    "weaver": {
       "type": "stdio",
-      "command": "light-bridge",
+      "command": "weaver",
       "args": ["serve", "--workspace", "."]
     }
   }
@@ -239,7 +239,7 @@ Alternatively, if light-bridge is installed as a dependency, you can use the `li
 
 ### Guiding the agent (skill files)
 
-Tool descriptions tell agents what each operation does, but not when to reach for them. light-bridge ships three skill files that provide trigger-matched workflow guidance — each covers a specific category of operations.
+Tool descriptions tell agents what each operation does, but not when to reach for them. weaver ships three skill files that provide trigger-matched workflow guidance — each covers a specific category of operations.
 
 | Skill | Covers | Path in package |
 |---|---|---|
@@ -252,14 +252,14 @@ Reference the appropriate skills from your agent configuration, or write your ow
 ```markdown
 ## Refactoring
 
-Load the light-bridge skills for compiler-aware refactoring guidance:
-see `node_modules/@yearofthedan/light-bridge/.claude/skills/search-and-replace`
-see `node_modules/@yearofthedan/light-bridge/.claude/skills/move-and-rename`
-see `node_modules/@yearofthedan/light-bridge/.claude/skills/code-inspection`
+Load the weaver skills for compiler-aware refactoring guidance:
+see `node_modules/@yearofthedan/weaver/.claude/skills/search-and-replace`
+see `node_modules/@yearofthedan/weaver/.claude/skills/move-and-rename`
+see `node_modules/@yearofthedan/weaver/.claude/skills/code-inspection`
 ```
 
 ### Notes
-- The daemon auto-spawns on first tool call if not already running. For faster first-call response, start it manually: `light-bridge daemon --workspace /path/to/project`.
+- The daemon auto-spawns on first tool call if not already running. For faster first-call response, start it manually: `weaver daemon --workspace /path/to/project`.
 - One `serve` instance per agent session; one daemon per workspace. The daemon keeps running between sessions.
 
 ## Security

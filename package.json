@@ -1,5 +1,5 @@
 {
-  "name": "@yearofthedan/light-bridge",
+  "name": "@yearofthedan/weaver",
   "version": "0.1.0",
   "repository": {
     "type": "git",
@@ -7,7 +7,7 @@
   },
   "description": "Headless CLI refactoring engine for AI agents",
   "bin": {
-    "light-bridge": "./dist/adapters/cli/cli.js"
+    "weaver": "./dist/adapters/cli/cli.js"
   },
   "type": "module",
   "files": [

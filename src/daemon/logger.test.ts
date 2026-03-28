@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createLogger, stripWorkspacePrefix } from "./logger.js";
 import { logfilePath } from "./paths.js";
 
-const CACHE_DIR = path.join(os.homedir(), ".cache", "light-bridge");
+const CACHE_DIR = path.join(os.homedir(), ".cache", "weaver");
 const WORKSPACE_A = "/tmp/test-logger-workspace-a";
 const WORKSPACE_B = "/tmp/test-logger-workspace-b";
 

@@ -12,7 +12,7 @@ The daemon is a long-lived background process that owns the language service for
 If you do nothing, `serve` will auto-spawn a daemon the first time it is started. The auto-spawned daemon runs detached and persists after the `serve` session ends.
 
 ```bash
-light-bridge daemon --workspace /path/to/project
+weaver daemon --workspace /path/to/project
 ```
 
 ## Why it exists
@@ -27,9 +27,9 @@ The daemon solves both: load once, stay alive.
 ## Lifecycle
 
 ```
-light-bridge daemon --workspace /path/to/project
+weaver daemon --workspace /path/to/project
   ├── resolve and validate workspace path
-  ├── open Unix socket at ~/.cache/light-bridge/<workspace-hash>.sock
+  ├── open Unix socket at ~/.cache/weaver/<workspace-hash>.sock
   ├── write lockfile with PID
   ├── start filesystem watcher for the workspace
   └── write ready signal to stderr, wait for connections
@@ -75,7 +75,7 @@ Implemented in `src/daemon/watcher.ts` using chokidar.
 - Calls `invalidateFile(path)` on content changes.
 - Calls `invalidateAll()` on add/remove events.
 
-The watcher keeps provider state fresh when files are edited outside light-bridge (editor saves, generators, branch switches). Full behavior and invalidation strategy are documented in [watcher.md](watcher.md).
+The watcher keeps provider state fresh when files are edited outside weaver (editor saves, generators, branch switches). Full behavior and invalidation strategy are documented in [watcher.md](watcher.md).
 
 ## Implementation notes
 
@@ -105,16 +105,16 @@ Both the daemon (ping handler) and `ensure-daemon.ts` (`ensureDaemon`) import it
 Opt-in per-request logging for debugging daemon issues. Disabled by default — no log file is created unless explicitly enabled.
 
 ```bash
-light-bridge daemon --workspace /path --verbose
+weaver daemon --workspace /path --verbose
 # or
-LIGHT_BRIDGE_VERBOSE=1 light-bridge daemon --workspace /path
+WEAVER_VERBOSE=1 weaver daemon --workspace /path
 ```
 
-When enabled, the daemon writes structured JSON log lines to `~/.cache/light-bridge/<workspace-hash>.log`. Each request produces one line with: timestamp, method, duration, success/failure, error details, and stack traces (with workspace paths stripped to relative).
+When enabled, the daemon writes structured JSON log lines to `~/.cache/weaver/<workspace-hash>.log`. Each request produces one line with: timestamp, method, duration, success/failure, error details, and stack traces (with workspace paths stripped to relative).
 
 The log file is deleted on clean shutdown (alongside socket and lockfile). On crash, it survives for post-mortem inspection. Capped at 10 MB with head truncation. File permissions are `0o600` (owner-only).
 
-When `serve` auto-spawns a daemon, it forwards `LIGHT_BRIDGE_VERBOSE=1` to `spawnDaemon`.
+When `serve` auto-spawns a daemon, it forwards `WEAVER_VERBOSE=1` to `spawnDaemon`.
 
 ## Out of scope
 

@@ -1,4 +1,4 @@
-**Purpose:** Threat model and security controls for the light-bridge MCP server.
+**Purpose:** Threat model and security controls for the weaver MCP server.
 **Audience:** Security reviewers, developers implementing file operations, anyone touching workspace boundary logic.
 **Status:** Current
 **Related docs:** [Quality](quality.md) (reliability), [Features](features/) (per-operation constraints)
@@ -7,7 +7,7 @@
 
 # Security
 
-Threat model, controls, and known limitations for the light-bridge MCP server.
+Threat model, controls, and known limitations for the weaver MCP server.
 
 ## Threat model
 

@@ -84,7 +84,7 @@ describe.each(SHIPPED_SKILLS)("shipped skill: $name", (skill) => {
   describe("host-agnostic", () => {
     it("does not use agent-host-specific tool name prefixes", () => {
       const content = fs.readFileSync(fullPath, "utf-8");
-      expect(content).not.toContain("mcp__light-bridge__");
+      expect(content).not.toContain("mcp__weaver__");
       expect(content).not.toContain("mcp__");
     });
   });
@@ -112,10 +112,10 @@ describe("search-and-replace skill", () => {
 });
 
 describe("skills use CLI invocation syntax", () => {
-  it.each(SHIPPED_SKILLS)("$name shows light-bridge CLI commands", (skill) => {
+  it.each(SHIPPED_SKILLS)("$name shows weaver CLI commands", (skill) => {
     const fullPath = path.join(PROJECT_ROOT, skill.path);
     const content = fs.readFileSync(fullPath, "utf-8");
-    expect(content).toContain("light-bridge");
-    expect(content).toMatch(/light-bridge \w/);
+    expect(content).toContain("weaver");
+    expect(content).toMatch(/weaver \w/);
   });
 });

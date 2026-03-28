@@ -1,4 +1,4 @@
-**Purpose:** Characteristics of AI coding agents that should inform every design decision in light-bridge.
+**Purpose:** Characteristics of AI coding agents that should inform every design decision in weaver.
 **Audience:** Anyone designing or speccing a feature. Read this before writing a spec.
 **Status:** Current
 **Related docs:** [Why](why.md) (product rationale), [MCP transport](features/mcp-transport.md) (tool interface)
@@ -7,7 +7,7 @@
 
 # Designing for agent users
 
-light-bridge's primary users are AI coding agents — LLMs operating inside tool-use loops. They are not humans with a terminal. The differences matter for every interface decision: parameter design, defaults, response shapes, error messages, and what information to include or omit.
+weaver's primary users are AI coding agents — LLMs operating inside tool-use loops. They are not humans with a terminal. The differences matter for every interface decision: parameter design, defaults, response shapes, error messages, and what information to include or omit.
 
 ## The core principle: prefer guardrails over assumptions
 
@@ -21,7 +21,7 @@ This principle shows up in every section below. Each characteristic is a specifi
 
 ### They read the tool description, nothing else
 
-An agent discovers light-bridge through MCP tool descriptions. It will never browse a README, search a docs site, or read a changelog. If a capability isn't surfaced in the tool description the agent sees at call time, it doesn't exist. Opt-in flags that require the agent to know about a feature before using it are effectively invisible.
+An agent discovers weaver through MCP tool descriptions. It will never browse a README, search a docs site, or read a changelog. If a capability isn't surfaced in the tool description the agent sees at call time, it doesn't exist. Opt-in flags that require the agent to know about a feature before using it are effectively invisible.
 
 ### They won't plan the optimal sequence of calls
 
@@ -74,7 +74,7 @@ When speccing a feature, run through these questions:
 
 ## Writing tool descriptions
 
-Tool descriptions are the only interface between agents and light-bridge. Every description is loaded into context on every request, so verbosity has a direct cost. These principles guide what to include and how to say it.
+Tool descriptions are the only interface between agents and weaver. Every description is loaded into context on every request, so verbosity has a direct cost. These principles guide what to include and how to say it.
 
 ### Lead with when to use, not what it does
 

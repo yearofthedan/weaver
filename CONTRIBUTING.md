@@ -1,4 +1,4 @@
-# Contributing to light-bridge
+# Contributing to weaver
 
 ## Prerequisites
 
@@ -130,7 +130,7 @@ Releases are automated via [Release Please](https://github.com/googleapis/releas
 4. When you merge the release PR, the publish job runs: `pnpm install` → `pnpm build` → `npm publish --tag alpha --provenance`
 5. A GitHub Release is created automatically with npm provenance attestation
 
-The `--tag alpha` flag means `npm install @yearofthedan/light-bridge` does **not** install alpha versions by default — users must use `@alpha` or an explicit version. This will change when a stable release ships.
+The `--tag alpha` flag means `npm install @yearofthedan/weaver` does **not** install alpha versions by default — users must use `@alpha` or an explicit version. This will change when a stable release ships.
 
 ## Security tooling
 

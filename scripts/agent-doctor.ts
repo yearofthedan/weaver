@@ -17,7 +17,7 @@ interface RpcResponse<T = unknown> {
 
 interface McpConfig {
   mcpServers?: {
-    "light-bridge"?: {
+    "weaver"?: {
       command?: unknown;
       args?: unknown;
     };
@@ -103,17 +103,17 @@ class JsonRpcLineClient {
 function loadConfig(): { command: string; args: string[] } {
   const raw = fs.readFileSync(CONFIG_PATH, "utf8");
   const parsed = JSON.parse(raw) as McpConfig;
-  const server = parsed.mcpServers?.["light-bridge"];
-  if (!server) throw new Error("Missing mcpServers.light-bridge in .mcp.json");
+  const server = parsed.mcpServers?.["weaver"];
+  if (!server) throw new Error("Missing mcpServers.weaver in .mcp.json");
 
   if (typeof server.command !== "string" || server.command.trim().length === 0) {
-    throw new Error("mcpServers.light-bridge.command must be a non-empty string");
+    throw new Error("mcpServers.weaver.command must be a non-empty string");
   }
   if (server.args !== undefined && !Array.isArray(server.args)) {
-    throw new Error("mcpServers.light-bridge.args must be an array when provided");
+    throw new Error("mcpServers.weaver.args must be an array when provided");
   }
   if (Array.isArray(server.args) && !server.args.every((arg) => typeof arg === "string")) {
-    throw new Error("mcpServers.light-bridge.args must contain only strings");
+    throw new Error("mcpServers.weaver.args must contain only strings");
   }
 
   return { command: server.command, args: Array.isArray(server.args) ? server.args : [] };

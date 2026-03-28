@@ -1,12 +1,12 @@
-description: "light-bridge tool-description smoke test"
+description: "weaver tool-description smoke test"
 
 prompts:
   - "{{task}}"
 
 providers:
-  # Default: only light-bridge tools available
+  # Default: only weaver tools available
   - id: anthropic:claude-haiku-4-5-20251001
-    label: light-bridge-only
+    label: weaver-only
     config: &mcp_config
       mcp:
         enabled: true
@@ -16,12 +16,12 @@ providers:
             - src/cli.ts
             - serve
             - --workspace
-            - /tmp/light-bridge-eval
-          name: light-bridge
+            - /tmp/weaver-eval
+          name: weaver
         timeout: 60000
 
-  # Competing-tool variant: light-bridge + generic shell alternatives.
-  # Tests that target this provider verify that the model prefers light-bridge
+  # Competing-tool variant: weaver + generic shell alternatives.
+  # Tests that target this provider verify that the model prefers weaver
   # tools even when bash, grep, and sed are available as options.
   - id: anthropic:claude-haiku-4-5-20251001
     label: with-shell-alternatives
@@ -70,14 +70,14 @@ providers:
 
 tests:
   # ── Single-tool positive cases ───────────────────────────────────────────────
-  # Each task maps to exactly one light-bridge tool. Prompts are natural human
+  # Each task maps to exactly one weaver tool. Prompts are natural human
   # language — no domain jargon, no workflow hints.
 
   - description: "rename - should select rename tool for project-wide symbol rename"
-    providers: [light-bridge-only]
+    providers: [weaver-only]
     vars:
       task: >
-        `userId` is at line 12, column 8 of /tmp/light-bridge-eval/src/auth.ts
+        `userId` is at line 12, column 8 of /tmp/weaver-eval/src/auth.ts
         — rename it to `accountId` everywhere in the project.
     assert:
       - type: tool-call-f1
@@ -86,11 +86,11 @@ tests:
         threshold: 0.8
 
   - description: "findReferences - should select findReferences before modifying a symbol"
-    providers: [light-bridge-only]
+    providers: [weaver-only]
     vars:
       task: >
         What's calling `authenticate`? It's at line 5, column 17 of
-        /tmp/light-bridge-eval/src/auth.ts.
+        /tmp/weaver-eval/src/auth.ts.
     assert:
       - type: tool-call-f1
         value:
@@ -98,10 +98,10 @@ tests:
         threshold: 0.8
 
   - description: "getTypeErrors - should select getTypeErrors to check a file"
-    providers: [light-bridge-only]
+    providers: [weaver-only]
     vars:
       task: >
-        Are there any TypeScript errors in /tmp/light-bridge-eval/src/auth.ts?
+        Are there any TypeScript errors in /tmp/weaver-eval/src/auth.ts?
         I want to check before I start refactoring.
     assert:
       - type: tool-call-f1
@@ -112,11 +112,11 @@ tests:
   # moveSymbol is a two-step flow: model naturally checks scope first, then moves.
   # step 1 — should call a discovery tool (findReferences or getDefinition) before moving
   - description: "moveSymbol step-1 - should check scope before moving, not jump straight to moveSymbol"
-    providers: [light-bridge-only]
+    providers: [weaver-only]
     vars:
       task: >
-        Move `parseToken` from /tmp/light-bridge-eval/src/auth.ts to
-        /tmp/light-bridge-eval/src/utils/token.ts.
+        Move `parseToken` from /tmp/weaver-eval/src/auth.ts to
+        /tmp/weaver-eval/src/utils/token.ts.
     assert:
       - type: javascript
         value: >
@@ -125,17 +125,17 @@ tests:
 
   # step 2 — given reference results in context, should call moveSymbol
   - description: "moveSymbol step-2 - should call moveSymbol after findReferences results in context"
-    providers: [light-bridge-only]
+    providers: [weaver-only]
     vars:
       task: |
         [
-          {"role": "user", "content": "Move `parseToken` from /tmp/light-bridge-eval/src/auth.ts to /tmp/light-bridge-eval/src/utils/token.ts."},
+          {"role": "user", "content": "Move `parseToken` from /tmp/weaver-eval/src/auth.ts to /tmp/weaver-eval/src/utils/token.ts."},
           {"role": "assistant", "content": [
             {"type": "text", "text": "Let me first check what depends on `parseToken` before moving it."},
-            {"type": "tool_use", "id": "toolu_r1", "name": "findReferences", "input": {"file": "/tmp/light-bridge-eval/src/auth.ts", "line": 10, "col": 17}}
+            {"type": "tool_use", "id": "toolu_r1", "name": "findReferences", "input": {"file": "/tmp/weaver-eval/src/auth.ts", "line": 10, "col": 17}}
           ]},
           {"role": "user", "content": [
-            {"type": "tool_result", "tool_use_id": "toolu_r1", "content": "{\"ok\":true,\"references\":[{\"file\":\"/tmp/light-bridge-eval/src/auth.ts\",\"line\":10,\"col\":17},{\"file\":\"/tmp/light-bridge-eval/src/api.ts\",\"line\":5,\"col\":9}]}"}
+            {"type": "tool_result", "tool_use_id": "toolu_r1", "content": "{\"ok\":true,\"references\":[{\"file\":\"/tmp/weaver-eval/src/auth.ts\",\"line\":10,\"col\":17},{\"file\":\"/tmp/weaver-eval/src/api.ts\",\"line\":5,\"col\":9}]}"}
           ]}
         ]
     assert:
@@ -145,7 +145,7 @@ tests:
         threshold: 0.8
 
   - description: "searchText - should select searchText to locate text patterns"
-    providers: [light-bridge-only]
+    providers: [weaver-only]
     vars:
       task: >
         Find all the TODO comments in the source files — file, line, and a bit
@@ -157,11 +157,11 @@ tests:
         threshold: 0.8
 
   - description: "moveFile - should select moveFile to relocate a source file"
-    providers: [light-bridge-only]
+    providers: [weaver-only]
     vars:
       task: >
-        Move /tmp/light-bridge-eval/src/auth.ts to
-        /tmp/light-bridge-eval/src/authentication/auth.ts.
+        Move /tmp/weaver-eval/src/auth.ts to
+        /tmp/weaver-eval/src/authentication/auth.ts.
     assert:
       - type: tool-call-f1
         value:
@@ -169,11 +169,11 @@ tests:
         threshold: 0.8
 
   - description: "getDefinition - should select getDefinition to navigate to a declaration"
-    providers: [light-bridge-only]
+    providers: [weaver-only]
     vars:
       task: >
         Where is `User` actually defined? I'm looking at line 8, column 12 of
-        /tmp/light-bridge-eval/src/api.ts.
+        /tmp/weaver-eval/src/api.ts.
     assert:
       - type: tool-call-f1
         value:
@@ -188,7 +188,7 @@ tests:
 
   # replace v1→v2: step 1 — should go straight to pattern-mode replaceText
   - description: "replaceText step-1 - should use pattern mode directly, no search needed"
-    providers: [light-bridge-only]
+    providers: [weaver-only]
     vars:
       task: >
         I need to replace all occurrences of "v1" with "v2" across the project,
@@ -201,11 +201,11 @@ tests:
 
   # rename without coords: step 1 — should search to find the position
   - description: "rename step-1 - should search to locate symbol when line number unknown"
-    providers: [light-bridge-only]
+    providers: [weaver-only]
     vars:
       task: >
         Rename `userId` to `accountId` everywhere in the project. It's in
-        /tmp/light-bridge-eval/src/auth.ts but I don't have the line number.
+        /tmp/weaver-eval/src/auth.ts but I don't have the line number.
     assert:
       - type: tool-call-f1
         value:
@@ -214,17 +214,17 @@ tests:
 
   # rename without coords: step 2 — given search results in context, should rename
   - description: "rename step-2 - should call rename after searchText results in context"
-    providers: [light-bridge-only]
+    providers: [weaver-only]
     vars:
       task: |
         [
-          {"role": "user", "content": "Rename `userId` to `accountId` everywhere in the project. It's in /tmp/light-bridge-eval/src/auth.ts but I don't have the line number."},
+          {"role": "user", "content": "Rename `userId` to `accountId` everywhere in the project. It's in /tmp/weaver-eval/src/auth.ts but I don't have the line number."},
           {"role": "assistant", "content": [
             {"type": "text", "text": "Let me find where `userId` is defined first."},
             {"type": "tool_use", "id": "toolu_s1", "name": "searchText", "input": {"pattern": "userId", "glob": "**/*.ts"}}
           ]},
           {"role": "user", "content": [
-            {"type": "tool_result", "tool_use_id": "toolu_s1", "content": "{\"ok\":true,\"matches\":[{\"file\":\"/tmp/light-bridge-eval/src/auth.ts\",\"line\":12,\"col\":9,\"matchText\":\"userId\",\"context\":[{\"line\":12,\"text\":\"  const userId = verifyJwt(token);\",\"isMatch\":true}]}],\"truncated\":false}"}
+            {"type": "tool_result", "tool_use_id": "toolu_s1", "content": "{\"ok\":true,\"matches\":[{\"file\":\"/tmp/weaver-eval/src/auth.ts\",\"line\":12,\"col\":9,\"matchText\":\"userId\",\"context\":[{\"line\":12,\"text\":\"  const userId = verifyJwt(token);\",\"isMatch\":true}]}],\"truncated\":false}"}
           ]}
         ]
     assert:
@@ -238,11 +238,11 @@ tests:
   # compiler-aware alternative.
 
   - description: "negative - compiler-aware lookup should prefer findReferences over searchText"
-    providers: [light-bridge-only]
+    providers: [weaver-only]
     vars:
       task: >
         Where is `fetchUser` used? It's exported from
-        /tmp/light-bridge-eval/src/api.ts at line 3, column 17.
+        /tmp/weaver-eval/src/api.ts at line 3, column 17.
     assert:
       - type: tool-call-f1
         value:
@@ -250,11 +250,11 @@ tests:
         threshold: 0.8
 
   - description: "negative - intent to delete should use findReferences not searchText"
-    providers: [light-bridge-only]
+    providers: [weaver-only]
     vars:
       task: >
         I want to delete `parseToken` — it's at line 10, column 17 of
-        /tmp/light-bridge-eval/src/auth.ts. What's using it?
+        /tmp/weaver-eval/src/auth.ts. What's using it?
     assert:
       - type: tool-call-f1
         value:
@@ -265,7 +265,7 @@ tests:
 
   # ── Competing-tool tests ─────────────────────────────────────────────────────
   # Run against the provider that includes bash, grep, and sed alongside
-  # light-bridge. Verify that light-bridge tools win the selection.
+  # weaver. Verify that weaver tools win the selection.
 
   - description: "competing tools - searchText preferred over grep for pattern search"
     providers: [with-shell-alternatives]

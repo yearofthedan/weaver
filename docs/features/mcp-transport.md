@@ -8,16 +8,16 @@
 agent host (Claude, Cursor, …)
   │  stdio (MCP protocol via @modelcontextprotocol/sdk)
   ▼
-light-bridge serve --workspace /path
+weaver serve --workspace /path
   │  Unix socket — newline-delimited JSON, one connection per call
   ▼
-light-bridge daemon --workspace /path
+weaver daemon --workspace /path
   │
   ▼
 compiler layer (TsMorphCompiler or VolarCompiler)
 ```
 
-1. `light-bridge serve --workspace <path>` is launched by the agent host at session start.
+1. `weaver serve --workspace <path>` is launched by the agent host at session start.
 2. `serve` locates the running daemon for the workspace, or auto-spawns one if none exists.
 3. Agent tool calls arrive over stdio, are forwarded to the daemon via a Unix socket, and responses are returned.
 4. If the daemon is still initialising, `serve` rejects the tool call immediately with `DAEMON_STARTING` — the agent retries; there is no buffering.
@@ -30,9 +30,9 @@ For repo-committed `.mcp.json`, use a workspace-relative launch command so the s
 ```json
 {
   "mcpServers": {
-    "light-bridge": {
+    "weaver": {
       "type": "stdio",
-      "command": "light-bridge",
+      "command": "weaver",
       "args": ["serve", "--workspace", "."]
     }
   }

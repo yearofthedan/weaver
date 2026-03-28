@@ -37,7 +37,7 @@ Do not log per-session "fixed X" history here; keep durable process guidance onl
 **Never reference AC numbers or spec identifiers in code comments or test labels.**
 Comments and tests describe behaviour; specs are transitory and get archived.
 
-**Always use light-bridge tools for multi-file structural changes.**
+**Always use weaver tools for multi-file structural changes.**
 Before moving a symbol, renaming across files, or checking blast radius: use `moveSymbol`, `rename`, or `findReferences` first. Direct `Edit` + `Grep` loops miss re-exports and defeat the purpose of the tool. If a tool can't do what's needed, log it in `docs/handoff.md`.
 
 **`moveSymbol` appends to dest file — pre-written declarations cause duplicates.**
@@ -54,7 +54,7 @@ The `afterSymbolMove` fallback scan walks all workspace TS files and rewrites im
 If you discover misplaced tests, incorrect docs, or small structural problems during a migration, fix them now. Deferring turns a 10-minute fix into a full session to pick up, spec, and execute.
 
 **Specs must describe *what* to move, not *how*.**
-When a spec says "move function X to file Y", do not prescribe manual steps. That competes with the light-bridge skill guidance and causes agents to ignore `moveSymbol`/`moveFile`. Describe the *what* and *where* — the execution agent's refactoring skill handles the *how*.
+When a spec says "move function X to file Y", do not prescribe manual steps. That competes with the weaver skill guidance and causes agents to ignore `moveSymbol`/`moveFile`. Describe the *what* and *where* — the execution agent's refactoring skill handles the *how*.
 
 **Each AC must leave the codebase in a working state.**
 Every AC should be a functional unit — the build passes and tests pass after it lands. If the natural tool does X+Y atomically, that's one AC, not two.

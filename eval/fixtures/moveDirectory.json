@@ -1,15 +1,12 @@
 {
   "status": "success",
-  "oldPath": "/tmp/light-bridge-eval/src/utils",
-  "newPath": "/tmp/light-bridge-eval/src/lib/helpers",
-  "filesMoved": [
-    "/tmp/light-bridge-eval/src/lib/helpers/a.ts",
-    "/tmp/light-bridge-eval/src/lib/helpers/b.ts"
-  ],
+  "oldPath": "/tmp/weaver-eval/src/utils",
+  "newPath": "/tmp/weaver-eval/src/lib/helpers",
+  "filesMoved": ["/tmp/weaver-eval/src/lib/helpers/a.ts", "/tmp/weaver-eval/src/lib/helpers/b.ts"],
   "filesModified": [
-    "/tmp/light-bridge-eval/src/lib/helpers/a.ts",
-    "/tmp/light-bridge-eval/src/lib/helpers/b.ts",
-    "/tmp/light-bridge-eval/src/app.ts"
+    "/tmp/weaver-eval/src/lib/helpers/a.ts",
+    "/tmp/weaver-eval/src/lib/helpers/b.ts",
+    "/tmp/weaver-eval/src/app.ts"
   ],
   "filesSkipped": []
 }

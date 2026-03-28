@@ -8,11 +8,11 @@
 
 ## Context
 
-The project is named "light-bridge" but the name doesn't communicate what the tool does. After brainstorming, the name **weaver** was chosen — it signals the tool's core behaviour (weaving compiler intelligence across files) and has an avatar quality that gives the project personality. The npm scope `@yearofthedan` stays.
+The project is named "weaver" but the name doesn't communicate what the tool does. After brainstorming, the name **weaver** was chosen — it signals the tool's core behaviour (weaving compiler intelligence across files) and has an avatar quality that gives the project personality. The npm scope `@yearofthedan` stays.
 
 ## User intent
 
-*As the project maintainer, I want the project renamed from light-bridge to weaver, so that the name communicates what the tool does and is memorable as a CLI command.*
+*As the project maintainer, I want the project renamed from weaver to weaver, so that the name communicates what the tool does and is memorable as a CLI command.*
 
 ## Relevant files
 
@@ -20,9 +20,9 @@ The project is named "light-bridge" but the name doesn't communicate what the to
 - `src/adapters/cli/cli.ts` — Commander program name
 - `src/adapters/cli/operations.ts` — usage string in error message
 - `src/adapters/mcp/mcp.ts` — MCP server name + instructions string
-- `src/daemon/paths.ts` — cache directory name (`~/.cache/light-bridge`)
-- `src/daemon/daemon.ts` — `LIGHT_BRIDGE_VERBOSE` env var
-- `src/daemon/ensure-daemon.ts` — `LIGHT_BRIDGE_VERBOSE` env var
+- `src/daemon/paths.ts` — cache directory name (`~/.cache/weaver`)
+- `src/daemon/daemon.ts` — `WEAVER_VERBOSE` env var
+- `src/daemon/ensure-daemon.ts` — `WEAVER_VERBOSE` env var
 - `src/daemon/logger.test.ts` — cache dir in test
 - `src/daemon/paths.test.ts` — cache dir in test
 - `.mcp.json` — MCP server key
@@ -34,7 +34,7 @@ The project is named "light-bridge" but the name doesn't communicate what the to
 - `CLAUDE.md` — project heading, description, skill references
 - `CONTRIBUTING.md` — project references, install commands
 - `SECURITY.md` — GitHub advisory URL
-- `docs/` — all markdown files referencing light-bridge
+- `docs/` — all markdown files referencing weaver
 - `eval/` — promptfooconfig.yaml, run-eval.ts, fixture JSON files, test files
 - `.devcontainer/devcontainer.json` — GitHub clone URL
 
@@ -44,15 +44,15 @@ The project is named "light-bridge" but the name doesn't communicate what the to
 
 ## Value / Effort
 
-- **Value:** The name becomes self-describing for new users and memorable as a CLI command. Eliminates the "what does light-bridge mean?" question.
+- **Value:** The name becomes self-describing for new users and memorable as a CLI command. Eliminates the "what does weaver mean?" question.
 - **Effort:** Wide but shallow — ~190 occurrences across ~45 files, all mechanical string replacements. No logic changes, no interface changes. Risk is completeness (missing a reference), not complexity.
 
 ## Behaviour
 
 - [ ] **AC1: Package identity.** `package.json` `name` is `@yearofthedan/weaver`. `bin` field maps `weaver` to the CLI entry point.
-- [ ] **AC2: CLI command name.** Commander program name is `weaver`. Error/usage strings reference `weaver` not `light-bridge`. Running `weaver rename '<json>'` works.
+- [ ] **AC2: CLI command name.** Commander program name is `weaver`. Error/usage strings reference `weaver` not `weaver`. Running `weaver rename '<json>'` works.
 - [ ] **AC3: Cache and socket paths.** `paths.ts` uses `~/.cache/weaver/` as the cache directory. Socket, lock, and log files live under this path. Tests in `paths.test.ts` and `logger.test.ts` assert the new path.
-- [ ] **AC4: Environment variable.** `LIGHT_BRIDGE_VERBOSE` → `WEAVER_VERBOSE` in `daemon.ts`, `ensure-daemon.ts`, and all documentation.
+- [ ] **AC4: Environment variable.** `WEAVER_VERBOSE` → `WEAVER_VERBOSE` in `daemon.ts`, `ensure-daemon.ts`, and all documentation.
 - [ ] **AC5: MCP server name.** Server identifies as `weaver` in the MCP handshake (`mcp.ts`). `.mcp.json` and `.cursor/mcp.json` use `weaver` as the server key. MCP server instructions text references `weaver`.
 
 ## Interface
@@ -75,19 +75,19 @@ None — all decisions resolved during brainstorming:
 
 ## Edges
 
-- Existing daemon instances using `~/.cache/light-bridge/` sockets will not be found after the rename. This is acceptable — users restart the daemon after upgrading.
-- GitHub repository URL references (SECURITY.md, devcontainer.json) should be updated only if/when the repo is actually renamed. If the repo stays `light-bridge` on GitHub, leave those URLs pointing to the current repo.
+- Existing daemon instances using `~/.cache/weaver/` sockets will not be found after the rename. This is acceptable — users restart the daemon after upgrading.
+- GitHub repository URL references (SECURITY.md, devcontainer.json) should be updated only if/when the repo is actually renamed. If the repo stays `weaver` on GitHub, leave those URLs pointing to the current repo.
 
 ## Done-when
 
 - [ ] All ACs verified by tests
 - [ ] `pnpm check` passes (lint + build + test)
-- [ ] Skill file content updated (all `light-bridge` → `weaver` CLI command references)
+- [ ] Skill file content updated (all `weaver` → `weaver` CLI command references)
 - [ ] README.md fully updated (heading, install commands, CLI examples, mermaid diagram, description)
 - [ ] CLAUDE.md updated (heading, description, skill references)
 - [ ] CONTRIBUTING.md updated
 - [ ] All `docs/` markdown files updated
 - [ ] `eval/` files updated (promptfooconfig.yaml, run-eval.ts, fixtures, test files)
 - [ ] `docs/handoff.md` current-state section updated (skill dir names, CLI references)
-- [ ] No remaining references to `light-bridge` in source or docs (verified by grep)
+- [ ] No remaining references to `weaver` in source or docs (verified by grep)
 - [ ] Spec moved to `docs/specs/archive/` with Outcome section

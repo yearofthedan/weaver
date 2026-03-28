@@ -88,7 +88,7 @@ async function resolveInput(
   if (!process.stdin.isTTY) return readStdin();
   writeJsonError(
     "VALIDATION_ERROR",
-    `No JSON argument provided. Usage: light-bridge ${subcommand} '<json>'`,
+    `No JSON argument provided. Usage: weaver ${subcommand} '<json>'`,
   );
   process.exit(1);
 }

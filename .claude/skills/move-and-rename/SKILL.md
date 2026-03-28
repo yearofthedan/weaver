@@ -10,7 +10,7 @@ description: Use when moving files or directories, renaming a symbol used across
 ## Rename a symbol across files
 
 ```bash
-light-bridge rename '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
+weaver rename '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
 ```
 
 One call. Scope-aware — won't touch unrelated identifiers that share the same name. Check `typeErrors` in the response, then do one `replace-text` pass for derived string names (e.g. `fooSingleton`) the compiler doesn't track.
@@ -18,7 +18,7 @@ One call. Scope-aware — won't touch unrelated identifiers that share the same 
 ## Move a file
 
 ```bash
-light-bridge move-file '{"oldPath": "src/old.ts", "newPath": "src/new.ts"}'
+weaver move-file '{"oldPath": "src/old.ts", "newPath": "src/new.ts"}'
 ```
 
 Rewrites every importer. Check `filesSkipped` — those are outside the workspace and need manual fixup with `replace-text`.
@@ -26,7 +26,7 @@ Rewrites every importer. Check `filesSkipped` — those are outside the workspac
 ## Move a directory
 
 ```bash
-light-bridge move-directory '{"oldPath": "src/utils", "newPath": "src/helpers"}'
+weaver move-directory '{"oldPath": "src/utils", "newPath": "src/helpers"}'
 ```
 
 Relocates all files and rewrites every nested import path.
@@ -34,7 +34,7 @@ Relocates all files and rewrites every nested import path.
 ## Move an export between files
 
 ```bash
-light-bridge move-symbol '{"sourceFile": "src/a.ts", "symbolName": "Foo", "destFile": "src/b.ts"}'
+weaver move-symbol '{"sourceFile": "src/a.ts", "symbolName": "Foo", "destFile": "src/b.ts"}'
 ```
 
 Moves the declaration and updates every importer. Check `typeErrors` after each move.
@@ -43,16 +43,16 @@ Moves the declaration and updates every importer. Check `typeErrors` after each 
 
 ```bash
 # 1. Check what depends on it
-light-bridge find-references '{"file": "src/old.ts", "line": 1, "col": 1}'
+weaver find-references '{"file": "src/old.ts", "line": 1, "col": 1}'
 
 # 2. Delete — removes all imports and re-exports first
-light-bridge delete-file '{"file": "src/old.ts"}'
+weaver delete-file '{"file": "src/old.ts"}'
 ```
 
 ## Extract a function
 
 ```bash
-light-bridge extract-function '{"file": "src/a.ts", "startLine": 10, "startCol": 1, "endLine": 20, "endCol": 1, "functionName": "extracted"}'
+weaver extract-function '{"file": "src/a.ts", "startLine": 10, "startCol": 1, "endLine": 20, "endCol": 1, "functionName": "extracted"}'
 ```
 
 Infers parameters, return types, and async propagation. Function is placed at module scope (not exported). Use `move-symbol` afterward if it belongs in a different file.

@@ -1,4 +1,4 @@
-**Purpose:** Testing strategy, performance targets, and reliability guarantees for light-bridge.
+**Purpose:** Testing strategy, performance targets, and reliability guarantees for weaver.
 **Audience:** Developers implementing features, reviewers evaluating PRs.
 **Status:** Current
 **Related docs:** [Security](security.md) (controls), [Handoff](handoff.md) (next work)
@@ -34,16 +34,16 @@ If mutation survivors are in code you didn't change, note them and move on. Addi
 
 - `eval/run-eval.ts` — entry point (`pnpm run eval`). Starts a fixture server that impersonates the daemon, runs `promptfoo eval` against `eval/promptfooconfig.yaml`, tears down on exit.
 - `eval/fixture-server.ts` — Unix socket server; responds to `ping` (version check) and serves pre-recorded JSON fixtures from `eval/fixtures/{method}.json` for every tool call. The model never touches a real project.
-- `eval/promptfooconfig.yaml` — defines providers and test cases. Two providers: `light-bridge-only` (MCP only) and `with-shell-alternatives` (MCP + bash/grep/sed stubs). Tests use `providers:` to target one or both.
+- `eval/promptfooconfig.yaml` — defines providers and test cases. Two providers: `weaver-only` (MCP only) and `with-shell-alternatives` (MCP + bash/grep/sed stubs). Tests use `providers:` to target one or both.
 
 **Test structure — 15 tests:**
 
-- **Single-tool positives** — natural-language tasks that should map to exactly one light-bridge tool. Assert `tool-call-f1 ≥ 0.8` for the expected tool.
+- **Single-tool positives** — natural-language tasks that should map to exactly one weaver tool. Assert `tool-call-f1 ≥ 0.8` for the expected tool.
 - **Two-step flows** — tasks that require a discovery step before the action. Split into two tests each:
   - *Step-1 test*: plain user message; assert the right first tool is selected.
   - *Step-2 test*: conversation history pre-seeded with the step-1 call and its fixture response; assert the correct follow-up tool is selected.
 - **Negative cases** — tasks where a simpler tool might be chosen incorrectly. Assert the correct compiler-aware tool, optionally assert the wrong tool is absent via `type: javascript`.
-- **Competing-tool tests** — run against `with-shell-alternatives`. Assert light-bridge tool selected and bash/grep/sed absent from the output.
+- **Competing-tool tests** — run against `with-shell-alternatives`. Assert weaver tool selected and bash/grep/sed absent from the output.
 
 **Seeded-history format (step-2 tests):**
 

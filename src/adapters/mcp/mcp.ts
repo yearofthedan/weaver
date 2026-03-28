@@ -49,10 +49,10 @@ export async function runServe(opts: { workspace: string }): Promise<void> {
 async function startMcpServer(absWorkspace: string): Promise<void> {
   const sockPath = socketPath(absWorkspace);
   const server = new McpServer(
-    { name: "light-bridge", version: "0.1.0" },
+    { name: "weaver", version: "0.1.0" },
     {
       instructions:
-        "light-bridge provides compiler-aware refactoring tools for JavaScript and TypeScript " +
+        "weaver provides compiler-aware refactoring tools for JavaScript and TypeScript " +
         "projects (.ts, .tsx, .js, .jsx), with additional support for Vue single-file components (.vue). " +
         "A persistent daemon keeps the project graph in memory — " +
         "tool calls are fast and use far fewer tokens than reading files to trace dependencies manually. " +

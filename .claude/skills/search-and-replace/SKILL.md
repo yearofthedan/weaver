@@ -10,7 +10,7 @@ description: Use when changing a string, pattern, or text across multiple files 
 ## Search: find every occurrence
 
 ```bash
-light-bridge search-text '{"pattern": "oldName", "glob": "**/*.ts", "maxResults": 50}'
+weaver search-text '{"pattern": "oldName", "glob": "**/*.ts", "maxResults": 50}'
 ```
 
 Returns structured results: `{file, line, col, matchText}` for every hit. Use this instead of `grep` — it respects workspace boundaries, skips sensitive files, and returns coordinates you can feed into surgical replace.
@@ -19,7 +19,7 @@ Returns structured results: `{file, line, col, matchText}` for every hit. Use th
 
 ```bash
 # Pattern mode — regex find-and-replace across all matching files
-light-bridge replace-text '{"pattern": "oldName", "replacement": "newName", "glob": "**/*.ts"}'
+weaver replace-text '{"pattern": "oldName", "replacement": "newName", "glob": "**/*.ts"}'
 ```
 
 Response includes `filesModified`, `replacementCount`, and `typeErrors`. Check `typeErrors` — they tell you if the replacement broke something.
@@ -29,7 +29,7 @@ Response includes `filesModified`, `replacementCount`, and `typeErrors`. Check `
 When you only want to replace *some* hits (not all), use coordinates from `search-text`:
 
 ```bash
-light-bridge replace-text '{"edits": [
+weaver replace-text '{"edits": [
   {"file": "src/a.ts", "line": 3, "col": 10, "oldText": "old", "newText": "new"},
   {"file": "src/b.ts", "line": 7, "col": 5, "oldText": "old", "newText": "new"}
 ]}'
@@ -41,17 +41,17 @@ Stale coordinates fail safely instead of corrupting.
 
 ```bash
 # 1. Find all occurrences
-light-bridge search-text '{"pattern": "FOO", "glob": "**/*.ts"}'
+weaver search-text '{"pattern": "FOO", "glob": "**/*.ts"}'
 
 # 2. Replace all (or use surgical mode for selective replacement)
-light-bridge replace-text '{"pattern": "FOO", "replacement": "BAR", "glob": "**/*.ts"}'
+weaver replace-text '{"pattern": "FOO", "replacement": "BAR", "glob": "**/*.ts"}'
 
 # 3. Check typeErrors in the response — fix any issues
 ```
 
 ## When NOT to use
 
-- **Renaming a TypeScript symbol** (variable, function, type, class) — use `light-bridge rename` instead (see move-and-rename skill). It's scope-aware; text replacement is not.
+- **Renaming a TypeScript symbol** (variable, function, type, class) — use `weaver rename` instead (see move-and-rename skill). It's scope-aware; text replacement is not.
 
 ## Errors
 

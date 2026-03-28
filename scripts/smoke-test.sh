@@ -51,7 +51,7 @@ fi
 WORK_DIR=$(mktemp -d)
 trap 'rm -rf "$WORK_DIR"' EXIT
 
-printf "\n${BOLD}light-bridge smoke test${NC}\n\n"
+printf "\n${BOLD}weaver smoke test${NC}\n\n"
 
 # ── rename ────────────────────────────────────────────────────────────────────
 printf "${BOLD}rename:${NC} greetUser → greet (simple-ts)\n"

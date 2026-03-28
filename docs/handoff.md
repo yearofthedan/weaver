@@ -41,7 +41,7 @@ Directory layout matches domain boundaries:
 eval/
   fixture-server.ts    ← socket server that impersonates the daemon for eval runs; exports startFixtureServer
   run-eval.ts          ← entry point: starts fixture server, runs promptfoo, tears down
-  promptfooconfig.yaml ← PromptFoo config; 15 tests across two providers (light-bridge-only + with-shell-alternatives); inline test definitions
+  promptfooconfig.yaml ← PromptFoo config; 15 tests across two providers (weaver-only + with-shell-alternatives); inline test definitions
   fixtures/            ← pre-recorded daemon JSON responses keyed by method name
   cases/               ← (reserved for per-tool case files if extracted in future)
 .github/workflows/
@@ -171,7 +171,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 - **CLI `--dry-run` previews** `[needs design]` — add `--dry-run` flag to CLI operation subcommands that previews what would change without writing. Requires daemon-level support (compute-only mode that returns edits without applying them). Agents treat dry-run as a key safety rail for mutating operations — lets them validate intent before committing. Should also surface as an optional `dryRun` param on MCP write tools.
 - **CLI `--interactive` selection mode** `[needs design]` — interactive confirmation workflow for `replace-text` (present matches one-by-one like `git add -p`). Human-friendly; not useful for agents. Requires TTY detection and incremental confirmation loop.
-- **CLI human-friendly flag interface** `[needs design]` — add `--flag` aliases for JSON params on CLI subcommands (e.g. `light-bridge rename --file src/a.ts --line 5 --col 3 --new-name bar`). Syntactic sugar that constructs the same JSON. Layers on top of the JSON interface without breaking it.
+- **CLI human-friendly flag interface** `[needs design]` — add `--flag` aliases for JSON params on CLI subcommands (e.g. `weaver rename --file src/a.ts --line 5 --col 3 --new-name bar`). Syntactic sugar that constructs the same JSON. Layers on top of the JSON interface without breaking it.
 
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks

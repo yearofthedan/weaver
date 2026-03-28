@@ -17,7 +17,7 @@ function commanderExitOverride(err: CommanderError): never {
 const program = new Command();
 
 program
-  .name("light-bridge")
+  .name("weaver")
   .description("Headless CLI refactoring engine for AI agents")
   .version("0.1.0")
   .configureOutput({ writeErr: () => {} }) // suppress Commander's own stderr text

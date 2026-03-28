@@ -1,10 +1,10 @@
 # Features
 
-Reference documentation for light-bridge features and infrastructure.
+Reference documentation for weaver features and infrastructure.
 
 ## Tools
 
-All tools are available through both the MCP server (`light-bridge serve`) and as CLI subcommands (`light-bridge rename`, `light-bridge move-file`, etc.). See [cli.md](./cli.md) for the CLI interface.
+All tools are available through both the MCP server (`weaver serve`) and as CLI subcommands (`weaver rename`, `weaver move-file`, etc.). See [cli.md](./cli.md) for the CLI interface.
 
 | Tool | Doc | TS | Vue | Mutating |
 |------|-----|----|-----|----------|

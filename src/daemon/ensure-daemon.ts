@@ -57,7 +57,7 @@ export async function ensureDaemon(absWorkspace: string): Promise<void> {
   }
 
   // Auto-spawn the daemon as a detached child so it outlives this process.
-  const verbose = process.env.LIGHT_BRIDGE_VERBOSE === "1";
+  const verbose = process.env.WEAVER_VERBOSE === "1";
   await spawnDaemon(absWorkspace, { verbose });
   versionVerified = true;
 }

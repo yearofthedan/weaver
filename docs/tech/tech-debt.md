@@ -100,12 +100,12 @@ If a symbol is declared and called in the same file (e.g. an exported helper inv
 
 ## MCP rename tool misses test file references
 
-`mcp__light-bridge__rename` is scope-aware for source imports but does not reliably catch all test file references. During the AC1 refactor (rename `TsMorphCompiler` → `TsMorphEngine`), the tool caught 228 occurrences in source + test files, but follow-up review found:
+`mcp__weaver__rename` is scope-aware for source imports but does not reliably catch all test file references. During the AC1 refactor (rename `TsMorphCompiler` → `TsMorphEngine`), the tool caught 228 occurrences in source + test files, but follow-up review found:
 
 1. Test files with direct `TsMorphCompiler` references were missed (only caught in imports, not in inline annotations)
 2. Local variable type annotations like `const compiler: Compiler` in test files were not caught
 
-**Consequence:** After a wide symbol rename, test files must be manually checked or a secondary text-based pass (`mcp__light-bridge__replaceText` with regex) must be run to catch stragglers.
+**Consequence:** After a wide symbol rename, test files must be manually checked or a secondary text-based pass (`mcp__weaver__replaceText` with regex) must be run to catch stragglers.
 
 **Priority:** medium. The tool is valuable but requires a secondary verification step. Consider: (a) documenting the limitation in the tool description; (b) improving the rename logic to catch all annotation contexts; (c) adding a post-rename linting check that flags undefined symbol references.
 

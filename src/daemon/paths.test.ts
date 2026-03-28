@@ -7,7 +7,7 @@ import { lockfilePath, socketPath } from "./paths";
 
 const WORKSPACE_A = "/tmp/test-workspace-alpha";
 const WORKSPACE_B = "/tmp/test-workspace-beta";
-const CACHE_DIR = path.join(os.homedir(), ".cache", "light-bridge");
+const CACHE_DIR = path.join(os.homedir(), ".cache", "weaver");
 
 describe("socketPath / lockfilePath", () => {
   it("returns a .sock path inside the cache dir", () => {

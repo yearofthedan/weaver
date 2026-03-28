@@ -2,7 +2,7 @@
   "status": "success",
   "definitions": [
     {
-      "file": "/tmp/light-bridge-eval/src/types.ts",
+      "file": "/tmp/weaver-eval/src/types.ts",
       "line": 3,
       "col": 13,
       "length": 4

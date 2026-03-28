@@ -1,6 +1,6 @@
 # Mutation testing
 
-**Purpose:** Stryker config, known surviving mutants, and hard-won lessons for light-bridge's mutation test suite.
+**Purpose:** Stryker config, known surviving mutants, and hard-won lessons for weaver's mutation test suite.
 **Run:** `pnpm test:mutate` (full run).
 **See also:** [quality.md](../quality.md) for overall testing strategy.
 
@@ -24,7 +24,7 @@ stryker run --mutate 'src/operations/getTypeErrors.ts'
 This overrides the `mutate` array from the config. Useful when checking mutation score for touched files without running the full suite.
 
 **`vitest.related: true` doesn't meaningfully speed up an integration-heavy run.**
-When most tests transitively import most of `src/` (as in light-bridge's integration tests), Vitest's import-graph filter barely narrows the per-mutant test set. `related: true` is harmless and may help slightly for isolated utilities.
+When most tests transitively import most of `src/` (as in weaver's integration tests), Vitest's import-graph filter barely narrows the per-mutant test set. `related: true` is harmless and may help slightly for isolated utilities.
 
 **Stryker `testFiles` negation patterns (`!`) are silently broken.**
 `FileMatcher` calls `path.resolve(pattern)`, turning `!tests/foo.test.ts` into `/abs/path/!tests/foo.test.ts` — the `!` becomes a literal filename character, so the exclusion never fires. Use a separate vitest config (`vitest.stryker.config.ts`) with `exclude:` arrays instead. Vitest's glob processing handles negation correctly.
@@ -36,7 +36,7 @@ Use an explicit env var (e.g. `STRYKER_RELATED=false`) and two named scripts (`t
 The config must list `json` in `reporters` and configure `jsonReporter.fileName`. It is not on by default. Required for the `/mutate-triage` skill to parse structured output.
 
 **`.pnpm-store` must be in `ignorePatterns`.**
-The dev container keeps pnpm's content-addressed store at `/workspaces/light-bridge/.pnpm-store`. Stryker's sandbox copy resolves symlinks and fails with `ENOENT` when link targets don't exist in the sandbox (e.g. stale worktree symlinks in `.pnpm-store/v10/projects/`). Adding `".pnpm-store"` to `ignorePatterns` excludes it from the copy.
+The dev container keeps pnpm's content-addressed store at `/workspaces/weaver/.pnpm-store`. Stryker's sandbox copy resolves symlinks and fails with `ENOENT` when link targets don't exist in the sandbox (e.g. stale worktree symlinks in `.pnpm-store/v10/projects/`). Adding `".pnpm-store"` to `ignorePatterns` excludes it from the copy.
 
 **Kill stryker processes before cleaning `.stryker-tmp`.**
 Stryker's sandbox directories (`.stryker-tmp/sandbox-*`) can't be removed by `rm -rf` while worker processes still have them open. Run `pkill -f stryker` and wait a moment before cleaning. Stale sandboxes also cause Biome to error with "Found a nested root configuration" — run `rm -rf .stryker-tmp` before `pnpm check`.

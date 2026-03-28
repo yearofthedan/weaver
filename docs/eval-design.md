@@ -8,7 +8,7 @@
 
 ## Goal
 
-Verify that light-bridge MCP tool *descriptions* are compelling and clear enough that an AI agent
+Verify that weaver MCP tool *descriptions* are compelling and clear enough that an AI agent
 (Claude Haiku) naturally selects the right tool for a given refactoring task — and correctly
 interprets the result.
 
@@ -38,7 +38,7 @@ interpretable too.
 ### Recommended framework: PromptFoo
 
 [PromptFoo](https://promptfoo.dev) is a Node.js eval framework with a native MCP provider.
-It can point directly at the light-bridge `serve` process and run test cases that assert on
+It can point directly at the weaver `serve` process and run test cases that assert on
 tool choice and response quality. No additional harness code needed for MCP connection.
 
 ### Fixture-based daemon

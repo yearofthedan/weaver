@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-const CACHE_DIR = path.join(os.homedir(), ".cache", "light-bridge");
+const CACHE_DIR = path.join(os.homedir(), ".cache", "weaver");
 
 function workspaceHash(workspaceRoot: string): string {
   return crypto.createHash("sha1").update(workspaceRoot).digest("hex").slice(0, 16);
