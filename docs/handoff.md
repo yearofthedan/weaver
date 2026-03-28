@@ -170,6 +170,8 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
+- **Consider dropping MCP adapter** `[needs design]` — The MCP adapter is ~370 lines of source, ~430 lines of integration tests, and pulls in `@modelcontextprotocol/sdk` as a dependency. Costs: double adapter maintenance, extra supply chain surface, more tests to keep green. During the weaver rename, the execution agent chose MCP over CLI when both were available — but that's a structural advantage (native tool calls vs Bash wrapping), not a CLI deficiency. CLI covers agents without MCP, humans, CI/CD, and simpler setup. Question: does the MCP adapter's value justify its maintenance and supply chain cost, or should weaver go CLI-only?
+
 - **CLI `--dry-run` previews** `[needs design]` — add `--dry-run` flag to CLI operation subcommands that previews what would change without writing. Requires daemon-level support (compute-only mode that returns edits without applying them). Agents treat dry-run as a key safety rail for mutating operations — lets them validate intent before committing. Should also surface as an optional `dryRun` param on MCP write tools.
 - **CLI `--interactive` selection mode** `[needs design]` — interactive confirmation workflow for `replace-text` (present matches one-by-one like `git add -p`). Human-friendly; not useful for agents. Requires TTY detection and incremental confirmation loop.
 - **CLI human-friendly flag interface** `[needs design]` — add `--flag` aliases for JSON params on CLI subcommands (e.g. `weaver rename --file src/a.ts --line 5 --col 3 --new-name bar`). Syntactic sugar that constructs the same JSON. Layers on top of the JSON interface without breaking it.
