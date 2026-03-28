@@ -6,10 +6,10 @@ tools: Read, Glob, Grep, Write, Edit, Bash
 disallowedTools: WebFetch, WebSearch
 skills:
   - implementation-context
-  - light-bridge-refactoring
+  - search-and-replace
+  - move-and-rename
+  - code-inspection
   - run-checks
-mcpServers:
-  - light-bridge
 memory: project
 ---
 

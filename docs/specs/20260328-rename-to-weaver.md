@@ -27,8 +27,9 @@ The project is named "light-bridge" but the name doesn't communicate what the to
 - `src/daemon/paths.test.ts` — cache dir in test
 - `.mcp.json` — MCP server key
 - `.cursor/mcp.json` — MCP server key
-- `.claude/skills/light-bridge-refactoring/` — directory name + content
-- `.claude/skills/light-bridge-cli/` — directory name + content
+- `.claude/skills/search-and-replace/` — CLI command name in content
+- `.claude/skills/move-and-rename/` — CLI command name in content
+- `.claude/skills/code-inspection/` — CLI command name in content
 - `README.md` — project heading, install commands, CLI examples, mermaid diagram
 - `CLAUDE.md` — project heading, description, skill references
 - `CONTRIBUTING.md` — project references, install commands

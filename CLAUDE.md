@@ -57,7 +57,7 @@ Specs are **changesets**, not features. They describe a unit of work to deliver,
 **Rule 9: Dogfood the tools — you are the target user.**
 The `mcp__light-bridge__*` tools are always available (configured in `.mcp.json`; daemon auto-spawns on first use). Every user of this tool gets the same MCP tool descriptions you do. If those descriptions aren't compelling enough to make you reach for the tools naturally during development, they aren't good enough for users either — improve the description, don't add a private agent rule. Shareable skills (`.claude/skills/`) are fine — they ship with the tool and any consumer can load them. Private memories and rules that only exist in this repo's config are not a substitute for good descriptions. If a tool can't do what you need at all, add it to `docs/handoff.md`.
 
-The shipped skill file at `.claude/skills/light-bridge-refactoring/SKILL.md` is the canonical refactoring guidance — the same file external users load.
+The shipped skill files at `.claude/skills/{search-and-replace,move-and-rename,code-inspection}/SKILL.md` are the canonical refactoring guidance — the same files external users load.
 
 **Rule 11: Pin exact dependency versions. Never use `^` or `~` ranges.**
 Ranges let a compromised patch release auto-install on the next `pnpm install`, turning a single package takeover into a supply-chain attack across every consumer. All versions in `package.json` must be exact (e.g. `"1.2.3"`, not `"^1.2.3"`). Only install actively maintained packages — check for deprecation warnings before adding a dependency.

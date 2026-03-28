@@ -239,24 +239,23 @@ Alternatively, if light-bridge is installed as a dependency, you can use the `li
 
 ### Guiding the agent (skill files)
 
-Tool descriptions tell agents what each operation does, but not when to reach for them. light-bridge ships two skill files that provide workflow guidance — when to use compiler-aware tools vs manual editing, how to handle responses, and common refactoring sequences.
+Tool descriptions tell agents what each operation does, but not when to reach for them. light-bridge ships three skill files that provide trigger-matched workflow guidance — each covers a specific category of operations.
 
-| Skill | For agents that... | Path in package |
+| Skill | Covers | Path in package |
 |---|---|---|
-| `light-bridge-refactoring` | Have MCP tools connected | `.claude/skills/light-bridge-refactoring` |
-| `light-bridge-cli` | Shell out to CLI commands | `.claude/skills/light-bridge-cli` |
+| `search-and-replace` | `search-text`, `replace-text` | `.claude/skills/search-and-replace` |
+| `move-and-rename` | `rename`, `move-file`, `move-directory`, `move-symbol`, `delete-file`, `extract-function` | `.claude/skills/move-and-rename` |
+| `code-inspection` | `find-references`, `get-definition`, `get-type-errors` | `.claude/skills/code-inspection` |
 
-Both cover the same decision heuristics, response patterns, common sequences, and error handling — just with different invocation syntax.
-
-Reference the appropriate skill from your agent configuration, or write your own tailored to your use case. The correct location for skill files depends on your agent framework.
+Reference the appropriate skills from your agent configuration, or write your own tailored to your use case. The correct location for skill files depends on your agent framework.
 
 ```markdown
 ## Refactoring
 
-Load the light-bridge skill for cross-file refactoring guidance:
-see `node_modules/@yearofthedan/light-bridge/.claude/skills/light-bridge-refactoring`
-# or for CLI-only agents:
-see `node_modules/@yearofthedan/light-bridge/.claude/skills/light-bridge-cli`
+Load the light-bridge skills for compiler-aware refactoring guidance:
+see `node_modules/@yearofthedan/light-bridge/.claude/skills/search-and-replace`
+see `node_modules/@yearofthedan/light-bridge/.claude/skills/move-and-rename`
+see `node_modules/@yearofthedan/light-bridge/.claude/skills/code-inspection`
 ```
 
 ### Notes
