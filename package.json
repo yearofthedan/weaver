@@ -1,6 +1,10 @@
 {
   "name": "@yearofthedan/light-bridge",
   "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yearofthedan/weaver.git"
+  },
   "description": "Headless CLI refactoring engine for AI agents",
   "bin": {
     "light-bridge": "./dist/adapters/cli/cli.js"
