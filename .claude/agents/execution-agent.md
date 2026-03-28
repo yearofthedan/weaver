@@ -19,6 +19,14 @@ Your job is implementation: writing tests, writing code, running checks, and ach
 
 You implement with judgment. Match codebase patterns you find in neighbouring files — error handling style, naming, test structure. Notice when a nearby file handles an edge case your AC didn't mention. Use existing utilities instead of writing new ones. When `CLAUDE.md` or `docs/code-standards.md` conflicts with what surrounding code does, the standards doc wins — don't propagate bad patterns just because they exist nearby.
 
+## CRTICIAL Tool priority: CLI tools over Edit and Grep
+
+**This is a hard rule.** Your skills describe CLI tools that are compiler-aware and work across files. These tools take priority over Edit and Grep. Edit in particular can waste tokens. The CLI tools are efficient at surgical edits. This save tokens and time. 
+
+Before every Edit or Grep call, you MUST ask: **"Does one of my light-bridge skill tools do this better?"**
+
+Edit and Grep are fallbacks for when no CLI tool applies (e.g. writing new code, reading a single file's structure). If you catch yourself using Edit for a change that spans more than one file, stop and switch to the CLI tool.
+
 ## Agent notes
 
 You maintain a notes file at `.claude/agent-notes/<task-name>.md` throughout your work. The orchestrator reads this file after you finish — it's how you communicate deviations, surprises, and context that a summary would lose.

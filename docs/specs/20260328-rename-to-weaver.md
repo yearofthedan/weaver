@@ -49,7 +49,7 @@ The project is named "light-bridge" but the name doesn't communicate what the to
 
 ## Behaviour
 
-- [ ] **AC1: Package identity.** `package.json` `name` is `@yearofthedan/weaver`. `bin` field maps `weaver` to the CLI entry point. `files` field references `.claude/skills/weaver-refactoring` and `.claude/skills/weaver-cli`.
+- [ ] **AC1: Package identity.** `package.json` `name` is `@yearofthedan/weaver`. `bin` field maps `weaver` to the CLI entry point.
 - [ ] **AC2: CLI command name.** Commander program name is `weaver`. Error/usage strings reference `weaver` not `light-bridge`. Running `weaver rename '<json>'` works.
 - [ ] **AC3: Cache and socket paths.** `paths.ts` uses `~/.cache/weaver/` as the cache directory. Socket, lock, and log files live under this path. Tests in `paths.test.ts` and `logger.test.ts` assert the new path.
 - [ ] **AC4: Environment variable.** `LIGHT_BRIDGE_VERBOSE` → `WEAVER_VERBOSE` in `daemon.ts`, `ensure-daemon.ts`, and all documentation.
@@ -82,8 +82,7 @@ None — all decisions resolved during brainstorming:
 
 - [ ] All ACs verified by tests
 - [ ] `pnpm check` passes (lint + build + test)
-- [ ] Skill directories renamed: `weaver-refactoring`, `weaver-cli`
-- [ ] Skill file content updated (all `light-bridge` → `weaver` references)
+- [ ] Skill file content updated (all `light-bridge` → `weaver` CLI command references)
 - [ ] README.md fully updated (heading, install commands, CLI examples, mermaid diagram, description)
 - [ ] CLAUDE.md updated (heading, description, skill references)
 - [ ] CONTRIBUTING.md updated

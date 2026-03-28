@@ -17,7 +17,14 @@ const SHIPPED_SKILLS = [
     name: "move-and-rename",
     path: ".claude/skills/move-and-rename/SKILL.md",
     packageEntry: ".claude/skills/move-and-rename",
-    operations: ["rename", "move-file", "move-directory", "move-symbol", "delete-file", "extract-function"],
+    operations: [
+      "rename",
+      "move-file",
+      "move-directory",
+      "move-symbol",
+      "delete-file",
+      "extract-function",
+    ],
     errorCodes: ["DAEMON_STARTING", "SYMBOL_NOT_FOUND", "FILE_NOT_FOUND"],
   },
   {
