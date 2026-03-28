@@ -99,11 +99,42 @@ eval/
 └── fixtures/              # Pre-recorded daemon JSON responses keyed by method name
 
 .github/workflows/
-├── ci.yml                 # lint + build + test on push/PR
-└── quality-feedback.yml   # mutation testing (weekly + on push to main); triggers Claude Code triage on score < 75
+├── ci.yml                 # lint + build + test + pnpm audit on push/PR
+├── codeql.yml             # CodeQL security scanning on push/PR + weekly
+├── quality-feedback.yml   # mutation testing (weekly + on push to main); triggers Claude Code triage on score < 75
+└── release-please.yml     # automated releases: version bump PR + npm publish
 
 .claude/skills/
 ├── slice/                 # /slice — pick up and implement the next task
 ├── spec/                  # /spec — create a spec from a handoff entry
 └── mutate-triage/         # /mutate-triage — classify survivors, open issues or fix PRs
 ```
+
+## CI and automation
+
+Every push and PR to `main` runs these checks:
+
+| Workflow | What it does |
+|---|---|
+| **CI** (`ci.yml`) | `pnpm audit --prod --audit-level high` → Biome lint → build → full test suite |
+| **CodeQL** (`codeql.yml`) | Static analysis with GitHub's `security-extended` query suite. Also runs on a weekly cron to catch newly-discovered patterns in existing code |
+| **Quality feedback** (`quality-feedback.yml`) | Stryker mutation testing (weekly + on push to main). Triggers Claude Code triage when mutation score drops below 75 |
+
+## Releasing
+
+Releases are automated via [Release Please](https://github.com/googleapis/release-please):
+
+1. Push conventional commits to `main` (e.g. `feat(cli): ...`, `fix(ts-engine): ...`)
+2. Release Please opens (or updates) a PR titled "chore(main): release X.Y.Z" with a generated CHANGELOG entry and `package.json` version bump
+3. That PR accumulates — every push to `main` updates it
+4. When you merge the release PR, the publish job runs: `pnpm install` → `pnpm build` → `npm publish --tag alpha --provenance`
+5. A GitHub Release is created automatically with npm provenance attestation
+
+The `--tag alpha` flag means `npm install @yearofthedan/light-bridge` does **not** install alpha versions by default — users must use `@alpha` or an explicit version. This will change when a stable release ships.
+
+## Security tooling
+
+- **CodeQL** scans every push, PR, and weekly for security vulnerabilities. Results appear in the repo's Security tab
+- **`pnpm audit`** runs in CI and blocks merges when a production dependency has a known high-severity vulnerability
+- **Branch protection** requires PRs for all contributors except the repo owner, preventing accidental direct pushes to `main`
+- **Vulnerability reporting** follows the process in [SECURITY.md](SECURITY.md) — private advisory form, not public issues
