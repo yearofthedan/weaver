@@ -94,6 +94,13 @@ Acceptance criteria as concrete **input → output** statements.
 - [ ] Given [empty/zero case], produces [specific handling]
 - [ ] Given [boundary input], produces [specific outcome]
 
+> **Type matrix check:** For each AC, enumerate the distinct input types
+> (file extensions, parameter combinations, engine paths) that exercise
+> different code paths. If a feature applies to both `.ts` and `.vue` files,
+> test both as inputs *and* outputs — don't assume symmetry. If different
+> combinations flow through different engine methods or translation layers,
+> they need separate ACs.
+>
 > **Each AC must describe an independently observable behaviour.** If implementing
 > AC X necessarily produces outcome Y, then Y is not a separate AC — it's a
 > verification detail within X's tests. Mechanical consequences don't need their
@@ -185,6 +192,7 @@ Examples of what belongs here:
 - [ ] Docs updated if public surface changed:
       - README.md (tool table, CLI commands, error codes, project structure)
       - Feature doc created or updated (use `docs/features/_template.md` for new docs)
+      - Skill files in `.claude/skills/` that reference the changed tool (these are the primary discovery surface for agents — if the skill doesn't mention the new mode, agents won't use it)
       - handoff.md current-state section
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting (skip if nothing worth recording)

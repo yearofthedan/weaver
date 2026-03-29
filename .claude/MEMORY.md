@@ -92,6 +92,9 @@ See `docs/handoff.md` § "Start here" and the `/slice` skill for the full proced
 **When the user asks a question, answer it before touching any tools.**
 Reaching for tools while a question is unanswered is acting instead of listening. Answer first, confirm the user wants the change, then act.
 
+**When you make a mistake, encode the fix into durable artifacts — not just your next action.**
+If the user corrects you, ask: "what skill, template, or rule file should change so the next agent doesn't repeat this?" Memory doesn't survive sessions. Skills, templates, and MEMORY.md do. Fix the system, not the instance.
+
 **Do simple docs tasks directly — don't delegate to subagents.**
 For straightforward docs updates (fixing text, adding diagrams, updating tables), do the work inline.
 

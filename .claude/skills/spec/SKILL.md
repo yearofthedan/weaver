@@ -23,7 +23,7 @@ description: Create or refine a task specification from a handoff.md entry — p
 6. **Fill in the Value / Effort section.** Articulate why this is worth doing now and what the implementation surface looks like. Use the template prompts. If value is low or effort is high relative to alternatives, flag this to the user before continuing.
 
 7. **Draft the Behaviour / Fix section with the user.** This is the core of the spec.
-   - **Changes:** Write concrete ACs as input → output pairs wherever possible. For each AC, apply the template prompts: "what's the laziest wrong implementation?", "what's the narrowest fix that leaves siblings broken?" If you have more than 5 ACs, stop and discuss splitting with the user (see template guidance).
+   - **Changes:** Write concrete ACs as input → output pairs wherever possible. For each AC, apply the template prompts: "what's the laziest wrong implementation?", "what's the narrowest fix that leaves siblings broken?" Then apply the **type matrix check**: enumerate the distinct input types (file extensions, parameter combinations, engine paths) that exercise different code paths. If a feature applies to both `.ts` and `.vue` files, test both as inputs *and* outputs — don't assume symmetry. If different combinations flow through different engine methods or translation layers, they need separate ACs. If you have more than 5 ACs, stop and discuss splitting with the user (see template guidance).
    - **Bugs:** Describe the fix — what to change and where. Bugs don't have ACs; the Expected section defines the target behaviour. Verification criteria go in Done-when ("reproduction case now produces expected output", "regression test covers the failing case"). The fix is dispatched as a single unit to the execution agent.
    - Do NOT proceed past this step without user agreement
 
@@ -49,7 +49,7 @@ description: Create or refine a task specification from a handoff.md entry — p
 
 11. **Fill in Edges.** Ask: "what must NOT change?" and "what assumptions are we making?" These become regression tests during implementation.
 
-12. **Review the Done-when checklist.** Add any task-specific verification steps (e.g., "works via both MCP and CLI", "mutation score for this file specifically").
+12. **Review the Done-when checklist.** Add any task-specific verification steps (e.g., "works via both MCP and CLI", "mutation score for this file specifically"). Check `.claude/skills/` for any skill file that references the changed tool — skill files are the primary way agents discover tool capabilities. If the skill doesn't mention the new mode, agents won't use it. Add skill updates to Done-when.
 
 13. **Update handoff.md.** Change the entry from `[needs design]` to a link to the new spec file. Remove inline ACs or description that moved to the spec — the handoff entry becomes one line.
 
@@ -59,4 +59,4 @@ description: Create or refine a task specification from a handoff.md entry — p
     - Any open decisions flagged in step 8
     - Ask: "Ready to implement, or want to revise?"
 
-15. **Report for commit.** Tell the caller that the spec file and the updated handoff.md are ready to commit with message `docs(specs): add spec for [short-title]`. The spec agent does not commit directly — the orchestrator or user handles the commit.
+15. **Report for commit.** Tell the caller that the spec file and the updated handoff.md are ready to commit with message `docs(specs): add spec for [short-title]`. **Do NOT commit until the user has explicitly signed off on the spec.** The spec agent does not commit directly — the orchestrator or user handles the commit. A premature commit forces amends or reverts when the user requests changes, which is wasteful and error-prone.
