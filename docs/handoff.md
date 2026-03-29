@@ -156,7 +156,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P2 — High-value features / bugs / tech debt
 
-- **`replaceText` glob and file matching bugs** `[needs design]` — Three issues discovered during the weaver rename: (1) `replaceText` silently skips `package.json` and other JSON config files — `searchText` finds matches but `replaceText` returns zero replacements with no error. Likely the "sensitive file" heuristic is too broad. (2) Root-level files (`README.md`, `CLAUDE.md`, etc.) are unreachable by any glob pattern — `**/*.md` matches subdirectory files but not repo root. (3) Directory-prefixed globs like `eval/**/*.ts` return zero matches while `**/*.ts` catches the same files. All three cause silent failures that force fallback to Edit/sed, undermining the tool's value proposition.
+- **`globToRegex` fails on root-level files and directory-prefixed patterns** — [spec](specs/20260329-glob-matching-bugs.md)
 - `findReferences` by file path `[needs design]` — "who imports this file?"; see [findReferences.md](features/findReferences.md)
 - **`moveDirectory` VolarEngine: Vue import specifiers not rewritten** `[needs design]` — `VolarEngine.moveDirectory()` delegates to `TsMorphEngine`, which doesn't track `.vue` files. Result: `.vue` files are physically moved (as non-source files), but TS files importing `.vue` components (e.g. `import Button from "./components/Button.vue"`) are NOT rewritten to the new path. Fix: implement the virtual `.vue.ts` stub approach — create a temporary ts-morph project with `.vue.ts` stubs, call `directory.move()`, transplant rewritten imports back into SFCs.
 
