@@ -49,11 +49,11 @@ The project is named "light-bridge" but the name doesn't communicate what the to
 
 ## Behaviour
 
-- [ ] **AC1: Package identity.** `package.json` `name` is `@yearofthedan/weaver`. `bin` field maps `weaver` to the CLI entry point.
-- [ ] **AC2: CLI command name.** Commander program name is `weaver`. Error/usage strings reference `weaver` not `light-bridge`. Running `weaver rename '<json>'` works.
-- [ ] **AC3: Cache and socket paths.** `paths.ts` uses `~/.cache/weaver/` as the cache directory. Socket, lock, and log files live under this path. Tests in `paths.test.ts` and `logger.test.ts` assert the new path.
-- [ ] **AC4: Environment variable.** `LIGHT_BRIDGE_VERBOSE` → `WEAVER_VERBOSE` in `daemon.ts`, `ensure-daemon.ts`, and all documentation.
-- [ ] **AC5: MCP server name.** Server identifies as `weaver` in the MCP handshake (`mcp.ts`). `.mcp.json` and `.cursor/mcp.json` use `weaver` as the server key. MCP server instructions text references `weaver`.
+- [x] **AC1: Package identity.** `package.json` `name` is `@yearofthedan/weaver`. `bin` field maps `weaver` to the CLI entry point.
+- [x] **AC2: CLI command name.** Commander program name is `weaver`. Error/usage strings reference `weaver` not `light-bridge`. Running `weaver rename '<json>'` works.
+- [x] **AC3: Cache and socket paths.** `paths.ts` uses `~/.cache/weaver/` as the cache directory. Socket, lock, and log files live under this path. Tests in `paths.test.ts` and `logger.test.ts` assert the new path.
+- [x] **AC4: Environment variable.** `LIGHT_BRIDGE_VERBOSE` → `WEAVER_VERBOSE` in `daemon.ts`, `ensure-daemon.ts`, and all documentation.
+- [x] **AC5: MCP server name.** Server identifies as `weaver` in the MCP handshake (`mcp.ts`). `.mcp.json` and `.cursor/mcp.json` use `weaver` as the server key. MCP server instructions text references `weaver`.
 
 ## Interface
 
@@ -80,14 +80,25 @@ None — all decisions resolved during brainstorming:
 
 ## Done-when
 
-- [ ] All ACs verified by tests
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Skill file content updated (all `light-bridge` → `weaver` CLI command references)
-- [ ] README.md fully updated (heading, install commands, CLI examples, mermaid diagram, description)
-- [ ] CLAUDE.md updated (heading, description, skill references)
-- [ ] CONTRIBUTING.md updated
-- [ ] All `docs/` markdown files updated
-- [ ] `eval/` files updated (promptfooconfig.yaml, run-eval.ts, fixtures, test files)
-- [ ] `docs/handoff.md` current-state section updated (skill dir names, CLI references)
-- [ ] No remaining references to `light-bridge` in source or docs (verified by grep)
-- [ ] Spec moved to `docs/specs/archive/` with Outcome section
+- [x] All ACs verified by tests
+- [x] `pnpm check` passes (lint + build + test)
+- [x] Skill file content updated (all `light-bridge` → `weaver` CLI command references)
+- [x] README.md fully updated (heading, install commands, CLI examples, mermaid diagram, description)
+- [x] CLAUDE.md updated (heading, description, skill references)
+- [x] CONTRIBUTING.md updated
+- [x] All `docs/` markdown files updated
+- [x] `eval/` files updated (promptfooconfig.yaml, run-eval.ts, fixtures, test files)
+- [x] `docs/handoff.md` current-state section updated (skill dir names, CLI references)
+- [x] No remaining references to `light-bridge` in source or docs (verified by grep)
+- [x] Spec moved to `docs/specs/archive/` with Outcome section
+
+## Outcome
+
+All 5 ACs completed. The rename touched ~190 occurrences across ~45 files — all mechanical string replacements with no logic changes.
+
+**Reflection:**
+- The rename was straightforward — wide but shallow, as predicted. No surprises in the source code changes.
+- The only remaining `light-bridge` references are in archived spec files (historical records) and the GitHub repo URL (left intentionally, per the Edges section — repo hasn't been renamed on GitHub).
+- The `replaceText` tool limitations discovered during this rename (silent skips on JSON files, root-level file glob failures, directory-prefixed glob failures) were captured as a P2 handoff entry for follow-up.
+- Tests: 0 new tests added (no logic changes). Existing tests were updated to assert new paths/names.
+- Mutation score: N/A — no logic changes to mutate.

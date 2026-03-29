@@ -154,12 +154,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ---
 
-### P1 — Rename
-
-- **Rename project to Weaver** → [spec](specs/20260328-rename-to-weaver.md)
-
----
-
 ### P2 — High-value features / bugs / tech debt
 
 - **`replaceText` glob and file matching bugs** `[needs design]` — Three issues discovered during the weaver rename: (1) `replaceText` silently skips `package.json` and other JSON config files — `searchText` finds matches but `replaceText` returns zero replacements with no error. Likely the "sensitive file" heuristic is too broad. (2) Root-level files (`README.md`, `CLAUDE.md`, etc.) are unreachable by any glob pattern — `**/*.md` matches subdirectory files but not repo root. (3) Directory-prefixed globs like `eval/**/*.ts` return zero matches while `**/*.ts` catches the same files. All three cause silent failures that force fallback to Edit/sed, undermining the tool's value proposition.
