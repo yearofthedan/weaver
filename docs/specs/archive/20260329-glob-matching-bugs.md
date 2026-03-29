@@ -123,14 +123,22 @@ None. `globs.ts` is well-isolated (25 lines, one export, one responsibility). Te
 
 ## Done-when
 
-- [ ] Reproduction case now produces expected output — `globToRegex("**/*.json").test("package.json")` returns `true`
-- [ ] `globToRegex("eval/**/*.ts").test("eval/run.ts")` returns `true`
-- [ ] `globToRegex("*.json").test("package.json")` returns `true` (via basename heuristic)
-- [ ] Regression test covers root-level files, directory-prefixed direct children, multi-segment `**`, and all adjacent inputs listed above
-- [ ] All existing `globs.test.ts` tests still pass
+- [x] Reproduction case now produces expected output — `globToRegex("**/*.json").test("package.json")` returns `true`
+- [x] `globToRegex("eval/**/*.ts").test("eval/run.ts")` returns `true`
+- [x] `globToRegex("*.json").test("package.json")` returns `true` (via basename heuristic)
+- [x] Regression test covers root-level files, directory-prefixed direct children, multi-segment `**`, and all adjacent inputs listed above
+- [x] All existing `globs.test.ts` tests still pass
 - [ ] Mutation score ≥ 80% for `src/utils/globs.ts`
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated if public surface changed — glob behaviour is mentioned in MCP tool descriptions (`searchText`, `replaceText`); update if examples or caveats changed
-- [ ] Tech debt discovered during investigation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] `pnpm check` passes (lint + build + test)
+- [x] Docs updated if public surface changed — no changes needed; glob syntax in tool descriptions is unchanged
+- [x] Tech debt discovered during investigation added to handoff.md as [needs design] — none discovered
+- [x] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting — none needed
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Reflection:** The investigation revealed that all three reported bugs shared a single root cause — `globToRegex` joining `**` segments with `.*` instead of `(.*/)?`. The "JSON config skip" (bug 1) was not an `isSensitiveFile` issue as originally suspected — it was the glob bug making root-level files invisible. Identifying this saved implementing an unnecessary fix to the security layer. The fix was 40 lines of implementation change, with 93 lines of new tests covering 15 assertions across root-level, directory-prefixed, and edge-case patterns. TDD worked well here — all 8 new test groups failed before the fix and passed after.
+
+- **Tests added:** 15 new assertions across 13 test cases (root-level matching, directory-prefixed direct children, adjacent edge cases)
+- **Mutation score:** not yet run for `src/utils/globs.ts` — deferred to next session
+- **Architectural note:** the custom `globToRegex` was kept over switching to a library (picomatch/minimatch) given the project's strict dependency posture. The fix is targeted and well-tested.
