@@ -14,8 +14,10 @@ A refactoring bridge between AI coding agents and compiler APIs. Provides ts-mor
 
 ```bash
 pnpm build        # compile TypeScript
-pnpm test         # run all tests
-pnpm check        # biome check + build + test
+pnpm test         # run main tests (accepts file args)
+pnpm test:eval    # run eval tests only
+pnpm test:all     # run both main + eval tests
+pnpm check        # biome check + build + test:all
 pnpm lint         # lint only
 pnpm format       # format in place (whitespace/style only — does NOT fix import ordering)
 pnpm exec biome check --write .  # fix everything: format + lint assists (organizeImports etc.)

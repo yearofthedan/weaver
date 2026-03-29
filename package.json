@@ -26,7 +26,9 @@
   "scripts": {
     "build": "rm -rf dist && tsc && chmod +x dist/adapters/cli/cli.js",
     "dev": "tsx src/adapters/cli/cli.ts",
-    "test": "vitest run && vitest run --config eval/vitest.config.ts",
+    "test": "vitest run",
+    "test:eval": "vitest run --config eval/vitest.config.ts",
+    "test:all": "pnpm test && pnpm test:eval",
     "test:watch": "vitest",
     "lint": "biome lint .",
     "format": "biome format . --write",
@@ -38,7 +40,7 @@
     "test:mutate": "rm -rf .stryker-tmp && stryker run",
     "test:mutate:file": "rm -rf .stryker-tmp && stryker run --mutate",
     "eval": "tsx eval/run-eval.ts",
-    "check": "biome check . && pnpm build && pnpm test",
+    "check": "biome check . && pnpm build && pnpm test:all",
     "prepare": "husky",
     "prepublishOnly": "pnpm run build"
   },
