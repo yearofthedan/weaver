@@ -201,7 +201,7 @@ export class TsMorphEngine implements Engine {
     const fn = sf.getFunction(functionName);
     if (!fn) return undefined;
     return {
-      name: fn.getName()!,
+      name: fn.getName() as string,
       parameters: fn.getParameters().map((p) => ({ name: p.getName() })),
     };
   }

@@ -239,8 +239,8 @@ describe("searchText operation", () => {
 
       expect(withNl.matches[0].surroundingText).toBe("aaa\nbbb\nccc");
       expect(withoutNl.matches[0].surroundingText).toBe("aaa\nbbb\nccc");
-      expect(withNl.matches[0].surroundingText!.split("\n")).toHaveLength(3);
-      expect(withoutNl.matches[0].surroundingText!.split("\n")).toHaveLength(3);
+      expect(withNl.matches[0].surroundingText?.split("\n")).toHaveLength(3);
+      expect(withoutNl.matches[0].surroundingText?.split("\n")).toHaveLength(3);
     } finally {
       cleanup(dir);
     }

@@ -56,7 +56,7 @@ describe("findTsConfig", () => {
     write("tsconfig.json", "{}");
     const result = findTsConfig(tmpDir);
     expect(result).not.toBeNull();
-    expect(path.isAbsolute(result!)).toBe(true);
+    expect(path.isAbsolute(result as string)).toBe(true);
   });
 
   it("caches a found tsconfig — second call returns same path even after file is deleted", () => {

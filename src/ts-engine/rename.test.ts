@@ -172,7 +172,7 @@ describe("tsRename", () => {
 
       expect(refs).not.toBeNull();
       const testFile = path.join(dir, "tests/utils.test.ts");
-      const refInTestFile = refs!.find((r) => r.fileName === testFile);
+      const refInTestFile = refs?.find((r) => r.fileName === testFile);
       expect(refInTestFile).toBeDefined();
     });
   });

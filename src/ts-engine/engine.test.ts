@@ -208,7 +208,7 @@ describe("TsMorphEngine", () => {
       expect(locs).not.toBeNull();
       expect(locs?.length).toBeGreaterThanOrEqual(2);
       // Response paths should be real (usable) paths
-      for (const loc of locs!) {
+      for (const loc of locs ?? []) {
         expect(fs.existsSync(loc.fileName)).toBe(true);
       }
     });
@@ -221,7 +221,7 @@ describe("TsMorphEngine", () => {
       const refs = await p.getReferencesAtPosition(file, offset);
       expect(refs).not.toBeNull();
       expect(refs?.length).toBeGreaterThanOrEqual(1);
-      for (const ref of refs!) {
+      for (const ref of refs ?? []) {
         expect(fs.existsSync(ref.fileName)).toBe(true);
       }
     });
@@ -235,7 +235,7 @@ describe("TsMorphEngine", () => {
       expect(defs).not.toBeNull();
       expect(defs?.length).toBeGreaterThanOrEqual(1);
       expect(defs?.[0].name).toBe("greetUser");
-      for (const def of defs!) {
+      for (const def of defs ?? []) {
         expect(fs.existsSync(def.fileName)).toBe(true);
       }
     });
