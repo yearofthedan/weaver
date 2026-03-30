@@ -33,8 +33,8 @@ importers:
         specifier: 27.0.2
         version: 27.0.2
       typescript:
-        specifier: 6.0.2
-        version: 6.0.2
+        specifier: 5.9.3
+        version: 5.9.3
       zod:
         specifier: 4.3.6
         version: 4.3.6
@@ -62,7 +62,7 @@ importers:
         version: 9.1.7
       promptfoo:
         specifier: 0.121.3
-        version: 0.121.3(@types/json-schema@7.0.15)(@types/node@24.12.0)(pg@8.19.0)(playwright-core@1.58.2)(socks@2.8.7)(typescript@6.0.2)
+        version: 0.121.3(@types/json-schema@7.0.15)(@types/node@24.12.0)(pg@8.19.0)(playwright-core@1.58.2)(socks@2.8.7)(typescript@5.9.3)
       tsx:
         specifier: 4.21.0
         version: 4.21.0
@@ -4772,8 +4772,8 @@ packages:
     resolution: {integrity: sha512-/e2Rk9g20N0r44kaQLb3v6QGuryOD8SPb53t43Y5kqXXA+SqWuU7zLiMxetw61jNn/JFrxTdr5nPDhGY/eTNhQ==}
     engines: {node: '>= 16.0.0'}
 
-  typescript@6.0.2:
-    resolution: {integrity: sha512-bGdAIrZ0wiGDo5l8c++HWtbaNCWTS4UTv7RaTH/ThVIgjkveJt83m74bBHMJkuCbslY8ixgLBVZJIOiQlQTjfQ==}
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -6517,13 +6517,13 @@ snapshots:
       sharp: 0.34.5
     optional: true
 
-  '@ibm-cloud/watsonx-ai@1.7.10(@swc/core@1.15.18)(typescript@6.0.2)':
+  '@ibm-cloud/watsonx-ai@1.7.10(@swc/core@1.15.18)(typescript@5.9.3)':
     dependencies:
       '@types/node': 18.19.130
       extend: 3.0.2
       form-data: 4.0.5
       ibm-cloud-sdk-core: 5.4.9
-      ts-node: 10.9.2(@swc/core@1.15.18)(@types/node@18.19.130)(typescript@6.0.2)
+      ts-node: 10.9.2(@swc/core@1.15.18)(@types/node@18.19.130)(typescript@5.9.3)
     transitivePeerDependencies:
       - '@swc/core'
       - '@swc/wasm'
@@ -9969,7 +9969,7 @@ snapshots:
 
   progress@2.0.3: {}
 
-  promptfoo@0.121.3(@types/json-schema@7.0.15)(@types/node@24.12.0)(pg@8.19.0)(playwright-core@1.58.2)(socks@2.8.7)(typescript@6.0.2):
+  promptfoo@0.121.3(@types/json-schema@7.0.15)(@types/node@24.12.0)(pg@8.19.0)(playwright-core@1.58.2)(socks@2.8.7)(typescript@5.9.3):
     dependencies:
       '@anthropic-ai/sdk': 0.80.0(zod@4.3.6)
       '@apidevtools/json-schema-ref-parser': 15.3.1(@types/json-schema@7.0.15)
@@ -10069,7 +10069,7 @@ snapshots:
       '@azure/openai-assistants': 1.0.0-beta.6
       '@fal-ai/client': 1.9.4
       '@huggingface/transformers': 3.8.1
-      '@ibm-cloud/watsonx-ai': 1.7.10(@swc/core@1.15.18)(typescript@6.0.2)
+      '@ibm-cloud/watsonx-ai': 1.7.10(@swc/core@1.15.18)(typescript@5.9.3)
       '@ibm-generative-ai/node-sdk': 3.2.4
       '@openai/codex-sdk': 0.116.0
       '@playwright/browser-chromium': 1.58.2
@@ -10848,7 +10848,7 @@ snapshots:
       '@ts-morph/common': 0.28.1
       code-block-writer: 13.0.3
 
-  ts-node@10.9.2(@swc/core@1.15.18)(@types/node@18.19.130)(typescript@6.0.2):
+  ts-node@10.9.2(@swc/core@1.15.18)(@types/node@18.19.130)(typescript@5.9.3):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       '@tsconfig/node10': 1.0.12
@@ -10862,7 +10862,7 @@ snapshots:
       create-require: 1.1.1
       diff: 4.0.4
       make-error: 1.3.6
-      typescript: 6.0.2
+      typescript: 5.9.3
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
     optionalDependencies:
@@ -10911,7 +10911,7 @@ snapshots:
       tunnel: 0.0.6
       underscore: 1.13.8
 
-  typescript@6.0.2: {}
+  typescript@5.9.3: {}
 
   uint8array-extras@1.5.0:
     optional: true

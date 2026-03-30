@@ -60,7 +60,7 @@ export function rewriteMovedFileOwnImports(
 
   for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {
     const specifier = decl.getModuleSpecifierValue();
-    if (!specifier || !specifier.startsWith(".")) continue;
+    if (!specifier?.startsWith(".")) continue;
 
     // If the specifier already resolves correctly from the new location
     // (e.g. a companion file moved alongside this one), no rewrite needed.
