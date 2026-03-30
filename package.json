@@ -1,6 +1,6 @@
 {
   "name": "@yearofthedan/weaver",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/yearofthedan/weaver.git"
@@ -21,7 +21,7 @@
     ".": "./dist/adapters/cli/cli.js"
   },
   "engines": {
-    "node": "v25.8.2"
+    "node": ">=18"
   },
   "scripts": {
     "build": "rm -rf dist && tsc && chmod +x dist/adapters/cli/cli.js",
@@ -75,15 +75,15 @@
     "access": "public"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.9",
+    "@biomejs/biome": "2.4.8",
     "@stryker-mutator/core": "9.6.0",
     "@stryker-mutator/vitest-runner": "9.6.0",
     "@types/node": "24.12.0",
-    "@vitest/coverage-v8": "4.1.2",
+    "@vitest/coverage-v8": "4.1.1",
     "@volar/language-core": "2.4.28",
     "husky": "9.1.7",
     "promptfoo": "0.121.3",
     "tsx": "4.21.0",
-    "vitest": "4.1.2"
+    "vitest": "4.1.1"
   }
 }
