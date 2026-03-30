@@ -21,7 +21,7 @@
     ".": "./dist/adapters/cli/cli.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": "v25.8.2"
   },
   "scripts": {
     "build": "rm -rf dist && tsc && chmod +x dist/adapters/cli/cli.js",
