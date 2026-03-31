@@ -152,7 +152,21 @@ export class VolarEngine implements Engine {
   }
 
   async getFileReferences(file: string): Promise<SpanLocation[] | null> {
-    return this.tsEngine.getFileReferences(file);
+    const service = await this.getService(file);
+
+    // For .vue targets, query the virtual .vue.ts path so the TS language
+    // service can find references to it in both .ts and .vue files.
+    const queryPath = file.endsWith(".vue") ? `${file}.ts` : file;
+
+    const refs = service.baseService.getFileReferences(queryPath);
+    if (!refs || refs.length === 0) return null;
+
+    const rawLocs: SpanLocation[] = refs.map((ref) => ({
+      fileName: ref.fileName,
+      textSpan: { start: ref.textSpan.start, length: ref.textSpan.length },
+    }));
+
+    return this.translateLocations(rawLocs, service);
   }
 
   async getDefinitionAtPosition(

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { VolarEngine } from "../plugins/vue/engine.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import { findImporters } from "./findImporters.js";
 
@@ -45,6 +46,42 @@ describe("findImporters", () => {
 
     await expect(findImporters(compiler, `${dir}/src/doesNotExist.ts`)).rejects.toMatchObject({
       code: "FILE_NOT_FOUND",
+    });
+  });
+
+  describe("with VolarEngine", () => {
+    it("AC3: .ts target imported by both .ts and .vue files returns references from both", async () => {
+      const dir = copyFixture(FIXTURES.vueTsBoundary.name);
+      dirs.push(dir);
+      const compiler = new VolarEngine(new TsMorphEngine(), dir);
+
+      const result = await findImporters(compiler, `${dir}/src/utils.ts`);
+
+      expect(result.fileName).toBe("utils.ts");
+      expect(result.references.length).toBeGreaterThanOrEqual(1);
+      expect(result.references.some((r) => r.file.endsWith("App.vue"))).toBe(true);
+      for (const ref of result.references) {
+        expect(ref.line).toBeGreaterThan(0);
+        expect(ref.col).toBeGreaterThan(0);
+        expect(ref.length).toBeGreaterThan(0);
+      }
+    });
+
+    it("AC4: .vue target imported by another file returns references with correct positions", async () => {
+      const dir = copyFixture(FIXTURES.moveDirVue.name);
+      dirs.push(dir);
+      const compiler = new VolarEngine(new TsMorphEngine(), dir);
+
+      const result = await findImporters(compiler, `${dir}/src/components/Button.vue`);
+
+      expect(result.fileName).toBe("Button.vue");
+      expect(result.references.length).toBeGreaterThanOrEqual(1);
+      expect(result.references.some((r) => r.file.endsWith("App.vue"))).toBe(true);
+      for (const ref of result.references) {
+        expect(ref.line).toBeGreaterThan(0);
+        expect(ref.col).toBeGreaterThan(0);
+        expect(ref.length).toBeGreaterThan(0);
+      }
     });
   });
 });

@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Language } from "@volar/language-core";
+import type ts from "typescript";
 import { TS_EXTENSIONS } from "../../utils/extensions.js";
 import { SKIP_DIRS, walkFiles } from "../../utils/file-walk.js";
 
@@ -35,6 +36,8 @@ interface VolarLanguageService {
 
 export interface CachedService {
   languageService: VolarLanguageService;
+  /** The raw TypeScript language service (pre-Volar proxy). Use for APIs not exposed by the proxy (e.g. getFileReferences). */
+  baseService: ts.LanguageService;
   fileContents: Map<string, string>;
   language: Language<string>;
   /** Maps virtual App.vue.ts filenames → real App.vue filenames */
@@ -249,6 +252,7 @@ export async function buildVolarService(
 
   return {
     languageService: proxy as unknown as VolarLanguageService,
+    baseService,
     fileContents,
     language,
     vueVirtualToReal,
