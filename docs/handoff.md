@@ -96,6 +96,7 @@ src/
   operations/
     rename.ts          ← rename(engine, filePath, line, col, newName, scope: WorkspaceScope)
     findReferences.ts  ← findReferences(engine, filePath, line, col)
+    findImporters.ts   ← findImporters(engine, filePath) — "who imports this file?"; returns {fileName, references[]}
     getDefinition.ts   ← getDefinition(engine, filePath, line, col)
     getTypeErrors.ts   ← getTypeErrors(tsEngine, file?, scope: WorkspaceScope) — errors-only, cap 100; exports toDiagnostic + MAX_DIAGNOSTICS
     moveFile.ts        ← moveFile(engine, oldPath, newPath, scope: WorkspaceScope)
@@ -156,7 +157,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P2 — High-value features / bugs / tech debt
 
-- `findReferences` by file path → [spec](specs/find-references-by-file.md) — "who imports this file?"; see [findReferences.md](features/findReferences.md)
 - **`moveDirectory` VolarEngine: Vue import specifiers not rewritten** `[needs design]` — `VolarEngine.moveDirectory()` delegates to `TsMorphEngine`, which doesn't track `.vue` files. Result: `.vue` files are physically moved (as non-source files), but TS files importing `.vue` components (e.g. `import Button from "./components/Button.vue"`) are NOT rewritten to the new path. Fix: implement the virtual `.vue.ts` stub approach — create a temporary ts-morph project with `.vue.ts` stubs, call `directory.move()`, transplant rewritten imports back into SFCs.
 - **`moveSymbol` auto-create destination file** `[needs design]` — if the destination file does not exist, `moveSymbol` fails. Callers must pre-create the file (e.g. with `export {};`) before moving symbols into it. Trivial fix: create the file automatically if it doesn't exist. Discovered during the `types.ts` decomposition.
 - **Agent guidance on type errors in tool responses** `[needs design]` — all write operations return `typeErrors`; agents need to know this is an action item (something wasn't fully updated) and follow up with `replaceText`. Currently nothing teaches this pattern. Decision needed: shipped skill file, tool description addition, CLAUDE.md guidance snippet, or combination?

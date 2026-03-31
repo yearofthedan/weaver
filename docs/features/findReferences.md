@@ -62,7 +62,7 @@ See [security.md](../security.md) for the full threat model.
 
 ## Constraints
 
-- "Find references by file path" (who imports this file?) is a separate capability not yet implemented. See `docs/handoff.md`.
+- "Find references by file path" (who imports this file?) is available via the separate `findImporters` tool. See [findImporters.md](./findImporters.md).
 - Results may include references in files outside the workspace if those files are in the project graph (via tsconfig `include`). This is intentional for read-only operations.
 - `.js`/`.jsx` references are found only when those files are in the project graph (tsconfig `allowJs`).
 

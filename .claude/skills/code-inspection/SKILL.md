@@ -7,6 +7,14 @@ description: Use when finding all usages of a symbol, jumping to a definition th
 
 Compiler-aware queries that see through re-exports, barrel files, and Vue SFCs. Use instead of `grep` for finding usages or `tsc` for checking types.
 
+## Find all files that import a file
+
+```bash
+weaver find-importers '{"file": "/abs/path/src/utils.ts"}'
+```
+
+Returns every file that imports the given file — through path aliases, barrel re-exports, extensionless imports, and Vue SFCs. Use before moving, deleting, or understanding a file's dependents. Empty `references` means nothing imports the file (not an error).
+
 ## Find all references to a symbol
 
 ```bash

@@ -14,6 +14,7 @@ All tools are available through both the MCP server (`weaver serve`) and as CLI 
 | `moveSymbol` | [moveSymbol.md](./moveSymbol.md) | ✓ | ✓* | yes |
 | `deleteFile` | [deleteFile.md](./deleteFile.md) | ✓ | ✓† | yes |
 | `extractFunction` | [extractFunction.md](./extractFunction.md) | ✓ | — | yes |
+| `findImporters` | [findImporters.md](./findImporters.md) | ✓ | ✓ | no |
 | `findReferences` | [findReferences.md](./findReferences.md) | ✓ | ✓ | no |
 | `getDefinition` | [getDefinition.md](./getDefinition.md) | ✓ | ✓ | no |
 | `getTypeErrors` | [getTypeErrors.md](./getTypeErrors.md) | ✓ | — | no |
