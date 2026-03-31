@@ -14,6 +14,7 @@ const SUBCOMMANDS: Record<string, { method: string; pathParams: string[] }> = {
   "move-directory": { method: "moveDirectory", pathParams: ["oldPath", "newPath"] },
   "move-symbol": { method: "moveSymbol", pathParams: ["sourceFile", "destFile"] },
   "extract-function": { method: "extractFunction", pathParams: ["file"] },
+  "find-importers": { method: "findImporters", pathParams: ["file"] },
   "find-references": { method: "findReferences", pathParams: ["file"] },
   "get-definition": { method: "getDefinition", pathParams: ["file"] },
   "get-type-errors": { method: "getTypeErrors", pathParams: [] },

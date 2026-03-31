@@ -35,6 +35,9 @@ export interface Engine {
   /** Return definition locations or `null` if no symbol at `offset`. */
   getDefinitionAtPosition(file: string, offset: number): Promise<DefinitionLocation[] | null>;
 
+  /** Return all import locations that reference the given file, or `null` if the file is not in the project graph. */
+  getFileReferences(file: string): Promise<SpanLocation[] | null>;
+
   /**
    * Read file content — may consult an internal cache.
    * Called by the shared engine layer before and after writes.

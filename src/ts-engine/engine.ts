@@ -294,6 +294,20 @@ export class TsMorphEngine implements Engine {
     }));
   }
 
+  async getFileReferences(file: string): Promise<SpanLocation[] | null> {
+    const project = this.getProject(file);
+    if (!project.getSourceFile(file)) {
+      project.addSourceFileAtPath(file);
+    }
+    const ls = project.getLanguageService().compilerObject;
+    const refs = ls.getFileReferences(file);
+    if (!refs || refs.length === 0) return null;
+    return refs.map((ref) => ({
+      fileName: ref.fileName,
+      textSpan: { start: ref.textSpan.start, length: ref.textSpan.length },
+    }));
+  }
+
   async getDefinitionAtPosition(
     file: string,
     offset: number,
