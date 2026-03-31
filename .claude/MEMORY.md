@@ -110,8 +110,8 @@ Implementation instructions to the execution agent describe *what to do*, not *w
 **Use worktrees for parallel AC execution.**
 When dispatching independent ACs to execution agents in parallel, use `isolation: "worktree"` so each agent gets an isolated copy of the repo. Without worktrees, parallel agents on the same working tree can conflict (e.g. both modifying the same test file). Merge results back after both complete. Only use worktrees when ACs are truly independent — if AC2 depends on AC1's output, run them sequentially.
 
-**Rule 7 applies to mid-implementation commits too.**
-When splitting a feature across multiple commits (e.g. AC1+AC2 first, AC3+AC4 second), the first commit message must not describe what the *next* commit will do. "Vue support comes in a follow-up" violates Rule 7 — it mentions something the commit is NOT doing. Each commit message describes only what that commit does. If the scope is partial, scope the subject line (e.g. "add findImporters — AC1+AC2 TS engine") rather than explaining what's missing.
+**Do not hoard knowledge.**
+Anything non-obvious you learn mid-session belongs in MEMORY.md, the relevant `docs/features/` or `docs/tech/` doc, or a code comment — before the session ends. Do not wait to be asked. Future agents have no access to this conversation; if you don't write it down, it is gone. This is not a reactive rule (triggered by mistakes) — it is a standing obligation. At the end of every session, ask: "what did I learn that the next agent would benefit from knowing?"
 
 **Always pipe long-running commands through `tee` to capture output.**
 `pnpm test:mutate`, `pnpm check`, and other long commands must be run with `2>&1 | tee /tmp/output.txt`. Without tee, the tool sandbox discards output before it can be read when the command runs in background mode. Failure to use tee causes the output file to be 0 bytes and the result to be invisible.
