@@ -151,6 +151,10 @@ export class VolarEngine implements Engine {
     return this.translateLocations(rawRefs, service);
   }
 
+  async getFileReferences(file: string): Promise<SpanLocation[] | null> {
+    return this.tsEngine.getFileReferences(file);
+  }
+
   async getDefinitionAtPosition(
     file: string,
     offset: number,

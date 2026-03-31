@@ -38,6 +38,11 @@ export interface FindReferencesResult {
   references: Reference[];
 }
 
+export interface FindImportersResult {
+  fileName: string;
+  references: Reference[];
+}
+
 export interface Definition {
   file: string;
   line: number;

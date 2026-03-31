@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   DeleteFileArgsSchema,
   ExtractFunctionArgsSchema,
+  FindImportersArgsSchema,
   FindReferencesArgsSchema,
   GetDefinitionArgsSchema,
   GetTypeErrorsArgsSchema,
@@ -153,6 +154,17 @@ export const TOOLS: ToolDefinition[] = [
       checkTypeErrors: DeleteFileArgsSchema.shape.checkTypeErrors.describe(
         "When false, skip the post-write type check on modified files; defaults to on",
       ),
+    },
+  },
+  {
+    name: "findImporters",
+    description:
+      "Before moving, deleting, or understanding a file's dependents, use this to find every file that imports it. " +
+      "Provide just a file path — no line/col needed. " +
+      "The compiler tracks through re-exports, barrel files, type-only imports, and Vue SFCs. " +
+      "Returns { fileName, references: [{file, line, col, length}] }. Empty references means nothing imports this file.",
+    inputSchema: {
+      file: FindImportersArgsSchema.shape.file.describe("Absolute path to the file"),
     },
   },
   {

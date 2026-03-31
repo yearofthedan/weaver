@@ -7,6 +7,7 @@ export function makeMockCompiler(overrides: Partial<Engine> = {}): Engine {
     resolveOffset: vi.fn().mockReturnValue(0),
     getReferencesAtPosition: vi.fn().mockResolvedValue(null),
     getDefinitionAtPosition: vi.fn().mockResolvedValue(null),
+    getFileReferences: vi.fn().mockResolvedValue(null),
     readFile: vi.fn().mockReturnValue(""),
     rename: vi.fn().mockResolvedValue({
       filesModified: [],

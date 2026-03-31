@@ -1,6 +1,7 @@
 import {
   DeleteFileArgsSchema,
   ExtractFunctionArgsSchema,
+  FindImportersArgsSchema,
   FindReferencesArgsSchema,
   GetDefinitionArgsSchema,
   GetTypeErrorsArgsSchema,
@@ -14,6 +15,7 @@ import {
 import { isWithinWorkspace, validateFilePath } from "../domain/security.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { extractFunction } from "../operations/extractFunction.js";
+import { findImporters } from "../operations/findImporters.js";
 import { findReferences } from "../operations/findReferences.js";
 import { getDefinition } from "../operations/getDefinition.js";
 import { getTypeErrors } from "../operations/getTypeErrors.js";
@@ -138,6 +140,16 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         functionName,
         scope,
       );
+    },
+  },
+
+  findImporters: {
+    pathParams: ["file"],
+    schema: FindImportersArgsSchema,
+    async invoke(registry, params) {
+      const { file } = params as { file: string };
+      const engine = await registry.projectEngine();
+      return findImporters(engine, file);
     },
   },
 

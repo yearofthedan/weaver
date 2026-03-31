@@ -40,6 +40,10 @@ export const GetDefinitionArgsSchema = z.object({
   col: z.coerce.number().int().positive("col must be a positive integer (1-based)"),
 });
 
+export const FindImportersArgsSchema = z.object({
+  file: z.string().min(1, "file path is required"),
+});
+
 export const SearchTextArgsSchema = z.object({
   pattern: z.string().min(1, "pattern is required"),
   glob: z.string().optional(),
@@ -108,6 +112,7 @@ export type RenameArgs = z.infer<typeof RenameArgsSchema>;
 export type MoveArgs = z.infer<typeof MoveArgsSchema>;
 export type MoveSymbolArgs = z.infer<typeof MoveSymbolArgsSchema>;
 export type FindReferencesArgs = z.infer<typeof FindReferencesArgsSchema>;
+export type FindImportersArgs = z.infer<typeof FindImportersArgsSchema>;
 export type GetDefinitionArgs = z.infer<typeof GetDefinitionArgsSchema>;
 export type SearchTextArgs = z.infer<typeof SearchTextArgsSchema>;
 export type ReplaceTextArgs = z.infer<typeof ReplaceTextArgsSchema>;
