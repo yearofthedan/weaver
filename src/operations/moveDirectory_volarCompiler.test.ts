@@ -21,6 +21,17 @@ describe("moveDirectory action - VolarEngine integration", () => {
   afterEach(() => dirs.splice(0).forEach(cleanup));
 
   describe("external .ts files importing moved .vue components", () => {
+    it("updates path-alias import specifier in external .ts file after moving directory", async () => {
+      const dir = copyFixture(FIXTURES.moveDirVueExternal.name);
+      dirs.push(dir);
+      const compiler = new VolarEngine(new TsMorphEngine());
+
+      await moveDirectory(compiler, `${dir}/src/components`, `${dir}/src/ui`, makeScope(dir));
+
+      const appTs = readFile(dir, "src/app.ts");
+      expect(appTs).not.toContain("@/components/Button.vue");
+    });
+
     it("updates import specifier in external .ts file after moving directory with .vue files", async () => {
       const dir = copyFixture(FIXTURES.moveDirVueExternal.name);
       dirs.push(dir);
