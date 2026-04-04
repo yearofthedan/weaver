@@ -105,8 +105,8 @@ It patches `getScriptSnapshot` and `getScriptKind` so that when TypeScript asks 
 
 ## Implementation notes
 
-**`@volar/language-core` version skew requires a pnpm override.**
-`@vue/language-core` and `@volar/typescript` can depend on different patch versions of `@volar/language-core`, making `Language<string>` a different nominal type in each. Fix with a `pnpm.overrides` entry in `package.json` pinning to the same version. Also add `@volar/language-core` as a direct `devDependency` so TypeScript can resolve the `import type { Language }` in `volar.ts`.
+**`@volar/language-core` is a direct `devDependency`.**
+Added so TypeScript can resolve the `import type { Language }` in `volar.ts`. `@vue/language-core` and `@volar/typescript` currently agree on the same patch version; if they diverge again a `pnpm.overrides` entry will be needed to prevent `Language<string>` becoming a different nominal type in each.
 
 **Template-only `.vue` files (no `<script>` block) exercise `toVirtualLocation` fallback branches.**
 A `.vue` file with only a `<template>` block has `sourceScript.generated.languagePlugin.typescript?.getServiceScript()` return null (no TypeScript service script generated). This triggers the `if (!serviceScript) return { fileName: virtualPath, pos }` fallback in `toVirtualLocation`. Useful for mutation testing coverage of those branches. Create via `fs.mkdtempSync` with a minimal tsconfig; the `buildVolarService` directory scan picks up all `.vue` files in the project root automatically.
