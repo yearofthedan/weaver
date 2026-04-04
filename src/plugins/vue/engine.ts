@@ -5,6 +5,7 @@ import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type { RenameResult } from "../../operations/types.js";
 import type { TsMorphEngine } from "../../ts-engine/engine.js";
 import { tsMoveFile } from "../../ts-engine/move-file.js";
+import { rewriteImportersOfMovedFile } from "../../ts-engine/rewrite-importers-of-moved-file.js";
 import type {
   DefinitionLocation,
   DeleteFileActionResult,
@@ -14,10 +15,12 @@ import type {
   MoveFileActionResult,
   SpanLocation,
 } from "../../ts-engine/types.js";
+import { walkFiles, walkRecursive } from "../../utils/file-walk.js";
 import { applyTextEdits, lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
 import {
   removeVueImportsOfDeletedFile,
+  rewriteVueOwnImportsAfterMove,
   updateVueImportsAfterMove,
   updateVueImportsAfterSymbolMove,
 } from "./scan.js";
@@ -249,8 +252,46 @@ export class VolarEngine implements Engine {
     newPath: string,
     scope: WorkspaceScope,
   ): Promise<{ filesMoved: string[] }> {
-    const result = await this.tsEngine.moveDirectory(oldPath, newPath, scope);
-    this.invalidateService(oldPath);
+    const absOld = path.resolve(oldPath);
+    const absNew = path.resolve(newPath);
+
+    // Enumerate all files before the physical move so we can build mappings
+    // and determine the search root while the directory still exists.
+    const allFiles = walkRecursive(absOld);
+    const allMappings = allFiles.map((oldFilePath) => ({
+      oldFilePath,
+      newFilePath: path.join(absNew, path.relative(absOld, oldFilePath)),
+    }));
+    const vueMappings = allMappings.filter(({ oldFilePath }) => oldFilePath.endsWith(".vue"));
+
+    // Determine searchRoot before the physical move (absOld may not exist after).
+    const tsConfig = findTsConfigForFile(absOld);
+    const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
+
+    // AC1: Rewrite imports in external .ts/.tsx files that reference moved .vue
+    // components. `rewriteImportersOfMovedFile` walks TS files and fixes specifiers
+    // that resolve to the old .vue path.
+    const tsFiles = walkFiles(searchRoot, [".ts", ".tsx", ".js", ".jsx"]);
+    for (const { oldFilePath, newFilePath } of vueMappings) {
+      rewriteImportersOfMovedFile(oldFilePath, newFilePath, scope, tsFiles);
+    }
+
+    // Physical move + TS source file import rewriting.
+    const result = await this.tsEngine.moveDirectory(absOld, absNew, scope);
+    this.invalidateService(absOld);
+
+    // AC2: Rewrite imports in external .vue files that reference anything from
+    // the moved directory (both .ts and .vue files).
+    for (const { oldFilePath, newFilePath } of allMappings) {
+      updateVueImportsAfterMove(oldFilePath, newFilePath, searchRoot, scope);
+    }
+
+    // AC3: Rewrite own relative imports inside moved .vue files so they resolve
+    // correctly from the new directory.
+    for (const { oldFilePath, newFilePath } of vueMappings) {
+      rewriteVueOwnImportsAfterMove(oldFilePath, newFilePath, scope);
+    }
+
     return result;
   }
 
