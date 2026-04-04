@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { parse } from "@vue/language-core";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
@@ -192,4 +193,65 @@ function removeImportLines(
   );
 
   return { content: result, removed };
+}
+
+/**
+ * After a .vue file is physically moved, rewrite any relative import specifiers
+ * inside it that no longer resolve from the new location.
+ *
+ * Applies only to specifiers that:
+ * 1. Start with `.` (relative imports only — bare specifiers are unchanged)
+ * 2. Do NOT already resolve from the new directory (intra-directory imports that
+ *    moved together are left unchanged)
+ * 3. DO resolve from the old directory (i.e. they point outside the moved dir)
+ *
+ * This mirrors `rewriteMovedFileOwnImports` for TS files, but uses regex-based
+ * rewriting to handle the Vue SFC format instead of ts-morph AST parsing.
+ */
+export function rewriteVueOwnImportsAfterMove(
+  oldPath: string,
+  newPath: string,
+  scope: WorkspaceScope,
+): void {
+  if (!scope.fs.exists(newPath)) return;
+
+  const content = scope.fs.readFile(newPath);
+  const oldDir = path.dirname(oldPath);
+  const newDir = path.dirname(newPath);
+
+  const updated = content.replace(
+    /\bfrom\s+(['"])(\.\.?\/[^'"]+)\1/g,
+    (match, quote, importPath) => {
+      // If the import already resolves from the new location, leave it (intra-dir).
+      const resolvedFromNew = path.resolve(newDir, importPath);
+      if (
+        fs.existsSync(resolvedFromNew) ||
+        fs.existsSync(`${resolvedFromNew}.ts`) ||
+        fs.existsSync(`${resolvedFromNew}.vue`) ||
+        fs.existsSync(`${resolvedFromNew}.js`)
+      ) {
+        return match;
+      }
+
+      // Compute the absolute target from the old location.
+      const resolvedFromOld = path.resolve(oldDir, importPath);
+      if (
+        !fs.existsSync(resolvedFromOld) &&
+        !fs.existsSync(`${resolvedFromOld}.ts`) &&
+        !fs.existsSync(`${resolvedFromOld}.vue`) &&
+        !fs.existsSync(`${resolvedFromOld}.js`)
+      ) {
+        return match;
+      }
+
+      // Rewrite to new relative path from new location, preserving any extension.
+      let newRel = path.relative(newDir, resolvedFromOld).replace(/\\/g, "/");
+      if (!newRel.startsWith(".")) newRel = `./${newRel}`;
+      return `from ${quote}${newRel}${quote}`;
+    },
+  );
+
+  if (updated !== content) {
+    scope.writeFile(newPath, updated);
+  }
 }

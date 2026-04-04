@@ -48,6 +48,10 @@ export const FIXTURES = {
     name: "move-dir-subproject",
     desc: "Subproject (pkg/) with own tsconfig, root tsconfig excludes it",
   },
+  moveDirVueExternal: {
+    name: "move-dir-vue-external",
+    desc: "Vue project with components/ and composables/ dirs; .ts and .vue files import across boundaries for moveDirectory Volar tests",
+  },
 } as const satisfies Record<string, { name: string; desc: string }>;
 
 type FixtureName = (typeof FIXTURES)[keyof typeof FIXTURES]["name"];
