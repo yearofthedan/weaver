@@ -38,6 +38,16 @@ The operation is a thin orchestrator: it delegates all source-file work to `comp
 
 See [security.md](../security.md) for the full threat model.
 
+## Vue SFC support
+
+When the active compiler is `VolarEngine` (Vue projects), `moveDirectory` additionally:
+
+1. **Rewrites external `.ts`/`.tsx` files that import moved `.vue` components** — uses `rewriteImportersOfMovedFile` (scan-based) per moved `.vue` file. The Volar TS LS registers Vue files as virtual `.vue.ts` paths; calling `getEditsForFileRename` with a real `.vue` path returns nothing, so a direct text scan is used instead.
+2. **Rewrites external `.vue` files that import anything from the moved directory** — uses `updateVueImportsAfterMove` per moved file (both `.ts` and `.vue`). Scans `<script>` blocks for matching `from '...'` specifiers.
+3. **Rewrites moved `.vue` files' own relative imports** — uses `rewriteVueOwnImportsAfterMove` per moved `.vue` file. Adjusts specifiers that pointed outside the directory so they resolve from the new location.
+
+All three scan passes happen after the physical move (the directory already exists at `newPath`). Intra-directory relative imports are not touched — they remain valid after the move.
+
 ## Constraints
 
 - `newPath` must not already exist as a non-empty directory. An empty or non-existent destination is fine (created automatically).
