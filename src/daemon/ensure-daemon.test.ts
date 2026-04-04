@@ -9,8 +9,8 @@
 import { EventEmitter } from "node:events";
 import * as fs from "node:fs";
 import * as net from "node:net";
-import * as os from "node:os";
 import * as path from "node:path";
+import * as tmp from "tmp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ─── Mutable stubs referenced by vi.mock factories ──────────────────────────
@@ -93,12 +93,11 @@ function makeFakeChild(opts: { ready?: boolean; exitCode?: number } = { ready: t
 
 let ensureDaemon: (workspace: string) => Promise<void>;
 const activeServers: net.Server[] = [];
+let tmpDir: tmp.DirResult;
 
 beforeEach(async () => {
-  currentSockPath = path.join(
-    os.tmpdir(),
-    `ed-test-${Date.now()}-${Math.random().toString(36).slice(2)}.sock`,
-  );
+  tmpDir = tmp.dirSync({ unsafeCleanup: true });
+  currentSockPath = path.join(tmpDir.name, "test.sock");
 
   mockIsDaemonAlive.mockReset().mockReturnValue(false);
   mockRemoveDaemonFiles.mockReset();
@@ -113,11 +112,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   for (const server of activeServers.splice(0)) await closeServer(server);
-  try {
-    fs.unlinkSync(currentSockPath);
-  } catch {
-    // already gone — fine
-  }
+  tmpDir.removeCallback();
   vi.restoreAllMocks();
 });
 

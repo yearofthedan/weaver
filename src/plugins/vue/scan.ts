@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import { parse } from "@vue/language-core";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { ImportRewriter } from "../../ts-engine/import-rewriter.js";
 import { stripExt } from "../../utils/extensions.js";
@@ -61,8 +62,6 @@ function rewriteImports(
   });
 }
 
-const SCRIPT_BLOCK = /(<script[^>]*>)([\s\S]*?)(<\/script>)/;
-
 /**
  * After a symbol move, scan all .vue files under searchRoot and rewrite any
  * named imports of symbolName that reference sourceFile so they point to
@@ -85,10 +84,12 @@ export function updateVueImportsAfterSymbolMove(
     if (alreadyModified.has(vueFile)) continue;
 
     const fileContent = scope.fs.readFile(vueFile);
-    const match = SCRIPT_BLOCK.exec(fileContent);
-    if (!match) continue;
+    const { descriptor } = parse(fileContent);
+    const block = descriptor.script ?? descriptor.scriptSetup;
+    if (!block) continue;
 
-    const [, openTag, scriptContent, closeTag] = match;
+    const { start, end } = block.loc;
+    const scriptContent = fileContent.slice(start.offset, end.offset);
     const rewritten = rewriter.rewriteScript(
       vueFile,
       scriptContent,
@@ -100,7 +101,7 @@ export function updateVueImportsAfterSymbolMove(
     if (rewritten !== null) {
       scope.writeFile(
         vueFile,
-        fileContent.replace(SCRIPT_BLOCK, `${openTag}${rewritten}${closeTag}`),
+        fileContent.slice(0, start.offset) + rewritten + fileContent.slice(end.offset),
       );
     }
   }
