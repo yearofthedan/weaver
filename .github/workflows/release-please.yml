@@ -36,10 +36,7 @@ jobs:
         with:
           node-version: 25.9.0
           cache: pnpm
-          registry-url: https://registry.npmjs.org
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: npm publish --tag alpha --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
