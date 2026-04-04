@@ -4,8 +4,8 @@ import { EngineError } from "../../domain/errors.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type { RenameResult } from "../../operations/types.js";
 import type { TsMorphEngine } from "../../ts-engine/engine.js";
+import { applyRenameEdits, mergeFileEdits } from "../../ts-engine/apply-rename-edits.js";
 import { tsMoveFile } from "../../ts-engine/move-file.js";
-import { rewriteImportersOfMovedFile } from "../../ts-engine/rewrite-importers-of-moved-file.js";
 import type {
   DefinitionLocation,
   DeleteFileActionResult,
@@ -15,7 +15,7 @@ import type {
   MoveFileActionResult,
   SpanLocation,
 } from "../../ts-engine/types.js";
-import { walkFiles, walkRecursive } from "../../utils/file-walk.js";
+import { walkRecursive } from "../../utils/file-walk.js";
 import { applyTextEdits, lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
 import {
@@ -268,13 +268,16 @@ export class VolarEngine implements Engine {
     const tsConfig = findTsConfigForFile(absOld);
     const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
 
-    // AC1: Rewrite imports in external .ts/.tsx files that reference moved .vue
-    // components. `rewriteImportersOfMovedFile` walks TS files and fixes specifiers
-    // that resolve to the old .vue path.
-    const tsFiles = walkFiles(searchRoot, [".ts", ".tsx", ".js", ".jsx"]);
-    for (const { oldFilePath, newFilePath } of vueMappings) {
-      rewriteImportersOfMovedFile(oldFilePath, newFilePath, scope, tsFiles);
-    }
+    // AC1: Rewrite import specifiers in all files that import moved .vue components.
+    // Use virtual .vue.ts paths — Volar registers .vue files as virtual .vue.ts in
+    // the TS language service, so real .vue paths return no results. The virtual path
+    // approach handles both relative imports and path aliases (e.g. @/components/*).
+    const vueRenameEdits = await Promise.all(
+      vueMappings.map(({ oldFilePath, newFilePath }) =>
+        this.getEditsForFileRename(`${oldFilePath}.ts`, `${newFilePath}.ts`),
+      ),
+    );
+    applyRenameEdits(this, mergeFileEdits(vueRenameEdits), scope);
 
     // Physical move + TS source file import rewriting.
     const result = await this.tsEngine.moveDirectory(absOld, absNew, scope);
