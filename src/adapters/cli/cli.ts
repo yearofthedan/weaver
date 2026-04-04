@@ -10,6 +10,9 @@ function jsonError(message: string): void {
 }
 
 function commanderExitOverride(err: CommanderError): never {
+  if (err.code === "commander.helpDisplayed" || err.code === "commander.version") {
+    process.exit(0);
+  }
   jsonError(err.message);
   throw err; // unreachable; jsonError calls process.exit(1)
 }

@@ -57,7 +57,7 @@ Tasks in `docs/handoff.md` are either `[needs design]` (no spec yet) or linked t
 Specs are **changesets**, not features. They describe a unit of work to deliver, then get archived. Code and tests must never reference spec identifiers (AC numbers, spec slugs, etc.) — describe the *behaviour* being tested, not the changeset that introduced it.
 
 **Rule 9: Dogfood the tools — you are the target user.**
-The `mcp__weaver__*` tools are always available (configured in `.mcp.json`; daemon auto-spawns on first use). Every user of this tool gets the same MCP tool descriptions you do. If those descriptions aren't compelling enough to make you reach for the tools naturally during development, they aren't good enough for users either — improve the description, don't add a private agent rule. Shareable skills (`.claude/skills/`) are fine — they ship with the tool and any consumer can load them. Private memories and rules that only exist in this repo's config are not a substitute for good descriptions. If a tool can't do what you need at all, add it to `docs/handoff.md`.
+Use the CLI (`pnpm exec weaver <command>`) for refactoring during development. This is the primary interface most users will have — if it doesn't work well for you, it won't work well for them. If the CLI can't do what you need, add it to `docs/handoff.md`. Shareable skills (`.claude/skills/`) are fine — they ship with the tool and any consumer can load them. Private memories and rules that only exist in this repo's config are not a substitute for good tool descriptions.
 
 The shipped skill files at `.claude/skills/{search-and-replace,move-and-rename,code-inspection}/SKILL.md` are the canonical refactoring guidance — the same files external users load.
 

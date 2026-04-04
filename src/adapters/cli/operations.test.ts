@@ -8,6 +8,21 @@ import {
 } from "../../__testHelpers__/process-helpers.js";
 import { removeDaemonFiles } from "../../daemon/daemon.js";
 
+describe("CLI help and version", () => {
+  it("--help exits 0 with no JSON error", async () => {
+    const { exitCode, stdout } = await runCliCommand(["--help"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("weaver");
+    expect(stdout).not.toContain("VALIDATION_ERROR");
+  });
+
+  it("--version exits 0", async () => {
+    const { exitCode, stdout } = await runCliCommand(["--version"]);
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+});
+
 describe("CLI operation subcommands", () => {
   const dirs: string[] = [];
   const procs: import("node:child_process").ChildProcess[] = [];

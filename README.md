@@ -10,32 +10,13 @@ AI agents can read and write files, but cross-file refactoring is expensive. Ren
 
 ## How it works
 
-weaver has a daemon and two transports:
-
 **Daemon** — a long-lived process that loads the project graph into memory and watches the filesystem for changes. It stays alive between agent sessions so the engine is always warm. Start it once; it handles the rest.
 
-**MCP server** (`weaver serve`) — a thin process started by the agent host for each session. It connects to the running daemon, receives tool calls from the agent over stdio, and returns semantic summaries. If no daemon is running, it spawns one automatically.
+**CLI subcommands** (`weaver rename '...'`) — the primary interface. Each subcommand connects to the running daemon (auto-spawning if needed) and prints the JSON response to stdout. Any agent that can shell out can use weaver.
 
-**CLI subcommands** (`weaver rename '...'`) — for agents that can shell out but don't have MCP configured. Each subcommand connects to the running daemon (auto-spawning if needed) and prints the JSON response to stdout. Same operations, same daemon, no MCP setup.
+**MCP server** (`weaver serve`) — an alternative transport for agent hosts that support MCP. A thin stdio process that connects to the same daemon and exposes the same operations as MCP tools.
 
 The underlying language intelligence comes from ts-morph (pure TypeScript projects) and Volar (projects containing Vue files), covering both `.ts` and `.vue` files in a unified project graph.
-
-The agent calls tools or CLI commands. weaver applies changes. The context window stays clean.
-
-```mermaid
-flowchart TD
-    A["Agent host\n(Claude Code / Roo / Cursor)"]
-    B["weaver serve\n(MCP server, stdio)"]
-    C["weaver daemon\n(project graph + watcher)"]
-    D[ts-morph]
-    E[Volar]
-    F["Project files\n(.ts · .tsx · .vue)"]
-
-    A -- "MCP tool call" --> B
-    B -- "Unix socket" --> C
-    C --> D & E
-    D & E --> F
-```
 
 ## Installation
 
@@ -99,9 +80,9 @@ Output (stdout):
 { "ok": true, "stopped": true }
 ```
 
-## CLI operations
+## Operations
 
-All operations are available as CLI subcommands. Each accepts a JSON argument and prints the daemon's response to stdout:
+All operations are available as both CLI subcommands and MCP tools. The CLI uses kebab-case (`move-file`); MCP uses camelCase (`moveFile`).
 
 ```bash
 weaver rename '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
@@ -109,33 +90,24 @@ weaver move-file '{"oldPath": "src/old.ts", "newPath": "src/new.ts"}'
 weaver find-references '{"file": "src/a.ts", "line": 10, "col": 5}'
 ```
 
-Path params can be relative (resolved against `--workspace` or cwd):
+Path params can be relative (resolved against `--workspace` or cwd). The daemon auto-spawns if not already running. Exit code is `0` for success/warn, `1` for errors.
 
-```bash
-weaver rename --workspace /path/to/project '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
-```
-
-The daemon auto-spawns if not already running. Exit code is `0` for success/warn, `1` for errors. Pipe JSON via stdin for longer inputs.
-
-## MCP tools
-
-All refactoring operations are also exposed as MCP tools via `weaver serve`. The agent host calls them; weaver handles the cascade.
-
-| Tool | TS | Vue | Read-only | Notes |
+| Operation | TS | Vue | Read-only | Notes |
 |---|---|---|---|---|
 | `rename` | ✓ | ✓ | no | Renames a symbol at a given position; updates every reference project-wide |
-| `moveFile` | ✓ | ✓ | no | Moves a file; rewrites all import paths that reference it |
-| `moveDirectory` | ✓ | ✓ | no | Moves an entire directory; rewrites all imports across the project |
-| `moveSymbol` | ✓ | ✓* | no | Moves a named export to another file; updates all importers |
-| `deleteFile` | ✓ | ✓† | no | Deletes a file; removes every import and re-export of it across the workspace |
-| `extractFunction` | ✓ | — | no | Extracts a selected block of statements into a new named function at module scope |
-| `findReferences` | ✓ | ✓ | yes | Returns every reference to the symbol at a given position |
-| `getDefinition` | ✓ | ✓ | yes | Returns definition location(s) for the symbol at a given position |
-| `getTypeErrors` | ✓ | — | yes | Returns type errors for a single file or whole project (capped at 100) |
-| `searchText` | n/a | n/a | yes | Regex search across workspace files with optional glob/context controls |
-| `replaceText` | n/a | n/a | no | Regex replace-all (pattern mode) or exact-position edits (surgical mode) |
+| `move-file` | ✓ | ✓ | no | Moves a file; rewrites all import paths that reference it |
+| `move-directory` | ✓ | ✓ | no | Moves an entire directory; rewrites all imports across the project |
+| `move-symbol` | ✓ | ✓* | no | Moves a named export to another file; updates all importers |
+| `delete-file` | ✓ | ✓† | no | Deletes a file; removes every import and re-export of it across the workspace |
+| `extract-function` | ✓ | — | no | Extracts a selected block of statements into a new named function at module scope |
+| `find-importers` | ✓ | ✓ | yes | Returns every file that imports a given file |
+| `find-references` | ✓ | ✓ | yes | Returns every reference to the symbol at a given position |
+| `get-definition` | ✓ | ✓ | yes | Returns definition location(s) for the symbol at a given position |
+| `get-type-errors` | ✓ | — | yes | Returns type errors for a single file or whole project (capped at 100) |
+| `search-text` | n/a | n/a | yes | Regex search across workspace files with optional glob/context controls |
+| `replace-text` | n/a | n/a | no | Regex replace-all (pattern mode) or exact-position edits (surgical mode) |
 
-All tools take absolute paths. Write operations return `filesModified` and `filesSkipped` (files outside the workspace boundary that were not touched). Type errors in modified files are checked automatically and returned in the response (`typeErrors`, `typeErrorCount`); pass `checkTypeErrors: false` to suppress.
+Write operations return `filesModified` and `filesSkipped` (files outside the workspace boundary that were not touched). Type errors in modified files are checked automatically and returned in the response (`typeErrors`, `typeErrorCount`); pass `checkTypeErrors: false` to suppress.
 
 \* `moveSymbol` supports moving exports from `.ts`/`.tsx` sources inside Vue workspaces and updates `.vue` importers in a post-step. Moving symbols from a `.vue` source file is still pending.
 
@@ -205,11 +177,21 @@ See [docs/why.md](docs/why.md) for a broader look at where weaver fits in the AI
 
 ## Agent integration
 
-`weaver serve` is a stdio MCP server. Configure your agent host to launch it for the workspace you want to refactor.
+Any agent that can run shell commands can use weaver — no MCP required. This makes it work in environments like Claude Code (desktop and web), Roo Code, Cursor, and CI pipelines.
 
-### Installing the MCP server
+### Using the CLI
 
-Add a `.mcp.json` according to your project root. The location depends upon your agent framework (eg. Claude Code, Cursor, Roo Code). **Using `npx` is the easiest option** — it avoids path resolution issues that can occur when the MCP host spawns the process from a different working directory:
+Install weaver as a dev dependency, then call it from your agent's shell:
+
+```bash
+npx @yearofthedan/weaver rename '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
+```
+
+The daemon auto-spawns on the first call and stays warm for subsequent operations. No configuration needed.
+
+### Using MCP (optional)
+
+For agent hosts that support MCP, weaver also exposes the same operations via `weaver serve`. Add a `.mcp.json` to your project root:
 
 ```json
 {
@@ -223,23 +205,9 @@ Add a `.mcp.json` according to your project root. The location depends upon your
 }
 ```
 
-Alternatively, if weaver is installed as a dependency, you can use the `weaver` bin directly (requires `node_modules/.bin` to be on the host's PATH when it spawns the process):
+### Skill files
 
-```json
-{
-  "mcpServers": {
-    "weaver": {
-      "type": "stdio",
-      "command": "weaver",
-      "args": ["serve", "--workspace", "."]
-    }
-  }
-}
-```
-
-### Guiding the agent (skill files)
-
-Tool descriptions tell agents what each operation does, but not when to reach for them. weaver ships three skill files that provide trigger-matched workflow guidance — each covers a specific category of operations.
+weaver ships skill files that teach agents *when* to reach for each operation — not just what it does. These work with both CLI and MCP usage.
 
 | Skill | Covers | Path in package |
 |---|---|---|
@@ -247,7 +215,7 @@ Tool descriptions tell agents what each operation does, but not when to reach fo
 | `move-and-rename` | `rename`, `move-file`, `move-directory`, `move-symbol`, `delete-file`, `extract-function` | `.claude/skills/move-and-rename` |
 | `code-inspection` | `find-references`, `get-definition`, `get-type-errors` | `.claude/skills/code-inspection` |
 
-Reference the appropriate skills from your agent configuration, or write your own tailored to your use case. The correct location for skill files depends on your agent framework.
+Reference them from your agent's configuration (e.g. `CLAUDE.md` for Claude Code):
 
 ```markdown
 ## Refactoring
@@ -259,8 +227,8 @@ see `node_modules/@yearofthedan/weaver/.claude/skills/code-inspection`
 ```
 
 ### Notes
-- The daemon auto-spawns on first tool call if not already running. For faster first-call response, start it manually: `weaver daemon --workspace /path/to/project`.
-- One `serve` instance per agent session; one daemon per workspace. The daemon keeps running between sessions.
+- The daemon auto-spawns on first call if not already running. For faster first-call response, start it manually: `weaver daemon --workspace /path/to/project`.
+- One daemon per workspace. It keeps running between agent sessions.
 
 ## Security
 
