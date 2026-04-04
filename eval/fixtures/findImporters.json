@@ -1,0 +1,7 @@
+{
+  "fileName": "auth.ts",
+  "references": [
+    { "file": "/tmp/weaver-eval/src/api.ts", "line": 3, "col": 8, "length": 11 },
+    { "file": "/tmp/weaver-eval/src/middleware.ts", "line": 1, "col": 8, "length": 11 }
+  ]
+}
