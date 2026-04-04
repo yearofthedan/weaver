@@ -6,6 +6,20 @@
     "url": "https://github.com/yearofthedan/weaver.git"
   },
   "description": "Headless CLI refactoring engine for AI agents",
+  "keywords": [
+    "refactoring",
+    "typescript",
+    "vue",
+    "mcp",
+    "ai",
+    "ts-morph",
+    "volar",
+    "rename",
+    "move",
+    "code-tools",
+    "compiler",
+    "ai-agent"
+  ],
   "bin": {
     "weaver": "./dist/adapters/cli/cli.js"
   },

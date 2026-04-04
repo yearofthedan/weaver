@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 24+
 - pnpm 8+
 
 ## Setup
