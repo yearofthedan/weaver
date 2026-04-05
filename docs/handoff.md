@@ -157,6 +157,8 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P2 — High-value features / bugs / tech debt
 
+- **Pre-existing test failures block pre-commit hook** `[needs design]` — 6 tests fail in this dev environment: chmod tests fail because the container runs as root (chmod 0o000 doesn't restrict root); git-signing tests fail because temp repos inherit the global signing config which requires an unavailable signing server. Both require guards in the test code. Until fixed, `--no-verify` is required for all commits, which bypasses lint and risks CI failures.
+
 - **`moveSymbol` auto-create destination file** `[needs design]` — if the destination file does not exist, `moveSymbol` fails. Callers must pre-create the file (e.g. with `export {};`) before moving symbols into it. Trivial fix: create the file automatically if it doesn't exist. Discovered during the `types.ts` decomposition.
 - **Agent guidance on type errors in tool responses** `[needs design]` — all write operations return `typeErrors`; agents need to know this is an action item (something wasn't fully updated) and follow up with `replaceText`. Currently nothing teaches this pattern. Decision needed: shipped skill file, tool description addition, CLAUDE.md guidance snippet, or combination?
 
