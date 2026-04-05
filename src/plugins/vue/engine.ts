@@ -255,8 +255,6 @@ export class VolarEngine implements Engine {
     const absOld = path.resolve(oldPath);
     const absNew = path.resolve(newPath);
 
-    // Enumerate all files before the physical move so we can build mappings
-    // and determine the search root while the directory still exists.
     const allFiles = walkRecursive(absOld);
     const allMappings = allFiles.map((oldFilePath) => ({
       oldFilePath,
@@ -264,15 +262,12 @@ export class VolarEngine implements Engine {
     }));
     const vueMappings = allMappings.filter(({ oldFilePath }) => oldFilePath.endsWith(".vue"));
 
-    // Determine searchRoot before the physical move (absOld may not exist after).
+    // Must resolve before the physical move — absOld won't exist after.
     const tsConfig = findTsConfigForFile(absOld);
     const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
 
-    // Rewrite import specifiers in all files that import moved .vue components.
-    // Volar registers .vue files as virtual .vue.ts paths in the TS language service;
-    // real .vue paths return no results from getEditsForFileRename. The virtual path
-    // form handles both relative imports and path aliases (e.g. @/components/*).
-    // Must run before the physical move so the Volar service can still resolve the files.
+    // Use virtual .vue.ts paths: Volar registers .vue files under that form in the TS LS,
+    // so real .vue paths return nothing from getEditsForFileRename. Run before the move.
     const vueRenameEdits = await Promise.all(
       vueMappings.map(({ oldFilePath, newFilePath }) =>
         this.getEditsForFileRename(`${oldFilePath}.ts`, `${newFilePath}.ts`),
@@ -280,19 +275,15 @@ export class VolarEngine implements Engine {
     );
     applyRenameEdits(this, mergeFileEdits(vueRenameEdits), scope);
 
-    // Physical move + TS source file import rewriting.
     const result = await this.tsEngine.moveDirectory(absOld, absNew, scope);
     this.invalidateService(absOld);
 
-    // Rewrite imports in external .vue files that reference anything from the moved
-    // directory. Covers relative imports in <script> blocks for both .ts and .vue files.
     for (const { oldFilePath, newFilePath } of allMappings) {
       updateVueImportsAfterMove(oldFilePath, newFilePath, searchRoot, scope);
     }
 
-    // Rewrite own relative imports inside moved .vue files. getEditsForFileRename
-    // filters out edits targeting the renamed file's own virtual path, so own imports
-    // are not covered by the LS pass above and need a separate scan.
+    // getEditsForFileRename filters out edits for the renamed file's own virtual path,
+    // so own-import rewriting for moved .vue files needs a separate pass.
     for (const { oldFilePath, newFilePath } of vueMappings) {
       rewriteVueOwnImportsAfterMove(oldFilePath, newFilePath, scope);
     }
