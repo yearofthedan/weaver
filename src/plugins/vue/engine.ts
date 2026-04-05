@@ -282,8 +282,7 @@ export class VolarEngine implements Engine {
       updateVueImportsAfterMove(oldFilePath, newFilePath, searchRoot, scope);
     }
 
-    // getEditsForFileRename filters out edits for the renamed file's own virtual path,
-    // so own-import rewriting for moved .vue files needs a separate pass.
+    // getEditsForFileRename does not cover own-import rewriting for moved .vue files.
     for (const { oldFilePath, newFilePath } of vueMappings) {
       rewriteVueOwnImportsAfterMove(oldFilePath, newFilePath, scope);
     }
