@@ -3,8 +3,8 @@ import * as path from "node:path";
 import { EngineError } from "../../domain/errors.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type { RenameResult } from "../../operations/types.js";
-import type { TsMorphEngine } from "../../ts-engine/engine.js";
 import { applyRenameEdits, mergeFileEdits } from "../../ts-engine/apply-rename-edits.js";
+import type { TsMorphEngine } from "../../ts-engine/engine.js";
 import { tsMoveFile } from "../../ts-engine/move-file.js";
 import type {
   DefinitionLocation,
