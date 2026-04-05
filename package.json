@@ -54,7 +54,7 @@
     "test:mutate": "rm -rf .stryker-tmp && stryker run",
     "test:mutate:file": "rm -rf .stryker-tmp && stryker run --mutate",
     "eval": "tsx eval/run-eval.ts",
-    "check": "biome check . && pnpm build && pnpm test:all",
+    "check": "biome check . && pnpm build && pnpm coverage && pnpm test:eval",
     "postinstall": "bash scripts/postinstall.sh",
     "prepare": "husky",
     "prepublishOnly": "pnpm run build"
