@@ -33,7 +33,7 @@ Steps 1-2 and 4-8 run in the main conversation (interactive spec and review work
    For each batch, dispatch one `execution-agent` call with:
    - The spec file path
    - Which ACs to implement (quote the AC text for each)
-   - Explicit instruction: "Use `/implementation-context` before writing code. Implement each AC in order — write failing tests, implement, run `pnpm check`, commit, then move to the next AC. Stop after the last AC in this batch."
+   - Explicit instruction: "Use `/implementation-context` before writing code. Implement each AC in order — write failing tests, implement, run `pnpm check`, commit, then move to the next AC. Stop after the last AC in this batch. Do not reference AC numbers, spec slugs, or task identifiers in code or comments — describe behaviour, not the changeset. Only add a comment when the code cannot speak for itself; do not narrate what the code obviously does."
    - Any context from previous batches (e.g. files already created, patterns established)
 
    Each AC still gets its own commit. The agent reads the neighbourhood once and carries context across ACs in the batch.
