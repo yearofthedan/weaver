@@ -7,6 +7,7 @@ import { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { NodeFileSystem } from "../../ports/node-filesystem.js";
 import {
   removeVueImportsOfDeletedFile,
+  rewriteVueOwnImportsAfterMove,
   updateVueImportsAfterMove,
   updateVueImportsAfterSymbolMove,
 } from "./scan.js";
@@ -307,5 +308,81 @@ describe("removeVueImportsOfDeletedFile", () => {
     expect(scope.skipped).toContain(vueFile);
 
     fs.chmodSync(vueFile, 0o644);
+  });
+});
+
+describe("rewriteVueOwnImportsAfterMove", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "scan-own-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function write(relPath: string, content: string): string {
+    const full = path.join(tmpDir, relPath);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, content, "utf8");
+    return full;
+  }
+
+  function makeScope(): WorkspaceScope {
+    return new WorkspaceScope(tmpDir, new NodeFileSystem());
+  }
+
+  it("rewrites a relative import that no longer resolves from the new location", () => {
+    write("src/utils/helper.ts", "");
+    const content = `<script setup>\nimport { h } from '../utils/helper'\n</script>`;
+    // File moved from src/components/Button.vue → src/ui/components/Button.vue
+    const oldPath = path.join(tmpDir, "src/components/Button.vue");
+    const newPath = path.join(tmpDir, "src/ui/components/Button.vue");
+    write("src/ui/components/Button.vue", content);
+
+    rewriteVueOwnImportsAfterMove(oldPath, newPath, makeScope());
+
+    const result = fs.readFileSync(newPath, "utf8");
+    expect(result).toContain("../../utils/helper");
+    expect(result).not.toContain("'../utils/helper'");
+  });
+
+  it("does not rewrite an intra-directory import that still resolves from the new location", () => {
+    // Both files moved together — relative import between them is still valid
+    write("src/ui/components/Button.vue", "");
+    const sibling = path.join(tmpDir, "src/ui/components/Icon.vue");
+    const content = `<script setup>\nimport Icon from './Icon.vue'\n</script>`;
+    write("src/ui/components/Card.vue", content);
+
+    const oldPath = path.join(tmpDir, "src/components/Card.vue");
+    const newPath = path.join(tmpDir, "src/ui/components/Card.vue");
+
+    rewriteVueOwnImportsAfterMove(oldPath, newPath, makeScope());
+
+    const result = fs.readFileSync(newPath, "utf8");
+    expect(result).toContain("'./Icon.vue'");
+  });
+
+  it("does not rewrite an import that resolves from neither old nor new location", () => {
+    const content = `<script setup>\nimport { x } from '../missing/module'\n</script>`;
+    const oldPath = path.join(tmpDir, "src/components/Button.vue");
+    const newPath = path.join(tmpDir, "src/ui/Button.vue");
+    write("src/ui/Button.vue", content);
+
+    rewriteVueOwnImportsAfterMove(oldPath, newPath, makeScope());
+
+    const result = fs.readFileSync(newPath, "utf8");
+    expect(result).toContain("'../missing/module'");
+  });
+
+  it("does nothing when the new file does not exist", () => {
+    const oldPath = path.join(tmpDir, "src/components/Button.vue");
+    const newPath = path.join(tmpDir, "src/ui/Button.vue");
+    const scope = makeScope();
+
+    // Should not throw
+    rewriteVueOwnImportsAfterMove(oldPath, newPath, scope);
+    expect(scope.modified).toHaveLength(0);
   });
 });
