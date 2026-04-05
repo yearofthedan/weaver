@@ -42,11 +42,11 @@ See [security.md](../security.md) for the full threat model.
 
 When the active compiler is `VolarEngine` (Vue projects), `moveDirectory` additionally:
 
-1. **Rewrites external `.ts`/`.tsx` files that import moved `.vue` components** — uses `rewriteImportersOfMovedFile` (scan-based) per moved `.vue` file. The Volar TS LS registers Vue files as virtual `.vue.ts` paths; calling `getEditsForFileRename` with a real `.vue` path returns nothing, so a direct text scan is used instead.
-2. **Rewrites external `.vue` files that import anything from the moved directory** — uses `updateVueImportsAfterMove` per moved file (both `.ts` and `.vue`). Scans `<script>` blocks for matching `from '...'` specifiers.
-3. **Rewrites moved `.vue` files' own relative imports** — uses `rewriteVueOwnImportsAfterMove` per moved `.vue` file. Adjusts specifiers that pointed outside the directory so they resolve from the new location.
+1. **Rewrites external `.ts`/`.tsx` and `.vue` files that import moved `.vue` components** — calls `getEditsForFileRename` with the virtual `.vue.ts` path (e.g. `Button.vue.ts`) through the Volar language service. Real `.vue` paths return no results — Volar registers Vue files as virtual `.vue.ts` entries in the TS language service host, so the virtual form is required. This approach handles both relative imports and path aliases (`@/components/*`) through the compiler's module resolution graph.
+2. **Rewrites external `.vue` files that import anything from the moved directory** — scans `.vue` `<script>` blocks for `from '...'` specifiers resolving to the old path. Covers `.ts` and `.vue` files that moved.
+3. **Rewrites moved `.vue` files' own relative imports** — regex rewrite of relative specifiers (`./` and `../`) in the moved files themselves. Alias imports (`@/...`) resolve from the project root and don't change when a file moves.
 
-All three scan passes happen after the physical move (the directory already exists at `newPath`). Intra-directory relative imports are not touched — they remain valid after the move.
+The LS pass (1) runs before the physical move so the Volar service can still resolve files at their old paths. The scan passes (2, 3) run after. Intra-directory relative imports are not touched — they remain valid after the move.
 
 ## Constraints
 
