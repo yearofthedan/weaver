@@ -268,10 +268,11 @@ export class VolarEngine implements Engine {
     const tsConfig = findTsConfigForFile(absOld);
     const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
 
-    // AC1: Rewrite import specifiers in all files that import moved .vue components.
-    // Use virtual .vue.ts paths — Volar registers .vue files as virtual .vue.ts in
-    // the TS language service, so real .vue paths return no results. The virtual path
-    // approach handles both relative imports and path aliases (e.g. @/components/*).
+    // Rewrite import specifiers in all files that import moved .vue components.
+    // Volar registers .vue files as virtual .vue.ts paths in the TS language service;
+    // real .vue paths return no results from getEditsForFileRename. The virtual path
+    // form handles both relative imports and path aliases (e.g. @/components/*).
+    // Must run before the physical move so the Volar service can still resolve the files.
     const vueRenameEdits = await Promise.all(
       vueMappings.map(({ oldFilePath, newFilePath }) =>
         this.getEditsForFileRename(`${oldFilePath}.ts`, `${newFilePath}.ts`),
@@ -283,14 +284,15 @@ export class VolarEngine implements Engine {
     const result = await this.tsEngine.moveDirectory(absOld, absNew, scope);
     this.invalidateService(absOld);
 
-    // AC2: Rewrite imports in external .vue files that reference anything from
-    // the moved directory (both .ts and .vue files).
+    // Rewrite imports in external .vue files that reference anything from the moved
+    // directory. Covers relative imports in <script> blocks for both .ts and .vue files.
     for (const { oldFilePath, newFilePath } of allMappings) {
       updateVueImportsAfterMove(oldFilePath, newFilePath, searchRoot, scope);
     }
 
-    // AC3: Rewrite own relative imports inside moved .vue files so they resolve
-    // correctly from the new directory.
+    // Rewrite own relative imports inside moved .vue files. getEditsForFileRename
+    // filters out edits targeting the renamed file's own virtual path, so own imports
+    // are not covered by the LS pass above and need a separate scan.
     for (const { oldFilePath, newFilePath } of vueMappings) {
       rewriteVueOwnImportsAfterMove(oldFilePath, newFilePath, scope);
     }
