@@ -43,9 +43,11 @@ export class TsMorphEngine implements Engine {
     }
   }
 
-  private ensureProject(
-    filePath: string,
-  ): { project: Project; languageService: ts.LanguageService; sourceFile: import("ts-morph").SourceFile } {
+  private ensureProject(filePath: string): {
+    project: Project;
+    languageService: ts.LanguageService;
+    sourceFile: import("ts-morph").SourceFile;
+  } {
     const project = this.getProject(filePath);
     const sourceFile = project.getSourceFile(filePath) ?? project.addSourceFileAtPath(filePath);
     return { project, languageService: project.getLanguageService().compilerObject, sourceFile };
@@ -304,38 +306,28 @@ export class TsMorphEngine implements Engine {
     }));
   }
 
+  /**
+   * Ask the TypeScript language service what import-specifier edits are needed
+   * when `oldPath` is renamed to `newPath`.
+   *
+   * Uses the cached project so the in-memory graph reflects previous moves
+   * within the same session — rebuilding from scratch would lose knowledge of
+   * files moved in earlier calls and cause ENOENT.
+   *
+   * Paths are passed to the LS without symlink resolution: ts-morph stores
+   * source files under the *unresolved* path the OS hands back (e.g.
+   * `/var/folders/…` on macOS, not `/private/var/folders/…`). Resolving via
+   * `realpathSync` would produce a path the LS cannot match to any known
+   * source file, returning zero edits.
+   */
   async getEditsForFileRename(oldPath: string, newPath: string): Promise<FileTextEdit[]> {
-    // Use the cached project so the in-memory graph reflects previous moves within the same
-    // session. Rebuilding from scratch (via invalidateProject) would lose knowledge of files
-    // moved in earlier calls and cause ENOENT when the language service tries to open them.
     const project = this.getProject(oldPath);
     if (!project.getSourceFile(oldPath)) {
       project.addSourceFileAtPath(oldPath);
     }
 
-    // Resolve symlinks so paths match ts-morph's internal canonical paths.
-    // Use real paths only for the TS language service call; preserve originals for
-    // the physical rename and response paths.
-    let realOldPath = oldPath;
-    let realNewPath = newPath;
-    try {
-      realOldPath = fs.realpathSync(oldPath);
-      // newPath does not exist yet; resolve its directory and reconstruct.
-      const newDir = fs.realpathSync(path.dirname(newPath));
-      realNewPath = path.join(newDir, path.basename(newPath));
-    } catch {
-      // If realpathSync fails (e.g. directory doesn't exist), fall back to originals.
-      realOldPath = oldPath;
-      realNewPath = newPath;
-    }
-
-    // Ensure the source file under the real path is in the project.
-    if (realOldPath !== oldPath && !project.getSourceFile(realOldPath)) {
-      project.addSourceFileAtPath(realOldPath);
-    }
-
     const ls = project.getLanguageService().compilerObject;
-    const edits = ls.getEditsForFileRename(realOldPath, realNewPath, {}, {});
+    const edits = ls.getEditsForFileRename(oldPath, newPath, {}, {});
 
     return edits
       .filter((e) => e.textChanges.length > 0)
