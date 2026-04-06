@@ -37,7 +37,7 @@ Relocates all files and rewrites every nested import path.
 weaver move-symbol '{"sourceFile": "src/a.ts", "symbolName": "Foo", "destFile": "src/b.ts"}'
 ```
 
-Moves the declaration and updates every importer. Check `typeErrors` after each move.
+Moves the declaration and updates every importer. `destFile` is created automatically if it does not exist — no need to pre-create it. Check `typeErrors` after each move.
 
 ## Delete a file safely
 
