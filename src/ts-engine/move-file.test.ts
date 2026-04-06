@@ -2,14 +2,8 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, it as baseIt, test as baseTest, describe, expect } from "vitest";
-import {
-  cleanup,
-  copyFixture,
-  FIXTURES,
-  fileExists,
-  readFile,
-} from "../__testHelpers__/helpers.js";
+import { afterEach, it as baseIt, describe, expect } from "vitest";
+import { cleanup, fileExists, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
@@ -18,17 +12,6 @@ import { tsMoveFile } from "./move-file.js";
 function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
 }
-
-type SimpleTs = { engine: TsMorphEngine; dir: string };
-
-const test = baseTest.extend<{ simpleTs: SimpleTs }>({
-  simpleTs: async ({ task: _ }, use) => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    const engine = new TsMorphEngine();
-    await use({ engine, dir });
-    cleanup(dir);
-  },
-});
 
 function makeGitRepo(): { dir: string } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lb-git-move-"));
@@ -60,11 +43,11 @@ function makeGitRepo(): { dir: string } {
 }
 
 describe("tsMoveFile - TsMorphEngine integration", () => {
-  test("moves a file and updates imports", async ({ simpleTs: { engine, dir } }) => {
+  test("moves a file and updates imports", async ({ dir }) => {
     const oldPath = `${dir}/src/utils.ts`;
     const newPath = `${dir}/lib/utils.ts`;
 
-    const result = await tsMoveFile(engine, oldPath, newPath, makeScope(dir));
+    const result = await tsMoveFile(new TsMorphEngine(), oldPath, newPath, makeScope(dir));
 
     expect(result.oldPath).toBe(oldPath);
     expect(result.newPath).toBe(newPath);
@@ -75,20 +58,19 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     expect(mainContent).toContain("../lib/utils");
   });
 
-  test("creates destination directory if missing", async ({ simpleTs: { engine, dir } }) => {
+  test("creates destination directory if missing", async ({ dir }) => {
     const oldPath = `${dir}/src/utils.ts`;
     const newPath = `${dir}/deep/nested/lib/utils.ts`;
     const scope = makeScope(dir);
 
-    await tsMoveFile(engine, oldPath, newPath, scope);
+    await tsMoveFile(new TsMorphEngine(), oldPath, newPath, scope);
 
     expect(fileExists(dir, "deep/nested/lib/utils.ts")).toBe(true);
     expect(scope.modified).toContain(newPath);
   });
 
-  test("updates imports on move-back with the same engine instance", async ({
-    simpleTs: { engine, dir },
-  }) => {
+  test("updates imports on move-back with the same engine instance", async ({ dir }) => {
+    const engine = new TsMorphEngine();
     await tsMoveFile(engine, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, makeScope(dir));
     expect(readFile(dir, "src/main.ts")).toContain("../lib/utils");
 
@@ -101,10 +83,13 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     expect(mainContent).not.toContain("../lib/utils");
   });
 
-  test("updates imports in out-of-project files (e.g. tests/)", async ({
-    simpleTs: { engine, dir },
-  }) => {
-    await tsMoveFile(engine, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, makeScope(dir));
+  test("updates imports in out-of-project files (e.g. tests/)", async ({ dir }) => {
+    await tsMoveFile(
+      new TsMorphEngine(),
+      `${dir}/src/utils.ts`,
+      `${dir}/lib/utils.ts`,
+      makeScope(dir),
+    );
 
     const testContent = readFile(dir, "tests/utils.test.ts");
     expect(testContent).toContain("../lib/utils");
@@ -112,7 +97,7 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
   });
 
   test("does not corrupt comments when updating imports in out-of-project files", async ({
-    simpleTs: { engine, dir },
+    dir,
   }) => {
     const extraTestFile = path.join(dir, "tests", "import-with-comment.ts");
     fs.writeFileSync(
@@ -125,7 +110,12 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
       ].join("\n"),
     );
 
-    await tsMoveFile(engine, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, makeScope(dir));
+    await tsMoveFile(
+      new TsMorphEngine(),
+      `${dir}/src/utils.ts`,
+      `${dir}/lib/utils.ts`,
+      makeScope(dir),
+    );
 
     const content = readFile(dir, "tests/import-with-comment.ts");
     expect(content).toContain('"../lib/utils"');
@@ -133,9 +123,8 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
   });
 
   describe("stale project cache (file added after project load)", () => {
-    test("rewrites import in a file created after the project was loaded", async ({
-      simpleTs: { engine, dir },
-    }) => {
+    test("rewrites import in a file created after the project was loaded", async ({ dir }) => {
+      const engine = new TsMorphEngine();
       await engine.getEditsForFileRename(`${dir}/src/utils.ts`, `${dir}/src/utils2.ts`);
 
       const newHelper = path.join(dir, "src", "newHelper.ts");
@@ -154,7 +143,7 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
 
   describe("symlink path resolution", () => {
     test("rewrites imports when tsMoveFile is called with a symlinked workspace path", async ({
-      simpleTs: { engine, dir },
+      dir,
     }) => {
       const symlinkDir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-symlink-"));
       const symlink = path.join(symlinkDir, "project");
@@ -164,7 +153,7 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
       const newPath = `${symlink}/lib/utils.ts`;
       const scope = makeScope(symlink);
 
-      await tsMoveFile(engine, oldPath, newPath, scope);
+      await tsMoveFile(new TsMorphEngine(), oldPath, newPath, scope);
 
       // onCleanup only handles `dir`; remove the symlink container manually
       fs.rmSync(symlinkDir, { recursive: true, force: true });
@@ -182,7 +171,7 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
 
   describe("unresolved .js extension imports with moduleResolution node", () => {
     test("rewrites import with .js extension when tsconfig uses moduleResolution node", async ({
-      simpleTs: { engine, dir },
+      dir,
     }) => {
       fs.writeFileSync(
         path.join(dir, "tsconfig.json"),
@@ -198,7 +187,7 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
       );
 
       const scope = makeScope(dir);
-      await tsMoveFile(engine, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, scope);
+      await tsMoveFile(new TsMorphEngine(), `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, scope);
 
       const consumerContent = fs.readFileSync(path.join(dir, "src", "consumer.ts"), "utf8");
       expect(consumerContent).toContain("../lib/utils.js");
@@ -207,9 +196,7 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
       expect(scope.modified).toContain(path.join(dir, "src", "consumer.ts"));
     });
 
-    test("does not rewrite .js import when an actual .js file exists on disk", async ({
-      simpleTs: { engine, dir },
-    }) => {
+    test("does not rewrite .js import when an actual .js file exists on disk", async ({ dir }) => {
       fs.writeFileSync(
         path.join(dir, "src", "utils.js"),
         // biome-ignore lint/suspicious/noTemplateCurlyInString: file content intentionally contains a template literal
@@ -221,7 +208,12 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
         'import { greetUser } from "./utils.js";\nexport { greetUser };\n',
       );
 
-      await tsMoveFile(engine, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, makeScope(dir));
+      await tsMoveFile(
+        new TsMorphEngine(),
+        `${dir}/src/utils.ts`,
+        `${dir}/lib/utils.ts`,
+        makeScope(dir),
+      );
 
       const jsConsumerContent = fs.readFileSync(path.join(dir, "src", "jsConsumer.ts"), "utf8");
       expect(jsConsumerContent).toContain('"./utils.js"');
@@ -229,7 +221,7 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     });
 
     test("does not rewrite imports of similarly-named files (substring false positives)", async ({
-      simpleTs: { engine, dir },
+      dir,
     }) => {
       fs.writeFileSync(
         path.join(dir, "src", "my-utils.ts"),
@@ -241,7 +233,12 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
         'import { myHelper } from "./my-utils";\nexport { myHelper };\n',
       );
 
-      await tsMoveFile(engine, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, makeScope(dir));
+      await tsMoveFile(
+        new TsMorphEngine(),
+        `${dir}/src/utils.ts`,
+        `${dir}/lib/utils.ts`,
+        makeScope(dir),
+      );
 
       const consumerContent = fs.readFileSync(path.join(dir, "src", "consumer.ts"), "utf8");
       expect(consumerContent).toContain('"./my-utils"');
@@ -250,14 +247,12 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
   });
 
   describe("moved out-of-project file own imports", () => {
-    test("rewrites relative imports inside a moved out-of-project test file", async ({
-      simpleTs: { engine, dir },
-    }) => {
+    test("rewrites relative imports inside a moved out-of-project test file", async ({ dir }) => {
       const oldPath = `${dir}/tests/utils.test.ts`;
       const newPath = `${dir}/tests/unit/utils.test.ts`;
       const scope = makeScope(dir);
 
-      await tsMoveFile(engine, oldPath, newPath, scope);
+      await tsMoveFile(new TsMorphEngine(), oldPath, newPath, scope);
 
       const movedContent = fs.readFileSync(newPath, "utf8");
       expect(movedContent).toContain('"../../src/utils"');
@@ -265,9 +260,7 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
       expect(scope.modified).toContain(newPath);
     });
 
-    test("does not rewrite bare module specifiers inside the moved file", async ({
-      simpleTs: { engine, dir },
-    }) => {
+    test("does not rewrite bare module specifiers inside the moved file", async ({ dir }) => {
       const extraTest = path.join(dir, "tests", "mixed.test.ts");
       fs.writeFileSync(
         extraTest,
@@ -279,7 +272,12 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
       );
 
       const scope = makeScope(dir);
-      await tsMoveFile(engine, extraTest, path.join(dir, "tests", "unit", "mixed.test.ts"), scope);
+      await tsMoveFile(
+        new TsMorphEngine(),
+        extraTest,
+        path.join(dir, "tests", "unit", "mixed.test.ts"),
+        scope,
+      );
 
       const movedContent = fs.readFileSync(
         path.join(dir, "tests", "unit", "mixed.test.ts"),
@@ -291,13 +289,13 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     });
 
     test("preserves .js extension when rewriting relative imports in a moved file", async ({
-      simpleTs: { engine, dir },
+      dir,
     }) => {
       const extraTest = path.join(dir, "tests", "js-ext.test.ts");
       fs.writeFileSync(extraTest, 'import { greetUser } from "../src/utils.js";\n');
 
       await tsMoveFile(
-        engine,
+        new TsMorphEngine(),
         extraTest,
         path.join(dir, "tests", "unit", "js-ext.test.ts"),
         makeScope(dir),
@@ -311,13 +309,16 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
       expect(movedContent).not.toContain('"../src/utils.js"');
     });
 
-    test("is a no-op when moved to the same directory depth (same-dir rename)", async ({
-      simpleTs: { engine, dir },
-    }) => {
+    test("is a no-op when moved to the same directory depth (same-dir rename)", async ({ dir }) => {
       const extraTest = path.join(dir, "tests", "renamed.test.ts");
       fs.writeFileSync(extraTest, 'import { greetUser } from "../src/utils";\n');
 
-      await tsMoveFile(engine, extraTest, path.join(dir, "tests", "other.test.ts"), makeScope(dir));
+      await tsMoveFile(
+        new TsMorphEngine(),
+        extraTest,
+        path.join(dir, "tests", "other.test.ts"),
+        makeScope(dir),
+      );
 
       const movedContent = fs.readFileSync(path.join(dir, "tests", "other.test.ts"), "utf8");
       expect(movedContent).toContain('"../src/utils"');
@@ -326,13 +327,14 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
 
   describe("sequential moves (project graph survives across calls)", () => {
     test("sequential moves of out-of-project files both return ok and rewrites import to correct path", async ({
-      simpleTs: { engine, dir },
+      dir,
     }) => {
       const helperPath = path.join(dir, "tests", "helper.ts");
       const consumerPath = path.join(dir, "tests", "consumer.test.ts");
       fs.writeFileSync(helperPath, "export function help() { return 42; }\n");
       fs.writeFileSync(consumerPath, 'import { help } from "./helper";\nconsole.log(help());\n');
 
+      const engine = new TsMorphEngine();
       const helperNewPath = path.join(dir, "lib", "helper.ts");
       const scopeA = makeScope(dir);
       await tsMoveFile(engine, helperPath, helperNewPath, scopeA);
@@ -349,7 +351,7 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     });
 
     test("does not throw ENOENT when moving a file that imports a previously-moved file", async ({
-      simpleTs: { engine, dir },
+      dir,
     }) => {
       const helperOldPath = path.join(dir, "tests", "helper.ts");
       const helperNewPath = path.join(dir, "lib", "helper.ts");
@@ -358,6 +360,7 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
       fs.writeFileSync(helperOldPath, "export function help() { return 42; }\n");
       fs.writeFileSync(consumerPath, 'import { help } from "./helper";\nconsole.log(help());\n');
 
+      const engine = new TsMorphEngine();
       await engine.getEditsForFileRename(helperOldPath, helperNewPath);
 
       fs.mkdirSync(path.join(dir, "lib"), { recursive: true });
@@ -369,8 +372,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     });
 
     test("second tsMoveFile call succeeds and rewrites import to new path of moved dependency", async ({
-      simpleTs: { engine, dir },
+      dir,
     }) => {
+      const engine = new TsMorphEngine();
       const scopeA = makeScope(dir);
       await tsMoveFile(engine, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, scopeA);
       expect(scopeA.modified).toContain(`${dir}/lib/utils.ts`);
@@ -386,7 +390,7 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     });
 
     test("fallback scan rewrites out-of-project importer on the second move after project graph update", async ({
-      simpleTs: { engine, dir },
+      dir,
     }) => {
       const scriptPath = path.join(dir, "scripts", "run.ts");
       fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
@@ -395,6 +399,7 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
         'import { greetUser } from "../src/main";\nconsole.log(greetUser("world"));\n',
       );
 
+      const engine = new TsMorphEngine();
       const scopeA = makeScope(dir);
       await tsMoveFile(engine, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, scopeA);
       expect(scopeA.modified).toContain(`${dir}/lib/utils.ts`);
@@ -419,11 +424,11 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
       async () => {
         const { dir } = makeGitRepo();
         dirs.push(dir);
-        const engine = new TsMorphEngine();
+        const gitEngine = new TsMorphEngine();
 
         const scope1 = makeScope(dir);
         await tsMoveFile(
-          engine,
+          gitEngine,
           path.join(dir, "tests", "helpers", "mock.ts"),
           path.join(dir, "src", "helpers", "mock.ts"),
           scope1,
@@ -432,7 +437,7 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
 
         const scope2 = makeScope(dir);
         await tsMoveFile(
-          engine,
+          gitEngine,
           path.join(dir, "tests", "consumer.test.ts"),
           path.join(dir, "src", "consumer.test.ts"),
           scope2,
@@ -448,19 +453,19 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
 
   describe("filesModified completeness", () => {
     test("includes all rewritten files including those updated by fallback scan", async ({
-      simpleTs: { engine, dir },
+      dir,
     }) => {
       const scope = makeScope(dir);
-      await tsMoveFile(engine, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, scope);
+      await tsMoveFile(new TsMorphEngine(), `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, scope);
 
       expect(scope.modified).toContain(`${dir}/src/main.ts`);
       expect(scope.modified).toContain(`${dir}/tests/utils.test.ts`);
       expect(scope.modified).toContain(`${dir}/lib/utils.ts`);
     });
 
-    test("does not include the same file twice", async ({ simpleTs: { engine, dir } }) => {
+    test("does not include the same file twice", async ({ dir }) => {
       const scope = makeScope(dir);
-      await tsMoveFile(engine, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, scope);
+      await tsMoveFile(new TsMorphEngine(), `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, scope);
 
       const uniqueFiles = new Set(scope.modified);
       expect(scope.modified.length).toBe(uniqueFiles.size);

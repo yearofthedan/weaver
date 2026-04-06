@@ -49,6 +49,23 @@ weaver replace-text '{"pattern": "FOO", "replacement": "BAR", "glob": "**/*.ts"}
 # 3. Check typeErrors in the response — fix any issues
 ```
 
+## Scoping: `workspace` vs `glob`
+
+`workspace` sets the root directory for the search — it is **not** a file path filter. Every file under that directory is a candidate. Use `glob` to narrow which files are matched:
+
+```bash
+# WRONG — workspace is a file path, so it searches the parent directory and matches siblings
+weaver search-text '{"pattern": "foo", "workspace": "/project/src/target.ts"}'
+
+# RIGHT — workspace is the directory, glob restricts to the file
+weaver search-text '{"pattern": "foo", "workspace": "/project/src", "glob": "target.ts"}'
+
+# RIGHT — search one file by scoping the glob
+weaver replace-text '{"pattern": "foo", "replacement": "bar", "glob": "src/target.ts"}'
+```
+
+If you omit `glob`, every file under `workspace` (or the daemon's workspace) is searched — including generated files like build output and cache JSON.
+
 ## When NOT to use
 
 - **Renaming a TypeScript symbol** (variable, function, type, class) — use `weaver rename` instead (see move-and-rename skill). It's scope-aware; text replacement is not.

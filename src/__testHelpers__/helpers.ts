@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export { copyFixture, FIXTURES } from "./fixtures/fixtures.js";
+export { copyFixture, FIXTURES, type FixtureName, fixtureTest } from "./fixtures/fixtures.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 export const PROJECT_ROOT = path.resolve(__dirname, "../..");

@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
@@ -9,16 +9,11 @@ import { moveFile } from "./moveFile.js";
 import { rename } from "./rename.js";
 
 describe("workspace boundary enforcement", () => {
-  const dirs: string[] = [];
+  test.override({ fixtureName: FIXTURES.crossBoundary.name });
 
-  afterEach(() => {
-    for (const dir of dirs.splice(0)) cleanup(dir);
-  });
-
-  it("rename: skips out-of-workspace impacted files, writes in-workspace files", async () => {
-    const root = copyFixture(FIXTURES.crossBoundary.name);
-    dirs.push(root);
-
+  test("rename: skips out-of-workspace impacted files, writes in-workspace files", async ({
+    dir: root,
+  }) => {
     const workspace = path.join(root, "workspace");
     const utilsFile = path.join(workspace, "src/utils.ts");
     const _consumerFile = path.join(root, "consumer/main.ts");
@@ -53,10 +48,9 @@ describe("workspace boundary enforcement", () => {
     expect(readFile(root, "consumer/main.ts")).not.toContain("greetPerson");
   }, 30_000);
 
-  it("moveFile: skips out-of-workspace import rewrites, performs the physical move", async () => {
-    const root = copyFixture(FIXTURES.crossBoundary.name);
-    dirs.push(root);
-
+  test("moveFile: skips out-of-workspace import rewrites, performs the physical move", async ({
+    dir: root,
+  }) => {
     const workspace = path.join(root, "workspace");
     const oldFilePath = path.join(workspace, "src/utils.ts");
     const newFilePath = path.join(workspace, "src/helpers.ts");

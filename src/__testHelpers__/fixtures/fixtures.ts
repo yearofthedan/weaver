@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { test as baseTest } from "vitest";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
@@ -54,7 +55,7 @@ export const FIXTURES = {
   },
 } as const satisfies Record<string, { name: string; desc: string }>;
 
-type FixtureName = (typeof FIXTURES)[keyof typeof FIXTURES]["name"];
+export type FixtureName = (typeof FIXTURES)[keyof typeof FIXTURES]["name"];
 
 export function copyFixture(name: FixtureName): string {
   const src = path.join(__dirname, name);
@@ -62,6 +63,29 @@ export function copyFixture(name: FixtureName): string {
   copyDirSync(src, dest);
   return dest;
 }
+
+/**
+ * Vitest `test` with a `dir` fixture that copies a named fixture to a temp
+ * directory before each test and cleans it up after. Default fixture is
+ * `simple-ts`; override per describe block:
+ *
+ * ```ts
+ * describe("my tests", () => {
+ *   test.override({ fixtureName: FIXTURES.deleteFileTs.name });
+ *   test("uses delete-file-ts fixture", ({ dir }) => { ... });
+ * });
+ * ```
+ */
+export const fixtureTest = baseTest.extend<{ fixtureName: FixtureName; dir: string }>({
+  fixtureName: async ({}, use) => {
+    await use("simple-ts");
+  },
+  dir: async ({ fixtureName }, use) => {
+    const dir = copyFixture(fixtureName);
+    await use(dir);
+    fs.rmSync(dir, { recursive: true, force: true });
+  },
+});
 
 function copyDirSync(src: string, dest: string): void {
   fs.mkdirSync(dest, { recursive: true });
