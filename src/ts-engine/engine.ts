@@ -43,6 +43,14 @@ export class TsMorphEngine implements Engine {
     }
   }
 
+  private ensureProject(
+    filePath: string,
+  ): { project: Project; languageService: ts.LanguageService; sourceFile: import("ts-morph").SourceFile } {
+    const project = this.getProject(filePath);
+    const sourceFile = project.getSourceFile(filePath) ?? project.addSourceFileAtPath(filePath);
+    return { project, languageService: project.getLanguageService().compilerObject, sourceFile };
+  }
+
   private getProject(filePath: string): Project {
     const tsConfigPath = findTsConfigForFile(filePath);
     const cacheKey = tsConfigPath ?? "__no_tsconfig__";
@@ -140,11 +148,7 @@ export class TsMorphEngine implements Engine {
    * reference — no ts-morph coupling at the call site.
    */
   getLanguageServiceForFile(filePath: string): ts.LanguageService {
-    const project = this.getProject(filePath);
-    if (!project.getSourceFile(filePath)) {
-      project.addSourceFileAtPath(filePath);
-    }
-    return project.getLanguageService().compilerObject;
+    return this.ensureProject(filePath).languageService;
   }
 
   /**
@@ -193,11 +197,7 @@ export class TsMorphEngine implements Engine {
     filePath: string,
     functionName: string,
   ): { name: string; parameters: Array<{ name: string }> } | undefined {
-    const project = this.getProject(filePath);
-    let sf = project.getSourceFile(filePath);
-    if (!sf) {
-      sf = project.addSourceFileAtPath(filePath);
-    }
+    const { sourceFile: sf } = this.ensureProject(filePath);
     const fn = sf.getFunction(functionName);
     if (!fn) return undefined;
     return {
@@ -236,11 +236,7 @@ export class TsMorphEngine implements Engine {
   }
 
   resolveOffset(file: string, line: number, col: number): number {
-    const project = this.getProject(file);
-    let sourceFile = project.getSourceFile(file);
-    if (!sourceFile) {
-      sourceFile = project.addSourceFileAtPath(file);
-    }
+    const { sourceFile } = this.ensureProject(file);
     try {
       return sourceFile.compilerNode.getPositionOfLineAndCharacter(line - 1, col - 1);
     } catch {
@@ -249,13 +245,7 @@ export class TsMorphEngine implements Engine {
   }
 
   async getRenameLocations(file: string, offset: number): Promise<SpanLocation[] | null> {
-    const project = this.getProject(file);
-    let sourceFile = project.getSourceFile(file);
-    if (!sourceFile) {
-      sourceFile = project.addSourceFileAtPath(file);
-    }
-
-    const ls = project.getLanguageService().compilerObject;
+    const { languageService: ls, sourceFile } = this.ensureProject(file);
     const resolvedPath = sourceFile.getFilePath();
     const renameInfo = ls.getRenameInfo(resolvedPath, offset, { allowRenameOfImportPath: false });
     if (!renameInfo.canRename) {
@@ -277,13 +267,7 @@ export class TsMorphEngine implements Engine {
   }
 
   async getReferencesAtPosition(file: string, offset: number): Promise<SpanLocation[] | null> {
-    const project = this.getProject(file);
-    let sourceFile = project.getSourceFile(file);
-    if (!sourceFile) {
-      sourceFile = project.addSourceFileAtPath(file);
-    }
-
-    const ls = project.getLanguageService().compilerObject;
+    const { languageService: ls, sourceFile } = this.ensureProject(file);
     const resolvedPath = sourceFile.getFilePath();
     const refs = ls.getReferencesAtPosition(resolvedPath, offset);
     if (!refs || refs.length === 0) return null;
@@ -295,12 +279,8 @@ export class TsMorphEngine implements Engine {
   }
 
   async getFileReferences(file: string): Promise<SpanLocation[] | null> {
-    const project = this.getProject(file);
-    if (!project.getSourceFile(file)) {
-      project.addSourceFileAtPath(file);
-    }
-    const ls = project.getLanguageService().compilerObject;
-    const refs = ls.getFileReferences(file);
+    const { languageService: ls, sourceFile } = this.ensureProject(file);
+    const refs = ls.getFileReferences(sourceFile.getFilePath());
     if (!refs || refs.length === 0) return null;
     return refs.map((ref) => ({
       fileName: ref.fileName,
@@ -312,13 +292,7 @@ export class TsMorphEngine implements Engine {
     file: string,
     offset: number,
   ): Promise<DefinitionLocation[] | null> {
-    const project = this.getProject(file);
-    let sourceFile = project.getSourceFile(file);
-    if (!sourceFile) {
-      sourceFile = project.addSourceFileAtPath(file);
-    }
-
-    const ls = project.getLanguageService().compilerObject;
+    const { languageService: ls, sourceFile } = this.ensureProject(file);
     const resolvedPath = sourceFile.getFilePath();
     const defs = ls.getDefinitionAtPosition(resolvedPath, offset);
     if (!defs || defs.length === 0) return null;
