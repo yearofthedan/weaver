@@ -51,9 +51,11 @@ Three distinct manifestations of the same underlying issue:
 `RESTRICTED_WORKSPACE_ROOTS` contains `/etc`. The test creates a symlink pointing to `/etc` and calls `validateWorkspace`. `realpathSync` resolves the symlink all the way to `/private/etc` (macOS dereferences `/etc` → `/private/etc`). `/private/etc` is not in the set → check passes → `result.ok === true` instead of `false`.
 
 **2. `move-file.test.ts` + `workspace-boundary.test.ts`**
-`getEditsForFileRename` (engine.ts:347) calls `fs.realpathSync(oldPath)` before the TS language service call, producing `/private/var/folders/...`. But the project was loaded with `addSourceFileAtPath` using the unresolved path `/var/folders/...`. The TS language service can't find the source file under the real path → returns no edits → imports are not rewritten → `filesSkipped` is empty.
+`getEditsForFileRename` calls `fs.realpathSync(oldPath)` before the TS language service call, producing `/private/var/folders/...`. But ts-morph stores project source files using the **unresolved** path (`/var/folders/...`) — verified: ts-morph does not resolve symlinks when loading files from tsconfig. So the LS call with the real path finds no matching source file → returns no edits → imports are not rewritten → `filesSkipped` is empty.
 
-This is a half-fix from commit `4cb655a` ("fix(operations): reliably rewrite imports after moveFile"): `realpathSync` was applied to the LS call but not to the project load, so paths are still inconsistent on macOS.
+Investigation (dc0fa34..ede2027) ruled out: resolving only the LS call, resolving the `addSourceFileAtPath` call, adding both paths, normalising the tsconfig cache key. All either introduce new regressions or don't fix the root symptom. The constraint is: the project cache key must use the unresolved path (for session continuity across sequential moves), and ts-morph stores source files under the unresolved path. The LS call therefore also needs the unresolved path — not the real path.
+
+**The actual fix**: the original `realpathSync` call in `getEditsForFileRename` is wrong — it should be removed. The LS should be called with `oldPath` directly. The original intent (commit `4cb655a`) of matching ts-morph's internal paths is misguided: ts-morph uses unresolved paths, not real paths.
 
 **3. `cli-workspace-default.integration.test.ts`**
 Daemon started with `--workspace /var/folders/.../dir` → socket keyed by hash of `/var/folders/.../dir`. `stop` run with `cwd: dir` → child's `process.cwd()` returns `/private/var/folders/.../dir` → socket keyed by hash of `/private/var/folders/.../dir` → different hash → "No daemon running".
@@ -68,13 +70,13 @@ Wrap each entry in `RESTRICTED_WORKSPACE_ROOTS` with `realpathSync` (try/catch f
 
 Adjacent inputs to cover: a symlink pointing to `/private/etc` directly (no `/etc` hop); a symlink to a non-restricted path (must still pass).
 
-**2. `src/ts-engine/engine.ts` — consistent realpath in `getEditsForFileRename`**
+**2. `src/ts-engine/engine.ts` — remove incorrect `realpathSync` from `getEditsForFileRename`**
 
-Extract a small utility `resolveToRealPath(p: string): string` — calls `fs.realpathSync(p)`, returns original on error. Use it consistently for both the `addSourceFileAtPath` call and the LS call so the project and the language service always agree on the canonical path.
+Remove the `realpathSync` call on `oldPath` in `getEditsForFileRename`. ts-morph stores project files using unresolved paths; the LS call must use the same unresolved path. The `realpathSync` on `newPath`'s directory can also be removed — `newPath` doesn't exist yet so it falls back to the original anyway.
 
-Replace the scattered inline comments in `getEditsForFileRename` with a JSDoc block on the method that explains the realpath invariant. The method body should not need inline comments after the extraction.
+Replace the scattered inline comments with a JSDoc block on the method. Remove the now-unnecessary try/catch block and the `realOldPath`/`realNewPath` variables — pass `oldPath` and `newPath` directly to the LS.
 
-Adjacent inputs: a file whose path contains no symlinks (must still work); a file in a symlinked workspace root; `newPath` directory that doesn't exist yet (existing try/catch already handles this).
+Adjacent inputs: a file whose path contains no symlinks (must still work); a file in a symlinked workspace root; `newPath` directory that doesn't exist yet.
 
 **3. `src/daemon/paths.ts` — canonicalise workspace key**
 
