@@ -6,6 +6,7 @@
     "url": "https://github.com/yearofthedan/weaver.git"
   },
   "description": "Headless CLI refactoring engine for AI agents",
+  "license": "MIT",
   "keywords": [
     "refactoring",
     "typescript",
