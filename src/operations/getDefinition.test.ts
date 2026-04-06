@@ -1,23 +1,15 @@
 import * as fs from "node:fs";
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { VolarEngine } from "../plugins/vue/engine.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import { getDefinition } from "./getDefinition.js";
 
 describe("getDefinition action", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
-
-  function setup(fixture = FIXTURES.simpleTs.name) {
-    const dir = copyFixture(fixture);
-    dirs.push(dir);
-    return dir;
-  }
-
   describe("with TsMorphEngine", () => {
-    it("returns the definition location from a call site", async () => {
-      const dir = setup();
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("returns the definition location from a call site", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       // main.ts line 3: console.log(greetUser("World")); → col 13
@@ -34,8 +26,7 @@ describe("getDefinition action", () => {
       }
     });
 
-    it("returns the definition location from the declaration site itself", async () => {
-      const dir = setup();
+    test("returns the definition location from the declaration site itself", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       const result = await getDefinition(compiler, `${dir}/src/utils.ts`, 1, 17);
@@ -44,8 +35,7 @@ describe("getDefinition action", () => {
       expect(result.definitions.some((d) => d.file.endsWith("utils.ts"))).toBe(true);
     });
 
-    it("throws FILE_NOT_FOUND for a non-existent file", async () => {
-      const dir = setup();
+    test("throws FILE_NOT_FOUND for a non-existent file", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       await expect(
@@ -53,8 +43,7 @@ describe("getDefinition action", () => {
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
-    it("throws SYMBOL_NOT_FOUND for an out-of-range line", async () => {
-      const dir = setup();
+    test("throws SYMBOL_NOT_FOUND for an out-of-range line", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       await expect(getDefinition(compiler, `${dir}/src/utils.ts`, 999, 1)).rejects.toMatchObject({
@@ -62,10 +51,11 @@ describe("getDefinition action", () => {
       });
     });
 
-    it("throws SYMBOL_NOT_FOUND when position is valid but has no definition", async () => {
+    test("throws SYMBOL_NOT_FOUND when position is valid but has no definition", async ({
+      dir,
+    }) => {
       // Exercises the `!defs || defs.length === 0` path in getDefinition.ts:
       // line 2 of main.ts is blank — resolveOffset succeeds but getDefinitionAtPosition returns null.
-      const dir = setup();
       const compiler = new TsMorphEngine();
 
       await expect(getDefinition(compiler, `${dir}/src/main.ts`, 2, 1)).rejects.toMatchObject({
@@ -75,8 +65,9 @@ describe("getDefinition action", () => {
   });
 
   describe("with VolarEngine", () => {
-    it("resolves a composable definition from a .vue call site", async () => {
-      const dir = setup("vue-ts-boundary");
+    test.override({ fixtureName: FIXTURES.vueTsBoundary.name });
+
+    test("resolves a composable definition from a .vue call site", async ({ dir }) => {
       const compiler = new VolarEngine(new TsMorphEngine());
 
       const appVue = `${dir}/src/App.vue`;
@@ -99,8 +90,7 @@ describe("getDefinition action", () => {
       expect(def?.length).toBeGreaterThan(0);
     });
 
-    it("throws FILE_NOT_FOUND for a non-existent file", async () => {
-      const dir = setup("vue-project");
+    test("throws FILE_NOT_FOUND for a non-existent file", async ({ dir }) => {
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await expect(
@@ -108,9 +98,8 @@ describe("getDefinition action", () => {
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
-    it("throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", async () => {
+    test("throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", async ({ dir }) => {
       // Exercises the resolveOffset catch block in VolarEngine (volar.ts line 103).
-      const dir = setup("vue-ts-boundary");
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await expect(getDefinition(compiler, `${dir}/src/App.vue`, 999, 1)).rejects.toMatchObject({

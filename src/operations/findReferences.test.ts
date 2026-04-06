@@ -1,22 +1,14 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { VolarEngine } from "../plugins/vue/engine.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import { findReferences } from "./findReferences.js";
 
 describe("findReferences action", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
-
-  function setup(fixture = FIXTURES.simpleTs.name) {
-    const dir = copyFixture(fixture);
-    dirs.push(dir);
-    return dir;
-  }
-
   describe("with TsMorphEngine", () => {
-    it("finds all references to a symbol from the declaration site", async () => {
-      const dir = setup();
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("finds all references to a symbol from the declaration site", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       const result = await findReferences(compiler, `${dir}/src/utils.ts`, 1, 17);
@@ -35,8 +27,7 @@ describe("findReferences action", () => {
       }
     });
 
-    it("finds the same references from a call site", async () => {
-      const dir = setup();
+    test("finds the same references from a call site", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       const result = await findReferences(compiler, `${dir}/src/main.ts`, 3, 13);
@@ -47,8 +38,7 @@ describe("findReferences action", () => {
       expect(files.some((f) => f.endsWith("main.ts"))).toBe(true);
     });
 
-    it("throws FILE_NOT_FOUND for a non-existent file", async () => {
-      const dir = setup();
+    test("throws FILE_NOT_FOUND for a non-existent file", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       await expect(
@@ -56,8 +46,7 @@ describe("findReferences action", () => {
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
-    it("throws SYMBOL_NOT_FOUND for an out-of-range line", async () => {
-      const dir = setup();
+    test("throws SYMBOL_NOT_FOUND for an out-of-range line", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       await expect(findReferences(compiler, `${dir}/src/utils.ts`, 999, 1)).rejects.toMatchObject({
@@ -67,8 +56,9 @@ describe("findReferences action", () => {
   });
 
   describe("with VolarEngine", () => {
-    it("finds references to a composable across .ts and .vue files", async () => {
-      const dir = setup("vue-project");
+    test.override({ fixtureName: FIXTURES.vueProject.name });
+
+    test("finds references to a composable across .ts and .vue files", async ({ dir }) => {
       const compiler = new VolarEngine(new TsMorphEngine());
 
       const result = await findReferences(compiler, `${dir}/src/composables/useCounter.ts`, 1, 17);
@@ -87,8 +77,7 @@ describe("findReferences action", () => {
       }
     });
 
-    it("throws FILE_NOT_FOUND for a non-existent file", async () => {
-      const dir = setup("vue-project");
+    test("throws FILE_NOT_FOUND for a non-existent file", async ({ dir }) => {
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await expect(

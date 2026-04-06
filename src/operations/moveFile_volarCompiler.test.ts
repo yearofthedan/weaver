@@ -1,11 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
-import {
-  cleanup,
-  copyFixture,
-  FIXTURES,
-  fileExists,
-  readFile,
-} from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, fileExists, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { VolarEngine } from "../plugins/vue/engine.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
@@ -17,12 +11,9 @@ function makeScope(dir: string): WorkspaceScope {
 }
 
 describe("moveFile action - VolarEngine Integration", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
+  test.override({ fixtureName: FIXTURES.vueProject.name });
 
-  it("moves a composable file and updates .vue imports", async () => {
-    const dir = copyFixture(FIXTURES.vueProject.name);
-    dirs.push(dir);
+  test("moves a composable file and updates .vue imports", async ({ dir }) => {
     const compiler = new VolarEngine(new TsMorphEngine());
 
     const oldPath = `${dir}/src/composables/useCounter.ts`;
@@ -43,9 +34,7 @@ describe("moveFile action - VolarEngine Integration", () => {
     expect(result.filesModified).toContain(`${dir}/src/App.vue`);
   });
 
-  it("updates imports on move-back with the same compiler instance", async () => {
-    const dir = copyFixture(FIXTURES.vueProject.name);
-    dirs.push(dir);
+  test("updates imports on move-back with the same compiler instance", async ({ dir }) => {
     const compiler = new VolarEngine(new TsMorphEngine());
 
     await moveFile(
@@ -70,9 +59,9 @@ describe("moveFile action - VolarEngine Integration", () => {
     expect(mainContent).not.toContain("utils/useCounter");
   });
 
-  it("rewrites own relative imports when moving a file to a shallower directory depth", async () => {
-    const dir = copyFixture(FIXTURES.vueProject.name);
-    dirs.push(dir);
+  test("rewrites own relative imports when moving a file to a shallower directory depth", async ({
+    dir,
+  }) => {
     const compiler = new VolarEngine(new TsMorphEngine());
 
     const oldPath = `${dir}/tests/unit/counter.test.ts`;
@@ -91,9 +80,9 @@ describe("moveFile action - VolarEngine Integration", () => {
     expect(result.filesModified).toContain(newPath);
   });
 
-  it("rewrites imports in out-of-project .ts files that import the moved file", async () => {
-    const dir = copyFixture(FIXTURES.vueProject.name);
-    dirs.push(dir);
+  test("rewrites imports in out-of-project .ts files that import the moved file", async ({
+    dir,
+  }) => {
     const compiler = new VolarEngine(new TsMorphEngine());
 
     const oldPath = `${dir}/src/composables/useCounter.ts`;
@@ -107,9 +96,7 @@ describe("moveFile action - VolarEngine Integration", () => {
     expect(testContent).not.toContain("composables/useCounter");
   });
 
-  it("throws FILE_NOT_FOUND for non-existent source", async () => {
-    const dir = copyFixture(FIXTURES.vueProject.name);
-    dirs.push(dir);
+  test("throws FILE_NOT_FOUND for non-existent source", async ({ dir }) => {
     const compiler = new VolarEngine(new TsMorphEngine());
 
     await expect(

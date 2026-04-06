@@ -1,21 +1,13 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { VolarEngine } from "../plugins/vue/engine.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import { findImporters } from "./findImporters.js";
 
 describe("findImporters", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
+  test.override({ fixtureName: FIXTURES.simpleTs.name });
 
-  function setup(fixture = FIXTURES.simpleTs.name) {
-    const dir = copyFixture(fixture);
-    dirs.push(dir);
-    return dir;
-  }
-
-  it("returns all files that import the given file", async () => {
-    const dir = setup();
+  test("returns all files that import the given file", async ({ dir }) => {
     const compiler = new TsMorphEngine();
 
     const result = await findImporters(compiler, `${dir}/src/utils.ts`);
@@ -30,8 +22,7 @@ describe("findImporters", () => {
     }
   });
 
-  it("returns empty references for a file with no importers", async () => {
-    const dir = setup();
+  test("returns empty references for a file with no importers", async ({ dir }) => {
     const compiler = new TsMorphEngine();
 
     const result = await findImporters(compiler, `${dir}/src/main.ts`);
@@ -40,8 +31,7 @@ describe("findImporters", () => {
     expect(result.references).toEqual([]);
   });
 
-  it("throws FILE_NOT_FOUND for a non-existent file", async () => {
-    const dir = setup();
+  test("throws FILE_NOT_FOUND for a non-existent file", async ({ dir }) => {
     const compiler = new TsMorphEngine();
 
     await expect(findImporters(compiler, `${dir}/src/doesNotExist.ts`)).rejects.toMatchObject({
@@ -50,9 +40,11 @@ describe("findImporters", () => {
   });
 
   describe("with VolarEngine", () => {
-    it("AC3: .ts target imported by both .ts and .vue files returns references from both", async () => {
-      const dir = copyFixture(FIXTURES.vueTsBoundary.name);
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.vueTsBoundary.name });
+
+    test(".ts target imported by both .ts and .vue files returns references from both", async ({
+      dir,
+    }) => {
       const compiler = new VolarEngine(new TsMorphEngine(), dir);
 
       const result = await findImporters(compiler, `${dir}/src/utils.ts`);
@@ -66,10 +58,14 @@ describe("findImporters", () => {
         expect(ref.length).toBeGreaterThan(0);
       }
     });
+  });
 
-    it("AC4: .vue target imported by another file returns references with correct positions", async () => {
-      const dir = copyFixture(FIXTURES.moveDirVue.name);
-      dirs.push(dir);
+  describe("with VolarEngine — .vue target", () => {
+    test.override({ fixtureName: FIXTURES.moveDirVue.name });
+
+    test(".vue target imported by another file returns references with correct positions", async ({
+      dir,
+    }) => {
       const compiler = new VolarEngine(new TsMorphEngine(), dir);
 
       const result = await findImporters(compiler, `${dir}/src/components/Button.vue`);

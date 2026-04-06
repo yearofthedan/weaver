@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { VolarEngine } from "../plugins/vue/engine.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
@@ -9,12 +9,9 @@ import { TsMorphEngine } from "../ts-engine/engine.js";
 import { moveSymbol } from "./moveSymbol.js";
 
 describe("moveSymbol operation — VolarEngine integration", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
+  test.override({ fixtureName: FIXTURES.vueProject.name });
 
-  it("moves a composable and updates .vue SFC imports via VolarEngine", async () => {
-    const dir = copyFixture(FIXTURES.vueProject.name);
-    dirs.push(dir);
+  test("moves a composable and updates .vue SFC imports via VolarEngine", async ({ dir }) => {
     const volarCompiler = new VolarEngine(new TsMorphEngine());
     const srcPath = `${dir}/src/composables/useCounter.ts`;
     const dstPath = `${dir}/src/shared.ts`;
@@ -32,13 +29,13 @@ describe("moveSymbol operation — VolarEngine integration", () => {
     expect(result.filesModified).toContain(dstPath);
   }, 30_000);
 
-  it("rewrites imports in a TS file outside tsconfig.include when VolarEngine.moveSymbol is called", async () => {
+  test("rewrites imports in a TS file outside tsconfig.include when VolarEngine.moveSymbol is called", async ({
+    dir,
+  }) => {
     // vue-project fixture tsconfig: include = ["src/**/*.ts", "src/**/*.vue"]
     // A file outside that pattern (e.g. tests/consumer.ts) imports the moved symbol.
     // VolarEngine.moveSymbol delegates to tsEngine.moveSymbol which uses the
     // expanded project graph — the out-of-project file must be rewritten.
-    const dir = copyFixture(FIXTURES.vueProject.name);
-    dirs.push(dir);
 
     // Create a test file outside tsconfig.include that imports useCounter.
     fs.mkdirSync(path.join(dir, "tests"), { recursive: true });

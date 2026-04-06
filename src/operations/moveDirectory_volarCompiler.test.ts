@@ -1,11 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
-import {
-  cleanup,
-  copyFixture,
-  FIXTURES,
-  fileExists,
-  readFile,
-} from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, fileExists, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { VolarEngine } from "../plugins/vue/engine.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
@@ -17,13 +11,12 @@ function makeScope(dir: string): WorkspaceScope {
 }
 
 describe("moveDirectory action - VolarEngine integration", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
+  test.override({ fixtureName: FIXTURES.moveDirVueExternal.name });
 
   describe("external .ts files importing moved .vue components", () => {
-    it("updates path-alias import specifier in external .ts file after moving directory", async () => {
-      const dir = copyFixture(FIXTURES.moveDirVueExternal.name);
-      dirs.push(dir);
+    test("updates path-alias import specifier in external .ts file after moving directory", async ({
+      dir,
+    }) => {
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await moveDirectory(compiler, `${dir}/src/components`, `${dir}/src/ui`, makeScope(dir));
@@ -32,9 +25,9 @@ describe("moveDirectory action - VolarEngine integration", () => {
       expect(appTs).not.toContain("@/components/Button.vue");
     });
 
-    it("updates import specifier in external .ts file after moving directory with .vue files", async () => {
-      const dir = copyFixture(FIXTURES.moveDirVueExternal.name);
-      dirs.push(dir);
+    test("updates import specifier in external .ts file after moving directory with .vue files", async ({
+      dir,
+    }) => {
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await moveDirectory(compiler, `${dir}/src/components`, `${dir}/src/ui`, makeScope(dir));
@@ -49,9 +42,9 @@ describe("moveDirectory action - VolarEngine integration", () => {
       expect(appTs).not.toContain("./components/Button.vue");
     });
 
-    it("updates import specifier in external .ts file when moving into a nested destination", async () => {
-      const dir = copyFixture(FIXTURES.moveDirVueExternal.name);
-      dirs.push(dir);
+    test("updates import specifier in external .ts file when moving into a nested destination", async ({
+      dir,
+    }) => {
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await moveDirectory(
@@ -68,9 +61,9 @@ describe("moveDirectory action - VolarEngine integration", () => {
   });
 
   describe("external .vue files importing from moved directory", () => {
-    it("updates import specifier in external .vue file after moving a composables directory", async () => {
-      const dir = copyFixture(FIXTURES.moveDirVueExternal.name);
-      dirs.push(dir);
+    test("updates import specifier in external .vue file after moving a composables directory", async ({
+      dir,
+    }) => {
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await moveDirectory(compiler, `${dir}/src/composables`, `${dir}/src/hooks`, makeScope(dir));
@@ -85,9 +78,9 @@ describe("moveDirectory action - VolarEngine integration", () => {
       expect(appVue).not.toContain("./composables/useCounter");
     });
 
-    it("updates import specifier in external .vue file after moving a components directory with .vue files", async () => {
-      const dir = copyFixture(FIXTURES.moveDirVueExternal.name);
-      dirs.push(dir);
+    test("updates import specifier in external .vue file after moving a components directory with .vue files", async ({
+      dir,
+    }) => {
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await moveDirectory(compiler, `${dir}/src/components`, `${dir}/src/ui`, makeScope(dir));
@@ -100,9 +93,9 @@ describe("moveDirectory action - VolarEngine integration", () => {
   });
 
   describe("moved .vue files with external relative imports", () => {
-    it("updates relative import in moved .vue file that points outside the moved directory", async () => {
-      const dir = copyFixture(FIXTURES.moveDirVueExternal.name);
-      dirs.push(dir);
+    test("updates relative import in moved .vue file that points outside the moved directory", async ({
+      dir,
+    }) => {
       const compiler = new VolarEngine(new TsMorphEngine());
 
       // Button.vue imports '../lib/helper'; after moving components/ → ui/components/
@@ -123,9 +116,7 @@ describe("moveDirectory action - VolarEngine integration", () => {
       expect(buttonVue).not.toContain("'../lib/helper'");
     });
 
-    it("does not rewrite intra-directory imports between moved .vue files", async () => {
-      const dir = copyFixture(FIXTURES.moveDirVueExternal.name);
-      dirs.push(dir);
+    test("does not rewrite intra-directory imports between moved .vue files", async ({ dir }) => {
       const compiler = new VolarEngine(new TsMorphEngine());
 
       // Moving composables/ — useCounter.ts has no intra-dir imports, so this just

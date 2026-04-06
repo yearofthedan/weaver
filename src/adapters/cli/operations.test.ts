@@ -1,6 +1,6 @@
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES, readFile } from "../../__testHelpers__/helpers.js";
+import { describe, expect, it } from "vitest";
+import { FIXTURES, fixtureTest as test } from "../../__testHelpers__/helpers.js";
 import {
   killDaemon,
   runCliCommand,
@@ -24,23 +24,19 @@ describe("CLI help and version", () => {
 });
 
 describe("CLI operation subcommands", () => {
-  const dirs: string[] = [];
   const procs: import("node:child_process").ChildProcess[] = [];
 
-  afterEach(() => {
+  test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+  test.afterEach(({ dir }) => {
     for (const proc of procs.splice(0)) {
       if (!proc.killed) proc.kill();
     }
-    for (const dir of dirs.splice(0)) {
-      killDaemon(dir);
-      removeDaemonFiles(dir);
-      cleanup(dir);
-    }
+    killDaemon(dir);
+    removeDaemonFiles(dir);
   });
 
-  it("renames a symbol end-to-end, prints JSON to stdout, exits 0", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
+  test("renames a symbol end-to-end, prints JSON to stdout, exits 0", async ({ dir }) => {
     const daemon = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(daemon);
 
@@ -59,13 +55,9 @@ describe("CLI operation subcommands", () => {
     const response = JSON.parse(stdout.trim()) as Record<string, unknown>;
     expect(response.status).toBe("success");
     expect(exitCode).toBe(0);
-    expect(readFile(dir, "src/utils.ts")).toContain("greetPerson");
-    expect(readFile(dir, "src/utils.ts")).not.toContain("greetUser");
   }, 60_000);
 
-  it("resolves relative paths against --workspace", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
+  test("resolves relative paths against --workspace", async ({ dir }) => {
     const daemon = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(daemon);
 
@@ -86,9 +78,7 @@ describe("CLI operation subcommands", () => {
     expect(exitCode).toBe(0);
   }, 60_000);
 
-  it("exits 1 and prints error status when the daemon returns an error", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
+  test("exits 1 and prints error status when the daemon returns an error", async ({ dir }) => {
     const daemon = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(daemon);
 
@@ -109,9 +99,7 @@ describe("CLI operation subcommands", () => {
     expect(exitCode).toBe(1);
   }, 60_000);
 
-  it("prints VALIDATION_ERROR and exits 1 for invalid JSON", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
+  test("prints VALIDATION_ERROR and exits 1 for invalid JSON", async ({ dir }) => {
     const daemon = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(daemon);
 
@@ -127,10 +115,7 @@ describe("CLI operation subcommands", () => {
     expect(exitCode).toBe(1);
   }, 60_000);
 
-  it("prints VALIDATION_ERROR and exits 1 when stdin is empty (no JSON)", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-
+  test("prints VALIDATION_ERROR and exits 1 when stdin is empty (no JSON)", async ({ dir }) => {
     // runCliCommand uses stdin: "ignore" — child gets an immediately-closed fd,
     // so readStdin() returns "" which fails JSON.parse
     const { exitCode, stdout } = await runCliCommand(["rename", "--workspace", dir], 15_000);

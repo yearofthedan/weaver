@@ -1,20 +1,18 @@
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import { moveSymbol } from "./moveSymbol.js";
 
 describe("moveSymbol operation — TsMorphEngine integration", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
+  test.override({ fixtureName: FIXTURES.simpleTs.name });
 
-  it("moves a symbol end-to-end: source updated, dest created, importer updated", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
+  test("moves a symbol end-to-end: source updated, dest created, importer updated", async ({
+    dir,
+  }) => {
     const tsCompiler = new TsMorphEngine();
     const scope = new WorkspaceScope(dir, new NodeFileSystem());
 
@@ -37,47 +35,13 @@ describe("moveSymbol operation — TsMorphEngine integration", () => {
     expect(result.filesModified).toContain(`${dir}/src/helpers.ts`);
   });
 
-  it("filesSkipped includes importers outside the workspace boundary when inside the ts project", async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-movesymbol-int-boundary-"));
-    dirs.push(tmpDir);
-    fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
-    fs.mkdirSync(path.join(tmpDir, "lib"), { recursive: true });
-    // tsconfig includes all TS files so ts-morph sees the lib/consumer.ts importer
-    fs.writeFileSync(
-      path.join(tmpDir, "tsconfig.json"),
-      JSON.stringify({ compilerOptions: { strict: true }, include: ["**/*.ts"] }),
-    );
-    fs.writeFileSync(
-      path.join(tmpDir, "src/utils.ts"),
-      "export function add(a: number, b: number): number { return a + b; }\n",
-    );
-    fs.writeFileSync(
-      path.join(tmpDir, "lib/consumer.ts"),
-      'import { add } from "../src/utils";\nexport const result = add(1, 2);\n',
-    );
-    // Workspace is scoped to src/ only — lib/ is outside the boundary
-    const scope = new WorkspaceScope(path.join(tmpDir, "src"), new NodeFileSystem());
-    const tsCompiler = new TsMorphEngine();
-
-    const result = await moveSymbol(
-      tsCompiler,
-      path.join(tmpDir, "src/utils.ts"),
-      "add",
-      path.join(tmpDir, "src/helpers.ts"),
-      scope,
-    );
-
-    expect(result.filesSkipped.some((f) => f.includes("consumer.ts"))).toBe(true);
-    expect(fs.readFileSync(path.join(tmpDir, "lib/consumer.ts"), "utf8")).toContain("../src/utils");
-  });
-
-  it("expanded project graph rewrites out-of-tsconfig test file imports end-to-end", async () => {
+  test("expanded project graph rewrites out-of-tsconfig test file imports end-to-end", async ({
+    dir,
+  }) => {
     // simple-ts fixture: tsconfig.include = ["src/**/*.ts"], so tests/ is outside the project.
     // tests/utils.test.ts imports greetUser from "../src/utils".
     // After moving greetUser to src/helpers.ts, the expanded project graph (via workspace root)
     // must rewrite the test file.
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
     const tsCompiler = new TsMorphEngine(dir);
     const scope = new WorkspaceScope(dir, new NodeFileSystem());
 
@@ -93,5 +57,52 @@ describe("moveSymbol operation — TsMorphEngine integration", () => {
     expect(testContent).toContain("../src/helpers.js");
     expect(testContent).not.toContain("../src/utils");
     expect(result.filesModified).toContain(path.join(dir, "tests/utils.test.ts"));
+  });
+});
+
+describe("moveSymbol — workspace boundary", () => {
+  test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+  test("filesSkipped includes importers outside the workspace boundary when inside the ts project", async ({
+    dir: _dir,
+  }) => {
+    const tmpDir = fs.mkdtempSync(
+      path.join(fs.realpathSync("/tmp"), "ns-movesymbol-int-boundary-"),
+    );
+    try {
+      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, "lib"), { recursive: true });
+      // tsconfig includes all TS files so ts-morph sees the lib/consumer.ts importer
+      fs.writeFileSync(
+        path.join(tmpDir, "tsconfig.json"),
+        JSON.stringify({ compilerOptions: { strict: true }, include: ["**/*.ts"] }),
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, "src/utils.ts"),
+        "export function add(a: number, b: number): number { return a + b; }\n",
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, "lib/consumer.ts"),
+        'import { add } from "../src/utils";\nexport const result = add(1, 2);\n',
+      );
+      // Workspace is scoped to src/ only — lib/ is outside the boundary
+      const scope = new WorkspaceScope(path.join(tmpDir, "src"), new NodeFileSystem());
+      const tsCompiler = new TsMorphEngine();
+
+      const result = await moveSymbol(
+        tsCompiler,
+        path.join(tmpDir, "src/utils.ts"),
+        "add",
+        path.join(tmpDir, "src/helpers.ts"),
+        scope,
+      );
+
+      expect(result.filesSkipped.some((f) => f.includes("consumer.ts"))).toBe(true);
+      expect(fs.readFileSync(path.join(tmpDir, "lib/consumer.ts"), "utf8")).toContain(
+        "../src/utils",
+      );
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });

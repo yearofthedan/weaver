@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { cleanup, FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { replaceText } from "./replaceText.js";
@@ -12,21 +12,12 @@ function makeScope(dir: string): WorkspaceScope {
 }
 
 describe("replaceText operation", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
-
-  function setup(fixture = FIXTURES.simpleTs.name) {
-    const dir = copyFixture(fixture);
-    dirs.push(dir);
-    return dir;
-  }
-
   // ─── Pattern mode ───────────────────────────────────────────────────────
 
   describe("pattern mode", () => {
-    it("replaces all occurrences across workspace files", async () => {
-      const dir = setup();
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
 
+    test("replaces all occurrences across workspace files", async ({ dir }) => {
       const before = readFile(dir, "src/utils.ts");
       expect(before).toContain("greetUser");
 
@@ -47,9 +38,7 @@ describe("replaceText operation", () => {
       expect(mainAfter).not.toContain("greetUser");
     });
 
-    it("restricts replacement to files matching glob", async () => {
-      const dir = setup();
-
+    test("restricts replacement to files matching glob", async ({ dir }) => {
       const result = await replaceText(makeScope(dir), {
         pattern: "greetUser",
         replacement: "welcomeUser",
@@ -64,9 +53,7 @@ describe("replaceText operation", () => {
       expect(mainAfter).toContain("greetUser");
     });
 
-    it("supports regex capture groups in replacement", async () => {
-      const dir = setup();
-
+    test("supports regex capture groups in replacement", async ({ dir }) => {
       // Wrap "greetUser" in parens → "GREET(greetUser)"
       const result = await replaceText(makeScope(dir), {
         pattern: "(greetUser)",
@@ -79,60 +66,66 @@ describe("replaceText operation", () => {
       expect(after).toContain("GREET(greetUser)");
     });
 
-    it("records unreadable files as skipped", async () => {
+    test("records unreadable files as skipped", async ({ dir: _dir }) => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-replace-skip-"));
-      dirs.push(dir);
+      try {
+        fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+        fs.writeFileSync(path.join(dir, "src/ok.ts"), "export const foo = 'bar';\n");
+        const unreadable = path.join(dir, "src/secret.ts");
+        fs.writeFileSync(unreadable, "export const foo = 'secret';\n");
+        fs.chmodSync(unreadable, 0o000);
 
-      fs.mkdirSync(path.join(dir, "src"), { recursive: true });
-      fs.writeFileSync(path.join(dir, "src/ok.ts"), "export const foo = 'bar';\n");
-      const unreadable = path.join(dir, "src/secret.ts");
-      fs.writeFileSync(unreadable, "export const foo = 'secret';\n");
-      fs.chmodSync(unreadable, 0o000);
+        const scope = makeScope(dir);
+        await replaceText(scope, { pattern: "foo", replacement: "baz" });
 
-      const scope = makeScope(dir);
-      await replaceText(scope, { pattern: "foo", replacement: "baz" });
+        expect(scope.skipped).toContain(unreadable);
 
-      expect(scope.skipped).toContain(unreadable);
-
-      fs.chmodSync(unreadable, 0o644);
+        fs.chmodSync(unreadable, 0o644);
+      } finally {
+        cleanup(dir);
+      }
     });
 
-    it("returns empty result when no files match the pattern", async () => {
+    test("returns empty result when no files match the pattern", async ({ dir: _dir }) => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
-      dirs.push(dir);
+      try {
+        const result = await replaceText(makeScope(dir), {
+          pattern: "zzz_not_present_zzz",
+          replacement: "replaced",
+        });
 
-      const result = await replaceText(makeScope(dir), {
-        pattern: "zzz_not_present_zzz",
-        replacement: "replaced",
-      });
-
-      expect(result.filesModified).toHaveLength(0);
-      expect(result.replacementCount).toBe(0);
+        expect(result.filesModified).toHaveLength(0);
+        expect(result.replacementCount).toBe(0);
+      } finally {
+        cleanup(dir);
+      }
     });
 
-    it("throws PARSE_ERROR for invalid regex", async () => {
+    test("throws PARSE_ERROR for invalid regex", async ({ dir: _dir }) => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
-      dirs.push(dir);
-
-      await expect(
-        replaceText(makeScope(dir), { pattern: "[bad", replacement: "x" }),
-      ).rejects.toMatchObject({
-        code: "PARSE_ERROR",
-      });
+      try {
+        await expect(
+          replaceText(makeScope(dir), { pattern: "[bad", replacement: "x" }),
+        ).rejects.toMatchObject({
+          code: "PARSE_ERROR",
+        });
+      } finally {
+        cleanup(dir);
+      }
     });
 
-    it("throws REDOS for a catastrophic backtracking pattern", async () => {
+    test("throws REDOS for a catastrophic backtracking pattern", async ({ dir: _dir }) => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
-      dirs.push(dir);
-
-      await expect(
-        replaceText(makeScope(dir), { pattern: "(a+)+$", replacement: "x" }),
-      ).rejects.toMatchObject({ code: "REDOS" });
+      try {
+        await expect(
+          replaceText(makeScope(dir), { pattern: "(a+)+$", replacement: "x" }),
+        ).rejects.toMatchObject({ code: "REDOS" });
+      } finally {
+        cleanup(dir);
+      }
     });
 
-    it("does not modify sensitive files", async () => {
-      const dir = setup();
-
+    test("does not modify sensitive files", async ({ dir }) => {
       const envPath = path.join(dir, ".env");
       fs.writeFileSync(envPath, "greetUser=secret\n");
 
@@ -147,25 +140,27 @@ describe("replaceText operation", () => {
       expect(fs.readFileSync(envPath, "utf8")).toContain("greetUser");
     });
 
-    it("rejects paths outside the workspace", async () => {
+    test("rejects paths outside the workspace", async ({ dir: _dir }) => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
-      dirs.push(dir);
-
-      // edits array with a file outside workspace
-      await expect(
-        replaceText(makeScope(dir), {
-          edits: [{ file: "/etc/passwd", line: 1, col: 1, oldText: "root", newText: "replaced" }],
-        }),
-      ).rejects.toMatchObject({ code: "WORKSPACE_VIOLATION" });
+      try {
+        // edits array with a file outside workspace
+        await expect(
+          replaceText(makeScope(dir), {
+            edits: [{ file: "/etc/passwd", line: 1, col: 1, oldText: "root", newText: "replaced" }],
+          }),
+        ).rejects.toMatchObject({ code: "WORKSPACE_VIOLATION" });
+      } finally {
+        cleanup(dir);
+      }
     });
   });
 
   // ─── Surgical mode ──────────────────────────────────────────────────────
 
   describe("surgical mode", () => {
-    it("applies exact text edits at specified locations", async () => {
-      const dir = setup();
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
 
+    test("applies exact text edits at specified locations", async ({ dir }) => {
       // utils.ts line 1, col 17: "greetUser"
       const result = await replaceText(makeScope(dir), {
         edits: [
@@ -186,9 +181,7 @@ describe("replaceText operation", () => {
       expect(after).toContain("welcomeUser");
     });
 
-    it("throws TEXT_MISMATCH when oldText does not match", async () => {
-      const dir = setup();
-
+    test("throws TEXT_MISMATCH when oldText does not match", async ({ dir }) => {
       await expect(
         replaceText(makeScope(dir), {
           edits: [
@@ -204,9 +197,7 @@ describe("replaceText operation", () => {
       ).rejects.toMatchObject({ code: "TEXT_MISMATCH" });
     });
 
-    it("applies multiple edits to the same file correctly", async () => {
-      const dir = setup();
-
+    test("applies multiple edits to the same file correctly", async ({ dir }) => {
       // utils.ts line 1: "export function greetUser(name: string): string {"
       // "greetUser" at col 17, "name" at col 27, "string" at col 33
       const result = await replaceText(makeScope(dir), {
@@ -234,9 +225,7 @@ describe("replaceText operation", () => {
       expect(after).toContain("user");
     });
 
-    it("rejects edits to sensitive files", async () => {
-      const dir = setup();
-
+    test("rejects edits to sensitive files", async ({ dir }) => {
       const envPath = path.join(dir, ".env");
       fs.writeFileSync(envPath, "KEY=value\n");
 
@@ -247,9 +236,7 @@ describe("replaceText operation", () => {
       ).rejects.toMatchObject({ code: "SENSITIVE_FILE" });
     });
 
-    it("throws WORKSPACE_VIOLATION for edits outside workspace", async () => {
-      const dir = setup();
-
+    test("throws WORKSPACE_VIOLATION for edits outside workspace", async ({ dir }) => {
       await expect(
         replaceText(makeScope(dir), {
           edits: [{ file: "/etc/passwd", line: 1, col: 1, oldText: "root", newText: "x" }],
@@ -257,13 +244,15 @@ describe("replaceText operation", () => {
       ).rejects.toMatchObject({ code: "WORKSPACE_VIOLATION" });
     });
 
-    it("requires either pattern+replacement or edits", async () => {
+    test("requires either pattern+replacement or edits", async ({ dir: _dir }) => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
-      dirs.push(dir);
-
-      await expect(replaceText(makeScope(dir), {})).rejects.toMatchObject({
-        code: "VALIDATION_ERROR",
-      });
+      try {
+        await expect(replaceText(makeScope(dir), {})).rejects.toMatchObject({
+          code: "VALIDATION_ERROR",
+        });
+      } finally {
+        cleanup(dir);
+      }
     });
   });
 });

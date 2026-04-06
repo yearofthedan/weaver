@@ -1,12 +1,11 @@
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { describe, expect, it } from "vitest";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import { dispatchRequest, makeRegistry } from "./dispatcher.js";
 
 describe("makeRegistry", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
+  test.override({ fixtureName: FIXTURES.simpleTs.name });
 
   it("returns an object with projectEngine and tsEngine functions", () => {
     const registry = makeRegistry("/any/file.ts");
@@ -14,9 +13,7 @@ describe("makeRegistry", () => {
     expect(typeof registry.tsEngine).toBe("function");
   });
 
-  it("tsEngine resolves to a TsMorphEngine with Engine methods", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
+  test("tsEngine resolves to a TsMorphEngine with Engine methods", async ({ dir }) => {
     const registry = makeRegistry(path.join(dir, "src/utils.ts"));
     const engine = await registry.tsEngine();
     expect(engine).toBeInstanceOf(TsMorphEngine);
@@ -24,9 +21,7 @@ describe("makeRegistry", () => {
     expect(typeof engine.moveSymbol).toBe("function");
   }, 10_000);
 
-  it("projectEngine resolves to a TsMorphEngine for a TS-only project", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
+  test("projectEngine resolves to a TsMorphEngine for a TS-only project", async ({ dir }) => {
     const registry = makeRegistry(path.join(dir, "src/utils.ts"));
     const engine = await registry.projectEngine();
     expect(engine).toBeInstanceOf(TsMorphEngine);
@@ -97,13 +92,9 @@ describe("dispatchRequest success format", () => {
 });
 
 describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
+  test.override({ fixtureName: FIXTURES.tsErrors.name });
 
-  it("returns typeErrors fields by default when files are modified", async () => {
-    const dir = copyFixture(FIXTURES.tsErrors.name);
-    dirs.push(dir);
-
+  test("returns typeErrors fields by default when files are modified", async ({ dir }) => {
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -123,10 +114,9 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(result).toHaveProperty("typeErrorsTruncated");
   }, 15_000);
 
-  it("checkTypeErrors:false suppresses typeErrors even when files are modified", async () => {
-    const dir = copyFixture(FIXTURES.tsErrors.name);
-    dirs.push(dir);
-
+  test("checkTypeErrors:false suppresses typeErrors even when files are modified", async ({
+    dir,
+  }) => {
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -147,10 +137,7 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(result).not.toHaveProperty("typeErrorsTruncated");
   }, 15_000);
 
-  it("produces no typeErrors fields when no files are modified", async () => {
-    const dir = copyFixture(FIXTURES.tsErrors.name);
-    dirs.push(dir);
-
+  test("produces no typeErrors fields when no files are modified", async ({ dir }) => {
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -166,10 +153,7 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(result).not.toHaveProperty("typeErrorsTruncated");
   }, 15_000);
 
-  it("type errors introduced by a write are returned", async () => {
-    const dir = copyFixture(FIXTURES.tsErrors.name);
-    dirs.push(dir);
-
+  test("type errors introduced by a write are returned", async ({ dir }) => {
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -206,10 +190,7 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     }
   }, 15_000);
 
-  it("errors in unmodified files are excluded from typeErrors", async () => {
-    const dir = copyFixture(FIXTURES.tsErrors.name);
-    dirs.push(dir);
-
+  test("errors in unmodified files are excluded from typeErrors", async ({ dir }) => {
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -228,10 +209,7 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(typeErrors.every((d) => d.file.endsWith("clean.ts"))).toBe(true);
   }, 15_000);
 
-  it("clean modified files produce an empty typeErrors array", async () => {
-    const dir = copyFixture(FIXTURES.tsErrors.name);
-    dirs.push(dir);
-
+  test("clean modified files produce an empty typeErrors array", async ({ dir }) => {
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -256,12 +234,9 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
 });
 
 describe("dispatchRequest per-operation dispatch", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
+  test.override({ fixtureName: FIXTURES.tsErrors.name });
 
-  it("dispatches getTypeErrors and returns diagnostics shape", async () => {
-    const dir = copyFixture(FIXTURES.tsErrors.name);
-    dirs.push(dir);
+  test("dispatches getTypeErrors and returns diagnostics shape", async ({ dir }) => {
     const result = (await dispatchRequest({ method: "getTypeErrors", params: {} }, dir)) as Record<
       string,
       unknown
@@ -272,9 +247,7 @@ describe("dispatchRequest per-operation dispatch", () => {
     expect(result).toHaveProperty("truncated");
   }, 15_000);
 
-  it("dispatches findReferences and returns references shape", async () => {
-    const dir = copyFixture(FIXTURES.tsErrors.name);
-    dirs.push(dir);
+  test("dispatches findReferences and returns references shape", async ({ dir }) => {
     const file = path.join(dir, "src/clean.ts");
     const result = (await dispatchRequest(
       { method: "findReferences", params: { file, line: 1, col: 17 } },
@@ -288,9 +261,7 @@ describe("dispatchRequest per-operation dispatch", () => {
     }
   }, 15_000);
 
-  it("dispatches getDefinition and returns definition shape", async () => {
-    const dir = copyFixture(FIXTURES.tsErrors.name);
-    dirs.push(dir);
+  test("dispatches getDefinition and returns definition shape", async ({ dir }) => {
     const file = path.join(dir, "src/clean.ts");
     const result = (await dispatchRequest(
       { method: "getDefinition", params: { file, line: 1, col: 17 } },
@@ -304,9 +275,7 @@ describe("dispatchRequest per-operation dispatch", () => {
     }
   }, 15_000);
 
-  it("dispatches rename and returns result shape", async () => {
-    const dir = copyFixture(FIXTURES.tsErrors.name);
-    dirs.push(dir);
+  test("dispatches rename and returns result shape", async ({ dir }) => {
     const file = path.join(dir, "src/clean.ts");
     const result = (await dispatchRequest(
       { method: "rename", params: { file, line: 1, col: 17, newName: "multiplied" } },
@@ -320,9 +289,7 @@ describe("dispatchRequest per-operation dispatch", () => {
     }
   }, 15_000);
 
-  it("dispatches moveFile and returns result shape", async () => {
-    const dir = copyFixture(FIXTURES.tsErrors.name);
-    dirs.push(dir);
+  test("dispatches moveFile and returns result shape", async ({ dir }) => {
     const oldPath = path.join(dir, "src/clean.ts");
     const newPath = path.join(dir, "src/relocated.ts");
     const result = (await dispatchRequest(
@@ -337,9 +304,7 @@ describe("dispatchRequest per-operation dispatch", () => {
     }
   }, 15_000);
 
-  it("dispatches moveSymbol and returns result shape", async () => {
-    const dir = copyFixture(FIXTURES.tsErrors.name);
-    dirs.push(dir);
+  test("dispatches moveSymbol and returns result shape", async ({ dir }) => {
     const sourceFile = path.join(dir, "src/clean.ts");
     const destFile = path.join(dir, "src/multiply.ts");
     const result = (await dispatchRequest(

@@ -68,11 +68,6 @@ describe("getTypeErrors operation", () => {
     it("returns only the top-level message for chained diagnostics, not the full chain", async () => {
       const compiler = new TsMorphEngine();
 
-      // chained-error.ts: function argument with wrong property type — produces a
-      // DiagnosticMessageChain where d.messageText is an object (not a string):
-      //   chain[0]: "Type '(x: number) => string' is not assignable to type '(x: string) => number'."
-      //   chain[1]: "Types of parameters 'x' and 'x' are incompatible."
-      //   chain[2]: "Type 'string' is not assignable to type 'number'."
       const result = await getTypeErrors(compiler, `${dir}/src/chained-error.ts`, makeScope(dir));
 
       expect(result.diagnostics).toHaveLength(1);
