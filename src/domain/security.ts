@@ -8,29 +8,42 @@ import * as path from "node:path";
 // Note: this is an exact-match blocklist of the directories themselves.
 // Subdirectories (e.g. /etc/nginx) are intentionally allowed — projects
 // legitimately live in subdirectories of system paths.
-const RESTRICTED_WORKSPACE_ROOTS: ReadonlySet<string> = new Set([
-  // Filesystem root
-  "/",
-  // Core system directories
-  "/bin",
-  "/boot",
-  "/dev",
-  "/etc",
-  "/lib",
-  "/lib64",
-  "/proc",
-  "/root",
-  "/sbin",
-  "/sys",
-  "/usr",
-  "/var",
-  // User credential directories
-  path.join(os.homedir(), ".aws"),
-  path.join(os.homedir(), ".azure"),
-  path.join(os.homedir(), ".gnupg"),
-  path.join(os.homedir(), ".kube"),
-  path.join(os.homedir(), ".ssh"),
-]);
+// Each entry is expanded with its canonical real path so that both the
+// symlinked and resolved forms are covered. On macOS, /etc is a symlink to
+// /private/etc; resolving at construction time means both forms appear in
+// the set and validation works regardless of which form realpathSync produces.
+const RESTRICTED_WORKSPACE_ROOTS: ReadonlySet<string> = new Set(
+  [
+    // Filesystem root
+    "/",
+    // Core system directories
+    "/bin",
+    "/boot",
+    "/dev",
+    "/etc",
+    "/lib",
+    "/lib64",
+    "/proc",
+    "/root",
+    "/sbin",
+    "/sys",
+    "/usr",
+    "/var",
+    // User credential directories
+    path.join(os.homedir(), ".aws"),
+    path.join(os.homedir(), ".azure"),
+    path.join(os.homedir(), ".gnupg"),
+    path.join(os.homedir(), ".kube"),
+    path.join(os.homedir(), ".ssh"),
+  ].flatMap((p) => {
+    try {
+      const real = fs.realpathSync(p);
+      return real === p ? [p] : [p, real];
+    } catch {
+      return [p];
+    }
+  }),
+);
 
 /**
  * Validates a file path string for control characters and URI fragments.

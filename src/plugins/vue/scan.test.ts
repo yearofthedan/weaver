@@ -351,7 +351,6 @@ describe("rewriteVueOwnImportsAfterMove", () => {
   it("does not rewrite an intra-directory import that still resolves from the new location", () => {
     // Both files moved together — relative import between them is still valid
     write("src/ui/components/Button.vue", "");
-    const sibling = path.join(tmpDir, "src/ui/components/Icon.vue");
     const content = `<script setup>\nimport Icon from './Icon.vue'\n</script>`;
     write("src/ui/components/Card.vue", content);
 

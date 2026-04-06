@@ -6,7 +6,13 @@ import * as path from "node:path";
 const CACHE_DIR = path.join(os.homedir(), ".cache", "weaver");
 
 function workspaceHash(workspaceRoot: string): string {
-  return crypto.createHash("sha1").update(workspaceRoot).digest("hex").slice(0, 16);
+  let canonical = workspaceRoot;
+  try {
+    canonical = fs.realpathSync(workspaceRoot);
+  } catch {
+    // Path doesn't exist yet or filesystem doesn't support symlinks — use as-is.
+  }
+  return crypto.createHash("sha1").update(canonical).digest("hex").slice(0, 16);
 }
 
 export function socketPath(workspaceRoot: string): string {
