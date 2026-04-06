@@ -1,7 +1,0 @@
-{
-  "status": "success",
-  "deletedFile": "/tmp/weaver-eval/src/old-helper.ts",
-  "filesModified": ["/tmp/weaver-eval/src/api.ts", "/tmp/weaver-eval/src/middleware.ts"],
-  "filesSkipped": [],
-  "importRefsRemoved": 3
-}

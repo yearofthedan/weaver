@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "weaver": {
-      "type": "stdio",
-      "command": "pnpm",
-      "args": ["exec", "tsx", "src/adapters/cli/cli.ts", "serve", "--workspace", "."]
-    }
-  }
-}

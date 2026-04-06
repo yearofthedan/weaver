@@ -1,9 +1,0 @@
-{
-  "status": "success",
-  "symbolName": "authenticate",
-  "references": [
-    { "file": "/tmp/weaver-eval/src/auth.ts", "line": 5, "col": 17, "length": 12 },
-    { "file": "/tmp/weaver-eval/src/api.ts", "line": 22, "col": 10, "length": 12 },
-    { "file": "/tmp/weaver-eval/src/middleware.ts", "line": 8, "col": 14, "length": 12 }
-  ]
-}

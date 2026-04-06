@@ -1,6 +1,0 @@
-{
-  "status": "success",
-  "filesModified": ["/tmp/weaver-eval/src/auth.ts", "/tmp/weaver-eval/src/api.ts"],
-  "replacementCount": 3,
-  "filesSkipped": []
-}

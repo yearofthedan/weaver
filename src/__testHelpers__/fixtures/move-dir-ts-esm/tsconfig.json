@@ -1,4 +1,0 @@
-{
-  "compilerOptions": { "strict": true, "module": "nodenext", "moduleResolution": "nodenext" },
-  "include": ["src/**/*.ts"]
-}
