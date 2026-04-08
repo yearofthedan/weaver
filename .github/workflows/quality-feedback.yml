@@ -31,7 +31,7 @@ jobs:
       # unique key (with run_id) so partial-progress runs always persist
       # their results for the next run to pick up.
       - name: Restore Stryker incremental cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: reports/stryker-incremental.json
           key: stryker-incremental-${{ github.run_id }}
@@ -45,7 +45,7 @@ jobs:
 
       - name: Save Stryker incremental cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: reports/stryker-incremental.json
           key: stryker-incremental-${{ github.run_id }}
