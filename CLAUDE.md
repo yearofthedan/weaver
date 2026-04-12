@@ -51,8 +51,16 @@ Finish the test for a unit before moving to the next. The test is part of the im
 **Rule 8: Write durable memory to `.claude/MEMORY.md` — never to `~/.claude/`.**
 This project runs in a dev container. The home directory is deleted on every rebuild, taking `~/.claude/projects/` with it. Do NOT use the auto-memory system there. Use `.claude/MEMORY.md` (git-tracked) instead. Technical gotchas belong in the relevant `docs/features/` or `docs/tech/` doc, not in MEMORY.md.
 
-**Rule 10: Every task gets a spec before implementation.**
-Tasks in `docs/handoff.md` are either `[needs design]` (no spec yet) or linked to a spec file in `docs/specs/`. Use `/spec` to create a spec from a `[needs design]` entry — it picks the right template, walks through ACs with the user, and produces a ready-to-implement file. Use `/slice` to implement a spec. When adding new work discovered during a session, add a `[needs design]` entry to handoff.md and move on — do not spec it in the same session. Do not add ACs to feature docs (`docs/features/*.md`) — those are reference docs for shipped behaviour, not task tracking. ACs live in spec files and are archived (with an Outcome section) when the task ships.
+**Rule 10: Not every task needs a spec — but every task needs a tag.**
+Tasks in `docs/handoff.md` carry one of three tags:
+
+- **`[chore]`** — implementation is unambiguous; implement directly, no spec needed. Any decision context is in the task description itself. Use for: text/doc edits, dependency bumps, dead code removal, small config changes. If you find yourself unsure how to implement it, change the tag to `[needs design]`.
+- **`[needs design]`** — problem understood, solution not agreed. Run `/spec` first — it picks the right template, walks through ACs with the user, and produces a ready-to-implement file. When adding new work discovered during a session, add a `[needs design]` entry and move on — do not spec it in the same session.
+- **spec link** — already designed, run `/slice` to implement.
+
+Before writing a spec, ask: (1) does planning add safety? (real architectural choices, multiple code paths, meaningful risk) and (2) will an archived spec be a useful future reference? (the "why" isn't visible in the output itself). If neither is true, use `[chore]`.
+
+Do not add ACs to feature docs (`docs/features/*.md`) — those are reference docs for shipped behaviour, not task tracking. ACs live in spec files and are archived (with an Outcome section) when the task ships.
 
 Specs are **changesets**, not features. They describe a unit of work to deliver, then get archived. Code and tests must never reference spec identifiers (AC numbers, spec slugs, etc.) — describe the *behaviour* being tested, not the changeset that introduced it.
 
