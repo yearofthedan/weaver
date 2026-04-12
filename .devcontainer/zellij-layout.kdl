@@ -1,0 +1,36 @@
+layout {
+    default_tab_template {
+        // A minimal status bar at the bottom
+        pane size=1 borderless=true {
+            plugin location="zellij:compact-bar"
+        }
+        children
+    }
+
+    tab name="AEE Dashboard" focus=true {
+        pane split_direction="vertical" {
+            // LEFT COLUMN: Your main Agent Workspace
+            pane size="55%" name="Claude Agent" focus=true {
+                // If your custom CLI has a specific command, you can auto-run it here.
+                // command "claude-code" 
+            }
+
+            // RIGHT COLUMN: Your Auditing & Server Stack
+            pane split_direction="horizontal" {
+                // Top Right: Git Dashboard
+                pane size="40%" name="Git Audit" command="lazygit"
+                
+                // Middle Right: Visual File Browser
+                pane size="40%" name="File Explorer" command="yazi"
+                
+                // Bottom Right: Blank terminal for `npm run dev` or random commands
+                pane size="20%" name="Dev Server / Shell"
+            }
+        }
+    }
+    
+    // Optional: A clean second tab if you need a full-screen terminal temporarily
+    tab name="Sandbox" {
+        pane name="Terminal"
+    }
+}

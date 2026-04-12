@@ -5,12 +5,23 @@
   },
   "workspaceMount": "source=${localWorkspaceFolderBasename}-workspace,target=/workspaces/${localWorkspaceFolderBasename},type=volume",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
+  "forwardPorts": [3000, 5173, 8080],
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {
-      "version": "latest"
+      "version": "1.1.0"
     },
     "ghcr.io/devcontainers-extra/features/pnpm:2": {
-      "version": "10.30.3"
+      "version": "10.33.0"
+    },
+    "ghcr.io/devcontainer-community/devcontainer-features/lazygit:1": {
+      "version": "0.61.0"
+    },
+    "ghcr.io/devcontainer-community/devcontainer-features/zellij.dev:1": {
+      "version": "0.44.1"
+    },
+    "ghcr.io/devcontainer-community/devcontainer-features/sxyazi-yazi:1": {
+      "version": "26.1.22"
     }
   },
   "customizations": {

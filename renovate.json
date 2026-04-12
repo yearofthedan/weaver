@@ -13,5 +13,6 @@
       "groupName": "node.js",
       "description": "Keep engines.node and CI workflow node-version in sync"
     }
-  ]
+  ],
+  "enabledManagers": ["npm", "dockerfile", "devcontainers"]
 }
