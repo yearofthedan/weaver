@@ -30,9 +30,7 @@ export const TOOLS: ToolDefinition[] = [
       "When renaming an identifier, use this to update every reference project-wide. " +
       "Scope-aware — won't touch unrelated identifiers that share the same name in other scopes. " +
       "Returns filesModified (no need to read them to verify) and filesSkipped (outside workspace, not written — surface to user). " +
-      "status:'warn' means typeErrors is non-empty — type errors in the modified files. " +
-      "When typeErrorsTruncated:true, only the first 100 of typeErrorCount total errors are returned; call get-type-errors on a specific file to retrieve the full set. " +
-      "Pass checkTypeErrors:false to suppress.",
+      "Pass checkTypeErrors:false to suppress the post-write type check.",
     inputSchema: {
       file: RenameArgsSchema.shape.file.describe("Absolute path to the file"),
       line: RenameArgsSchema.shape.line.describe("Line number (1-based)"),
@@ -52,9 +50,7 @@ export const TOOLS: ToolDefinition[] = [
       "The selection must cover complete statements — endCol must point at the last character " +
       "of the last statement (the `;` if present, or the last token in no-semi style). " +
       ".ts/.tsx only; returns NOT_SUPPORTED for .vue files. " +
-      "status:'warn' means typeErrors is non-empty — type errors in the modified files. " +
-      "When typeErrorsTruncated:true, only the first 100 of typeErrorCount total errors are returned; call get-type-errors on a specific file to retrieve the full set. " +
-      "Pass checkTypeErrors:false to suppress.",
+      "Pass checkTypeErrors:false to suppress the post-write type check.",
     inputSchema: {
       file: ExtractFunctionArgsSchema.shape.file.describe(
         "Absolute path to the .ts or .tsx file containing the code to extract",
@@ -85,9 +81,7 @@ export const TOOLS: ToolDefinition[] = [
       "When relocating a file, use this instead of shell mv — it rewrites every import that references the file, project-wide. " +
       "Creates the destination directory if needed. Works for non-source files (tests, scripts, config) too. " +
       "Returns filesModified and filesSkipped (outside workspace, not written — surface to user). " +
-      "status:'warn' means typeErrors is non-empty — type errors in the modified files. " +
-      "When typeErrorsTruncated:true, only the first 100 of typeErrorCount total errors are returned; call get-type-errors on a specific file to retrieve the full set. " +
-      "Pass checkTypeErrors:false to suppress.",
+      "Pass checkTypeErrors:false to suppress the post-write type check.",
     inputSchema: {
       oldPath: MoveArgsSchema.shape.oldPath.describe("Absolute path to the file to move"),
       newPath: MoveArgsSchema.shape.newPath.describe("Absolute destination path"),
@@ -103,9 +97,7 @@ export const TOOLS: ToolDefinition[] = [
       "Handles nested subdirectories, preserves internal structure, and updates all external references. " +
       "Use this instead of multiple moveFile calls when relocating a folder. " +
       "Returns filesMoved (files that were relocated), filesModified (all files with rewritten imports, including the moved files), and filesSkipped (outside workspace, not written). " +
-      "status:'warn' means typeErrors is non-empty — type errors in the modified files. " +
-      "When typeErrorsTruncated:true, only the first 100 of typeErrorCount total errors are returned; call get-type-errors on a specific file to retrieve the full set. " +
-      "Pass checkTypeErrors:false to suppress.",
+      "Pass checkTypeErrors:false to suppress the post-write type check.",
     inputSchema: {
       oldPath: MoveDirectoryArgsSchema.shape.oldPath.describe(
         "Absolute path to the source directory",
@@ -129,9 +121,7 @@ export const TOOLS: ToolDefinition[] = [
       "Only top-level exported declarations (export function, export const, export class, etc.); " +
       "does not support class methods or re-exports via `export { }`. " +
       "Returns filesModified and filesSkipped (outside workspace, not written — surface to user). " +
-      "status:'warn' means typeErrors is non-empty — type errors in the modified files. " +
-      "When typeErrorsTruncated:true, only the first 100 of typeErrorCount total errors are returned; call get-type-errors on a specific file to retrieve the full set. " +
-      "Pass checkTypeErrors:false to suppress.",
+      "Pass checkTypeErrors:false to suppress the post-write type check.",
     inputSchema: {
       sourceFile: MoveSymbolArgsSchema.shape.sourceFile.describe(
         "Absolute path to the file containing the symbol",
@@ -156,9 +146,7 @@ export const TOOLS: ToolDefinition[] = [
       "When deleting a file, use this instead of shell rm — it removes every import and re-export of the file from other project files before deleting it. " +
       "Covers in-project source files, out-of-project files (tests, scripts), and Vue SFC script blocks. " +
       "Returns deletedFile (echo of the path deleted), filesModified (imports cleaned), filesSkipped (outside workspace, not written — surface to user), and importRefsRemoved. " +
-      "status:'warn' means typeErrors is non-empty — type errors in the modified files. " +
-      "When typeErrorsTruncated:true, only the first 100 of typeErrorCount total errors are returned; call get-type-errors on a specific file to retrieve the full set. " +
-      "Pass checkTypeErrors:false to suppress.",
+      "Pass checkTypeErrors:false to suppress the post-write type check.",
     inputSchema: {
       file: DeleteFileArgsSchema.shape.file.describe(
         "Absolute path to the .ts, .tsx, .js, .jsx, or .vue file to delete",
@@ -249,9 +237,7 @@ export const TOOLS: ToolDefinition[] = [
       "(2) Surgical mode — 'edits' array of {file, line, col, oldText, newText} for exact position-verified replacements; " +
       "run searchText first to locate targets and get coordinates; oldText is checked before writing, so stale edits fail rather than corrupt. " +
       "Both modes skip sensitive files. Returns filesModified and replacementCount. " +
-      "status:'warn' means typeErrors is non-empty — type errors in the modified files. " +
-      "When typeErrorsTruncated:true, only the first 100 of typeErrorCount total errors are returned; call get-type-errors on a specific file to retrieve the full set. " +
-      "Pass checkTypeErrors:false to suppress.",
+      "Pass checkTypeErrors:false to suppress the post-write type check.",
     inputSchema: {
       pattern: ReplaceTextBaseSchema.shape.pattern.describe(
         "Regex pattern to replace (pattern mode)",
