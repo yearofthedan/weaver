@@ -69,6 +69,8 @@ Use the CLI (`pnpm exec weaver <command>`) for refactoring during development. T
 
 The shipped skill files at `.claude/skills/{search-and-replace,move-and-rename,code-inspection}/SKILL.md` are the canonical refactoring guidance — the same files external users load.
 
+Skill files are interface documentation, not agent playbooks. Describe what the tool returns and what each field means. Do not prescribe what the agent should do in response — that's the caller's policy, not the tool's contract. The agent has project context weaver doesn't: pre-existing errors, intent, conventions.
+
 **Rule 11: Pin exact dependency versions. Never use `^` or `~` ranges.**
 Ranges let a compromised patch release auto-install on the next `pnpm install`, turning a single package takeover into a supply-chain attack across every consumer. All versions in `package.json` must be exact (e.g. `"1.2.3"`, not `"^1.2.3"`). Only install actively maintained packages — check for deprecation warnings before adding a dependency.
 
