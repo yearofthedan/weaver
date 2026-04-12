@@ -63,9 +63,21 @@ All write operations return:
 
 - **`filesModified`** — every file changed. Don't read these to verify; the list is exhaustive.
 - **`filesSkipped`** — files outside workspace that need manual attention.
-- **`typeErrors`** — type errors after the change. These are action items — fix with `replace-text`.
+- **`typeErrors`** / **`typeErrorCount`** / **`typeErrorsTruncated`** — type errors in modified files. See below.
 
 Pass `"checkTypeErrors": false` when batching changes to check errors once at the end.
+
+## When the response has type errors
+
+`status: "warn"` means `typeErrors` is non-empty. These are action items — something wasn't fully updated and the codebase won't compile until they're fixed.
+
+Follow-up workflow:
+
+1. Examine each entry — `file`, `line`, `col`, and `message` identify exactly what broke.
+2. Call `replace-text` with surgical edits to fix each broken reference.
+3. Call `get-type-errors` on the modified files to confirm clean.
+
+When `typeErrorsTruncated: true`, only the first 100 of `typeErrorCount` total errors appear. Call `get-type-errors` with a specific file path to see the full set before fixing.
 
 ## When NOT to use
 
