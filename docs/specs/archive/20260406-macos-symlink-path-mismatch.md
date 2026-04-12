@@ -98,9 +98,17 @@ In `workspaceHash`, resolve the workspace root via `realpathSync` (try/catch fal
 
 ## Done-when
 
-- [ ] All four previously-failing tests pass on macOS
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] `move-file.test.ts` decomposed below 500 lines before new test added
-- [ ] Regression test added for the macOS symlink case in `getEditsForFileRename` (project loaded with symlinked path, LS call uses real path — verify edits are still returned)
-- [ ] No inline comments remain in `getEditsForFileRename` body; JSDoc added to the method
-- [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+- [x] All four previously-failing tests pass on macOS
+- [x] `pnpm check` passes (lint + build + test)
+- [x] `move-file.test.ts` decomposed below 500 lines before new test added
+- [x] Regression test added for the macOS symlink case in `getEditsForFileRename` (project loaded with symlinked path, LS call uses real path — verify edits are still returned)
+- [x] No inline comments remain in `getEditsForFileRename` body; JSDoc added to the method
+- [x] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+## Outcome
+
+**Reflection:** The root cause was correctly diagnosed before the spec was written — three distinct manifestations of the same symlink resolution mismatch. The `security.ts` and `paths.ts` fixes were straightforward. The `engine.ts` fix required investigation: the initial approach (resolving only the LS call) introduced regressions, and several alternatives were ruled out before the correct fix emerged — the `realpathSync` call was wrong from the start and should simply be removed. The spec was updated mid-implementation (`7e11b97`) to document this revised approach. The archiving step was missed at the end of the session, leaving the spec in `docs/specs/` after the work was complete.
+
+- **Tests added:** 4 regression tests (one per originally-failing case); `move-file.test.ts` reduced from 509 → 474 lines via helper extraction
+- **Mutation score:** not run for touched files in this session
+- **Architectural note:** ts-morph stores source files under the OS-returned unresolved path, not the real path. Any LS call (`getEditsForFileRename`, `findReferences`, etc.) must use the same unresolved form. Do not apply `realpathSync` to paths before passing them to the ts-morph language service.
