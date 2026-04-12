@@ -1,6 +1,8 @@
 ---
 name: brainstorm
 description: "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation."
+metadata:
+  internal: true
 ---
 
 <!-- Adapted from superpowers by Jesse Vincent (MIT). See LICENSE in this directory. -->

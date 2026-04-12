@@ -1,6 +1,8 @@
 ---
 name: writing-skills
 description: Use when creating new skills, editing existing skills, or verifying skills work before deployment
+metadata:
+  internal: true
 ---
 
 <!-- Adapted from superpowers by Jesse Vincent (MIT). See LICENSE in this directory. -->

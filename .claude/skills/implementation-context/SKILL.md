@@ -1,6 +1,8 @@
 ---
 name: implementation-context
 description: Use before writing code for an AC. Reads neighbouring code to absorb local patterns and find reusable code — so implementation fits the codebase, not just passes tests.
+metadata:
+  internal: true
 ---
 
 # Implementation Context

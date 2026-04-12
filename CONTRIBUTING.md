@@ -131,9 +131,19 @@ eval/
 └── release-please.yml     # automated releases: version bump PR + npm publish
 
 .claude/skills/
+│                          # Shipped with the package (for consumers):
+├── search-and-replace/    # agent guidance for search-text + replace-text
+├── move-and-rename/       # agent guidance for rename, move-file, move-directory, move-symbol, delete-file, extract-function
+├── code-inspection/       # agent guidance for find-references, get-definition, get-type-errors
+│                          # Internal (dev workflow only, metadata.internal: true):
 ├── slice/                 # /slice — pick up and implement the next task
 ├── spec/                  # /spec — create a spec from a handoff entry
-└── mutate-triage/         # /mutate-triage — classify survivors, open issues or fix PRs
+├── mutate-triage/         # /mutate-triage — classify survivors, open issues or fix PRs
+├── brainstorm/            # /brainstorm — explore design before implementation
+├── run-checks/            # /run-checks — run tests/checks with tee output capture
+├── implementation-context/ # /implementation-context — absorb local patterns before coding
+├── using-git-worktrees/   # /using-git-worktrees — isolate feature work in a worktree
+└── writing-skills/        # /writing-skills — create or edit skill files
 ```
 
 ## CI and automation

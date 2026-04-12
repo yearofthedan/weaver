@@ -1,6 +1,8 @@
 ---
 name: run-checks
 description: Use this skill when running pnpm check, pnpm test, or any long-running command. Captures output with tee so you never re-run a command just to see different parts of the output.
+metadata:
+  internal: true
 ---
 
 # Running checks and tests

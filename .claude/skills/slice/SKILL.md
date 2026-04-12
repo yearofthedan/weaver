@@ -1,6 +1,8 @@
 ---
 name: slice
 description: Pick up the next task — if it needs a spec, create one first; if it has a spec, implement it. The default entry point for getting work done.
+metadata:
+  internal: true
 ---
 
 # Slice Workflow

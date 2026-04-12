@@ -1,6 +1,8 @@
 ---
 name: spec
 description: Create or refine a task specification from a handoff.md entry — picks the right template, walks through design decisions with the user, and produces a ready-to-implement spec file.
+metadata:
+  internal: true
 ---
 
 # Spec Workflow

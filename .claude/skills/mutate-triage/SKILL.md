@@ -1,6 +1,8 @@
 ---
 name: mutate-triage
 description: Triage surviving mutants after a Stryker run — classify each as known, noise, or fixable, then open GitHub issues for noise and fix branches for fixable gaps.
+metadata:
+  internal: true
 ---
 
 # Mutation Triage

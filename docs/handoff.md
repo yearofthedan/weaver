@@ -170,9 +170,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 - `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; see [moveSymbol.md](features/moveSymbol.md)
-- **: Claude Code plugin** `[needs design]` — package as a Claude Code plugin (`.claude-plugin/plugin.json`); complements existing `typescript-lsp` code intelligence plugin with refactoring tools; one-command install via `/plugin install`
-- **: Claude Code Marketplace submission** `[needs design]` — submit to official Anthropic marketplace; position alongside LSP code intelligence plugins
-
 ---
 
 ### P4 — Low priority
