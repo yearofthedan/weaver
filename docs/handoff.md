@@ -19,9 +19,10 @@ Context that isn't in the feature docs — things you need to know before pickin
 5. [`docs/architecture.md`](architecture.md) — compiler/operation architecture; read before touching anything in `src/`
 6. [`docs/quality.md`](quality.md) — testing and reliability expectations
 
-**Picking up a task?** Tasks have one of two states:
-- **Has a spec link** → ready to implement. Read the spec, then run `/slice`.
+**Picking up a task?** Tasks have one of three states:
+- **`[chore]`** → implementation is unambiguous; implement directly, no spec needed. Any decision context is in the task description.
 - **`[needs design]`** → problem understood, solution not yet agreed. Run `/spec` to create a spec with the user before writing code.
+- **Has a spec link** → already designed. Read the spec, then run `/slice`.
 
 An agent discovering new work should add a `[needs design]` entry and move on — do not design it in the same session.
 
@@ -157,7 +158,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P2 — High-value features / bugs / tech debt
 
-- **Agent guidance on type errors in tool responses** `[needs design]` — all write operations return `typeErrors`; agents need to know this is an action item (something wasn't fully updated) and follow up with `replaceText`. Currently nothing teaches this pattern. Decision needed: shipped skill file, tool description addition, CLAUDE.md guidance snippet, or combination?
+- **Agent guidance on type errors in tool responses** `[chore]` — all write operations return `typeErrors`; agents need to know this is an action item (something wasn't fully updated) and follow up with `replace-text`. Update: (1) each write-op tool description in `src/adapters/mcp/tools.ts` to state that `status: "warn"` means `typeErrors` are action items requiring `replace-text` follow-up; (2) `move-and-rename/SKILL.md` and `search-and-replace/SKILL.md` with a "When the response has type errors" section covering the full workflow and truncation case. Not in CLAUDE.md — external agents won't see it.
 
 ---
 
