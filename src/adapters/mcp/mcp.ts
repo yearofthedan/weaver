@@ -58,7 +58,12 @@ async function startMcpServer(absWorkspace: string): Promise<void> {
         "tool calls are fast and use far fewer tokens than reading files to trace dependencies manually. " +
         "These tools use the compiler's reference graph, which tracks dependencies through " +
         "re-exports, barrel files, type-only imports, and Vue SFCs that text-based approaches miss. " +
-        "If any tool returns error DAEMON_STARTING, the project graph is still loading — retry after a short delay.",
+        "If any tool returns error DAEMON_STARTING, the project graph is still loading — retry after a short delay. " +
+        "Write operations return typeErrors (array), typeErrorCount, and typeErrorsTruncated. " +
+        "status:'warn' means typeErrors is non-empty — type errors in the modified files. " +
+        "When typeErrorsTruncated:true, only the first 100 of typeErrorCount total errors are returned; " +
+        "call get-type-errors on a specific file to retrieve the full set. " +
+        "Pass checkTypeErrors:false to suppress.",
     },
   );
 
