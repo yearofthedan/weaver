@@ -13,7 +13,7 @@ Steps 1-2 and 4-8 run in the main conversation (interactive spec and review work
 
 ---
 
-1. **Find the task.** Read `docs/handoff.md` — identify the first task by priority.
+1. **Find the task.** Read `docs/handoff.md` — identify the first task by priority. Do not skip items or search `docs/specs/` for existing specs; the first item in the queue is the task, whatever its state.
    - **Has a spec link** → go to step 2.
    - **`[needs design]` (no spec)** → switch to the `/spec` workflow: create a spec file from the appropriate template, walk through ACs with the user, update handoff.md with the spec link. After the spec is created, **commit the spec file and updated handoff.md** with message `docs(specs): add spec for [short-title]`. Do not begin implementation with an uncommitted spec. Then continue to step 2.
    - **Legacy inline ACs (no spec file, no `[needs design]` tag)** → ask the user: create a spec first, or proceed with inline ACs?
