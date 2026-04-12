@@ -54,7 +54,7 @@
   ],
   "onCreateCommand": "/usr/local/bin/onCreate.sh https://github.com/yearofthedan/weaver.git",
   "postCreateCommand": "pnpm install",
-  "postStartCommand": "curl -fsSL https://claude.ai/install.sh | bash",
+  "postStartCommand": "/usr/local/bin/postStart.sh",
   "containerEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "GIT_CONFIG_COUNT": "1",

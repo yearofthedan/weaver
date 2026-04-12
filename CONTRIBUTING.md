@@ -11,6 +11,32 @@
 pnpm install
 ```
 
+## Dev container
+
+The repo includes a dev container configuration in `.devcontainer/`. It works with any container runtime — VS Code, CLI tools, or remote environments.
+
+### GitHub authentication
+
+After launching the container, run the bootstrap script to authenticate with GitHub and configure your git identity:
+
+```bash
+scripts/bootstrap-gh.sh
+```
+
+This will walk you through `gh auth login` interactively.
+
+### Headless / CI usage
+
+For non-interactive environments, pass GitHub credentials as environment variables to skip the interactive flow:
+
+| Variable | Required | Description |
+|---|---|---|
+| `GH_TOKEN` | yes | A GitHub personal access token — used for `gh auth` |
+| `GH_USER` | no | GitHub username — skips the API call to look it up |
+| `GH_EMAIL` | no | Git commit email — defaults to `<id>+<user>@users.noreply.github.com` |
+
+These can be set in `devcontainer.json` under `containerEnv`, passed via `docker run -e`, or injected by your CI provider.
+
 ## Build
 
 ```bash
