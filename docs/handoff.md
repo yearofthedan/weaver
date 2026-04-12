@@ -158,8 +158,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P2 — High-value features / bugs / tech debt
 
-- **Agent guidance on type errors in tool responses** `[chore]` — all write operations return `typeErrors`; agents need to know this is an action item (something wasn't fully updated) and follow up with `replace-text`. Update: (1) each write-op tool description in `src/adapters/mcp/tools.ts` to state that `status: "warn"` means `typeErrors` are action items requiring `replace-text` follow-up; (2) `move-and-rename/SKILL.md` and `search-and-replace/SKILL.md` with a "When the response has type errors" section covering the full workflow and truncation case. Not in CLAUDE.md — external agents won't see it.
-
 ---
 
 ### P3 — Medium-value features / bugs / tech debt
