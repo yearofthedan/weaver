@@ -22,7 +22,7 @@ Returns structured results: `{file, line, col, matchText}` for every hit. Use th
 weaver replace-text '{"pattern": "oldName", "replacement": "newName", "glob": "**/*.ts"}'
 ```
 
-Response includes `filesModified`, `replacementCount`, and `typeErrors`. Check `typeErrors` — they tell you if the replacement broke something.
+Response includes `filesModified`, `replacementCount`, and `typeErrors`. If `status` is `warn`, `typeErrors` are action items — see below.
 
 ## Surgical mode: replace at exact positions
 
@@ -46,8 +46,22 @@ weaver search-text '{"pattern": "FOO", "glob": "**/*.ts"}'
 # 2. Replace all (or use surgical mode for selective replacement)
 weaver replace-text '{"pattern": "FOO", "replacement": "BAR", "glob": "**/*.ts"}'
 
-# 3. Check typeErrors in the response — fix any issues
+# 3. If status is "warn", fix typeErrors with replace-text, then verify with get-type-errors
 ```
+
+## When the response has type errors
+
+`status: "warn"` means `typeErrors` is non-empty. These are action items — the replacement left broken references that won't compile.
+
+Follow-up workflow:
+
+1. Examine each entry — `file`, `line`, `col`, and `message` identify exactly what broke.
+2. Call `replace-text` with surgical edits to fix each broken reference.
+3. Call `get-type-errors` on the modified files to confirm clean.
+
+When `typeErrorsTruncated: true`, only the first 100 of `typeErrorCount` total errors appear. Call `get-type-errors` with a specific file path to see the full set before fixing.
+
+Pass `"checkTypeErrors": false` when batching multiple replace calls to check errors once at the end.
 
 ## Scoping: `workspace` vs `glob`
 
