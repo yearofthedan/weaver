@@ -15,6 +15,13 @@ pnpm install
 
 The repo includes a dev container configuration in `.devcontainer/`. It works with any container runtime — VS Code, CLI tools, or remote environments.
 
+Two scripts wrap the common workflows. Both require the [devcontainer CLI](https://github.com/devcontainers/cli) (`npm install -g @devcontainers/cli`):
+
+```bash
+scripts/devcontainer-up.sh       # build and start the container
+scripts/devcontainer-connect.sh  # attach with the AEE zellij layout
+```
+
 ### GitHub authentication
 
 After launching the container, run the bootstrap script to authenticate with GitHub and configure your git identity:
