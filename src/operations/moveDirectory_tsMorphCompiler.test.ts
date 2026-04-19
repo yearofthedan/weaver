@@ -295,7 +295,7 @@ describe("moveDirectory", () => {
   describe("empty directory", () => {
     test.override({ fixtureName: FIXTURES.moveDirTs.name });
 
-    test("returns empty arrays and no error for a directory with no files", async ({ dir }) => {
+    test("returns empty arrays and no error for a directory with no files", async () => {
       const tmpRoot = fs.mkdtempSync(path.join(fs.realpathSync("/tmp"), "move-dir-empty-"));
       try {
         const emptyDir = path.join(tmpRoot, "source");
