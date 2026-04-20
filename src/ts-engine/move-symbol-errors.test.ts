@@ -144,22 +144,20 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
       expect(fs.readFileSync(path.join(dir, "src/importer.ts"), "utf8")).toBe(importerContent);
     });
 
-    it("proceeds when dest has a non-exported same-name declaration", async () => {
+    it("throws SYMBOL_EXISTS when dest has a non-exported same-name declaration", async () => {
       const { dir, tsCompiler, scope } = setupSimpleTs();
       dirs.push(dir);
       fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
       fs.writeFileSync(path.join(dir, "src/b.ts"), "const FOO = 42;\n");
-      await tsMoveSymbol(
-        tsCompiler,
-        path.join(dir, "src/a.ts"),
-        "FOO",
-        path.join(dir, "src/b.ts"),
-        scope,
-      );
-      expect(fs.readFileSync(path.join(dir, "src/a.ts"), "utf8")).not.toContain("FOO");
-      const bContent = fs.readFileSync(path.join(dir, "src/b.ts"), "utf8");
-      expect(bContent).toContain("export const FOO = 1");
-      expect(bContent).toContain("const FOO = 42");
+      await expect(
+        tsMoveSymbol(
+          tsCompiler,
+          path.join(dir, "src/a.ts"),
+          "FOO",
+          path.join(dir, "src/b.ts"),
+          scope,
+        ),
+      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
     });
   });
 

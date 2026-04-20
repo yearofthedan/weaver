@@ -172,7 +172,7 @@ export class ImportRewriter {
     return false;
   }
 
-  private matchesDestSpecifier(
+  matchesDestSpecifier(
     specifier: string | undefined,
     filePath: string,
     newSource: string,
