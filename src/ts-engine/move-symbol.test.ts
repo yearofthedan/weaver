@@ -140,7 +140,7 @@ describe("tsMoveSymbol", () => {
     it("records importer outside the workspace boundary as skipped, not modified", async () => {
       const {
         dir,
-        tsCompiler,
+        tsCompiler: _tsCompiler,
         scope: _unusedScope,
       } = setupProject({
         "src/utils.ts": "export function add(a: number, b: number): number { return a + b; }\n",
@@ -264,11 +264,10 @@ describe("tsMoveSymbol", () => {
   describe("source self-import after move", () => {
     it("adds an import back to source when remaining code references the moved symbol", async () => {
       const { dir, tsCompiler, scope } = setupProject({
-        "src/a.ts":
-          [
-            "export function Foo(): string { return 'foo'; }",
-            "export function Bar(): string { return Foo(); }",
-          ].join("\n") + "\n",
+        "src/a.ts": `${[
+          "export function Foo(): string { return 'foo'; }",
+          "export function Bar(): string { return Foo(); }",
+        ].join("\n")}\n`,
         "src/dest.ts": "",
       });
       dirs.push(dir);
@@ -374,11 +373,10 @@ describe("tsMoveSymbol", () => {
 
     it("does not carry imports for names defined locally in the source file", async () => {
       const { dir, tsCompiler, scope } = setupProject({
-        "src/source.ts":
-          [
-            "type LocalType = { value: string };",
-            "export function Foo(b: LocalType): string { return b.value; }",
-          ].join("\n") + "\n",
+        "src/source.ts": `${[
+          "type LocalType = { value: string };",
+          "export function Foo(b: LocalType): string { return b.value; }",
+        ].join("\n")}\n`,
         "src/dest.ts": "",
       });
       dirs.push(dir);
@@ -441,10 +439,31 @@ describe("tsMoveSymbol", () => {
       expect(fooMatches).toHaveLength(1);
     });
 
-    it("detects non-exported const variable conflicts", async () => {
+    it.each([
+      [
+        "const variable",
+        "export const Foo = 'new';\n",
+        "const Foo = 'old';\nexport const other = 1;\n",
+      ],
+      [
+        "class",
+        "export function Foo(): void {}\n",
+        "class Foo {}\nexport function other(): void {}\n",
+      ],
+      [
+        "interface",
+        "export function Foo(): void {}\n",
+        "interface Foo { x: number }\nexport function other(): void {}\n",
+      ],
+      [
+        "type alias",
+        "export function Foo(): void {}\n",
+        "type Foo = string;\nexport function other(): void {}\n",
+      ],
+    ])("detects non-exported %s conflict", async (_kind, srcContent, destContent) => {
       const { dir, tsCompiler, scope } = setupProject({
-        "src/source.ts": "export const Foo = 'new';\n",
-        "src/dest.ts": "const Foo = 'old';\nexport const other = 1;\n",
+        "src/source.ts": srcContent,
+        "src/dest.ts": destContent,
       });
       dirs.push(dir);
 
@@ -457,6 +476,31 @@ describe("tsMoveSymbol", () => {
           scope,
         ),
       ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
+    });
+  });
+
+  describe("aliased import carry", () => {
+    it("carries an aliased import to the destination preserving the alias", async () => {
+      const { dir, tsCompiler, scope } = setupProject({
+        "src/types.ts": "export type Bar = { value: string };\n",
+        "src/source.ts":
+          'import { Bar as B } from "./types";\nexport function Foo(b: B): string { return b.value; }\n',
+        "src/dest.ts": "",
+      });
+      dirs.push(dir);
+
+      await tsMoveSymbol(
+        tsCompiler,
+        path.join(dir, "src/source.ts"),
+        "Foo",
+        path.join(dir, "src/dest.ts"),
+        scope,
+      );
+
+      const destContent = fs.readFileSync(path.join(dir, "src/dest.ts"), "utf8");
+      expect(destContent).toContain("Bar as B");
+      expect(destContent).toContain('"./types.js"');
+      expect(destContent).toContain("export function Foo");
     });
   });
 });
