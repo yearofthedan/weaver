@@ -1,10 +1,12 @@
 import * as path from "node:path";
-import { Node, type SourceFile, SyntaxKind } from "ts-morph";
+import { Node, type SourceFile } from "ts-morph";
 import { EngineError } from "../domain/errors.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { computeRelativeImportPath } from "../utils/relative-path.js";
 import type { TsMorphEngine } from "./engine.js";
 import { ImportRewriter } from "./import-rewriter.js";
+import { findNonExportedDeclaration } from "./non-exported-declaration.js";
+import { hasRefsOutsideDeclaration } from "./refs-outside-declaration.js";
 import { SymbolRef } from "./symbol-ref.js";
 import { collectTransitiveImports } from "./transitive-imports.js";
 
@@ -161,56 +163,4 @@ function resolveDeclarationStatement(srcSF: SourceFile, symbolName: string): Nod
     return rawDecl.getParent().getParent() as Node;
   }
   return rawDecl as Node;
-}
-
-/**
- * Returns true if any identifier in `srcSF` outside of `declStmt`'s own subtree
- * resolves to the declaration at `declStmt`.
- */
-function hasRefsOutsideDeclaration(srcSF: SourceFile, declStmt: Node): boolean {
-  const declStart = declStmt.getStart();
-  const declEnd = declStmt.getEnd();
-  for (const identifier of srcSF.getDescendantsOfKind(SyntaxKind.Identifier)) {
-    const pos = identifier.getStart();
-    if (pos >= declStart && pos < declEnd) continue;
-    const decls = identifier.getSymbol()?.getDeclarations();
-    if (!decls || decls.length === 0) continue;
-    const resolvedDecl = decls[0];
-    if (!resolvedDecl) continue;
-    const resolvedStart = Node.isVariableDeclaration(resolvedDecl)
-      ? resolvedDecl.getParent().getParent().getStart()
-      : resolvedDecl.getStart();
-    if (
-      resolvedStart === declStart &&
-      resolvedDecl.getSourceFile().getFilePath() === srcSF.getFilePath()
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Find a non-exported declaration with the given name in `dstSF`, or null if none exists.
- */
-function findNonExportedDeclaration(
-  dstSF: SourceFile,
-  symbolName: string,
-): (Node & { remove(): void }) | null {
-  const fn = dstSF.getFunction(symbolName);
-  if (fn && !fn.isExported()) return fn as Node & { remove(): void };
-  const cls = dstSF.getClass(symbolName);
-  if (cls && !cls.isExported()) return cls as Node & { remove(): void };
-  const iface = dstSF.getInterface(symbolName);
-  if (iface && !iface.isExported()) return iface as Node & { remove(): void };
-  const typeAlias = dstSF.getTypeAlias(symbolName);
-  if (typeAlias && !typeAlias.isExported()) return typeAlias as Node & { remove(): void };
-  const varDecl = dstSF.getVariableDeclaration(symbolName);
-  if (varDecl) {
-    const stmt = varDecl.getParent().getParent();
-    if (Node.isVariableStatement(stmt) && !stmt.isExported()) {
-      return stmt as Node & { remove(): void };
-    }
-  }
-  return null;
 }

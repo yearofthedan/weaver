@@ -140,4 +140,79 @@ describe("collectTransitiveImports", () => {
       expect(result[0].resolvedAbsPath).toBe("/shared.ts");
     });
   });
+
+  describe("non-aliased import has no alias property", () => {
+    it("omits alias field when import has no alias", () => {
+      const project = makeProject();
+      project.createSourceFile("/types.ts", "export type Bar = { value: string };\n");
+      const srcSF = project.createSourceFile(
+        "/source.ts",
+        'import { Bar } from "./types";\nexport function Foo(b: Bar): string { return b.value; }\n',
+      );
+      const declStmt = srcSF.getFunctionOrThrow("Foo");
+
+      const result = collectTransitiveImports(srcSF, declStmt);
+
+      expect(result[0].namedImports[0]).not.toHaveProperty("alias");
+    });
+  });
+
+  describe("import from different module not carried for local identifier match", () => {
+    it("does not carry an import whose resolved path differs from the identifier's resolved path", () => {
+      const project = makeProject();
+      project.createSourceFile("/a.ts", "export type X = string;\n");
+      project.createSourceFile("/b.ts", "export type X = number;\n");
+      const srcSF = project.createSourceFile(
+        "/source.ts",
+        'import { X } from "./a";\nexport function Foo(x: X): string { return String(x); }\n',
+      );
+      const declStmt = srcSF.getFunctionOrThrow("Foo");
+
+      const result = collectTransitiveImports(srcSF, declStmt);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].resolvedAbsPath).toBe("/a.ts");
+    });
+  });
+
+  describe("identifier matching uses local alias name", () => {
+    it("matches on the alias name, not the original exported name", () => {
+      const project = makeProject();
+      project.createSourceFile("/types.ts", "export type Bar = { value: string };\n");
+      const srcSF = project.createSourceFile(
+        "/source.ts",
+        'import { Bar as Renamed } from "./types";\nexport function Foo(b: Renamed): string { return b.value; }\n',
+      );
+      const declStmt = srcSF.getFunctionOrThrow("Foo");
+
+      const result = collectTransitiveImports(srcSF, declStmt);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].namedImports).toEqual([{ name: "Bar", alias: "Renamed" }]);
+    });
+  });
+
+  describe("deduplication across mixed known and new names", () => {
+    it("adds only the new name when one import is already tracked and the other is not", () => {
+      const project = makeProject();
+      project.createSourceFile(
+        "/types.ts",
+        "export type A = string;\nexport type B = number;\nexport type C = boolean;\n",
+      );
+      const srcSF = project.createSourceFile(
+        "/source.ts",
+        'import { A, B, C } from "./types";\nexport function Foo(a: A, b: B, c: C): string { return String(a) + String(b) + String(c); }\n',
+      );
+      const declStmt = srcSF.getFunctionOrThrow("Foo");
+
+      const result = collectTransitiveImports(srcSF, declStmt);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].namedImports).toHaveLength(3);
+      const names = result[0].namedImports.map((ni) => ni.name);
+      expect(names).toContain("A");
+      expect(names).toContain("B");
+      expect(names).toContain("C");
+    });
+  });
 });
