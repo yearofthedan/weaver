@@ -42,6 +42,12 @@ Why this change exists. One paragraph max — the feature doc has the background
 > `docs/code-standards.md` (push down to units → decompose source → extract
 > fixtures → parameterise → split by area as last resort). Include a prep step
 > if refactoring is needed before adding new tests.
+>
+> **Layer-fit check:** For each AC planned below, note whether the behaviour is
+> a pure function of its inputs (test at unit layer with an in-memory fixture)
+> or requires real project/workspace wiring (test at integration layer, one
+> smoke per wiring path). Mark this next to each AC so the executor doesn't
+> default to exhaustive integration tests for pure logic.
 
 - (none, or list smells found during exploration)
 
@@ -189,6 +195,7 @@ Examples of what belongs here:
 - [ ] All ACs verified by tests
 - [ ] Mutation score ≥ threshold for touched files
 - [ ] `pnpm check` passes (lint + build + test)
+- [ ] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`. If implementation pushes a file past threshold, extract per the test refactoring hierarchy (push down to units → decompose source) before marking this item done.
 - [ ] Docs updated if public surface changed:
       - README.md (tool table, CLI commands, error codes, project structure)
       - Feature doc created or updated (use `docs/features/_template.md` for new docs)

@@ -50,6 +50,7 @@ Steps 1-2 and 4-8 run in the main conversation (interactive spec and review work
    - Verify commits exist and `pnpm check` passes before dispatching the next batch
 
 4. **Complete the spec's Done-when checklist.** Walk through every item in the spec's Done-when section (defined by the template — see `docs/specs/templates/change.md` or `bug.md`). Additionally:
+   - [ ] **File-size check.** Run `wc -l` on every source and test file touched during implementation. Compare against the thresholds defined in `docs/code-standards.md`. If any touched file is over the hard flag, pause before archiving and apply the test refactoring hierarchy — push pure-helper behaviour down to unit tests, decompose the source, extract fixtures. This is the checkpoint that catches implementation-time bloat; do NOT defer it to a future task.
    - [ ] **Remove** the handoff.md task entry entirely — handoff.md is a work queue, not a history. Do not mark it shipped, do not leave a link to the archive. Just delete the line. Update the "Current state" section (test count, layout changes) if needed.
    - [ ] If public surfaces changed, update the corresponding docs (the spec's Done-when checklist specifies which)
 

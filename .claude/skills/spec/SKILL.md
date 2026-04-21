@@ -41,6 +41,8 @@ metadata:
 
    **Test hotspot assessment:** Check the test files that will be touched by this spec. If any are at or near threshold, assess them using the test refactoring hierarchy in `docs/code-standards.md` and include a prep step in the spec to refactor them before adding new tests.
 
+   **Layer-fit pre-check (per AC):** For each AC, ask *"is the behaviour under test a pure function of its inputs, or does it require real I/O, project graph, or workspace state?"* If pure, plan to extract a helper and unit-test it directly — do not route through full integration setup. If integration, keep one smoke test per wiring path. This decision goes in the spec's Behaviour section as a sub-note under each AC, so the execution agent doesn't default to mirroring the existing test style.
+
    If red flags are severe enough to warrant cleanup before feature work, note that a cleanup sub-slice should be dispatched to the execution agent first.
 
 10. **Fill in Interface (change only).** See `docs/specs/templates/change.md` for the full walkthrough. For every parameter and return field, answer:

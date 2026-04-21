@@ -76,6 +76,28 @@ Audit every test file: does its test target match the directory it lives in? A t
 
 - Extracting assertion helpers that hide what's being checked. Indirection in assertions makes test failures harder to diagnose. Prefer inline assertions with clear variable names.
 
+## Type casts
+
+Casts (`as X`) throw away what the type system knows. Reach for them only at true system boundaries (JSON parse, user input, `!` on API returns you've just guarded). Inside the codebase:
+
+- **`as Base` on a specific class is a smell.** If you find yourself writing `fn as Node & { remove(): void }` for five concrete ts-morph classes, the fix is a union return type — each member already satisfies the intersection. The cast hides that.
+- **`as T` to paper over `| undefined` is a smell.** When you cast away the `undefined`, ask: is there a narrower API call that returns `T` directly? (e.g. `decl.getVariableStatement()` instead of `decl.getParent().getParent() as Node`.) If not, use `!` with a comment explaining the invariant — don't widen.
+- **`as unknown as T` means the types are wrong.** Fix the types, do not bypass them.
+
+If you're tempted to add a cast during implementation, stop and read the return type of the API you're calling. The cast usually exists to avoid thinking about the real shape.
+
+## Defensive code vs. dead branches
+
+If you write a guard (null check, boundary check, type narrowing) and can't construct a realistic input that exercises the fail path, the guard is dead code. TypeScript already rules out the case — you're guarding against a ghost.
+
+Mutation testing exposes these: a surviving mutant on a guard you "know" can't be hit is not "noise, untestable" — it's a signal that the branch should be removed. Restructure the code so the impossible case isn't representable. Examples:
+
+- Replace position-comparison logic with identity comparison (`node === declStmt`) — no boundary conditions to guard.
+- Replace `const x = arr[0]; if (!x) continue;` with `const [x] = arr; if (!x) continue;` when the array check and the index check are the same check.
+- Prefer APIs that return narrower types over chained `getParent().getParent()` + cast.
+
+If a surviving mutant genuinely cannot be killed because the branch is unreachable, delete the branch — don't document it.
+
 ## Refactoring triggers
 
 These are signals to pause and refactor before continuing:
