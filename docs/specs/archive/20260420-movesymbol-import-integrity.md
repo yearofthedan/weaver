@@ -93,3 +93,39 @@ Both decisions are resolved — recorded here for the executor.
 - [ ] Tech debt discovered during implementation added to handoff.md as `[needs design]`
 - [ ] Non-obvious gotchas added to `docs/features/moveSymbol.md` or `.claude/MEMORY.md`
 - [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+## Outcome
+
+### Reflection
+
+**What went well**
+- Open decisions in the spec (AST vs text heuristic; before-vs-after removal) were resolved up front — the executor had no architectural forks to make.
+- The original 4 ACs landed cleanly on first dispatch; tests pass, mutation-killing tests were added, feature doc updated.
+- The follow-up extraction exercise (pushing pure helpers out of move-symbol.ts with direct unit tests) was the right call — it took the integration file from 506 → 343, brought three new source files to 100%/100%/86% mutation coverage on the helpers individually, and let the integration file focus on wiring.
+
+**What didn't**
+- The executor wrote 506 lines of integration tests for behaviour that was clearly pure-helper logic. Code-standards.md §"Push integration tests down" already said to do this, but nothing in the spec/slice workflow forced a layer-fit check at the right moment. Addressed in the same session: added a per-AC layer-fit prompt to the spec skill + change template, and a file-size Done-when check to the slice skill.
+- The executor classified 9 surviving mutants as "untestable defensive guards" and recommended accepting them. Three were actually dead code: an identity comparison replaces a position+filepath comparison (no boundary conditions), destructuring replaces `arr[0]` after length check (no double guard), and a union return type replaces five widening `as Node & { remove(): void }` casts (no upcast required). Restructure took 5 minutes and raised refs-outside-declaration from 70.97 → 85.71 and non-exported-declaration to 100%. Addressed in the same session: added a `refactor` classification to mutate-triage before `noise`, plus a new §"Defensive code vs. dead branches" to code-standards.md.
+- Dispatching two docs commits in parallel collided on the shared Vitest coverage temp directory — one hook ran into `ENOENT: .../coverage/.tmp/coverage-36.json` while the other held the file. Commit sequentially from now on; parallelism doesn't pay when the tool-chain shares global state.
+
+**For the next agent picking up related work**
+- `move-symbol.ts` orchestrator is 165 lines. The three extracted helpers (`transitive-imports`, `refs-outside-declaration`, `non-exported-declaration`) each have dedicated unit tests — edit them there, not through integration tests.
+- The ImportRewriter `matchesDestSpecifier` method was made package-visible to share dedup logic with `tsMoveSymbol`. If you're touching `ImportRewriter`'s surface, check whether that coupling is still needed — it's a small code smell left over from this work.
+- Gap 3 (moving non-exported functions) remains unaddressed. It was split to its own `[needs design]` during this spec.
+
+### Numbers
+
+- **Source size:** `move-symbol.ts` 108 → 165 (after full flow + extraction); three new helper modules at 74/19/41 lines.
+- **Integration test size:** `move-symbol.test.ts` 255 → 343; three new unit test modules at 218/99/72 lines.
+- **Mutation scores (post-refactor, per-file):**
+  - `move-symbol.ts`: 76.70%
+  - `transitive-imports.ts`: 80.33%
+  - `refs-outside-declaration.ts`: **85.71%** (was 70.97 before dead-branch removal)
+  - `non-exported-declaration.ts`: **100%** (was 78.95 before cast cleanup)
+  - Overall run below 75% threshold is dragged by `dispatcher.ts` (0%, pre-existing, unrelated).
+- **Test count:** +33 unit tests across the three new helper files, −10 integration tests (net +23).
+
+### Artefacts preserved
+- Workflow hardening: `spec` skill layer-fit prompt; `slice` skill file-size Done-when; `change.md` template mirrors both.
+- Teaching: `code-standards.md` §Type casts and §Defensive code vs. dead branches; `mutate-triage` skill `refactor` classification.
+- Agent notes: `.claude/agent-notes/movesymbol-import-integrity.md` and `.claude/agent-notes/movesymbol-extract-helpers.md`.
