@@ -5,24 +5,15 @@ import { Node, type SourceFile, SyntaxKind } from "ts-morph";
  * resolves to the declaration at `declStmt`.
  */
 export function hasRefsOutsideDeclaration(srcSF: SourceFile, declStmt: Node): boolean {
-  const declStart = declStmt.getStart();
-  const declEnd = declStmt.getEnd();
+  const innerIdentifiers = new Set(declStmt.getDescendantsOfKind(SyntaxKind.Identifier));
   for (const identifier of srcSF.getDescendantsOfKind(SyntaxKind.Identifier)) {
-    const pos = identifier.getStart();
-    if (pos >= declStart && pos < declEnd) continue;
-    const decls = identifier.getSymbol()?.getDeclarations();
-    if (!decls || decls.length === 0) continue;
-    const resolvedDecl = decls[0];
+    if (innerIdentifiers.has(identifier)) continue;
+    const [resolvedDecl] = identifier.getSymbol()?.getDeclarations() ?? [];
     if (!resolvedDecl) continue;
-    const resolvedStart = Node.isVariableDeclaration(resolvedDecl)
-      ? resolvedDecl.getParent().getParent().getStart()
-      : resolvedDecl.getStart();
-    if (
-      resolvedStart === declStart &&
-      resolvedDecl.getSourceFile().getFilePath() === srcSF.getFilePath()
-    ) {
-      return true;
-    }
+    const resolvedStmt = Node.isVariableDeclaration(resolvedDecl)
+      ? resolvedDecl.getVariableStatement()
+      : resolvedDecl;
+    if (resolvedStmt === declStmt) return true;
   }
   return false;
 }

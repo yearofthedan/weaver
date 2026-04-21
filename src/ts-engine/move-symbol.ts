@@ -156,11 +156,10 @@ export async function tsMoveSymbol(
  * or null if not found.
  */
 function resolveDeclarationStatement(srcSF: SourceFile, symbolName: string): Node | null {
-  const exportedDecls = srcSF.getExportedDeclarations().get(symbolName);
-  if (!exportedDecls || exportedDecls.length === 0) return null;
-  const rawDecl = exportedDecls[0] as Node;
+  const rawDecl = srcSF.getExportedDeclarations().get(symbolName)?.[0];
+  if (!rawDecl) return null;
   if (Node.isVariableDeclaration(rawDecl)) {
-    return rawDecl.getParent().getParent() as Node;
+    return rawDecl.getVariableStatement() ?? null;
   }
-  return rawDecl as Node;
+  return rawDecl;
 }
