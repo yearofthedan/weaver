@@ -69,4 +69,31 @@ describe("hasRefsOutsideDeclaration", () => {
       expect(hasRefsOutsideDeclaration(srcSF, declStmt)).toBe(false);
     });
   });
+
+  describe("does not count the declaration's own name as an external reference", () => {
+    it("the function name identifier inside the declaration is not counted", () => {
+      const project = makeProject();
+      const srcSF = project.createSourceFile(
+        "/a.ts",
+        "export function Foo(): string { return 'foo'; }\n",
+      );
+      const declStmt = srcSF.getFunctionOrThrow("Foo");
+
+      expect(hasRefsOutsideDeclaration(srcSF, declStmt)).toBe(false);
+    });
+  });
+
+  describe("does not count references from a different source file", () => {
+    it("returns false when the only reference is in another file", () => {
+      const project = makeProject();
+      const srcSF = project.createSourceFile(
+        "/a.ts",
+        "export function Foo(): string { return 'foo'; }\n",
+      );
+      project.createSourceFile("/b.ts", 'import { Foo } from "./a";\nconst r = Foo();\n');
+      const declStmt = srcSF.getFunctionOrThrow("Foo");
+
+      expect(hasRefsOutsideDeclaration(srcSF, declStmt)).toBe(false);
+    });
+  });
 });

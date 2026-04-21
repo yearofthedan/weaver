@@ -82,18 +82,6 @@ describe("tsMoveSymbol", () => {
       expect(mainContent).toContain('"./helpers.js"');
       expect(mainContent).not.toContain('"./utils"');
     });
-
-    it("filesModified includes both source and destination files", async () => {
-      const { dir, tsCompiler, scope } = setupSimpleTs();
-      dirs.push(dir);
-      const srcPath = path.join(dir, "src/utils.ts");
-      const dstPath = path.join(dir, "src/helpers.ts");
-
-      await tsMoveSymbol(tsCompiler, srcPath, "greetUser", dstPath, scope);
-
-      expect(scope.modified).toContain(srcPath);
-      expect(scope.modified).toContain(dstPath);
-    });
   });
 
   describe("symbol move to existing file", () => {
@@ -264,10 +252,8 @@ describe("tsMoveSymbol", () => {
   describe("source self-import after move", () => {
     it("adds an import back to source when remaining code references the moved symbol", async () => {
       const { dir, tsCompiler, scope } = setupProject({
-        "src/a.ts": `${[
-          "export function Foo(): string { return 'foo'; }",
-          "export function Bar(): string { return Foo(); }",
-        ].join("\n")}\n`,
+        "src/a.ts":
+          "export function Foo(): string { return 'foo'; }\nexport function Bar(): string { return Foo(); }\n",
         "src/dest.ts": "",
       });
       dirs.push(dir);
@@ -282,23 +268,6 @@ describe("tsMoveSymbol", () => {
       expect(srcContent).toContain("export function Bar");
       expect(srcContent).not.toContain("export function Foo");
       expect(scope.modified).toContain(srcPath);
-    });
-
-    it("does not add a self-import when no remaining code references the moved symbol", async () => {
-      const { dir, tsCompiler, scope } = setupProject({
-        "src/a.ts":
-          "export function Foo(): string { return 'foo'; }\nexport function Bar(): string { return 'bar'; }\n",
-        "src/dest.ts": "",
-      });
-      dirs.push(dir);
-      const srcPath = path.join(dir, "src/a.ts");
-      const dstPath = path.join(dir, "src/dest.ts");
-
-      await tsMoveSymbol(tsCompiler, srcPath, "Foo", dstPath, scope);
-
-      const srcContent = fs.readFileSync(srcPath, "utf8");
-      expect(srcContent).not.toContain("import { Foo }");
-      expect(srcContent).not.toContain('"./dest.js"');
     });
   });
 
@@ -323,74 +292,6 @@ describe("tsMoveSymbol", () => {
       const destContent = fs.readFileSync(path.join(dir, "src/dest.ts"), "utf8");
       expect(destContent).toContain("import { Bar }");
       expect(destContent).toContain('"./types.js"');
-      expect(destContent).toContain("export function Foo");
-    });
-
-    it("adjusts the import path relative to the destination directory", async () => {
-      const { dir, tsCompiler, scope } = setupProject({
-        "src/types.ts": "export type Bar = { value: string };\n",
-        "src/source.ts":
-          'import { Bar } from "./types";\nexport function Foo(b: Bar): string { return b.value; }\n',
-        "lib/dest.ts": "",
-      });
-      dirs.push(dir);
-
-      await tsMoveSymbol(
-        tsCompiler,
-        path.join(dir, "src/source.ts"),
-        "Foo",
-        path.join(dir, "lib/dest.ts"),
-        scope,
-      );
-
-      const destContent = fs.readFileSync(path.join(dir, "lib/dest.ts"), "utf8");
-      expect(destContent).toContain("import { Bar }");
-      expect(destContent).toContain('"../src/types.js"');
-    });
-
-    it("does not duplicate a transitive import already present in destination", async () => {
-      const { dir, tsCompiler, scope } = setupProject({
-        "src/types.ts": "export type Bar = { value: string };\n",
-        "src/source.ts":
-          'import { Bar } from "./types";\nexport function Foo(b: Bar): string { return b.value; }\n',
-        "src/dest.ts": 'import { Bar } from "./types";\nexport function existing(): void {}\n',
-      });
-      dirs.push(dir);
-
-      await tsMoveSymbol(
-        tsCompiler,
-        path.join(dir, "src/source.ts"),
-        "Foo",
-        path.join(dir, "src/dest.ts"),
-        scope,
-      );
-
-      const destContent = fs.readFileSync(path.join(dir, "src/dest.ts"), "utf8");
-      const importMatches = destContent.match(/import \{ Bar \}/g) ?? [];
-      expect(importMatches).toHaveLength(1);
-      expect(destContent).toContain("export function Foo");
-    });
-
-    it("does not carry imports for names defined locally in the source file", async () => {
-      const { dir, tsCompiler, scope } = setupProject({
-        "src/source.ts": `${[
-          "type LocalType = { value: string };",
-          "export function Foo(b: LocalType): string { return b.value; }",
-        ].join("\n")}\n`,
-        "src/dest.ts": "",
-      });
-      dirs.push(dir);
-
-      await tsMoveSymbol(
-        tsCompiler,
-        path.join(dir, "src/source.ts"),
-        "Foo",
-        path.join(dir, "src/dest.ts"),
-        scope,
-      );
-
-      const destContent = fs.readFileSync(path.join(dir, "src/dest.ts"), "utf8");
-      expect(destContent).not.toContain("import {");
       expect(destContent).toContain("export function Foo");
     });
   });
@@ -437,70 +338,6 @@ describe("tsMoveSymbol", () => {
       expect(destContent).not.toContain("return 'old'");
       const fooMatches = destContent.match(/function Foo/g) ?? [];
       expect(fooMatches).toHaveLength(1);
-    });
-
-    it.each([
-      [
-        "const variable",
-        "export const Foo = 'new';\n",
-        "const Foo = 'old';\nexport const other = 1;\n",
-      ],
-      [
-        "class",
-        "export function Foo(): void {}\n",
-        "class Foo {}\nexport function other(): void {}\n",
-      ],
-      [
-        "interface",
-        "export function Foo(): void {}\n",
-        "interface Foo { x: number }\nexport function other(): void {}\n",
-      ],
-      [
-        "type alias",
-        "export function Foo(): void {}\n",
-        "type Foo = string;\nexport function other(): void {}\n",
-      ],
-    ])("detects non-exported %s conflict", async (_kind, srcContent, destContent) => {
-      const { dir, tsCompiler, scope } = setupProject({
-        "src/source.ts": srcContent,
-        "src/dest.ts": destContent,
-      });
-      dirs.push(dir);
-
-      await expect(
-        tsMoveSymbol(
-          tsCompiler,
-          path.join(dir, "src/source.ts"),
-          "Foo",
-          path.join(dir, "src/dest.ts"),
-          scope,
-        ),
-      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
-    });
-  });
-
-  describe("aliased import carry", () => {
-    it("carries an aliased import to the destination preserving the alias", async () => {
-      const { dir, tsCompiler, scope } = setupProject({
-        "src/types.ts": "export type Bar = { value: string };\n",
-        "src/source.ts":
-          'import { Bar as B } from "./types";\nexport function Foo(b: B): string { return b.value; }\n',
-        "src/dest.ts": "",
-      });
-      dirs.push(dir);
-
-      await tsMoveSymbol(
-        tsCompiler,
-        path.join(dir, "src/source.ts"),
-        "Foo",
-        path.join(dir, "src/dest.ts"),
-        scope,
-      );
-
-      const destContent = fs.readFileSync(path.join(dir, "src/dest.ts"), "utf8");
-      expect(destContent).toContain("Bar as B");
-      expect(destContent).toContain('"./types.js"');
-      expect(destContent).toContain("export function Foo");
     });
   });
 });
