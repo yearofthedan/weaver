@@ -89,7 +89,7 @@ describe("walkFiles", () => {
   // ── git repo ──────────────────────────────────────────────────────────────
 
   describe("git repo", () => {
-    const gitEnv = { ...process.env, GIT_CONFIG_NOSYSTEM: "1" };
+    const gitEnv = { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" };
 
     function initGit() {
       execSync("git init", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
@@ -274,7 +274,7 @@ describe("walkWorkspaceFiles", () => {
   // ── git repo ──────────────────────────────────────────────────────────────
 
   describe("git repo", () => {
-    const gitEnv = { ...process.env, GIT_CONFIG_NOSYSTEM: "1" };
+    const gitEnv = { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" };
 
     function initGit() {
       execSync("git init", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });

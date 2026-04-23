@@ -32,7 +32,7 @@ function makeGitRepo(): { dir: string } {
     'import { makeMock } from "./helpers/mock";\nconsole.log(makeMock());\n',
   );
 
-  const gitEnv = { ...process.env, GIT_CONFIG_NOSYSTEM: "1" };
+  const gitEnv = { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" };
   execSync("git init", { cwd: dir, env: gitEnv, stdio: "pipe" });
   execSync("git config user.email test@test.com", { cwd: dir, env: gitEnv, stdio: "pipe" });
   execSync("git config user.name Test", { cwd: dir, env: gitEnv, stdio: "pipe" });
