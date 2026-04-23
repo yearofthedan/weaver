@@ -30,6 +30,7 @@ export const TOOLS: ToolDefinition[] = [
       "When renaming an identifier, use this to update every reference project-wide. " +
       "Scope-aware — won't touch unrelated identifiers that share the same name in other scopes. " +
       "Returns filesModified (no need to read them to verify) and filesSkipped (outside workspace, not written — surface to user). " +
+      "For TypeScript renames, also returns nameMatches: identifiers in the modified files whose text contains the old name as a substring (e.g. derived names like tsProviderSingleton when renaming TsProvider); samples are capped at 10 — use search-text for the full list if needed. " +
       "Pass checkTypeErrors:false to suppress the post-write type check.",
     inputSchema: {
       file: RenameArgsSchema.shape.file.describe("Absolute path to the file"),

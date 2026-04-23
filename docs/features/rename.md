@@ -47,6 +47,29 @@ The symbol under the cursor at (line, col) is renamed. If no renameable symbol i
 
 See [security.md](../security.md) for the full threat model.
 
+## Response
+
+For TypeScript renames, the response includes a `nameMatches` field:
+
+```json
+{
+  "nameMatches": {
+    "count": 3,
+    "files": 2,
+    "samples": [
+      { "file": "/abs/path/src/foo.ts", "line": 12, "col": 5, "name": "tsProviderSingleton", "kind": "VariableDeclaration" }
+    ]
+  }
+}
+```
+
+- **`count`:** total identifier matches found across modified files
+- **`files`:** distinct file count with at least one match
+- **`samples`:** up to 10 identifiers whose text contains the old symbol name as a substring, in file-then-position order. Use `search-text` for the full list when `count` exceeds 10.
+- **`kind`:** the ts-morph `SyntaxKind` name of the identifier's parent node (e.g. `VariableDeclaration`, `Parameter`, `FunctionDeclaration`)
+
+When `count` is 0, `nameMatches` is `{ count: 0, files: 0, samples: [] }`.
+
 ## Constraints
 
 - The symbol must be at a renameable position. Built-in identifiers, string literals, and template expressions are not renameable.
@@ -54,6 +77,7 @@ See [security.md](../security.md) for the full threat model.
 - Rename does not detect naming collisions with existing symbols in scope.
 - `.js`/`.jsx` files are updated only when they are part of the project graph (tsconfig `allowJs`).
 - Cross-type reference tracking (a rename in a `.ts` file updating `.vue` references) requires the Vue engine — both files must be in the same Volar project.
+- `nameMatches` is present only for TypeScript renames. Vue renames (via `VolarEngine`) do not include `nameMatches` in v1.
 
 ## Technical decisions
 
