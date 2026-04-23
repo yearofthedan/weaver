@@ -151,10 +151,6 @@ export async function tsMoveSymbol(
   tsCompiler.invalidateProject(absSource);
 }
 
-/**
- * Returns the top-level statement node for the given exported symbol name,
- * or null if not found.
- */
 function resolveDeclarationStatement(srcSF: SourceFile, symbolName: string): Node | null {
   const rawDecl = srcSF.getExportedDeclarations().get(symbolName)?.[0];
   if (!rawDecl) return null;
