@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../../domain/workspace-scope.js";
+import type { FileSystem } from "../../ports/filesystem.js";
 import { NodeFileSystem } from "../../ports/node-filesystem.js";
 import {
   removeVueImportsOfDeletedFile,
@@ -14,6 +15,25 @@ import {
 
 // rewriteImports and computeRelativeSpecifier are private to their modules;
 // tested here through the public updateVueImportsAfterMove API.
+
+function makeThrowingScope(dir: string, failPath: string): WorkspaceScope {
+  const base = new NodeFileSystem();
+  const throwingFs: FileSystem = {
+    readFile: (p) => {
+      if (p === failPath) throw new Error("EACCES: permission denied");
+      return base.readFile(p);
+    },
+    writeFile: (p, c) => base.writeFile(p, c),
+    exists: (p) => base.exists(p),
+    mkdir: (p, o) => base.mkdir(p, o),
+    rename: (o, n) => base.rename(o, n),
+    unlink: (p) => base.unlink(p),
+    realpath: (p) => base.realpath(p),
+    resolve: (...s) => base.resolve(...s),
+    stat: (p) => base.stat(p),
+  };
+  return new WorkspaceScope(dir, throwingFs);
+}
 
 describe("updateVueImportsAfterMove", () => {
   let tmpDir: string;
@@ -171,15 +191,12 @@ describe("updateVueImportsAfterMove", () => {
       "src/Comp.vue",
       `<script setup>\nimport foo from './utils'\n</script>`,
     );
-    fs.chmodSync(vueFile, 0o000);
 
-    const scope = makeScope(tmpDir);
+    const scope = makeThrowingScope(tmpDir, vueFile);
     updateVueImportsAfterMove(oldPath, newPath, tmpDir, scope);
 
     expect(scope.skipped).toContain(vueFile);
     expect(scope.modified).toHaveLength(0);
-
-    fs.chmodSync(vueFile, 0o644);
   });
 });
 
@@ -290,24 +307,17 @@ describe("removeVueImportsOfDeletedFile", () => {
     return full;
   }
 
-  function makeScope(dir: string): WorkspaceScope {
-    return new WorkspaceScope(dir, new NodeFileSystem());
-  }
-
   it("records unreadable .vue files as skipped", () => {
     const deletedFile = path.join(tmpDir, "src/utils.ts");
     const vueFile = writeVue(
       "src/Comp.vue",
       `<script setup>\nimport foo from './utils'\n</script>`,
     );
-    fs.chmodSync(vueFile, 0o000);
 
-    const scope = makeScope(tmpDir);
+    const scope = makeThrowingScope(tmpDir, vueFile);
     removeVueImportsOfDeletedFile(deletedFile, tmpDir, scope);
 
     expect(scope.skipped).toContain(vueFile);
-
-    fs.chmodSync(vueFile, 0o644);
   });
 });
 

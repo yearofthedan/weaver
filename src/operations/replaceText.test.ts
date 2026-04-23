@@ -4,11 +4,31 @@ import * as path from "node:path";
 import { describe, expect } from "vitest";
 import { cleanup, FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
+import type { FileSystem } from "../ports/filesystem.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { replaceText } from "./replaceText.js";
 
 function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
+}
+
+function makeThrowingScope(dir: string, failPath: string): WorkspaceScope {
+  const base = new NodeFileSystem();
+  const throwingFs: FileSystem = {
+    readFile: (p) => {
+      if (p === failPath) throw new Error("EACCES: permission denied");
+      return base.readFile(p);
+    },
+    writeFile: (p, c) => base.writeFile(p, c),
+    exists: (p) => base.exists(p),
+    mkdir: (p, o) => base.mkdir(p, o),
+    rename: (o, n) => base.rename(o, n),
+    unlink: (p) => base.unlink(p),
+    realpath: (p) => base.realpath(p),
+    resolve: (...s) => base.resolve(...s),
+    stat: (p) => base.stat(p),
+  };
+  return new WorkspaceScope(dir, throwingFs);
 }
 
 describe("replaceText operation", () => {
@@ -73,14 +93,11 @@ describe("replaceText operation", () => {
         fs.writeFileSync(path.join(dir, "src/ok.ts"), "export const foo = 'bar';\n");
         const unreadable = path.join(dir, "src/secret.ts");
         fs.writeFileSync(unreadable, "export const foo = 'secret';\n");
-        fs.chmodSync(unreadable, 0o000);
 
-        const scope = makeScope(dir);
+        const scope = makeThrowingScope(dir, unreadable);
         await replaceText(scope, { pattern: "foo", replacement: "baz" });
 
         expect(scope.skipped).toContain(unreadable);
-
-        fs.chmodSync(unreadable, 0o644);
       } finally {
         cleanup(dir);
       }
