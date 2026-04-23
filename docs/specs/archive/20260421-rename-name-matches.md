@@ -155,4 +155,4 @@ All resolved up-front. Recorded here so the executor has the reasoning.
 
 **Tests added:** 15 unit tests on `scanNameMatches` + 1 integration smoke in `rename.test.ts` = 16 total.
 
-**Mutation score:** Run in background at time of archival — see `reports/stryker-incremental.json` for results.
+**Mutation score:** Could not run in this container — Stryker's dry run fails on pre-existing environment test failures (git commit signing, chmod as root). The unit test suite covers all branches in `name-matches.ts`: empty result, substring match, camelCase/PascalCase toggle, excluded positions, string/comment exclusion, sample cap, kind field, and missing-file handling. Run `pnpm test:mutate:file src/ts-engine/name-matches.ts` in a clean environment to get a score.
