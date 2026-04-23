@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
@@ -218,6 +220,31 @@ describe("tsRename", () => {
       expect(typeof result.nameMatches?.files).toBe("number");
       expect(Array.isArray(result.nameMatches?.samples)).toBe(true);
       expect(result.nameMatches?.files).toBeLessThanOrEqual(result.nameMatches?.count);
+    });
+
+    it("nameMatches finds derived identifier names in modified files", async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rename-matches-"));
+      dirs.push(dir);
+      fs.mkdirSync(path.join(dir, "src"));
+      fs.writeFileSync(
+        path.join(dir, "src/provider.ts"),
+        "export class TsProvider {}\nexport const tsProviderDefault = new TsProvider();\n",
+      );
+
+      const engine = new TsMorphEngine();
+      // col 14: "export class |TsProvider {}"
+      const result = await tsRename(
+        engine,
+        path.join(dir, "src/provider.ts"),
+        1,
+        14,
+        "TsMorphCompiler",
+        makeScope(dir),
+      );
+
+      // tsProviderDefault is a derived name the compiler did not rewrite
+      expect(result.nameMatches?.count).toBeGreaterThan(0);
+      expect(result.nameMatches?.samples.some((s) => s.name === "tsProviderDefault")).toBe(true);
     });
 
     it("locationCount matches the total number of rename locations", async () => {
