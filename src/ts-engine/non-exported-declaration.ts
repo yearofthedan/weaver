@@ -15,9 +15,6 @@ type RemovableDeclaration =
   | TypeAliasDeclaration
   | VariableStatement;
 
-/**
- * Find a non-exported declaration with the given name in `dstSF`, or null if none exists.
- */
 export function findNonExportedDeclaration(
   dstSF: SourceFile,
   symbolName: string,

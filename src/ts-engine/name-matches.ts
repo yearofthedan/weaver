@@ -51,7 +51,7 @@ export function scanNameMatches(
           line: line + 1,
           col: character + 1,
           name: text,
-          kind: identifier.getParent()?.getKindName() ?? "Identifier",
+          kind: identifier.getParentOrThrow().getKindName(),
         });
       }
     }

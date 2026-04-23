@@ -4,31 +4,12 @@ import * as path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
-import type { FileSystem } from "../ports/filesystem.js";
+import { makeThrowingScope } from "../ports/__testHelpers__/throwing-filesystem.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { searchText } from "./searchText.js";
 
 function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
-}
-
-function makeThrowingScope(dir: string, failPath: string): WorkspaceScope {
-  const base = new NodeFileSystem();
-  const throwingFs: FileSystem = {
-    readFile: (p) => {
-      if (p === failPath) throw new Error("EACCES: permission denied");
-      return base.readFile(p);
-    },
-    writeFile: (p, c) => base.writeFile(p, c),
-    exists: (p) => base.exists(p),
-    mkdir: (p, o) => base.mkdir(p, o),
-    rename: (o, n) => base.rename(o, n),
-    unlink: (p) => base.unlink(p),
-    realpath: (p) => base.realpath(p),
-    resolve: (...s) => base.resolve(...s),
-    stat: (p) => base.stat(p),
-  };
-  return new WorkspaceScope(dir, throwingFs);
 }
 
 describe("searchText operation", () => {
