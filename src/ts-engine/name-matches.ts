@@ -15,9 +15,7 @@ const SAMPLE_LIMIT = 10;
 function containsName(text: string, oldName: string): boolean {
   if (text.includes(oldName)) return true;
   const first = oldName[0];
-  if (!first) return false;
   const toggled = first === first.toUpperCase() ? first.toLowerCase() : first.toUpperCase();
-  if (toggled === first) return false;
   return text.includes(toggled + oldName.slice(1));
 }
 
