@@ -13,7 +13,7 @@ description: Use when moving files or directories, renaming a symbol used across
 weaver rename '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
 ```
 
-One call. Scope-aware — won't touch unrelated identifiers that share the same name. Check `typeErrors` in the response, then do one `replace-text` pass for derived string names (e.g. `fooSingleton`) the compiler doesn't track.
+One call. Scope-aware — won't touch unrelated identifiers that share the same name. Check `typeErrors` in the response. For TypeScript renames, also review `nameMatches` — it lists identifiers in the modified files whose text still contains the old name as a substring (e.g. `tsProviderSingleton` after renaming `TsProvider`). Use `replace-text` to update any derived names you want to change after reviewing the list.
 
 ## Move a file
 

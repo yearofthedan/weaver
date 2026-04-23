@@ -200,6 +200,26 @@ describe("tsRename", () => {
       expect(result.newName).toBe("renamed");
     });
 
+    it("includes nameMatches with the expected shape", async () => {
+      const dir = setup();
+      const engine = new TsMorphEngine();
+
+      const result = await tsRename(
+        engine,
+        `${dir}/src/utils.ts`,
+        1,
+        17,
+        "greetPerson",
+        makeScope(dir),
+      );
+
+      expect(result.nameMatches).toBeDefined();
+      expect(typeof result.nameMatches?.count).toBe("number");
+      expect(typeof result.nameMatches?.files).toBe("number");
+      expect(Array.isArray(result.nameMatches?.samples)).toBe(true);
+      expect(result.nameMatches?.files).toBeLessThanOrEqual(result.nameMatches?.count);
+    });
+
     it("locationCount matches the total number of rename locations", async () => {
       const dir = setup();
       const engine = new TsMorphEngine();

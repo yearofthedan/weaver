@@ -3,6 +3,7 @@ import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { RenameResult } from "../operations/types.js";
 import { applyTextEdits } from "../utils/text-utils.js";
 import type { TsMorphEngine } from "./engine.js";
+import { scanNameMatches } from "./name-matches.js";
 
 /**
  * Full rename workflow for TypeScript/JavaScript symbols.
@@ -61,11 +62,16 @@ export async function tsRename(
     scope.writeFile(fileName, updated);
   }
 
+  const excludePositions = locs.map((loc) => ({ file: loc.fileName, offset: loc.textSpan.start }));
+  const project = engine.getProjectForFile(file);
+  const nameMatches = scanNameMatches(project, oldName, scope.modified, excludePositions);
+
   return {
     filesModified: scope.modified,
     filesSkipped: scope.skipped,
     symbolName: oldName,
     newName,
     locationCount: locs.length,
+    nameMatches,
   };
 }
