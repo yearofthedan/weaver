@@ -17,7 +17,7 @@
 ## Relevant files
 
 - `src/operations/getTypeErrors.ts` — current operation; takes `TsMorphEngine`, needs to change to `Engine`
-- `src/operations/getTypeErrors.test.ts` — 227 lines; new Vue tests should go in a new file
+- `src/operations/getTypeErrors.test.ts` — 227 lines; Vue tests belong here (same operation, same layer) — will grow to ~310 lines, past "review at 300"; assess existing tests for the refactoring hierarchy before adding new ones
 - `src/ts-engine/types.ts` — `Engine` interface; add `getTypeErrors` method; `GetTypeErrorsResult` already defined
 - `src/ts-engine/engine.ts` — `TsMorphEngine`; implement `getTypeErrors` wrapping existing logic
 - `src/plugins/vue/engine.ts` — `VolarEngine` at 391 lines; add `getTypeErrors`; extract to standalone file if it pushes past 450
@@ -30,13 +30,12 @@
 
 ### Red flags
 
-- **`engine.test.ts` at 478 lines** — at the 500-line hard flag. New tests for Vue type errors must NOT go in this file. Add a new `src/plugins/vue/get-type-errors.test.ts`.
+- **`engine.test.ts` at 478 lines** — at the 500-line hard flag. Vue `getTypeErrors` tests belong at the operation layer (`getTypeErrors.test.ts`), not here. Do not add tests to `engine.test.ts` for this feature.
 - **`VolarEngine` at 391 lines** — already past "review at 300". If the `getTypeErrors` implementation adds more than ~50 lines, extract to `src/plugins/vue/get-type-errors.ts` (following the `ts-engine/` standalone action pattern) and call it from `VolarEngine`.
 
 **Layer-fit:**
-- AC1, AC2, AC3: Require a real Volar service (`.vue` files, tsconfig, project graph) → integration layer. One test per observable behaviour; do not duplicate pure-logic variants.
-- AC4: Regression guard; also integration layer (one smoke test).
-- Position translation logic (virtual offset → real `.vue` line/col) is pure given a source map — if extracted to a standalone function, can be unit-tested separately.
+- AC1–AC4: All require a real Volar service → integration layer. Tests go in `src/operations/getTypeErrors.test.ts` alongside the existing TS tests (same operation, same layer).
+- Position translation logic (virtual offset → real `.vue` line/col) is a pure function of its inputs — if extracted to a standalone helper, add a focused unit test for it directly rather than covering it only through the integration path.
 
 ## Value / Effort
 
