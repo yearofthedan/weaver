@@ -53,22 +53,19 @@ For TypeScript renames, the response includes a `nameMatches` field:
 
 ```json
 {
-  "nameMatches": {
-    "count": 3,
-    "files": 2,
-    "samples": [
-      { "file": "/abs/path/src/foo.ts", "line": 12, "col": 5, "name": "tsProviderSingleton", "kind": "VariableDeclaration" }
-    ]
-  }
+  "nameMatches": [
+    { "file": "/abs/path/src/foo.ts", "line": 12, "col": 5, "name": "tsProviderSingleton", "kind": "VariableDeclaration" }
+  ]
 }
 ```
 
-- **`count`:** total identifier matches found across modified files
-- **`files`:** distinct file count with at least one match
-- **`samples`:** up to 10 identifiers whose text contains the old symbol name as a substring, in file-then-position order. Use `search-text` for the full list when `count` exceeds 10.
+`nameMatches` is a flat array — the complete list of identifiers in the modified files whose text contains the old symbol name as a substring, in file-then-position order. The scope is already narrow (only `filesModified`), so the list is exhaustive, not sampled.
+
+- **`name`:** identifier text (e.g. `tsProviderSingleton`)
+- **`file`/`line`/`col`:** location (1-based)
 - **`kind`:** the ts-morph `SyntaxKind` name of the identifier's parent node (e.g. `VariableDeclaration`, `Parameter`, `FunctionDeclaration`)
 
-When `count` is 0, `nameMatches` is `{ count: 0, files: 0, samples: [] }`.
+When no derived names are found, `nameMatches` is `[]`.
 
 ## Constraints
 

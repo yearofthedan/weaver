@@ -1,12 +1,10 @@
 import { type Project, SyntaxKind } from "ts-morph";
-import type { NameMatches, NameMatchSample } from "../operations/types.js";
+import type { NameMatchSample } from "../operations/types.js";
 
 export interface ExcludePosition {
   file: string;
   offset: number;
 }
-
-const SAMPLE_LIMIT = 10;
 
 // Check both the exact name and its first-char-case-toggled variant so that
 // renaming PascalCase `TsProvider` also finds camelCase derivatives like
@@ -24,11 +22,9 @@ export function scanNameMatches(
   oldName: string,
   filesModified: string[],
   excludePositions: ExcludePosition[],
-): NameMatches {
+): NameMatchSample[] {
   const excluded = new Set(excludePositions.map((p) => `${p.file}:${p.offset}`));
-  const samples: NameMatchSample[] = [];
-  let count = 0;
-  const matchedFiles = new Set<string>();
+  const matches: NameMatchSample[] = [];
 
   for (const filePath of filesModified) {
     const sourceFile = project.getSourceFile(filePath);
@@ -41,21 +37,16 @@ export function scanNameMatches(
       const offset = identifier.getStart();
       if (excluded.has(`${filePath}:${offset}`)) continue;
 
-      count++;
-      matchedFiles.add(filePath);
-
-      if (samples.length < SAMPLE_LIMIT) {
-        const { line, character } = sourceFile.compilerNode.getLineAndCharacterOfPosition(offset);
-        samples.push({
-          file: filePath,
-          line: line + 1,
-          col: character + 1,
-          name: text,
-          kind: identifier.getParentOrThrow().getKindName(),
-        });
-      }
+      const { line, character } = sourceFile.compilerNode.getLineAndCharacterOfPosition(offset);
+      matches.push({
+        file: filePath,
+        line: line + 1,
+        col: character + 1,
+        name: text,
+        kind: identifier.getParentOrThrow().getKindName(),
+      });
     }
   }
 
-  return { count, files: matchedFiles.size, samples };
+  return matches;
 }
