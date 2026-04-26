@@ -162,7 +162,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
-- `getTypeErrors` Volar support for `.vue` files `[needs design]` — extend type error detection to `.vue` SFC `<script>` blocks
+- `getTypeErrors` Volar support for `.vue` files — [spec](specs/20260426-vue-type-errors.md)
 - **`nameMatches` for Vue renames** `[needs design]` — `VolarEngine.rename` does not call `scanNameMatches` in v1; adding it requires parsing `<script>` blocks and handling SFC virtual↔real line/col translation. See `docs/features/rename.md` Constraints for the v1 exclusion.
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; see [moveSymbol.md](features/moveSymbol.md)
