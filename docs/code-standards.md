@@ -2,6 +2,8 @@
 
 Project-wide coding standards. Referenced by agents, skills, and CLAUDE.md.
 
+These checks happen **before** implementing, not after. Read the target files, assess their size and complexity, and decide whether extraction or refactoring is needed before adding new code. This is cheaper and cleaner than untangling changes after the fact.
+
 ## File size
 
 - **Ideal:** 150 lines or fewer. Small files are easy to test, review, and mutate.
@@ -45,6 +47,7 @@ Line count is one smell detector among several. A short test file can still be u
 - **Setup proportionality.** Is the setup proportional to what's being verified? When the fixture ceremony dwarfs the assertion, the logic under test likely belongs behind a seam that can be tested with lighter dependencies.
 - **Coverage directness.** Is the behaviour asserted through a direct call, or indirectly through a chain of collaborators? Indirect coverage is fragile — a change to an unrelated collaborator can silently break the path that exercises the real logic.
 - **Mutation resilience.** Would a logic inversion in the code under test be caught? Assertions must pin exact output shapes and cover at least one boundary. TypeScript types don't kill mutants — only assertions do.
+- **Assertion clarity.** Are assertions inline and direct, or hidden behind helpers that obscure what's being checked? Indirection in assertions makes test failures harder to diagnose. Prefer inline assertions with clear variable names over extracted assertion helpers.
 
 ### Source extraction = test review
 
@@ -70,11 +73,9 @@ Test doubles belong near the concept they mock, not in a generic folder. `makeMo
 
 ### Test layer must match code layer
 
-Audit every test file: does its test target match the directory it lives in? A test in `tests/operations/` should call the operation function; a test in `tests/compilers/` should call the compiler method directly. If a test in `tests/operations/` is exercising compiler logic through the operation, it belongs in `tests/compilers/`. "Stays as-is" requires justification, not just inertia.
+Tests follow their subject. A test for an operation lives in the operation's test file; a test for an engine method lives in the engine's test file. If a test colocated with one subject is exercising another subject's logic indirectly, push it down to the right file.
 
-### Avoid
-
-- Extracting assertion helpers that hide what's being checked. Indirection in assertions makes test failures harder to diagnose. Prefer inline assertions with clear variable names.
+Size doesn't override this. When a test file approaches the 300-line review threshold, that triggers assessment via the refactoring hierarchy above — not a new test file as a workaround. A new test file is only justified after the hierarchy has been applied and the file still warrants splitting along feature boundaries.
 
 ## Type casts
 
@@ -102,12 +103,7 @@ If a surviving mutant genuinely cannot be killed because the branch is unreachab
 
 These are signals to pause and refactor before continuing:
 
-- **File over threshold:** If your target file is already near 300 lines, extract before adding more code. Don't make a smell worse.
 - **New generic logic:** If the function you're writing isn't specific to the current feature (path manipulation, AST helpers, string formatting), it likely belongs in a shared utility.
 - **Duplicated patterns:** If you see the same 3+ lines of logic in multiple places, extract to a shared function.
 - **High branching complexity:** If a function has many conditional branches, check whether some branches duplicate logic that exists elsewhere or could be simplified by reusing existing helpers.
 - **Excessive comments:** If a function or test needs many inline comments to be understood, the code is too complex — extract, rename, or decompose until the comments are unnecessary.
-
-## When to apply
-
-These checks happen **before** implementing, not after. Read the target files, assess their size and complexity, and decide whether extraction or refactoring is needed before adding new code. This is cheaper and cleaner than untangling changes after the fact.
