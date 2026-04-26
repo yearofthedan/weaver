@@ -202,7 +202,7 @@ describe("tsRename", () => {
       expect(result.newName).toBe("renamed");
     });
 
-    it("includes nameMatches with the expected shape", async () => {
+    it("nameMatches is a flat array", async () => {
       const dir = setup();
       const engine = new TsMorphEngine();
 
@@ -215,11 +215,7 @@ describe("tsRename", () => {
         makeScope(dir),
       );
 
-      expect(result.nameMatches).toBeDefined();
-      expect(typeof result.nameMatches?.count).toBe("number");
-      expect(typeof result.nameMatches?.files).toBe("number");
-      expect(Array.isArray(result.nameMatches?.samples)).toBe(true);
-      expect(result.nameMatches?.files).toBeLessThanOrEqual(result.nameMatches?.count);
+      expect(Array.isArray(result.nameMatches)).toBe(true);
     });
 
     it("nameMatches finds derived identifier names in modified files", async () => {
@@ -243,8 +239,8 @@ describe("tsRename", () => {
       );
 
       // tsProviderDefault is a derived name the compiler did not rewrite
-      expect(result.nameMatches?.count).toBeGreaterThan(0);
-      expect(result.nameMatches?.samples.some((s) => s.name === "tsProviderDefault")).toBe(true);
+      expect(result.nameMatches?.length).toBeGreaterThan(0);
+      expect(result.nameMatches?.some((s) => s.name === "tsProviderDefault")).toBe(true);
     });
 
     it("locationCount matches the total number of rename locations", async () => {

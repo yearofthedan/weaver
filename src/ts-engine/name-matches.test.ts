@@ -22,12 +22,12 @@ function offsetOf(project: Project, filePath: string, identifierText: string): n
 
 describe("scanNameMatches", () => {
   describe("basic matching", () => {
-    it("returns empty result when no identifiers contain the old name", () => {
+    it("returns empty array when no identifiers contain the old name", () => {
       const project = makeProject({
         "/src/foo.ts": `const unrelated = 1;\n`,
       });
       const result = scanNameMatches(project, "TsProvider", ["/src/foo.ts"], []);
-      expect(result).toEqual({ count: 0, files: 0, samples: [] });
+      expect(result).toEqual([]);
     });
 
     it("finds identifiers whose names contain oldName as a substring", () => {
@@ -35,10 +35,8 @@ describe("scanNameMatches", () => {
         "/src/foo.ts": `const TsProviderSingleton = 1;\n`,
       });
       const result = scanNameMatches(project, "TsProvider", ["/src/foo.ts"], []);
-      expect(result.count).toBe(1);
-      expect(result.files).toBe(1);
-      expect(result.samples).toHaveLength(1);
-      expect(result.samples[0]).toMatchObject({
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
         file: "/src/foo.ts",
         name: "TsProviderSingleton",
         line: 1,
@@ -51,8 +49,8 @@ describe("scanNameMatches", () => {
         "/src/foo.ts": `const tsProviderSingleton = 1;\n`,
       });
       const result = scanNameMatches(project, "TsProvider", ["/src/foo.ts"], []);
-      expect(result.count).toBe(1);
-      expect(result.samples[0].name).toBe("tsProviderSingleton");
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe("tsProviderSingleton");
     });
 
     it("finds PascalCase derivatives when oldName starts with lowercase", () => {
@@ -60,18 +58,20 @@ describe("scanNameMatches", () => {
         "/src/foo.ts": `class TsProviderFactory {}\n`,
       });
       const result = scanNameMatches(project, "tsProvider", ["/src/foo.ts"], []);
-      expect(result.count).toBe(1);
-      expect(result.samples[0].name).toBe("TsProviderFactory");
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe("TsProviderFactory");
     });
 
-    it("counts distinct files correctly", () => {
+    it("finds matches across multiple files", () => {
       const project = makeProject({
         "/src/a.ts": `const tsProviderA = 1;\n`,
         "/src/b.ts": `const tsProviderB = 2;\n`,
       });
       const result = scanNameMatches(project, "TsProvider", ["/src/a.ts", "/src/b.ts"], []);
-      expect(result.count).toBe(2);
-      expect(result.files).toBe(2);
+      expect(result).toHaveLength(2);
+      const files = result.map((m) => m.file);
+      expect(files).toContain("/src/a.ts");
+      expect(files).toContain("/src/b.ts");
     });
   });
 
@@ -84,8 +84,8 @@ describe("scanNameMatches", () => {
         { file: "/src/foo.ts", offset: offsetOf(project, "/src/foo.ts", "TsProvider") },
       ];
       const result = scanNameMatches(project, "TsProvider", ["/src/foo.ts"], excluded);
-      expect(result.count).toBe(1);
-      expect(result.samples[0].name).toBe("TsProviderHelper");
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe("TsProviderHelper");
     });
 
     it("returns empty when all matches are excluded", () => {
@@ -96,7 +96,7 @@ describe("scanNameMatches", () => {
         { file: "/src/foo.ts", offset: offsetOf(project, "/src/foo.ts", "TsProvider") },
       ];
       const result = scanNameMatches(project, "TsProvider", ["/src/foo.ts"], excluded);
-      expect(result).toEqual({ count: 0, files: 0, samples: [] });
+      expect(result).toEqual([]);
     });
   });
 
@@ -106,7 +106,7 @@ describe("scanNameMatches", () => {
         "/src/foo.ts": `const label = "TsProvider";\n`,
       });
       const result = scanNameMatches(project, "TsProvider", ["/src/foo.ts"], []);
-      expect(result.count).toBe(0);
+      expect(result).toHaveLength(0);
     });
 
     it("does not match oldName in comments", () => {
@@ -114,19 +114,18 @@ describe("scanNameMatches", () => {
         "/src/foo.ts": `// TsProvider is cool\nconst x = 1;\n`,
       });
       const result = scanNameMatches(project, "TsProvider", ["/src/foo.ts"], []);
-      expect(result.count).toBe(0);
+      expect(result).toHaveLength(0);
     });
   });
 
-  describe("samples cap", () => {
-    it("caps samples at 10 while count reflects total", () => {
+  describe("no cap — returns all matches", () => {
+    it("returns all matches when there are more than 10", () => {
       const lines = Array.from({ length: 15 }, (_, i) => `const TsProviderItem${i} = ${i};`).join(
         "\n",
       );
       const project = makeProject({ "/src/foo.ts": `${lines}\n` });
       const result = scanNameMatches(project, "TsProvider", ["/src/foo.ts"], []);
-      expect(result.count).toBe(15);
-      expect(result.samples).toHaveLength(10);
+      expect(result).toHaveLength(15);
     });
   });
 
@@ -136,8 +135,8 @@ describe("scanNameMatches", () => {
         "/src/foo.ts": `function createTsProvider() {}\n`,
       });
       const result = scanNameMatches(project, "TsProvider", ["/src/foo.ts"], []);
-      expect(result.count).toBe(1);
-      expect(result.samples[0].kind).toBe("FunctionDeclaration");
+      expect(result).toHaveLength(1);
+      expect(result[0].kind).toBe("FunctionDeclaration");
     });
 
     it("reports VariableDeclaration kind for variable names", () => {
@@ -145,8 +144,8 @@ describe("scanNameMatches", () => {
         "/src/foo.ts": `const tsProviderInstance = {};\n`,
       });
       const result = scanNameMatches(project, "TsProvider", ["/src/foo.ts"], []);
-      expect(result.count).toBe(1);
-      expect(result.samples[0].kind).toBe("VariableDeclaration");
+      expect(result).toHaveLength(1);
+      expect(result[0].kind).toBe("VariableDeclaration");
     });
   });
 
@@ -154,7 +153,7 @@ describe("scanNameMatches", () => {
     it("silently skips paths not in the project", () => {
       const project = makeProject({ "/src/foo.ts": `const x = 1;\n` });
       const result = scanNameMatches(project, "TsProvider", ["/src/missing.ts"], []);
-      expect(result).toEqual({ count: 0, files: 0, samples: [] });
+      expect(result).toEqual([]);
     });
   });
 });

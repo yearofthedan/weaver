@@ -6,12 +6,6 @@ export interface NameMatchSample {
   kind: string;
 }
 
-export interface NameMatches {
-  count: number;
-  files: number;
-  samples: NameMatchSample[];
-}
-
 export interface RenameResult {
   filesModified: string[];
   /** Impacted files outside workspace that were not written. */
@@ -19,8 +13,8 @@ export interface RenameResult {
   symbolName: string;
   newName: string;
   locationCount: number;
-  /** Present on TS renames; absent on Vue renames. */
-  nameMatches?: NameMatches;
+  /** Present on TS renames; absent on Vue renames. Complete list — not sampled. */
+  nameMatches?: NameMatchSample[];
 }
 
 export interface MoveResult {
