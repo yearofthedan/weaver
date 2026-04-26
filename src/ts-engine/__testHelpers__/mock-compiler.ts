@@ -26,6 +26,11 @@ export function makeMockCompiler(overrides: Partial<Engine> = {}): Engine {
       functionName: "",
       parameterCount: 0,
     }),
+    getTypeErrors: vi.fn().mockResolvedValue({
+      diagnostics: [],
+      errorCount: 0,
+      truncated: false,
+    }),
     ...overrides,
   };
 }

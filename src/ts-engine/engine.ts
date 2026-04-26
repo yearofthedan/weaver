@@ -4,12 +4,13 @@ import { Project } from "ts-morph";
 import type ts from "typescript";
 import { EngineError } from "../domain/errors.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import type { RenameResult } from "../operations/types.js";
+import type { GetTypeErrorsResult, RenameResult } from "../operations/types.js";
 import { JS_EXTENSIONS, TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 import { tsDeleteFile } from "./delete-file.js";
 import { tsExtractFunction } from "./extract-function.js";
+import { tsGetTypeErrors } from "./get-type-errors.js";
 import { tsMoveDirectory } from "./move-directory.js";
 import { tsMoveFile } from "./move-file.js";
 import { tsMoveSymbol } from "./move-symbol.js";
@@ -178,6 +179,18 @@ export class TsMorphEngine implements Engine {
     } else {
       project.addSourceFileAtPath(filePath);
     }
+  }
+
+  /**
+   * Returns type errors for a single file or the whole project. Delegates to
+   * the standalone `tsGetTypeErrors` action which handles both single-file and
+   * project-wide modes.
+   */
+  async getTypeErrors(
+    file: string | undefined,
+    scope: WorkspaceScope,
+  ): Promise<GetTypeErrorsResult> {
+    return tsGetTypeErrors(this, file, scope);
   }
 
   /**

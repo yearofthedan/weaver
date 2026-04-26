@@ -1,5 +1,5 @@
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import type { RenameResult } from "../operations/types.js";
+import type { GetTypeErrorsResult, RenameResult } from "../operations/types.js";
 
 export interface ExtractFunctionResult {
   filesModified: string[];
@@ -114,6 +114,17 @@ export interface Engine {
    * boundary enforcement and file write tracking.
    */
   deleteFile(targetFile: string, scope: WorkspaceScope): Promise<DeleteFileActionResult>;
+
+  /**
+   * Return type errors for a single file or the whole project.
+   *
+   * When `file` is provided it must be an absolute path that already exists and
+   * is within the workspace (validated by the operation layer). When `file` is
+   * `undefined` all files in the project graph are checked.
+   *
+   * Results are capped at `MAX_DIAGNOSTICS`; `errorCount` reflects the true total.
+   */
+  getTypeErrors(file: string | undefined, scope: WorkspaceScope): Promise<GetTypeErrorsResult>;
 
   /**
    * Full extractFunction workflow: compute extraction edits via the TypeScript

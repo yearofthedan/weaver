@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
+import { VolarEngine } from "../plugins/vue/engine.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import { getTypeErrors } from "./getTypeErrors.js";
@@ -222,6 +223,161 @@ describe("getTypeErrors operation", () => {
         expect(typeof diag.message).toBe("string");
         expect(diag.message.length).toBeGreaterThan(0);
       }
+    });
+  });
+
+  describe("Vue SFC support via VolarEngine", () => {
+    let dir: string;
+    beforeAll(() => {
+      dir = copyFixture(FIXTURES.vueErrors.name);
+    });
+    afterAll(() => cleanup(dir));
+
+    function makeVolarEngine(): VolarEngine {
+      return new VolarEngine(new TsMorphEngine(), dir);
+    }
+
+    describe("single .vue file with type errors", () => {
+      it("returns diagnostics with the real .vue path (not the virtual .vue.ts path)", async () => {
+        const engine = makeVolarEngine();
+        const vuePath = `${dir}/src/Broken.vue`;
+
+        const result = await getTypeErrors(engine, vuePath, makeScope(dir));
+
+        expect(result.errorCount).toBeGreaterThan(0);
+        expect(result.diagnostics.length).toBeGreaterThan(0);
+
+        // All diagnostics must reference the real .vue file, not the Volar virtual one
+        for (const diag of result.diagnostics) {
+          expect(diag.file).toBe(vuePath);
+          expect(diag.file).not.toContain(".vue.ts");
+        }
+      });
+
+      it("returns 1-based line and col in the real .vue source with correct error code", async () => {
+        const engine = makeVolarEngine();
+        const vuePath = `${dir}/src/Broken.vue`;
+
+        const result = await getTypeErrors(engine, vuePath, makeScope(dir));
+
+        expect(result.errorCount).toBeGreaterThan(0);
+        const diag = result.diagnostics[0];
+
+        // Must be 1-based, within a plausible range for the .vue source
+        expect(diag.line).toBeGreaterThan(0);
+        expect(diag.col).toBeGreaterThan(0);
+        // TS2322: Type 'string' is not assignable to type 'number'
+        expect(diag.code).toBe(2322);
+        expect(diag.message).toContain("not assignable to type 'number'");
+      });
+
+      it("pins exact position — error is at line 2 (the const x assignment) in Broken.vue", async () => {
+        const engine = makeVolarEngine();
+        const vuePath = `${dir}/src/Broken.vue`;
+
+        const result = await getTypeErrors(engine, vuePath, makeScope(dir));
+
+        // Broken.vue line 2: `const x: number = "hello";`
+        // The 2322 error lands on `x` (col 7) in the real .vue source
+        const ts2322 = result.diagnostics.filter((d) => d.code === 2322);
+        expect(ts2322.length).toBeGreaterThan(0);
+        const err = ts2322[0];
+        expect(err.line).toBe(2);
+      });
+
+      it("returns no virtual-only positions — all diagnostics map to the real .vue file", async () => {
+        const engine = makeVolarEngine();
+        const vuePath = `${dir}/src/Broken.vue`;
+
+        const result = await getTypeErrors(engine, vuePath, makeScope(dir));
+
+        // No diagnostic should have file set to the virtual path
+        for (const diag of result.diagnostics) {
+          expect(diag.file).not.toMatch(/\.vue\.ts$/);
+        }
+      });
+    });
+
+    describe("single .vue file with no errors", () => {
+      it("returns empty diagnostics for a clean .vue file", async () => {
+        const engine = makeVolarEngine();
+        const vuePath = `${dir}/src/Clean.vue`;
+
+        const result = await getTypeErrors(engine, vuePath, makeScope(dir));
+
+        expect(result.diagnostics).toHaveLength(0);
+        expect(result.errorCount).toBe(0);
+        expect(result.truncated).toBe(false);
+      });
+    });
+
+    describe("project-wide mode in a Vue project", () => {
+      it("includes errors from .vue files in the combined results", async () => {
+        const engine = makeVolarEngine();
+
+        const result = await getTypeErrors(engine, undefined, makeScope(dir));
+
+        expect(result.errorCount).toBeGreaterThan(0);
+
+        // At least one diagnostic must reference a .vue file
+        const vueDiags = result.diagnostics.filter((d) => d.file.endsWith(".vue"));
+        expect(vueDiags.length).toBeGreaterThan(0);
+      });
+
+      it("includes errors from .ts files in the combined results", async () => {
+        const engine = makeVolarEngine();
+
+        const result = await getTypeErrors(engine, undefined, makeScope(dir));
+
+        // At least one diagnostic must reference a .ts file (utils.ts has a TS2322)
+        const tsDiags = result.diagnostics.filter((d) => d.file.endsWith(".ts"));
+        expect(tsDiags.length).toBeGreaterThan(0);
+      });
+
+      it(".vue diagnostics have the real .vue path, not the virtual .vue.ts path", async () => {
+        const engine = makeVolarEngine();
+
+        const result = await getTypeErrors(engine, undefined, makeScope(dir));
+
+        for (const diag of result.diagnostics) {
+          expect(diag.file).not.toMatch(/\.vue\.ts$/);
+        }
+      });
+
+      it("applies the 100-error cap across combined TS and Vue errors", async () => {
+        const engine = makeVolarEngine();
+
+        const result = await getTypeErrors(engine, undefined, makeScope(dir));
+
+        expect(result.diagnostics.length).toBeLessThanOrEqual(100);
+        expect(result.errorCount).toBeGreaterThanOrEqual(result.diagnostics.length);
+        if (result.truncated) {
+          expect(result.diagnostics).toHaveLength(100);
+          expect(result.errorCount).toBeGreaterThan(100);
+        } else {
+          expect(result.errorCount).toBe(result.diagnostics.length);
+        }
+      });
+    });
+
+    describe(".ts file in a Vue project (regression guard)", () => {
+      it("returns the same errors for a .ts file as TsMorphEngine would", async () => {
+        const volarEngine = makeVolarEngine();
+        const tsEngine = new TsMorphEngine();
+        const tsFilePath = `${dir}/src/utils.ts`;
+        const scope = makeScope(dir);
+
+        const volarResult = await getTypeErrors(volarEngine, tsFilePath, scope);
+        const tsResult = await getTypeErrors(tsEngine, tsFilePath, scope);
+
+        expect(volarResult.errorCount).toBe(tsResult.errorCount);
+        expect(volarResult.truncated).toBe(tsResult.truncated);
+        expect(volarResult.diagnostics).toHaveLength(tsResult.diagnostics.length);
+        // Codes must match (order may differ but count is pinned)
+        const volarCodes = volarResult.diagnostics.map((d) => d.code).sort();
+        const tsCodes = tsResult.diagnostics.map((d) => d.code).sort();
+        expect(volarCodes).toEqual(tsCodes);
+      });
     });
   });
 });
