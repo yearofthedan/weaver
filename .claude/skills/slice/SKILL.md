@@ -9,7 +9,7 @@ metadata:
 
 ## Agent model
 
-Steps 1-2 and 4-8 run in the main conversation (interactive spec and review work). Step 3 dispatches ACs to `execution-agent` (defined in `.claude/agents/`), grouped by neighbourhood — ACs that touch the same files go in one call.
+Steps 1-2 and 4-10 run in the main conversation (interactive spec and review work). Step 3 dispatches ACs to `execution-agent` (defined in `.claude/agents/`), grouped by neighbourhood — ACs that touch the same files go in one call.
 
 ---
 
@@ -20,7 +20,7 @@ Steps 1-2 and 4-8 run in the main conversation (interactive spec and review work
 
 2. **Read the spec.** Open the linked spec file. Confirm the task and its ACs with the user BEFORE writing any code.
 
-3. **Resolve open decisions and implement.** Check the spec for an `## Open decisions` section or any language deferring implementation choices (e.g. "the executor should choose", "either approach works"). These are architectural forks that must be resolved before dispatching to the execution agent.
+3. **Resolve open decisions and implement.** Before dispatching any execution agent, capture the current HEAD: `git rev-parse HEAD`. Store this as `<baseline-sha>` — you'll need it for step 4. Then check the spec for an `## Open decisions` section or any language deferring implementation choices (e.g. "the executor should choose", "either approach works"). These are architectural forks that must be resolved before dispatching to the execution agent.
 
    For each unresolved decision:
    - Read the relevant source files to understand the current architecture
@@ -49,21 +49,23 @@ Steps 1-2 and 4-8 run in the main conversation (interactive spec and review work
    - If the agent reported assumptions or spec mismatches, decide whether to adjust the next batch's instructions, fix something, or ask the user
    - Verify commits exist and `pnpm check` passes before dispatching the next batch
 
-4. **Complete the spec's Done-when checklist.** Walk through every item in the spec's Done-when section (defined by the template — see `docs/specs/templates/change.md` or `bug.md`). Additionally:
+4. **Run `/review-changes <baseline-sha>..HEAD` on the implementation.** This reviews only the commits from this task. Apply any fixes and commit them before moving on. Skip for `[chore]` tasks only.
+
+6. **Complete the spec's Done-when checklist.** Walk through every item in the spec's Done-when section (defined by the template — see `docs/specs/templates/change.md` or `bug.md`). Additionally:
    - [ ] **File-size check.** Run `wc -l` on every source and test file touched during implementation. Compare against the thresholds defined in `docs/code-standards.md`. If any touched file is over the hard flag, pause before archiving and apply the test refactoring hierarchy — push pure-helper behaviour down to unit tests, decompose the source, extract fixtures. This is the checkpoint that catches implementation-time bloat; do NOT defer it to a future task.
    - [ ] **Remove** the handoff.md task entry entirely — handoff.md is a work queue, not a history. Do not mark it shipped, do not leave a link to the archive. Just delete the line. Update the "Current state" section (test count, layout changes) if needed.
    - [ ] If public surfaces changed, update the corresponding docs (the spec's Done-when checklist specifies which)
 
-5. **Archive the spec with reflection.** Move the spec file from `docs/specs/` to `docs/specs/archive/`. Append an `## Outcome` section with:
+7. **Archive the spec with reflection.** Move the spec file from `docs/specs/` to `docs/specs/archive/`. Append an `## Outcome` section with:
    - **Reflection:** What went well? What did not go well? What took longer than it should have? What would you recommend to the next agent picking up related work?
    - Actual test count added
    - Mutation score for touched files
    - Any architectural decisions or discoveries worth preserving
 
-   **Do NOT proceed to step 6 until the Outcome section — including the Reflection — is written in the archived spec file.**
+   **Do NOT proceed to step 8 until the Outcome section — including the Reflection — is written in the archived spec file.**
 
-6. **Capture any non-obvious gotchas** discovered during implementation. Put them in the relevant `docs/features/` or `docs/tech/` doc, or in `.claude/MEMORY.md` if cross-cutting. Add a code comment if the gotcha is visible at the call site.
+8. **Capture any non-obvious gotchas** discovered during implementation. Put them in the relevant `docs/features/` or `docs/tech/` doc, or in `.claude/MEMORY.md` if cross-cutting. Add a code comment if the gotcha is visible at the call site.
 
-7. **Commit** docs changes with a conventional commit message (see `CLAUDE.md`).
+9. **Commit** docs changes with a conventional commit message (see `CLAUDE.md`).
 
-8. Do NOT proceed to the next slice without explicit user approval.
+10. Do NOT proceed to the next slice without explicit user approval.
