@@ -1,14 +1,14 @@
 import * as path from "node:path";
-import ts from "typescript";
 import { EngineError } from "../domain/errors.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import type { TsMorphEngine } from "../ts-engine/engine.js";
-import type { GetTypeErrorsResult, TypeDiagnostic } from "./types.js";
+import type { Engine } from "../ts-engine/types.js";
+import type { GetTypeErrorsResult } from "./types.js";
 
-export const MAX_DIAGNOSTICS = 100;
+// Re-exported for post-write-diagnostics.ts which imports them directly from here.
+export { MAX_DIAGNOSTICS, toDiagnostic } from "../ts-engine/get-type-errors.js";
 
 export async function getTypeErrors(
-  compiler: TsMorphEngine,
+  engine: Engine,
   file: string | undefined,
   scope: WorkspaceScope,
 ): Promise<GetTypeErrorsResult> {
@@ -20,48 +20,7 @@ export async function getTypeErrors(
     if (!scope.contains(absPath)) {
       throw new EngineError(`file is outside the workspace: ${file}`, "WORKSPACE_VIOLATION");
     }
-    return getForFile(compiler, absPath);
+    return engine.getTypeErrors(absPath, scope);
   }
-  return getForProject(compiler, scope.root);
-}
-
-function getForFile(compiler: TsMorphEngine, absPath: string): GetTypeErrorsResult {
-  const ls = compiler.getLanguageServiceForFile(absPath);
-  const all = ls.getSemanticDiagnostics(absPath);
-  const errors = all.filter((d) => d.category === ts.DiagnosticCategory.Error);
-  const truncated = errors.length > MAX_DIAGNOSTICS;
-  const diagnostics = errors.slice(0, MAX_DIAGNOSTICS).map(toDiagnostic);
-  return { diagnostics, errorCount: errors.length, truncated };
-}
-
-function getForProject(compiler: TsMorphEngine, workspace: string): GetTypeErrorsResult {
-  const ls = compiler.getLanguageServiceForDirectory(workspace);
-  const allErrors: ReturnType<typeof ls.getSemanticDiagnostics> = [];
-  for (const filePath of compiler.getProjectSourceFilePaths(workspace)) {
-    const diags = ls.getSemanticDiagnostics(filePath);
-    for (const d of diags) {
-      if (d.category === ts.DiagnosticCategory.Error) {
-        allErrors.push(d);
-      }
-    }
-  }
-  const truncated = allErrors.length > MAX_DIAGNOSTICS;
-  const diagnostics = allErrors.slice(0, MAX_DIAGNOSTICS).map(toDiagnostic);
-  return { diagnostics, errorCount: allErrors.length, truncated };
-}
-
-export function toDiagnostic(
-  d: ReturnType<ts.LanguageService["getSemanticDiagnostics"]>[number],
-): TypeDiagnostic {
-  const sourceFile = d.file;
-  const file = sourceFile?.fileName ?? "";
-  let line = 1;
-  let col = 1;
-  if (sourceFile !== undefined && d.start !== undefined) {
-    const lc = ts.getLineAndCharacterOfPosition(sourceFile, d.start);
-    line = lc.line + 1;
-    col = lc.character + 1;
-  }
-  const message = typeof d.messageText === "string" ? d.messageText : d.messageText.messageText;
-  return { file, line, col, code: d.code, message };
+  return engine.getTypeErrors(undefined, scope);
 }

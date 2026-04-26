@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { EngineError } from "../../domain/errors.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
-import type { RenameResult } from "../../operations/types.js";
+import type { GetTypeErrorsResult, RenameResult } from "../../operations/types.js";
 import { applyRenameEdits, mergeFileEdits } from "../../ts-engine/apply-rename-edits.js";
 import type { TsMorphEngine } from "../../ts-engine/engine.js";
 import { tsMoveFile } from "../../ts-engine/move-file.js";
@@ -18,6 +18,7 @@ import type {
 import { walkRecursive } from "../../utils/file-walk.js";
 import { applyTextEdits, lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
+import { vueGetTypeErrorsForFile, vueGetTypeErrorsForProject } from "./get-type-errors.js";
 import {
   removeVueImportsOfDeletedFile,
   rewriteVueOwnImportsAfterMove,
@@ -329,6 +330,21 @@ export class VolarEngine implements Engine {
       functionName,
       scope,
     );
+  }
+
+  async getTypeErrors(
+    file: string | undefined,
+    scope: WorkspaceScope,
+  ): Promise<GetTypeErrorsResult> {
+    if (file !== undefined) {
+      if (file.endsWith(".vue")) {
+        return vueGetTypeErrorsForFile(file, (f) => this.getService(f));
+      }
+      // .ts file in a Vue project — delegate to the TS engine.
+      return this.tsEngine.getTypeErrors(file, scope);
+    }
+    // Project-wide: merge TS and Vue errors.
+    return vueGetTypeErrorsForProject(this.tsEngine, scope, (f) => this.getService(f));
   }
 
   async rename(

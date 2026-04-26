@@ -178,9 +178,9 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     schema: GetTypeErrorsArgsSchema,
     async invoke(registry, params, workspace) {
       const { file } = params as { file?: string };
-      const tsEngine = await registry.tsEngine();
+      const engine = await registry.projectEngine();
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
-      return getTypeErrors(tsEngine, file, scope);
+      return getTypeErrors(engine, file, scope);
     },
   },
 

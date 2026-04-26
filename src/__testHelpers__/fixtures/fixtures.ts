@@ -53,6 +53,10 @@ export const FIXTURES = {
     name: "move-dir-vue-external",
     desc: "Vue project with components/ and composables/ dirs; .ts and .vue files import across boundaries for moveDirectory Volar tests",
   },
+  vueErrors: {
+    name: "vue-errors",
+    desc: "Vue SFC with deliberate type errors in script setup (Broken.vue) and a clean SFC (Clean.vue) for getTypeErrors integration tests",
+  },
 } as const satisfies Record<string, { name: string; desc: string }>;
 
 export type FixtureName = (typeof FIXTURES)[keyof typeof FIXTURES]["name"];
