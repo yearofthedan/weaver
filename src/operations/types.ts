@@ -118,6 +118,8 @@ export interface TypeDiagnostic {
   message: string;
 }
 
+export const MAX_DIAGNOSTICS = 100;
+
 export interface GetTypeErrorsResult {
   diagnostics: TypeDiagnostic[];
   /** Total number of errors found (may exceed diagnostics.length when truncated). */

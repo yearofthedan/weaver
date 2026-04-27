@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { VolarEngine } from "../plugins/vue/engine.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
@@ -12,23 +12,17 @@ function makeScope(dir: string): WorkspaceScope {
 
 describe("getTypeErrors operation", () => {
   describe("single file mode (file param provided)", () => {
-    let dir: string;
-    beforeAll(() => {
-      dir = copyFixture(FIXTURES.tsErrors.name);
-    });
-    afterAll(() => cleanup(dir));
+    test.override({ fixtureName: FIXTURES.tsErrors.name });
 
-    it("returns type errors with correct shape for a file with errors", async () => {
+    test("returns type errors with correct shape for a file with errors", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
 
-      // broken.ts has exactly 3 deliberate errors
       expect(result.errorCount).toBe(3);
       expect(result.diagnostics).toHaveLength(3);
       expect(result.truncated).toBe(false);
 
-      // Every diagnostic must have the required shape
       for (const diag of result.diagnostics) {
         expect(diag.file).toBe(`${dir}/src/broken.ts`);
         expect(diag.line).toBeGreaterThan(0);
@@ -39,7 +33,7 @@ describe("getTypeErrors operation", () => {
       }
     });
 
-    it("pins the exact error codes, positions and messages for broken.ts", async () => {
+    test("pins the exact error codes, positions and messages for broken.ts", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
@@ -66,7 +60,9 @@ describe("getTypeErrors operation", () => {
       });
     });
 
-    it("returns only the top-level message for chained diagnostics, not the full chain", async () => {
+    test("returns only the top-level message for chained diagnostics, not the full chain", async ({
+      dir,
+    }) => {
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/chained-error.ts`, makeScope(dir));
@@ -74,14 +70,12 @@ describe("getTypeErrors operation", () => {
       expect(result.diagnostics).toHaveLength(1);
       const { message } = result.diagnostics[0];
 
-      // Top-level node only: the function type mismatch
       expect(message).toContain("not assignable to type '(x: string) => number'");
-      // Chain levels must NOT be present — they balloon message size for complex generic types
       expect(message).not.toContain("Types of parameters");
       expect(message).not.toContain("Type 'string' is not assignable to type 'number'");
     });
 
-    it("returns empty diagnostics for a clean file", async () => {
+    test("returns empty diagnostics for a clean file", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/clean.ts`, makeScope(dir));
@@ -91,7 +85,7 @@ describe("getTypeErrors operation", () => {
       expect(result.truncated).toBe(false);
     });
 
-    it("throws FILE_NOT_FOUND for a non-existent file", async () => {
+    test("throws FILE_NOT_FOUND for a non-existent file", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       await expect(
@@ -99,7 +93,7 @@ describe("getTypeErrors operation", () => {
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
-    it("throws WORKSPACE_VIOLATION for a file outside the workspace", async () => {
+    test("throws WORKSPACE_VIOLATION for a file outside the workspace", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       await expect(getTypeErrors(compiler, "/etc/hosts", makeScope(dir))).rejects.toMatchObject({
@@ -107,108 +101,71 @@ describe("getTypeErrors operation", () => {
       });
     });
 
-    it("errorCount equals diagnostics.length when not truncated", async () => {
+    test("errorCount equals diagnostics.length when not truncated", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
 
-      // When not truncated, errorCount is the true total and equals diagnostics.length
       expect(result.errorCount).toBe(result.diagnostics.length);
       expect(result.truncated).toBe(false);
     });
 
-    it("caps at 100 and sets truncated=true when a single file has more than 100 errors", async () => {
+    test("caps at 100 and sets truncated=true when a single file has more than 100 errors", async ({
+      dir,
+    }) => {
       const compiler = new TsMorphEngine();
 
-      // many-errors.ts has 105 deliberate type errors
       const result = await getTypeErrors(compiler, `${dir}/src/many-errors.ts`, makeScope(dir));
 
       expect(result.truncated).toBe(true);
       expect(result.diagnostics).toHaveLength(100);
       expect(result.errorCount).toBe(105);
     });
+  });
 
-    it("is not truncated and errorCount equals 100 when a file has exactly 100 errors", async () => {
-      const ts100Dir = copyFixture(FIXTURES.ts100Errors.name);
-      try {
-        const compiler = new TsMorphEngine();
+  describe("single file mode — exactly 100 errors", () => {
+    test.override({ fixtureName: FIXTURES.ts100Errors.name });
 
-        const result = await getTypeErrors(
-          compiler,
-          `${ts100Dir}/src/exactly-100.ts`,
-          makeScope(ts100Dir),
-        );
+    test("is not truncated and errorCount equals 100 when a file has exactly 100 errors", async ({
+      dir,
+    }) => {
+      const compiler = new TsMorphEngine();
 
-        expect(result.truncated).toBe(false);
-        expect(result.errorCount).toBe(100);
-        expect(result.diagnostics).toHaveLength(100);
-      } finally {
-        cleanup(ts100Dir);
-      }
+      const result = await getTypeErrors(compiler, `${dir}/src/exactly-100.ts`, makeScope(dir));
+
+      expect(result.truncated).toBe(false);
+      expect(result.errorCount).toBe(100);
+      expect(result.diagnostics).toHaveLength(100);
     });
   });
 
   describe("project-wide mode (no file param)", () => {
-    let dir: string;
-    beforeAll(() => {
-      dir = copyFixture(FIXTURES.tsErrors.name);
-    });
-    afterAll(() => cleanup(dir));
+    test.override({ fixtureName: FIXTURES.tsErrors.name });
 
-    it("returns errors from all files in the project", async () => {
+    test("returns errors from all files in the project", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
 
-      // broken.ts (3 errors) + many-errors.ts (105 errors) = 108 total, so truncated
       expect(result.errorCount).toBeGreaterThan(100);
       expect(result.diagnostics).toHaveLength(100);
       expect(result.truncated).toBe(true);
     });
 
-    it("caps at 100 and sets truncated=true; errorCount reflects the full total", async () => {
+    test("caps at 100 and sets truncated=true; errorCount reflects the full total", async ({
+      dir,
+    }) => {
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
 
       expect(result.truncated).toBe(true);
       expect(result.diagnostics).toHaveLength(100);
-      // errorCount is the total found, not the capped count
       expect(result.errorCount).toBeGreaterThan(100);
       expect(result.errorCount).toBeGreaterThan(result.diagnostics.length);
     });
 
-    it("is not truncated and errorCount equals 100 when the project has exactly 100 errors", async () => {
-      const ts100Dir = copyFixture(FIXTURES.ts100Errors.name);
-      try {
-        const compiler = new TsMorphEngine();
-
-        const result = await getTypeErrors(compiler, undefined, makeScope(ts100Dir));
-
-        expect(result.truncated).toBe(false);
-        expect(result.errorCount).toBe(100);
-        expect(result.diagnostics).toHaveLength(100);
-      } finally {
-        cleanup(ts100Dir);
-      }
-    });
-
-    it("returns empty result for a project with no errors", async () => {
-      const simpleDir = copyFixture(FIXTURES.simpleTs.name);
-      try {
-        const compiler = new TsMorphEngine();
-
-        const result = await getTypeErrors(compiler, undefined, makeScope(simpleDir));
-
-        expect(result.diagnostics).toHaveLength(0);
-        expect(result.errorCount).toBe(0);
-        expect(result.truncated).toBe(false);
-      } finally {
-        cleanup(simpleDir);
-      }
-    });
-
-    it("each diagnostic in project-wide results has the correct shape", async () => {
+    test("each diagnostic in project-wide results has the correct shape", async ({ dir }) => {
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
@@ -226,20 +183,48 @@ describe("getTypeErrors operation", () => {
     });
   });
 
-  describe("Vue SFC support via VolarEngine", () => {
-    let dir: string;
-    beforeAll(() => {
-      dir = copyFixture(FIXTURES.vueErrors.name);
-    });
-    afterAll(() => cleanup(dir));
+  describe("project-wide mode — exactly 100 errors", () => {
+    test.override({ fixtureName: FIXTURES.ts100Errors.name });
 
-    function makeVolarEngine(): VolarEngine {
+    test("is not truncated and errorCount equals 100 when the project has exactly 100 errors", async ({
+      dir,
+    }) => {
+      const compiler = new TsMorphEngine();
+
+      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
+
+      expect(result.truncated).toBe(false);
+      expect(result.errorCount).toBe(100);
+      expect(result.diagnostics).toHaveLength(100);
+    });
+  });
+
+  describe("project-wide mode — clean project", () => {
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("returns empty result for a project with no errors", async ({ dir }) => {
+      const compiler = new TsMorphEngine();
+
+      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
+
+      expect(result.diagnostics).toHaveLength(0);
+      expect(result.errorCount).toBe(0);
+      expect(result.truncated).toBe(false);
+    });
+  });
+
+  describe("Vue SFC support via VolarEngine", () => {
+    test.override({ fixtureName: FIXTURES.vueErrors.name });
+
+    function makeVolarEngine(dir: string): VolarEngine {
       return new VolarEngine(new TsMorphEngine(), dir);
     }
 
     describe("single .vue file with type errors", () => {
-      it("returns diagnostics with the real .vue path (not the virtual .vue.ts path)", async () => {
-        const engine = makeVolarEngine();
+      test("returns diagnostics with the real .vue path (not the virtual .vue.ts path)", async ({
+        dir,
+      }) => {
+        const engine = makeVolarEngine(dir);
         const vuePath = `${dir}/src/Broken.vue`;
 
         const result = await getTypeErrors(engine, vuePath, makeScope(dir));
@@ -247,15 +232,16 @@ describe("getTypeErrors operation", () => {
         expect(result.errorCount).toBeGreaterThan(0);
         expect(result.diagnostics.length).toBeGreaterThan(0);
 
-        // All diagnostics must reference the real .vue file, not the Volar virtual one
         for (const diag of result.diagnostics) {
           expect(diag.file).toBe(vuePath);
           expect(diag.file).not.toContain(".vue.ts");
         }
       });
 
-      it("returns 1-based line and col in the real .vue source with correct error code", async () => {
-        const engine = makeVolarEngine();
+      test("returns 1-based line and col in the real .vue source with correct error code", async ({
+        dir,
+      }) => {
+        const engine = makeVolarEngine(dir);
         const vuePath = `${dir}/src/Broken.vue`;
 
         const result = await getTypeErrors(engine, vuePath, makeScope(dir));
@@ -263,35 +249,33 @@ describe("getTypeErrors operation", () => {
         expect(result.errorCount).toBeGreaterThan(0);
         const diag = result.diagnostics[0];
 
-        // Must be 1-based, within a plausible range for the .vue source
         expect(diag.line).toBeGreaterThan(0);
         expect(diag.col).toBeGreaterThan(0);
-        // TS2322: Type 'string' is not assignable to type 'number'
         expect(diag.code).toBe(2322);
         expect(diag.message).toContain("not assignable to type 'number'");
       });
 
-      it("pins exact position — error is at line 2 (the const x assignment) in Broken.vue", async () => {
-        const engine = makeVolarEngine();
+      test("pins exact position — error is at line 2 (the const x assignment) in Broken.vue", async ({
+        dir,
+      }) => {
+        const engine = makeVolarEngine(dir);
         const vuePath = `${dir}/src/Broken.vue`;
 
         const result = await getTypeErrors(engine, vuePath, makeScope(dir));
 
-        // Broken.vue line 2: `const x: number = "hello";`
-        // The 2322 error lands on `x` (col 7) in the real .vue source
         const ts2322 = result.diagnostics.filter((d) => d.code === 2322);
         expect(ts2322.length).toBeGreaterThan(0);
-        const err = ts2322[0];
-        expect(err.line).toBe(2);
+        expect(ts2322[0].line).toBe(2);
       });
 
-      it("returns no virtual-only positions — all diagnostics map to the real .vue file", async () => {
-        const engine = makeVolarEngine();
+      test("returns no virtual-only positions — all diagnostics map to the real .vue file", async ({
+        dir,
+      }) => {
+        const engine = makeVolarEngine(dir);
         const vuePath = `${dir}/src/Broken.vue`;
 
         const result = await getTypeErrors(engine, vuePath, makeScope(dir));
 
-        // No diagnostic should have file set to the virtual path
         for (const diag of result.diagnostics) {
           expect(diag.file).not.toMatch(/\.vue\.ts$/);
         }
@@ -299,8 +283,8 @@ describe("getTypeErrors operation", () => {
     });
 
     describe("single .vue file with no errors", () => {
-      it("returns empty diagnostics for a clean .vue file", async () => {
-        const engine = makeVolarEngine();
+      test("returns empty diagnostics for a clean .vue file", async ({ dir }) => {
+        const engine = makeVolarEngine(dir);
         const vuePath = `${dir}/src/Clean.vue`;
 
         const result = await getTypeErrors(engine, vuePath, makeScope(dir));
@@ -310,8 +294,10 @@ describe("getTypeErrors operation", () => {
         expect(result.truncated).toBe(false);
       });
 
-      it("returns empty diagnostics for a template-only .vue file (no script block)", async () => {
-        const engine = makeVolarEngine();
+      test("returns empty diagnostics for a template-only .vue file (no script block)", async ({
+        dir,
+      }) => {
+        const engine = makeVolarEngine(dir);
         const vuePath = `${dir}/src/TemplateOnly.vue`;
 
         const result = await getTypeErrors(engine, vuePath, makeScope(dir));
@@ -323,30 +309,30 @@ describe("getTypeErrors operation", () => {
     });
 
     describe("project-wide mode in a Vue project", () => {
-      it("includes errors from .vue files in the combined results", async () => {
-        const engine = makeVolarEngine();
+      test("includes errors from .vue files in the combined results", async ({ dir }) => {
+        const engine = makeVolarEngine(dir);
 
         const result = await getTypeErrors(engine, undefined, makeScope(dir));
 
         expect(result.errorCount).toBeGreaterThan(0);
 
-        // At least one diagnostic must reference a .vue file
         const vueDiags = result.diagnostics.filter((d) => d.file.endsWith(".vue"));
         expect(vueDiags.length).toBeGreaterThan(0);
       });
 
-      it("includes errors from .ts files in the combined results", async () => {
-        const engine = makeVolarEngine();
+      test("includes errors from .ts files in the combined results", async ({ dir }) => {
+        const engine = makeVolarEngine(dir);
 
         const result = await getTypeErrors(engine, undefined, makeScope(dir));
 
-        // At least one diagnostic must reference a .ts file (utils.ts has a TS2322)
         const tsDiags = result.diagnostics.filter((d) => d.file.endsWith(".ts"));
         expect(tsDiags.length).toBeGreaterThan(0);
       });
 
-      it(".vue diagnostics have the real .vue path, not the virtual .vue.ts path", async () => {
-        const engine = makeVolarEngine();
+      test(".vue diagnostics have the real .vue path, not the virtual .vue.ts path", async ({
+        dir,
+      }) => {
+        const engine = makeVolarEngine(dir);
 
         const result = await getTypeErrors(engine, undefined, makeScope(dir));
 
@@ -355,8 +341,8 @@ describe("getTypeErrors operation", () => {
         }
       });
 
-      it("applies the 100-error cap across combined TS and Vue errors", async () => {
-        const engine = makeVolarEngine();
+      test("applies the 100-error cap across combined TS and Vue errors", async ({ dir }) => {
+        const engine = makeVolarEngine(dir);
 
         const result = await getTypeErrors(engine, undefined, makeScope(dir));
 
@@ -372,8 +358,8 @@ describe("getTypeErrors operation", () => {
     });
 
     describe(".ts file in a Vue project (regression guard)", () => {
-      it("returns the same errors for a .ts file as TsMorphEngine would", async () => {
-        const volarEngine = makeVolarEngine();
+      test("returns the same errors for a .ts file as TsMorphEngine would", async ({ dir }) => {
+        const volarEngine = makeVolarEngine(dir);
         const tsEngine = new TsMorphEngine();
         const tsFilePath = `${dir}/src/utils.ts`;
         const scope = makeScope(dir);
@@ -384,7 +370,6 @@ describe("getTypeErrors operation", () => {
         expect(volarResult.errorCount).toBe(tsResult.errorCount);
         expect(volarResult.truncated).toBe(tsResult.truncated);
         expect(volarResult.diagnostics).toHaveLength(tsResult.diagnostics.length);
-        // Codes must match (order may differ but count is pinned)
         const volarCodes = volarResult.diagnostics.map((d) => d.code).sort();
         const tsCodes = tsResult.diagnostics.map((d) => d.code).sort();
         expect(volarCodes).toEqual(tsCodes);
