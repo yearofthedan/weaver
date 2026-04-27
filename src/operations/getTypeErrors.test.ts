@@ -309,6 +309,17 @@ describe("getTypeErrors operation", () => {
         expect(result.errorCount).toBe(0);
         expect(result.truncated).toBe(false);
       });
+
+      it("returns empty diagnostics for a template-only .vue file (no script block)", async () => {
+        const engine = makeVolarEngine();
+        const vuePath = `${dir}/src/TemplateOnly.vue`;
+
+        const result = await getTypeErrors(engine, vuePath, makeScope(dir));
+
+        expect(result.diagnostics).toHaveLength(0);
+        expect(result.errorCount).toBe(0);
+        expect(result.truncated).toBe(false);
+      });
     });
 
     describe("project-wide mode in a Vue project", () => {
