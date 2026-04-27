@@ -5,6 +5,10 @@ import type { TsMorphEngine } from "./engine.js";
 
 export const MAX_DIAGNOSTICS = 100;
 
+export function extractDiagnosticMessage(messageText: string | ts.DiagnosticMessageChain): string {
+  return typeof messageText === "string" ? messageText : messageText.messageText;
+}
+
 export function toDiagnostic(
   d: ReturnType<ts.LanguageService["getSemanticDiagnostics"]>[number],
 ): TypeDiagnostic {
@@ -17,8 +21,7 @@ export function toDiagnostic(
     line = lc.line + 1;
     col = lc.character + 1;
   }
-  const message = typeof d.messageText === "string" ? d.messageText : d.messageText.messageText;
-  return { file, line, col, code: d.code, message };
+  return { file, line, col, code: d.code, message: extractDiagnosticMessage(d.messageText) };
 }
 
 export function tsGetTypeErrorsForFile(

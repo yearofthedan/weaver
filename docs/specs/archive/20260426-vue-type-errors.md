@@ -113,7 +113,7 @@ All decisions resolved during spec:
 ## Done-when
 
 - [x] All ACs verified by tests
-- [ ] Mutation score ≥ threshold for touched files (not yet run)
+- [x] Mutation score ≥ threshold for touched files — 74.91% overall (3 accepted survivors in `translateVirtualOffset`: optional-chain on `typescript`, `!serviceScript`, `!realContent`; all correct guards warranted by the type but untestable without faking a `CachedService` that `buildVolarService` never produces)
 - [x] `pnpm check` passes (79 + 4 test files, 906 + 52 tests)
 - [x] No touched source or test file exceeds 500 lines. `VolarEngine`: 407; `getTypeErrors.test.ts`: 394; all others under 200.
 - [x] Docs updated: `getTypeErrors.md`, `handoff.md` current-state
@@ -137,4 +137,4 @@ All decisions resolved during spec:
 - Tests added: 20 integration tests (getTypeErrors.test.ts) + 6 unit tests (get-type-errors.test.ts) = 26 total
 - Files created: `src/ts-engine/get-type-errors.ts`, `src/plugins/vue/get-type-errors.ts`, `src/plugins/vue/get-type-errors.test.ts`, `src/__testHelpers__/fixtures/vue-errors/`
 - Files modified: `src/operations/getTypeErrors.ts`, `src/operations/getTypeErrors.test.ts`, `src/ts-engine/types.ts`, `src/ts-engine/engine.ts`, `src/plugins/vue/engine.ts`, `src/daemon/dispatcher.ts`, `src/__testHelpers__/fixtures/fixtures.ts`, `src/ts-engine/__testHelpers__/mock-compiler.ts`
-- Mutation score: not yet run
+- Mutation score: 74.91% overall (3 survivors accepted — see Done-when note above)
