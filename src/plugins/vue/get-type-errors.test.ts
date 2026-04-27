@@ -1,8 +1,8 @@
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
+import { MAX_DIAGNOSTICS } from "../../operations/types.js";
 import type { TsMorphEngine } from "../../ts-engine/engine.js";
-import { MAX_DIAGNOSTICS } from "../../ts-engine/get-type-errors.js";
 import {
   vueGetTypeErrorsForFile,
   vueGetTypeErrorsForProject,

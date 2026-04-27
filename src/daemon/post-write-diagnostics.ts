@@ -1,9 +1,10 @@
 import * as path from "node:path";
 import ts from "typescript";
-import { MAX_DIAGNOSTICS, toDiagnostic } from "../operations/getTypeErrors.js";
 import type { PostWriteDiagnostics } from "../operations/types.js";
+import { MAX_DIAGNOSTICS } from "../operations/types.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import type { TsMorphEngine } from "../ts-engine/engine.js";
+import { toDiagnostic } from "../ts-engine/get-type-errors.js";
 
 const TS_FILE_EXTENSIONS = new Set([".ts", ".tsx"]);
 

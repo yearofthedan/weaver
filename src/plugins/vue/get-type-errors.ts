@@ -2,8 +2,9 @@ import * as path from "node:path";
 import ts from "typescript";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type { GetTypeErrorsResult, TypeDiagnostic } from "../../operations/types.js";
+import { MAX_DIAGNOSTICS } from "../../operations/types.js";
 import type { TsMorphEngine } from "../../ts-engine/engine.js";
-import { extractDiagnosticMessage, MAX_DIAGNOSTICS } from "../../ts-engine/get-type-errors.js";
+import { extractDiagnosticMessage } from "../../ts-engine/get-type-errors.js";
 import { offsetToLineCol } from "../../utils/text-utils.js";
 import type { CachedService } from "./service.js";
 

@@ -1,9 +1,8 @@
 import ts from "typescript";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { GetTypeErrorsResult, TypeDiagnostic } from "../operations/types.js";
+import { MAX_DIAGNOSTICS } from "../operations/types.js";
 import type { TsMorphEngine } from "./engine.js";
-
-export const MAX_DIAGNOSTICS = 100;
 
 export function extractDiagnosticMessage(messageText: string | ts.DiagnosticMessageChain): string {
   return typeof messageText === "string" ? messageText : messageText.messageText;
