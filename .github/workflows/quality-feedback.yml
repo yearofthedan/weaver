@@ -11,6 +11,9 @@ jobs:
     name: Mutation Testing
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions:
+      id-token: write
+      contents: write
     steps:
       - uses: actions/checkout@v6
 
