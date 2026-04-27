@@ -4,7 +4,6 @@ import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { Engine } from "../ts-engine/types.js";
 import type { GetTypeErrorsResult } from "./types.js";
 
-// Re-exported for post-write-diagnostics.ts which imports them directly from here.
 export { MAX_DIAGNOSTICS, toDiagnostic } from "../ts-engine/get-type-errors.js";
 
 export async function getTypeErrors(
