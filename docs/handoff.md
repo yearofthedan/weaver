@@ -89,17 +89,18 @@ src/
     *.integration.test.ts        ← colocated integration tests
   plugins/
     vue/
-      plugin.ts   ← createVueLanguagePlugin(); Vue/Volar LanguagePlugin factory (project detection, lifecycle)
-      engine.ts   ← VolarEngine: implements Engine; delegates TS work to TsMorphEngine; scans .vue files for imports
-      scan.ts     ← updateVueImportsAfterMove + removeVueImportsOfDeletedFile + updateVueNamedImportAfterSymbolMove
-      service.ts  ← buildVolarService() — Volar service factory
-      *.test.ts   ← colocated unit tests
+      plugin.ts         ← createVueLanguagePlugin(); Vue/Volar LanguagePlugin factory (project detection, lifecycle)
+      engine.ts         ← VolarEngine: implements Engine; delegates TS work to TsMorphEngine; scans .vue files for imports
+      get-type-errors.ts ← vueGetTypeErrorsForFile + vueGetTypeErrorsForProject + vueGetTypeErrorsFromService — standalone actions
+      scan.ts           ← updateVueImportsAfterMove + removeVueImportsOfDeletedFile + updateVueNamedImportAfterSymbolMove
+      service.ts        ← buildVolarService() — Volar service factory
+      *.test.ts         ← colocated unit tests
   operations/
     rename.ts          ← rename(engine, filePath, line, col, newName, scope: WorkspaceScope)
     findReferences.ts  ← findReferences(engine, filePath, line, col)
     findImporters.ts   ← findImporters(engine, filePath) — "who imports this file?"; returns {fileName, references[]}
     getDefinition.ts   ← getDefinition(engine, filePath, line, col)
-    getTypeErrors.ts   ← getTypeErrors(tsEngine, file?, scope: WorkspaceScope) — errors-only, cap 100; exports toDiagnostic + MAX_DIAGNOSTICS
+    getTypeErrors.ts   ← getTypeErrors(engine, file?, scope: WorkspaceScope) — errors-only, cap 100; thin validation wrapper delegating to engine
     moveFile.ts        ← moveFile(engine, oldPath, newPath, scope: WorkspaceScope)
     moveDirectory.ts   ← moveDirectory(engine, oldPath, newPath, scope: WorkspaceScope)
     moveSymbol.ts      ← moveSymbol(tsEngine, projectEngine, sourceFile, symbolName, destFile, scope: WorkspaceScope)
@@ -112,6 +113,7 @@ src/
   ts-engine/
     types.ts              ← Engine + LanguagePlugin + EngineRegistry interfaces; SpanLocation, DefinitionLocation, FileTextEdit
     engine.ts             ← TsMorphEngine: project cache, LS accessors, delegates to standalone action functions
+    get-type-errors.ts    ← tsGetTypeErrors(): TS-only type error collection; exports toDiagnostic + MAX_DIAGNOSTICS — standalone action
     delete-file.ts        ← tsDeleteFile(): delete file, remove importers, invalidate cache — standalone action
     move-file.ts          ← tsMoveFile(): edits + physical move + project graph update + fallback scan — standalone action
     move-directory.ts     ← tsMoveDirectory(): batch edits + OS rename + non-source files — standalone action
@@ -162,7 +164,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
-- `getTypeErrors` Volar support for `.vue` files — [spec](specs/20260426-vue-type-errors.md)
 - **`nameMatches` for Vue renames** `[needs design]` — `VolarEngine.rename` does not call `scanNameMatches` in v1; adding it requires parsing `<script>` blocks and handling SFC virtual↔real line/col translation. See `docs/features/rename.md` Constraints for the v1 exclusion.
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; see [moveSymbol.md](features/moveSymbol.md)
