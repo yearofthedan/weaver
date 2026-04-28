@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.1.2](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.1...weaver-v0.1.2) (2026-04-28)
+
+
+### Features
+
+* **check:** run coverage as part of pnpm check ([0254f1a](https://github.com/yearofthedan/weaver/commit/0254f1a15dd4d8cf0b9036e2388548c7ea00b9eb))
+* **cli:** prioritise CLI as primary interface, fix --help exit code ([6d23e27](https://github.com/yearofthedan/weaver/commit/6d23e27054a119f41b408543f1245c225a58eec6))
+* **scripts:** add devcontainer up and connect scripts ([493b550](https://github.com/yearofthedan/weaver/commit/493b5508bdbcef5c25d456a865c2ed8de04586b5))
+* **ts-engine:** add import integrity to moveSymbol ([5c6ab54](https://github.com/yearofthedan/weaver/commit/5c6ab54050347a391190245d2d1b041577191b40))
+* **ts-engine:** add nameMatches to rename — scan modified files for derived identifier names ([74ee159](https://github.com/yearofthedan/weaver/commit/74ee15956d0a452c9c2e058c2068cbdca18df573))
+* **vue-engine:** add .vue SFC support to getTypeErrors ([cf629bd](https://github.com/yearofthedan/weaver/commit/cf629bd35821eafd10257bf80123957b643f24af))
+* **vue-engine:** rewrite Vue import specifiers after directory move ([53d8c61](https://github.com/yearofthedan/weaver/commit/53d8c6145ef6ae324400c3a560694de81c1a704e))
+
+
+### Bug Fixes
+
+* **ci:** add id-token: write permission to quality-feedback job ([7ebd38f](https://github.com/yearofthedan/weaver/commit/7ebd38f0509024fcb73fb7430b73aa61d18103cf))
+* **ci:** scope mutation testing to fast-test tier and cache results ([e363dd2](https://github.com/yearofthedan/weaver/commit/e363dd24351804be1bb7b19896a5195fae025e9b))
+* **deps:** update dependency @vue/language-core to v3.2.7 ([bd6eb9a](https://github.com/yearofthedan/weaver/commit/bd6eb9a0c6f08bf2614dfe8cc58e938fad0219af))
+* **deps:** update dependency safe-regex2 to v5.1.1 ([be98d9e](https://github.com/yearofthedan/weaver/commit/be98d9ee857a64b3eaa7dd210ea7eee91169acac))
+* **lint:** sort imports in vue engine after applyRenameEdits addition ([5c2c14c](https://github.com/yearofthedan/weaver/commit/5c2c14c89bf096e86e9956e6beb4479420ad66df))
+* **renovate:** correct devcontainer manager name ([99ffbe9](https://github.com/yearofthedan/weaver/commit/99ffbe9e6ee9f4c8c8281a11d5c7a1526fcb6229))
+* **security,daemon:** canonicalise restricted paths and workspace keys via realpathSync ([88be01a](https://github.com/yearofthedan/weaver/commit/88be01a69b1b272fae4d23ffc962a812b33aeeda))
+* **ts-engine:** remove incorrect realpathSync from getEditsForFileRename ([9d7d43e](https://github.com/yearofthedan/weaver/commit/9d7d43e90b9c1d882d49e12521816969920a822d))
+* **vue-engine:** use virtual .vue.ts paths for moveDirectory import rewriting ([78f0d9f](https://github.com/yearofthedan/weaver/commit/78f0d9f0a80d8078d11c1f051f39cdb23f2de6fe))
+
+
+### Reverts
+
+* remove noise handoff entry for env-only test failures ([d9dc19a](https://github.com/yearofthedan/weaver/commit/d9dc19ad7a8f03aa20daacf70ff06d4408559800))
+
 ## [0.1.1](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.0...weaver-v0.1.1) (2026-04-04)
 
 
