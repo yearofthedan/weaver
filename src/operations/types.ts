@@ -13,8 +13,8 @@ export interface RenameResult {
   symbolName: string;
   newName: string;
   locationCount: number;
-  /** Present on TS renames; absent on Vue renames. Complete list — not sampled. */
-  nameMatches?: NameMatchSample[];
+  /** Complete list of derivative identifiers in modified files — not sampled. */
+  nameMatches: NameMatchSample[];
 }
 
 export interface MoveResult {

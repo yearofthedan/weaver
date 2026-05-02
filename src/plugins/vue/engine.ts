@@ -19,6 +19,7 @@ import { walkRecursive } from "../../utils/file-walk.js";
 import { applyTextEdits, lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
 import { vueGetTypeErrorsForFile, vueGetTypeErrorsForProject } from "./get-type-errors.js";
+import { scanVueNameMatches } from "./name-matches.js";
 import {
   removeVueImportsOfDeletedFile,
   rewriteVueOwnImportsAfterMove,
@@ -385,16 +386,24 @@ export class VolarEngine implements Engine {
       fileEdits.push({ span: loc.textSpan, newText: newName });
     }
 
+    const oldContents = new Map<string, string>();
     for (const [fileName, edits] of editsByFile) {
       if (!scope.contains(fileName)) {
         scope.recordSkipped(fileName);
         continue;
       }
       const original = this.readFile(fileName);
+      oldContents.set(fileName, original);
       const updated = applyTextEdits(original, edits);
       scope.writeFile(fileName, updated);
       service.fileContents.set(fileName, updated);
     }
+
+    const excludePositions = locs.map((loc) => ({
+      file: loc.fileName,
+      offset: loc.textSpan.start,
+    }));
+    const nameMatches = scanVueNameMatches(oldName, oldContents, excludePositions);
 
     return {
       filesModified: scope.modified,
@@ -402,6 +411,7 @@ export class VolarEngine implements Engine {
       symbolName: oldName,
       newName,
       locationCount: locs.length,
+      nameMatches,
     };
   }
 }

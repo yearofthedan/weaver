@@ -10,7 +10,7 @@ export interface ExcludePosition {
 // renaming PascalCase `TsProvider` also finds camelCase derivatives like
 // `tsProviderSingleton`, and renaming camelCase `tsProvider` finds
 // `TsProvider`-prefixed declarations.
-function containsName(text: string, oldName: string): boolean {
+export function containsName(text: string, oldName: string): boolean {
   if (text.includes(oldName)) return true;
   const first = oldName[0];
   const toggled = first === first.toUpperCase() ? first.toLowerCase() : first.toUpperCase();
