@@ -2,15 +2,21 @@
 
 Project-wide coding standards. Referenced by agents, skills, and CLAUDE.md.
 
-These checks happen **before** implementing, not after. Read the target files, assess their size and complexity, and decide whether extraction or refactoring is needed before adding new code. This is cheaper and cleaner than untangling changes after the fact.
+These checks happen **before** implementing, not after. Read the target files, work through the assessment below, and decide whether extraction or refactoring is needed before adding new code. This is cheaper and cleaner than untangling changes after the fact.
 
-## File size
+## Before extending an existing file
 
-- **Ideal:** 150 lines or fewer. Small files are easy to test, review, and mutate.
-- **Review at 300:** Pause and consider whether the file has multiple responsibilities or contains logic that belongs in a utility.
-- **Hard flag at 500:** The file almost certainly needs decomposition. Do not extend it without extracting first.
+Read the file first. Then ask three questions:
 
-Large files make mutation testing expensive — more mutants per file means longer runs and harder triage.
+1. **Is my change a different responsibility from what's here?** If yes, the new code belongs somewhere else — a new file, an existing utility, a sibling module.
+2. **Is there code already in this file that should be extracted?** Generic logic, helpers usable elsewhere, anything not specific to this file's purpose. Pull it out before adding more.
+3. **Am I about to duplicate logic that exists elsewhere?** Search the codebase first. Extend or generalize a near-match rather than parallel-implementing.
+
+Do this *before* implementing — it's cheaper and cleaner than untangling afterwards. The "Refactoring triggers" section below lists the signals worth weighing during this assessment.
+
+**On file length specifically:** length is a signal that the questions above are worth asking, not a trigger to split. Around 300 lines, mixed responsibilities are common; over 500, almost always. Length alone never justifies a split.
+
+**Anti-pattern: splitting to hit a number.** Do not break a cohesive file into smaller files just because it crossed a length threshold. That trades one real cost (a long file) for several worse ones: more imports, harder navigation, scattered logic, and helpers that exist only because something had to be moved. If you can't name the distinct responsibility a new file would own, leave it alone.
 
 ## Reuse before create
 
@@ -39,9 +45,11 @@ Comments exist to provide context that cannot be gathered from names, types, and
 
 ## Tests
 
+Tests are production code. Everything above applies: read before extending, look for extraction opportunities, avoid duplicate setup, no comments restating assertions, no unreachable branches. The dimensions below cover what's *additional* to test code — not what replaces the standards above.
+
 ### Quality model
 
-Line count is one smell detector among several. A short test file can still be unhealthy. Assess test health on these dimensions:
+A short test file can still be unhealthy. Assess test health on these dimensions:
 
 - **Layer fit.** Is each test at the lowest layer that can verify the behaviour? Pure logic belongs at the unit layer with in-memory dependencies. Integration tests verify wiring, not exhaustive input variations.
 - **Setup proportionality.** Is the setup proportional to what's being verified? When the fixture ceremony dwarfs the assertion, the logic under test likely belongs behind a seam that can be tested with lighter dependencies.
@@ -59,7 +67,7 @@ Extracting a new entity (service, utility, domain object) changes the testing su
 
 ### Refactoring hierarchy
 
-The same file-size thresholds apply to test files. A large test file is usually a symptom — diagnose the cause before splitting. Work top to bottom:
+A large test file is usually a symptom — diagnose the cause before splitting. Work top to bottom:
 
 1. **Push integration tests down.** If an integration test is large because it exercises lots of internal logic, extract that logic into units with their own tests. Keep the integration test narrow — it should verify the integration point, not re-test the units.
 2. **Decompose the source.** If a unit test is large because the unit under test is complex, the source itself probably needs decomposition. Split the source; tests follow naturally.
@@ -75,7 +83,7 @@ Test doubles belong near the concept they mock, not in a generic folder. `makeMo
 
 Tests follow their subject. A test for an operation lives in the operation's test file; a test for an engine method lives in the engine's test file. If a test colocated with one subject is exercising another subject's logic indirectly, push it down to the right file.
 
-Size doesn't override this. When a test file approaches the 300-line review threshold, that triggers assessment via the refactoring hierarchy above — not a new test file as a workaround. A new test file is only justified after the hierarchy has been applied and the file still warrants splitting along feature boundaries.
+Size doesn't override this. When a test file grows large enough to give pause, that triggers assessment via the refactoring hierarchy above — not a new test file as a workaround. A new test file is only justified after the hierarchy has been applied and the file still warrants splitting along feature boundaries.
 
 ## Type casts
 

@@ -52,7 +52,7 @@ You receive **one or more ACs** from the orchestrator, grouped because they touc
 2. Read the spec file path and the ACs you've been given
 3. Read `CLAUDE.md` for project rules and `docs/code-standards.md` for coding standards — follow them exactly
 4. **Pre-implementation context:** Use `/implementation-context` — read 2-3 neighbouring files to absorb local patterns and find reusable code. Do this once per batch, not per AC.
-5. **Pre-implementation check:** Read the spec's `Relevant files` section and the target files you'll modify. Assess file sizes and complexity against the thresholds in `docs/code-standards.md`. If a target file is already near or over 300 lines, extract before extending.
+5. **Pre-implementation check:** Read the spec's `Relevant files` section and the target files you'll modify. For each file you'll extend, work through the assessment in `docs/code-standards.md` ("Before extending an existing file"). Refactor first if needed. Note your assessment in your agent notes.
 6. Address any `Red flags` from the spec — if the spec notes cleanup is needed first, do that before the feature work
 7. **For each AC in order:**
    a. Write failing tests FIRST (TDD)
