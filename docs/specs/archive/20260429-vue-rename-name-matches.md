@@ -33,7 +33,7 @@
 
 **Layer-fit check:**
 - AC 1 (`.ts` file scanning): pure function of old content + exclude positions → unit-testable with a throwaway source file. One integration smoke test to confirm it is wired into `VolarEngine.rename`.
-- AC 2 (`.vue` script block scanning): the offset-to-real-position translation is a pure function → extract and unit-test it directly. One integration smoke test for the full wiring.
+- AC 2 (`.vue` script block scanning): the offset-to-real-position translation is a pure function → extract and unit-test it directly. One integration smoke test verifies the full wiring through `VolarEngine.rename`.
 
 ## Value / Effort
 
@@ -120,16 +120,28 @@ Each modified file gets its own `createThrowawaySourceFile` call (one in-memory 
 
 ## Done-when
 
-- [ ] All ACs verified by tests
-- [ ] Unit test for block-offset → real-position translation (the pure sub-function extracted from AC 3 logic)
-- [ ] Integration smoke test: `VolarEngine.rename` returns `nameMatches` with correct entries for a `.ts` source rename that modifies both `.ts` and `.vue` files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] No touched source or test file exceeds the 500-line hard flag. If `engine.test.ts` is pushed over, extract the `deleteFile` describe block first (see Red flags).
-- [ ] Docs updated:
+- [x] All ACs verified by tests
+- [x] Unit test for block-offset → real-position translation (the pure sub-function extracted from AC 3 logic)
+- [x] Integration smoke test: `VolarEngine.rename` returns `nameMatches` with correct entries for a `.ts` source rename that modifies both `.ts` and `.vue` files
+- [x] `pnpm check` passes (lint + build + test)
+- [x] No touched source or test file exceeds the 500-line hard flag. If `engine.test.ts` is pushed over, extract the `deleteFile` describe block first (see Red flags).
+- [x] Docs updated:
   - `docs/features/rename.md`: remove "absent on Vue renames" constraint from the Constraints section; update the Response section to note `nameMatches` is now present for all renames
   - `src/operations/types.ts`: update `nameMatches` comment (see Interface section)
   - `docs/handoff.md`: remove the task entry
-- [ ] `containsName` is exported from `src/ts-engine/name-matches.ts`
-- [ ] Tech debt discovered during implementation added to `docs/handoff.md` as `[needs design]`
-- [ ] Non-obvious gotchas added to `docs/features/rename.md` or `.claude/MEMORY.md`
-- [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+- [x] `containsName` is exported from `src/ts-engine/name-matches.ts`
+- [x] Tech debt discovered during implementation added to `docs/handoff.md` as `[needs design]`
+- [x] Non-obvious gotchas added to `docs/features/rename.md` or `.claude/MEMORY.md`
+- [x] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+## Outcome
+
+**Shipped:** 2026-05-02
+
+**Implementation:** `src/plugins/vue/name-matches.ts` — `scanVueNameMatches` walks old file content (captured before writes) using throwaway ts-morph source files. For `.ts` files: walks `SyntaxKind.Identifier` nodes directly. For `.vue` files: uses `@vue/language-core`'s `parse` to extract `descriptor.script` and `descriptor.scriptSetup` blocks, then translates block-relative identifier offsets to real `.vue` file coordinates via `offsetToLineCol`. `containsName` is reused from `ts-engine/name-matches.ts`. `VolarEngine.rename` captures old content before writes and calls `scanVueNameMatches` with exclude positions derived from the rename locations.
+
+**`nameMatches` made required** in `RenameResult` — no existing consumers were affected.
+
+**Inline refactor:** `VolarEngine.deleteFile` extracted to `src/plugins/vue/delete-file.ts` (mirrors `ts-engine/delete-file.ts` pattern). deleteFile tests extracted to `engine.deleteFile.test.ts`. Both follow the test refactoring hierarchy: source decomposition first, test split as a consequence.
+
+**Tests added:** 11 tests in `src/plugins/vue/name-matches.test.ts` — unit tests for `blockOffsetToFilePosition` and `scanVueNameMatches` (`.ts` files, `.vue` files with both block types, template-only files); integration tests for both ACs through `VolarEngine.rename`.

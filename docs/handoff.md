@@ -164,7 +164,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
-- **`nameMatches` for Vue renames** [`docs/specs/20260429-vue-rename-name-matches.md`](specs/20260429-vue-rename-name-matches.md)
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; see [moveSymbol.md](features/moveSymbol.md)
 ---

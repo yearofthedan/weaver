@@ -49,7 +49,7 @@ See [security.md](../security.md) for the full threat model.
 
 ## Response
 
-For TypeScript renames, the response includes a `nameMatches` field:
+The response includes a `nameMatches` field:
 
 ```json
 {
@@ -74,7 +74,6 @@ When no derived names are found, `nameMatches` is `[]`.
 - Rename does not detect naming collisions with existing symbols in scope.
 - `.js`/`.jsx` files are updated only when they are part of the project graph (tsconfig `allowJs`).
 - Cross-type reference tracking (a rename in a `.ts` file updating `.vue` references) requires the Vue engine — both files must be in the same Volar project.
-- `nameMatches` is present only for TypeScript renames. Vue renames (via `VolarEngine`) do not include `nameMatches` in v1.
 
 ## Technical decisions
 
