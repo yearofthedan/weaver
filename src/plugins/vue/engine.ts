@@ -18,10 +18,10 @@ import type {
 import { walkRecursive } from "../../utils/file-walk.js";
 import { applyTextEdits, lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
+import { vueDeleteFile } from "./delete-file.js";
 import { vueGetTypeErrorsForFile, vueGetTypeErrorsForProject } from "./get-type-errors.js";
 import { scanVueNameMatches } from "./name-matches.js";
 import {
-  removeVueImportsOfDeletedFile,
   rewriteVueOwnImportsAfterMove,
   updateVueImportsAfterMove,
   updateVueImportsAfterSymbolMove,
@@ -293,18 +293,7 @@ export class VolarEngine implements Engine {
   }
 
   async deleteFile(targetFile: string, scope: WorkspaceScope): Promise<DeleteFileActionResult> {
-    const { tsDeleteFile } = await import("../../ts-engine/delete-file.js");
-    const { importRefsRemoved } = await tsDeleteFile(this.tsEngine, targetFile, scope);
-
-    const workspaceRoot = path.resolve(scope.root);
-    const { skipped: vueSkipped, refsRemoved: vueRefs } = removeVueImportsOfDeletedFile(
-      targetFile,
-      workspaceRoot,
-      scope,
-    );
-    for (const f of vueSkipped) scope.recordSkipped(f);
-
-    return { importRefsRemoved: importRefsRemoved + vueRefs };
+    return vueDeleteFile(this.tsEngine, targetFile, scope);
   }
 
   async extractFunction(

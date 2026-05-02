@@ -20,7 +20,7 @@ Context that isn't in the feature docs — things you need to know before pickin
 6. [`docs/quality.md`](quality.md) — testing and reliability expectations
 
 **Picking up a task?** Tasks have one of three states:
-- **`[chore]`** → implementation is unambiguous; implement directly, no spec needed. Any decision context is in the task description.
+- **`[chore]`** → implementation is unambiguous; implement directly, no spec needed. Any decision context is in the task description. Use for deferred admin tasks (dependency bumps, doc edits, config changes, dead code removal). Inline refactors spotted during a session don't need an entry — apply them in a separate commit and move on.
 - **`[needs design]`** → problem understood, solution not yet agreed. Run `/spec` to create a spec with the user before writing code.
 - **Has a spec link** → already designed. Read the spec, then run `/slice`.
 
