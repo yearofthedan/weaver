@@ -164,6 +164,8 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
+- **Fix dynamic imports in `plugin.test.ts`** `[chore]` — `src/plugins/vue/plugin.test.ts` has two `await import()` calls inside test bodies (lines 27, 54). Replace with static imports. Same coverage-tracking issue fixed in `name-matches.test.ts`.
+- **Migrate test files to `fixtureTest`** `[chore]` — 17 test files use the manual `copyFixture + dirs + afterEach` pattern instead of `fixtureTest` with `test.override`. Files: all tests under `src/ts-engine/`, `src/operations/searchText.test.ts`, and the daemon integration tests (where applicable — daemon tests may need multiple fixtures). See `docs/code-standards.md` for the pattern.
 - `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; see [moveSymbol.md](features/moveSymbol.md)
 ---
