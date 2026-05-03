@@ -3,6 +3,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup } from "../../__testHelpers__/helpers.js";
+import { WorkspaceScope } from "../../domain/workspace-scope.js";
+import { NodeFileSystem } from "../../ports/node-filesystem.js";
+import { TsMorphEngine } from "../../ts-engine/engine.js";
+import { VolarEngine } from "./engine.js";
 import { blockOffsetToFilePosition, scanVueNameMatches } from "./name-matches.js";
 
 describe("blockOffsetToFilePosition", () => {
@@ -125,6 +129,59 @@ describe("scanVueNameMatches", () => {
 
       expect(scanVueNameMatches("useCounter", oldContents, [])).toEqual([]);
     });
+
+    it("does not scan template expressions — only script blocks", () => {
+      // Template mustache {{ useCounterValue }} looks like an identifier to a plain TS parser.
+      // scanVueFile must restrict to script blocks only; scanTsFile on the full content would
+      // find useCounterValue and produce a false match.
+      const vueContent = [
+        "<template>{{ useCounterValue }}</template>",
+        "<script setup>",
+        "const useCounterRef = 1;",
+        "</script>",
+      ].join("\n");
+      const oldContents = new Map([["src/App.vue", vueContent]]);
+
+      const matches = scanVueNameMatches("useCounter", oldContents, []);
+
+      expect(matches.every((m) => m.name !== "useCounterValue")).toBe(true);
+      expect(matches.some((m) => m.name === "useCounterRef")).toBe(true);
+    });
+
+    it("excludes identifiers that do not contain oldName", () => {
+      const vueContent = [
+        "<template><div/></template>",
+        "<script setup>",
+        "const useCounterRef = 1;",
+        "const unrelated = 2;",
+        "</script>",
+      ].join("\n");
+      const oldContents = new Map([["src/App.vue", vueContent]]);
+
+      const matches = scanVueNameMatches("useCounter", oldContents, []);
+
+      expect(matches.every((m) => m.name !== "unrelated")).toBe(true);
+      expect(matches.some((m) => m.name === "useCounterRef")).toBe(true);
+    });
+
+    it("excludes positions that were directly renamed in .vue files", () => {
+      // <template/>\n = 12 chars; <script>\n = 9 chars; "const " = 6 chars
+      // → useCounterRef starts at blockStart(12) + identOffset(15) = realOffset(27)
+      const vueContent = [
+        "<template/>",
+        "<script>",
+        "const useCounterRef = 1;",
+        "const useCounterB = 2;",
+        "</script>",
+      ].join("\n");
+      const excludePositions = [{ file: "src/App.vue", offset: 27 }];
+      const oldContents = new Map([["src/App.vue", vueContent]]);
+
+      const matches = scanVueNameMatches("useCounter", oldContents, excludePositions);
+
+      expect(matches.some((m) => m.name === "useCounterRef")).toBe(false);
+      expect(matches.some((m) => m.name === "useCounterB")).toBe(true);
+    });
   });
 });
 
@@ -172,11 +229,6 @@ describe("VolarEngine.rename nameMatches — integration", () => {
   }
 
   it("returns nameMatches for renamed .ts files, excluding renamed sites even when newName contains oldName", async () => {
-    const { VolarEngine } = await import("./engine.js");
-    const { TsMorphEngine } = await import("../../ts-engine/engine.js");
-    const { WorkspaceScope } = await import("../../domain/workspace-scope.js");
-    const { NodeFileSystem } = await import("../../ports/node-filesystem.js");
-
     const dir = await setupVueProject();
     const engine = new VolarEngine(new TsMorphEngine(dir), dir);
     const scope = new WorkspaceScope(dir, new NodeFileSystem());
@@ -198,11 +250,6 @@ describe("VolarEngine.rename nameMatches — integration", () => {
   }, 30_000);
 
   it("returns nameMatches for renamed .vue files with real file coordinates", async () => {
-    const { VolarEngine } = await import("./engine.js");
-    const { TsMorphEngine } = await import("../../ts-engine/engine.js");
-    const { WorkspaceScope } = await import("../../domain/workspace-scope.js");
-    const { NodeFileSystem } = await import("../../ports/node-filesystem.js");
-
     // <template> first — so the script block starts at line 2+, proving
     // that returned coordinates are real file positions, not block-relative
     const appVue = [
