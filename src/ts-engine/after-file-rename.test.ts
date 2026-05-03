@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { tsAfterFileRename } from "./after-file-rename.js";
@@ -12,17 +12,9 @@ function makeScope(dir: string): WorkspaceScope {
 }
 
 describe("tsAfterFileRename", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
+  test.override({ fixtureName: FIXTURES.simpleTs.name });
 
-  function setup(fixture = FIXTURES.simpleTs.name) {
-    const dir = copyFixture(fixture);
-    dirs.push(dir);
-    return dir;
-  }
-
-  it("does not touch files outside the workspace boundary", async () => {
-    const dir = setup();
+  test("does not touch files outside the workspace boundary", async ({ dir }) => {
     const engine = new TsMorphEngine();
     const narrowDir = path.join(dir, "src", "nested");
     fs.mkdirSync(narrowDir, { recursive: true });
@@ -38,8 +30,7 @@ describe("tsAfterFileRename", () => {
     expect(fs.readFileSync(outsideFile, "utf8")).toBe(originalContent);
   });
 
-  it("does not rewrite files that do not import the old path", async () => {
-    const dir = setup();
+  test("does not rewrite files that do not import the old path", async ({ dir }) => {
     const engine = new TsMorphEngine();
     const mainPath = path.join(dir, "src/main.ts");
     const originalContent = fs.readFileSync(mainPath, "utf8");
@@ -51,8 +42,7 @@ describe("tsAfterFileRename", () => {
     expect(scope.modified).not.toContain(mainPath);
   });
 
-  it("skips files already in scope.modified", async () => {
-    const dir = setup();
+  test("skips files already in scope.modified", async ({ dir }) => {
     const engine = new TsMorphEngine();
     const mainPath = path.join(dir, "src/main.ts");
     const originalContent = fs.readFileSync(mainPath, "utf8");
@@ -64,8 +54,9 @@ describe("tsAfterFileRename", () => {
     expect(fs.readFileSync(mainPath, "utf8")).toBe(originalContent);
   });
 
-  it("records modified importers in scope when the file is physically renamed", async () => {
-    const dir = setup();
+  test("records modified importers in scope when the file is physically renamed", async ({
+    dir,
+  }) => {
     const engine = new TsMorphEngine();
     const utils = path.join(dir, "src/utils.ts");
     const helpers = path.join(dir, "src/helpers.ts");

@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { describe, expect, it } from "vitest";
+import { copyFixture, FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
@@ -38,9 +38,6 @@ function makeWorkspace(files: Record<string, string>): string {
 }
 
 describe("tsRemoveImportersOf", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
-
   describe("adding source file not yet in project", () => {
     it("handles target file that is not covered by the tsconfig include pattern", async () => {
       // Create a workspace where target.ts is placed outside the tsconfig include path.
@@ -56,19 +53,21 @@ describe("tsRemoveImportersOf", () => {
           'import { targetFn } from "../tests/target";\nexport const y = targetFn();\n',
         "tests/target.ts": "export function targetFn(): string { return 'target'; }\n",
       });
-      dirs.push(dir);
+      try {
+        // The target is in tests/ which is NOT in tsconfig include — not auto-loaded.
+        const targetFile = path.join(dir, "tests", "target.ts");
+        const scope = makeScope(dir);
+        const engine = new TsMorphEngine();
 
-      // The target is in tests/ which is NOT in tsconfig include — not auto-loaded.
-      const targetFile = path.join(dir, "tests", "target.ts");
-      const scope = makeScope(dir);
-      const engine = new TsMorphEngine();
+        // Without addSourceFileAtPath, the project cannot resolve `../tests/target`,
+        // so no declarations would be removed. With it, importer.ts is cleaned up.
+        const removed = await tsRemoveImportersOf(engine, targetFile, scope);
 
-      // Without addSourceFileAtPath, the project cannot resolve `../tests/target`,
-      // so no declarations would be removed. With it, importer.ts is cleaned up.
-      const removed = await tsRemoveImportersOf(engine, targetFile, scope);
-
-      expect(removed).toBeGreaterThan(0);
-      expect(scope.modified).toContain(path.join(dir, "src", "importer.ts"));
+        expect(removed).toBeGreaterThan(0);
+        expect(scope.modified).toContain(path.join(dir, "src", "importer.ts"));
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
     });
   });
 
@@ -83,22 +82,24 @@ describe("tsRemoveImportersOf", () => {
         "src/target.ts": "export * from './target';\nexport const x = 1;\n",
         "src/importer.ts": 'import { x } from "./target";\nexport const y = x;\n',
       });
-      dirs.push(dir);
+      try {
+        const targetFile = path.join(dir, "src", "target.ts");
+        const scope = makeScope(dir);
+        const engine = new TsMorphEngine();
 
-      const targetFile = path.join(dir, "src", "target.ts");
-      const scope = makeScope(dir);
-      const engine = new TsMorphEngine();
+        const removed = await tsRemoveImportersOf(engine, targetFile, scope);
 
-      const removed = await tsRemoveImportersOf(engine, targetFile, scope);
-
-      // importer.ts references target (the deleted file) — it must be processed.
-      expect(scope.modified).toContain(path.join(dir, "src", "importer.ts"));
-      // target.ts itself must NOT appear in modified — it is the target, not an importer.
-      // Without the guard, the circular re-export would cause target.ts to be processed
-      // and incorrectly appear in modified.
-      expect(scope.modified).not.toContain(targetFile);
-      // Only the import in importer.ts is removed; target.ts is not processed.
-      expect(removed).toBe(1);
+        // importer.ts references target (the deleted file) — it must be processed.
+        expect(scope.modified).toContain(path.join(dir, "src", "importer.ts"));
+        // target.ts itself must NOT appear in modified — it is the target, not an importer.
+        // Without the guard, the circular re-export would cause target.ts to be processed
+        // and incorrectly appear in modified.
+        expect(scope.modified).not.toContain(targetFile);
+        // Only the import in importer.ts is removed; target.ts is not processed.
+        expect(removed).toBe(1);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
     });
   });
 
@@ -112,31 +113,34 @@ describe("tsRemoveImportersOf", () => {
           "export const y = x;\n",
         ].join("\n"),
       });
-      dirs.push(dir);
+      try {
+        const targetFile = path.join(dir, "src", "target.ts");
+        const scope = makeScope(dir);
+        const engine = new TsMorphEngine();
 
-      const targetFile = path.join(dir, "src", "target.ts");
-      const scope = makeScope(dir);
-      const engine = new TsMorphEngine();
+        // This should not throw even though the external package's source file
+        // cannot be resolved (getModuleSpecifierSourceFile() returns undefined).
+        const removed = await tsRemoveImportersOf(engine, targetFile, scope);
 
-      // This should not throw even though the external package's source file
-      // cannot be resolved (getModuleSpecifierSourceFile() returns undefined).
-      const removed = await tsRemoveImportersOf(engine, targetFile, scope);
-
-      const consumerContent = fs.readFileSync(path.join(dir, "src", "consumer.ts"), "utf8");
-      // The import from target should be removed.
-      expect(consumerContent).not.toMatch(/from ['"]\.\/target['"]/);
-      // The external import should remain untouched.
-      expect(consumerContent).toMatch(/some-external-package-that-does-not-exist/);
-      // The count reflects only the target import being removed, not the external one.
-      expect(removed).toBe(1);
+        const consumerContent = fs.readFileSync(path.join(dir, "src", "consumer.ts"), "utf8");
+        // The import from target should be removed.
+        expect(consumerContent).not.toMatch(/from ['"]\.\/target['"]/);
+        // The external import should remain untouched.
+        expect(consumerContent).toMatch(/some-external-package-that-does-not-exist/);
+        // The count reflects only the target import being removed, not the external one.
+        expect(removed).toBe(1);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
     });
   });
 
   describe("predicate filters only target-file declarations", () => {
-    it("removes only the import referencing the target file, leaving unrelated imports intact", async () => {
-      const dir = copyFixture(FIXTURES.multiImporter.name);
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.multiImporter.name });
 
+    test("removes only the import referencing the target file, leaving unrelated imports intact", async ({
+      dir,
+    }) => {
       // Add a file that imports from both utils.ts (target) and featureA.ts (unrelated).
       const bothImporter = path.join(dir, "src", "combined.ts");
       fs.writeFileSync(
@@ -159,10 +163,9 @@ describe("tsRemoveImportersOf", () => {
       expect(removed).toBeGreaterThan(0);
     });
 
-    it("counts each removed declaration individually when multiple files import the target", async () => {
-      const dir = copyFixture(FIXTURES.multiImporter.name);
-      dirs.push(dir);
-
+    test("counts each removed declaration individually when multiple files import the target", async ({
+      dir,
+    }) => {
       const targetFile = path.join(dir, "src", "utils.ts");
       const scope = makeScope(dir);
       const engine = new TsMorphEngine();
@@ -179,30 +182,31 @@ describe("tsRemoveImportersOf", () => {
   describe("scope boundary enforcement during save", () => {
     it("does not save files outside the workspace scope boundary", async () => {
       const root = copyFixture(FIXTURES.crossBoundary.name);
-      dirs.push(root);
+      try {
+        const workspace = path.join(root, "workspace");
+        const targetFile = path.join(workspace, "src", "utils.ts");
+        const consumerFile = path.join(root, "consumer", "main.ts");
 
-      const workspace = path.join(root, "workspace");
-      const targetFile = path.join(workspace, "src", "utils.ts");
-      const consumerFile = path.join(root, "consumer", "main.ts");
+        // Record the consumer file content before the operation.
+        const consumerBefore = fs.readFileSync(consumerFile, "utf8");
 
-      // Record the consumer file content before the operation.
-      const consumerBefore = fs.readFileSync(consumerFile, "utf8");
+        // Use a scope limited to workspace/ — consumer/ is outside it.
+        const scope = makeScope(workspace);
+        await tsRemoveImportersOf(new TsMorphEngine(), targetFile, scope);
 
-      // Use a scope limited to workspace/ — consumer/ is outside it.
-      const scope = makeScope(workspace);
-      await tsRemoveImportersOf(new TsMorphEngine(), targetFile, scope);
-
-      // Consumer file must not have been written — it is outside the scope boundary.
-      expect(fs.readFileSync(consumerFile, "utf8")).toBe(consumerBefore);
-      // Consumer is recorded as skipped, not modified.
-      expect(scope.skipped).toContain(consumerFile);
-      expect(scope.modified).not.toContain(consumerFile);
+        // Consumer file must not have been written — it is outside the scope boundary.
+        expect(fs.readFileSync(consumerFile, "utf8")).toBe(consumerBefore);
+        // Consumer is recorded as skipped, not modified.
+        expect(scope.skipped).toContain(consumerFile);
+        expect(scope.modified).not.toContain(consumerFile);
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
     });
 
-    it("saves only in-scope dirty files, not out-of-scope ones", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.deleteFileTs.name });
 
+    test("saves only in-scope dirty files, not out-of-scope ones", async ({ dir }) => {
       // Create an extra importer file that will be modified.
       const extraFile = path.join(dir, "src", "extra.ts");
       fs.writeFileSync(
@@ -225,10 +229,11 @@ describe("tsRemoveImportersOf", () => {
   });
 
   describe("export declarations that reference the target", () => {
-    it("removes export declarations (re-exports) that reference the deleted file", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.deleteFileTs.name });
 
+    test("removes export declarations (re-exports) that reference the deleted file", async ({
+      dir,
+    }) => {
       const targetFile = path.join(dir, "src", "target.ts");
       const scope = makeScope(dir);
       const engine = new TsMorphEngine();
@@ -246,16 +251,18 @@ describe("tsRemoveImportersOf", () => {
       const dir = makeWorkspace({
         "src/isolated.ts": "export const x = 1;\n",
       });
-      dirs.push(dir);
+      try {
+        const targetFile = path.join(dir, "src", "isolated.ts");
+        const scope = makeScope(dir);
+        const engine = new TsMorphEngine();
 
-      const targetFile = path.join(dir, "src", "isolated.ts");
-      const scope = makeScope(dir);
-      const engine = new TsMorphEngine();
+        const removed = await tsRemoveImportersOf(engine, targetFile, scope);
 
-      const removed = await tsRemoveImportersOf(engine, targetFile, scope);
-
-      expect(removed).toBe(0);
-      expect(scope.modified).toHaveLength(0);
+        expect(removed).toBe(0);
+        expect(scope.modified).toHaveLength(0);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
     });
   });
 });

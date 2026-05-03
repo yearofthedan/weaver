@@ -1,6 +1,6 @@
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../../__testHelpers__/helpers.js";
+import { beforeEach, describe, expect, it } from "vitest";
+import { FIXTURES, fixtureTest as test } from "../../__testHelpers__/helpers.js";
 import {
   clearLanguagePlugins,
   invalidateAll,
@@ -13,32 +13,43 @@ import { VolarEngine } from "./engine.js";
 import { createVueLanguagePlugin } from "./plugin.js";
 
 describe("Vue LanguagePlugin integration", () => {
-  const dirs: string[] = [];
-
   beforeEach(() => {
     clearLanguagePlugins();
     registerLanguagePlugin(createVueLanguagePlugin());
   });
 
-  afterEach(() => dirs.splice(0).forEach(cleanup));
+  describe("Vue project detection", () => {
+    test.override({ fixtureName: FIXTURES.vueProject.name });
 
-  it("projectEngine returns VolarEngine for a Vue project", async () => {
-    const dir = copyFixture(FIXTURES.vueProject.name);
-    dirs.push(dir);
+    test("projectEngine returns VolarEngine for a Vue project", async ({ dir }) => {
+      const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
+      const compiler = await registry.projectEngine();
+      expect(compiler).toBeInstanceOf(VolarEngine);
+    }, 10_000);
 
-    const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
-    const compiler = await registry.projectEngine();
-    expect(compiler).toBeInstanceOf(VolarEngine);
-  }, 10_000);
+    test("invalidateAll clears cached engine so next createEngine call rebuilds it", async ({
+      dir,
+    }) => {
+      const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
+      const first = await registry.projectEngine();
+      invalidateAll();
+      const second = await registry.projectEngine();
 
-  it("projectEngine returns TsMorphEngine for a non-Vue project", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
+      expect(first).toBeInstanceOf(VolarEngine);
+      expect(second).toBeInstanceOf(VolarEngine);
+      expect(first).not.toBe(second);
+    }, 15_000);
+  });
 
-    const registry = makeRegistry(path.join(dir, "src/utils.ts"));
-    const compiler = await registry.projectEngine();
-    expect(compiler).toBeInstanceOf(TsMorphEngine);
-  }, 10_000);
+  describe("non-Vue project fallback", () => {
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("projectEngine returns TsMorphEngine for a non-Vue project", async ({ dir }) => {
+      const registry = makeRegistry(path.join(dir, "src/utils.ts"));
+      const compiler = await registry.projectEngine();
+      expect(compiler).toBeInstanceOf(TsMorphEngine);
+    }, 10_000);
+  });
 
   it("invalidateFile before compiler is created does not throw", () => {
     expect(() => invalidateFile("/any/file.vue")).not.toThrow();
@@ -47,18 +58,4 @@ describe("Vue LanguagePlugin integration", () => {
   it("invalidateAll before compiler is created does not throw", () => {
     expect(() => invalidateAll()).not.toThrow();
   });
-
-  it("invalidateAll clears cached engine so next createEngine call rebuilds it", async () => {
-    const dir = copyFixture(FIXTURES.vueProject.name);
-    dirs.push(dir);
-
-    const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
-    const first = await registry.projectEngine();
-    invalidateAll();
-    const second = await registry.projectEngine();
-
-    expect(first).toBeInstanceOf(VolarEngine);
-    expect(second).toBeInstanceOf(VolarEngine);
-    expect(first).not.toBe(second);
-  }, 15_000);
 });

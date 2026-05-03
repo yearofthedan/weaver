@@ -1,12 +1,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  cleanup,
   copyFixture,
   FIXTURES,
   fileExists,
   readFile,
+  fixtureTest as test,
 } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
@@ -18,14 +18,10 @@ function makeScope(workspace: string): WorkspaceScope {
 }
 
 describe("tsDeleteFile", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
-
   describe("in-project TS/JS importer removal", () => {
-    it("removes named import declarations that reference the deleted file", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.deleteFileTs.name });
 
+    test("removes named import declarations that reference the deleted file", async ({ dir }) => {
       const scope = makeScope(dir);
       await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
 
@@ -33,10 +29,9 @@ describe("tsDeleteFile", () => {
       expect(readFile(dir, "src/importer.ts")).not.toMatch(/from ['"]\.\/target['"]/);
     });
 
-    it("removes type-only import declarations that reference the deleted file", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
+    test("removes type-only import declarations that reference the deleted file", async ({
+      dir,
+    }) => {
       const scope = makeScope(dir);
       await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
 
@@ -44,10 +39,7 @@ describe("tsDeleteFile", () => {
       expect(content).not.toMatch(/import type.*from ['"]\.\/target['"]/);
     });
 
-    it("removes export * and named re-export declarations from barrel files", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
+    test("removes export * and named re-export declarations from barrel files", async ({ dir }) => {
       const scope = makeScope(dir);
       await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
 
@@ -56,10 +48,7 @@ describe("tsDeleteFile", () => {
       expect(content).not.toMatch(/from ['"]\.\/target['"]/);
     });
 
-    it("returns importRefsRemoved = 0 when nothing imports the file", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
+    test("returns importRefsRemoved = 0 when nothing imports the file", async ({ dir }) => {
       const isolated = path.join(dir, "src", "isolated.ts");
       fs.writeFileSync(isolated, "export const x = 1;\n", "utf8");
 
@@ -72,10 +61,9 @@ describe("tsDeleteFile", () => {
   });
 
   describe("workspace-wide importer removal", () => {
-    it("removes imports from files not included in tsconfig.include", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.deleteFileTs.name });
 
+    test("removes imports from files not included in tsconfig.include", async ({ dir }) => {
       // TsMorphEngine(dir) expands the project graph to include all workspace files,
       // so tests/out-of-project.ts is handled by the in-project phase.
       const scope = makeScope(dir);
@@ -85,10 +73,7 @@ describe("tsDeleteFile", () => {
       expect(readFile(dir, "tests/out-of-project.ts")).not.toMatch(/from ['"][^'"]*target['"]/);
     });
 
-    it("handles imports that use an explicit file extension", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
+    test("handles imports that use an explicit file extension", async ({ dir }) => {
       const extra = path.join(dir, "tests", "explicit-ext.ts");
       fs.writeFileSync(
         extra,
@@ -105,10 +90,9 @@ describe("tsDeleteFile", () => {
   });
 
   describe("physical file deletion", () => {
-    it("removes the target file from disk after cleaning importers", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.deleteFileTs.name });
 
+    test("removes the target file from disk after cleaning importers", async ({ dir }) => {
       expect(fileExists(dir, "src/target.ts")).toBe(true);
       const scope = makeScope(dir);
       await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
@@ -116,10 +100,7 @@ describe("tsDeleteFile", () => {
       expect(fileExists(dir, "src/target.ts")).toBe(false);
     });
 
-    it("deletes the file even when it has no importers", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
-
+    test("deletes the file even when it has no importers", async ({ dir }) => {
       const isolated = path.join(dir, "src", "isolated.ts");
       fs.writeFileSync(isolated, "export const x = 1;\n", "utf8");
 
@@ -131,10 +112,9 @@ describe("tsDeleteFile", () => {
   });
 
   describe("import ref counts", () => {
-    it("counts every removed TS declaration in importRefsRemoved", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.deleteFileTs.name });
 
+    test("counts every removed TS declaration in importRefsRemoved", async ({ dir }) => {
       // importer.ts: 2 decls (named import + type import)
       // barrel.ts:   2 decls (export * + named re-export)
       // tests/out-of-project.ts: 1 decl (included via expanded project graph)
@@ -148,25 +128,26 @@ describe("tsDeleteFile", () => {
   describe("workspace boundary", () => {
     it("skips out-of-workspace importers without writing them", async () => {
       const root = copyFixture(FIXTURES.crossBoundary.name);
-      dirs.push(root);
+      try {
+        const workspace = path.join(root, "workspace");
+        const targetFile = path.join(workspace, "src", "utils.ts");
+        const consumerFile = path.join(root, "consumer", "main.ts");
+        const consumerBefore = fs.readFileSync(consumerFile, "utf8");
 
-      const workspace = path.join(root, "workspace");
-      const targetFile = path.join(workspace, "src", "utils.ts");
-      const consumerFile = path.join(root, "consumer", "main.ts");
-      const consumerBefore = fs.readFileSync(consumerFile, "utf8");
+        const scope = makeScope(workspace);
+        await tsDeleteFile(new TsMorphEngine(), targetFile, scope);
 
-      const scope = makeScope(workspace);
-      await tsDeleteFile(new TsMorphEngine(), targetFile, scope);
-
-      expect(fs.readFileSync(consumerFile, "utf8")).toBe(consumerBefore);
-      expect(scope.skipped).toContain(consumerFile);
-      expect(fs.existsSync(targetFile)).toBe(false);
+        expect(fs.readFileSync(consumerFile, "utf8")).toBe(consumerBefore);
+        expect(scope.skipped).toContain(consumerFile);
+        expect(fs.existsSync(targetFile)).toBe(false);
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
     });
 
-    it("only records files within the workspace in scope.modified", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.deleteFileTs.name });
 
+    test("only records files within the workspace in scope.modified", async ({ dir }) => {
       const scope = makeScope(dir);
       await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
 
