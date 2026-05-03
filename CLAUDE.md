@@ -89,6 +89,13 @@ Always use `| tee /tmp/descriptive-name.log` for commands that take more than a 
 **Rule 17: Think like an experienced engineer.**
 Read the code before forming opinions. Look at function bodies, indirection depth, and seam boundaries before defending test placement or code structure. Spot clean code opportunities proactively — dead code, tests at the wrong level, unnecessary indirection, duplicated logic. When you find them, refactor in separate commits. Ensure tests live at the lowest level that exercises the behaviour; use 1–2 integration smoke tests for trivial delegation seams, not 10. Treat wasted compute (hour-long mutation runs, redundant CI cycles) as a cost worth investigating, not dismissing. Don't defend a position you haven't verified by reading the source.
 
+**Rule 18: Use skills and the CLI for code searches — not grep.**
+Before reaching for `grep` or `find`:
+- Symbol lookups, reference finding, definition jumping → invoke the `code-inspection` skill
+- Multi-file text searches or replacements → invoke the `search-and-replace` skill
+
+Both skills use `pnpm exec weaver` under the hood — dogfooding the primary user interface (Rule 9). The skills are listed in every session; check their trigger conditions before defaulting to shell tools.
+
 ---
 
 ## Commits

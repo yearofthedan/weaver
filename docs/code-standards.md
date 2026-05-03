@@ -85,6 +85,14 @@ Tests follow their subject. A test for an operation lives in the operation's tes
 
 Size doesn't override this. When a test file grows large enough to give pause, that triggers assessment via the refactoring hierarchy above — not a new test file as a workaround. A new test file is only justified after the hierarchy has been applied and the file still warrants splitting along feature boundaries.
 
+### Use fixtureTest for fixture-per-test setup
+
+When all (or most) tests in a file use the same fixture, use `fixtureTest` from `src/__testHelpers__/helpers.ts` with `test.override({ fixtureName })`. Each test receives a fresh `{ dir }` fixture copy with automatic cleanup — no manual `dirs` array, `afterEach`, or `copyFixture` calls needed.
+
+The manual pattern (`const dirs = []; afterEach(() => dirs.splice(0).forEach(cleanup))`) is only appropriate when tests in the same file need different fixtures. Don't mix the two patterns in one file.
+
+Dynamic `await import()` calls inside test bodies break V8 coverage tracking — Stryker cannot associate those tests with the imported module's lines. Use static imports at the top of the file.
+
 ## Type casts
 
 Casts (`as X`) throw away what the type system knows. Reach for them only at true system boundaries (JSON parse, user input, `!` on API returns you've just guarded). Inside the codebase:
