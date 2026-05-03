@@ -81,7 +81,7 @@ function scanVueFile(
 ): NameMatchSample[] {
   const { descriptor } = parse(content);
   const blocks = [descriptor.scriptSetup, descriptor.script].filter(
-    (b): b is NonNullable<typeof b> => b !== null && b !== undefined,
+    (b): b is NonNullable<typeof b> => b !== null,
   );
 
   const matches: NameMatchSample[] = [];
