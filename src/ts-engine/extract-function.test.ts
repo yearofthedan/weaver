@@ -199,13 +199,15 @@ describe("tsExtractFunction", () => {
 
   it("throws NOT_SUPPORTED when no extractable code exists at the given range", async () => {
     const dir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(dir);
-    const filePath = path.join(dir, "src/utils.ts");
-
-    // Line 1 col 1 to line 1 col 1 — empty range, nothing to extract
-    await expect(
-      tsExtractFunction(new TsMorphEngine(), filePath, 1, 1, 1, 1, "myFn", makeScope(dir)),
-    ).rejects.toMatchObject({ code: "NOT_SUPPORTED" });
+    try {
+      const filePath = path.join(dir, "src/utils.ts");
+      // Line 1 col 1 to line 1 col 1 — empty range, nothing to extract
+      await expect(
+        tsExtractFunction(new TsMorphEngine(), filePath, 1, 1, 1, 1, "myFn", makeScope(dir)),
+      ).rejects.toMatchObject({ code: "NOT_SUPPORTED" });
+    } finally {
+      cleanup(dir);
+    }
   });
 });
 

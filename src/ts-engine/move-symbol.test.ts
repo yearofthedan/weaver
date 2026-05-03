@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
+import { FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
@@ -23,15 +23,6 @@ function makeScope(root: string): WorkspaceScope {
   return new WorkspaceScope(root, new NodeFileSystem());
 }
 
-function setupSimpleTs(): { dir: string; tsCompiler: TsMorphEngine; scope: WorkspaceScope } {
-  const dir = copyFixture(FIXTURES.simpleTs.name);
-  return { dir, tsCompiler: new TsMorphEngine(), scope: makeScope(dir) };
-}
-
-/**
- * Create a temp project with given files and a tsconfig. Returns the temp dir,
- * a fresh TsMorphEngine, and a WorkspaceScope rooted at the temp dir.
- */
 function setupProject(files: Record<string, string>): {
   dir: string;
   tsCompiler: TsMorphEngine;
@@ -48,13 +39,18 @@ function setupProject(files: Record<string, string>): {
 }
 
 describe("tsMoveSymbol", () => {
+  // setupProject() dirs need manual cleanup
   const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
+  afterEach(() => {
+    for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
+  });
 
   describe("symbol move to new file", () => {
-    it("moves a named export to a new file and saves both files", async () => {
-      const { dir, tsCompiler, scope } = setupSimpleTs();
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("moves a named export to a new file and saves both files", async ({ dir }) => {
+      const tsCompiler = new TsMorphEngine();
+      const scope = makeScope(dir);
       const srcPath = path.join(dir, "src/utils.ts");
       const dstPath = path.join(dir, "src/helpers.ts");
 
@@ -66,16 +62,13 @@ describe("tsMoveSymbol", () => {
       expect(scope.modified).toContain(dstPath);
     });
 
-    it("updates the import in the importing file with .js extension", async () => {
-      const { dir, tsCompiler, scope } = setupSimpleTs();
-      dirs.push(dir);
-
+    test("updates the import in the importing file with .js extension", async ({ dir }) => {
       await tsMoveSymbol(
-        tsCompiler,
+        new TsMorphEngine(),
         path.join(dir, "src/utils.ts"),
         "greetUser",
         path.join(dir, "src/helpers.ts"),
-        scope,
+        makeScope(dir),
       );
 
       const mainContent = readFile(dir, "src/main.ts");
@@ -85,38 +78,36 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("symbol move to existing file", () => {
-    it("moves a function to an existing file, preserving existing content", async () => {
-      const { dir, tsCompiler, scope } = setupSimpleTs();
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("moves a function to an existing file, preserving existing content", async ({ dir }) => {
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
         'export function helper(): string { return "hi"; }\n',
       );
       await tsMoveSymbol(
-        tsCompiler,
+        new TsMorphEngine(),
         path.join(dir, "src/utils.ts"),
         "greetUser",
         path.join(dir, "src/helpers.ts"),
-        scope,
+        makeScope(dir),
       );
       const destContent = readFile(dir, "src/helpers.ts");
       expect(destContent).toContain("helper");
       expect(destContent).toContain("greetUser");
     });
 
-    it("appends to a non-empty destination file with a blank-line separator", async () => {
-      const { dir, tsCompiler, scope } = setupSimpleTs();
-      dirs.push(dir);
+    test("appends to a non-empty destination file with a blank-line separator", async ({ dir }) => {
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
         'export function helper(): string { return "hi"; }\n',
       );
       await tsMoveSymbol(
-        tsCompiler,
+        new TsMorphEngine(),
         path.join(dir, "src/utils.ts"),
         "greetUser",
         path.join(dir, "src/helpers.ts"),
-        scope,
+        makeScope(dir),
       );
       const content = fs.readFileSync(path.join(dir, "src/helpers.ts"), "utf8");
       expect(content).toMatch(/helper[\s\S]*\n\nexport function greetUser/);
@@ -126,11 +117,7 @@ describe("tsMoveSymbol", () => {
 
   describe("boundary skipping", () => {
     it("records importer outside the workspace boundary as skipped, not modified", async () => {
-      const {
-        dir,
-        tsCompiler: _tsCompiler,
-        scope: _unusedScope,
-      } = setupProject({
+      const { dir } = setupProject({
         "src/utils.ts": "export function add(a: number, b: number): number { return a + b; }\n",
         "lib/consumer.ts": 'import { add } from "../src/utils";\nexport const r = add(1, 2);\n',
       });
@@ -152,7 +139,7 @@ describe("tsMoveSymbol", () => {
     });
 
     it("skipped includes dirty source file outside the workspace root", async () => {
-      const { dir, tsCompiler: _unusedCompiler } = setupProject({
+      const { dir } = setupProject({
         "lib/utils.ts": "export function add(a: number, b: number): number { return a + b; }\n",
       });
       dirs.push(dir);
@@ -174,12 +161,18 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("directory creation", () => {
-    it("creates the destination directory when it does not exist", async () => {
-      const { dir, tsCompiler, scope } = setupSimpleTs();
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("creates the destination directory when it does not exist", async ({ dir }) => {
       const dstPath = path.join(dir, "src/nested/deep/helpers.ts");
 
-      await tsMoveSymbol(tsCompiler, path.join(dir, "src/utils.ts"), "greetUser", dstPath, scope);
+      await tsMoveSymbol(
+        new TsMorphEngine(),
+        path.join(dir, "src/utils.ts"),
+        "greetUser",
+        dstPath,
+        makeScope(dir),
+      );
 
       expect(fs.existsSync(dstPath)).toBe(true);
       expect(fs.readFileSync(dstPath, "utf8")).toContain("greetUser");
@@ -187,16 +180,19 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("const variable move", () => {
-    it("moves an exported const variable (VariableDeclaration to VariableStatement traversal)", async () => {
-      const { dir, tsCompiler, scope } = setupSimpleTs();
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("moves an exported const variable (VariableDeclaration to VariableStatement traversal)", async ({
+      dir,
+    }) => {
+      const scope = makeScope(dir);
       fs.appendFileSync(path.join(dir, "src/utils.ts"), "\nexport const VERSION = '1.0.0';\n");
       fs.writeFileSync(
         path.join(dir, "src/consumer.ts"),
         'import { VERSION } from "./utils";\nexport const v = VERSION;\n',
       );
       await tsMoveSymbol(
-        tsCompiler,
+        new TsMorphEngine(),
         path.join(dir, "src/utils.ts"),
         "VERSION",
         path.join(dir, "src/constants.ts"),
@@ -210,15 +206,18 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("dest file self-import removal", () => {
-    it("does not add a self-import in dest file when dest already had a self-referencing import from source", async () => {
-      const { dir, tsCompiler, scope } = setupSimpleTs();
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("does not add a self-import in dest file when dest already had a self-referencing import from source", async ({
+      dir,
+    }) => {
+      const scope = makeScope(dir);
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
         'import { greetUser } from "./utils";\nexport function helper(): void { greetUser("x"); }\n',
       );
       await tsMoveSymbol(
-        tsCompiler,
+        new TsMorphEngine(),
         path.join(dir, "src/utils.ts"),
         "greetUser",
         path.join(dir, "src/helpers.ts"),
@@ -231,14 +230,15 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("does not add unrelated saved files to modified", () => {
-    it("only records files actually changed by the move", async () => {
-      const { dir, tsCompiler, scope } = setupSimpleTs();
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("only records files actually changed by the move", async ({ dir }) => {
+      const scope = makeScope(dir);
       const extraPath = path.join(dir, "src/unrelated.ts");
       fs.writeFileSync(extraPath, "export const UNRELATED = 42;\n");
 
       await tsMoveSymbol(
-        tsCompiler,
+        new TsMorphEngine(),
         path.join(dir, "src/utils.ts"),
         "greetUser",
         path.join(dir, "src/helpers.ts"),
