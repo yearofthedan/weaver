@@ -9,6 +9,7 @@ import {
   registerLanguagePlugin,
 } from "../../daemon/language-plugin-registry.js";
 import { TsMorphEngine } from "../../ts-engine/engine.js";
+import { VolarEngine } from "./engine.js";
 import { createVueLanguagePlugin } from "./plugin.js";
 
 describe("Vue LanguagePlugin integration", () => {
@@ -24,7 +25,6 @@ describe("Vue LanguagePlugin integration", () => {
   it("projectEngine returns VolarEngine for a Vue project", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const { VolarEngine } = await import("./engine.js");
 
     const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
     const compiler = await registry.projectEngine();
@@ -51,7 +51,6 @@ describe("Vue LanguagePlugin integration", () => {
   it("invalidateAll clears cached engine so next createEngine call rebuilds it", async () => {
     const dir = copyFixture(FIXTURES.vueProject.name);
     dirs.push(dir);
-    const { VolarEngine } = await import("./engine.js");
 
     const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
     const first = await registry.projectEngine();
