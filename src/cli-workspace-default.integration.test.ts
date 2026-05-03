@@ -2,8 +2,9 @@
  * Tests that --workspace defaults to process.cwd() for all three subcommands
  * (daemon, serve, stop) when the flag is omitted.
  */
+import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "./__testHelpers__/helpers.js";
+import { copyFixture, FIXTURES } from "./__testHelpers__/helpers.js";
 import {
   killDaemon,
   runCliCommand,
@@ -22,7 +23,7 @@ describe("--workspace default (process.cwd())", () => {
     for (const dir of dirs.splice(0)) {
       killDaemon(dir);
       removeDaemonFiles(dir);
-      cleanup(dir);
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 

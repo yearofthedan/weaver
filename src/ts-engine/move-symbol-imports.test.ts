@@ -7,8 +7,8 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
@@ -18,18 +18,12 @@ function makeScope(root: string): WorkspaceScope {
   return new WorkspaceScope(root, new NodeFileSystem());
 }
 
-function setupMultiImporter(): { dir: string; tsCompiler: TsMorphEngine; scope: WorkspaceScope } {
-  const dir = copyFixture(FIXTURES.multiImporter.name);
-  return { dir, tsCompiler: new TsMorphEngine(), scope: makeScope(dir) };
-}
-
 describe("tsMoveSymbol — import rewriting", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
+  test.override({ fixtureName: FIXTURES.multiImporter.name });
 
-  it("updates all importers when multiple files import the moved symbol", async () => {
-    const { dir, tsCompiler, scope } = setupMultiImporter();
-    dirs.push(dir);
+  test("updates all importers when multiple files import the moved symbol", async ({ dir }) => {
+    const tsCompiler = new TsMorphEngine();
+    const scope = makeScope(dir);
 
     await tsMoveSymbol(
       tsCompiler,

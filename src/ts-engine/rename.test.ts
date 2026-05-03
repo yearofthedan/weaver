@@ -1,8 +1,13 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES, readFile } from "../__testHelpers__/helpers.js";
+import { describe, expect, it } from "vitest";
+import {
+  copyFixture,
+  FIXTURES,
+  readFile,
+  fixtureTest as test,
+} from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
@@ -17,18 +22,10 @@ function makeScope(dir: string): WorkspaceScope {
 //   src/main.ts   imports and calls greetUser
 
 describe("tsRename", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
-
-  function setup(fixture = FIXTURES.simpleTs.name) {
-    const dir = copyFixture(fixture);
-    dirs.push(dir);
-    return dir;
-  }
-
   describe("successful renames", () => {
-    it("renames a symbol at its declaration site and returns the old name", async () => {
-      const dir = setup();
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("renames a symbol at its declaration site and returns the old name", async ({ dir }) => {
       const engine = new TsMorphEngine();
 
       const result = await tsRename(
@@ -51,8 +48,7 @@ describe("tsRename", () => {
       expect(readFile(dir, "src/utils.ts")).not.toContain("greetUser");
     });
 
-    it("renames a symbol from a call site", async () => {
-      const dir = setup();
+    test("renames a symbol from a call site", async ({ dir }) => {
       const engine = new TsMorphEngine();
 
       const result = await tsRename(
@@ -74,25 +70,30 @@ describe("tsRename", () => {
     });
 
     it("renames across three files (multi-importer)", async () => {
-      const dir = setup("multi-importer");
-      const engine = new TsMorphEngine();
+      const dir = copyFixture(FIXTURES.multiImporter.name);
+      try {
+        const engine = new TsMorphEngine();
 
-      const result = await tsRename(engine, `${dir}/src/utils.ts`, 1, 17, "sum", makeScope(dir));
+        const result = await tsRename(engine, `${dir}/src/utils.ts`, 1, 17, "sum", makeScope(dir));
 
-      expect(result.symbolName).toBe("add");
-      expect(result.newName).toBe("sum");
-      expect(result.filesModified).toHaveLength(3);
-      expect(result.locationCount).toBeGreaterThanOrEqual(3);
+        expect(result.symbolName).toBe("add");
+        expect(result.newName).toBe("sum");
+        expect(result.filesModified).toHaveLength(3);
+        expect(result.locationCount).toBeGreaterThanOrEqual(3);
 
-      expect(readFile(dir, "src/utils.ts")).toContain("sum");
-      expect(readFile(dir, "src/featureA.ts")).toContain("sum");
-      expect(readFile(dir, "src/featureB.ts")).toContain("sum");
+        expect(readFile(dir, "src/utils.ts")).toContain("sum");
+        expect(readFile(dir, "src/featureA.ts")).toContain("sum");
+        expect(readFile(dir, "src/featureB.ts")).toContain("sum");
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
     });
   });
 
   describe("error cases", () => {
-    it("throws SYMBOL_NOT_FOUND for an out-of-range line", async () => {
-      const dir = setup();
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("throws SYMBOL_NOT_FOUND for an out-of-range line", async ({ dir }) => {
       const engine = new TsMorphEngine();
 
       await expect(
@@ -100,8 +101,9 @@ describe("tsRename", () => {
       ).rejects.toMatchObject({ code: "SYMBOL_NOT_FOUND" });
     });
 
-    it("throws RENAME_NOT_ALLOWED for a non-renameable symbol (e.g. a string literal)", async () => {
-      const dir = setup();
+    test("throws RENAME_NOT_ALLOWED for a non-renameable symbol (e.g. a string literal)", async ({
+      dir,
+    }) => {
       const engine = new TsMorphEngine();
 
       // line 2 of utils.ts is `  return \`Hello, ${name}\`;`
@@ -113,8 +115,11 @@ describe("tsRename", () => {
   });
 
   describe("workspace boundary enforcement", () => {
-    it("skips files outside the workspace boundary and records them in filesSkipped", async () => {
-      const dir = setup();
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("skips files outside the workspace boundary and records them in filesSkipped", async ({
+      dir,
+    }) => {
       const engine = new TsMorphEngine();
 
       // Use a scope rooted at src/ so only files under src/ are in bounds.
@@ -136,11 +141,12 @@ describe("tsRename", () => {
       expect(result.newName).toBe("greetPerson");
     });
 
-    it("does not call notifyFileWritten on the engine (TsMorphEngine is a no-op)", async () => {
+    test("does not call notifyFileWritten on the engine (TsMorphEngine is a no-op)", async ({
+      dir,
+    }) => {
       // This test documents the contract: tsRename never calls notifyFileWritten.
       // We verify indirectly: the rename succeeds and files on disk reflect the rename,
       // meaning tsRename manages writes through scope.writeFile only.
-      const dir = setup();
       const engine = new TsMorphEngine();
       const scope = makeScope(dir);
 
@@ -152,8 +158,9 @@ describe("tsRename", () => {
   });
 
   describe("workspace expansion — files outside tsconfig.include", () => {
-    it("rename updates a test file that is outside tsconfig.include", async () => {
-      const dir = setup();
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("rename updates a test file that is outside tsconfig.include", async ({ dir }) => {
       const engine = new TsMorphEngine(dir);
       const utilsPath = path.join(dir, "src/utils.ts");
 
@@ -164,8 +171,9 @@ describe("tsRename", () => {
       expect(testFileContent).not.toContain("greetUser");
     });
 
-    it("findReferences returns a location in a test file outside tsconfig.include", async () => {
-      const dir = setup();
+    test("findReferences returns a location in a test file outside tsconfig.include", async ({
+      dir,
+    }) => {
       const engine = new TsMorphEngine(dir);
       const utilsPath = path.join(dir, "src/utils.ts");
 
@@ -180,8 +188,9 @@ describe("tsRename", () => {
   });
 
   describe("return value shape", () => {
-    it("returns all required fields with correct types", async () => {
-      const dir = setup();
+    test.override({ fixtureName: FIXTURES.simpleTs.name });
+
+    test("returns all required fields with correct types", async ({ dir }) => {
       const engine = new TsMorphEngine();
 
       const result = await tsRename(
@@ -202,8 +211,7 @@ describe("tsRename", () => {
       expect(result.newName).toBe("renamed");
     });
 
-    it("nameMatches is a flat array", async () => {
-      const dir = setup();
+    test("nameMatches is a flat array", async ({ dir }) => {
       const engine = new TsMorphEngine();
 
       const result = await tsRename(
@@ -219,32 +227,35 @@ describe("tsRename", () => {
     });
 
     it("nameMatches finds derived identifier names in modified files", async () => {
+      // This test uses fs.mkdtempSync for a custom workspace structure
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rename-matches-"));
-      dirs.push(dir);
-      fs.mkdirSync(path.join(dir, "src"));
-      fs.writeFileSync(
-        path.join(dir, "src/provider.ts"),
-        "export class TsProvider {}\nexport const tsProviderDefault = new TsProvider();\n",
-      );
+      try {
+        fs.mkdirSync(path.join(dir, "src"));
+        fs.writeFileSync(
+          path.join(dir, "src/provider.ts"),
+          "export class TsProvider {}\nexport const tsProviderDefault = new TsProvider();\n",
+        );
 
-      const engine = new TsMorphEngine();
-      // col 14: "export class |TsProvider {}"
-      const result = await tsRename(
-        engine,
-        path.join(dir, "src/provider.ts"),
-        1,
-        14,
-        "TsMorphCompiler",
-        makeScope(dir),
-      );
+        const engine = new TsMorphEngine();
+        // col 14: "export class |TsProvider {}"
+        const result = await tsRename(
+          engine,
+          path.join(dir, "src/provider.ts"),
+          1,
+          14,
+          "TsMorphCompiler",
+          makeScope(dir),
+        );
 
-      // tsProviderDefault is a derived name the compiler did not rewrite
-      expect(result.nameMatches?.length).toBeGreaterThan(0);
-      expect(result.nameMatches?.some((s) => s.name === "tsProviderDefault")).toBe(true);
+        // tsProviderDefault is a derived name the compiler did not rewrite
+        expect(result.nameMatches?.length).toBeGreaterThan(0);
+        expect(result.nameMatches?.some((s) => s.name === "tsProviderDefault")).toBe(true);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
     });
 
-    it("locationCount matches the total number of rename locations", async () => {
-      const dir = setup();
+    test("locationCount matches the total number of rename locations", async ({ dir }) => {
       const engine = new TsMorphEngine();
 
       const result = await tsRename(
