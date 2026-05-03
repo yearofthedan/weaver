@@ -164,7 +164,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
-- `extractFunction` Vue support `[needs design]` — extend extractFunction to `.vue` SFC `<script setup>` blocks
+- `extractFunction` Vue support [`docs/specs/20260503-extract-function-vue.md`](specs/20260503-extract-function-vue.md) — extend extractFunction to `.vue` SFC `<script setup>` blocks
 - `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; see [moveSymbol.md](features/moveSymbol.md)
 ---
 
