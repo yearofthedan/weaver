@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { EngineError } from "../domain/errors.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
@@ -18,14 +18,7 @@ function makeScope(dir: string): WorkspaceScope {
 //                 line 3, col 13 → greetUser (call)
 
 describe("TsMorphEngine", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
-
-  function setup(fixture = FIXTURES.simpleTs.name) {
-    const dir = copyFixture(fixture);
-    dirs.push(dir);
-    return dir;
-  }
+  test.override({ fixtureName: FIXTURES.simpleTs.name });
 
   it("implements Engine interface shape", () => {
     const p = new TsMorphEngine();
@@ -40,8 +33,7 @@ describe("TsMorphEngine", () => {
     expect(typeof p.deleteFile).toBe("function");
   });
 
-  it("resolveOffset converts 1-based line/col to 0-based offset", () => {
-    const dir = setup();
+  test("resolveOffset converts 1-based line/col to 0-based offset", ({ dir }) => {
     const p = new TsMorphEngine();
     const file = path.join(dir, "src/utils.ts");
     // line 1, col 1 → offset 0
@@ -50,8 +42,7 @@ describe("TsMorphEngine", () => {
     expect(p.resolveOffset(file, 1, 17)).toBe(16);
   });
 
-  it("getRenameLocations returns spans for a symbol", async () => {
-    const dir = setup();
+  test("getRenameLocations returns spans for a symbol", async ({ dir }) => {
     const p = new TsMorphEngine();
     const file = path.join(dir, "src/utils.ts");
     const offset = p.resolveOffset(file, 1, 17); // greetUser
@@ -65,8 +56,7 @@ describe("TsMorphEngine", () => {
     }
   });
 
-  it("getReferencesAtPosition returns spans including definition", async () => {
-    const dir = setup();
+  test("getReferencesAtPosition returns spans including definition", async ({ dir }) => {
     const p = new TsMorphEngine();
     const file = path.join(dir, "src/utils.ts");
     const offset = p.resolveOffset(file, 1, 17);
@@ -75,8 +65,7 @@ describe("TsMorphEngine", () => {
     expect(refs?.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("getDefinitionAtPosition returns definition location", async () => {
-    const dir = setup();
+  test("getDefinitionAtPosition returns definition location", async ({ dir }) => {
     const p = new TsMorphEngine();
     const file = path.join(dir, "src/main.ts");
     const offset = p.resolveOffset(file, 3, 13); // greetUser call site
@@ -92,8 +81,7 @@ describe("TsMorphEngine", () => {
     expect(() => p.refreshFile("/nonexistent/path.ts")).not.toThrow();
   });
 
-  it("refreshFile does not throw after a project has been loaded", () => {
-    const dir = setup();
+  test("refreshFile does not throw after a project has been loaded", ({ dir }) => {
     const p = new TsMorphEngine();
     const file = path.join(dir, "src/utils.ts");
     // Force project load.
@@ -102,8 +90,9 @@ describe("TsMorphEngine", () => {
     expect(() => p.refreshFile(file)).not.toThrow();
   });
 
-  it("getRenameLocations throws RENAME_NOT_ALLOWED for a non-renameable token", async () => {
-    const dir = setup();
+  test("getRenameLocations throws RENAME_NOT_ALLOWED for a non-renameable token", async ({
+    dir,
+  }) => {
     const p = new TsMorphEngine();
     // main.ts line 1: import { greetUser } from "./utils";
     // The import path string "./utils" at col 27 cannot be renamed
@@ -115,8 +104,7 @@ describe("TsMorphEngine", () => {
     );
   });
 
-  it("getDefinitionAtPosition returns null for a whitespace offset", async () => {
-    const dir = setup();
+  test("getDefinitionAtPosition returns null for a whitespace offset", async ({ dir }) => {
     const p = new TsMorphEngine();
     // main.ts line 2 is blank — any position there has no symbol definition
     const file = path.join(dir, "src/main.ts");
@@ -183,24 +171,24 @@ describe("TsMorphEngine", () => {
   });
 
   describe("symlink path resolution", () => {
-    function setupSymlink() {
-      const realDir = copyFixture(FIXTURES.simpleTs.name);
-      dirs.push(realDir);
-      const linkDir = `${realDir}-link`;
-      fs.symlinkSync(realDir, linkDir, "dir");
-      dirs.push(linkDir);
-      return { realDir, linkDir };
-    }
+    const symlinks: string[] = [];
+    afterEach(() => {
+      for (const l of symlinks.splice(0)) fs.rmSync(l, { recursive: true, force: true });
+    });
 
-    it("resolveOffset works through a symlinked path", () => {
-      const { linkDir } = setupSymlink();
+    test("resolveOffset works through a symlinked path", ({ dir }) => {
+      const linkDir = `${dir}-link`;
+      fs.symlinkSync(dir, linkDir, "dir");
+      symlinks.push(linkDir);
       const p = new TsMorphEngine();
       const file = path.join(linkDir, "src/utils.ts");
       expect(p.resolveOffset(file, 1, 17)).toBe(16);
     });
 
-    it("getRenameLocations succeeds through a symlinked path", async () => {
-      const { linkDir } = setupSymlink();
+    test("getRenameLocations succeeds through a symlinked path", async ({ dir }) => {
+      const linkDir = `${dir}-link`;
+      fs.symlinkSync(dir, linkDir, "dir");
+      symlinks.push(linkDir);
       const p = new TsMorphEngine();
       const file = path.join(linkDir, "src/utils.ts");
       const offset = p.resolveOffset(file, 1, 17);
@@ -213,8 +201,10 @@ describe("TsMorphEngine", () => {
       }
     });
 
-    it("getReferencesAtPosition succeeds through a symlinked path", async () => {
-      const { linkDir } = setupSymlink();
+    test("getReferencesAtPosition succeeds through a symlinked path", async ({ dir }) => {
+      const linkDir = `${dir}-link`;
+      fs.symlinkSync(dir, linkDir, "dir");
+      symlinks.push(linkDir);
       const p = new TsMorphEngine();
       const file = path.join(linkDir, "src/utils.ts");
       const offset = p.resolveOffset(file, 1, 17);
@@ -226,8 +216,10 @@ describe("TsMorphEngine", () => {
       }
     });
 
-    it("getDefinitionAtPosition succeeds through a symlinked path", async () => {
-      const { linkDir } = setupSymlink();
+    test("getDefinitionAtPosition succeeds through a symlinked path", async ({ dir }) => {
+      const linkDir = `${dir}-link`;
+      fs.symlinkSync(dir, linkDir, "dir");
+      symlinks.push(linkDir);
       const p = new TsMorphEngine();
       const file = path.join(linkDir, "src/main.ts");
       const offset = p.resolveOffset(file, 3, 13); // greetUser call site
@@ -254,16 +246,14 @@ describe("TsMorphEngine", () => {
   });
 
   describe("getLanguageServiceForFile", () => {
-    it("returns a language service with getSemanticDiagnostics", () => {
-      const dir = setup();
+    test("returns a language service with getSemanticDiagnostics", ({ dir }) => {
       const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       const ls = p.getLanguageServiceForFile(file);
       expect(typeof ls.getSemanticDiagnostics).toBe("function");
     });
 
-    it("returns a language service that can find rename locations", () => {
-      const dir = setup();
+    test("returns a language service that can find rename locations", ({ dir }) => {
       const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       const ls = p.getLanguageServiceForFile(file);
@@ -275,8 +265,7 @@ describe("TsMorphEngine", () => {
       expect(locs?.length).toBeGreaterThanOrEqual(2);
     });
 
-    it("adds the file to the project when it was not already tracked", () => {
-      const dir = setup();
+    test("adds the file to the project when it was not already tracked", ({ dir }) => {
       const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       // Call before any other method — file is not yet in a project.
@@ -287,15 +276,13 @@ describe("TsMorphEngine", () => {
   });
 
   describe("getLanguageServiceForDirectory", () => {
-    it("returns a language service for the project covering the directory", () => {
-      const dir = setup();
+    test("returns a language service for the project covering the directory", ({ dir }) => {
       const p = new TsMorphEngine();
       const ls = p.getLanguageServiceForDirectory(dir);
       expect(typeof ls.getSemanticDiagnostics).toBe("function");
     });
 
-    it("returns a language service that can check files in the project", () => {
-      const dir = setup();
+    test("returns a language service that can check files in the project", ({ dir }) => {
       const p = new TsMorphEngine();
       const ls = p.getLanguageServiceForDirectory(dir);
       const file = path.join(dir, "src/utils.ts");
@@ -310,8 +297,7 @@ describe("TsMorphEngine", () => {
       expect(() => p.refreshSourceFile("/nonexistent/path.ts")).not.toThrow();
     });
 
-    it("re-reads the file from disk after content changes", () => {
-      const dir = setup();
+    test("re-reads the file from disk after content changes", ({ dir }) => {
       const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       // Load the project so the file is tracked.
@@ -324,8 +310,7 @@ describe("TsMorphEngine", () => {
       expect(diags.length).toBeGreaterThan(0);
     });
 
-    it("adds the file to the project when it was not already tracked", () => {
-      const dir = setup();
+    test("adds the file to the project when it was not already tracked", ({ dir }) => {
       const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       // Load the project (but not this specific file).
@@ -337,8 +322,7 @@ describe("TsMorphEngine", () => {
   });
 
   describe("getProjectSourceFilePaths", () => {
-    it("returns file paths as strings", () => {
-      const dir = setup();
+    test("returns file paths as strings", ({ dir }) => {
       const p = new TsMorphEngine();
       const paths = p.getProjectSourceFilePaths(dir);
       expect(Array.isArray(paths)).toBe(true);
@@ -347,8 +331,7 @@ describe("TsMorphEngine", () => {
       }
     });
 
-    it("includes source files from the project", () => {
-      const dir = setup();
+    test("includes source files from the project", ({ dir }) => {
       const p = new TsMorphEngine();
       const paths = p.getProjectSourceFilePaths(dir);
       const utils = path.join(dir, "src/utils.ts");
@@ -368,9 +351,11 @@ describe("TsMorphEngine", () => {
   });
 
   describe("removeImportersOf", () => {
-    it("delegates to tsRemoveImportersOf with workspace-expanded project graph", async () => {
-      const dir = copyFixture(FIXTURES.deleteFileTs.name);
-      dirs.push(dir);
+    test.override({ fixtureName: FIXTURES.deleteFileTs.name });
+
+    test("delegates to tsRemoveImportersOf with workspace-expanded project graph", async ({
+      dir,
+    }) => {
       // TsMorphEngine(dir) expands the project graph to include all workspace files,
       // including tests/out-of-project.ts which is outside tsconfig.include.
       const p = new TsMorphEngine(dir);
