@@ -16,7 +16,7 @@ importers:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: 1.29.0
-        version: 1.29.0(zod@4.4.1)
+        version: 1.29.0(zod@4.4.3)
       '@volar/typescript':
         specifier: 2.4.28
         version: 2.4.28
@@ -39,8 +39,8 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
       zod:
-        specifier: 4.4.1
-        version: 4.4.1
+        specifier: 4.4.3
+        version: 4.4.3
     devDependencies:
       '@biomejs/biome':
         specifier: 2.4.14
@@ -5054,24 +5054,24 @@ packages:
     peerDependencies:
       zod: ^3.25 || ^4
 
-  zod@4.4.1:
-    resolution: {integrity: sha512-a6ENMBBGZBsnlSebQ/eKCguSBeGKSf4O7BPnqVPmYGtpBYI7VSqoVqw+QcB7kPRjbqPwhYTpFbVj/RqNz/CT0Q==}
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
 
-  '@ai-sdk/gateway@3.0.104(zod@4.4.1)':
+  '@ai-sdk/gateway@3.0.104(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
-      '@ai-sdk/provider-utils': 4.0.23(zod@4.4.1)
+      '@ai-sdk/provider-utils': 4.0.23(zod@4.4.3)
       '@vercel/oidc': 3.2.0
-      zod: 4.4.1
+      zod: 4.4.3
 
-  '@ai-sdk/provider-utils@4.0.23(zod@4.4.1)':
+  '@ai-sdk/provider-utils@4.0.23(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.0.6
-      zod: 4.4.1
+      zod: 4.4.3
 
   '@ai-sdk/provider@3.0.8':
     dependencies:
@@ -5113,11 +5113,11 @@ snapshots:
   '@anthropic-ai/claude-agent-sdk-win32-x64@0.2.119':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk@0.2.119(zod@4.4.1)':
+  '@anthropic-ai/claude-agent-sdk@0.2.119(zod@4.4.3)':
     dependencies:
-      '@anthropic-ai/sdk': 0.81.0(zod@4.4.1)
-      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.1)
-      zod: 4.4.1
+      '@anthropic-ai/sdk': 0.81.0(zod@4.4.3)
+      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
+      zod: 4.4.3
     optionalDependencies:
       '@anthropic-ai/claude-agent-sdk-darwin-arm64': 0.2.119
       '@anthropic-ai/claude-agent-sdk-darwin-x64': 0.2.119
@@ -5132,18 +5132,18 @@ snapshots:
       - supports-color
     optional: true
 
-  '@anthropic-ai/sdk@0.81.0(zod@4.4.1)':
+  '@anthropic-ai/sdk@0.81.0(zod@4.4.3)':
     dependencies:
       json-schema-to-ts: 3.1.1
     optionalDependencies:
-      zod: 4.4.1
+      zod: 4.4.3
     optional: true
 
-  '@anthropic-ai/sdk@0.91.1(zod@4.4.1)':
+  '@anthropic-ai/sdk@0.91.1(zod@4.4.3)':
     dependencies:
       json-schema-to-ts: 3.1.1
     optionalDependencies:
-      zod: 4.4.1
+      zod: 4.4.3
 
   '@apidevtools/json-schema-ref-parser@15.3.1(@types/json-schema@7.0.15)':
     dependencies:
@@ -6138,7 +6138,7 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@azure/ai-projects@2.1.0(ws@8.19.0)(zod@4.4.1)':
+  '@azure/ai-projects@2.1.0(ws@8.19.0)(zod@4.4.3)':
     dependencies:
       '@azure-rest/core-client': 2.5.1
       '@azure/abort-controller': 2.1.2
@@ -6152,7 +6152,7 @@ snapshots:
       '@azure/identity': 4.13.0
       '@azure/logger': 1.3.0
       '@azure/storage-blob': 12.31.0
-      openai: 6.34.0(ws@8.19.0)(zod@4.4.1)
+      openai: 6.34.0(ws@8.19.0)(zod@4.4.3)
       tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
@@ -7060,7 +7060,7 @@ snapshots:
 
   '@kwsites/promise-deferred@1.1.1': {}
 
-  '@modelcontextprotocol/sdk@1.29.0(zod@4.4.1)':
+  '@modelcontextprotocol/sdk@1.29.0(zod@4.4.3)':
     dependencies:
       '@hono/node-server': 2.0.1(hono@4.12.7)
       ajv: 8.18.0
@@ -7077,8 +7077,8 @@ snapshots:
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
-      zod: 4.4.1
-      zod-to-json-schema: 3.25.1(zod@4.4.1)
+      zod: 4.4.3
+      zod-to-json-schema: 3.25.1(zod@4.4.3)
     transitivePeerDependencies:
       - supports-color
 
@@ -7137,50 +7137,50 @@ snapshots:
   '@nodable/entities@2.1.0':
     optional: true
 
-  '@openai/agents-core@0.8.5(ws@8.19.0)(zod@4.4.1)':
+  '@openai/agents-core@0.8.5(ws@8.19.0)(zod@4.4.3)':
     dependencies:
       debug: 4.4.3
-      openai: 6.34.0(ws@8.19.0)(zod@4.4.1)
+      openai: 6.34.0(ws@8.19.0)(zod@4.4.3)
     optionalDependencies:
-      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.1)
-      zod: 4.4.1
+      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
+      zod: 4.4.3
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - supports-color
       - ws
 
-  '@openai/agents-openai@0.8.5(ws@8.19.0)(zod@4.4.1)':
+  '@openai/agents-openai@0.8.5(ws@8.19.0)(zod@4.4.3)':
     dependencies:
-      '@openai/agents-core': 0.8.5(ws@8.19.0)(zod@4.4.1)
+      '@openai/agents-core': 0.8.5(ws@8.19.0)(zod@4.4.3)
       debug: 4.4.3
-      openai: 6.34.0(ws@8.19.0)(zod@4.4.1)
-      zod: 4.4.1
+      openai: 6.34.0(ws@8.19.0)(zod@4.4.3)
+      zod: 4.4.3
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - supports-color
       - ws
 
-  '@openai/agents-realtime@0.8.5(zod@4.4.1)':
+  '@openai/agents-realtime@0.8.5(zod@4.4.3)':
     dependencies:
-      '@openai/agents-core': 0.8.5(ws@8.19.0)(zod@4.4.1)
+      '@openai/agents-core': 0.8.5(ws@8.19.0)(zod@4.4.3)
       '@types/ws': 8.18.1
       debug: 4.4.3
       ws: 8.19.0
-      zod: 4.4.1
+      zod: 4.4.3
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - bufferutil
       - supports-color
       - utf-8-validate
 
-  '@openai/agents@0.8.5(ws@8.19.0)(zod@4.4.1)':
+  '@openai/agents@0.8.5(ws@8.19.0)(zod@4.4.3)':
     dependencies:
-      '@openai/agents-core': 0.8.5(ws@8.19.0)(zod@4.4.1)
-      '@openai/agents-openai': 0.8.5(ws@8.19.0)(zod@4.4.1)
-      '@openai/agents-realtime': 0.8.5(zod@4.4.1)
+      '@openai/agents-core': 0.8.5(ws@8.19.0)(zod@4.4.3)
+      '@openai/agents-openai': 0.8.5(ws@8.19.0)(zod@4.4.3)
+      '@openai/agents-realtime': 0.8.5(zod@4.4.3)
       debug: 4.4.3
-      openai: 6.34.0(ws@8.19.0)(zod@4.4.1)
-      zod: 4.4.1
+      openai: 6.34.0(ws@8.19.0)(zod@4.4.3)
+      zod: 4.4.3
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - bufferutil
@@ -8361,13 +8361,13 @@ snapshots:
 
   agent-base@9.0.0: {}
 
-  ai@6.0.168(zod@4.4.1):
+  ai@6.0.168(zod@4.4.3):
     dependencies:
-      '@ai-sdk/gateway': 3.0.104(zod@4.4.1)
+      '@ai-sdk/gateway': 3.0.104(zod@4.4.3)
       '@ai-sdk/provider': 3.0.8
-      '@ai-sdk/provider-utils': 4.0.23(zod@4.4.1)
+      '@ai-sdk/provider-utils': 4.0.23(zod@4.4.3)
       '@opentelemetry/api': 1.9.0
-      zod: 4.4.1
+      zod: 4.4.3
 
   ajv-formats@3.0.1(ajv@8.18.0):
     optionalDependencies:
@@ -9808,7 +9808,7 @@ snapshots:
 
   mutation-server-protocol@0.4.1:
     dependencies:
-      zod: 4.4.1
+      zod: 4.4.3
 
   mutation-testing-elements@3.7.3: {}
 
@@ -9968,10 +9968,10 @@ snapshots:
       wsl-utils: 0.1.0
     optional: true
 
-  openai@6.34.0(ws@8.19.0)(zod@4.4.1):
+  openai@6.34.0(ws@8.19.0)(zod@4.4.3):
     optionalDependencies:
       ws: 8.19.0
-      zod: 4.4.1
+      zod: 4.4.3
 
   openapi-fetch@0.8.2:
     dependencies:
@@ -10213,7 +10213,7 @@ snapshots:
 
   promptfoo@0.121.9(@types/json-schema@7.0.15)(@types/node@24.12.2)(pg@8.19.0)(playwright-core@1.59.1)(socks@2.8.7)(typescript@6.0.3):
     dependencies:
-      '@anthropic-ai/sdk': 0.91.1(zod@4.4.1)
+      '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
       '@apidevtools/json-schema-ref-parser': 15.3.1(@types/json-schema@7.0.15)
       '@googleapis/sheets': 13.0.1
       '@inquirer/checkbox': 5.1.0(@types/node@24.12.2)
@@ -10222,8 +10222,8 @@ snapshots:
       '@inquirer/editor': 5.0.8(@types/node@24.12.2)
       '@inquirer/input': 5.0.8(@types/node@24.12.2)
       '@inquirer/select': 5.1.0(@types/node@24.12.2)
-      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.1)
-      '@openai/agents': 0.8.5(ws@8.19.0)(zod@4.4.1)
+      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
+      '@openai/agents': 0.8.5(ws@8.19.0)(zod@4.4.3)
       '@opencode-ai/sdk': 1.14.30
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/core': 2.7.0(@opentelemetry/api@1.9.0)
@@ -10233,7 +10233,7 @@ snapshots:
       '@opentelemetry/sdk-trace-node': 2.6.0(@opentelemetry/api@1.9.0)
       '@opentelemetry/semantic-conventions': 1.40.0
       '@types/ws': 8.18.1
-      ai: 6.0.168(zod@4.4.1)
+      ai: 6.0.168(zod@4.4.3)
       ajv: 8.18.0
       ajv-formats: 3.0.1(ajv@8.18.0)
       async: 3.2.6
@@ -10275,7 +10275,7 @@ snapshots:
       mathjs: 15.1.1
       minimatch: 10.2.4
       nunjucks: 3.2.4(chokidar@5.0.0)
-      openai: 6.34.0(ws@8.19.0)(zod@4.4.1)
+      openai: 6.34.0(ws@8.19.0)(zod@4.4.3)
       opener: 1.5.2
       ora: 9.3.0
       parse5: 8.0.0
@@ -10297,15 +10297,15 @@ snapshots:
       undici: 7.24.6
       winston: 3.19.0
       ws: 8.19.0
-      zod: 4.4.1
+      zod: 4.4.3
     optionalDependencies:
-      '@anthropic-ai/claude-agent-sdk': 0.2.119(zod@4.4.1)
+      '@anthropic-ai/claude-agent-sdk': 0.2.119(zod@4.4.3)
       '@aws-sdk/client-bedrock-agent-runtime': 3.1039.0
       '@aws-sdk/client-bedrock-runtime': 3.1039.0
       '@aws-sdk/client-s3': 3.1007.0
       '@aws-sdk/client-sagemaker-runtime': 3.1039.0
       '@aws-sdk/credential-provider-sso': 3.972.31
-      '@azure/ai-projects': 2.1.0(ws@8.19.0)(zod@4.4.1)
+      '@azure/ai-projects': 2.1.0(ws@8.19.0)(zod@4.4.3)
       '@azure/identity': 4.13.0
       '@azure/msal-node': 5.1.1
       '@azure/openai-assistants': 1.0.0-beta.6
@@ -11305,8 +11305,8 @@ snapshots:
 
   yoga-layout@3.2.1: {}
 
-  zod-to-json-schema@3.25.1(zod@4.4.1):
+  zod-to-json-schema@3.25.1(zod@4.4.3):
     dependencies:
-      zod: 4.4.1
+      zod: 4.4.3
 
-  zod@4.4.1: {}
+  zod@4.4.3: {}
