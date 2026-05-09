@@ -19,6 +19,7 @@ import { walkRecursive } from "../../utils/file-walk.js";
 import { applyTextEdits, lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
 import { vueDeleteFile } from "./delete-file.js";
+import { vueExtractFunction } from "./extract-function.js";
 import { vueGetTypeErrorsForFile, vueGetTypeErrorsForProject } from "./get-type-errors.js";
 import { scanVueNameMatches } from "./name-matches.js";
 import {
@@ -306,10 +307,17 @@ export class VolarEngine implements Engine {
     scope: WorkspaceScope,
   ): Promise<ExtractFunctionResult> {
     if (file.endsWith(".vue")) {
-      throw new EngineError(
-        "extractFunction is not supported for .vue files; use a .ts or .tsx file",
-        "NOT_SUPPORTED",
+      const result = await vueExtractFunction(
+        file,
+        startLine,
+        startCol,
+        endLine,
+        endCol,
+        functionName,
+        scope,
       );
+      this.invalidateService(file);
+      return result;
     }
     return this.tsEngine.extractFunction(
       file,

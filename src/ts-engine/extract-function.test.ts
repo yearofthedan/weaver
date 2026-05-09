@@ -212,12 +212,86 @@ describe("tsExtractFunction", () => {
 });
 
 describe("VolarEngine.extractFunction", () => {
-  it("throws NOT_SUPPORTED for a .vue path", async () => {
-    const engine = new VolarEngine(new TsMorphEngine());
-    const scope = new WorkspaceScope(os.tmpdir(), new NodeFileSystem());
+  const dirs: string[] = [];
+  afterEach(() => dirs.splice(0).forEach(cleanup));
 
-    await expect(
-      engine.extractFunction(path.join(os.tmpdir(), "some.vue"), 1, 1, 1, 10, "fn", scope),
-    ).rejects.toMatchObject({ code: "NOT_SUPPORTED" });
+  function makeTempDir(): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-vue-extractfn-"));
+    dirs.push(dir);
+    return dir;
+  }
+
+  it("extracts a function from a <script setup> block and preserves all other SFC blocks", async () => {
+    const dir = makeTempDir();
+    const vueContent = `<script setup lang="ts">
+const x = 1;
+const doubled = x * 2;
+console.log(doubled);
+</script>
+<template>
+  <div>hello</div>
+</template>
+`;
+    const filePath = path.join(dir, "Comp.vue");
+    fs.writeFileSync(filePath, vueContent);
+
+    const engine = new VolarEngine(new TsMorphEngine());
+    const scope = new WorkspaceScope(dir, new NodeFileSystem());
+
+    // Extract lines 3-4: "const doubled = x * 2;\nconsole.log(doubled);"
+    const result = await engine.extractFunction(filePath, 3, 1, 4, 21, "processValue", scope);
+
+    expect(result.filesModified).toEqual([filePath]);
+    expect(result.filesSkipped).toEqual([]);
+    expect(result.functionName).toBe("processValue");
+
+    const written = fs.readFileSync(filePath, "utf8");
+    expect(written).toContain("function processValue");
+    expect(written).toContain("processValue(");
+    expect(written).toContain("<template>");
+    expect(written).toContain("<div>hello</div>");
+  });
+
+  it("parameterCount reflects the number of parameters inferred by the compiler", async () => {
+    const dir = makeTempDir();
+    // Variables must be local to a function — module-scope variables are directly accessible
+    // and do not become parameters in the extracted function.
+    const vueContent = `<script setup lang="ts">
+function init() {
+  const a = 10;
+  const b = 20;
+  const sum = a + b;
+  console.log(sum);
+}
+init();
+</script>
+<template><div></div></template>
+`;
+    const filePath = path.join(dir, "Comp.vue");
+    fs.writeFileSync(filePath, vueContent);
+
+    const engine = new VolarEngine(new TsMorphEngine());
+    const scope = new WorkspaceScope(dir, new NodeFileSystem());
+
+    // Extract lines 5-6 (inside init()): "const sum = a + b;\nconsole.log(sum);" — references a and b
+    const result = await engine.extractFunction(filePath, 5, 3, 6, 19, "compute", scope);
+
+    expect(result.parameterCount).toBeGreaterThanOrEqual(1);
+    const written = fs.readFileSync(filePath, "utf8");
+    expect(written).toContain("function compute(");
+  });
+
+  it("throws NOT_SUPPORTED for a .vue file without a <script setup> block", async () => {
+    const dir = makeTempDir();
+    const vueContent = `<template><div>hello</div></template>`;
+    const filePath = path.join(dir, "NoScript.vue");
+    fs.writeFileSync(filePath, vueContent);
+
+    const engine = new VolarEngine(new TsMorphEngine());
+    const scope = new WorkspaceScope(dir, new NodeFileSystem());
+
+    await expect(engine.extractFunction(filePath, 1, 1, 1, 10, "fn", scope)).rejects.toMatchObject({
+      code: "NOT_SUPPORTED",
+    });
   });
 });
