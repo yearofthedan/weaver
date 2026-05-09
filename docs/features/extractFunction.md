@@ -42,7 +42,7 @@ The TS language service's "Extract Symbol" refactor does the heavy lifting — i
 tool call
   │
   ▼ dispatcher (src/daemon/dispatcher.ts)
-  │   validates file against workspace boundary; rejects .vue with NOT_SUPPORTED
+  │   validates file against workspace boundary
   ▼ extractFunction() (src/operations/extractFunction.ts)
   │   ├─ lineColToOffset() — convert 1-based startLine/Col and endLine/Col to byte offsets
   │   │     range.end = endOffset + 1 (TS uses exclusive end)
@@ -79,7 +79,8 @@ See [security.md](../security.md) for the full threat model.
 - The selection must cover complete statements. The compiler silently returns no applicable refactors when the selection ends mid-statement. In semicolon-using code, `endCol` must point at the `;`. In no-semi code, `endCol` must point at the last token (e.g. the closing `)` of a call).
 - The extracted function is always placed at module scope (outermost `function_scope`).
 - The extracted function is not exported.
-- `.vue` files are not supported — returns `NOT_SUPPORTED`. Extract from the corresponding `.ts`/`.tsx` file.
+- `.vue` files with a `<script setup>` block are supported. The TS language service runs on an in-memory copy of the script block content; `<template>` and `<style>` blocks are preserved byte-for-byte.
+- `.vue` files without a `<script setup>` block (template-only or Options API `<script>`) return `NOT_SUPPORTED`.
 - `functionName` must be a valid JS/TS identifier (validated at MCP input).
 - The operation does not detect naming collisions with existing symbols in scope.
 

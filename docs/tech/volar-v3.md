@@ -119,3 +119,6 @@ Extracted from the inline loop in `rename`; reused by `findReferences` and `getD
 
 **`dist/` and other build dirs must be excluded from `readDirectory`.**
 The Vue service calls `ts.sys.readDirectory()` to find `.vue` files. Without filtering, it picks up files under `dist/`, `node_modules/`, etc., which breaks type resolution. `SKIP_DIRS` is exported from `src/utils/file-walk.ts` and applied in `buildVolarService()`.
+
+**In-memory `ts-morph` projects return virtual paths with a leading `/`.**
+When you create `new Project({ useInMemoryFileSystem: true })` and add a file as `"script.ts"`, the TypeScript LS returns edits with `fileName: "/script.ts"` — an absolute virtual path. Matching with `e.fileName === "script.ts"` silently misses all edits. Use `path.basename(e.fileName)` for matching, which handles both real disk paths and in-memory virtual paths uniformly. See `src/ts-engine/extract-symbol.ts`.
