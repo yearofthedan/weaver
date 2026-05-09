@@ -75,5 +75,5 @@ Pass `"checkTypeErrors": false` when batching changes to check errors once at th
 
 - **`DAEMON_STARTING`** — retry after a short delay
 - **`SYMBOL_NOT_FOUND`** / **`FILE_NOT_FOUND`** — check coordinates or path
-- **`NOT_SUPPORTED`** — operation doesn't support this file type (e.g. `extract-function` on `.vue`)
+- **`NOT_SUPPORTED`** — operation doesn't support this target (e.g. `extract-function` on a `.vue` file without a `<script setup>` block)
 - **`WORKSPACE_VIOLATION`** — path is outside the workspace
