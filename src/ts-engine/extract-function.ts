@@ -2,6 +2,7 @@ import { EngineError } from "../domain/errors.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { applyTextEdits, lineColToOffset } from "../utils/text-utils.js";
 import type { TsMorphEngine } from "./engine.js";
+import { applyExtractSymbol } from "./extract-symbol.js";
 import type { ExtractFunctionResult } from "./types.js";
 
 /**
@@ -40,72 +41,11 @@ export async function tsExtractFunction(
   }
 
   const ls = engine.getLanguageServiceForFile(file);
-
-  // startOffset and endOffset are inclusive byte offsets (pointing at the first and
-  // last characters of the selection). The TypeScript language service uses exclusive
-  // TextRange.end, so we add 1 to convert the inclusive end to exclusive.
+  // startOffset and endOffset are inclusive byte offsets. The TypeScript language service
+  // uses exclusive TextRange.end, so we add 1 to convert.
   const range = { pos: startOffset, end: endOffset + 1 };
+  const modifiedEdits = applyExtractSymbol(ls, file, range, content, functionName);
 
-  const refactors = ls.getApplicableRefactors(file, range, {});
-  const extractRefactor = refactors.find((r) => r.name === "Extract Symbol");
-
-  if (!extractRefactor) {
-    throw new EngineError("No extractable code at the given selection", "NOT_SUPPORTED");
-  }
-
-  // function_scope_0 = innermost scope, function_scope_N = outermost (module) scope.
-  // Pick the outermost applicable action.
-  const applicable = extractRefactor.actions.filter(
-    (a) => !a.notApplicableReason && /^function_scope_\d+$/.test(a.name),
-  );
-
-  if (applicable.length === 0) {
-    const first = extractRefactor.actions.find((a) => /^function_scope_\d+$/.test(a.name));
-    throw new EngineError(
-      first?.notApplicableReason ?? "Cannot extract to a function at this location",
-      "NOT_SUPPORTED",
-    );
-  }
-
-  applicable.sort((a, b) => {
-    const n = (name: string) => Number(name.replace("function_scope_", ""));
-    return n(b.name) - n(a.name);
-  });
-
-  const targetAction = applicable[0];
-  const editInfo = ls.getEditsForRefactor(file, {}, range, "Extract Symbol", targetAction.name, {});
-
-  if (!editInfo?.edits?.length) {
-    throw new EngineError("Extract function refactor produced no edits", "NOT_SUPPORTED");
-  }
-
-  // Determine the auto-generated function name from renameLocation.
-  // renameLocation is the byte offset in the new file content (after applying edits)
-  // where the generated identifier starts.
-  let generatedName: string | undefined;
-  const fileEdits = editInfo.edits.find((e) => e.fileName === file);
-
-  if (editInfo.renameLocation !== undefined && fileEdits) {
-    const newContent = applyTextEdits(content, fileEdits.textChanges);
-    let end = editInfo.renameLocation;
-    while (end < newContent.length && /[\w$]/.test(newContent[end])) {
-      end++;
-    }
-    generatedName = newContent.slice(editInfo.renameLocation, end) || undefined;
-  }
-
-  // Replace the auto-generated name with the caller-provided name throughout all edits.
-  const modifiedEdits = editInfo.edits.map((fileEdit) => ({
-    ...fileEdit,
-    textChanges: fileEdit.textChanges.map((change) => ({
-      ...change,
-      newText: generatedName
-        ? change.newText.replaceAll(generatedName, functionName)
-        : change.newText,
-    })),
-  }));
-
-  // Apply edits to disk.
   for (const fileEdit of modifiedEdits) {
     if (!scope.contains(fileEdit.fileName)) {
       scope.recordSkipped(fileEdit.fileName);
@@ -116,7 +56,6 @@ export async function tsExtractFunction(
     scope.writeFile(fileEdit.fileName, updated);
   }
 
-  // Count parameters by reloading the file after the extract wrote it.
   engine.invalidateProject(file);
   const extracted = engine.getFunction(file, functionName);
   if (!extracted) {
