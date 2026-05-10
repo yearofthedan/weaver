@@ -21,7 +21,8 @@ describe("applyExtractSymbol", () => {
 
     const edits = applyExtractSymbol(ls, fileName, { pos: start, end }, content, "logDoubled");
 
-    const primary = edits.find((e) => path.basename(e.fileName) === "f.ts")!;
+    const primary = edits.find((e) => path.basename(e.fileName) === "f.ts");
+    if (!primary) throw new Error("Expected edits for f.ts");
     const result = applyTextEdits(content, primary.textChanges);
     expect(result).toContain("function logDoubled");
     expect(result).not.toContain("newFunction");
@@ -46,7 +47,8 @@ describe("applyExtractSymbol", () => {
 
     const edits = applyExtractSymbol(ls, fileName, { pos: start, end }, content, "add");
 
-    const primary = edits.find((e) => path.basename(e.fileName) === "f.ts")!;
+    const primary = edits.find((e) => path.basename(e.fileName) === "f.ts");
+    if (!primary) throw new Error("Expected edits for f.ts");
     const result = applyTextEdits(content, primary.textChanges);
     // Module-level extraction: function declaration starts at column 0 (no indentation)
     expect(result).toMatch(/^function add\(/m);
