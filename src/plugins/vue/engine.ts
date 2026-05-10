@@ -307,7 +307,7 @@ export class VolarEngine implements Engine {
     scope: WorkspaceScope,
   ): Promise<ExtractFunctionResult> {
     if (file.endsWith(".vue")) {
-      const result = await vueExtractFunction(
+      const result = vueExtractFunction(
         file,
         startLine,
         startCol,

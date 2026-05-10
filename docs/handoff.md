@@ -169,6 +169,8 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P4 — Low priority
 
+- **`fixtureTest` callback variant for per-test inline setup** `[needs design]` — `fixtureTest` (from `src/__testHelpers__/helpers.ts`) uses `test.override({ fixtureName })` which requires all tests in a group to share the same fixture directory on disk. Tests that need different file content per-test (e.g. Vue SFC extraction tests) currently manage their own temp dirs manually. A callback-based variant would let each test declare its own file content inline without the shared-fixture constraint. Design should decide: callback signature, whether it replaces or extends `fixtureTest`, teardown ownership, and where the helper lives.
+
 - **`moveSymbol` for non-exported functions** `[needs design]` — `moveSymbol` returns `SYMBOL_NOT_FOUND` for unexported helpers. Supporting them requires deciding whether to auto-export at the destination, what happens if the function is private and still used in source, and how to handle the case where source calls the now-exported helper. Spec separately.
 
 - **Explore uses for ts-morph `printStructure`** `[needs design]` — ts-morph 28 ships a standalone `printStructure(structure)` function that serialises a structure object back to TypeScript source. Potential directions: a `generateFromStructure` tool that lets agents produce scaffolded code from a JSON description, or a read-side `readStructure` that extracts a node's structure for inspection/diffing. Investigate what agent workflows this could enable before committing to an interface.
