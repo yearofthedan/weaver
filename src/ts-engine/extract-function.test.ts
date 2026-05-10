@@ -273,6 +273,48 @@ const x = 1;
     });
   });
 
+  it("throws NOT_SUPPORTED when the start coordinate is inside the <script setup> tag but end is inside content", async () => {
+    const dir = makeTempDir();
+    const vueContent = `<script setup lang="ts">
+const x = 1;
+</script>
+<template><div></div></template>
+`;
+    const filePath = path.join(dir, "Edge.vue");
+    fs.writeFileSync(filePath, vueContent);
+
+    const engine = new VolarEngine(new TsMorphEngine());
+    const scope = new WorkspaceScope(dir, new NodeFileSystem());
+
+    // startLine=1 col=1 is inside the opening tag (negative offset after subtracting contentOffset);
+    // endLine=2 col=5 is inside the content (positive offset). Either offset negative rejects.
+    await expect(engine.extractFunction(filePath, 1, 1, 2, 5, "fn", scope)).rejects.toMatchObject({
+      code: "NOT_SUPPORTED",
+      message: expect.stringContaining("outside the <script setup> block"),
+    });
+  });
+
+  it("throws NOT_SUPPORTED when the end coordinate is inside the <script setup> tag but start is inside content", async () => {
+    const dir = makeTempDir();
+    const vueContent = `<script setup lang="ts">
+const x = 1;
+</script>
+<template><div></div></template>
+`;
+    const filePath = path.join(dir, "Edge.vue");
+    fs.writeFileSync(filePath, vueContent);
+
+    const engine = new VolarEngine(new TsMorphEngine());
+    const scope = new WorkspaceScope(dir, new NodeFileSystem());
+
+    // startLine=2 col=1 is inside the content (positive offset); endLine=1 col=1 is inside the
+    // opening tag (negative offset). Either offset negative rejects.
+    await expect(engine.extractFunction(filePath, 2, 1, 1, 1, "fn", scope)).rejects.toMatchObject({
+      code: "NOT_SUPPORTED",
+      message: expect.stringContaining("outside the <script setup> block"),
+    });
+  });
+
   it("throws NOT_SUPPORTED when the selection line is beyond the end of the file", async () => {
     const dir = makeTempDir();
     const vueContent = `<script setup lang="ts">
