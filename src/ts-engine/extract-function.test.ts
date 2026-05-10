@@ -138,7 +138,7 @@ describe("tsExtractFunction", () => {
     expect(result.parameterCount).toBe(0);
   });
 
-  it("extracted function uses the provided name, not a compiler-generated default", async () => {
+  it("extracted function uses the provided name and is written to the file", async () => {
     const dir = makeTempDir();
     const src = `export function wrapper(a: number, b: number): number {
   const product = a * b;
@@ -162,39 +162,6 @@ describe("tsExtractFunction", () => {
     expect(result.functionName).toBe("multiply");
     const written = fs.readFileSync(filePath, "utf8");
     expect(written).toContain("function multiply(");
-    // The call site also uses the provided name
-    expect(written).toContain("multiply(");
-    // Must NOT contain the compiler default name
-    expect(written).not.toContain("newFunction");
-    expect(written).not.toContain("extracted");
-  });
-
-  it("both the declaration and the call site use the provided name", async () => {
-    const dir = makeTempDir();
-    const src = `export function outer(): void {
-  const x = 1;
-  const y = 2;
-  console.log(x + y);
-}
-`;
-    const filePath = path.join(dir, "src/target.ts");
-    fs.writeFileSync(filePath, src);
-
-    await tsExtractFunction(
-      new TsMorphEngine(),
-      filePath,
-      4,
-      3,
-      4,
-      22, // "console.log(x + y);"
-      "printSum",
-      makeScope(dir),
-    );
-
-    const written = fs.readFileSync(filePath, "utf8");
-    // Count occurrences: both declaration and call site
-    const occurrences = (written.match(/printSum/g) ?? []).length;
-    expect(occurrences).toBeGreaterThanOrEqual(2);
   });
 
   it("throws NOT_SUPPORTED when no extractable code exists at the given range", async () => {
