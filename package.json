@@ -28,7 +28,7 @@
   "files": [
     "dist",
     ".claude/skills/search-and-replace",
-    ".claude/skills/move-and-rename",
+    ".claude/skills/refactor",
     ".claude/skills/code-inspection"
   ],
   "main": "./dist/adapters/cli/cli.js",

@@ -1,21 +1,21 @@
 **Purpose:** Current state, source layout, and prioritised next work items. Each task either links to a spec file (ready to implement) or is marked `[needs design]` (needs a `/spec` pass first).
 **Audience:** Engineers implementing features, AI agents working on the codebase.
 **Status:** Current
-**Related docs:** [Why](why.md) (product rationale), [Features](features/) (features & tools), [Tech Debt](tech/tech-debt.md) (known issues), [Specs](specs/) (task specifications)
+**Related docs:** [Why](why.md) (product rationale), [Commands](commands/) (per-command reference), [Internals](internals/) (implementation), [Tech Debt](tech/tech-debt.md) (known issues), [Specs](specs/) (task specifications)
 
 ---
 
 # Handoff Notes
 
-Context that isn't in the feature docs — things you need to know before picking up the work.
+Context that isn't in the command or internals docs — things you need to know before picking up the work.
 
 ## Start here
 
 **New to the codebase?** Read in this order:
 1. [`docs/why.md`](why.md) — what this is and why it exists
 2. [`docs/agent-users.md`](agent-users.md) — how agents differ from human users; read before speccing any feature
-3. [`docs/features/daemon.md`](features/daemon.md) — understand the daemon before touching `serve`
-4. [`docs/features/mcp-transport.md`](features/mcp-transport.md) — how `serve` connects to the daemon
+3. [`docs/internals/daemon.md`](internals/daemon.md) — understand the daemon before touching `serve`
+4. [`docs/internals/mcp-transport.md`](internals/mcp-transport.md) — how `serve` connects to the daemon
 5. [`docs/architecture.md`](architecture.md) — compiler/operation architecture; read before touching anything in `src/`
 6. [`docs/quality.md`](quality.md) — testing and reliability expectations
 
@@ -30,7 +30,7 @@ An agent discovering new work should add a `[needs design]` entry and move on �
 1. Archive the spec to `docs/specs/archive/` with an Outcome section
 2. Remove or update the entry below
 3. Update docs if public surfaces changed (see Done-when in the spec)
-4. Write gotchas to the relevant `docs/features/` or `docs/tech/` doc; cross-cutting process rules go in `.claude/MEMORY.md`
+4. Write gotchas to the relevant `docs/internals/` or `docs/tech/` doc; cross-cutting process rules go in `.claude/MEMORY.md`
 
 ---
 
@@ -51,7 +51,7 @@ eval/
 .claude/skills/
   mutate-triage/       ← /mutate-triage skill: classify survivors, open issues for noise, fix PRs for fixable gaps
   search-and-replace/ ← shipped with npm; agent guidance for search-text + replace-text
-  move-and-rename/    ← shipped with npm; agent guidance for rename, move-file, move-directory, move-symbol, delete-file, extract-function
+  refactor/           ← shipped with npm; agent guidance for rename, move-file, move-directory, move-symbol, delete-file, extract-function
   code-inspection/    ← shipped with npm; agent guidance for find-references, get-definition, get-type-errors
 src/
   adapters/
@@ -147,7 +147,7 @@ src/
       simple-ts/   ← minimal TS project scaffold (and 9 others: vue-project, cross-boundary, etc.)
 ```
 
-**Features shipped:** see [`docs/features/README.md`](features/README.md) for the full tool index.
+**Commands shipped:** see [`docs/commands/README.md`](commands/README.md) for the full command index.
 
 ---
 
@@ -164,7 +164,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
-- `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; see [moveSymbol.md](features/moveSymbol.md)
+- `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; see [move-symbol.md](commands/move-symbol.md)
 ---
 
 ### P4 — Low priority
@@ -209,8 +209,8 @@ Each concern has a dedicated doc. Read those — don't rely on handoff for desig
 |-------|-----|
 | Agent user characteristics — design constraints for tool interfaces | [`docs/agent-users.md`](agent-users.md) |
 | Compiler/operation architecture, dispatcher design, `CompilerRegistry` | [`docs/architecture.md`](architecture.md) |
-| MCP wire protocol, tool interface, `DAEMON_STARTING`, `filesSkipped` | [`docs/features/mcp-transport.md`](features/mcp-transport.md) |
-| Daemon lifecycle, auto-spawn, socket protocol | [`docs/features/daemon.md`](features/daemon.md) |
+| MCP wire protocol, tool interface, `DAEMON_STARTING`, `filesSkipped` | [`docs/internals/mcp-transport.md`](internals/mcp-transport.md) |
+| Daemon lifecycle, auto-spawn, socket protocol | [`docs/internals/daemon.md`](internals/daemon.md) |
 | Vue compiler internals, virtual↔real path translation, `toVirtualLocation` | [`docs/tech/volar-v3.md`](tech/volar-v3.md) |
 | Implementation gotchas (MCP naming, `workspace` convention, Volar quirks, etc.) | [`docs/architecture.md`](architecture.md), [`docs/tech/volar-v3.md`](tech/volar-v3.md), [`docs/tech/tech-debt.md`](tech/tech-debt.md) |
 | Known structural issues and their fixes | [`docs/tech/tech-debt.md`](tech/tech-debt.md) |

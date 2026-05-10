@@ -68,7 +68,7 @@ If you omit `glob`, every file under `workspace` (or the daemon's workspace) is 
 
 ## When NOT to use
 
-- **Renaming a TypeScript symbol** (variable, function, type, class) — use `weaver rename` instead (see move-and-rename skill). It's scope-aware; text replacement is not.
+- **Renaming a TypeScript symbol** (variable, function, type, class) — use `weaver rename` instead (see refactor skill). It's scope-aware; text replacement is not.
 
 ## Errors
 

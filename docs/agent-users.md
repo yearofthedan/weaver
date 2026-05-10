@@ -1,7 +1,7 @@
 **Purpose:** Characteristics of AI coding agents that should inform every design decision in weaver.
 **Audience:** Anyone designing or speccing a feature. Read this before writing a spec.
 **Status:** Current
-**Related docs:** [Why](why.md) (product rationale), [MCP transport](features/mcp-transport.md) (tool interface)
+**Related docs:** [Why](why.md) (product rationale), [MCP transport](internals/mcp-transport.md) (tool interface)
 
 ---
 

@@ -1,35 +1,6 @@
-# Feature: moveSymbol
+# Internals: move-symbol
 
-**Purpose:** Move a named export from one file to another and update all importers project-wide — more precise than `moveFile` (whole file), safer than manual cut-paste + `replaceText` (no missed importers).
-
-**MCP tool call:**
-
-```json
-{
-  "name": "moveSymbol",
-  "arguments": {
-    "sourceFile": "/path/to/project/src/utils.ts",
-    "symbolName": "calculateTotal",
-    "destFile": "/path/to/project/src/math/totals.ts"
-  }
-}
-```
-
-If the destination already exports a symbol with the same name, the operation returns a `SYMBOL_EXISTS` error. Pass `force: true` to replace the destination declaration with the source version:
-
-```json
-{
-  "name": "moveSymbol",
-  "arguments": {
-    "sourceFile": "/path/to/project/src/utils.ts",
-    "symbolName": "calculateTotal",
-    "destFile": "/path/to/project/src/math/totals.ts",
-    "force": true
-  }
-}
-```
-
-`filesModified` lists every file written (sourceFile, destFile, and all importers updated). See [mcp-transport.md](./mcp-transport.md) for the full response contract.
+User-facing reference: [docs/commands/move-symbol.md](../commands/move-symbol.md).
 
 ## How it works
 
@@ -65,23 +36,6 @@ tool call
   ▼ dispatcher appends type errors for filesModified (unless checkTypeErrors: false)
   ▼ result { ok, filesModified, filesSkipped, typeErrors }
 ```
-
-## Security
-
-- `sourceFile` and `destFile` are validated at the dispatcher before the engine is called.
-- File writes (modified sourceFile, new or updated destFile, updated importers) are each boundary-checked before being written. Out-of-workspace files are skipped and reported in `filesSkipped`.
-
-See [security.md](../security.md) for the full threat model.
-
-## Constraints
-
-- `symbolName` must be a valid JavaScript/TypeScript identifier (validated at MCP input).
-- The symbol must be a direct exported declaration in `sourceFile` (`export function`, `export const`, `export class`, etc.).
-- Re-exports via `export { foo }` are rejected with `NOT_SUPPORTED`.
-- Class methods are not supported — top-level exports only.
-- `destFile` must be within the workspace boundary.
-- If the destination file already has a declaration (exported or non-exported) with the same name as `symbolName`, the operation returns a `SYMBOL_EXISTS` error and makes no changes to any file. Pass `force: true` to replace the existing declaration with the source version ("source wins", like `mv -f`).
-- Moving symbols *from* a `.vue` source file is not yet supported. The shipped path moves TS exports and then patches Vue importers; moving declarations from `<script setup>` blocks requires SFC-aware block parsing (e.g. via `@vue/compiler-sfc`).
 
 ## Technical decisions
 

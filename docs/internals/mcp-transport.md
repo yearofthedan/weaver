@@ -1,6 +1,8 @@
-# Feature: MCP Transport
+# Internals: MCP Transport
 
 **Purpose:** How `serve` connects to the daemon, what the wire protocol looks like, and how tool calls flow end to end.
+
+User-facing reference: [docs/commands/serve.md](../commands/serve.md), [response format](../reference/response-format.md), [error codes](../reference/error-codes.md).
 
 ## How it works
 
@@ -45,78 +47,15 @@ Use `pnpm agent:check` to enforce this policy in committed files. Use `pnpm agen
 
 ## Tool interface
 
-All tools use position-based parameters where applicable, consistent with LSP convention. Parameters are Zod-validated at the MCP layer before reaching the daemon.
+Per-tool parameters live in [docs/commands/](../commands/). Conventions shared across every tool:
 
-| Tool | Parameters |
-|------|-----------|
-| `rename` | `file`, `line`, `col`, `newName`, `checkTypeErrors?` |
-| `moveFile` | `oldPath`, `newPath`, `checkTypeErrors?` |
-| `moveSymbol` | `sourceFile`, `symbolName`, `destFile`, `checkTypeErrors?` |
-| `extractFunction` | `file`, `startLine`, `startCol`, `endLine`, `endCol`, `functionName`, `checkTypeErrors?` |
-| `findReferences` | `file`, `line`, `col` |
-| `getDefinition` | `file`, `line`, `col` |
-| `searchText` | `pattern`, `glob?`, `context?`, `maxResults?` |
-| `replaceText` | `pattern` + `replacement` + `glob?` (pattern mode) or `edits[]` (surgical mode); `checkTypeErrors?` |
-
-`checkTypeErrors` (optional boolean, default `true`): type diagnostics are run against `filesModified` immediately after every write and returned as `typeErrors`, `typeErrorCount`, `typeErrorsTruncated`. Pass `false` to suppress. Same cap and shape as standalone `getTypeErrors`. TS/TSX files only; `.vue` files in `filesModified` are silently skipped.
+- Position-based parameters use 1-based `line`/`col` (LSP convention).
+- All inputs are Zod-validated at the MCP layer before reaching the daemon.
+- `checkTypeErrors` (optional boolean, default `true`) on every mutating tool runs post-write diagnostics on `filesModified` and adds `typeErrors`, `typeErrorCount`, `typeErrorsTruncated` to the response. TS/TSX only — `.vue` files in `filesModified` are skipped.
 
 ## Response contract
 
-Every tool call returns a JSON object. The agent acts on the response without reading any modified files.
-
-Every response contains a `status` field: `"success"`, `"warn"`, or `"error"`.
-
-| Status | Meaning | When |
-|--------|---------|------|
-| `"success"` | Operation completed cleanly | No errors, or `checkTypeErrors: false`, or zero files modified |
-| `"warn"` | Operation completed but left type errors | `typeErrorCount > 0` after post-write diagnostics |
-| `"error"` | Operation failed | Validation, boundary, engine, or internal error |
-
-Mutating operations (success):
-
-```json
-{
-  "status": "success",
-  "filesModified": ["src/components/Button.vue", "src/App.vue"],
-  "filesSkipped": []
-}
-```
-
-Mutating operations (warn — type errors after write):
-
-```json
-{
-  "status": "warn",
-  "filesModified": ["src/a.ts"],
-  "typeErrors": [{ "file": "src/a.ts", "line": 3, "col": 7, "code": 2322, "message": "..." }],
-  "typeErrorCount": 1,
-  "typeErrorsTruncated": false
-}
-```
-
-Read-only operations (success):
-
-```json
-{
-  "status": "success",
-  "symbolName": "Button",
-  "references": [
-    { "file": "src/App.vue", "line": 5, "col": 3, "length": 6 }
-  ]
-}
-```
-
-Failure:
-
-```json
-{
-  "status": "error",
-  "error": "ERROR_CODE",
-  "message": "Human-readable description of the problem"
-}
-```
-
-Error codes include: `DAEMON_STARTING`, `INTERNAL_ERROR`, `INVALID_PATH`, `VALIDATION_ERROR`, `WORKSPACE_VIOLATION`, `FILE_NOT_FOUND`, `SYMBOL_NOT_FOUND`, `RENAME_NOT_ALLOWED`, `NOT_SUPPORTED`, `SENSITIVE_FILE`, `TEXT_MISMATCH`, `PARSE_ERROR`, `REDOS`, `UNKNOWN_METHOD`.
+The shape of `status`, `filesModified`, `filesSkipped`, `typeErrors`, and the error envelope is documented once in [docs/reference/response-format.md](../reference/response-format.md). The full set of error codes is in [docs/reference/error-codes.md](../reference/error-codes.md).
 
 `filesSkipped` lists collateral writes that were skipped because they fell outside the workspace boundary. Agents should surface this to the user.
 

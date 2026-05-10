@@ -1,38 +1,6 @@
-# Feature: extractFunction
+# Internals: extract-function
 
-**Purpose:** Pull a block of statements out of a function body into a new named function — the compiler infers parameters, return values, type annotations, and async propagation.
-
-**MCP tool call:**
-
-```json
-{
-  "name": "extractFunction",
-  "arguments": {
-    "file": "/path/to/project/src/handler.ts",
-    "startLine": 12,
-    "startCol": 3,
-    "endLine": 18,
-    "endCol": 42,
-    "functionName": "buildResponse"
-  }
-}
-```
-
-`startLine`, `startCol`, `endLine`, `endCol` are all 1-based. `endCol` is inclusive — it must point at the last character of the last statement in the selection. The response includes tool-specific fields beyond the standard contract:
-
-```json
-{
-  "ok": true,
-  "filesModified": ["src/handler.ts"],
-  "functionName": "buildResponse",
-  "parameterCount": 2,
-  "typeErrors": [],
-  "typeErrorCount": 0,
-  "typeErrorsTruncated": false
-}
-```
-
-See [mcp-transport.md](./mcp-transport.md) for the full response contract.
+User-facing reference: [docs/commands/extract-function.md](../commands/extract-function.md).
 
 ## How it works
 
@@ -63,26 +31,6 @@ tool call
   ▼ dispatcher appends type errors for filesModified (unless checkTypeErrors: false)
   ▼ result { ok, filesModified, functionName, parameterCount, typeErrors }
 ```
-
-The extracted function is placed at module scope and is **not exported**. Use `moveSymbol` to relocate it to another file if needed.
-
-## Security
-
-- `file` is validated against the workspace root at the dispatcher before the engine is called.
-- Each file edit is boundary-checked before writing to disk. Out-of-workspace files are skipped and reported in `filesSkipped`.
-
-See [security.md](../security.md) for the full threat model.
-
-## Constraints
-
-- The selection must be inside a function body — module-level statements cannot be extracted.
-- The selection must cover complete statements. The compiler silently returns no applicable refactors when the selection ends mid-statement. In semicolon-using code, `endCol` must point at the `;`. In no-semi code, `endCol` must point at the last token (e.g. the closing `)` of a call).
-- The extracted function is always placed at module scope (outermost `function_scope`).
-- The extracted function is not exported.
-- `.vue` files with a `<script setup>` block are supported. The TS language service runs on an in-memory copy of the script block content; `<template>` and `<style>` blocks are preserved byte-for-byte.
-- `.vue` files without a `<script setup>` block (template-only or Options API `<script>`) return `NOT_SUPPORTED`.
-- `functionName` must be a valid JS/TS identifier (validated at MCP input).
-- The operation does not detect naming collisions with existing symbols in scope.
 
 ## Technical decisions
 

@@ -1,19 +1,8 @@
-# Feature: Daemon
+# Internals: Daemon
 
-**Purpose:** When to start the daemon, what it does, and how `serve` connects to it.
+**Purpose:** Lifecycle, discovery, and how `serve` connects to the daemon.
 
-## When and why to start it
-
-The daemon is a long-lived background process that owns the language service for a workspace. Start it when:
-
-- You are about to begin an agent session and want the first tool call to be fast (pre-warming)
-- You want the daemon managed by your process supervisor (launchd, systemd, PM2) rather than auto-spawned
-
-If you do nothing, `serve` will auto-spawn a daemon the first time it is started. The auto-spawned daemon runs detached and persists after the `serve` session ends.
-
-```bash
-weaver daemon --workspace /path/to/project
-```
+User-facing reference: [docs/commands/daemon.md](../commands/daemon.md), [docs/commands/serve.md](../commands/serve.md), [docs/commands/stop.md](../commands/stop.md).
 
 ## Why it exists
 

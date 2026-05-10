@@ -1,7 +1,7 @@
 **Purpose:** Threat model and security controls for the weaver MCP server.
 **Audience:** Security reviewers, developers implementing file operations, anyone touching workspace boundary logic.
 **Status:** Current
-**Related docs:** [Quality](quality.md) (reliability), [Features](features/) (per-operation constraints)
+**Related docs:** [Quality](quality.md) (reliability), [Commands](commands/) (per-command constraints), [Internals](internals/) (per-command security details)
 
 ---
 

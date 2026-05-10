@@ -1,35 +1,6 @@
-# Feature: getDefinition
+# Internals: get-definition
 
-**Purpose:** Jump from a usage to its declaration — resolves through re-exports, barrel files, and declaration files to the actual definition site.
-
-Read-only. Same as "go to definition" in an IDE: answers "where is this function defined?" and "which file declares this type?" without text-searching by name.
-
-**MCP tool call:**
-
-```json
-{
-  "name": "getDefinition",
-  "arguments": {
-    "file": "/path/to/project/src/App.vue",
-    "line": 12,
-    "col": 8
-  }
-}
-```
-
-Response:
-
-```json
-{
-  "ok": true,
-  "definitions": [
-    { "file": "/path/to/project/src/utils.ts", "line": 5, "col": 10 }
-  ],
-  "message": "Found 1 definition"
-}
-```
-
-`line` and `col` are 1-based. If no symbol is found at the given position, `definitions` is empty. Most symbols resolve to a single definition; overloaded functions may return multiple.
+User-facing reference: [docs/commands/get-definition.md](../commands/get-definition.md).
 
 ## How it works
 
@@ -51,19 +22,6 @@ tool call
 ```
 
 Definition locations may point into `node_modules` or sibling packages — this is correct for a read-only operation.
-
-## Security
-
-- **Input:** `file` is validated against the workspace root at the dispatcher. Invalid paths return `WORKSPACE_VIOLATION`.
-- **Output:** definition locations may point to files outside the workspace (e.g. `node_modules`, sibling packages). No filtering is applied to read-only results.
-
-See [security.md](../security.md) for the full threat model.
-
-## Constraints
-
-- Definitions in declaration files (`.d.ts`) point to the type declaration, not the JavaScript runtime value.
-- If the symbol resolves to a built-in TypeScript type or a type in `node_modules`, the result file path will point into `node_modules`. This is correct behaviour.
-- Results reflect the in-memory project graph; daemon watcher debounce (~200ms) applies.
 
 ## Technical decisions
 

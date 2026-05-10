@@ -2,7 +2,7 @@
 
 **type:** change
 **date:** YYYY-MM-DD
-**tracks:** handoff.md # entry-name → docs/features/relevant.md
+**tracks:** handoff.md # entry-name → docs/commands/relevant.md or docs/internals/relevant.md
 
 ---
 
@@ -197,10 +197,12 @@ Examples of what belongs here:
 - [ ] `pnpm check` passes (lint + build + test)
 - [ ] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`. If implementation pushes a file past threshold, extract per the test refactoring hierarchy (push down to units → decompose source) before marking this item done.
 - [ ] Docs updated if public surface changed:
-      - README.md (tool table, CLI commands, error codes, project structure)
-      - Feature doc created or updated (use `docs/features/_template.md` for new docs)
+      - README.md (commands table, install snippet, top-level overview)
+      - Command page created or updated in `docs/commands/<kebab-name>.md` (when, inputs, output, errors, examples, limits)
+      - Internals page created or updated in `docs/internals/<kebab-name>.md` (how it works, technical decisions, gotchas)
+      - `docs/reference/error-codes.md` if new codes were added
       - Skill files in `.claude/skills/` that reference the changed tool (these are the primary discovery surface for agents — if the skill doesn't mention the new mode, agents won't use it)
       - handoff.md current-state section
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/features/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting (skip if nothing worth recording)
+- [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting (skip if nothing worth recording)
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended

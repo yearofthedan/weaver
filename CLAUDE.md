@@ -49,7 +49,7 @@ Finish the test for a unit before moving to the next. The test is part of the im
 **Rule 7: Commit messages must not mention things you're NOT doing.** "Does not use X" is meaningless to someone reading the log without the conversation's context.
 
 **Rule 8: Write durable memory to `.claude/MEMORY.md` — never to `~/.claude/`.**
-This project runs in a dev container. The home directory is deleted on every rebuild, taking `~/.claude/projects/` with it. Do NOT use the auto-memory system there. Use `.claude/MEMORY.md` (git-tracked) instead. Technical gotchas belong in the relevant `docs/features/` or `docs/tech/` doc, not in MEMORY.md.
+This project runs in a dev container. The home directory is deleted on every rebuild, taking `~/.claude/projects/` with it. Do NOT use the auto-memory system there. Use `.claude/MEMORY.md` (git-tracked) instead. Technical gotchas belong in the relevant `docs/internals/` or `docs/tech/` doc, not in MEMORY.md.
 
 **Rule 10: Not every task needs a spec — but every task needs a tag.**
 Tasks in `docs/handoff.md` carry one of three tags:
@@ -60,14 +60,14 @@ Tasks in `docs/handoff.md` carry one of three tags:
 
 Before writing a spec, ask: (1) does planning add safety? (real architectural choices, multiple code paths, meaningful risk) and (2) will an archived spec be a useful future reference? (the "why" isn't visible in the output itself). If neither is true, use `[chore]`.
 
-Do not add ACs to feature docs (`docs/features/*.md`) — those are reference docs for shipped behaviour, not task tracking. ACs live in spec files and are archived (with an Outcome section) when the task ships.
+Do not add ACs to command or internals docs (`docs/commands/*.md`, `docs/internals/*.md`) — those are reference docs for shipped behaviour, not task tracking. ACs live in spec files and are archived (with an Outcome section) when the task ships.
 
 Specs are **changesets**, not features. They describe a unit of work to deliver, then get archived. Code and tests must never reference spec identifiers (AC numbers, spec slugs, etc.) — describe the *behaviour* being tested, not the changeset that introduced it.
 
 **Rule 9: Dogfood the tools — you are the target user.**
 Use the CLI (`pnpm exec weaver <command>`) for refactoring during development. This is the primary interface most users will have — if it doesn't work well for you, it won't work well for them. If the CLI can't do what you need, add it to `docs/handoff.md`. Shareable skills (`.claude/skills/`) are fine — they ship with the tool and any consumer can load them. Private memories and rules that only exist in this repo's config are not a substitute for good tool descriptions.
 
-The shipped skill files at `.claude/skills/{search-and-replace,move-and-rename,code-inspection}/SKILL.md` are the canonical refactoring guidance — the same files external users load.
+The shipped skill files at `.claude/skills/{search-and-replace,refactor,code-inspection}/SKILL.md` are the canonical refactoring guidance — the same files external users load.
 
 Skill files are interface documentation, not agent playbooks. Describe what the tool returns and what each field means. Do not prescribe what the agent should do in response — that's the caller's policy, not the tool's contract. The agent has project context weaver doesn't: pre-existing errors, intent, conventions.
 
@@ -91,6 +91,7 @@ Read the code before forming opinions. Look at function bodies, indirection dept
 
 **Rule 18: Use skills and the CLI for code searches — not grep.**
 Before reaching for `grep` or `find`:
+- Refactoring (rename, move, delete, extract) → invoke the `refactor` skill
 - Symbol lookups, reference finding, definition jumping → invoke the `code-inspection` skill
 - Multi-file text searches or replacements → invoke the `search-and-replace` skill
 

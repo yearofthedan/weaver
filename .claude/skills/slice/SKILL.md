@@ -70,7 +70,7 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
 
    **Do NOT proceed to step 8 until the Outcome section — including the Reflection — is written in the archived spec file.**
 
-8. **Capture any non-obvious gotchas** discovered during implementation. Put them in the relevant `docs/features/` or `docs/tech/` doc, or in `.claude/MEMORY.md` if cross-cutting. Add a code comment if the gotcha is visible at the call site.
+8. **Capture any non-obvious gotchas** discovered during implementation. Put them in the relevant `docs/internals/` or `docs/tech/` doc, or in `.claude/MEMORY.md` if cross-cutting. Add a code comment if the gotcha is visible at the call site.
 
 9. **Commit** docs changes with a conventional commit message (see `CLAUDE.md`).
 

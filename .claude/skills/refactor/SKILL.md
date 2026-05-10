@@ -1,11 +1,11 @@
 ---
-name: move-and-rename
-description: Use when moving files or directories, renaming a symbol used across files, moving exports between files, or deleting a file that other files import. Before using mv, rm, or manual import fixup.
+name: refactor
+description: Use when refactoring across files — renaming a symbol, moving a file or directory, moving an export between files, deleting a file that has importers, or extracting a function. Before using mv, rm, or manual import fixup.
 ---
 
-# Move, Rename, and Delete Across Files
+# Refactor Across Files
 
-**STOP.** If you're about to `mv` a file, `rm` a file that has importers, or rename a variable/function/type that's used in other files — use these commands instead. They rewrite every import, re-export, and reference automatically.
+**STOP.** If you're about to `mv` a file, `rm` a file that has importers, rename a symbol used in other files, or extract a function by hand — use these commands instead. They rewrite every import, re-export, and reference automatically.
 
 ## Rename a symbol across files
 
