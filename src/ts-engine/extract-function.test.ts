@@ -215,8 +215,12 @@ console.log(doubled);
     const written = fs.readFileSync(filePath, "utf8");
     expect(written).toContain("function processValue");
     expect(written).toContain("processValue(");
-    expect(written).toContain("<template>");
+    // Each SFC block must appear exactly once — a faulty splice would duplicate them
+    expect((written.match(/<script setup/g) ?? []).length).toBe(1);
+    expect((written.match(/<template>/g) ?? []).length).toBe(1);
     expect(written).toContain("<div>hello</div>");
+    // Script block must come before template block
+    expect(written.indexOf("</script>")).toBeLessThan(written.indexOf("<template>"));
   });
 
   it("parameterCount reflects the number of parameters inferred by the compiler", async () => {
@@ -246,6 +250,45 @@ init();
     expect(result.parameterCount).toBeGreaterThanOrEqual(1);
     const written = fs.readFileSync(filePath, "utf8");
     expect(written).toContain("function compute(");
+  });
+
+  it("throws NOT_SUPPORTED when the selection coordinates fall before the <script setup> content", async () => {
+    const dir = makeTempDir();
+    const vueContent = `<script setup lang="ts">
+const x = 1;
+</script>
+<template><div></div></template>
+`;
+    const filePath = path.join(dir, "Edge.vue");
+    fs.writeFileSync(filePath, vueContent);
+
+    const engine = new VolarEngine(new TsMorphEngine());
+    const scope = new WorkspaceScope(dir, new NodeFileSystem());
+
+    // Line 1, col 1 points to the opening <script setup> tag itself — before the content starts.
+    // After subtracting contentOffset the resulting offset is negative.
+    await expect(engine.extractFunction(filePath, 1, 1, 1, 5, "fn", scope)).rejects.toMatchObject({
+      code: "NOT_SUPPORTED",
+      message: expect.stringContaining("outside the <script setup> block"),
+    });
+  });
+
+  it("throws NOT_SUPPORTED when the selection line is beyond the end of the file", async () => {
+    const dir = makeTempDir();
+    const vueContent = `<script setup lang="ts">
+const x = 1;
+</script>
+<template><div></div></template>
+`;
+    const filePath = path.join(dir, "Edge.vue");
+    fs.writeFileSync(filePath, vueContent);
+
+    const engine = new VolarEngine(new TsMorphEngine());
+    const scope = new WorkspaceScope(dir, new NodeFileSystem());
+
+    await expect(
+      engine.extractFunction(filePath, 999, 1, 999, 5, "fn", scope),
+    ).rejects.toMatchObject({ code: "NOT_SUPPORTED" });
   });
 
   it("throws NOT_SUPPORTED for a .vue file without a <script setup> block", async () => {
