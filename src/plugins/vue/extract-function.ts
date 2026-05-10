@@ -82,7 +82,14 @@ export function vueExtractFunction(
   scope.writeFile(file, newVueContent);
 
   const sf = createThrowawaySourceFile("check.ts", modifiedScriptContent);
-  const parameterCount = sf.getFunction(functionName)?.getParameters().length ?? 0;
+  const fn = sf.getFunction(functionName);
+  if (!fn) {
+    throw new EngineError(
+      `Extracted function '${functionName}' not found in modified script — this is a bug`,
+      "INTERNAL_ERROR",
+    );
+  }
+  const parameterCount = fn.getParameters().length;
 
   return {
     filesModified: scope.modified,
