@@ -101,6 +101,9 @@ Legitimate reasons: genuinely optional peer dep that may not be installed, break
 Not legitimate: "the package is heavy," "we only sometimes call this."
 Dynamic imports break Stryker's coverage attribution: the lines of the imported module are invisible to the mutation runner when the import is dynamic. Static imports are also the standard in this codebase — `await import()` without a comment is a bug.
 
+**Rule 20: A mutation threshold is an alarm, not a target. Classify every survivor.**
+Mutation testing finds bugs. When a mutant survives, ask: what does this tell me about the code? Then classify: (a) real gap — the test suite cannot catch this logic inversion, write the missing assertion; (b) noise — the mutant is structurally unreachable or untestable, document exactly why; (c) dead code — the branch cannot be reached, remove it. "We hit 75%" is not a classification. Optional chaining, default values, and defensive guards that silently swallow impossible states are the most dangerous survivors — they turn future bugs into silent wrong answers instead of loud crashes. If the code is supposed to always find what it looks for, make it throw when it doesn't.
+
 ---
 
 ## Commits

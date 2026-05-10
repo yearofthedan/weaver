@@ -55,7 +55,7 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
    ```bash
    pnpm test:mutate:file src/path/to/changed.ts
    ```
-   For each survivor: classify it as (a) a real gap — write the missing test and commit, (b) noise — the mutant is unreachable or structurally untestable, document why and leave it, or (c) dead code — remove the branch. Commit the updated `reports/stryker-incremental.json` after the run.
+   The threshold is an alarm that quality is failing — it is not a target to coast to. For each survivor, ask: what does this tell me about the code? Then classify: (a) real gap — write the missing test and commit, (b) noise — the mutant is structurally unreachable, document exactly why, or (c) dead code — remove the branch. "We hit 75%" is not a classification. Every survivor gets one. Commit the updated `reports/stryker-incremental.json` after the run.
 
 6. **Complete the spec's Done-when checklist.** Walk through every item in the spec's Done-when section (defined by the template — see `docs/specs/templates/change.md` or `bug.md`). Additionally:
    - [ ] **Standards check.** For every file you extended, walk through `docs/code-standards.md`. Apply the refactoring hierarchy if needed. This is the checkpoint that catches implementation-time bloat; do NOT defer it to a future task.
