@@ -1,37 +1,6 @@
-# Feature: deleteFile
+# Internals: delete-file
 
-**Purpose:** Remove a file and clean up every import and re-export that references it, across the whole workspace, in one compiler-backed operation.
-
-**MCP tool call:**
-
-```json
-{
-  "name": "deleteFile",
-  "arguments": {
-    "file": "/path/to/project/src/old-helper.ts"
-  }
-}
-```
-
-The response includes tool-specific fields beyond the standard contract:
-
-```json
-{
-  "ok": true,
-  "deletedFile": "/path/to/project/src/old-helper.ts",
-  "filesModified": ["src/api.ts", "src/barrel.ts", "tests/helper.test.ts"],
-  "filesSkipped": [],
-  "importRefsRemoved": 4,
-  "typeErrors": [...]
-}
-```
-
-- `deletedFile` — echo of the absolute path removed.
-- `filesModified` — files whose import/re-export declarations were cleaned. Does not include `deletedFile` itself.
-- `filesSkipped` — importers outside the workspace boundary that were found but not written.
-- `importRefsRemoved` — count of individual `import`/`export` declarations removed across all modified files.
-
-Type errors are expected after deletion: removing an import leaves any code that used those symbols broken. Pass `checkTypeErrors: false` to suppress. See [mcp-transport.md](./mcp-transport.md) for the full response contract.
+User-facing reference: [docs/commands/delete-file.md](../commands/delete-file.md).
 
 ## How it works
 
@@ -66,20 +35,6 @@ tool call
   ▼ dispatcher appends type errors for filesModified (unless checkTypeErrors: false)
   ▼ result { ok, deletedFile, filesModified, filesSkipped, importRefsRemoved, typeErrors }
 ```
-
-## Security
-
-- **Input:** `file` is validated against the workspace root by the dispatcher before the operation runs. Paths outside the workspace return `WORKSPACE_VIOLATION`.
-- **Output writes:** only files inside the workspace boundary are written. Importers found outside the workspace appear in `filesSkipped` and are not modified.
-
-See [security.md](../security.md) for the full threat model.
-
-## Constraints
-
-- The file must exist at call time. If already deleted, `FILE_NOT_FOUND` is returned.
-- Multi-line import declarations in Vue SFCs are not cleaned (Phase 3 regex is line-based). In practice, Vue SFC imports are nearly always single-line.
-- Template-level `import()` calls in Vue SFCs are not detected.
-- Phase 2 covers TypeScript/JavaScript files outside `tsconfig.include`. Other file types (e.g. `.json` that import by path) are not scanned.
 
 ## Technical decisions
 

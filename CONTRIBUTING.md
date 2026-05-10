@@ -140,7 +140,7 @@ eval/
 .claude/skills/
 │                          # Shipped with the package (for consumers):
 ├── search-and-replace/    # agent guidance for search-text + replace-text
-├── move-and-rename/       # agent guidance for rename, move-file, move-directory, move-symbol, delete-file, extract-function
+├── refactor/              # agent guidance for rename, move-file, move-directory, move-symbol, delete-file, extract-function
 ├── code-inspection/       # agent guidance for find-references, get-definition, get-type-errors
 │                          # Internal (dev workflow only, metadata.internal: true):
 ├── slice/                 # /slice — pick up and implement the next task

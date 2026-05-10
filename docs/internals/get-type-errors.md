@@ -1,60 +1,6 @@
-# Feature: getTypeErrors
+# Internals: get-type-errors
 
-**Purpose:** Check for TypeScript type errors in a single file or across the whole project, including `.vue` SFC files in Vue projects.
-
-Warnings and suggestions are excluded — only errors (`DiagnosticCategory.Error`) are reported. Write operations (`rename`, `moveFile`, `moveSymbol`, `replaceText`) already return type errors for modified files automatically; `getTypeErrors` covers files that weren't just modified and project-wide baseline checks.
-
-**MCP tool call (single file):**
-
-```json
-{
-  "name": "getTypeErrors",
-  "arguments": {
-    "file": "/path/to/project/src/utils.ts"
-  }
-}
-```
-
-`.vue` files are accepted:
-
-```json
-{
-  "name": "getTypeErrors",
-  "arguments": {
-    "file": "/path/to/project/src/App.vue"
-  }
-}
-```
-
-**MCP tool call (whole project):**
-
-```json
-{
-  "name": "getTypeErrors",
-  "arguments": {}
-}
-```
-
-Response:
-
-```json
-{
-  "ok": true,
-  "diagnostics": [
-    {
-      "file": "/path/to/project/src/utils.ts",
-      "line": 10,
-      "col": 5,
-      "code": 2322,
-      "message": "Type 'string' is not assignable to type 'number'."
-    }
-  ],
-  "errorCount": 1,
-  "truncated": false
-}
-```
-
-`line` and `col` are 1-based. For `.vue` files they are positions in the real `.vue` source (not the virtual TypeScript). `errorCount` is the true total even when results are capped at 100. When `truncated` is true, narrow the scope by providing `file`.
+User-facing reference: [docs/commands/get-type-errors.md](../commands/get-type-errors.md).
 
 ## How it works
 
@@ -88,21 +34,6 @@ tool call
   for each diagnostic: top-level message only (chain[0]); convert to 1-based line/col
   ▼ result { ok, diagnostics[], errorCount, truncated }
 ```
-
-## Security
-
-- Single-file mode: `file` is validated against the workspace root. Invalid paths return `WORKSPACE_VIOLATION`; non-existent files return `FILE_NOT_FOUND`.
-- Project-wide mode: iterates files in the tsconfig project (TS engine) and files registered in the Volar service (Vue engine). No files outside the project graph are checked.
-- Diagnostics are read-only — no files are written.
-
-See [security.md](../security.md) for the full threat model.
-
-## Constraints
-
-- Template errors in `.vue` files are included alongside script-block errors — this matches `vue-tsc` and IDE behavior. Volar compiles the entire SFC to virtual TypeScript; all resulting errors are reported.
-- Post-write type checking on other operations (`rename`, `moveFile`, etc.) only covers `.ts`/`.tsx` files — `.vue` files in `filesModified` are silently skipped. See `docs/handoff.md` for the pending extension.
-- `.js`/`.jsx` files are checked only when in the project graph via `allowJs`.
-- The project is loaded fresh from disk on first access; subsequent calls reuse the daemon's cached project.
 
 ## Technical decisions
 

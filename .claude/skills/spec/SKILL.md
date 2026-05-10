@@ -14,11 +14,11 @@ metadata:
 2. **Pick the template.** Read the spec templates in `docs/specs/templates/`. Choose:
    - `change.md` — new capability, enhancement, refactoring, or tech debt
    - `bug.md` — something is broken and needs fixing
-   - (`docs/features/_template.md` is not a spec template — it's the template for feature reference docs, used when shipping, not when planning)
+   - (per-command reference docs live in `docs/commands/`/`docs/internals/`; they are reference, not spec templates)
 
 3. **Create the spec file.** Name it `docs/specs/YYYYMMDD-short-slug.md` using today's date and a 2-4 word slug (lowercase, hyphens). Copy the template content.
 
-4. **Fill in the Context / Symptom section.** Pull from the handoff entry and any linked feature docs. Keep it to one paragraph — if you need more, the background belongs in the feature doc.
+4. **Fill in the Context / Symptom section.** Pull from the handoff entry and any linked command/internals docs. Keep it to one paragraph — if you need more, the background belongs in the command or internals doc.
 
 5. **Fill in User intent (change only).** Write the core intent as: *As a [user type], I want [action], so that [outcome].* This must describe what the user is trying to achieve — not an edge case, not a mechanism. Every design decision in the spec must trace back to this statement. If a proposed AC contradicts the intent, the AC is wrong.
 

@@ -7,7 +7,7 @@ disallowedTools: WebFetch, WebSearch
 skills:
   - implementation-context
   - search-and-replace
-  - move-and-rename
+  - refactor
   - code-inspection
   - run-checks
 memory: project

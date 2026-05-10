@@ -1,11 +1,7 @@
+# Internals: Filesystem Watcher
+
 **Purpose:** How the daemon detects out-of-band file changes and keeps its engine state fresh.
-**Audience:** Engineers modifying the daemon, engine layer, or invalidation strategy.
-**Status:** Current
-**Related docs:** [Daemon](daemon.md), [Architecture](../architecture.md), [Tech Debt](../tech/tech-debt.md)
-
----
-
-# Filesystem Watcher
+**Related:** [daemon.md](./daemon.md), [../architecture.md](../architecture.md), [../tech/tech-debt.md](../tech/tech-debt.md)
 
 ## Problem
 
@@ -85,7 +81,7 @@ The redundant callbacks are safe for two reasons:
 
 2. **Drop affects the next call only** — `invalidateAll()` sets the engine singletons to `undefined`. Any currently-executing request holds a reference to the engine object in its local scope; dropping the singleton only affects the next `getEngine()` call. The in-flight request completes against the engine it already has.
 
-The net effect is one unnecessary cold rebuild on the tool call immediately following a write-heavy operation. See [tech-debt.md](../tech/tech-debt.md) for the known gap and a proposed suppress-set fix.
+The net effect is one unnecessary cold rebuild on the tool call immediately following a write-heavy operation. See [../tech/tech-debt.md](../tech/tech-debt.md) for the known gap and a proposed suppress-set fix.
 
 ## Shutdown
 

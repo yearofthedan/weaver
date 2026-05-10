@@ -14,9 +14,9 @@ const SHIPPED_SKILLS = [
     errorCodes: ["DAEMON_STARTING"],
   },
   {
-    name: "move-and-rename",
-    path: ".claude/skills/move-and-rename/SKILL.md",
-    packageEntry: ".claude/skills/move-and-rename",
+    name: "refactor",
+    path: ".claude/skills/refactor/SKILL.md",
+    packageEntry: ".claude/skills/refactor",
     operations: [
       "rename",
       "move-file",
@@ -90,8 +90,8 @@ describe.each(SHIPPED_SKILLS)("shipped skill: $name", (skill) => {
   });
 });
 
-describe("move-and-rename skill", () => {
-  const fullPath = path.join(PROJECT_ROOT, ".claude/skills/move-and-rename/SKILL.md");
+describe("refactor skill", () => {
+  const fullPath = path.join(PROJECT_ROOT, ".claude/skills/refactor/SKILL.md");
 
   it("describes response fields for write operations", () => {
     const content = fs.readFileSync(fullPath, "utf-8");
