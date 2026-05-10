@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import { parse } from "@vue/language-core";
 import { Project } from "ts-morph";
 import { EngineError } from "../../domain/errors.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
@@ -17,7 +18,7 @@ import { applyTextEdits, lineColToOffset } from "../../utils/text-utils.js";
  *
  * Precondition: `file` must exist (validated by the operation layer).
  */
-export async function vueExtractFunction(
+export function vueExtractFunction(
   file: string,
   startLine: number,
   startCol: number,
@@ -25,10 +26,9 @@ export async function vueExtractFunction(
   endCol: number,
   functionName: string,
   scope: WorkspaceScope,
-): Promise<ExtractFunctionResult> {
+): ExtractFunctionResult {
   const vueContent = scope.fs.readFile(file);
 
-  const { parse } = await import("@vue/language-core");
   const { descriptor } = parse(vueContent);
 
   if (!descriptor.scriptSetup) {

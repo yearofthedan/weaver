@@ -96,6 +96,11 @@ Before reaching for `grep` or `find`:
 
 Both skills use `pnpm exec weaver` under the hood — dogfooding the primary user interface (Rule 9). The skills are listed in every session; check their trigger conditions before defaulting to shell tools.
 
+**Rule 19: Default to static imports. Use `await import()` only when you can name the specific reason — and write that reason as a comment.**
+Legitimate reasons: genuinely optional peer dep that may not be installed, breaking a real circular dependency, ESM-only module loaded from a CJS context.
+Not legitimate: "the package is heavy," "we only sometimes call this."
+Dynamic imports break Stryker's coverage attribution: the lines of the imported module are invisible to the mutation runner when the import is dynamic. Static imports are also the standard in this codebase — `await import()` without a comment is a bug.
+
 ---
 
 ## Commits

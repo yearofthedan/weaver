@@ -51,6 +51,12 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
 
 4. **Run `/review-changes <baseline-sha>..HEAD` on the implementation.** This reviews only the commits from this task. Apply any fixes and commit them before moving on. Skip for `[chore]` tasks only.
 
+5. **Run mutation testing on every new or significantly modified source file.** This step is not optional and cannot be deferred to a follow-up task.
+   ```bash
+   pnpm test:mutate:file src/path/to/changed.ts
+   ```
+   For each survivor: classify it as (a) a real gap — write the missing test and commit, (b) noise — the mutant is unreachable or structurally untestable, document why and leave it, or (c) dead code — remove the branch. Commit the updated `reports/stryker-incremental.json` after the run.
+
 6. **Complete the spec's Done-when checklist.** Walk through every item in the spec's Done-when section (defined by the template — see `docs/specs/templates/change.md` or `bug.md`). Additionally:
    - [ ] **Standards check.** For every file you extended, walk through `docs/code-standards.md`. Apply the refactoring hierarchy if needed. This is the checkpoint that catches implementation-time bloat; do NOT defer it to a future task.
    - [ ] **Remove** the handoff.md task entry entirely — handoff.md is a work queue, not a history. Do not mark it shipped, do not leave a link to the archive. Just delete the line. Update the "Current state" section (test count, layout changes) if needed.
