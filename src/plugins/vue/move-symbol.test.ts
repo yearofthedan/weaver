@@ -294,4 +294,113 @@ describe("vueMoveSymbol", () => {
       expect(updated.endsWith(templateAndStyle)).toBe(true);
     });
   });
+
+  describe("writing to a .vue destination", () => {
+    it("appends the declaration inside an existing <script setup> in the dest .vue", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/Source.vue",
+        ['<script setup lang="ts">', "export const SHARED = 1;", "</script>", ""].join("\n"),
+      );
+      const dest = writeFile(
+        dir,
+        "src/Dest.vue",
+        [
+          '<script setup lang="ts">',
+          "const existing = 2;",
+          "</script>",
+          "<template><div>{{ existing }}</div></template>",
+          "",
+        ].join("\n"),
+      );
+      const scope = makeScope(dir);
+
+      await vueMoveSymbol(source, "SHARED", dest, scope);
+
+      const updatedDest = fs.readFileSync(dest, "utf8");
+      expect(updatedDest).toContain("const existing = 2;");
+      expect(updatedDest).toContain("export const SHARED = 1;");
+      expect(updatedDest).toContain("<template><div>{{ existing }}</div></template>");
+      expect(scope.modified).toContain(dest);
+    });
+
+    it("inserts a new <script setup> block before <template> when dest has no script", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/Source.vue",
+        ['<script setup lang="ts">', "export const X = 42;", "</script>", ""].join("\n"),
+      );
+      const dest = writeFile(
+        dir,
+        "src/Dest.vue",
+        ["<template>", "  <div>hi</div>", "</template>", ""].join("\n"),
+      );
+      const scope = makeScope(dir);
+
+      await vueMoveSymbol(source, "X", dest, scope);
+
+      const updated = fs.readFileSync(dest, "utf8");
+      expect(updated).toContain('<script setup lang="ts">');
+      expect(updated).toContain("export const X = 42;");
+      const scriptIdx = updated.indexOf("<script setup");
+      const templateIdx = updated.indexOf("<template>");
+      expect(scriptIdx).toBeGreaterThanOrEqual(0);
+      expect(scriptIdx).toBeLessThan(templateIdx);
+      expect(updated).toContain("<div>hi</div>");
+    });
+
+    it("creates a new .vue file with only a <script setup> block when dest does not exist", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/Source.vue",
+        ['<script setup lang="ts">', "export type Foo = { id: number };", "</script>", ""].join(
+          "\n",
+        ),
+      );
+      const dest = path.join(dir, "src/types/Foo.vue");
+      const scope = makeScope(dir);
+
+      await vueMoveSymbol(source, "Foo", dest, scope);
+
+      expect(fs.existsSync(dest)).toBe(true);
+      const content = fs.readFileSync(dest, "utf8");
+      expect(content).toContain('<script setup lang="ts">');
+      expect(content).toContain("export type Foo = { id: number };");
+      expect(content).toContain("</script>");
+      expect(content).not.toContain("<template>");
+    });
+
+    it("rewrites .ts importers when moving to a .vue dest", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/Source.vue",
+        ['<script setup lang="ts">', "export const TAG = 'hello';", "</script>", ""].join("\n"),
+      );
+      const importer = writeFile(
+        dir,
+        "src/uses.ts",
+        ['import { TAG } from "./Source.vue";', "export const v = TAG;", ""].join("\n"),
+      );
+      const dest = writeFile(
+        dir,
+        "src/Dest.vue",
+        ['<script setup lang="ts">', "const x = 1;", "</script>", ""].join("\n"),
+      );
+      const scope = makeScope(dir);
+
+      await vueMoveSymbol(source, "TAG", dest, scope);
+
+      const updated = fs.readFileSync(importer, "utf8");
+      expect(updated).toContain("./Dest.vue");
+      expect(updated).not.toContain("./Source.vue");
+    });
+  });
 });

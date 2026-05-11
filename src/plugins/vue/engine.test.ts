@@ -122,6 +122,33 @@ describe("VolarEngine", () => {
     expect(content).not.toContain('from "./composables/useCounter"');
   });
 
+  test("moveSymbol from a .vue source routes through the vue branch", async ({ dir }) => {
+    // The vue-project fixture's App.vue uses `useCounter` from a .ts file. Replace
+    // App.vue with one that exports its own symbol so we exercise the vue-source path.
+    const appVue = path.join(dir, "src/App.vue");
+    fs.writeFileSync(
+      appVue,
+      [
+        '<script setup lang="ts">',
+        "export function shoutLabel(s: string): string { return s.toUpperCase(); }",
+        "</script>",
+        "<template><div>hi</div></template>",
+        "",
+      ].join("\n"),
+    );
+
+    const p = new VolarEngine(new TsMorphEngine());
+    const scope = makeScope(dir);
+    const destFile = path.join(dir, "src/utils/labels.ts");
+
+    await p.moveSymbol(appVue, "shoutLabel", destFile, scope);
+
+    expect(scope.modified).toContain(appVue);
+    expect(scope.modified).toContain(destFile);
+    expect(fs.readFileSync(appVue, "utf8")).not.toContain("shoutLabel");
+    expect(fs.readFileSync(destFile, "utf8")).toContain("export function shoutLabel");
+  });
+
   test("resolveOffset throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", ({
     dir,
   }) => {
