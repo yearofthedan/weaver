@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import { parse } from "@vue/language-core";
+import type { SourceFile } from "ts-morph";
 import { EngineError } from "../../domain/errors.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { SymbolRef } from "../../ts-engine/symbol-ref.js";
@@ -32,11 +33,19 @@ export async function vueMoveSymbol(
   const { loc, content: scriptContent } = descriptor.scriptSetup;
 
   const scriptSF = createThrowawaySourceFile("__script__.ts", scriptContent);
+
+  if (isReExport(scriptSF, symbolName)) {
+    throw new EngineError(
+      `Symbol '${symbolName}' in ${sourceFile} is a re-export via 'export { } from'. Re-exports are not supported.`,
+      "NOT_SUPPORTED",
+    );
+  }
+
   const sourceRef = SymbolRef.fromExport(scriptSF, symbolName);
 
   if (!sourceRef.declarationText.trimStart().startsWith("export")) {
     throw new EngineError(
-      `Symbol '${symbolName}' in ${sourceFile} is not a direct export. Re-exports via 'export { }' are not supported.`,
+      `Symbol '${symbolName}' in ${sourceFile} is not a direct export.`,
       "NOT_SUPPORTED",
     );
   }
@@ -66,6 +75,17 @@ function composeTsDest(destFile: string, declarationText: string, scope: Workspa
   const existing = scope.fs.readFile(destFile).trimEnd();
   if (existing.length === 0) return `${declarationText}\n`;
   return `${existing}\n\n${declarationText}\n`;
+}
+
+function isReExport(scriptSF: SourceFile, symbolName: string): boolean {
+  for (const decl of scriptSF.getExportDeclarations()) {
+    if (!decl.getModuleSpecifierValue()) continue;
+    for (const spec of decl.getNamedExports()) {
+      const exportedAs = spec.getAliasNode()?.getText() ?? spec.getName();
+      if (exportedAs === symbolName) return true;
+    }
+  }
+  return false;
 }
 
 function writeOrSkip(filePath: string, content: string, scope: WorkspaceScope): void {
