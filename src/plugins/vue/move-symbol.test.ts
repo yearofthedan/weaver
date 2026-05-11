@@ -213,6 +213,58 @@ describe("vueMoveSymbol", () => {
       expect(scope.modified).not.toContain(tsUnrelated);
     });
 
+    it("prepends a self-import when the symbol is still used in <script setup>", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/App.vue",
+        [
+          '<script setup lang="ts">',
+          "export function helper(): number { return 42; }",
+          "const v = helper();",
+          "</script>",
+          "<template><div>{{ v }}</div></template>",
+          "",
+        ].join("\n"),
+      );
+      const dest = path.join(dir, "src/utils/helper.ts");
+      const scope = makeScope(dir);
+
+      await vueMoveSymbol(source, "helper", dest, scope);
+
+      const updated = fs.readFileSync(source, "utf8");
+      expect(updated).toMatch(
+        /import\s*\{\s*helper\s*\}\s*from\s*["']\.\/utils\/helper(\.js)?["']/,
+      );
+      expect(updated).toContain("const v = helper();");
+      expect(updated).not.toMatch(/export\s+function\s+helper/);
+    });
+
+    it("does NOT add a self-import when the symbol is not referenced locally", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/App.vue",
+        [
+          '<script setup lang="ts">',
+          "export const ONLY_EXPORTED = 1;",
+          "const other = 2;",
+          "</script>",
+          "<template><div>{{ other }}</div></template>",
+          "",
+        ].join("\n"),
+      );
+      const dest = path.join(dir, "src/constants.ts");
+      const scope = makeScope(dir);
+
+      await vueMoveSymbol(source, "ONLY_EXPORTED", dest, scope);
+
+      const updated = fs.readFileSync(source, "utf8");
+      expect(updated).not.toContain("ONLY_EXPORTED");
+    });
+
     it("leaves <template> and <style> byte-for-byte unchanged", async () => {
       const dir = makeTmp("vue-movesym-");
       dirs.push(dir);

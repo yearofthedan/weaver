@@ -1,12 +1,14 @@
 import * as path from "node:path";
 import { parse } from "@vue/language-core";
-import type { SourceFile } from "ts-morph";
+import { Node, type SourceFile } from "ts-morph";
 import { EngineError } from "../../domain/errors.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { ImportRewriter } from "../../ts-engine/import-rewriter.js";
+import { hasRefsOutsideDeclaration } from "../../ts-engine/refs-outside-declaration.js";
 import { SymbolRef } from "../../ts-engine/symbol-ref.js";
 import { createThrowawaySourceFile } from "../../ts-engine/throwaway-project.js";
 import { walkFiles } from "../../utils/file-walk.js";
+import { computeRelativeImportPath } from "../../utils/relative-path.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
 
 /**
@@ -55,8 +57,15 @@ export async function vueMoveSymbol(
 
   const declarationText = sourceRef.declarationText;
 
+  const declStmt = resolveDeclarationStmt(scriptSF, symbolName);
+  const needsSelfImport = declStmt !== null && hasRefsOutsideDeclaration(scriptSF, declStmt);
+
   sourceRef.remove();
-  const newScript = scriptSF.getFullText();
+  let newScript = scriptSF.getFullText();
+  if (needsSelfImport) {
+    const specifier = computeRelativeImportPath(sourceFile, destFile);
+    newScript = `\nimport { ${symbolName} } from "${specifier}";${newScript}`;
+  }
   const newVueContent =
     vueContent.slice(0, loc.start.offset) + newScript + vueContent.slice(loc.end.offset);
 
@@ -133,6 +142,15 @@ function composeTsDest(destFile: string, declarationText: string, scope: Workspa
   const existing = scope.fs.readFile(destFile).trimEnd();
   if (existing.length === 0) return `${declarationText}\n`;
   return `${existing}\n\n${declarationText}\n`;
+}
+
+function resolveDeclarationStmt(scriptSF: SourceFile, symbolName: string): Node | null {
+  const rawDecl = scriptSF.getExportedDeclarations().get(symbolName)?.[0];
+  if (!rawDecl) return null;
+  if (Node.isVariableDeclaration(rawDecl)) {
+    return rawDecl.getVariableStatement() ?? null;
+  }
+  return rawDecl;
 }
 
 function isReExport(scriptSF: SourceFile, symbolName: string): boolean {
