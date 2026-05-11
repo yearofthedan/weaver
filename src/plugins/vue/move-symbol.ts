@@ -69,7 +69,9 @@ export async function vueMoveSymbol(
   const newVueContent =
     vueContent.slice(0, loc.start.offset) + newScript + vueContent.slice(loc.end.offset);
 
-  const newDestContent = composeTsDest(destFile, declarationText, scope);
+  const newDestContent = destFile.endsWith(".vue")
+    ? composeVueDest(destFile, declarationText, scope)
+    : composeTsDest(destFile, declarationText, scope);
 
   const destDir = path.dirname(destFile);
   if (!scope.fs.exists(destDir)) {
@@ -142,6 +144,34 @@ function composeTsDest(destFile: string, declarationText: string, scope: Workspa
   const existing = scope.fs.readFile(destFile).trimEnd();
   if (existing.length === 0) return `${declarationText}\n`;
   return `${existing}\n\n${declarationText}\n`;
+}
+
+function composeVueDest(destFile: string, declarationText: string, scope: WorkspaceScope): string {
+  const newBlock = `<script setup lang="ts">\n${declarationText}\n</script>\n`;
+
+  if (!scope.fs.exists(destFile)) {
+    return newBlock;
+  }
+
+  const existing = scope.fs.readFile(destFile);
+  const { descriptor } = parse(existing);
+
+  if (descriptor.scriptSetup) {
+    const { loc, content: scriptContent } = descriptor.scriptSetup;
+    const newScriptContent = `${scriptContent.replace(/\s*$/, "")}\n\n${declarationText}\n`;
+    return existing.slice(0, loc.start.offset) + newScriptContent + existing.slice(loc.end.offset);
+  }
+
+  if (descriptor.template) {
+    const templateStart = descriptor.template.loc.start.offset;
+    // Walk back to the opening `<template` to capture any preceding whitespace.
+    const openIdx = existing.lastIndexOf("<template", templateStart);
+    const insertAt = openIdx >= 0 ? openIdx : templateStart;
+    return `${existing.slice(0, insertAt)}${newBlock}\n${existing.slice(insertAt)}`;
+  }
+
+  const trimmedExisting = existing.replace(/\s*$/, "");
+  return trimmedExisting.length > 0 ? `${trimmedExisting}\n\n${newBlock}` : newBlock;
 }
 
 function resolveDeclarationStmt(scriptSF: SourceFile, symbolName: string): Node | null {
