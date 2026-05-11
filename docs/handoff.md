@@ -164,7 +164,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
-- `moveSymbol` from a `.vue` source file `[needs design]` — symbol declared in `<script setup>` block; see [move-symbol.md](commands/move-symbol.md)
+- `moveSymbol` from a `.vue` source file — [docs/specs/20260511-move-symbol-from-vue.md](specs/20260511-move-symbol-from-vue.md)
 ---
 
 ### P4 — Low priority
