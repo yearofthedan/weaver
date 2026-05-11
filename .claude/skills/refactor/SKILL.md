@@ -39,6 +39,8 @@ weaver move-symbol '{"sourceFile": "src/a.ts", "symbolName": "Foo", "destFile": 
 
 Moves the declaration and updates every importer. `destFile` is created automatically if it does not exist — no need to pre-create it. Check `typeErrors` after each move.
 
+Works for symbols declared in a `.vue` SFC's `<script setup>` block as well: pass the `.vue` file as `sourceFile`. The destination can be `.ts` (extract to a shared module) or `.vue` (move into another component's `<script setup>`). Transitive imports used by the moved symbol are not copied — `typeErrors` in the destination will tell you what to add.
+
 ## Delete a file safely
 
 ```bash

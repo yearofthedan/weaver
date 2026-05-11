@@ -37,6 +37,43 @@ tool call
   ▼ result { ok, filesModified, filesSkipped, typeErrors }
 ```
 
+### .vue source branch
+
+When `sourceFile` is a `.vue` file, `VolarEngine.moveSymbol` delegates to
+`vueMoveSymbol` (`src/plugins/vue/move-symbol.ts`) instead of routing through
+`TsMorphEngine`. The flow:
+
+```
+VolarEngine.moveSymbol (sourceFile ends with .vue)
+  │
+  ▼ @vue/language-core parse() to get <script setup> offsets and content
+  │   no <script setup> → NOT_SUPPORTED
+  ▼ throwaway ts-morph SourceFile from script content
+  │   detect re-export via export { } from → NOT_SUPPORTED
+  │   SymbolRef.fromExport() → declaration text + remove
+  ▼ self-import check: hasRefsOutsideDeclaration on the throwaway SF
+  │   if true, prepend `import { name } from "<rel>";` to the new script content
+  ▼ splice modified script content back into the .vue source
+  ▼ compose destination
+  │   .ts dest → append declaration (creating the file if absent)
+  │   .vue dest with existing <script setup> → append inside it
+  │   .vue dest without <script setup> → insert new block before <template>
+  │   .vue dest that doesn't exist → write a single <script setup> file
+  ▼ importer rewrite
+  │   walkFiles(searchRoot, [.ts, .tsx, .vue]) — filesystem scan, not project graph
+  │   ImportRewriter.rewriteScript() per file (extracts script block first for .vue)
+  ▼ done (returns to dispatcher for post-write type errors)
+```
+
+The `.vue` source path does NOT use the ts-morph project graph — `.vue` files
+cannot resolve as module specifiers there. The filesystem walk picks up
+`.ts` and `.vue` importers regardless of `tsconfig.include`.
+
+Transitive imports used by the moved symbol (e.g. `import { ref } from "vue"`
+inside `<script setup>`) are not carried to the destination — the throwaway
+ts-morph project can't resolve modules, so type errors in the destination are
+the signal to add them manually.
+
 ## Technical decisions
 
 **Why AST surgery instead of language-service APIs?**
