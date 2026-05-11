@@ -72,6 +72,9 @@
     "zod": "4.4.3"
   },
   "pnpm": {
+    "overrides": {
+      "fast-uri": "3.1.2"
+    },
     "ignoredBuiltDependencies": [
       "@playwright/browser-chromium",
       "@swc/core",
