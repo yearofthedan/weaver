@@ -3,8 +3,11 @@ import { parse } from "@vue/language-core";
 import type { SourceFile } from "ts-morph";
 import { EngineError } from "../../domain/errors.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
+import { ImportRewriter } from "../../ts-engine/import-rewriter.js";
 import { SymbolRef } from "../../ts-engine/symbol-ref.js";
 import { createThrowawaySourceFile } from "../../ts-engine/throwaway-project.js";
+import { walkFiles } from "../../utils/file-walk.js";
+import { findTsConfigForFile } from "../../utils/ts-project.js";
 
 /**
  * Move a named export from a `.vue` SFC's `<script setup>` block to another
@@ -66,6 +69,61 @@ export async function vueMoveSymbol(
 
   writeOrSkip(sourceFile, newVueContent, scope);
   writeOrSkip(destFile, newDestContent, scope);
+
+  rewriteImporters(sourceFile, destFile, symbolName, scope);
+}
+
+function rewriteImporters(
+  sourceFile: string,
+  destFile: string,
+  symbolName: string,
+  scope: WorkspaceScope,
+): void {
+  const tsConfig = findTsConfigForFile(sourceFile);
+  const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
+  const rewriter = new ImportRewriter();
+  const alreadyModified = new Set(scope.modified);
+
+  for (const file of walkFiles(searchRoot, [".ts", ".tsx", ".vue"])) {
+    if (file === sourceFile || file === destFile) continue;
+    if (alreadyModified.has(file)) continue;
+
+    const content = scope.fs.readFile(file);
+
+    if (file.endsWith(".vue")) {
+      const { descriptor } = parse(content);
+      const block = descriptor.script ?? descriptor.scriptSetup;
+      if (!block) continue;
+      const { start, end } = block.loc;
+      const scriptContent = content.slice(start.offset, end.offset);
+      const rewritten = rewriter.rewriteScript(
+        file,
+        scriptContent,
+        symbolName,
+        sourceFile,
+        destFile,
+        scope,
+      );
+      if (rewritten !== null) {
+        scope.writeFile(
+          file,
+          content.slice(0, start.offset) + rewritten + content.slice(end.offset),
+        );
+      }
+    } else {
+      const rewritten = rewriter.rewriteScript(
+        file,
+        content,
+        symbolName,
+        sourceFile,
+        destFile,
+        scope,
+      );
+      if (rewritten !== null) {
+        scope.writeFile(file, rewritten);
+      }
+    }
+  }
 }
 
 function composeTsDest(destFile: string, declarationText: string, scope: WorkspaceScope): string {

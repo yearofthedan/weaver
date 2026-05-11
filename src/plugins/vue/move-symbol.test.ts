@@ -160,6 +160,59 @@ describe("vueMoveSymbol", () => {
       });
     });
 
+    it("rewrites .ts and .vue importers; leaves unrelated files alone", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/lib/Source.vue",
+        [
+          '<script setup lang="ts">',
+          "export function shared() { return 1; }",
+          "</script>",
+          "",
+        ].join("\n"),
+      );
+      const tsImporter = writeFile(
+        dir,
+        "src/uses-shared.ts",
+        ['import { shared } from "./lib/Source.vue";', "export const v = shared();", ""].join("\n"),
+      );
+      const vueImporter = writeFile(
+        dir,
+        "src/Caller.vue",
+        [
+          '<script setup lang="ts">',
+          'import { shared } from "./lib/Source.vue";',
+          "const v = shared();",
+          "</script>",
+          "<template><div>{{ v }}</div></template>",
+          "",
+        ].join("\n"),
+      );
+      const tsUnrelated = writeFile(dir, "src/unrelated.ts", "export const z = 1;\n");
+      const tsUnrelatedBefore = fs.readFileSync(tsUnrelated, "utf8");
+
+      const dest = path.join(dir, "src/utils/shared.ts");
+      const scope = makeScope(dir);
+
+      await vueMoveSymbol(source, "shared", dest, scope);
+
+      const tsUpdated = fs.readFileSync(tsImporter, "utf8");
+      expect(tsUpdated).toContain('from "./utils/shared.js"');
+      expect(tsUpdated).not.toContain('from "./lib/Source.vue"');
+
+      const vueUpdated = fs.readFileSync(vueImporter, "utf8");
+      expect(vueUpdated).toContain("./utils/shared");
+      expect(vueUpdated).not.toContain("./lib/Source.vue");
+      expect(vueUpdated).toContain("<template><div>{{ v }}</div></template>");
+
+      expect(fs.readFileSync(tsUnrelated, "utf8")).toBe(tsUnrelatedBefore);
+      expect(scope.modified).toContain(tsImporter);
+      expect(scope.modified).toContain(vueImporter);
+      expect(scope.modified).not.toContain(tsUnrelated);
+    });
+
     it("leaves <template> and <style> byte-for-byte unchanged", async () => {
       const dir = makeTmp("vue-movesym-");
       dirs.push(dir);
