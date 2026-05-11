@@ -1,0 +1,118 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { WorkspaceScope } from "../../domain/workspace-scope.js";
+import { NodeFileSystem } from "../../ports/node-filesystem.js";
+import { vueMoveSymbol } from "./move-symbol.js";
+
+function makeTmp(prefix: string): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+}
+
+function makeScope(root: string): WorkspaceScope {
+  return new WorkspaceScope(root, new NodeFileSystem());
+}
+
+function writeFile(dir: string, rel: string, content: string): string {
+  const abs = path.join(dir, rel);
+  fs.mkdirSync(path.dirname(abs), { recursive: true });
+  fs.writeFileSync(abs, content);
+  return abs;
+}
+
+describe("vueMoveSymbol", () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
+  });
+
+  describe("extracting from <script setup> to a .ts dest", () => {
+    it("removes the export from <script setup> and writes it to a new .ts file", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/App.vue",
+        [
+          '<script setup lang="ts">',
+          "export function formatLabel(n: number): string {",
+          "  return String(n);",
+          "}",
+          "",
+          "const x = 1;",
+          "</script>",
+          "",
+          "<template>",
+          "  <div>{{ x }}</div>",
+          "</template>",
+          "",
+        ].join("\n"),
+      );
+      const dest = path.join(dir, "src/utils/format.ts");
+      const scope = makeScope(dir);
+
+      await vueMoveSymbol(source, "formatLabel", dest, scope);
+
+      const updatedSource = fs.readFileSync(source, "utf8");
+      expect(updatedSource).not.toContain("formatLabel");
+      expect(updatedSource).toContain("const x = 1;");
+      expect(updatedSource).toContain("<template>");
+      expect(updatedSource).toContain("<div>{{ x }}</div>");
+
+      const destContent = fs.readFileSync(dest, "utf8");
+      expect(destContent).toContain("export function formatLabel");
+      expect(destContent).toContain("return String(n)");
+
+      expect(scope.modified).toContain(source);
+      expect(scope.modified).toContain(dest);
+    });
+
+    it("appends the declaration when the .ts dest already exists", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/App.vue",
+        ['<script setup lang="ts">', "export const GREETING = 'hi';", "</script>", ""].join("\n"),
+      );
+      const dest = writeFile(dir, "src/utils/constants.ts", "export const FAREWELL = 'bye';\n");
+      const scope = makeScope(dir);
+
+      await vueMoveSymbol(source, "GREETING", dest, scope);
+
+      const destContent = fs.readFileSync(dest, "utf8");
+      expect(destContent).toContain("export const FAREWELL = 'bye'");
+      expect(destContent).toContain("export const GREETING = 'hi'");
+    });
+
+    it("leaves <template> and <style> byte-for-byte unchanged", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const templateAndStyle = [
+        "",
+        "<template>",
+        "  <div>hello</div>",
+        "</template>",
+        "",
+        "<style scoped>",
+        ".foo { color: red; }",
+        "</style>",
+        "",
+      ].join("\n");
+      const source = writeFile(
+        dir,
+        "src/App.vue",
+        ['<script setup lang="ts">', "export const X = 1;", "</script>"].join("\n") +
+          templateAndStyle,
+      );
+      const dest = path.join(dir, "src/utils.ts");
+      const scope = makeScope(dir);
+
+      await vueMoveSymbol(source, "X", dest, scope);
+
+      const updated = fs.readFileSync(source, "utf8");
+      expect(updated.endsWith(templateAndStyle)).toBe(true);
+    });
+  });
+});
