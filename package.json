@@ -72,12 +72,6 @@
     "zod": "4.4.3"
   },
   "pnpm": {
-    "overrides": {
-      "@hono/node-server": "2.0.1",
-      "express-rate-limit": "8.4.1",
-      "path-to-regexp": "8.4.2",
-      "picomatch": "4.0.4"
-    },
     "ignoredBuiltDependencies": [
       "@playwright/browser-chromium",
       "@swc/core",
