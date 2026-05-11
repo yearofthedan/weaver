@@ -21,6 +21,7 @@ import { findTsConfigForFile } from "../../utils/ts-project.js";
 import { vueDeleteFile } from "./delete-file.js";
 import { vueExtractFunction } from "./extract-function.js";
 import { vueGetTypeErrorsForFile, vueGetTypeErrorsForProject } from "./get-type-errors.js";
+import { vueMoveSymbol } from "./move-symbol.js";
 import { scanVueNameMatches } from "./name-matches.js";
 import {
   rewriteVueOwnImportsAfterMove,
@@ -228,6 +229,10 @@ export class VolarEngine implements Engine {
     scope: WorkspaceScope,
     options?: { force?: boolean },
   ): Promise<void> {
+    if (sourceFile.endsWith(".vue")) {
+      await vueMoveSymbol(sourceFile, symbolName, destFile, scope, options);
+      return;
+    }
     // Delegate TS work (AST surgery + fallback scan for out-of-project TS/JS files).
     await this.tsEngine.moveSymbol(sourceFile, symbolName, destFile, scope, options);
 
