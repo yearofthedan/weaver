@@ -17,7 +17,7 @@ exactly the error-prone workflow `moveSymbol` was designed to eliminate.
 ## User intent
 
 *As an agent refactoring a Vue project, I want to move a named export from a
-`<script setup>` block to a `.ts` file, so that the declaration, the source
+`<script setup>` block to another file, so that the declaration, the source
 file, and every importer are all updated in one operation.*
 
 ## Relevant files
@@ -44,20 +44,24 @@ file, and every importer are all updated in one operation.*
   `vueMoveSymbol` live there. The engine test gets only one integration smoke test.
 
 **Layer-fit per AC:**
-- AC1 (extraction + dest write): pure function of file content → unit test with temp dir, no Volar service needed
+- AC1 (extraction + .ts dest write): pure function of file content → unit test with temp dir, no Volar service needed
 - AC2–AC3 (error cases): pure function → unit tests, in-memory content, no disk needed
 - AC4 (importer rewriting): scans real files on disk → unit test with temp dir fixture; `.vue` importer path already covered by `updateVueImportsAfterSymbolMove`'s existing tests; add one integration smoke to engine.test.ts covering both importer types
 - AC5 (self-import): pure function of script content → unit test with temp dir
+- AC6 (.vue dest write): pure function of file content → unit test with temp dir, no Volar service needed
 
 ## Value / Effort
 
-- **Value:** Agents can extract a utility function from a Vue component's `<script
-  setup>` block the same way they would from a `.ts` file — one tool call instead of
-  manual cut-paste plus search-and-replace. The importer rewriting works project-wide,
-  so every component that imported the symbol gets its import path updated automatically.
+- **Value:** Agents can extract a utility function or constant from a Vue component's
+  `<script setup>` block — whether to a shared `.ts` module or to another component's
+  `<script setup>` (e.g. when extracting a sub-component) — the same way they would
+  from a `.ts` file. One tool call instead of manual cut-paste plus search-and-replace,
+  with project-wide importer rewriting.
 - **Effort:** ~2 new files (vueMoveSymbol function + its tests). VolarEngine.moveSymbol
   gets a small branch. Reuses `SymbolRef`, `ImportRewriter`, `createThrowawaySourceFile`,
-  and `updateVueImportsAfterSymbolMove` — no new infrastructure. Moderate effort.
+  and `updateVueImportsAfterSymbolMove` — no new infrastructure. The `.vue` dest write
+  reuses the same `parse()` + splice pattern already established in `vueExtractFunction`.
+  Moderate effort.
 
 ## Behaviour
 
@@ -102,6 +106,19 @@ file, and every importer are all updated in one operation.*
   needed — breaks files where the symbol is not used locally.
   _Layer_: unit test with temp dir.
 
+- [ ] **AC6 — write to a `.vue` dest.** Given `destFile` ends with `.vue`: if the
+  dest file already has a `<script setup>` block, the declaration is appended inside
+  it (before the closing tag) and `destFile` appears in `filesModified`. If the dest
+  file exists but has no `<script setup>` block, a `<script setup lang="ts">` block
+  containing the declaration is inserted before the first `<template>` tag (or
+  appended to the file if no `<template>` exists). If the dest file does not exist,
+  it is created containing only the `<script setup lang="ts">` block. The rest of
+  the dest file (existing `<template>`, `<style>`, other blocks) is byte-for-byte
+  unchanged.
+  _Laziest wrong impl_: only handle the "dest has existing script setup" case, missing
+  the "no block" and "file doesn't exist" paths.
+  _Layer_: unit test with temp dir (no Volar service).
+
 ## Interface
 
 No new parameters. `moveSymbol` gains support for `.vue` `sourceFile` values; all
@@ -111,10 +128,10 @@ existing inputs and the return shape are unchanged.
 |---|---|
 | `sourceFile` | Now accepts `.vue` paths. Must exist. Must have `<script setup>`. |
 | `symbolName` | Same as .ts: a named direct export in the `<script setup>`. |
-| `destFile` | `.ts` only in this slice. Created if absent. |
+| `destFile` | `.ts` or `.vue`. Created if absent. |
 | `force` | Same semantics: replaces same-named export in destFile if true. |
 | `checkTypeErrors` | Same. Post-write errors include both source and dest. |
-| `filesModified` | Source `.vue`, dest `.ts`, and every rewritten importer. |
+| `filesModified` | Source `.vue`, dest (`.ts` or `.vue`), and every rewritten importer. |
 | `filesSkipped` | Same: files outside the workspace boundary. |
 
 **Known limitation (out of scope for this slice):** Transitive imports used by the
@@ -127,10 +144,11 @@ resolution available to the throwaway project approach.
 
 None — all forks resolved during spec exploration:
 
-- **`.vue → .ts` only (not `.vue → .vue`)**: Matches the real-world use case
-  (extract helper to shared module). `.vue → .vue` would require SFC composition
-  on the destination side (creating or locating a `<script setup>` block while
-  preserving template/style), which is a significantly larger surface. Defer.
+- **Both `.vue → .ts` and `.vue → .vue` supported**: Both patterns are real —
+  extracting to a shared module (`.ts`) and extracting to a sub-component (`.vue`).
+  The `@vue/language-core` `parse()` function already used in `vueExtractFunction`
+  provides the byte offsets needed to splice into or create a `<script setup>` block
+  in the dest, making the `.vue` dest write ~30 lines over the `.ts` case.
 - **`<script setup>` only (not classic `<script>`)**: Classic `<script>` blocks
   hold the component's options/default export, not extractable standalone helpers.
   The handoff entry specifically calls out `<script setup>`.
@@ -164,8 +182,8 @@ None — all forks resolved during spec exploration:
 
 ## Edges
 
-- `destFile` must end with `.ts` (not `.vue`). A `.vue` destFile returns `NOT_SUPPORTED`.
-- `SYMBOL_EXISTS` / `force` behaviour for the dest `.ts` is identical to the `.ts → .ts` case.
+- `destFile` must end with `.ts` or `.vue`. Any other extension returns `NOT_SUPPORTED`.
+- `SYMBOL_EXISTS` / `force` behaviour is the same regardless of dest extension — checked against the dest's script content.
 - The `<template>` and `<style>` blocks of the source `.vue` must be byte-for-byte
   unchanged after the move.
 - A `.vue` source file with both `<script>` and `<script setup>` blocks: only
