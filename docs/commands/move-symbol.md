@@ -58,6 +58,7 @@ weaver move-symbol '{"sourceFile":"src/a.ts","symbolName":"foo","destFile":"src/
 - The symbol must be a direct exported declaration (`export function`, `export const`, `export class`, …). Re-exports via `export { foo }` return `NOT_SUPPORTED`.
 - Class methods are not supported — top-level exports only.
 - `destFile` must be inside the workspace.
-- Moving symbols *from* a `.vue` source file is not yet supported (only `.ts`/`.tsx` sources).
+- `.vue` sources: the symbol must be declared inside a `<script setup>` block. Classic `<script>` blocks and template-only files return `NOT_SUPPORTED`.
+- `.vue` sources: transitive imports used by the moved symbol (e.g. `import { ref } from "vue"`) are not carried to `destFile`. The resulting type errors identify what to add.
 
 → Internals: [docs/internals/move-symbol.md](../internals/move-symbol.md)
