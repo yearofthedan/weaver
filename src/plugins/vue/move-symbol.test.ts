@@ -86,6 +86,80 @@ describe("vueMoveSymbol", () => {
       expect(destContent).toContain("export const GREETING = 'hi'");
     });
 
+    it("throws NOT_SUPPORTED when the .vue source has no <script setup> block", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/Template.vue",
+        ["<template>", "  <div>no script</div>", "</template>", ""].join("\n"),
+      );
+      const dest = path.join(dir, "src/utils.ts");
+      const scope = makeScope(dir);
+
+      await expect(vueMoveSymbol(source, "anything", dest, scope)).rejects.toMatchObject({
+        code: "NOT_SUPPORTED",
+      });
+      expect(scope.modified).toEqual([]);
+      expect(fs.existsSync(dest)).toBe(false);
+    });
+
+    it("throws NOT_SUPPORTED when the .vue source has only a classic <script> block", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/Classic.vue",
+        [
+          '<script lang="ts">',
+          "export default { name: 'Classic' };",
+          "export const helper = 1;",
+          "</script>",
+          "",
+        ].join("\n"),
+      );
+      const dest = path.join(dir, "src/utils.ts");
+      const scope = makeScope(dir);
+
+      await expect(vueMoveSymbol(source, "helper", dest, scope)).rejects.toMatchObject({
+        code: "NOT_SUPPORTED",
+      });
+    });
+
+    it("throws SYMBOL_NOT_FOUND when the symbol is absent from <script setup>", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/App.vue",
+        ['<script setup lang="ts">', "export const A = 1;", "</script>", ""].join("\n"),
+      );
+      const dest = path.join(dir, "src/utils.ts");
+      const scope = makeScope(dir);
+
+      await expect(vueMoveSymbol(source, "missing", dest, scope)).rejects.toMatchObject({
+        code: "SYMBOL_NOT_FOUND",
+      });
+      expect(fs.existsSync(dest)).toBe(false);
+    });
+
+    it("throws NOT_SUPPORTED when the symbol is a re-export via export { } from", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      writeFile(dir, "src/other.ts", "export const foo = 1;\n");
+      const source = writeFile(
+        dir,
+        "src/App.vue",
+        ['<script setup lang="ts">', 'export { foo } from "./other";', "</script>", ""].join("\n"),
+      );
+      const dest = path.join(dir, "src/utils.ts");
+      const scope = makeScope(dir);
+
+      await expect(vueMoveSymbol(source, "foo", dest, scope)).rejects.toMatchObject({
+        code: "NOT_SUPPORTED",
+      });
+    });
+
     it("leaves <template> and <style> byte-for-byte unchanged", async () => {
       const dir = makeTmp("vue-movesym-");
       dirs.push(dir);
