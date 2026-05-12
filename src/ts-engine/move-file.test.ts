@@ -3,7 +3,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, it as baseIt, describe, expect } from "vitest";
-import { cleanup, fileExists, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import {
+  cleanup,
+  FIXTURES,
+  fileExists,
+  readFile,
+  fixtureTest as test,
+} from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
@@ -43,6 +49,8 @@ function makeGitRepo(): { dir: string } {
 }
 
 describe("tsMoveFile - TsMorphEngine integration", () => {
+  test.override({ fixtureName: FIXTURES.simpleTs.name });
+
   test("moves a file and updates imports", async ({ dir }) => {
     const oldPath = `${dir}/src/utils.ts`;
     const newPath = `${dir}/lib/utils.ts`;

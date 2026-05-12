@@ -69,25 +69,52 @@ export function copyFixture(name: FixtureName): string {
 }
 
 /**
- * Vitest `test` with a `dir` fixture that copies a named fixture to a temp
- * directory before each test and cleans it up after. Default fixture is
- * `simple-ts`; override per describe block:
+ * Vitest `test` with a fresh empty temp dir per test and two body-level helpers
+ * to seed it:
  *
  * ```ts
- * describe("my tests", () => {
- *   test.override({ fixtureName: FIXTURES.deleteFileTs.name });
- *   test("uses delete-file-ts fixture", ({ dir }) => { ... });
+ * test("inline files", async ({ dir, seedInlineFixture }) => {
+ *   await seedInlineFixture({ "tsconfig.json": "...", "src/a.ts": "..." });
+ * });
+ *
+ * test("from a named fixture", async ({ dir, seedNamedFixture }) => {
+ *   await seedNamedFixture(FIXTURES.simpleTs.name);
  * });
  * ```
+ *
+ * Helpers compose: later writes overwrite earlier ones at the same path.
+ * The temp dir is removed after the test regardless of which helpers ran.
  */
-export const fixtureTest = baseTest.extend<{ fixtureName: FixtureName; dir: string }>({
+export const fixtureTest = baseTest.extend<{
+  fixtureName: FixtureName | undefined;
+  dir: string;
+  seedNamedFixture: (name: FixtureName) => Promise<void>;
+  seedInlineFixture: (files: Record<string, string>) => Promise<void>;
+}>({
   fixtureName: async ({}, use) => {
-    await use("simple-ts");
+    await use(undefined);
   },
   dir: async ({ fixtureName }, use) => {
-    const dir = copyFixture(fixtureName);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `ns-${fixtureName ?? "tmp"}-`));
+    if (fixtureName) {
+      copyDirSync(path.join(__dirname, fixtureName), dir);
+    }
     await use(dir);
     fs.rmSync(dir, { recursive: true, force: true });
+  },
+  seedNamedFixture: async ({ dir }, use) => {
+    await use(async (name) => {
+      copyDirSync(path.join(__dirname, name), dir);
+    });
+  },
+  seedInlineFixture: async ({ dir }, use) => {
+    await use(async (files) => {
+      for (const [rel, content] of Object.entries(files)) {
+        const abs = path.join(dir, rel);
+        fs.mkdirSync(path.dirname(abs), { recursive: true });
+        fs.writeFileSync(abs, content);
+      }
+    });
   },
 });
 
