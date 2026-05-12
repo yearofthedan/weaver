@@ -5,7 +5,9 @@ description: Use when changing a string, pattern, or text across multiple files 
 
 # Search and Replace Across Files
 
-**STOP.** If you're about to use Edit on the same kind of change in more than one `.ts`/`.tsx`/`.js`/`.jsx`/`.vue` file, use these commands instead. One call replaces what would take 10+ Edit calls and catches files you'd miss.
+**STOP.** Before running `grep` to find a text pattern, or before using Edit on the same kind of change in more than one file — use these commands instead. One call finds or replaces across the entire workspace and catches files you'd miss.
+
+For *symbol* usages (function calls, type references, imports) use `find-references` instead (see code-inspection skill) — it's scope-aware and won't match string literals or comments.
 
 ## Search: find every occurrence
 
