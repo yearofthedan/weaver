@@ -72,9 +72,6 @@
     "zod": "4.4.3"
   },
   "pnpm": {
-    "overrides": {
-      "fast-uri": "3.1.2"
-    },
     "ignoredBuiltDependencies": [
       "@playwright/browser-chromium",
       "@swc/core",
@@ -91,7 +88,7 @@
     "access": "public"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.14",
+    "@biomejs/biome": "2.4.15",
     "@stryker-mutator/core": "9.6.1",
     "@stryker-mutator/vitest-runner": "9.6.1",
     "@types/node": "24.12.2",
