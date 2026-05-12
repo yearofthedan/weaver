@@ -41,13 +41,13 @@ importers:
         version: 2.4.15
       '@stryker-mutator/core':
         specifier: 9.6.1
-        version: 9.6.1(@types/node@24.12.2)
+        version: 9.6.1(@types/node@24.12.3)
       '@stryker-mutator/vitest-runner':
         specifier: 9.6.1
-        version: 9.6.1(@stryker-mutator/core@9.6.1(@types/node@24.12.2))(vitest@4.1.5)
+        version: 9.6.1(@stryker-mutator/core@9.6.1(@types/node@24.12.3))(vitest@4.1.5)
       '@types/node':
-        specifier: 24.12.2
-        version: 24.12.2
+        specifier: 24.12.3
+        version: 24.12.3
       '@types/tmp':
         specifier: 0.2.6
         version: 0.2.6
@@ -62,7 +62,7 @@ importers:
         version: 9.1.7
       promptfoo:
         specifier: 0.121.11
-        version: 0.121.11(@types/json-schema@7.0.15)(@types/node@24.12.2)(pg@8.19.0)(playwright-core@1.59.1)(socks@2.8.7)(typescript@6.0.3)
+        version: 0.121.11(@types/json-schema@7.0.15)(@types/node@24.12.3)(pg@8.19.0)(playwright-core@1.59.1)(socks@2.8.7)(typescript@6.0.3)
       tmp:
         specifier: 0.2.5
         version: 0.2.5
@@ -71,7 +71,7 @@ importers:
         version: 4.21.0
       vitest:
         specifier: 4.1.5
-        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.5)(vite@7.3.1(@types/node@24.12.2)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@24.12.3)(@vitest/coverage-v8@4.1.5)(vite@7.3.1(@types/node@24.12.3)(tsx@4.21.0)(yaml@2.8.2))
 
 packages:
 
@@ -2070,6 +2070,9 @@ packages:
 
   '@types/node@24.12.2':
     resolution: {integrity: sha512-A1sre26ke7HDIuY/M23nd9gfB+nrmhtYyMINbjI1zHJxYteKR6qSMX56FsmjMcDb3SMcjJg5BiRRgOCC/yBD0g==}
+
+  '@types/node@24.12.3':
+    resolution: {integrity: sha512-8oljBDGun9cIsZRJR6fkihn0TSXJI0UDOOhncYaERq6M0JMDoPLxyscwruJcb4GKS6dvK/d8xebYBg27h/duaQ==}
 
   '@types/pegjs@0.10.6':
     resolution: {integrity: sha512-eLYXDbZWXh2uxf+w8sXS8d6KSoXTswfps6fvCUuVAGN8eRpfe7h9eSRydxiSJvo9Bf+GzifsDOr9TMQlmJdmkw==}
@@ -6172,122 +6175,122 @@ snapshots:
 
   '@inquirer/ansi@2.0.3': {}
 
-  '@inquirer/checkbox@5.1.0(@types/node@24.12.2)':
+  '@inquirer/checkbox@5.1.0(@types/node@24.12.3)':
     dependencies:
       '@inquirer/ansi': 2.0.3
-      '@inquirer/core': 11.1.5(@types/node@24.12.2)
+      '@inquirer/core': 11.1.5(@types/node@24.12.3)
       '@inquirer/figures': 2.0.3
-      '@inquirer/type': 4.0.3(@types/node@24.12.2)
+      '@inquirer/type': 4.0.3(@types/node@24.12.3)
     optionalDependencies:
-      '@types/node': 24.12.2
+      '@types/node': 24.12.3
 
-  '@inquirer/confirm@6.0.8(@types/node@24.12.2)':
+  '@inquirer/confirm@6.0.8(@types/node@24.12.3)':
     dependencies:
-      '@inquirer/core': 11.1.5(@types/node@24.12.2)
-      '@inquirer/type': 4.0.3(@types/node@24.12.2)
+      '@inquirer/core': 11.1.5(@types/node@24.12.3)
+      '@inquirer/type': 4.0.3(@types/node@24.12.3)
     optionalDependencies:
-      '@types/node': 24.12.2
+      '@types/node': 24.12.3
 
-  '@inquirer/core@11.1.5(@types/node@24.12.2)':
+  '@inquirer/core@11.1.5(@types/node@24.12.3)':
     dependencies:
       '@inquirer/ansi': 2.0.3
       '@inquirer/figures': 2.0.3
-      '@inquirer/type': 4.0.3(@types/node@24.12.2)
+      '@inquirer/type': 4.0.3(@types/node@24.12.3)
       cli-width: 4.1.0
       fast-wrap-ansi: 0.2.0
       mute-stream: 3.0.0
       signal-exit: 4.1.0
     optionalDependencies:
-      '@types/node': 24.12.2
+      '@types/node': 24.12.3
 
-  '@inquirer/editor@5.0.8(@types/node@24.12.2)':
+  '@inquirer/editor@5.0.8(@types/node@24.12.3)':
     dependencies:
-      '@inquirer/core': 11.1.5(@types/node@24.12.2)
-      '@inquirer/external-editor': 2.0.3(@types/node@24.12.2)
-      '@inquirer/type': 4.0.3(@types/node@24.12.2)
+      '@inquirer/core': 11.1.5(@types/node@24.12.3)
+      '@inquirer/external-editor': 2.0.3(@types/node@24.12.3)
+      '@inquirer/type': 4.0.3(@types/node@24.12.3)
     optionalDependencies:
-      '@types/node': 24.12.2
+      '@types/node': 24.12.3
 
-  '@inquirer/expand@5.0.8(@types/node@24.12.2)':
+  '@inquirer/expand@5.0.8(@types/node@24.12.3)':
     dependencies:
-      '@inquirer/core': 11.1.5(@types/node@24.12.2)
-      '@inquirer/type': 4.0.3(@types/node@24.12.2)
+      '@inquirer/core': 11.1.5(@types/node@24.12.3)
+      '@inquirer/type': 4.0.3(@types/node@24.12.3)
     optionalDependencies:
-      '@types/node': 24.12.2
+      '@types/node': 24.12.3
 
-  '@inquirer/external-editor@2.0.3(@types/node@24.12.2)':
+  '@inquirer/external-editor@2.0.3(@types/node@24.12.3)':
     dependencies:
       chardet: 2.1.1
       iconv-lite: 0.7.2
     optionalDependencies:
-      '@types/node': 24.12.2
+      '@types/node': 24.12.3
 
   '@inquirer/figures@2.0.3': {}
 
-  '@inquirer/input@5.0.8(@types/node@24.12.2)':
+  '@inquirer/input@5.0.8(@types/node@24.12.3)':
     dependencies:
-      '@inquirer/core': 11.1.5(@types/node@24.12.2)
-      '@inquirer/type': 4.0.3(@types/node@24.12.2)
+      '@inquirer/core': 11.1.5(@types/node@24.12.3)
+      '@inquirer/type': 4.0.3(@types/node@24.12.3)
     optionalDependencies:
-      '@types/node': 24.12.2
+      '@types/node': 24.12.3
 
-  '@inquirer/number@4.0.8(@types/node@24.12.2)':
+  '@inquirer/number@4.0.8(@types/node@24.12.3)':
     dependencies:
-      '@inquirer/core': 11.1.5(@types/node@24.12.2)
-      '@inquirer/type': 4.0.3(@types/node@24.12.2)
+      '@inquirer/core': 11.1.5(@types/node@24.12.3)
+      '@inquirer/type': 4.0.3(@types/node@24.12.3)
     optionalDependencies:
-      '@types/node': 24.12.2
+      '@types/node': 24.12.3
 
-  '@inquirer/password@5.0.8(@types/node@24.12.2)':
-    dependencies:
-      '@inquirer/ansi': 2.0.3
-      '@inquirer/core': 11.1.5(@types/node@24.12.2)
-      '@inquirer/type': 4.0.3(@types/node@24.12.2)
-    optionalDependencies:
-      '@types/node': 24.12.2
-
-  '@inquirer/prompts@8.3.0(@types/node@24.12.2)':
-    dependencies:
-      '@inquirer/checkbox': 5.1.0(@types/node@24.12.2)
-      '@inquirer/confirm': 6.0.8(@types/node@24.12.2)
-      '@inquirer/editor': 5.0.8(@types/node@24.12.2)
-      '@inquirer/expand': 5.0.8(@types/node@24.12.2)
-      '@inquirer/input': 5.0.8(@types/node@24.12.2)
-      '@inquirer/number': 4.0.8(@types/node@24.12.2)
-      '@inquirer/password': 5.0.8(@types/node@24.12.2)
-      '@inquirer/rawlist': 5.2.4(@types/node@24.12.2)
-      '@inquirer/search': 4.1.4(@types/node@24.12.2)
-      '@inquirer/select': 5.1.0(@types/node@24.12.2)
-    optionalDependencies:
-      '@types/node': 24.12.2
-
-  '@inquirer/rawlist@5.2.4(@types/node@24.12.2)':
-    dependencies:
-      '@inquirer/core': 11.1.5(@types/node@24.12.2)
-      '@inquirer/type': 4.0.3(@types/node@24.12.2)
-    optionalDependencies:
-      '@types/node': 24.12.2
-
-  '@inquirer/search@4.1.4(@types/node@24.12.2)':
-    dependencies:
-      '@inquirer/core': 11.1.5(@types/node@24.12.2)
-      '@inquirer/figures': 2.0.3
-      '@inquirer/type': 4.0.3(@types/node@24.12.2)
-    optionalDependencies:
-      '@types/node': 24.12.2
-
-  '@inquirer/select@5.1.0(@types/node@24.12.2)':
+  '@inquirer/password@5.0.8(@types/node@24.12.3)':
     dependencies:
       '@inquirer/ansi': 2.0.3
-      '@inquirer/core': 11.1.5(@types/node@24.12.2)
-      '@inquirer/figures': 2.0.3
-      '@inquirer/type': 4.0.3(@types/node@24.12.2)
+      '@inquirer/core': 11.1.5(@types/node@24.12.3)
+      '@inquirer/type': 4.0.3(@types/node@24.12.3)
     optionalDependencies:
-      '@types/node': 24.12.2
+      '@types/node': 24.12.3
 
-  '@inquirer/type@4.0.3(@types/node@24.12.2)':
+  '@inquirer/prompts@8.3.0(@types/node@24.12.3)':
+    dependencies:
+      '@inquirer/checkbox': 5.1.0(@types/node@24.12.3)
+      '@inquirer/confirm': 6.0.8(@types/node@24.12.3)
+      '@inquirer/editor': 5.0.8(@types/node@24.12.3)
+      '@inquirer/expand': 5.0.8(@types/node@24.12.3)
+      '@inquirer/input': 5.0.8(@types/node@24.12.3)
+      '@inquirer/number': 4.0.8(@types/node@24.12.3)
+      '@inquirer/password': 5.0.8(@types/node@24.12.3)
+      '@inquirer/rawlist': 5.2.4(@types/node@24.12.3)
+      '@inquirer/search': 4.1.4(@types/node@24.12.3)
+      '@inquirer/select': 5.1.0(@types/node@24.12.3)
     optionalDependencies:
-      '@types/node': 24.12.2
+      '@types/node': 24.12.3
+
+  '@inquirer/rawlist@5.2.4(@types/node@24.12.3)':
+    dependencies:
+      '@inquirer/core': 11.1.5(@types/node@24.12.3)
+      '@inquirer/type': 4.0.3(@types/node@24.12.3)
+    optionalDependencies:
+      '@types/node': 24.12.3
+
+  '@inquirer/search@4.1.4(@types/node@24.12.3)':
+    dependencies:
+      '@inquirer/core': 11.1.5(@types/node@24.12.3)
+      '@inquirer/figures': 2.0.3
+      '@inquirer/type': 4.0.3(@types/node@24.12.3)
+    optionalDependencies:
+      '@types/node': 24.12.3
+
+  '@inquirer/select@5.1.0(@types/node@24.12.3)':
+    dependencies:
+      '@inquirer/ansi': 2.0.3
+      '@inquirer/core': 11.1.5(@types/node@24.12.3)
+      '@inquirer/figures': 2.0.3
+      '@inquirer/type': 4.0.3(@types/node@24.12.3)
+    optionalDependencies:
+      '@types/node': 24.12.3
+
+  '@inquirer/type@4.0.3(@types/node@24.12.3)':
+    optionalDependencies:
+      '@types/node': 24.12.3
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -7157,9 +7160,9 @@ snapshots:
       tslib: 2.8.1
       typed-inject: 5.0.0
 
-  '@stryker-mutator/core@9.6.1(@types/node@24.12.2)':
+  '@stryker-mutator/core@9.6.1(@types/node@24.12.3)':
     dependencies:
-      '@inquirer/prompts': 8.3.0(@types/node@24.12.2)
+      '@inquirer/prompts': 8.3.0(@types/node@24.12.3)
       '@stryker-mutator/api': 9.6.1
       '@stryker-mutator/instrumenter': 9.6.1
       '@stryker-mutator/util': 9.6.1
@@ -7208,14 +7211,14 @@ snapshots:
 
   '@stryker-mutator/util@9.6.1': {}
 
-  '@stryker-mutator/vitest-runner@9.6.1(@stryker-mutator/core@9.6.1(@types/node@24.12.2))(vitest@4.1.5)':
+  '@stryker-mutator/vitest-runner@9.6.1(@stryker-mutator/core@9.6.1(@types/node@24.12.3))(vitest@4.1.5)':
     dependencies:
       '@stryker-mutator/api': 9.6.1
-      '@stryker-mutator/core': 9.6.1(@types/node@24.12.2)
+      '@stryker-mutator/core': 9.6.1(@types/node@24.12.3)
       '@stryker-mutator/util': 9.6.1
       semver: 7.7.4
       tslib: 2.8.1
-      vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.5)(vite@7.3.1(@types/node@24.12.2)(tsx@4.21.0)(yaml@2.8.2))
+      vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@24.12.3)(@vitest/coverage-v8@4.1.5)(vite@7.3.1(@types/node@24.12.3)(tsx@4.21.0)(yaml@2.8.2))
 
   '@swc/core-darwin-arm64@1.15.18':
     optional: true
@@ -7333,6 +7336,10 @@ snapshots:
     dependencies:
       undici-types: 7.16.0
 
+  '@types/node@24.12.3':
+    dependencies:
+      undici-types: 7.16.0
+
   '@types/pegjs@0.10.6':
     optional: true
 
@@ -7381,7 +7388,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.0.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.5)(vite@7.3.1(@types/node@24.12.2)(tsx@4.21.0)(yaml@2.8.2))
+      vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@24.12.3)(@vitest/coverage-v8@4.1.5)(vite@7.3.1(@types/node@24.12.3)(tsx@4.21.0)(yaml@2.8.2))
 
   '@vitest/expect@4.1.5':
     dependencies:
@@ -7392,13 +7399,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.5(vite@7.3.1(@types/node@24.12.2)(tsx@4.21.0)(yaml@2.8.2))':
+  '@vitest/mocker@4.1.5(vite@7.3.1(@types/node@24.12.3)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
       '@vitest/spy': 4.1.5
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 7.3.1(@types/node@24.12.2)(tsx@4.21.0)(yaml@2.8.2)
+      vite: 7.3.1(@types/node@24.12.3)(tsx@4.21.0)(yaml@2.8.2)
 
   '@vitest/pretty-format@4.1.5':
     dependencies:
@@ -9187,17 +9194,17 @@ snapshots:
 
   progress@2.0.3: {}
 
-  promptfoo@0.121.11(@types/json-schema@7.0.15)(@types/node@24.12.2)(pg@8.19.0)(playwright-core@1.59.1)(socks@2.8.7)(typescript@6.0.3):
+  promptfoo@0.121.11(@types/json-schema@7.0.15)(@types/node@24.12.3)(pg@8.19.0)(playwright-core@1.59.1)(socks@2.8.7)(typescript@6.0.3):
     dependencies:
       '@anthropic-ai/sdk': 0.92.0(zod@4.4.3)
       '@apidevtools/json-schema-ref-parser': 15.3.1(@types/json-schema@7.0.15)
       '@googleapis/sheets': 13.0.1
-      '@inquirer/checkbox': 5.1.0(@types/node@24.12.2)
-      '@inquirer/confirm': 6.0.8(@types/node@24.12.2)
-      '@inquirer/core': 11.1.5(@types/node@24.12.2)
-      '@inquirer/editor': 5.0.8(@types/node@24.12.2)
-      '@inquirer/input': 5.0.8(@types/node@24.12.2)
-      '@inquirer/select': 5.1.0(@types/node@24.12.2)
+      '@inquirer/checkbox': 5.1.0(@types/node@24.12.3)
+      '@inquirer/confirm': 6.0.8(@types/node@24.12.3)
+      '@inquirer/core': 11.1.5(@types/node@24.12.3)
+      '@inquirer/editor': 5.0.8(@types/node@24.12.3)
+      '@inquirer/input': 5.0.8(@types/node@24.12.3)
+      '@inquirer/select': 5.1.0(@types/node@24.12.3)
       '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
       '@openai/agents': 0.8.5(ws@8.19.0)(zod@4.4.3)
       '@opencode-ai/sdk': 1.14.43
@@ -10045,7 +10052,7 @@ snapshots:
 
   version-range@4.15.0: {}
 
-  vite@7.3.1(@types/node@24.12.2)(tsx@4.21.0)(yaml@2.8.2):
+  vite@7.3.1(@types/node@24.12.3)(tsx@4.21.0)(yaml@2.8.2):
     dependencies:
       esbuild: 0.27.3
       fdir: 6.5.0(picomatch@4.0.4)
@@ -10054,15 +10061,15 @@ snapshots:
       rollup: 4.57.1
       tinyglobby: 0.2.15
     optionalDependencies:
-      '@types/node': 24.12.2
+      '@types/node': 24.12.3
       fsevents: 2.3.3
       tsx: 4.21.0
       yaml: 2.8.2
 
-  vitest@4.1.5(@opentelemetry/api@1.9.0)(@types/node@24.12.2)(@vitest/coverage-v8@4.1.5)(vite@7.3.1(@types/node@24.12.2)(tsx@4.21.0)(yaml@2.8.2)):
+  vitest@4.1.5(@opentelemetry/api@1.9.0)(@types/node@24.12.3)(@vitest/coverage-v8@4.1.5)(vite@7.3.1(@types/node@24.12.3)(tsx@4.21.0)(yaml@2.8.2)):
     dependencies:
       '@vitest/expect': 4.1.5
-      '@vitest/mocker': 4.1.5(vite@7.3.1(@types/node@24.12.2)(tsx@4.21.0)(yaml@2.8.2))
+      '@vitest/mocker': 4.1.5(vite@7.3.1(@types/node@24.12.3)(tsx@4.21.0)(yaml@2.8.2))
       '@vitest/pretty-format': 4.1.5
       '@vitest/runner': 4.1.5
       '@vitest/snapshot': 4.1.5
@@ -10079,11 +10086,11 @@ snapshots:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.1.0
-      vite: 7.3.1(@types/node@24.12.2)(tsx@4.21.0)(yaml@2.8.2)
+      vite: 7.3.1(@types/node@24.12.3)(tsx@4.21.0)(yaml@2.8.2)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
-      '@types/node': 24.12.2
+      '@types/node': 24.12.3
       '@vitest/coverage-v8': 4.1.5(vitest@4.1.5)
     transitivePeerDependencies:
       - msw
