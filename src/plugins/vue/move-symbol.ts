@@ -1,15 +1,17 @@
 import * as path from "node:path";
 import { parse } from "@vue/language-core";
-import { Node, type SourceFile } from "ts-morph";
+import type { SourceFile } from "ts-morph";
 import { EngineError } from "../../domain/errors.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { ImportRewriter } from "../../ts-engine/import-rewriter.js";
+import { resolveDeclarationStatement } from "../../ts-engine/move-symbol.js";
 import { hasRefsOutsideDeclaration } from "../../ts-engine/refs-outside-declaration.js";
 import { SymbolRef } from "../../ts-engine/symbol-ref.js";
 import { createThrowawaySourceFile } from "../../ts-engine/throwaway-project.js";
 import { walkFiles } from "../../utils/file-walk.js";
 import { computeRelativeImportPath } from "../../utils/relative-path.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
+import { updateVueImportsAfterSymbolMove } from "./scan.js";
 
 /**
  * Move a named export from a `.vue` SFC's `<script setup>` block to another
@@ -57,7 +59,7 @@ export async function vueMoveSymbol(
 
   const declarationText = sourceRef.declarationText;
 
-  const declStmt = resolveDeclarationStmt(scriptSF, symbolName);
+  const declStmt = resolveDeclarationStatement(scriptSF, symbolName);
   const needsSelfImport = declStmt !== null && hasRefsOutsideDeclaration(scriptSF, declStmt);
 
   sourceRef.remove();
@@ -73,10 +75,7 @@ export async function vueMoveSymbol(
     ? composeVueDest(destFile, declarationText, scope)
     : composeTsDest(destFile, declarationText, scope);
 
-  const destDir = path.dirname(destFile);
-  if (!scope.fs.exists(destDir)) {
-    scope.fs.mkdir(destDir, { recursive: true });
-  }
+  scope.fs.mkdir(path.dirname(destFile), { recursive: true });
 
   writeOrSkip(sourceFile, newVueContent, scope);
   writeOrSkip(destFile, newDestContent, scope);
@@ -92,47 +91,24 @@ function rewriteImporters(
 ): void {
   const tsConfig = findTsConfigForFile(sourceFile);
   const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
+
+  updateVueImportsAfterSymbolMove(symbolName, sourceFile, destFile, searchRoot, scope);
+
   const rewriter = new ImportRewriter();
   const alreadyModified = new Set(scope.modified);
-
-  for (const file of walkFiles(searchRoot, [".ts", ".tsx", ".vue"])) {
-    if (file === sourceFile || file === destFile) continue;
+  for (const file of walkFiles(searchRoot, [".ts", ".tsx"])) {
     if (alreadyModified.has(file)) continue;
-
     const content = scope.fs.readFile(file);
-
-    if (file.endsWith(".vue")) {
-      const { descriptor } = parse(content);
-      const block = descriptor.script ?? descriptor.scriptSetup;
-      if (!block) continue;
-      const { start, end } = block.loc;
-      const scriptContent = content.slice(start.offset, end.offset);
-      const rewritten = rewriter.rewriteScript(
-        file,
-        scriptContent,
-        symbolName,
-        sourceFile,
-        destFile,
-        scope,
-      );
-      if (rewritten !== null) {
-        scope.writeFile(
-          file,
-          content.slice(0, start.offset) + rewritten + content.slice(end.offset),
-        );
-      }
-    } else {
-      const rewritten = rewriter.rewriteScript(
-        file,
-        content,
-        symbolName,
-        sourceFile,
-        destFile,
-        scope,
-      );
-      if (rewritten !== null) {
-        scope.writeFile(file, rewritten);
-      }
+    const rewritten = rewriter.rewriteScript(
+      file,
+      content,
+      symbolName,
+      sourceFile,
+      destFile,
+      scope,
+    );
+    if (rewritten !== null) {
+      scope.writeFile(file, rewritten);
     }
   }
 }
@@ -172,15 +148,6 @@ function composeVueDest(destFile: string, declarationText: string, scope: Worksp
 
   const trimmedExisting = existing.replace(/\s*$/, "");
   return trimmedExisting.length > 0 ? `${trimmedExisting}\n\n${newBlock}` : newBlock;
-}
-
-function resolveDeclarationStmt(scriptSF: SourceFile, symbolName: string): Node | null {
-  const rawDecl = scriptSF.getExportedDeclarations().get(symbolName)?.[0];
-  if (!rawDecl) return null;
-  if (Node.isVariableDeclaration(rawDecl)) {
-    return rawDecl.getVariableStatement() ?? null;
-  }
-  return rawDecl;
 }
 
 function isReExport(scriptSF: SourceFile, symbolName: string): boolean {
