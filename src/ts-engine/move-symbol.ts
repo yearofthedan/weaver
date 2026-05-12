@@ -151,7 +151,7 @@ export async function tsMoveSymbol(
   tsCompiler.invalidateProject(absSource);
 }
 
-function resolveDeclarationStatement(srcSF: SourceFile, symbolName: string): Node | null {
+export function resolveDeclarationStatement(srcSF: SourceFile, symbolName: string): Node | null {
   const rawDecl = srcSF.getExportedDeclarations().get(symbolName)?.[0];
   if (!rawDecl) return null;
   if (Node.isVariableDeclaration(rawDecl)) {
