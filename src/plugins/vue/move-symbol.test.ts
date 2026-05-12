@@ -86,6 +86,23 @@ describe("vueMoveSymbol", () => {
       expect(destContent).toContain("export const GREETING = 'hi'");
     });
 
+    it("appends the declaration to an empty .ts dest file", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/App.vue",
+        ['<script setup lang="ts">', "export const TAG = 'x';", "</script>", ""].join("\n"),
+      );
+      const dest = writeFile(dir, "src/constants.ts", "");
+      const scope = makeScope(dir);
+
+      await vueMoveSymbol(source, "TAG", dest, scope);
+
+      const destContent = fs.readFileSync(dest, "utf8");
+      expect(destContent).toContain("export const TAG = 'x'");
+    });
+
     it("throws NOT_SUPPORTED when the .vue source has no <script setup> block", async () => {
       const dir = makeTmp("vue-movesym-");
       dirs.push(dir);
@@ -158,6 +175,25 @@ describe("vueMoveSymbol", () => {
       await expect(vueMoveSymbol(source, "foo", dest, scope)).rejects.toMatchObject({
         code: "NOT_SUPPORTED",
       });
+    });
+
+    it("throws NOT_SUPPORTED when the symbol uses export { x } without a from specifier", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/App.vue",
+        ['<script setup lang="ts">', "const inner = 1;", "export { inner };", "</script>", ""].join(
+          "\n",
+        ),
+      );
+      const dest = path.join(dir, "src/utils.ts");
+      const scope = makeScope(dir);
+
+      await expect(vueMoveSymbol(source, "inner", dest, scope)).rejects.toMatchObject({
+        code: "NOT_SUPPORTED",
+      });
+      expect(fs.existsSync(dest)).toBe(false);
     });
 
     it("rewrites .ts and .vue importers; leaves unrelated files alone", async () => {
@@ -320,9 +356,17 @@ describe("vueMoveSymbol", () => {
       await vueMoveSymbol(source, "SHARED", dest, scope);
 
       const updatedDest = fs.readFileSync(dest, "utf8");
-      expect(updatedDest).toContain("const existing = 2;");
-      expect(updatedDest).toContain("export const SHARED = 1;");
-      expect(updatedDest).toContain("<template><div>{{ existing }}</div></template>");
+      // Both declarations present inside the single script block
+      expect(updatedDest.split("<script setup").length).toBe(2);
+      const scriptEnd = updatedDest.indexOf("</script>");
+      const scriptBlock = updatedDest.slice(0, scriptEnd);
+      expect(scriptBlock).toContain("const existing = 2;");
+      expect(scriptBlock).toContain("export const SHARED = 1;");
+      // No extra blank lines from broken trailing-whitespace trim
+      expect(updatedDest).not.toMatch(/\n{3}/);
+      // Template preserved after the script block, exactly once
+      expect(updatedDest.split("<template>").length).toBe(2);
+      expect(scriptEnd).toBeLessThan(updatedDest.indexOf("<template>"));
       expect(scope.modified).toContain(dest);
     });
 
@@ -350,6 +394,8 @@ describe("vueMoveSymbol", () => {
       const templateIdx = updated.indexOf("<template>");
       expect(scriptIdx).toBeGreaterThanOrEqual(0);
       expect(scriptIdx).toBeLessThan(templateIdx);
+      // Template appears exactly once (not duplicated)
+      expect(updated.split("<template>").length).toBe(2);
       expect(updated).toContain("<div>hi</div>");
     });
 
@@ -374,6 +420,29 @@ describe("vueMoveSymbol", () => {
       expect(content).toContain("export type Foo = { id: number };");
       expect(content).toContain("</script>");
       expect(content).not.toContain("<template>");
+    });
+
+    it("appends a new <script setup> block to a .vue dest that has no script and no template", async () => {
+      const dir = makeTmp("vue-movesym-");
+      dirs.push(dir);
+      const source = writeFile(
+        dir,
+        "src/Source.vue",
+        ['<script setup lang="ts">', "export const Z = 99;", "</script>", ""].join("\n"),
+      );
+      const dest = writeFile(
+        dir,
+        "src/StyleOnly.vue",
+        ["<style scoped>", ".foo { color: red; }", "</style>", ""].join("\n"),
+      );
+      const scope = makeScope(dir);
+
+      await vueMoveSymbol(source, "Z", dest, scope);
+
+      const updated = fs.readFileSync(dest, "utf8");
+      expect(updated).toContain('<script setup lang="ts">');
+      expect(updated).toContain("export const Z = 99;");
+      expect(updated).toContain(".foo { color: red; }");
     });
 
     it("rewrites .ts importers when moving to a .vue dest", async () => {
