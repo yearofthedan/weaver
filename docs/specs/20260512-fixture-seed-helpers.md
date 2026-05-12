@@ -24,6 +24,7 @@
 - `src/operations/replaceText.test.ts` — duplicated try/finally cleanup in edge cases.
 - `src/ts-engine/move-symbol.test.ts` — local `setupProject` helper builds files from a map (parallel implementation of `seedInlineFixture`).
 - `src/ts-engine/move-file.test.ts` — only file relying on the implicit `simple-ts` default of `fixtureTest`; needs explicit `seedNamedFixture` calls after migration.
+- `src/ts-engine/{extract-function,remove-importers,rename,delete-file,move-symbol-errors,move-directory}.test.ts`, `src/plugins/vue/scan.test.ts` — seven files that use `fixtureTest` for most cases but call standalone `copyFixture` inside a single test that needs a different fixture from the describe-level override. Each `copyFixture(...)` + manual `cleanup(...)` becomes `await seedNamedFixture(...)` inside the test body.
 - `docs/code-standards.md` — "Use fixtureTest for fixture-per-test setup" section guides agents to the current pattern; must reflect the new shape.
 
 ### Red flags
@@ -35,8 +36,8 @@
 
 ## Value / Effort
 
-- **Value:** Tests that need bespoke per-test content currently cost ~6 lines of cleanup boilerplate before the first assertion. The new shape lets test authors say `await seedInlineFixture({ ... })` and start asserting. The describe-level override mechanism is replaced by a body-level call so a single API serves both shared-fixture and per-test-content cases — same import, same shape, no "scroll up to find the override" friction. Three duplicated `setupProject` / `makeTempDir` helpers disappear.
-- **Effort:** The core change is small: replace the `fixtureName` fixture with two function fixtures (`seedNamedFixture`, `seedInlineFixture`) and drop the `simple-ts` default. Migration touches ~28 `fixtureTest` callers (mechanical: replace each `test.override({ fixtureName: X })` with `await seedNamedFixture(X)` at the top of each test body) and ~8 manual-`mkdtempSync` callers. Total ~35-40 test files; all mechanical, no production code.
+- **Value:** Tests that need bespoke per-test content currently cost ~6 lines of cleanup boilerplate before the first assertion. The new shape lets test authors say `await seedInlineFixture({ ... })` and start asserting. The describe-level override mechanism is replaced by a body-level call so a single API serves both shared-fixture and per-test-content cases — same import, same shape, no "scroll up to find the override" friction. Three duplicated `setupProject` / `makeTempDir` helpers disappear, and seven mixed-pattern files that mix `fixtureTest` + standalone `copyFixture` collapse to a single pattern.
+- **Effort:** The core change is small: replace the `fixtureName` fixture with two function fixtures (`seedNamedFixture`, `seedInlineFixture`) and drop the `simple-ts` default. Migration touches ~28 `fixtureTest` callers (mechanical: replace each `test.override({ fixtureName: X })` with `await seedNamedFixture(X)` at the top of each test body), ~8 manual-`mkdtempSync` callers, and ~7 `fixtureTest` files that call standalone `copyFixture` for a one-off different fixture inside a single test. Total ~43 test files; all mechanical, no production code.
 
 ## Behaviour
 
@@ -90,7 +91,7 @@ export const fixtureTest = baseTest.extend<{
 
 **Unchanged (kept):**
 
-- The standalone `copyFixture(name): string` export remains. It has ~13 call sites outside the per-test fixture loop (integration tests with `beforeAll` setups, tests sharing a dir across cases). These are out of scope for this slice.
+- The standalone `copyFixture(name): string` export remains. After this slice, its remaining callers are: (a) integration tests that pair `copyFixture` with subprocess lifecycle tracking (~7 files; would migrate awkwardly because fixtureTest doesn't manage child processes), and (b) `operations/searchText.test.ts` which uses `beforeAll` to share one dir across many tests (structural mismatch with `beforeEach`-style fixtureTest). Both deferred to a follow-up [chore] entry in `handoff.md`.
 - `FIXTURES` constant and `FixtureName` type — still the source of truth for fixture names.
 
 ## Open decisions
@@ -119,7 +120,9 @@ export const fixtureTest = baseTest.extend<{
 - [ ] `pnpm check` passes (full test suite — migration touches many files)
 - [ ] No `test.override({ fixtureName })` calls remain in `src/**`
 - [ ] Manual `mkdtempSync` + `afterEach(cleanup)` patterns in tests whose only tracked resource is the dir are migrated to `fixtureTest` + `seedInlineFixture` (per the Relevant files list — ~8 files). Tests that also track subprocesses or other lifecycle resources are out of scope.
+- [ ] Per-test `copyFixture(...)` + `cleanup(...)` calls inside `fixtureTest` files (the seven Category-B files in Relevant files) are replaced with `await seedNamedFixture(...)` in the test body.
 - [ ] Local `makeTempDir` / `setupProject` helpers in `extract-function.test.ts`, `move-symbol.test.ts`, `move-symbol-fallback.test.ts` are deleted in favour of the new helpers.
+- [ ] Follow-up `[chore]` entry added to `handoff.md` for migrating remaining standalone-`copyFixture` callers (integration tests with subprocess lifecycle + `searchText.test.ts` `beforeAll`).
 - [ ] No touched source or test file exceeds the hard flag in `docs/code-standards.md` after the change.
 - [ ] `docs/code-standards.md` "Use fixtureTest for fixture-per-test setup" section rewritten to describe `seedNamedFixture` / `seedInlineFixture` and remove the `test.override({ fixtureName })` guidance.
 - [ ] handoff.md "Next things to build" entry for this task removed.
