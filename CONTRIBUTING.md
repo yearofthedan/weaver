@@ -170,10 +170,8 @@ Releases are automated via [Release Please](https://github.com/googleapis/releas
 1. Push conventional commits to `main` (e.g. `feat(cli): ...`, `fix(ts-engine): ...`)
 2. Release Please opens (or updates) a PR titled "chore(main): release X.Y.Z" with a generated CHANGELOG entry and `package.json` version bump
 3. That PR accumulates — every push to `main` updates it
-4. When you merge the release PR, the publish job runs: `pnpm install` → `pnpm build` → `npm publish --tag alpha --provenance`
+4. When you merge the release PR, the publish job runs: `pnpm install` → `pnpm build` → `npm publish --provenance`
 5. A GitHub Release is created automatically with npm provenance attestation
-
-The `--tag alpha` flag means `npm install @yearofthedan/weaver` does **not** install alpha versions by default — users must use `@alpha` or an explicit version. This will change when a stable release ships.
 
 ## Security tooling
 

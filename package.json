@@ -36,7 +36,7 @@
     ".": "./dist/adapters/cli/cli.js"
   },
   "engines": {
-    "node": "25.9.0"
+    "node": ">=18"
   },
   "scripts": {
     "build": "rm -rf dist && tsc && chmod +x dist/adapters/cli/cli.js",
@@ -56,7 +56,7 @@
     "test:mutate:file": "rm -rf .stryker-tmp && stryker run --mutate",
     "eval": "tsx eval/run-eval.ts",
     "check": "biome check . && pnpm build && pnpm coverage && pnpm test:eval",
-    "postinstall": "bash scripts/postinstall.sh",
+    "setup:dev": "bash scripts/setup-dev.sh",
     "prepare": "husky",
     "prepublishOnly": "pnpm run build"
   },
