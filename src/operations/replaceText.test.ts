@@ -1,8 +1,7 @@
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect } from "vitest";
-import { cleanup, FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { makeThrowingScope } from "../ports/__testHelpers__/throwing-filesystem.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
@@ -68,70 +67,40 @@ describe("replaceText operation", () => {
       expect(after).toContain("GREET(greetUser)");
     });
 
-    test("records unreadable files as skipped", async ({ dir: _dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-replace-skip-"));
-      try {
-        fs.mkdirSync(path.join(dir, "src"), { recursive: true });
-        fs.writeFileSync(path.join(dir, "src/ok.ts"), "export const foo = 'bar';\n");
-        const unreadable = path.join(dir, "src/secret.ts");
-        fs.writeFileSync(unreadable, "export const foo = 'secret';\n");
+    test("records unreadable files as skipped", async ({ dir, seedInlineFixture }) => {
+      await seedInlineFixture({
+        "src/ok.ts": "export const foo = 'bar';\n",
+        "src/secret.ts": "export const foo = 'secret';\n",
+      });
+      const unreadable = path.join(dir, "src/secret.ts");
+      const scope = makeThrowingScope(dir, unreadable);
+      await replaceText(scope, { pattern: "foo", replacement: "baz" });
 
-        const scope = makeThrowingScope(dir, unreadable);
-        await replaceText(scope, { pattern: "foo", replacement: "baz" });
-
-        expect(scope.skipped).toContain(unreadable);
-      } finally {
-        cleanup(dir);
-      }
+      expect(scope.skipped).toContain(unreadable);
     });
 
-    test("returns empty result when no files match the pattern", async ({
-      dir: _dir,
-      seedNamedFixture,
-    }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
-      try {
-        const result = await replaceText(makeScope(dir), {
-          pattern: "zzz_not_present_zzz",
-          replacement: "replaced",
-        });
+    test("returns empty result when no files match the pattern", async ({ dir }) => {
+      const result = await replaceText(makeScope(dir), {
+        pattern: "zzz_not_present_zzz",
+        replacement: "replaced",
+      });
 
-        expect(result.filesModified).toHaveLength(0);
-        expect(result.replacementCount).toBe(0);
-      } finally {
-        cleanup(dir);
-      }
+      expect(result.filesModified).toHaveLength(0);
+      expect(result.replacementCount).toBe(0);
     });
 
-    test("throws PARSE_ERROR for invalid regex", async ({ dir: _dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
-      try {
-        await expect(
-          replaceText(makeScope(dir), { pattern: "[bad", replacement: "x" }),
-        ).rejects.toMatchObject({
-          code: "PARSE_ERROR",
-        });
-      } finally {
-        cleanup(dir);
-      }
+    test("throws PARSE_ERROR for invalid regex", async ({ dir }) => {
+      await expect(
+        replaceText(makeScope(dir), { pattern: "[bad", replacement: "x" }),
+      ).rejects.toMatchObject({
+        code: "PARSE_ERROR",
+      });
     });
 
-    test("throws REDOS for a catastrophic backtracking pattern", async ({
-      dir: _dir,
-      seedNamedFixture,
-    }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
-      try {
-        await expect(
-          replaceText(makeScope(dir), { pattern: "(a+)+$", replacement: "x" }),
-        ).rejects.toMatchObject({ code: "REDOS" });
-      } finally {
-        cleanup(dir);
-      }
+    test("throws REDOS for a catastrophic backtracking pattern", async ({ dir }) => {
+      await expect(
+        replaceText(makeScope(dir), { pattern: "(a+)+$", replacement: "x" }),
+      ).rejects.toMatchObject({ code: "REDOS" });
     });
 
     test("does not modify sensitive files", async ({ dir, seedNamedFixture }) => {
@@ -150,19 +119,12 @@ describe("replaceText operation", () => {
       expect(fs.readFileSync(envPath, "utf8")).toContain("greetUser");
     });
 
-    test("rejects paths outside the workspace", async ({ dir: _dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
-      try {
-        // edits array with a file outside workspace
-        await expect(
-          replaceText(makeScope(dir), {
-            edits: [{ file: "/etc/passwd", line: 1, col: 1, oldText: "root", newText: "replaced" }],
-          }),
-        ).rejects.toMatchObject({ code: "WORKSPACE_VIOLATION" });
-      } finally {
-        cleanup(dir);
-      }
+    test("rejects paths outside the workspace", async ({ dir }) => {
+      await expect(
+        replaceText(makeScope(dir), {
+          edits: [{ file: "/etc/passwd", line: 1, col: 1, oldText: "root", newText: "replaced" }],
+        }),
+      ).rejects.toMatchObject({ code: "WORKSPACE_VIOLATION" });
     });
   });
 
@@ -261,19 +223,10 @@ describe("replaceText operation", () => {
       ).rejects.toMatchObject({ code: "WORKSPACE_VIOLATION" });
     });
 
-    test("requires either pattern+replacement or edits", async ({
-      dir: _dir,
-      seedNamedFixture,
-    }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
-      try {
-        await expect(replaceText(makeScope(dir), {})).rejects.toMatchObject({
-          code: "VALIDATION_ERROR",
-        });
-      } finally {
-        cleanup(dir);
-      }
+    test("requires either pattern+replacement or edits", async ({ dir }) => {
+      await expect(replaceText(makeScope(dir), {})).rejects.toMatchObject({
+        code: "VALIDATION_ERROR",
+      });
     });
   });
 });

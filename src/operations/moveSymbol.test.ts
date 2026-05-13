@@ -1,48 +1,34 @@
-import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, vi } from "vitest";
+import { fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { makeMockCompiler } from "../ts-engine/__testHelpers__/mock-compiler.js";
 import { moveSymbol } from "./moveSymbol.js";
 
-/**
- * Create a temporary directory with a real source file so assertFileExists passes.
- * Returns the dir, source path, dest path, and a scope rooted at the dir.
- */
-function makeRealScope() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-movesymbol-unit-"));
-  fs.mkdirSync(path.join(dir, "src"), { recursive: true });
-  const source = path.join(dir, "src/utils.ts");
-  const dest = path.join(dir, "src/helpers.ts");
-  fs.writeFileSync(source, "export function greetUser(name: string): string { return name; }\n");
-  const scope = new WorkspaceScope(dir, new NodeFileSystem());
-  return { dir, source, dest, scope };
-}
-
 const SYMBOL = "greetUser";
 
+async function setup(
+  dir: string,
+  seedInlineFixture: (files: Record<string, string>) => Promise<void>,
+) {
+  await seedInlineFixture({
+    "src/utils.ts": "export function greetUser(name: string): string { return name; }\n",
+  });
+  return {
+    source: path.join(dir, "src/utils.ts"),
+    dest: path.join(dir, "src/helpers.ts"),
+    scope: new WorkspaceScope(dir, new NodeFileSystem()),
+  };
+}
+
 describe("moveSymbol operation (thin orchestrator)", () => {
-  const dirs: string[] = [];
-  let dir: string;
-  let source: string;
-  let dest: string;
-  let scope: WorkspaceScope;
-
-  beforeEach(() => {
-    ({ dir, source, dest, scope } = makeRealScope());
-    dirs.push(dir);
-  });
-
-  afterEach(() => {
-    for (const d of dirs.splice(0)) {
-      fs.rmSync(d, { recursive: true, force: true });
-    }
-  });
-
   describe("orchestrator delegates to engine", () => {
-    it("calls engine.moveSymbol with resolved absolute paths, symbol, scope, and options", async () => {
+    test("calls engine.moveSymbol with resolved absolute paths, symbol, scope, and options", async ({
+      dir,
+      seedInlineFixture,
+    }) => {
+      const { source, dest, scope } = await setup(dir, seedInlineFixture);
       const engine = makeMockCompiler();
 
       await moveSymbol(engine, source, SYMBOL, dest, scope);
@@ -56,7 +42,8 @@ describe("moveSymbol operation (thin orchestrator)", () => {
       );
     });
 
-    it("forwards options to engine.moveSymbol", async () => {
+    test("forwards options to engine.moveSymbol", async ({ dir, seedInlineFixture }) => {
+      const { source, dest, scope } = await setup(dir, seedInlineFixture);
       const engine = makeMockCompiler();
       const opts = { force: true };
 
@@ -73,7 +60,11 @@ describe("moveSymbol operation (thin orchestrator)", () => {
   });
 
   describe("scope modifications flow to result", () => {
-    it("files recorded into scope by engine.moveSymbol appear in filesModified", async () => {
+    test("files recorded into scope by engine.moveSymbol appear in filesModified", async ({
+      dir,
+      seedInlineFixture,
+    }) => {
+      const { source, dest, scope } = await setup(dir, seedInlineFixture);
       const extraFile = path.join(dir, "src/extra.ts");
       const engine = makeMockCompiler({
         moveSymbol: vi
@@ -88,7 +79,11 @@ describe("moveSymbol operation (thin orchestrator)", () => {
       expect(result.filesModified).toContain(extraFile);
     });
 
-    it("skipped files recorded into scope by engine.moveSymbol appear in filesSkipped", async () => {
+    test("skipped files recorded into scope by engine.moveSymbol appear in filesSkipped", async ({
+      dir,
+      seedInlineFixture,
+    }) => {
+      const { source, dest, scope } = await setup(dir, seedInlineFixture);
       const skippedFile = "/outside/workspace/file.vue";
       const engine = makeMockCompiler({
         moveSymbol: vi
@@ -105,7 +100,11 @@ describe("moveSymbol operation (thin orchestrator)", () => {
   });
 
   describe("return shape", () => {
-    it("returns correct filesModified, filesSkipped, symbolName, sourceFile, and destFile", async () => {
+    test("returns correct filesModified, filesSkipped, symbolName, sourceFile, and destFile", async ({
+      dir,
+      seedInlineFixture,
+    }) => {
+      const { source, dest, scope } = await setup(dir, seedInlineFixture);
       const capturedSource = source;
       const capturedDest = dest;
       const engine = makeMockCompiler({
@@ -129,7 +128,11 @@ describe("moveSymbol operation (thin orchestrator)", () => {
   });
 
   describe("assertFileExists", () => {
-    it("throws FILE_NOT_FOUND when the source file does not exist", async () => {
+    test("throws FILE_NOT_FOUND when the source file does not exist", async ({
+      dir,
+      seedInlineFixture,
+    }) => {
+      const { dest, scope } = await setup(dir, seedInlineFixture);
       const engine = makeMockCompiler();
       const missingSource = path.join(dir, "src/doesNotExist.ts");
 

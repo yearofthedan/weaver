@@ -1,19 +1,12 @@
-import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, vi } from "vitest";
+import { fixtureTest as test } from "../__testHelpers__/helpers.js";
 import type { Engine } from "../ts-engine/types.js";
 import { extractFunction } from "./extractFunction.js";
 
 describe("extractFunction operation", () => {
-  function makeTempDir(): string {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-extractfn-op-"));
-    fs.mkdirSync(path.join(dir, "src"), { recursive: true });
-    return dir;
-  }
-
-  it("throws FILE_NOT_FOUND for a missing source file", async () => {
-    const dir = makeTempDir();
+  test("throws FILE_NOT_FOUND for a missing source file", async ({ dir, seedInlineFixture }) => {
+    await seedInlineFixture({ "src/.keep": "" });
     const fakeEngine = {} as Engine;
 
     await expect(
@@ -31,10 +24,12 @@ describe("extractFunction operation", () => {
     ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
   });
 
-  it("delegates to engine.extractFunction with correct arguments and returns its result", async () => {
-    const dir = makeTempDir();
+  test("delegates to engine.extractFunction with correct arguments and returns its result", async ({
+    dir,
+    seedInlineFixture,
+  }) => {
+    await seedInlineFixture({ "src/target.ts": "export function foo() {}\n" });
     const filePath = path.join(dir, "src/target.ts");
-    fs.writeFileSync(filePath, "export function foo() {}\n");
 
     const expectedResult = {
       filesModified: [filePath],
