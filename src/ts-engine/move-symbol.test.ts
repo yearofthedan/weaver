@@ -1,50 +1,19 @@
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
 import { FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
 import { tsMoveSymbol } from "./move-symbol.js";
 
-function makeTmpDir(prefix: string): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-}
-
-function writeTsConfig(dir: string, include: string[] = ["**/*.ts"]): void {
-  fs.writeFileSync(
-    path.join(dir, "tsconfig.json"),
-    JSON.stringify({ compilerOptions: { strict: true }, include }),
-  );
-}
+const TSCONFIG = JSON.stringify({ compilerOptions: { strict: true }, include: ["**/*.ts"] });
 
 function makeScope(root: string): WorkspaceScope {
   return new WorkspaceScope(root, new NodeFileSystem());
 }
 
-function setupProject(files: Record<string, string>): {
-  dir: string;
-  tsCompiler: TsMorphEngine;
-  scope: WorkspaceScope;
-} {
-  const dir = makeTmpDir("ts-movesym-");
-  writeTsConfig(dir);
-  for (const [relPath, content] of Object.entries(files)) {
-    const absPath = path.join(dir, relPath);
-    fs.mkdirSync(path.dirname(absPath), { recursive: true });
-    fs.writeFileSync(absPath, content);
-  }
-  return { dir, tsCompiler: new TsMorphEngine(), scope: makeScope(dir) };
-}
-
 describe("tsMoveSymbol", () => {
-  // setupProject() dirs need manual cleanup
-  const dirs: string[] = [];
-  afterEach(() => {
-    for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
-  });
-
   describe("symbol move to new file", () => {
     test("moves a named export to a new file and saves both files", async ({
       dir,
@@ -128,12 +97,15 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("boundary skipping", () => {
-    it("records importer outside the workspace boundary as skipped, not modified", async () => {
-      const { dir } = setupProject({
+    test("records importer outside the workspace boundary as skipped, not modified", async ({
+      dir,
+      seedInlineFixture,
+    }) => {
+      await seedInlineFixture({
+        "tsconfig.json": TSCONFIG,
         "src/utils.ts": "export function add(a: number, b: number): number { return a + b; }\n",
         "lib/consumer.ts": 'import { add } from "../src/utils";\nexport const r = add(1, 2);\n',
       });
-      dirs.push(dir);
       const scope = makeScope(path.join(dir, "src"));
       const p = new TsMorphEngine();
 
@@ -150,11 +122,14 @@ describe("tsMoveSymbol", () => {
       expect(fs.readFileSync(path.join(dir, "lib/consumer.ts"), "utf8")).toContain("../src/utils");
     });
 
-    it("skipped includes dirty source file outside the workspace root", async () => {
-      const { dir } = setupProject({
+    test("skipped includes dirty source file outside the workspace root", async ({
+      dir,
+      seedInlineFixture,
+    }) => {
+      await seedInlineFixture({
+        "tsconfig.json": TSCONFIG,
         "lib/utils.ts": "export function add(a: number, b: number): number { return a + b; }\n",
       });
-      dirs.push(dir);
       const scope = makeScope(path.join(dir, "src"));
       const p = new TsMorphEngine();
 
@@ -263,17 +238,21 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("source self-import after move", () => {
-    it("adds an import back to source when remaining code references the moved symbol", async () => {
-      const { dir, tsCompiler, scope } = setupProject({
+    test("adds an import back to source when remaining code references the moved symbol", async ({
+      dir,
+      seedInlineFixture,
+    }) => {
+      await seedInlineFixture({
+        "tsconfig.json": TSCONFIG,
         "src/a.ts":
           "export function Foo(): string { return 'foo'; }\nexport function Bar(): string { return Foo(); }\n",
         "src/dest.ts": "",
       });
-      dirs.push(dir);
       const srcPath = path.join(dir, "src/a.ts");
       const dstPath = path.join(dir, "src/dest.ts");
+      const scope = makeScope(dir);
 
-      await tsMoveSymbol(tsCompiler, srcPath, "Foo", dstPath, scope);
+      await tsMoveSymbol(new TsMorphEngine(), srcPath, "Foo", dstPath, scope);
 
       const srcContent = fs.readFileSync(srcPath, "utf8");
       expect(srcContent).toContain("import { Foo }");
@@ -285,17 +264,21 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("transitive import carry", () => {
-    it("carries a named import the moved declaration depends on to the destination", async () => {
-      const { dir, tsCompiler, scope } = setupProject({
+    test("carries a named import the moved declaration depends on to the destination", async ({
+      dir,
+      seedInlineFixture,
+    }) => {
+      await seedInlineFixture({
+        "tsconfig.json": TSCONFIG,
         "src/types.ts": "export type Bar = { value: string };\n",
         "src/source.ts":
           'import { Bar } from "./types";\nexport function Foo(b: Bar): string { return b.value; }\n',
         "src/dest.ts": "",
       });
-      dirs.push(dir);
+      const scope = makeScope(dir);
 
       await tsMoveSymbol(
-        tsCompiler,
+        new TsMorphEngine(),
         path.join(dir, "src/source.ts"),
         "Foo",
         path.join(dir, "src/dest.ts"),
@@ -310,16 +293,20 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("non-exported conflict detection", () => {
-    it("throws SYMBOL_EXISTS when destination has a non-exported declaration with the same name", async () => {
-      const { dir, tsCompiler, scope } = setupProject({
+    test("throws SYMBOL_EXISTS when destination has a non-exported declaration with the same name", async ({
+      dir,
+      seedInlineFixture,
+    }) => {
+      await seedInlineFixture({
+        "tsconfig.json": TSCONFIG,
         "src/source.ts": "export function Foo(): void {}\n",
         "src/dest.ts": "function Foo(): void {}\nexport function other(): void {}\n",
       });
-      dirs.push(dir);
+      const scope = makeScope(dir);
 
       await expect(
         tsMoveSymbol(
-          tsCompiler,
+          new TsMorphEngine(),
           path.join(dir, "src/source.ts"),
           "Foo",
           path.join(dir, "src/dest.ts"),
@@ -328,16 +315,20 @@ describe("tsMoveSymbol", () => {
       ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
     });
 
-    it("replaces the non-exported declaration when force is true", async () => {
-      const { dir, tsCompiler, scope } = setupProject({
+    test("replaces the non-exported declaration when force is true", async ({
+      dir,
+      seedInlineFixture,
+    }) => {
+      await seedInlineFixture({
+        "tsconfig.json": TSCONFIG,
         "src/source.ts": "export function Foo(): string { return 'new'; }\n",
         "src/dest.ts":
           "function Foo(): string { return 'old'; }\nexport function other(): void {}\n",
       });
-      dirs.push(dir);
+      const scope = makeScope(dir);
 
       await tsMoveSymbol(
-        tsCompiler,
+        new TsMorphEngine(),
         path.join(dir, "src/source.ts"),
         "Foo",
         path.join(dir, "src/dest.ts"),
