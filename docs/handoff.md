@@ -168,8 +168,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P4 — Low priority
 
-- **`fixtureTest` body-level seed helpers** [spec](specs/20260512-fixture-seed-helpers.md) — replace `test.override({ fixtureName })` with body-level `seedNamedFixture` / `seedInlineFixture` helpers so each test declares its own setup; migrate existing callers.
-
 - **Migrate remaining standalone-`copyFixture` callers** `[chore]` — after the fixture-seed-helpers slice ships, ~8 files still call the standalone `copyFixture(name): string`. (a) Seven integration tests in `src/{cli-workspace-default,daemon/*}.integration.test.ts` pair it with subprocess lifecycle tracking — migrate `dir` to `fixtureTest` + `seedNamedFixture`; keep custom `afterEach` for procs. (b) `src/operations/searchText.test.ts` uses `beforeAll` to share one dir across many tests — convert to per-test `seedNamedFixture` (small perf cost, ~10 tests × one fixture copy each). Once both done, delete the standalone `copyFixture` and `cleanup` exports as dead code.
 
 - **`moveSymbol` for non-exported functions** `[needs design]` — `moveSymbol` returns `SYMBOL_NOT_FOUND` for unexported helpers. Supporting them requires deciding whether to auto-export at the destination, what happens if the function is private and still used in source, and how to handle the case where source calls the now-exported helper. Spec separately.
