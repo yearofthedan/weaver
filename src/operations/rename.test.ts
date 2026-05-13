@@ -175,11 +175,7 @@ describe("rename action", () => {
   });
 
   describe("via mock engine", () => {
-    test("delegates to engine.rename() and returns the result", async ({
-      dir: _dir,
-      seedNamedFixture,
-    }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("delegates to engine.rename() and returns the result", async () => {
       const workspace = new URL("../..", import.meta.url).pathname;
       const expected = {
         filesModified: [EXISTING_FILE],
@@ -199,8 +195,7 @@ describe("rename action", () => {
       expect(compiler.rename).toHaveBeenCalledWith(EXISTING_FILE, 1, 17, "greetPerson", scope);
     });
 
-    test("propagates errors thrown by engine.rename()", async ({ dir: _dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("propagates errors thrown by engine.rename()", async () => {
       const workspace = new URL("../..", import.meta.url).pathname;
       const compiler = makeMockCompiler({
         rename: vi.fn().mockRejectedValue({ code: "SYMBOL_NOT_FOUND" }),

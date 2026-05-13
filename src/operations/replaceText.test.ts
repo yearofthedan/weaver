@@ -199,8 +199,7 @@ describe("replaceText operation", () => {
       expect(after).toContain("user");
     });
 
-    test("rejects edits to sensitive files", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("rejects edits to sensitive files", async ({ dir }) => {
       const envPath = path.join(dir, ".env");
       fs.writeFileSync(envPath, "KEY=value\n");
 
@@ -211,11 +210,7 @@ describe("replaceText operation", () => {
       ).rejects.toMatchObject({ code: "SENSITIVE_FILE" });
     });
 
-    test("throws WORKSPACE_VIOLATION for edits outside workspace", async ({
-      dir,
-      seedNamedFixture,
-    }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("throws WORKSPACE_VIOLATION for edits outside workspace", async ({ dir }) => {
       await expect(
         replaceText(makeScope(dir), {
           edits: [{ file: "/etc/passwd", line: 1, col: 1, oldText: "root", newText: "x" }],

@@ -5,8 +5,7 @@ import type { Engine } from "../ts-engine/types.js";
 import { extractFunction } from "./extractFunction.js";
 
 describe("extractFunction operation", () => {
-  test("throws FILE_NOT_FOUND for a missing source file", async ({ dir, seedInlineFixture }) => {
-    await seedInlineFixture({ "src/.keep": "" });
+  test("throws FILE_NOT_FOUND for a missing source file", async ({ dir }) => {
     const fakeEngine = {} as Engine;
 
     await expect(

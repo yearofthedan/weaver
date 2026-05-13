@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect } from "vitest";
-import { FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { FIXTURES, fileExists, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
@@ -27,8 +27,8 @@ describe("tsMoveSymbol", () => {
 
       await tsMoveSymbol(tsCompiler, srcPath, "greetUser", dstPath, scope);
 
-      expect(fs.readFileSync(dstPath, "utf8")).toContain("export function greetUser");
-      expect(fs.readFileSync(srcPath, "utf8")).not.toContain("greetUser");
+      expect(readFile(dir, "src/helpers.ts")).toContain("export function greetUser");
+      expect(readFile(dir, "src/utils.ts")).not.toContain("greetUser");
       expect(scope.modified).toContain(srcPath);
       expect(scope.modified).toContain(dstPath);
     });
@@ -90,7 +90,7 @@ describe("tsMoveSymbol", () => {
         path.join(dir, "src/helpers.ts"),
         makeScope(dir),
       );
-      const content = fs.readFileSync(path.join(dir, "src/helpers.ts"), "utf8");
+      const content = readFile(dir, "src/helpers.ts");
       expect(content).toMatch(/helper[\s\S]*\n\nexport function greetUser/);
       expect(content.startsWith("export function helper")).toBe(true);
     });
@@ -119,7 +119,7 @@ describe("tsMoveSymbol", () => {
 
       expect(scope.skipped.some((f) => f.includes("consumer.ts"))).toBe(true);
       expect(scope.modified.some((f) => f.includes("consumer.ts"))).toBe(false);
-      expect(fs.readFileSync(path.join(dir, "lib/consumer.ts"), "utf8")).toContain("../src/utils");
+      expect(readFile(dir, "lib/consumer.ts")).toContain("../src/utils");
     });
 
     test("skipped includes dirty source file outside the workspace root", async ({
@@ -143,7 +143,7 @@ describe("tsMoveSymbol", () => {
 
       expect(scope.skipped.some((f) => f.includes("lib/utils.ts"))).toBe(true);
       expect(scope.modified.some((f) => f.includes("src/helpers.ts"))).toBe(true);
-      expect(fs.readFileSync(path.join(dir, "lib/utils.ts"), "utf8")).toContain("add");
+      expect(readFile(dir, "lib/utils.ts")).toContain("add");
     });
   });
 
@@ -163,8 +163,8 @@ describe("tsMoveSymbol", () => {
         makeScope(dir),
       );
 
-      expect(fs.existsSync(dstPath)).toBe(true);
-      expect(fs.readFileSync(dstPath, "utf8")).toContain("greetUser");
+      expect(fileExists(dir, "src/nested/deep/helpers.ts")).toBe(true);
+      expect(readFile(dir, "src/nested/deep/helpers.ts")).toContain("greetUser");
     });
   });
 
@@ -254,7 +254,7 @@ describe("tsMoveSymbol", () => {
 
       await tsMoveSymbol(new TsMorphEngine(), srcPath, "Foo", dstPath, scope);
 
-      const srcContent = fs.readFileSync(srcPath, "utf8");
+      const srcContent = readFile(dir, "src/a.ts");
       expect(srcContent).toContain("import { Foo }");
       expect(srcContent).toContain('"./dest.js"');
       expect(srcContent).toContain("export function Bar");
@@ -285,7 +285,7 @@ describe("tsMoveSymbol", () => {
         scope,
       );
 
-      const destContent = fs.readFileSync(path.join(dir, "src/dest.ts"), "utf8");
+      const destContent = readFile(dir, "src/dest.ts");
       expect(destContent).toContain("import { Bar }");
       expect(destContent).toContain('"./types.js"');
       expect(destContent).toContain("export function Foo");
@@ -336,7 +336,7 @@ describe("tsMoveSymbol", () => {
         { force: true },
       );
 
-      const destContent = fs.readFileSync(path.join(dir, "src/dest.ts"), "utf8");
+      const destContent = readFile(dir, "src/dest.ts");
       expect(destContent).toContain("export function Foo");
       expect(destContent).toContain("return 'new'");
       expect(destContent).not.toContain("return 'old'");

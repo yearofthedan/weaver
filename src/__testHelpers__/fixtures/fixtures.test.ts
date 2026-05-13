@@ -1,22 +1,14 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
 import { describe, expect, onTestFinished } from "vitest";
-import { FIXTURES } from "./fixtures.js";
-import { fixtureTest as test } from "./fixtures.js";
+import { fileExists, readFile } from "../helpers.js";
+import { FIXTURES, fixtureTest as test } from "./fixtures.js";
 
 describe("fixtureTest fixtures", () => {
-  describe("dir fixture — empty by default", () => {
-    let capturedDir: string;
-
-    test("provides a fresh empty temp directory", ({ dir }) => {
-      capturedDir = dir;
-      expect(fs.existsSync(dir)).toBe(true);
-      expect(fs.readdirSync(dir)).toHaveLength(0);
-    });
-
-    test("removes the temp directory after the test", () => {
-      expect(capturedDir).toBeDefined();
-      expect(fs.existsSync(capturedDir)).toBe(false);
+  test("dir is a fresh empty temp directory and is removed after the test", ({ dir }) => {
+    expect(fs.existsSync(dir)).toBe(true);
+    expect(fs.readdirSync(dir)).toHaveLength(0);
+    onTestFinished(() => {
+      expect(fs.existsSync(dir)).toBe(false);
     });
   });
 
@@ -30,13 +22,13 @@ describe("fixtureTest fixtures", () => {
         "src/nested/a.ts": "export {}",
       });
 
-      expect(fs.existsSync(path.join(dir, "tsconfig.json"))).toBe(true);
-      expect(fs.readFileSync(path.join(dir, "tsconfig.json"), "utf8")).toBe("{}");
+      expect(fileExists(dir, "tsconfig.json")).toBe(true);
+      expect(readFile(dir, "tsconfig.json")).toBe("{}");
 
-      expect(fs.existsSync(path.join(dir, "src/nested/a.ts"))).toBe(true);
-      expect(fs.readFileSync(path.join(dir, "src/nested/a.ts"), "utf8")).toBe("export {}");
+      expect(fileExists(dir, "src/nested/a.ts")).toBe(true);
+      expect(readFile(dir, "src/nested/a.ts")).toBe("export {}");
 
-      expect(fs.existsSync(path.join(dir, "src/nested"))).toBe(true);
+      expect(fileExists(dir, "src/nested")).toBe(true);
     });
 
     test("is a no-op when called with an empty map", async ({ dir, seedInlineFixture }) => {
@@ -49,10 +41,10 @@ describe("fixtureTest fixtures", () => {
     test("copies a named fixture's directory tree into dir", async ({ dir, seedNamedFixture }) => {
       await seedNamedFixture(FIXTURES.simpleTs.name);
 
-      const utilsContent = fs.readFileSync(path.join(dir, "src/utils.ts"), "utf8");
+      const utilsContent = readFile(dir, "src/utils.ts");
       expect(utilsContent).toContain("export function greetUser");
       expect(utilsContent).toContain("Hello,");
-      expect(fs.existsSync(path.join(dir, "tsconfig.json"))).toBe(true);
+      expect(fileExists(dir, "tsconfig.json")).toBe(true);
     });
   });
 
@@ -65,10 +57,8 @@ describe("fixtureTest fixtures", () => {
       await seedNamedFixture(FIXTURES.simpleTs.name);
       await seedInlineFixture({ "src/utils.ts": "OVERRIDDEN" });
 
-      expect(fs.readFileSync(path.join(dir, "src/utils.ts"), "utf8")).toBe("OVERRIDDEN");
-
-      const mainContent = fs.readFileSync(path.join(dir, "src/main.ts"), "utf8");
-      expect(mainContent).toContain("greetUser");
+      expect(readFile(dir, "src/utils.ts")).toBe("OVERRIDDEN");
+      expect(readFile(dir, "src/main.ts")).toContain("greetUser");
     });
   });
 });
