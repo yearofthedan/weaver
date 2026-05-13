@@ -15,8 +15,8 @@ describe("getTypeErrorsForFiles", () => {
     expect(result.typeErrorsTruncated).toBe(false);
   });
 
-  test("silently skips non-.ts files and returns empty", async ({ dir, seedNamedFixture }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+  test("silently skips non-.ts files and returns empty", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const compiler = new TsMorphEngine();
 
     const result = getTypeErrorsForFiles(
@@ -31,10 +31,9 @@ describe("getTypeErrorsForFiles", () => {
   });
 
   test("returns type errors with correct shape for a .ts file with errors", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const compiler = new TsMorphEngine();
 
     const result = getTypeErrorsForFiles(compiler, [`${dir}/src/broken.ts`], new NodeFileSystem());
@@ -54,10 +53,9 @@ describe("getTypeErrorsForFiles", () => {
   });
 
   test("returns typeErrors:[], typeErrorCount:0, typeErrorsTruncated:false for a clean .ts file", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const compiler = new TsMorphEngine();
 
     const result = getTypeErrorsForFiles(compiler, [`${dir}/src/clean.ts`], new NodeFileSystem());
@@ -68,10 +66,9 @@ describe("getTypeErrorsForFiles", () => {
   });
 
   test("only checks the provided files — errors in other files are not included", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const compiler = new TsMorphEngine();
 
     // provide only clean.ts; broken.ts has errors but is not listed
@@ -85,10 +82,9 @@ describe("getTypeErrorsForFiles", () => {
   });
 
   test("aggregates errors across multiple files with correct total count", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const compiler = new TsMorphEngine();
 
     // broken.ts: 3 errors, chained-error.ts: 1 error
@@ -106,10 +102,9 @@ describe("getTypeErrorsForFiles", () => {
   });
 
   test("caps typeErrors at 100 and sets typeErrorsTruncated:true when a file exceeds the limit", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const compiler = new TsMorphEngine();
 
     // many-errors.ts has 105 errors

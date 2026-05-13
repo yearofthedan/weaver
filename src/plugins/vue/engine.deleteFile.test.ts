@@ -12,10 +12,9 @@ function makeScope(root: string): WorkspaceScope {
 }
 
 test("removes named and type-only import lines from Vue script blocks", async ({
-  dir,
   seedNamedFixture,
 }) => {
-  await seedNamedFixture(FIXTURES.deleteFileTs.name);
+  const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
   const vueFile = path.join(dir, "src", "Comp.vue");
   fs.writeFileSync(
     vueFile,
@@ -43,10 +42,9 @@ test("removes named and type-only import lines from Vue script blocks", async ({
 });
 
 test("removes bare side-effect import lines from Vue script blocks", async ({
-  dir,
   seedNamedFixture,
 }) => {
-  await seedNamedFixture(FIXTURES.deleteFileTs.name);
+  const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
   const vueFile = path.join(dir, "src", "SideEffect.vue");
   fs.writeFileSync(
     vueFile,
@@ -65,10 +63,9 @@ test("removes bare side-effect import lines from Vue script blocks", async ({
 });
 
 test("does not modify Vue files that do not import the deleted file", async ({
-  dir,
   seedNamedFixture,
 }) => {
-  await seedNamedFixture(FIXTURES.deleteFileTs.name);
+  const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
   const originalContent = [
     "<script setup>",
     "import { other } from './other-module';",
@@ -87,10 +84,9 @@ test("does not modify Vue files that do not import the deleted file", async ({
 });
 
 test("counts Vue import removals in importRefsRemoved on top of TS refs", async ({
-  dir,
   seedNamedFixture,
 }) => {
-  await seedNamedFixture(FIXTURES.deleteFileTs.name);
+  const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
   const vueFile = path.join(dir, "src", "VueRefs.vue");
   fs.writeFileSync(
     vueFile,
@@ -114,10 +110,9 @@ test("counts Vue import removals in importRefsRemoved on top of TS refs", async 
 });
 
 test("also removes TS importers when deleting a TS file via VolarEngine", async ({
-  dir,
   seedNamedFixture,
 }) => {
-  await seedNamedFixture(FIXTURES.deleteFileTs.name);
+  const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
   const scope = makeScope(dir);
   const p = new VolarEngine(new TsMorphEngine());
   await p.deleteFile(`${dir}/src/target.ts`, scope);

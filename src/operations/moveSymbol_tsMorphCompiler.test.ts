@@ -9,10 +9,9 @@ import { moveSymbol } from "./moveSymbol.js";
 
 describe("moveSymbol operation — TsMorphEngine integration", () => {
   test("moves a symbol end-to-end: source updated, dest created, importer updated", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const tsCompiler = new TsMorphEngine();
     const scope = new WorkspaceScope(dir, new NodeFileSystem());
 
@@ -36,10 +35,9 @@ describe("moveSymbol operation — TsMorphEngine integration", () => {
   });
 
   test("expanded project graph rewrites out-of-tsconfig test file imports end-to-end", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     // simple-ts fixture: tsconfig.include = ["src/**/*.ts"], so tests/ is outside the project.
     // tests/utils.test.ts imports greetUser from "../src/utils".
     // After moving greetUser to src/helpers.ts, the expanded project graph (via workspace root)

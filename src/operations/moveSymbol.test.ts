@@ -14,10 +14,9 @@ const DEST_REL = "src/helpers.ts";
 describe("moveSymbol operation (thin orchestrator)", () => {
   describe("orchestrator delegates to engine", () => {
     test("calls engine.moveSymbol with resolved absolute paths, symbol, scope, and options", async ({
-      dir,
       seedInlineFixture,
     }) => {
-      await seedInlineFixture({ [SOURCE_REL]: SOURCE_CONTENT });
+      const dir = await seedInlineFixture({ [SOURCE_REL]: SOURCE_CONTENT });
       const source = path.join(dir, SOURCE_REL);
       const dest = path.join(dir, DEST_REL);
       const scope = new WorkspaceScope(dir, new NodeFileSystem());
@@ -34,8 +33,8 @@ describe("moveSymbol operation (thin orchestrator)", () => {
       );
     });
 
-    test("forwards options to engine.moveSymbol", async ({ dir, seedInlineFixture }) => {
-      await seedInlineFixture({ [SOURCE_REL]: SOURCE_CONTENT });
+    test("forwards options to engine.moveSymbol", async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({ [SOURCE_REL]: SOURCE_CONTENT });
       const source = path.join(dir, SOURCE_REL);
       const dest = path.join(dir, DEST_REL);
       const scope = new WorkspaceScope(dir, new NodeFileSystem());
@@ -56,10 +55,9 @@ describe("moveSymbol operation (thin orchestrator)", () => {
 
   describe("scope modifications flow to result", () => {
     test("files recorded into scope by engine.moveSymbol appear in filesModified", async ({
-      dir,
       seedInlineFixture,
     }) => {
-      await seedInlineFixture({ [SOURCE_REL]: SOURCE_CONTENT });
+      const dir = await seedInlineFixture({ [SOURCE_REL]: SOURCE_CONTENT });
       const source = path.join(dir, SOURCE_REL);
       const dest = path.join(dir, DEST_REL);
       const scope = new WorkspaceScope(dir, new NodeFileSystem());
@@ -78,10 +76,9 @@ describe("moveSymbol operation (thin orchestrator)", () => {
     });
 
     test("skipped files recorded into scope by engine.moveSymbol appear in filesSkipped", async ({
-      dir,
       seedInlineFixture,
     }) => {
-      await seedInlineFixture({ [SOURCE_REL]: SOURCE_CONTENT });
+      const dir = await seedInlineFixture({ [SOURCE_REL]: SOURCE_CONTENT });
       const source = path.join(dir, SOURCE_REL);
       const dest = path.join(dir, DEST_REL);
       const scope = new WorkspaceScope(dir, new NodeFileSystem());
@@ -102,10 +99,9 @@ describe("moveSymbol operation (thin orchestrator)", () => {
 
   describe("return shape", () => {
     test("returns correct filesModified, filesSkipped, symbolName, sourceFile, and destFile", async ({
-      dir,
       seedInlineFixture,
     }) => {
-      await seedInlineFixture({ [SOURCE_REL]: SOURCE_CONTENT });
+      const dir = await seedInlineFixture({ [SOURCE_REL]: SOURCE_CONTENT });
       const source = path.join(dir, SOURCE_REL);
       const dest = path.join(dir, DEST_REL);
       const scope = new WorkspaceScope(dir, new NodeFileSystem());

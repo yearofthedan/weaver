@@ -27,11 +27,10 @@ function makeScope(dir: string): WorkspaceScope {
 
 describe("TsMorphEngine.moveSymbol fallback scan", () => {
   test("does not rewrite a file that imports a different symbol from the same source", async ({
-    dir,
     seedInlineFixture,
   }) => {
     const originalConsumer = 'import { mul } from "../src/utils";\nconsole.log(mul(3, 4));\n';
-    await seedInlineFixture({
+    const dir = await seedInlineFixture({
       "tsconfig.json": TSCONFIG,
       // Source exports both add and mul; only add will be moved.
       "src/utils.ts":
@@ -56,13 +55,12 @@ describe("TsMorphEngine.moveSymbol fallback scan", () => {
   });
 
   test("skips files already in scope.modified before moveSymbol is called", async ({
-    dir,
     seedInlineFixture,
   }) => {
     // A file pre-recorded as modified must not be double-rewritten by the
     // fallback scan.
     const originalConsumer = 'import { add } from "../src/utils";\nconsole.log(add(1, 2));\n';
-    await seedInlineFixture({
+    const dir = await seedInlineFixture({
       "tsconfig.json": TSCONFIG,
       "src/utils.ts": "export function add(a: number, b: number): number { return a + b; }\n",
       "tests/consumer.ts": originalConsumer,
@@ -85,11 +83,10 @@ describe("TsMorphEngine.moveSymbol fallback scan", () => {
   });
 
   test("records nothing when no out-of-project files import the symbol", async ({
-    dir,
     seedInlineFixture,
   }) => {
     // No test files import add; the fallback scan should find nothing to rewrite.
-    await seedInlineFixture({
+    const dir = await seedInlineFixture({
       "tsconfig.json": TSCONFIG,
       "src/utils.ts": "export function add(a: number, b: number): number { return a + b; }\n",
     });

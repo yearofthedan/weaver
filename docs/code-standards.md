@@ -87,30 +87,30 @@ Size doesn't override this. When a test file grows large enough to give pause, t
 
 ### Use fixtureTest with body-level seed helpers
 
-Use `fixtureTest` from `src/__testHelpers__/helpers.ts` for any test that needs a temp directory. Each test receives a fresh empty `dir` (cleaned up after) plus two helpers it can call in the body to seed it:
+Use `fixtureTest` from `src/__testHelpers__/helpers.ts` for any test that needs a temp directory. Each seed helper returns the absolute path of a fresh per-test temp dir (cleaned up after). Both helpers write into the same dir, so they compose:
 
 ```ts
 import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 
-test("uses a pre-recorded fixture", async ({ dir, seedNamedFixture }) => {
-  await seedNamedFixture(FIXTURES.simpleTs.name);
+test("uses a pre-recorded fixture", async ({ seedNamedFixture }) => {
+  const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
   // dir now contains a copy of the simple-ts fixture tree
 });
 
-test("uses inline file content", async ({ dir, seedInlineFixture }) => {
-  await seedInlineFixture({
+test("uses inline file content", async ({ seedInlineFixture }) => {
+  const dir = await seedInlineFixture({
     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true }, include: ["src/**/*.ts"] }),
     "src/target.ts": "export function foo() {}",
   });
 });
 
-test("composes both", async ({ dir, seedNamedFixture, seedInlineFixture }) => {
-  await seedNamedFixture(FIXTURES.simpleTs.name);
+test("composes both", async ({ seedNamedFixture, seedInlineFixture }) => {
+  const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
   await seedInlineFixture({ "src/utils.ts": "OVERRIDDEN" });  // last write wins
 });
 ```
 
-Each test declares its own setup in the body — no describe-level override, no manual `dirs` array, no `afterEach(cleanup)`. The standalone `copyFixture(name): string` export remains for cases where a single dir is shared across tests via `beforeAll` (e.g. some integration tests with subprocess lifecycle).
+Each test declares its own setup in the body — no describe-level override, no manual `dirs` array, no `afterEach(cleanup)`. For the rare test that wants a fresh empty temp dir without seeding, the bare `dir` fixture (`async ({ dir }) => ...`) remains exposed. The standalone `copyFixture(name): string` export remains for cases where a single dir is shared across tests via `beforeAll` (e.g. some integration tests with subprocess lifecycle).
 
 Dynamic `await import()` calls inside test bodies break V8 coverage tracking — Stryker cannot associate those tests with the imported module's lines. Use static imports at the top of the file.
 

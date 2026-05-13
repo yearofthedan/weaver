@@ -24,10 +24,9 @@ function makeScope(dir: string): WorkspaceScope {
 describe("tsRename", () => {
   describe("successful renames", () => {
     test("renames a symbol at its declaration site and returns the old name", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const engine = new TsMorphEngine();
 
       const result = await tsRename(
@@ -50,8 +49,8 @@ describe("tsRename", () => {
       expect(readFile(dir, "src/utils.ts")).not.toContain("greetUser");
     });
 
-    test("renames a symbol from a call site", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("renames a symbol from a call site", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const engine = new TsMorphEngine();
 
       const result = await tsRename(
@@ -94,8 +93,8 @@ describe("tsRename", () => {
   });
 
   describe("error cases", () => {
-    test("throws SYMBOL_NOT_FOUND for an out-of-range line", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("throws SYMBOL_NOT_FOUND for an out-of-range line", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const engine = new TsMorphEngine();
 
       await expect(
@@ -104,10 +103,9 @@ describe("tsRename", () => {
     });
 
     test("throws RENAME_NOT_ALLOWED for a non-renameable symbol (e.g. a string literal)", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const engine = new TsMorphEngine();
 
       // line 2 of utils.ts is `  return \`Hello, ${name}\`;`
@@ -120,10 +118,9 @@ describe("tsRename", () => {
 
   describe("workspace boundary enforcement", () => {
     test("skips files outside the workspace boundary and records them in filesSkipped", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const engine = new TsMorphEngine();
 
       // Use a scope rooted at src/ so only files under src/ are in bounds.
@@ -146,10 +143,9 @@ describe("tsRename", () => {
     });
 
     test("does not call notifyFileWritten on the engine (TsMorphEngine is a no-op)", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       // This test documents the contract: tsRename never calls notifyFileWritten.
       // We verify indirectly: the rename succeeds and files on disk reflect the rename,
       // meaning tsRename manages writes through scope.writeFile only.
@@ -165,10 +161,9 @@ describe("tsRename", () => {
 
   describe("workspace expansion — files outside tsconfig.include", () => {
     test("rename updates a test file that is outside tsconfig.include", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const engine = new TsMorphEngine(dir);
       const utilsPath = path.join(dir, "src/utils.ts");
 
@@ -180,10 +175,9 @@ describe("tsRename", () => {
     });
 
     test("findReferences returns a location in a test file outside tsconfig.include", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const engine = new TsMorphEngine(dir);
       const utilsPath = path.join(dir, "src/utils.ts");
 
@@ -198,8 +192,8 @@ describe("tsRename", () => {
   });
 
   describe("return value shape", () => {
-    test("returns all required fields with correct types", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("returns all required fields with correct types", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const engine = new TsMorphEngine();
 
       const result = await tsRename(
@@ -220,8 +214,8 @@ describe("tsRename", () => {
       expect(result.newName).toBe("renamed");
     });
 
-    test("nameMatches is a flat array", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("nameMatches is a flat array", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const engine = new TsMorphEngine();
 
       const result = await tsRename(
@@ -266,10 +260,9 @@ describe("tsRename", () => {
     });
 
     test("locationCount matches the total number of rename locations", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const engine = new TsMorphEngine();
 
       const result = await tsRename(

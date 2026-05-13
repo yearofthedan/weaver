@@ -7,10 +7,9 @@ import { findReferences } from "./findReferences.js";
 describe("findReferences action", () => {
   describe("with TsMorphEngine", () => {
     test("finds all references to a symbol from the declaration site", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const compiler = new TsMorphEngine();
 
       const result = await findReferences(compiler, `${dir}/src/utils.ts`, 1, 17);
@@ -29,8 +28,8 @@ describe("findReferences action", () => {
       }
     });
 
-    test("finds the same references from a call site", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("finds the same references from a call site", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const compiler = new TsMorphEngine();
 
       const result = await findReferences(compiler, `${dir}/src/main.ts`, 3, 13);
@@ -41,8 +40,8 @@ describe("findReferences action", () => {
       expect(files.some((f) => f.endsWith("main.ts"))).toBe(true);
     });
 
-    test("throws FILE_NOT_FOUND for a non-existent file", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("throws FILE_NOT_FOUND for a non-existent file", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const compiler = new TsMorphEngine();
 
       await expect(
@@ -50,8 +49,8 @@ describe("findReferences action", () => {
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
-    test("throws SYMBOL_NOT_FOUND for an out-of-range line", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("throws SYMBOL_NOT_FOUND for an out-of-range line", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const compiler = new TsMorphEngine();
 
       await expect(findReferences(compiler, `${dir}/src/utils.ts`, 999, 1)).rejects.toMatchObject({
@@ -62,10 +61,9 @@ describe("findReferences action", () => {
 
   describe("with VolarEngine", () => {
     test("finds references to a composable across .ts and .vue files", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.vueProject.name);
+      const dir = await seedNamedFixture(FIXTURES.vueProject.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       const result = await findReferences(compiler, `${dir}/src/composables/useCounter.ts`, 1, 17);
@@ -84,8 +82,8 @@ describe("findReferences action", () => {
       }
     });
 
-    test("throws FILE_NOT_FOUND for a non-existent file", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.vueProject.name);
+    test("throws FILE_NOT_FOUND for a non-existent file", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.vueProject.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await expect(

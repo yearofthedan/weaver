@@ -15,10 +15,9 @@ function makeScope(dir: string): WorkspaceScope {
 
 describe("tsExtractFunction", () => {
   test("creates a new function and replaces the selection with a call", async ({
-    dir,
     seedInlineFixture,
   }) => {
-    await seedInlineFixture({
+    const dir = await seedInlineFixture({
       "tsconfig.json": TSCONFIG,
       "src/target.ts": `export function outer(n: number): void {
   const doubled = n * 2;
@@ -51,10 +50,9 @@ describe("tsExtractFunction", () => {
   });
 
   test("filesModified contains exactly the source file — no other files are written", async ({
-    dir,
     seedInlineFixture,
   }) => {
-    await seedInlineFixture({
+    const dir = await seedInlineFixture({
       "tsconfig.json": TSCONFIG,
       "src/target.ts": `export function run(x: number): number {
   const result = x + 1;
@@ -82,10 +80,9 @@ describe("tsExtractFunction", () => {
   });
 
   test("parameterCount reflects the number of parameters inferred by the compiler", async ({
-    dir,
     seedInlineFixture,
   }) => {
-    await seedInlineFixture({
+    const dir = await seedInlineFixture({
       "tsconfig.json": TSCONFIG,
       "src/target.ts": `export function compute(x: number, y: number): number {
   const sum = x + y;
@@ -114,10 +111,9 @@ describe("tsExtractFunction", () => {
   });
 
   test("parameterCount is 0 when the extracted code references no outer-scope variables", async ({
-    dir,
     seedInlineFixture,
   }) => {
-    await seedInlineFixture({
+    const dir = await seedInlineFixture({
       "tsconfig.json": TSCONFIG,
       "src/target.ts": `export function run(): number {
   const val = 42;
@@ -143,10 +139,9 @@ describe("tsExtractFunction", () => {
   });
 
   test("extracted function uses the provided name and is written to the file", async ({
-    dir,
     seedInlineFixture,
   }) => {
-    await seedInlineFixture({
+    const dir = await seedInlineFixture({
       "tsconfig.json": TSCONFIG,
       "src/target.ts": `export function wrapper(a: number, b: number): number {
   const product = a * b;
@@ -174,10 +169,9 @@ describe("tsExtractFunction", () => {
   });
 
   test("throws NOT_SUPPORTED when no extractable code exists at the given range", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const filePath = path.join(dir, "src/utils.ts");
     // Empty range at line 1 col 1 — nothing to extract.
     await expect(
@@ -188,7 +182,6 @@ describe("tsExtractFunction", () => {
 
 describe("VolarEngine.extractFunction", () => {
   test("extracts a function from a <script setup> block and preserves all other SFC blocks", async ({
-    dir,
     seedInlineFixture,
   }) => {
     const vueContent = `<script setup lang="ts">
@@ -200,7 +193,7 @@ console.log(doubled);
   <div>hello</div>
 </template>
 `;
-    await seedInlineFixture({ "Comp.vue": vueContent });
+    const dir = await seedInlineFixture({ "Comp.vue": vueContent });
     const filePath = path.join(dir, "Comp.vue");
 
     const engine = new VolarEngine(new TsMorphEngine());
@@ -226,7 +219,6 @@ console.log(doubled);
   });
 
   test("parameterCount reflects the number of parameters inferred by the compiler", async ({
-    dir,
     seedInlineFixture,
   }) => {
     const vueContent = `<script setup lang="ts">
@@ -240,7 +232,7 @@ init();
 </script>
 <template><div></div></template>
 `;
-    await seedInlineFixture({ "Comp.vue": vueContent });
+    const dir = await seedInlineFixture({ "Comp.vue": vueContent });
     const filePath = path.join(dir, "Comp.vue");
 
     const engine = new VolarEngine(new TsMorphEngine());
@@ -257,7 +249,6 @@ init();
   });
 
   test("throws NOT_SUPPORTED when the selection coordinates fall before the <script setup> content", async ({
-    dir,
     seedInlineFixture,
   }) => {
     const vueContent = `<script setup lang="ts">
@@ -265,7 +256,7 @@ const x = 1;
 </script>
 <template><div></div></template>
 `;
-    await seedInlineFixture({ "Edge.vue": vueContent });
+    const dir = await seedInlineFixture({ "Edge.vue": vueContent });
     const filePath = path.join(dir, "Edge.vue");
 
     const engine = new VolarEngine(new TsMorphEngine());
@@ -280,7 +271,6 @@ const x = 1;
   });
 
   test("throws NOT_SUPPORTED when the start coordinate is inside the <script setup> tag but end is inside content", async ({
-    dir,
     seedInlineFixture,
   }) => {
     const vueContent = `<script setup lang="ts">
@@ -288,7 +278,7 @@ const x = 1;
 </script>
 <template><div></div></template>
 `;
-    await seedInlineFixture({ "Edge.vue": vueContent });
+    const dir = await seedInlineFixture({ "Edge.vue": vueContent });
     const filePath = path.join(dir, "Edge.vue");
 
     const engine = new VolarEngine(new TsMorphEngine());
@@ -303,7 +293,6 @@ const x = 1;
   });
 
   test("throws NOT_SUPPORTED when the end coordinate is inside the <script setup> tag but start is inside content", async ({
-    dir,
     seedInlineFixture,
   }) => {
     const vueContent = `<script setup lang="ts">
@@ -311,7 +300,7 @@ const x = 1;
 </script>
 <template><div></div></template>
 `;
-    await seedInlineFixture({ "Edge.vue": vueContent });
+    const dir = await seedInlineFixture({ "Edge.vue": vueContent });
     const filePath = path.join(dir, "Edge.vue");
 
     const engine = new VolarEngine(new TsMorphEngine());
@@ -326,7 +315,6 @@ const x = 1;
   });
 
   test("throws NOT_SUPPORTED when the selection line is beyond the end of the file", async ({
-    dir,
     seedInlineFixture,
   }) => {
     const vueContent = `<script setup lang="ts">
@@ -334,7 +322,7 @@ const x = 1;
 </script>
 <template><div></div></template>
 `;
-    await seedInlineFixture({ "Edge.vue": vueContent });
+    const dir = await seedInlineFixture({ "Edge.vue": vueContent });
     const filePath = path.join(dir, "Edge.vue");
 
     const engine = new VolarEngine(new TsMorphEngine());
@@ -346,10 +334,11 @@ const x = 1;
   });
 
   test("throws NOT_SUPPORTED for a .vue file without a <script setup> block", async ({
-    dir,
     seedInlineFixture,
   }) => {
-    await seedInlineFixture({ "NoScript.vue": `<template><div>hello</div></template>` });
+    const dir = await seedInlineFixture({
+      "NoScript.vue": `<template><div>hello</div></template>`,
+    });
     const filePath = path.join(dir, "NoScript.vue");
 
     const engine = new VolarEngine(new TsMorphEngine());
