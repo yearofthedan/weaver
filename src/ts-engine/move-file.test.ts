@@ -49,8 +49,8 @@ function makeGitRepo(): { dir: string } {
 }
 
 describe("tsMoveFile - TsMorphEngine integration", () => {
-  test("moves a file and updates imports", async ({ dir, seedNamedFixture }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+  test("moves a file and updates imports", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const oldPath = `${dir}/src/utils.ts`;
     const newPath = `${dir}/lib/utils.ts`;
 
@@ -65,8 +65,8 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     expect(mainContent).toContain("../lib/utils");
   });
 
-  test("creates destination directory if missing", async ({ dir, seedNamedFixture }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+  test("creates destination directory if missing", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const oldPath = `${dir}/src/utils.ts`;
     const newPath = `${dir}/deep/nested/lib/utils.ts`;
     const scope = makeScope(dir);
@@ -78,10 +78,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
   });
 
   test("updates imports on move-back with the same engine instance", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const engine = new TsMorphEngine();
     await tsMoveFile(engine, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, makeScope(dir));
     expect(readFile(dir, "src/main.ts")).toContain("../lib/utils");
@@ -95,11 +94,8 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     expect(mainContent).not.toContain("../lib/utils");
   });
 
-  test("updates imports in out-of-project files (e.g. tests/)", async ({
-    dir,
-    seedNamedFixture,
-  }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+  test("updates imports in out-of-project files (e.g. tests/)", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     await tsMoveFile(
       new TsMorphEngine(),
       `${dir}/src/utils.ts`,
@@ -113,10 +109,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
   });
 
   test("does not corrupt comments when updating imports in out-of-project files", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const extraTestFile = path.join(dir, "tests", "import-with-comment.ts");
     fs.writeFileSync(
       extraTestFile,
@@ -142,10 +137,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
 
   describe("stale project cache (file added after project load)", () => {
     test("rewrites import in a file created after the project was loaded", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const engine = new TsMorphEngine();
       await engine.getEditsForFileRename(`${dir}/src/utils.ts`, `${dir}/src/utils2.ts`);
 
@@ -165,10 +159,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
 
   describe("symlink path resolution", () => {
     test("rewrites imports when tsMoveFile is called with a symlinked workspace path", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const symlinkDir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-symlink-"));
       const symlink = path.join(symlinkDir, "project");
       fs.symlinkSync(dir, symlink, "dir");
@@ -195,10 +188,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
 
   describe("unresolved .js extension imports with moduleResolution node", () => {
     test("rewrites import with .js extension when tsconfig uses moduleResolution node", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       fs.writeFileSync(
         path.join(dir, "tsconfig.json"),
         JSON.stringify({
@@ -223,10 +215,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     });
 
     test("does not rewrite .js import when an actual .js file exists on disk", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       fs.writeFileSync(
         path.join(dir, "src", "utils.js"),
         // biome-ignore lint/suspicious/noTemplateCurlyInString: file content intentionally contains a template literal
@@ -251,10 +242,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     });
 
     test("does not rewrite imports of similarly-named files (substring false positives)", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       fs.writeFileSync(
         path.join(dir, "src", "my-utils.ts"),
         "export function myHelper() { return 42; }\n",
@@ -280,10 +270,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
 
   describe("moved out-of-project file own imports", () => {
     test("rewrites relative imports inside a moved out-of-project test file", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const oldPath = `${dir}/tests/utils.test.ts`;
       const newPath = `${dir}/tests/unit/utils.test.ts`;
       const scope = makeScope(dir);
@@ -297,10 +286,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     });
 
     test("does not rewrite bare module specifiers inside the moved file", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const extraTest = path.join(dir, "tests", "mixed.test.ts");
       fs.writeFileSync(
         extraTest,
@@ -329,10 +317,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     });
 
     test("preserves .js extension when rewriting relative imports in a moved file", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const extraTest = path.join(dir, "tests", "js-ext.test.ts");
       fs.writeFileSync(extraTest, 'import { greetUser } from "../src/utils.js";\n');
 
@@ -352,10 +339,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     });
 
     test("is a no-op when moved to the same directory depth (same-dir rename)", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const extraTest = path.join(dir, "tests", "renamed.test.ts");
       fs.writeFileSync(extraTest, 'import { greetUser } from "../src/utils";\n');
 
@@ -373,10 +359,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
 
   describe("sequential moves (project graph survives across calls)", () => {
     test("sequential moves of out-of-project files both return ok and rewrites import to correct path", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const helperPath = path.join(dir, "tests", "helper.ts");
       const consumerPath = path.join(dir, "tests", "consumer.test.ts");
       fs.writeFileSync(helperPath, "export function help() { return 42; }\n");
@@ -399,10 +384,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     });
 
     test("does not throw ENOENT when moving a file that imports a previously-moved file", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const helperOldPath = path.join(dir, "tests", "helper.ts");
       const helperNewPath = path.join(dir, "lib", "helper.ts");
       const consumerPath = path.join(dir, "tests", "consumer.ts");
@@ -422,10 +406,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     });
 
     test("second tsMoveFile call succeeds and rewrites import to new path of moved dependency", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const engine = new TsMorphEngine();
       const scopeA = makeScope(dir);
       await tsMoveFile(engine, `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, scopeA);
@@ -442,10 +425,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
     });
 
     test("fallback scan rewrites out-of-project importer on the second move after project graph update", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const scriptPath = path.join(dir, "scripts", "run.ts");
       fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
       fs.writeFileSync(
@@ -507,10 +489,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
 
   describe("filesModified completeness", () => {
     test("includes all rewritten files including those updated by fallback scan", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const scope = makeScope(dir);
       await tsMoveFile(new TsMorphEngine(), `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, scope);
 
@@ -519,8 +500,8 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
       expect(scope.modified).toContain(`${dir}/lib/utils.ts`);
     });
 
-    test("does not include the same file twice", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("does not include the same file twice", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const scope = makeScope(dir);
       await tsMoveFile(new TsMorphEngine(), `${dir}/src/utils.ts`, `${dir}/lib/utils.ts`, scope);
 

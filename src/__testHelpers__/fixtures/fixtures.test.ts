@@ -14,10 +14,9 @@ describe("fixtureTest fixtures", () => {
 
   describe("seedInlineFixture", () => {
     test("writes files with content and creates parent directories on demand", async ({
-      dir,
       seedInlineFixture,
     }) => {
-      await seedInlineFixture({
+      const dir = await seedInlineFixture({
         "tsconfig.json": "{}",
         "src/nested/a.ts": "export {}",
       });
@@ -31,15 +30,23 @@ describe("fixtureTest fixtures", () => {
       expect(fileExists(dir, "src/nested")).toBe(true);
     });
 
-    test("is a no-op when called with an empty map", async ({ dir, seedInlineFixture }) => {
-      await seedInlineFixture({});
+    test("returns the same dir on repeated calls within a test", async ({ seedInlineFixture }) => {
+      const first = await seedInlineFixture({ "a.txt": "1" });
+      const second = await seedInlineFixture({ "b.txt": "2" });
+      expect(second).toBe(first);
+      expect(readFile(first, "a.txt")).toBe("1");
+      expect(readFile(first, "b.txt")).toBe("2");
+    });
+
+    test("is a no-op when called with an empty map", async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({});
       expect(fs.readdirSync(dir)).toHaveLength(0);
     });
   });
 
   describe("seedNamedFixture", () => {
-    test("copies a named fixture's directory tree into dir", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("copies a named fixture's directory tree into dir", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
 
       const utilsContent = readFile(dir, "src/utils.ts");
       expect(utilsContent).toContain("export function greetUser");
@@ -49,16 +56,16 @@ describe("fixtureTest fixtures", () => {
   });
 
   describe("composition — seedNamedFixture then seedInlineFixture", () => {
-    test("later seedInlineFixture writes overwrite fixture files at the same path", async ({
-      dir,
+    test("both helpers write into the same dir; later seedInlineFixture writes overwrite fixture files at the same path", async ({
       seedNamedFixture,
       seedInlineFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
-      await seedInlineFixture({ "src/utils.ts": "OVERRIDDEN" });
+      const fromNamed = await seedNamedFixture(FIXTURES.simpleTs.name);
+      const fromInline = await seedInlineFixture({ "src/utils.ts": "OVERRIDDEN" });
 
-      expect(readFile(dir, "src/utils.ts")).toBe("OVERRIDDEN");
-      expect(readFile(dir, "src/main.ts")).toContain("greetUser");
+      expect(fromInline).toBe(fromNamed);
+      expect(readFile(fromNamed, "src/utils.ts")).toBe("OVERRIDDEN");
+      expect(readFile(fromNamed, "src/main.ts")).toContain("greetUser");
     });
   });
 });

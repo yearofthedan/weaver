@@ -32,10 +32,9 @@ describe("TsMorphEngine", () => {
   });
 
   test("resolveOffset converts 1-based line/col to 0-based offset", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const p = new TsMorphEngine();
     const file = path.join(dir, "src/utils.ts");
     // line 1, col 1 → offset 0
@@ -44,8 +43,8 @@ describe("TsMorphEngine", () => {
     expect(p.resolveOffset(file, 1, 17)).toBe(16);
   });
 
-  test("getRenameLocations returns spans for a symbol", async ({ dir, seedNamedFixture }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+  test("getRenameLocations returns spans for a symbol", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const p = new TsMorphEngine();
     const file = path.join(dir, "src/utils.ts");
     const offset = p.resolveOffset(file, 1, 17); // greetUser
@@ -60,10 +59,9 @@ describe("TsMorphEngine", () => {
   });
 
   test("getReferencesAtPosition returns spans including definition", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const p = new TsMorphEngine();
     const file = path.join(dir, "src/utils.ts");
     const offset = p.resolveOffset(file, 1, 17);
@@ -72,8 +70,8 @@ describe("TsMorphEngine", () => {
     expect(refs?.length).toBeGreaterThanOrEqual(1);
   });
 
-  test("getDefinitionAtPosition returns definition location", async ({ dir, seedNamedFixture }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+  test("getDefinitionAtPosition returns definition location", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const p = new TsMorphEngine();
     const file = path.join(dir, "src/main.ts");
     const offset = p.resolveOffset(file, 3, 13); // greetUser call site
@@ -90,10 +88,9 @@ describe("TsMorphEngine", () => {
   });
 
   test("refreshFile does not throw after a project has been loaded", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const p = new TsMorphEngine();
     const file = path.join(dir, "src/utils.ts");
     // Force project load.
@@ -103,10 +100,9 @@ describe("TsMorphEngine", () => {
   });
 
   test("getRenameLocations throws RENAME_NOT_ALLOWED for a non-renameable token", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const p = new TsMorphEngine();
     // main.ts line 1: import { greetUser } from "./utils";
     // The import path string "./utils" at col 27 cannot be renamed
@@ -119,10 +115,9 @@ describe("TsMorphEngine", () => {
   });
 
   test("getDefinitionAtPosition returns null for a whitespace offset", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const p = new TsMorphEngine();
     // main.ts line 2 is blank — any position there has no symbol definition
     const file = path.join(dir, "src/main.ts");
@@ -194,8 +189,8 @@ describe("TsMorphEngine", () => {
       for (const l of symlinks.splice(0)) fs.rmSync(l, { recursive: true, force: true });
     });
 
-    test("resolveOffset works through a symlinked path", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("resolveOffset works through a symlinked path", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const linkDir = `${dir}-link`;
       fs.symlinkSync(dir, linkDir, "dir");
       symlinks.push(linkDir);
@@ -204,11 +199,8 @@ describe("TsMorphEngine", () => {
       expect(p.resolveOffset(file, 1, 17)).toBe(16);
     });
 
-    test("getRenameLocations succeeds through a symlinked path", async ({
-      dir,
-      seedNamedFixture,
-    }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("getRenameLocations succeeds through a symlinked path", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const linkDir = `${dir}-link`;
       fs.symlinkSync(dir, linkDir, "dir");
       symlinks.push(linkDir);
@@ -225,10 +217,9 @@ describe("TsMorphEngine", () => {
     });
 
     test("getReferencesAtPosition succeeds through a symlinked path", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const linkDir = `${dir}-link`;
       fs.symlinkSync(dir, linkDir, "dir");
       symlinks.push(linkDir);
@@ -244,10 +235,9 @@ describe("TsMorphEngine", () => {
     });
 
     test("getDefinitionAtPosition succeeds through a symlinked path", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const linkDir = `${dir}-link`;
       fs.symlinkSync(dir, linkDir, "dir");
       symlinks.push(linkDir);
@@ -277,11 +267,8 @@ describe("TsMorphEngine", () => {
   });
 
   describe("getLanguageServiceForFile", () => {
-    test("returns a language service with getSemanticDiagnostics", async ({
-      dir,
-      seedNamedFixture,
-    }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("returns a language service with getSemanticDiagnostics", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       const ls = p.getLanguageServiceForFile(file);
@@ -289,10 +276,9 @@ describe("TsMorphEngine", () => {
     });
 
     test("returns a language service that can find rename locations", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       const ls = p.getLanguageServiceForFile(file);
@@ -305,10 +291,9 @@ describe("TsMorphEngine", () => {
     });
 
     test("adds the file to the project when it was not already tracked", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       // Call before any other method — file is not yet in a project.
@@ -320,20 +305,18 @@ describe("TsMorphEngine", () => {
 
   describe("getLanguageServiceForDirectory", () => {
     test("returns a language service for the project covering the directory", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const p = new TsMorphEngine();
       const ls = p.getLanguageServiceForDirectory(dir);
       expect(typeof ls.getSemanticDiagnostics).toBe("function");
     });
 
     test("returns a language service that can check files in the project", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const p = new TsMorphEngine();
       const ls = p.getLanguageServiceForDirectory(dir);
       const file = path.join(dir, "src/utils.ts");
@@ -348,8 +331,8 @@ describe("TsMorphEngine", () => {
       expect(() => p.refreshSourceFile("/nonexistent/path.ts")).not.toThrow();
     });
 
-    test("re-reads the file from disk after content changes", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("re-reads the file from disk after content changes", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       // Load the project so the file is tracked.
@@ -363,10 +346,9 @@ describe("TsMorphEngine", () => {
     });
 
     test("adds the file to the project when it was not already tracked", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const p = new TsMorphEngine();
       const file = path.join(dir, "src/utils.ts");
       // Load the project (but not this specific file).
@@ -378,8 +360,8 @@ describe("TsMorphEngine", () => {
   });
 
   describe("getProjectSourceFilePaths", () => {
-    test("returns file paths as strings", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("returns file paths as strings", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const p = new TsMorphEngine();
       const paths = p.getProjectSourceFilePaths(dir);
       expect(Array.isArray(paths)).toBe(true);
@@ -388,8 +370,8 @@ describe("TsMorphEngine", () => {
       }
     });
 
-    test("includes source files from the project", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("includes source files from the project", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const p = new TsMorphEngine();
       const paths = p.getProjectSourceFilePaths(dir);
       const utils = path.join(dir, "src/utils.ts");
@@ -410,10 +392,9 @@ describe("TsMorphEngine", () => {
 
   describe("removeImportersOf", () => {
     test("delegates to tsRemoveImportersOf with workspace-expanded project graph", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.deleteFileTs.name);
+      const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
       // TsMorphEngine(dir) expands the project graph to include all workspace files,
       // including tests/out-of-project.ts which is outside tsconfig.include.
       const p = new TsMorphEngine(dir);

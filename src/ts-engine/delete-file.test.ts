@@ -20,10 +20,9 @@ function makeScope(workspace: string): WorkspaceScope {
 describe("tsDeleteFile", () => {
   describe("in-project TS/JS importer removal", () => {
     test("removes named import declarations that reference the deleted file", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.deleteFileTs.name);
+      const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const scope = makeScope(dir);
       await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
 
@@ -32,10 +31,9 @@ describe("tsDeleteFile", () => {
     });
 
     test("removes type-only import declarations that reference the deleted file", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.deleteFileTs.name);
+      const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const scope = makeScope(dir);
       await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
 
@@ -44,10 +42,9 @@ describe("tsDeleteFile", () => {
     });
 
     test("removes export * and named re-export declarations from barrel files", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.deleteFileTs.name);
+      const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const scope = makeScope(dir);
       await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
 
@@ -57,10 +54,9 @@ describe("tsDeleteFile", () => {
     });
 
     test("returns importRefsRemoved = 0 when nothing imports the file", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.deleteFileTs.name);
+      const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const isolated = path.join(dir, "src", "isolated.ts");
       fs.writeFileSync(isolated, "export const x = 1;\n", "utf8");
 
@@ -74,10 +70,9 @@ describe("tsDeleteFile", () => {
 
   describe("workspace-wide importer removal", () => {
     test("removes imports from files not included in tsconfig.include", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.deleteFileTs.name);
+      const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
       // TsMorphEngine(dir) expands the project graph to include all workspace files,
       // so tests/out-of-project.ts is handled by the in-project phase.
       const scope = makeScope(dir);
@@ -87,11 +82,8 @@ describe("tsDeleteFile", () => {
       expect(readFile(dir, "tests/out-of-project.ts")).not.toMatch(/from ['"][^'"]*target['"]/);
     });
 
-    test("handles imports that use an explicit file extension", async ({
-      dir,
-      seedNamedFixture,
-    }) => {
-      await seedNamedFixture(FIXTURES.deleteFileTs.name);
+    test("handles imports that use an explicit file extension", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const extra = path.join(dir, "tests", "explicit-ext.ts");
       fs.writeFileSync(
         extra,
@@ -109,10 +101,9 @@ describe("tsDeleteFile", () => {
 
   describe("physical file deletion", () => {
     test("removes the target file from disk after cleaning importers", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.deleteFileTs.name);
+      const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
       expect(fileExists(dir, "src/target.ts")).toBe(true);
       const scope = makeScope(dir);
       await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
@@ -120,8 +111,8 @@ describe("tsDeleteFile", () => {
       expect(fileExists(dir, "src/target.ts")).toBe(false);
     });
 
-    test("deletes the file even when it has no importers", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.deleteFileTs.name);
+    test("deletes the file even when it has no importers", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const isolated = path.join(dir, "src", "isolated.ts");
       fs.writeFileSync(isolated, "export const x = 1;\n", "utf8");
 
@@ -134,10 +125,9 @@ describe("tsDeleteFile", () => {
 
   describe("import ref counts", () => {
     test("counts every removed TS declaration in importRefsRemoved", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.deleteFileTs.name);
+      const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
       // importer.ts: 2 decls (named import + type import)
       // barrel.ts:   2 decls (export * + named re-export)
       // tests/out-of-project.ts: 1 decl (included via expanded project graph)
@@ -168,10 +158,9 @@ describe("tsDeleteFile", () => {
       }
     });
     test("only records files within the workspace in scope.modified", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.deleteFileTs.name);
+      const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const scope = makeScope(dir);
       await tsDeleteFile(new TsMorphEngine(), `${dir}/src/target.ts`, scope);
 

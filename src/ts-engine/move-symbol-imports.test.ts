@@ -20,10 +20,9 @@ function makeScope(root: string): WorkspaceScope {
 
 describe("tsMoveSymbol — import rewriting", () => {
   test("updates all importers when multiple files import the moved symbol", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.multiImporter.name);
+    const dir = await seedNamedFixture(FIXTURES.multiImporter.name);
     const tsCompiler = new TsMorphEngine();
     const scope = makeScope(dir);
 

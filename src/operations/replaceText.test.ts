@@ -15,8 +15,8 @@ describe("replaceText operation", () => {
   // ─── Pattern mode ───────────────────────────────────────────────────────
 
   describe("pattern mode", () => {
-    test("replaces all occurrences across workspace files", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("replaces all occurrences across workspace files", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const before = readFile(dir, "src/utils.ts");
       expect(before).toContain("greetUser");
 
@@ -37,8 +37,8 @@ describe("replaceText operation", () => {
       expect(mainAfter).not.toContain("greetUser");
     });
 
-    test("restricts replacement to files matching glob", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("restricts replacement to files matching glob", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const result = await replaceText(makeScope(dir), {
         pattern: "greetUser",
         replacement: "welcomeUser",
@@ -53,8 +53,8 @@ describe("replaceText operation", () => {
       expect(mainAfter).toContain("greetUser");
     });
 
-    test("supports regex capture groups in replacement", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("supports regex capture groups in replacement", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       // Wrap "greetUser" in parens → "GREET(greetUser)"
       const result = await replaceText(makeScope(dir), {
         pattern: "(greetUser)",
@@ -67,8 +67,8 @@ describe("replaceText operation", () => {
       expect(after).toContain("GREET(greetUser)");
     });
 
-    test("records unreadable files as skipped", async ({ dir, seedInlineFixture }) => {
-      await seedInlineFixture({
+    test("records unreadable files as skipped", async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({
         "src/ok.ts": "export const foo = 'bar';\n",
         "src/secret.ts": "export const foo = 'secret';\n",
       });
@@ -103,8 +103,8 @@ describe("replaceText operation", () => {
       ).rejects.toMatchObject({ code: "REDOS" });
     });
 
-    test("does not modify sensitive files", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("does not modify sensitive files", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const envPath = path.join(dir, ".env");
       fs.writeFileSync(envPath, "greetUser=secret\n");
 
@@ -131,8 +131,8 @@ describe("replaceText operation", () => {
   // ─── Surgical mode ──────────────────────────────────────────────────────
 
   describe("surgical mode", () => {
-    test("applies exact text edits at specified locations", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("applies exact text edits at specified locations", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       // utils.ts line 1, col 17: "greetUser"
       const result = await replaceText(makeScope(dir), {
         edits: [
@@ -153,8 +153,8 @@ describe("replaceText operation", () => {
       expect(after).toContain("welcomeUser");
     });
 
-    test("throws TEXT_MISMATCH when oldText does not match", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("throws TEXT_MISMATCH when oldText does not match", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       await expect(
         replaceText(makeScope(dir), {
           edits: [
@@ -170,8 +170,8 @@ describe("replaceText operation", () => {
       ).rejects.toMatchObject({ code: "TEXT_MISMATCH" });
     });
 
-    test("applies multiple edits to the same file correctly", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("applies multiple edits to the same file correctly", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       // utils.ts line 1: "export function greetUser(name: string): string {"
       // "greetUser" at col 17, "name" at col 27, "string" at col 33
       const result = await replaceText(makeScope(dir), {

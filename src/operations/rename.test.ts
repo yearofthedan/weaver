@@ -20,8 +20,8 @@ function makeScope(workspace: string): WorkspaceScope {
 
 describe("rename action", () => {
   describe("with TsMorphEngine", () => {
-    test("renames a function at its declaration site", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("renames a function at its declaration site", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const compiler = new TsMorphEngine();
 
       const result = await rename(
@@ -41,8 +41,8 @@ describe("rename action", () => {
       expect(readFile(dir, "src/main.ts")).toContain("greetPerson");
     });
 
-    test("renames a function from a call site", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("renames a function from a call site", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const compiler = new TsMorphEngine();
 
       const result = await rename(
@@ -62,8 +62,8 @@ describe("rename action", () => {
       expect(readFile(dir, "src/main.ts")).toContain("sayHello");
     });
 
-    test("throws FILE_NOT_FOUND for non-existent file", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("throws FILE_NOT_FOUND for non-existent file", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const compiler = new TsMorphEngine();
 
       await expect(
@@ -71,8 +71,8 @@ describe("rename action", () => {
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
-    test("throws SYMBOL_NOT_FOUND for out-of-range line", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("throws SYMBOL_NOT_FOUND for out-of-range line", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const compiler = new TsMorphEngine();
 
       await expect(
@@ -82,8 +82,8 @@ describe("rename action", () => {
   });
 
   describe("with TsMorphEngine — multi-importer", () => {
-    test("renames across three files (multi-importer)", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.multiImporter.name);
+    test("renames across three files (multi-importer)", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.multiImporter.name);
       const compiler = new TsMorphEngine();
 
       const result = await rename(compiler, `${dir}/src/utils.ts`, 1, 17, "sum", makeScope(dir));
@@ -100,10 +100,9 @@ describe("rename action", () => {
 
   describe("with VolarEngine", () => {
     test("renames a composable in a .ts file and updates .vue files", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.vueProject.name);
+      const dir = await seedNamedFixture(FIXTURES.vueProject.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       const filePath = `${dir}/src/composables/useCounter.ts`;
@@ -121,8 +120,8 @@ describe("rename action", () => {
       expect(vueContent).toContain("useCount");
     });
 
-    test("does not rename symbols in dist/ .vue files", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.vueProject.name);
+    test("does not rename symbols in dist/ .vue files", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.vueProject.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       // dist/ is conventionally gitignored so it can't live in the committed fixture
@@ -140,8 +139,8 @@ describe("rename action", () => {
       expect(distContent).toContain("useCounter");
     });
 
-    test("throws FILE_NOT_FOUND for non-existent file", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.vueProject.name);
+    test("throws FILE_NOT_FOUND for non-existent file", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.vueProject.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await expect(
@@ -151,8 +150,8 @@ describe("rename action", () => {
   });
 
   describe("with VolarEngine — vue-ts-boundary", () => {
-    test("renames across TypeScript/Vue boundary", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.vueTsBoundary.name);
+    test("renames across TypeScript/Vue boundary", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.vueTsBoundary.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       const result = await rename(

@@ -24,10 +24,9 @@ describe("extractFunction operation", () => {
   });
 
   test("delegates to engine.extractFunction with correct arguments and returns its result", async ({
-    dir,
     seedInlineFixture,
   }) => {
-    await seedInlineFixture({ "src/target.ts": "export function foo() {}\n" });
+    const dir = await seedInlineFixture({ "src/target.ts": "export function foo() {}\n" });
     const filePath = path.join(dir, "src/target.ts");
 
     const expectedResult = {

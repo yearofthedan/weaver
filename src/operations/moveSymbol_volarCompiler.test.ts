@@ -10,10 +10,9 @@ import { moveSymbol } from "./moveSymbol.js";
 
 describe("moveSymbol operation — VolarEngine integration", () => {
   test("moves a composable and updates .vue SFC imports via VolarEngine", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.vueProject.name);
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
     const volarCompiler = new VolarEngine(new TsMorphEngine());
     const srcPath = `${dir}/src/composables/useCounter.ts`;
     const dstPath = `${dir}/src/shared.ts`;
@@ -32,10 +31,9 @@ describe("moveSymbol operation — VolarEngine integration", () => {
   }, 30_000);
 
   test("rewrites imports in a TS file outside tsconfig.include when VolarEngine.moveSymbol is called", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.vueProject.name);
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
     // vue-project fixture tsconfig: include = ["src/**/*.ts", "src/**/*.vue"]
     // A file outside that pattern (e.g. tests/consumer.ts) imports the moved symbol.
     // VolarEngine.moveSymbol delegates to tsEngine.moveSymbol which uses the

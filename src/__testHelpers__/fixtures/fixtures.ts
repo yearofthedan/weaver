@@ -69,26 +69,30 @@ export function copyFixture(name: FixtureName): string {
 }
 
 /**
- * Vitest `test` with a fresh empty temp dir per test and two body-level helpers
- * to seed it:
+ * Vitest `test` with two body-level helpers that seed a fresh per-test temp
+ * dir and return its absolute path:
  *
  * ```ts
- * test("inline files", async ({ dir, seedInlineFixture }) => {
- *   await seedInlineFixture({ "tsconfig.json": "...", "src/a.ts": "..." });
+ * test("inline files", async ({ seedInlineFixture }) => {
+ *   const dir = await seedInlineFixture({ "tsconfig.json": "...", "src/a.ts": "..." });
  * });
  *
- * test("from a named fixture", async ({ dir, seedNamedFixture }) => {
- *   await seedNamedFixture(FIXTURES.simpleTs.name);
+ * test("from a named fixture", async ({ seedNamedFixture }) => {
+ *   const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
  * });
  * ```
  *
- * Helpers compose: later writes overwrite earlier ones at the same path.
- * The temp dir is removed after the test regardless of which helpers ran.
+ * Both helpers write into the same per-test dir, so they compose — later
+ * writes overwrite earlier ones at the same path. The dir is removed after
+ * the test regardless of which helpers ran.
+ *
+ * The bare `dir` fixture remains available for the rare test that wants a
+ * fresh empty temp dir without seeding any files.
  */
 export const fixtureTest = baseTest.extend<{
   dir: string;
-  seedNamedFixture: (name: FixtureName) => Promise<void>;
-  seedInlineFixture: (files: Record<string, string>) => Promise<void>;
+  seedNamedFixture: (name: FixtureName) => Promise<string>;
+  seedInlineFixture: (files: Record<string, string>) => Promise<string>;
 }>({
   dir: async ({}, use) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-"));
@@ -98,6 +102,7 @@ export const fixtureTest = baseTest.extend<{
   seedNamedFixture: async ({ dir }, use) => {
     await use(async (name) => {
       fs.cpSync(path.join(__dirname, name), dir, { recursive: true });
+      return dir;
     });
   },
   seedInlineFixture: async ({ dir }, use) => {
@@ -107,6 +112,7 @@ export const fixtureTest = baseTest.extend<{
         fs.mkdirSync(path.dirname(abs), { recursive: true });
         fs.writeFileSync(abs, content);
       }
+      return dir;
     });
   },
 });

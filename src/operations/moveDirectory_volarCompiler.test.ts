@@ -13,10 +13,9 @@ function makeScope(dir: string): WorkspaceScope {
 describe("moveDirectory action - VolarEngine integration", () => {
   describe("external .ts files importing moved .vue components", () => {
     test("updates path-alias import specifier in external .ts file after moving directory", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.moveDirVueExternal.name);
+      const dir = await seedNamedFixture(FIXTURES.moveDirVueExternal.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await moveDirectory(compiler, `${dir}/src/components`, `${dir}/src/ui`, makeScope(dir));
@@ -26,10 +25,9 @@ describe("moveDirectory action - VolarEngine integration", () => {
     });
 
     test("updates import specifier in external .ts file after moving directory with .vue files", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.moveDirVueExternal.name);
+      const dir = await seedNamedFixture(FIXTURES.moveDirVueExternal.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await moveDirectory(compiler, `${dir}/src/components`, `${dir}/src/ui`, makeScope(dir));
@@ -45,10 +43,9 @@ describe("moveDirectory action - VolarEngine integration", () => {
     });
 
     test("updates import specifier in external .ts file when moving into a nested destination", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.moveDirVueExternal.name);
+      const dir = await seedNamedFixture(FIXTURES.moveDirVueExternal.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await moveDirectory(
@@ -66,10 +63,9 @@ describe("moveDirectory action - VolarEngine integration", () => {
 
   describe("external .vue files importing from moved directory", () => {
     test("updates import specifier in external .vue file after moving a composables directory", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.moveDirVueExternal.name);
+      const dir = await seedNamedFixture(FIXTURES.moveDirVueExternal.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await moveDirectory(compiler, `${dir}/src/composables`, `${dir}/src/hooks`, makeScope(dir));
@@ -85,10 +81,9 @@ describe("moveDirectory action - VolarEngine integration", () => {
     });
 
     test("updates import specifier in external .vue file after moving a components directory with .vue files", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.moveDirVueExternal.name);
+      const dir = await seedNamedFixture(FIXTURES.moveDirVueExternal.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await moveDirectory(compiler, `${dir}/src/components`, `${dir}/src/ui`, makeScope(dir));
@@ -102,10 +97,9 @@ describe("moveDirectory action - VolarEngine integration", () => {
 
   describe("moved .vue files with external relative imports", () => {
     test("updates relative import in moved .vue file that points outside the moved directory", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.moveDirVueExternal.name);
+      const dir = await seedNamedFixture(FIXTURES.moveDirVueExternal.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       // Button.vue imports '../lib/helper'; after moving components/ → ui/components/
@@ -127,10 +121,9 @@ describe("moveDirectory action - VolarEngine integration", () => {
     });
 
     test("does not rewrite intra-directory imports between moved .vue files", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.moveDirVueExternal.name);
+      const dir = await seedNamedFixture(FIXTURES.moveDirVueExternal.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       // Moving composables/ — useCounter.ts has no intra-dir imports, so this just

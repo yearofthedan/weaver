@@ -81,8 +81,8 @@ describe("deleteFile operation", () => {
   });
 
   describe("result construction from scope", () => {
-    test("returns deletedFile as the resolved absolute path", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.deleteFileTs.name);
+    test("returns deletedFile as the resolved absolute path", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const targetFile = `${dir}/src/target.ts`;
       const engine = new TsMorphEngine();
       const result = await deleteFile(engine, targetFile, makeScope(dir));
@@ -90,11 +90,8 @@ describe("deleteFile operation", () => {
       expect(result.deletedFile).toBe(path.resolve(targetFile));
     });
 
-    test("returns filesModified populated by the engine's work", async ({
-      dir,
-      seedInlineFixture,
-    }) => {
-      await seedInlineFixture({ "src/target.ts": "export const x = 1;\n" });
+    test("returns filesModified populated by the engine's work", async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({ "src/target.ts": "export const x = 1;\n" });
       const targetFile = `${dir}/src/target.ts`;
       const modifiedFile = `${dir}/src/importer.ts`;
 
@@ -110,11 +107,8 @@ describe("deleteFile operation", () => {
       expect(result.filesModified).toStrictEqual(scope.modified);
     });
 
-    test("returns filesSkipped populated by the engine's work", async ({
-      dir,
-      seedInlineFixture,
-    }) => {
-      await seedInlineFixture({ "src/target.ts": "export const x = 1;\n" });
+    test("returns filesSkipped populated by the engine's work", async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({ "src/target.ts": "export const x = 1;\n" });
       const targetFile = `${dir}/src/target.ts`;
       const skippedFile = `/outside/workspace/file.ts`;
 
@@ -131,10 +125,9 @@ describe("deleteFile operation", () => {
     });
 
     test("returns importRefsRemoved from engine.deleteFile result", async ({
-      dir,
       seedInlineFixture,
     }) => {
-      await seedInlineFixture({ "src/target.ts": "export const x = 1;\n" });
+      const dir = await seedInlineFixture({ "src/target.ts": "export const x = 1;\n" });
       const targetFile = path.join(dir, "src", "target.ts");
       const absTarget = path.resolve(targetFile);
 
@@ -149,10 +142,9 @@ describe("deleteFile operation", () => {
     });
 
     test("passes the resolved absolute path to engine.deleteFile", async ({
-      dir,
       seedInlineFixture,
     }) => {
-      await seedInlineFixture({ "src/target.ts": "export const x = 1;\n" });
+      const dir = await seedInlineFixture({ "src/target.ts": "export const x = 1;\n" });
       const targetFile = `${dir}/src/target.ts`;
       const absTarget = path.resolve(targetFile);
 

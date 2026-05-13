@@ -11,11 +11,8 @@ describe("makeRegistry", () => {
     expect(typeof registry.tsEngine).toBe("function");
   });
 
-  test("tsEngine resolves to a TsMorphEngine with Engine methods", async ({
-    dir,
-    seedNamedFixture,
-  }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+  test("tsEngine resolves to a TsMorphEngine with Engine methods", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const registry = makeRegistry(path.join(dir, "src/utils.ts"));
     const engine = await registry.tsEngine();
     expect(engine).toBeInstanceOf(TsMorphEngine);
@@ -24,10 +21,9 @@ describe("makeRegistry", () => {
   }, 10_000);
 
   test("projectEngine resolves to a TsMorphEngine for a TS-only project", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const registry = makeRegistry(path.join(dir, "src/utils.ts"));
     const engine = await registry.projectEngine();
     expect(engine).toBeInstanceOf(TsMorphEngine);
@@ -99,10 +95,9 @@ describe("dispatchRequest success format", () => {
 
 describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
   test("returns typeErrors fields by default when files are modified", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -123,10 +118,9 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
   }, 15_000);
 
   test("checkTypeErrors:false suppresses typeErrors even when files are modified", async ({
-    dir,
     seedNamedFixture,
   }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -147,11 +141,8 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(result).not.toHaveProperty("typeErrorsTruncated");
   }, 15_000);
 
-  test("produces no typeErrors fields when no files are modified", async ({
-    dir,
-    seedNamedFixture,
-  }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+  test("produces no typeErrors fields when no files are modified", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -167,8 +158,8 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(result).not.toHaveProperty("typeErrorsTruncated");
   }, 15_000);
 
-  test("type errors introduced by a write are returned", async ({ dir, seedNamedFixture }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+  test("type errors introduced by a write are returned", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -205,11 +196,8 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     }
   }, 15_000);
 
-  test("errors in unmodified files are excluded from typeErrors", async ({
-    dir,
-    seedNamedFixture,
-  }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+  test("errors in unmodified files are excluded from typeErrors", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -228,11 +216,8 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
     expect(typeErrors.every((d) => d.file.endsWith("clean.ts"))).toBe(true);
   }, 15_000);
 
-  test("clean modified files produce an empty typeErrors array", async ({
-    dir,
-    seedNamedFixture,
-  }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+  test("clean modified files produce an empty typeErrors array", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const result = (await dispatchRequest(
       {
         method: "replaceText",
@@ -257,11 +242,8 @@ describe("dispatchRequest post-write diagnostics (checkTypeErrors)", () => {
 });
 
 describe("dispatchRequest per-operation dispatch", () => {
-  test("dispatches getTypeErrors and returns diagnostics shape", async ({
-    dir,
-    seedNamedFixture,
-  }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+  test("dispatches getTypeErrors and returns diagnostics shape", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const result = (await dispatchRequest({ method: "getTypeErrors", params: {} }, dir)) as Record<
       string,
       unknown
@@ -272,11 +254,8 @@ describe("dispatchRequest per-operation dispatch", () => {
     expect(result).toHaveProperty("truncated");
   }, 15_000);
 
-  test("dispatches findReferences and returns references shape", async ({
-    dir,
-    seedNamedFixture,
-  }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+  test("dispatches findReferences and returns references shape", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const file = path.join(dir, "src/clean.ts");
     const result = (await dispatchRequest(
       { method: "findReferences", params: { file, line: 1, col: 17 } },
@@ -290,11 +269,8 @@ describe("dispatchRequest per-operation dispatch", () => {
     }
   }, 15_000);
 
-  test("dispatches getDefinition and returns definition shape", async ({
-    dir,
-    seedNamedFixture,
-  }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+  test("dispatches getDefinition and returns definition shape", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const file = path.join(dir, "src/clean.ts");
     const result = (await dispatchRequest(
       { method: "getDefinition", params: { file, line: 1, col: 17 } },
@@ -308,8 +284,8 @@ describe("dispatchRequest per-operation dispatch", () => {
     }
   }, 15_000);
 
-  test("dispatches rename and returns result shape", async ({ dir, seedNamedFixture }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+  test("dispatches rename and returns result shape", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const file = path.join(dir, "src/clean.ts");
     const result = (await dispatchRequest(
       { method: "rename", params: { file, line: 1, col: 17, newName: "multiplied" } },
@@ -323,8 +299,8 @@ describe("dispatchRequest per-operation dispatch", () => {
     }
   }, 15_000);
 
-  test("dispatches moveFile and returns result shape", async ({ dir, seedNamedFixture }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+  test("dispatches moveFile and returns result shape", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const oldPath = path.join(dir, "src/clean.ts");
     const newPath = path.join(dir, "src/relocated.ts");
     const result = (await dispatchRequest(
@@ -339,8 +315,8 @@ describe("dispatchRequest per-operation dispatch", () => {
     }
   }, 15_000);
 
-  test("dispatches moveSymbol and returns result shape", async ({ dir, seedNamedFixture }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+  test("dispatches moveSymbol and returns result shape", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const sourceFile = path.join(dir, "src/clean.ts");
     const destFile = path.join(dir, "src/multiply.ts");
     const result = (await dispatchRequest(

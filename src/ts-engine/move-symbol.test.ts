@@ -16,10 +16,9 @@ function makeScope(root: string): WorkspaceScope {
 describe("tsMoveSymbol", () => {
   describe("symbol move to new file", () => {
     test("moves a named export to a new file and saves both files", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const tsCompiler = new TsMorphEngine();
       const scope = makeScope(dir);
       const srcPath = path.join(dir, "src/utils.ts");
@@ -34,10 +33,9 @@ describe("tsMoveSymbol", () => {
     });
 
     test("updates the import in the importing file with .js extension", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       await tsMoveSymbol(
         new TsMorphEngine(),
         path.join(dir, "src/utils.ts"),
@@ -54,10 +52,9 @@ describe("tsMoveSymbol", () => {
 
   describe("symbol move to existing file", () => {
     test("moves a function to an existing file, preserving existing content", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
         'export function helper(): string { return "hi"; }\n',
@@ -75,10 +72,9 @@ describe("tsMoveSymbol", () => {
     });
 
     test("appends to a non-empty destination file with a blank-line separator", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
         'export function helper(): string { return "hi"; }\n',
@@ -98,10 +94,9 @@ describe("tsMoveSymbol", () => {
 
   describe("boundary skipping", () => {
     test("records importer outside the workspace boundary as skipped, not modified", async ({
-      dir,
       seedInlineFixture,
     }) => {
-      await seedInlineFixture({
+      const dir = await seedInlineFixture({
         "tsconfig.json": TSCONFIG,
         "src/utils.ts": "export function add(a: number, b: number): number { return a + b; }\n",
         "lib/consumer.ts": 'import { add } from "../src/utils";\nexport const r = add(1, 2);\n',
@@ -123,10 +118,9 @@ describe("tsMoveSymbol", () => {
     });
 
     test("skipped includes dirty source file outside the workspace root", async ({
-      dir,
       seedInlineFixture,
     }) => {
-      await seedInlineFixture({
+      const dir = await seedInlineFixture({
         "tsconfig.json": TSCONFIG,
         "lib/utils.ts": "export function add(a: number, b: number): number { return a + b; }\n",
       });
@@ -149,10 +143,9 @@ describe("tsMoveSymbol", () => {
 
   describe("directory creation", () => {
     test("creates the destination directory when it does not exist", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const dstPath = path.join(dir, "src/nested/deep/helpers.ts");
 
       await tsMoveSymbol(
@@ -170,10 +163,9 @@ describe("tsMoveSymbol", () => {
 
   describe("const variable move", () => {
     test("moves an exported const variable (VariableDeclaration to VariableStatement traversal)", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const scope = makeScope(dir);
       fs.appendFileSync(path.join(dir, "src/utils.ts"), "\nexport const VERSION = '1.0.0';\n");
       fs.writeFileSync(
@@ -196,10 +188,9 @@ describe("tsMoveSymbol", () => {
 
   describe("dest file self-import removal", () => {
     test("does not add a self-import in dest file when dest already had a self-referencing import from source", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const scope = makeScope(dir);
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
@@ -219,8 +210,8 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("does not add unrelated saved files to modified", () => {
-    test("only records files actually changed by the move", async ({ dir, seedNamedFixture }) => {
-      await seedNamedFixture(FIXTURES.simpleTs.name);
+    test("only records files actually changed by the move", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const scope = makeScope(dir);
       const extraPath = path.join(dir, "src/unrelated.ts");
       fs.writeFileSync(extraPath, "export const UNRELATED = 42;\n");
@@ -239,10 +230,9 @@ describe("tsMoveSymbol", () => {
 
   describe("source self-import after move", () => {
     test("adds an import back to source when remaining code references the moved symbol", async ({
-      dir,
       seedInlineFixture,
     }) => {
-      await seedInlineFixture({
+      const dir = await seedInlineFixture({
         "tsconfig.json": TSCONFIG,
         "src/a.ts":
           "export function Foo(): string { return 'foo'; }\nexport function Bar(): string { return Foo(); }\n",
@@ -265,10 +255,9 @@ describe("tsMoveSymbol", () => {
 
   describe("transitive import carry", () => {
     test("carries a named import the moved declaration depends on to the destination", async ({
-      dir,
       seedInlineFixture,
     }) => {
-      await seedInlineFixture({
+      const dir = await seedInlineFixture({
         "tsconfig.json": TSCONFIG,
         "src/types.ts": "export type Bar = { value: string };\n",
         "src/source.ts":
@@ -294,10 +283,9 @@ describe("tsMoveSymbol", () => {
 
   describe("non-exported conflict detection", () => {
     test("throws SYMBOL_EXISTS when destination has a non-exported declaration with the same name", async ({
-      dir,
       seedInlineFixture,
     }) => {
-      await seedInlineFixture({
+      const dir = await seedInlineFixture({
         "tsconfig.json": TSCONFIG,
         "src/source.ts": "export function Foo(): void {}\n",
         "src/dest.ts": "function Foo(): void {}\nexport function other(): void {}\n",
@@ -316,10 +304,9 @@ describe("tsMoveSymbol", () => {
     });
 
     test("replaces the non-exported declaration when force is true", async ({
-      dir,
       seedInlineFixture,
     }) => {
-      await seedInlineFixture({
+      const dir = await seedInlineFixture({
         "tsconfig.json": TSCONFIG,
         "src/source.ts": "export function Foo(): string { return 'new'; }\n",
         "src/dest.ts":

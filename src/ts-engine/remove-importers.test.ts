@@ -137,10 +137,9 @@ describe("tsRemoveImportersOf", () => {
 
   describe("predicate filters only target-file declarations", () => {
     test("removes only the import referencing the target file, leaving unrelated imports intact", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.multiImporter.name);
+      const dir = await seedNamedFixture(FIXTURES.multiImporter.name);
       // Add a file that imports from both utils.ts (target) and featureA.ts (unrelated).
       const bothImporter = path.join(dir, "src", "combined.ts");
       fs.writeFileSync(
@@ -164,10 +163,9 @@ describe("tsRemoveImportersOf", () => {
     });
 
     test("counts each removed declaration individually when multiple files import the target", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.multiImporter.name);
+      const dir = await seedNamedFixture(FIXTURES.multiImporter.name);
       const targetFile = path.join(dir, "src", "utils.ts");
       const scope = makeScope(dir);
       const engine = new TsMorphEngine();
@@ -205,11 +203,8 @@ describe("tsRemoveImportersOf", () => {
         fs.rmSync(root, { recursive: true, force: true });
       }
     });
-    test("saves only in-scope dirty files, not out-of-scope ones", async ({
-      dir,
-      seedNamedFixture,
-    }) => {
-      await seedNamedFixture(FIXTURES.deleteFileTs.name);
+    test("saves only in-scope dirty files, not out-of-scope ones", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
       // Create an extra importer file that will be modified.
       const extraFile = path.join(dir, "src", "extra.ts");
       fs.writeFileSync(
@@ -233,10 +228,9 @@ describe("tsRemoveImportersOf", () => {
 
   describe("export declarations that reference the target", () => {
     test("removes export declarations (re-exports) that reference the deleted file", async ({
-      dir,
       seedNamedFixture,
     }) => {
-      await seedNamedFixture(FIXTURES.deleteFileTs.name);
+      const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const targetFile = path.join(dir, "src", "target.ts");
       const scope = makeScope(dir);
       const engine = new TsMorphEngine();
