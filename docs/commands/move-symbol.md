@@ -60,5 +60,6 @@ weaver move-symbol '{"sourceFile":"src/a.ts","symbolName":"foo","destFile":"src/
 - `destFile` must be inside the workspace.
 - `.vue` sources: the symbol must be declared inside a `<script setup>` block. Classic `<script>` blocks and template-only files return `NOT_SUPPORTED`.
 - `.vue` sources: transitive imports used by the moved symbol (e.g. `import { ref } from "vue"`) are not carried to `destFile`. The resulting type errors identify what to add.
+- If the source file *also* consumes the moved symbol (declared and called in the same module), the source is left with an unresolved reference — external importers are updated, but no import back from `destFile` is added. Surfaces as a `typeErrors` entry on the source file; add the import manually.
 
 → Internals: [docs/internals/move-symbol.md](../internals/move-symbol.md)

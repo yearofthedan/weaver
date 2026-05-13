@@ -9,7 +9,6 @@
 - **I want shared conventions** → [Reference](reference/) — response format, error codes
 - **I'm implementing a feature** → [Handoff](handoff.md) — backlog, current state, finish checklist
 - **I'm reviewing security** → [Security](security.md), then specific [Internals](internals/)
-- **I'm debugging an issue** → [Tech Debt](tech/tech-debt.md)
 
 ## Product & Rationale
 
@@ -26,7 +25,6 @@
 
 - [Handoff](handoff.md) — current state, prioritised backlog, reading order, finish checklist
 - [Quality](quality.md) — testing strategy, coverage targets, mutation scores
-- [Tech Debt](tech/tech-debt.md) — known structural issues
 
 ## Architecture & implementation
 

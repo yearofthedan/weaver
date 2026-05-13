@@ -1,7 +1,7 @@
 **Purpose:** Current state, source layout, and prioritised next work items. Each task either links to a spec file (ready to implement) or is marked `[needs design]` (needs a `/spec` pass first).
 **Audience:** Engineers implementing features, AI agents working on the codebase.
 **Status:** Current
-**Related docs:** [Why](why.md) (product rationale), [Commands](commands/) (per-command reference), [Internals](internals/) (implementation), [Tech Debt](tech/tech-debt.md) (known issues), [Specs](specs/) (task specifications)
+**Related docs:** [Why](why.md) (product rationale), [Commands](commands/) (per-command reference), [Internals](internals/) (implementation), [Specs](specs/) (task specifications)
 
 ---
 
@@ -186,10 +186,14 @@ Priorities run top to bottom. Complete a tier before starting the next.
 - **Workspace split: `app` + `tooling` (`conventions` + `evals`)** `[needs design]` — move `agent:check`, `agent:doctor`, and `eval` scripts plus related tests into a tooling project; keep app unit tests and mutation testing with app initially; define dependency ownership and migration steps that preserve CI and publish flows
 - **`moveSymbol` for class methods** — extract a method to a standalone exported function. Deferred: the only safe subset (static methods / no-`this` instance methods) doesn't update call sites, so it always leaves broken code. Without call-site rewriting, the value over manual `searchText` + `replaceText` is low. Revisit if call-site rewriting becomes tractable.
 - **`inlineVariable` / `inlineFunction`** — less common refactoring pattern; complex to implement safely
-- **Watcher own-writes redundant invalidation** — safe as-is; only adds one extra rebuild per write-heavy op (see tech-debt.md)
-- **Daemon discovery cache invalidation** — only hurts if `tsconfig.json` moves at runtime (see tech-debt.md)
-- **`VolarLanguageService` hand-typed interface** — low urgency; will resolve naturally during further Volar refactoring (see tech-debt.md)
-- **TOCTOU symlink race** — accepted risk; revisit only if deployment model changes (see tech-debt.md)
+- **Watcher own-writes redundant invalidation** `[needs design]` — The daemon's own writes emit FS events that fire `invalidateFile`/`invalidateAll` ~200ms after the write, by which time the operation has already invalidated. Safe (no correctness issue, mutex-serialised), but if a second call arrives within the debounce window, the next `getEngine()` pays a cold rebuild. Sketch: maintain a skip-set of paths the daemon just wrote, drain after a grace period; populated and drained inside the mutex so no concurrency guard needed. Design choice: grace-period length, drain trigger.
+- **Daemon discovery cache invalidation** `[needs design]` — `src/utils/ts-project.ts` caches `findTsConfig` and `isVueProject` results in module-level Maps for the daemon's whole lifetime. If a `tsconfig.json` is created/deleted/moved or `.vue` files appear during the daemon run, decisions go stale until restart. Fix: hook the watcher's `onFileAdded`/`onFileRemoved` callbacks to clear the relevant entries. Design choice: which path patterns invalidate which cache.
+- **`VolarLanguageService` hand-typed interface** `[chore]` — `src/plugins/vue/compiler.ts` manually narrows the TS LanguageService surface used by the Vue compiler; an upstream signature change can compile but fail at runtime. Replace with `Pick<ts.LanguageService, 'findRenameLocations' | 'getReferencesAtPosition' | 'getEditsForFileRename'>` for compile-time safety. May fall out naturally during further Volar refactoring.
+- **`rewriteSpecifier` cyclomatic complexity** `[chore]` — the module-level `rewriteSpecifier` in `src/ts-engine/rewrite-importers-of-moved-file.ts` has CC ~6 (bare-match branch, pair loop, two branches per pair, existsSync guard). Correct and tested, but harder to extend safely than it should be. Replace pair-loop dispatch with a lookup map from specifier suffix to rewrite rule, collapsing per-pair branches into one handler; existsSync becomes a predicate on the JS-family rule.
+- **Two domain-layer files bypass the `FileSystem` port** `[chore]` — (1) `src/utils/assert-file.ts` calls `fs.existsSync` directly, forcing unit tests with `InMemoryFileSystem` to pass paths that physically exist on disk. (2) `src/ts-engine/import-rewriter.ts` imports `node:path` directly for `dirname` and `resolve`. The port already exposes `resolve`; adding `dirname` and routing both through `scope.fs` removes the domain layer's last direct platform dependency.
+- **`moveSymbol` doesn't add an import back to the source file** `[chore]` — if a symbol is declared and *also* called in the same file (exported helper invoked by a sibling function in the same module), `moveSymbol` removes the declaration and updates external importers but leaves the source file with an unresolved reference. Fix: after snapshotting importers and removing the declaration, scan the source file's remaining statements for any reference to the moved symbol; if found, add an import from the destination before writing. Surfaces as a `typeErrors` entry on the source file today — workaround is to add the import manually.
+- **MCP `rename` misses some test-file references** `[needs design]` — `rename` is scope-aware for source imports but doesn't reliably catch all test-file references (specifically, inline type annotations like `const compiler: Compiler` outside the project's `tsconfig.include` graph). Observed during a 228-occurrence refactor; a few stragglers needed a follow-up `replace-text` pass. Three options: (a) document the limitation in the tool description (already noted in `docs/commands/rename.md`); (b) expand rename to cover all annotation contexts even outside the include graph; (c) emit a post-rename lint that flags undefined symbol references in modified files. Decide which combination to ship.
+- **`PARSE_ERROR: Could not find source file` on `.ts` inputs (external bug report)** `[needs design]` — external user reports `rename`/`find-references`/`get-definition` fail with this error on `.ts` files. The Vue path was fixed by calling `toVirtualLocation` before the LS calls; the TS path has no known cause yet. Investigate: path resolution when workspace differs from process cwd; ts-morph project loading for cross-workspace usage; tsconfig `include` / path-alias mismatches. Needs a reproducer before design.
 - **Action hook registry for plugin composition** `[needs design]` — Currently VolarCompiler implements every Engine action method by manually composing "call TS action, then do Vue cleanup." A registry pattern where plugins register pre/post hooks per action (e.g. Vue plugin registers a post-moveFile hook that scans `.vue` imports) would make composition declarative. Not needed with one plugin, but the manual approach won't scale to two. Revisit when a second plugin (Svelte, Angular) is on the horizon.
 
 ---
@@ -197,7 +201,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ## Technical context
 
 - **`docs/tech/volar-v3.md`** — how the Vue compiler works around TypeScript's refusal to process `.vue` files. Read this before touching `src/plugins/vue/engine.ts`.
-- **`docs/tech/tech-debt.md`** — known structural issues. Includes the `ensureDaemon` one-shot bug.
 
 ---
 
@@ -212,6 +215,5 @@ Each concern has a dedicated doc. Read those — don't rely on handoff for desig
 | MCP wire protocol, tool interface, `DAEMON_STARTING`, `filesSkipped` | [`docs/internals/mcp-transport.md`](internals/mcp-transport.md) |
 | Daemon lifecycle, auto-spawn, socket protocol | [`docs/internals/daemon.md`](internals/daemon.md) |
 | Vue compiler internals, virtual↔real path translation, `toVirtualLocation` | [`docs/tech/volar-v3.md`](tech/volar-v3.md) |
-| Implementation gotchas (MCP naming, `workspace` convention, Volar quirks, etc.) | [`docs/architecture.md`](architecture.md), [`docs/tech/volar-v3.md`](tech/volar-v3.md), [`docs/tech/tech-debt.md`](tech/tech-debt.md) |
-| Known structural issues and their fixes | [`docs/tech/tech-debt.md`](tech/tech-debt.md) |
+| Implementation gotchas (MCP naming, `workspace` convention, Volar quirks, etc.) | [`docs/architecture.md`](architecture.md), [`docs/tech/volar-v3.md`](tech/volar-v3.md) |
 | Task specifications (ready and archived) | [`docs/specs/`](specs/) |

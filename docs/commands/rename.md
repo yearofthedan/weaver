@@ -69,5 +69,6 @@ weaver rename '{"file": "/repo/src/math.ts", "line": 8, "col": 17, "newName": "a
 - Does not detect naming collisions with existing symbols in scope.
 - `.js`/`.jsx` files are updated only when included in the project graph (`tsconfig allowJs`).
 - Cross-type tracking (a `.ts` rename updating `.vue` references) requires the Vue engine — both files must be in the same Volar project.
+- Test files outside the project graph (`tsconfig.include` doesn't cover them) may miss inline annotations — usage in imports is caught, but local annotations like `const x: OldName` in test files can be skipped. After a wide rename, scan modified files for stragglers or run a follow-up `replace-text` over your test directories.
 
 → Internals: [docs/internals/rename.md](../internals/rename.md)
