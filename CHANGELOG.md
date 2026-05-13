@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.3](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.2...weaver-v0.1.3) (2026-05-13)
+
+
+### Features
+
+* **fixtures:** add seedNamedFixture and seedInlineFixture body helpers ([856c9eb](https://github.com/yearofthedan/weaver/commit/856c9eb962d70e6a6feee4420d55e895ae0e3ffe))
+* **vue:** add self-import when symbol still used in script after move ([912dcc3](https://github.com/yearofthedan/weaver/commit/912dcc329d6857338948cbe23fb0d0f725031d28))
+* **vue:** rewrite .ts and .vue importers after vue moveSymbol ([481aeb1](https://github.com/yearofthedan/weaver/commit/481aeb1c84c49ba77e04c323d9a08aadbac38f72))
+* **vue:** support .vue destination in moveSymbol from .vue source ([fdb2107](https://github.com/yearofthedan/weaver/commit/fdb210794bb9efdf24315b038556f2128991e423))
+* **vue:** support moveSymbol from .vue script setup to .ts dest ([df4d7c1](https://github.com/yearofthedan/weaver/commit/df4d7c178694bf0b65e9c6ec75f23452d07172a7))
+
+
+### Bug Fixes
+
+* make filesModified exhaustive and promote response-trust to invariant ([cf4dcca](https://github.com/yearofthedan/weaver/commit/cf4dcca01a95ec29eceab13d4f6474bfb05c2ea9))
+* **package:** unblock consumer install and drop alpha dist-tag ([1ce0328](https://github.com/yearofthedan/weaver/commit/1ce0328270af643ed2ae3a9ba4cd49910632932e))
+
 ## [0.1.2](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.1...weaver-v0.1.2) (2026-05-11)
 
 
