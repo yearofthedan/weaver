@@ -27,7 +27,6 @@ Do not log per-session "fixed X" history here; keep durable process guidance onl
 | `docs/architecture.md` | Provider/operation architecture — read before touching `src/` |
 | `docs/quality.md` | Testing strategy, mutation scores, hard-won test lessons |
 | `docs/tech/volar-v3.md` | How the Vue provider works — read before touching `providers/volar.ts` |
-| `docs/tech/tech-debt.md` | Known structural issues |
 | `docs/commands/` | Per-command reference (user-facing: when to use, inputs, output, errors, examples) |
 | `docs/internals/` | Per-command implementation, technical decisions, and shared infra (daemon, watcher, MCP transport) |
 | `docs/reference/` | Cross-command conventions: response format, error codes |

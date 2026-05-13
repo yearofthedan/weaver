@@ -100,6 +100,11 @@ export function validateWorkspace(
   return { ok: true, workspace: absWorkspace };
 }
 
+// Accepted TOCTOU: symlinks are resolved at check time, but the actual write
+// happens later — a symlink swapped in between could point outside the
+// workspace. Tolerable because weaver is local, single-user, single-process.
+// Revisit (e.g. O_NOFOLLOW on writes) if it ever runs in a shared or networked
+// environment.
 export function isWithinWorkspace(filePath: string, workspace: string): boolean {
   const abs = path.resolve(filePath);
   const rel = path.relative(workspace, abs);

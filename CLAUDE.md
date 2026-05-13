@@ -44,7 +44,7 @@ Explicitly state the version and instruct the subagent to confirm it from `packa
 **Rule 5: Write tests as you implement, not after.**
 Finish the test for a unit before moving to the next. The test is part of the implementation. Tests must specify behaviour, not just verify it: pin exact output shapes, cover at least one boundary or error path, and ask "what logic inversion would this test still pass through?" before moving on. TypeScript's type system does not kill mutants — only assertions do.
 
-**Rule 6: When fixing items from tech-debt.md, remove them from the doc in the same commit. Only touch entries you actually completed.**
+**Rule 6: When fixing a handoff entry, remove it from `docs/handoff.md` in the same commit. Only touch entries you actually completed.**
 
 **Rule 7: Commit messages must not mention things you're NOT doing.** "Does not use X" is meaningless to someone reading the log without the conversation's context.
 

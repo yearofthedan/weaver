@@ -2,7 +2,7 @@
 
 **Purpose:** Architecture reference for compilers, operations, and dispatch. Read before touching anything in `src/operations/`, `src/ts-engine/`, or `src/daemon/dispatcher.ts`.
 
-See also: `docs/tech/volar-v3.md` (Vue compiler internals), `docs/tech/tech-debt.md` (known issues).
+See also: `docs/tech/volar-v3.md` (Vue compiler internals).
 
 ---
 
