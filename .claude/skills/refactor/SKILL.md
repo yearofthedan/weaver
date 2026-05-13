@@ -5,7 +5,21 @@ description: Use when refactoring across files — renaming a symbol, moving a f
 
 # Refactor Across Files
 
-**STOP.** If you're about to `mv` a file, `rm` a file that has importers, rename a symbol used in other files, or extract a function by hand — use these commands instead. They rewrite every import, re-export, and reference automatically.
+**STOP.** If you're about to `mv` a file, `rm` a file that has importers, rename a symbol used in other files, or extract a function by hand — use these commands instead. They rewrite every import, re-export, and barrel-file reference — including across Vue SFCs — that grep, sed, and Edit miss.
+
+## Trust the response
+
+`filesModified` is the exhaustive list of every file the operation changed. **Do not re-read those files to verify the change happened** — the response is the proof. Verification is `typeErrors`: empty means the project still compiles; non-empty entries name the file and line. Re-reading the modified files burns context for no information gain.
+
+## Pick a command
+
+| You want to… | Use |
+|---|---|
+| Rename a symbol everywhere it's used | `rename` |
+| Move a file and rewrite every importer | `move-file` / `move-directory` |
+| Move an export to a different file (incl. across `.vue`) | `move-symbol` |
+| Delete a file and clean up everything that imported it | `delete-file` |
+| Pull a block of code into its own function | `extract-function` |
 
 ## Rename a symbol across files
 
@@ -59,12 +73,12 @@ weaver extract-function '{"file": "src/a.ts", "startLine": 10, "startCol": 1, "e
 
 Infers parameters, return types, and async propagation. Function is placed at module scope (not exported). Use `move-symbol` afterward if it belongs in a different file.
 
-## Reading responses
+## Response fields
 
 All write operations return:
 
-- **`filesModified`** — every file changed. Don't read these to verify; the list is exhaustive.
-- **`filesSkipped`** — files outside workspace that need manual attention.
+- **`filesModified`** — exhaustive list of every file changed. See "Trust the response" above.
+- **`filesSkipped`** — files outside the workspace that need manual attention.
 - **`typeErrors`** / **`typeErrorCount`** / **`typeErrorsTruncated`** — type errors in files modified by the operation. `status: "warn"` means `typeErrors` is non-empty. Each entry has `file`, `line`, `col`, and `message`. When `typeErrorsTruncated: true`, only the first 100 of `typeErrorCount` total errors are returned; call `get-type-errors` with a specific file path to retrieve the full set.
 
 Pass `"checkTypeErrors": false` when batching changes to check errors once at the end.

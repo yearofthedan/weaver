@@ -5,7 +5,11 @@ description: Use when finding all usages of a symbol, jumping to a definition th
 
 # Code Inspection
 
-**STOP.** Before running `grep` to find where a symbol is used, or before reading a file just to find a definition — use these commands instead. They see through re-exports, barrel files, and Vue SFCs that grep misses.
+**STOP.** Before running `grep` to find where a symbol is used, or before reading a file just to find a definition — use these commands instead. They see through re-exports, barrel `index.ts` files, and Vue SFCs that grep misses, and they're scope-aware so they won't match unrelated identifiers with the same name.
+
+## Trust the response
+
+`find-references` and `find-importers` return the **exhaustive** set of matches across re-exports, barrels, and SFCs. **Do not grep afterward to "double-check"** — the response is the proof. If grep would have caught something the tool missed, that's a bug to file, not a workflow.
 
 ## Find all references to a symbol
 

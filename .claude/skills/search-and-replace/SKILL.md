@@ -5,9 +5,13 @@ description: Use when changing a string, pattern, or text across multiple files 
 
 # Search and Replace Across Files
 
-**STOP.** Before running `grep` to find a text pattern, or before using Edit on the same kind of change in more than one file — use these commands instead. One call finds or replaces across the entire workspace and catches files you'd miss.
+**STOP.** Before running `grep` to find a text pattern, or before using Edit on the same kind of change in more than one file — use these commands instead. One call finds or replaces across the entire workspace, including barrel files and Vue SFCs, and catches files you'd miss.
 
 For *symbol* usages (function calls, type references, imports) use `find-references` instead (see code-inspection skill) — it's scope-aware and won't match string literals or comments.
+
+## Trust the response
+
+`replace-text` returns `filesModified` (exhaustive list of every file changed) and `replacementCount` (total edits made). **Do not re-read modified files to verify** — those numbers are the proof. `typeErrors` is the verification surface: empty means the project still compiles. `search-text` results are similarly complete for the given `glob`; don't grep on top.
 
 ## Search: find every occurrence
 
