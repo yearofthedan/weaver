@@ -1,5 +1,5 @@
 import { describe, expect } from "vitest";
-import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
@@ -10,8 +10,7 @@ function makeScope(dir: string): WorkspaceScope {
 }
 
 describe("moveFile operation - TsMorphEngine", () => {
-  test("throws FILE_NOT_FOUND for non-existent source", async ({ dir, seedNamedFixture }) => {
-    await seedNamedFixture(FIXTURES.simpleTs.name);
+  test("throws FILE_NOT_FOUND for non-existent source", async ({ dir }) => {
     const compiler = new TsMorphEngine();
 
     await expect(

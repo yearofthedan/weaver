@@ -5,11 +5,7 @@ import { TsMorphEngine } from "../ts-engine/engine.js";
 import { getTypeErrorsForFiles } from "./post-write-diagnostics.js";
 
 describe("getTypeErrorsForFiles", () => {
-  test("returns an empty result for an empty file list", async ({
-    dir: _dir,
-    seedNamedFixture,
-  }) => {
-    await seedNamedFixture(FIXTURES.tsErrors.name);
+  test("returns an empty result for an empty file list", async () => {
     const compiler = new TsMorphEngine();
 
     const result = getTypeErrorsForFiles(compiler, [], new NodeFileSystem());

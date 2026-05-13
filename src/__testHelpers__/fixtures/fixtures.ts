@@ -64,7 +64,7 @@ export type FixtureName = (typeof FIXTURES)[keyof typeof FIXTURES]["name"];
 export function copyFixture(name: FixtureName): string {
   const src = path.join(__dirname, name);
   const dest = fs.mkdtempSync(path.join(os.tmpdir(), `ns-${name}-`));
-  copyDirSync(src, dest);
+  fs.cpSync(src, dest, { recursive: true });
   return dest;
 }
 
@@ -97,7 +97,7 @@ export const fixtureTest = baseTest.extend<{
   },
   seedNamedFixture: async ({ dir }, use) => {
     await use(async (name) => {
-      copyDirSync(path.join(__dirname, name), dir);
+      fs.cpSync(path.join(__dirname, name), dir, { recursive: true });
     });
   },
   seedInlineFixture: async ({ dir }, use) => {
@@ -111,11 +111,3 @@ export const fixtureTest = baseTest.extend<{
   },
 });
 
-function copyDirSync(src: string, dest: string): void {
-  fs.mkdirSync(dest, { recursive: true });
-  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-    const s = path.join(src, entry.name);
-    const d = path.join(dest, entry.name);
-    entry.isDirectory() ? copyDirSync(s, d) : fs.copyFileSync(s, d);
-  }
-}

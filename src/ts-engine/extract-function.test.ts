@@ -1,7 +1,6 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect } from "vitest";
-import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { VolarEngine } from "../plugins/vue/engine.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
@@ -30,6 +29,8 @@ describe("tsExtractFunction", () => {
     });
     const filePath = path.join(dir, "src/target.ts");
 
+    // Select from line 2 col 3 ("const doubled...") through line 4 col 19
+    // (end of "console.log(msg);", inclusive of semicolon).
     const result = await tsExtractFunction(
       new TsMorphEngine(),
       filePath,
@@ -44,7 +45,7 @@ describe("tsExtractFunction", () => {
     expect(result.filesModified).toEqual([filePath]);
     expect(result.filesSkipped).toEqual([]);
     expect(result.functionName).toBe("logDoubled");
-    const written = fs.readFileSync(filePath, "utf8");
+    const written = readFile(dir, "src/target.ts");
     expect(written).toContain("function logDoubled");
     expect(written).toContain("logDoubled(");
   });
@@ -63,6 +64,7 @@ describe("tsExtractFunction", () => {
     });
     const filePath = path.join(dir, "src/target.ts");
 
+    // Select line 2 col 3 to col 22 — the body of `const result = x + 1;`.
     const result = await tsExtractFunction(
       new TsMorphEngine(),
       filePath,
@@ -93,6 +95,8 @@ describe("tsExtractFunction", () => {
     });
     const filePath = path.join(dir, "src/target.ts");
 
+    // Select the `x + y` expression: line 2, col 15 ('x') through col 19 (after 'y').
+    // Two outer-scope references → extracted fn should have ≥ 2 params.
     const result = await tsExtractFunction(
       new TsMorphEngine(),
       filePath,
@@ -105,7 +109,7 @@ describe("tsExtractFunction", () => {
     );
 
     expect(result.parameterCount).toBeGreaterThanOrEqual(2);
-    const written = fs.readFileSync(filePath, "utf8");
+    const written = readFile(dir, "src/target.ts");
     expect(written).toContain("function add(");
   });
 
@@ -123,6 +127,7 @@ describe("tsExtractFunction", () => {
     });
     const filePath = path.join(dir, "src/target.ts");
 
+    // Select just "42" (line 2 cols 15–16) — a literal, no outer references → zero params.
     const result = await tsExtractFunction(
       new TsMorphEngine(),
       filePath,
@@ -151,6 +156,7 @@ describe("tsExtractFunction", () => {
     });
     const filePath = path.join(dir, "src/target.ts");
 
+    // Select `a * b` on line 2, cols 19 ('a') through 23 (after 'b').
     const result = await tsExtractFunction(
       new TsMorphEngine(),
       filePath,
@@ -163,7 +169,7 @@ describe("tsExtractFunction", () => {
     );
 
     expect(result.functionName).toBe("multiply");
-    const written = fs.readFileSync(filePath, "utf8");
+    const written = readFile(dir, "src/target.ts");
     expect(written).toContain("function multiply(");
   });
 
@@ -173,6 +179,7 @@ describe("tsExtractFunction", () => {
   }) => {
     await seedNamedFixture(FIXTURES.simpleTs.name);
     const filePath = path.join(dir, "src/utils.ts");
+    // Empty range at line 1 col 1 — nothing to extract.
     await expect(
       tsExtractFunction(new TsMorphEngine(), filePath, 1, 1, 1, 1, "myFn", makeScope(dir)),
     ).rejects.toMatchObject({ code: "NOT_SUPPORTED" });
@@ -199,18 +206,22 @@ console.log(doubled);
     const engine = new VolarEngine(new TsMorphEngine());
     const scope = makeScope(dir);
 
+    // Extract lines 3–4 of the script setup block:
+    // "const doubled = x * 2;\nconsole.log(doubled);".
     const result = await engine.extractFunction(filePath, 3, 1, 4, 21, "processValue", scope);
 
     expect(result.filesModified).toEqual([filePath]);
     expect(result.filesSkipped).toEqual([]);
     expect(result.functionName).toBe("processValue");
 
-    const written = fs.readFileSync(filePath, "utf8");
+    const written = readFile(dir, "Comp.vue");
     expect(written).toContain("function processValue");
     expect(written).toContain("processValue(");
+    // Each SFC block must appear exactly once — a faulty splice would duplicate them.
     expect((written.match(/<script setup/g) ?? []).length).toBe(1);
     expect((written.match(/<template>/g) ?? []).length).toBe(1);
     expect(written).toContain("<div>hello</div>");
+    // Script block must come before template block.
     expect(written.indexOf("</script>")).toBeLessThan(written.indexOf("<template>"));
   });
 
@@ -235,10 +246,13 @@ init();
     const engine = new VolarEngine(new TsMorphEngine());
     const scope = makeScope(dir);
 
+    // Extract lines 5–6 (inside init): "const sum = a + b;\nconsole.log(sum);"
+    // Variables must be local to a function — module-scope variables would be
+    // directly accessible and would not become parameters of the extracted fn.
     const result = await engine.extractFunction(filePath, 5, 3, 6, 19, "compute", scope);
 
     expect(result.parameterCount).toBeGreaterThanOrEqual(1);
-    const written = fs.readFileSync(filePath, "utf8");
+    const written = readFile(dir, "Comp.vue");
     expect(written).toContain("function compute(");
   });
 
@@ -257,6 +271,8 @@ const x = 1;
     const engine = new VolarEngine(new TsMorphEngine());
     const scope = makeScope(dir);
 
+    // Line 1 col 1 points to the opening <script setup> tag, before the content
+    // starts. After subtracting contentOffset, the resulting offset is negative.
     await expect(engine.extractFunction(filePath, 1, 1, 1, 5, "fn", scope)).rejects.toMatchObject({
       code: "NOT_SUPPORTED",
       message: expect.stringContaining("outside the <script setup> block"),
@@ -278,6 +294,8 @@ const x = 1;
     const engine = new VolarEngine(new TsMorphEngine());
     const scope = makeScope(dir);
 
+    // start (1,1) sits in the opening tag (negative offset); end (2,5) is inside
+    // content (positive offset). Either offset being negative must reject.
     await expect(engine.extractFunction(filePath, 1, 1, 2, 5, "fn", scope)).rejects.toMatchObject({
       code: "NOT_SUPPORTED",
       message: expect.stringContaining("outside the <script setup> block"),
@@ -299,6 +317,8 @@ const x = 1;
     const engine = new VolarEngine(new TsMorphEngine());
     const scope = makeScope(dir);
 
+    // start (2,1) is inside content (positive offset); end (1,1) sits in the
+    // opening tag (negative offset). Either offset being negative must reject.
     await expect(engine.extractFunction(filePath, 2, 1, 1, 1, "fn", scope)).rejects.toMatchObject({
       code: "NOT_SUPPORTED",
       message: expect.stringContaining("outside the <script setup> block"),
