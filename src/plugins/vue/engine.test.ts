@@ -13,8 +13,6 @@ function makeScope(root: string): WorkspaceScope {
 }
 
 describe("VolarEngine", () => {
-  test.override({ fixtureName: FIXTURES.vueProject.name });
-
   it("implements Engine interface shape", () => {
     const p = new VolarEngine(new TsMorphEngine());
     expect(typeof p.resolveOffset).toBe("function");
@@ -28,7 +26,11 @@ describe("VolarEngine", () => {
     expect(typeof p.deleteFile).toBe("function");
   });
 
-  test("resolveOffset converts 1-based line/col to 0-based offset", ({ dir }) => {
+  test("resolveOffset converts 1-based line/col to 0-based offset", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     // vue-project: src/composables/useCounter.ts line 1 → "export function useCounter..."
     const file = path.join(dir, "src/composables/useCounter.ts");
@@ -36,7 +38,11 @@ describe("VolarEngine", () => {
     expect(p.resolveOffset(file, 1, 17)).toBe(16);
   });
 
-  test("getRenameLocations returns spans for a TS symbol in a Vue project", async ({ dir }) => {
+  test("getRenameLocations returns spans for a TS symbol in a Vue project", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     // useCounter is declared at line 1, col 17 of useCounter.ts
     const file = path.join(dir, "src/composables/useCounter.ts");
@@ -52,7 +58,9 @@ describe("VolarEngine", () => {
 
   test("getRenameLocations translates virtual .vue.ts paths to real .vue paths in results", async ({
     dir,
+    seedNamedFixture,
   }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     // useCounter is used in App.vue; rename locations from useCounter.ts must include
     // the real App.vue path (not the .vue.ts virtual path used internally by Volar)
@@ -65,14 +73,22 @@ describe("VolarEngine", () => {
     expect(hasVueLoc).toBe(true);
   });
 
-  test("readFile reads from disk when no service has been cached yet", ({ dir }) => {
+  test("readFile reads from disk when no service has been cached yet", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     const file = path.join(dir, "src/composables/useCounter.ts");
     const content = p.readFile(file);
     expect(content).toContain("useCounter");
   });
 
-  test("notifyFileWritten: readFile returns updated content from the cache", async ({ dir }) => {
+  test("notifyFileWritten: readFile returns updated content from the cache", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     const file = path.join(dir, "src/composables/useCounter.ts");
     // Load service by calling getRenameLocations (builds and caches the service).
@@ -85,14 +101,19 @@ describe("VolarEngine", () => {
     expect(p.readFile(file)).toBe(updatedContent);
   });
 
-  test("notifyFileWritten does not throw when service not yet cached", ({ dir }) => {
+  test("notifyFileWritten does not throw when service not yet cached", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     const file = path.join(dir, "src/composables/useCounter.ts");
     // No service loaded — must be a silent no-op.
     expect(() => p.notifyFileWritten(file, "export const x = 1;\n")).not.toThrow();
   });
 
-  test("moveFile moves the file and records it as modified", async ({ dir }) => {
+  test("moveFile moves the file and records it as modified", async ({ dir, seedNamedFixture }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     const oldPath = path.join(dir, "src/composables/useCounter.ts");
     const newPath = path.join(dir, "src/composables/useTimer.ts");
@@ -104,7 +125,11 @@ describe("VolarEngine", () => {
     expect(scope.modified).toContain(newPath);
   });
 
-  test("moveSymbol wires tsEngine.moveSymbol and Vue SFC scanning together", async ({ dir }) => {
+  test("moveSymbol wires tsEngine.moveSymbol and Vue SFC scanning together", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     // Full integration: both TS AST surgery and the Vue import scan must fire.
     // App.vue imports useCounter — after moveSymbol, its import must be rewritten
     // to useTimer, proving both halves of VolarEngine.moveSymbol ran.
@@ -122,7 +147,11 @@ describe("VolarEngine", () => {
     expect(content).not.toContain('from "./composables/useCounter"');
   });
 
-  test("moveSymbol from a .vue source routes through the vue branch", async ({ dir }) => {
+  test("moveSymbol from a .vue source routes through the vue branch", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     // The vue-project fixture's App.vue uses `useCounter` from a .ts file. Replace
     // App.vue with one that exports its own symbol so we exercise the vue-source path.
     const appVue = path.join(dir, "src/App.vue");
@@ -149,9 +178,11 @@ describe("VolarEngine", () => {
     expect(fs.readFileSync(destFile, "utf8")).toContain("export function shoutLabel");
   });
 
-  test("resolveOffset throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", ({
+  test("resolveOffset throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", async ({
     dir,
+    seedNamedFixture,
   }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     const file = path.join(dir, "src/App.vue");
     expect(() => p.resolveOffset(file, 999, 1)).toThrow();
@@ -164,7 +195,9 @@ describe("VolarEngine", () => {
 
   test("getReferencesAtPosition returns translated spans for a symbol in a Vue project", async ({
     dir,
+    seedNamedFixture,
   }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     const file = path.join(dir, "src/composables/useCounter.ts");
     const offset = p.resolveOffset(file, 1, 17); // useCounter declaration
@@ -181,7 +214,9 @@ describe("VolarEngine", () => {
 
   test("getDefinitionAtPosition in a .vue file returns a real path (exercises toVirtualLocation)", async ({
     dir,
+    seedNamedFixture,
   }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     const file = path.join(dir, "src/App.vue");
     const content = fs.readFileSync(file, "utf8");
@@ -193,7 +228,11 @@ describe("VolarEngine", () => {
     expect(result?.[0].fileName).toContain("useCounter.ts");
   }, 30_000);
 
-  test("getReferencesAtPosition returns null for a blank line (no symbol)", async ({ dir }) => {
+  test("getReferencesAtPosition returns null for a blank line (no symbol)", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     const file = path.join(dir, "src/main.ts");
     const content = fs.readFileSync(file, "utf8");
@@ -204,7 +243,9 @@ describe("VolarEngine", () => {
 
   test("getEditsForFileRename returns only real-path edits with non-empty textChanges", async ({
     dir,
+    seedNamedFixture,
   }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     const oldPath = path.join(dir, "src/composables/useCounter.ts");
     const newPath = path.join(dir, "src/composables/useTimer.ts");
@@ -217,7 +258,11 @@ describe("VolarEngine", () => {
     }
   }, 30_000);
 
-  test("getDefinitionAtPosition returns null for a whitespace position", async ({ dir }) => {
+  test("getDefinitionAtPosition returns null for a whitespace position", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     const file = path.join(dir, "src/composables/useCounter.ts");
     const content = fs.readFileSync(file, "utf8");
@@ -255,7 +300,9 @@ describe("VolarEngine", () => {
 
   test("getRenameLocations returns null for a blank-line position in a .ts file (exercises rawLocs.length === 0 guard)", async ({
     dir,
+    seedNamedFixture,
   }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     const file = path.join(dir, "src/main.ts");
     const content = fs.readFileSync(file, "utf8");
@@ -266,7 +313,9 @@ describe("VolarEngine", () => {
 
   test("getRenameLocations on a .vue file returns locations including the .vue path", async ({
     dir,
+    seedNamedFixture,
   }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     const file = path.join(dir, "src/App.vue");
     const content = fs.readFileSync(file, "utf8");
@@ -281,7 +330,9 @@ describe("VolarEngine", () => {
 
   test("getReferencesAtPosition on a .vue file returns refs including the .vue path", async ({
     dir,
+    seedNamedFixture,
   }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     const file = path.join(dir, "src/App.vue");
     const content = fs.readFileSync(file, "utf8");
@@ -337,7 +388,11 @@ describe("VolarEngine", () => {
   }, 30_000);
 
   describe("workspace expansion — files outside tsconfig.include", () => {
-    test("getRenameLocations includes test file outside tsconfig.include", async ({ dir }) => {
+    test("getRenameLocations includes test file outside tsconfig.include", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.vueProject.name);
       const p = new VolarEngine(new TsMorphEngine(dir), dir);
       const file = path.join(dir, "src/composables/useCounter.ts");
       const offset = p.resolveOffset(file, 1, 17);
@@ -351,7 +406,9 @@ describe("VolarEngine", () => {
 
     test("rename in a Vue project updates a test file outside tsconfig.include", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.vueProject.name);
       const p = new VolarEngine(new TsMorphEngine(dir), dir);
       const file = path.join(dir, "src/composables/useCounter.ts");
 
@@ -368,7 +425,9 @@ describe("VolarEngine", () => {
 
     test("findReferences in a Vue project returns a location in a test file outside tsconfig.include", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.vueProject.name);
       const p = new VolarEngine(new TsMorphEngine(dir), dir);
       const file = path.join(dir, "src/composables/useCounter.ts");
       const offset = p.resolveOffset(file, 1, 17);

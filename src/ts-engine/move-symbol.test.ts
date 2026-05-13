@@ -46,9 +46,11 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("symbol move to new file", () => {
-    test.override({ fixtureName: FIXTURES.simpleTs.name });
-
-    test("moves a named export to a new file and saves both files", async ({ dir }) => {
+    test("moves a named export to a new file and saves both files", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const tsCompiler = new TsMorphEngine();
       const scope = makeScope(dir);
       const srcPath = path.join(dir, "src/utils.ts");
@@ -62,7 +64,11 @@ describe("tsMoveSymbol", () => {
       expect(scope.modified).toContain(dstPath);
     });
 
-    test("updates the import in the importing file with .js extension", async ({ dir }) => {
+    test("updates the import in the importing file with .js extension", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       await tsMoveSymbol(
         new TsMorphEngine(),
         path.join(dir, "src/utils.ts"),
@@ -78,9 +84,11 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("symbol move to existing file", () => {
-    test.override({ fixtureName: FIXTURES.simpleTs.name });
-
-    test("moves a function to an existing file, preserving existing content", async ({ dir }) => {
+    test("moves a function to an existing file, preserving existing content", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
         'export function helper(): string { return "hi"; }\n',
@@ -97,7 +105,11 @@ describe("tsMoveSymbol", () => {
       expect(destContent).toContain("greetUser");
     });
 
-    test("appends to a non-empty destination file with a blank-line separator", async ({ dir }) => {
+    test("appends to a non-empty destination file with a blank-line separator", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
         'export function helper(): string { return "hi"; }\n',
@@ -161,9 +173,11 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("directory creation", () => {
-    test.override({ fixtureName: FIXTURES.simpleTs.name });
-
-    test("creates the destination directory when it does not exist", async ({ dir }) => {
+    test("creates the destination directory when it does not exist", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const dstPath = path.join(dir, "src/nested/deep/helpers.ts");
 
       await tsMoveSymbol(
@@ -180,11 +194,11 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("const variable move", () => {
-    test.override({ fixtureName: FIXTURES.simpleTs.name });
-
     test("moves an exported const variable (VariableDeclaration to VariableStatement traversal)", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const scope = makeScope(dir);
       fs.appendFileSync(path.join(dir, "src/utils.ts"), "\nexport const VERSION = '1.0.0';\n");
       fs.writeFileSync(
@@ -206,11 +220,11 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("dest file self-import removal", () => {
-    test.override({ fixtureName: FIXTURES.simpleTs.name });
-
     test("does not add a self-import in dest file when dest already had a self-referencing import from source", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const scope = makeScope(dir);
       fs.writeFileSync(
         path.join(dir, "src/helpers.ts"),
@@ -230,9 +244,8 @@ describe("tsMoveSymbol", () => {
   });
 
   describe("does not add unrelated saved files to modified", () => {
-    test.override({ fixtureName: FIXTURES.simpleTs.name });
-
-    test("only records files actually changed by the move", async ({ dir }) => {
+    test("only records files actually changed by the move", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const scope = makeScope(dir);
       const extraPath = path.join(dir, "src/unrelated.ts");
       fs.writeFileSync(extraPath, "export const UNRELATED = 42;\n");

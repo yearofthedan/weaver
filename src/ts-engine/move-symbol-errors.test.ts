@@ -12,10 +12,9 @@ function makeScope(root: string): WorkspaceScope {
 }
 
 describe("tsMoveSymbol — error cases and conflict detection", () => {
-  test.override({ fixtureName: FIXTURES.simpleTs.name });
-
   describe("symbol not found", () => {
-    test("throws SYMBOL_NOT_FOUND for an unknown symbol", async ({ dir }) => {
+    test("throws SYMBOL_NOT_FOUND for an unknown symbol", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const tsCompiler = new TsMorphEngine();
       const scope = makeScope(dir);
       await expect(
@@ -29,7 +28,11 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
       ).rejects.toMatchObject({ code: "SYMBOL_NOT_FOUND" });
     });
 
-    test("throws NOT_SUPPORTED for a symbol re-exported via 'export { }'", async ({ dir }) => {
+    test("throws NOT_SUPPORTED for a symbol re-exported via 'export { }'", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const tsCompiler = new TsMorphEngine();
       const scope = makeScope(dir);
       fs.writeFileSync(
@@ -51,7 +54,9 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
   describe("SYMBOL_EXISTS — conflict detection", () => {
     test("throws SYMBOL_EXISTS when dest already exports the symbol and force is not set", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const tsCompiler = new TsMorphEngine();
       const scope = makeScope(dir);
       fs.writeFileSync(path.join(dir, "src/helpers.ts"), "export function greetUser(): void {}\n");
@@ -66,7 +71,11 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
       ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
     });
 
-    test("throws SYMBOL_EXISTS with a message naming the symbol and dest file", async ({ dir }) => {
+    test("throws SYMBOL_EXISTS with a message naming the symbol and dest file", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const tsCompiler = new TsMorphEngine();
       const scope = makeScope(dir);
       fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
@@ -133,7 +142,11 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
       }
     });
 
-    test("does not rewrite importers when SYMBOL_EXISTS is thrown", async ({ dir }) => {
+    test("does not rewrite importers when SYMBOL_EXISTS is thrown", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const tsCompiler = new TsMorphEngine();
       const scope = makeScope(dir);
       fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
@@ -154,7 +167,9 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
 
     test("throws SYMBOL_EXISTS when dest has a non-exported same-name declaration", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const tsCompiler = new TsMorphEngine();
       const scope = makeScope(dir);
       fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
@@ -174,7 +189,9 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
   describe("force flag — source replaces dest declaration", () => {
     test("source declaration replaces dest declaration when force is true and conflict exists", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
       fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
       const tsCompiler = new TsMorphEngine();
@@ -203,7 +220,9 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
 
     test("dest file is included in modified when force replaces the existing declaration", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
       fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
       const tsCompiler = new TsMorphEngine();
@@ -220,7 +239,11 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
       expect(fs.readFileSync(path.join(dir, "src/b.ts"), "utf8")).toContain("FOO = 1");
     });
 
-    test("force false with conflict throws SYMBOL_EXISTS — same as omitted", async ({ dir }) => {
+    test("force false with conflict throws SYMBOL_EXISTS — same as omitted", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
       fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
       const tsCompiler = new TsMorphEngine();
@@ -239,7 +262,9 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
 
     test("source const replaces a function declaration of the same name in dest when force is true", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
       fs.writeFileSync(path.join(dir, "src/b.ts"), "export function FOO(): void {}\n");
       await tsMoveSymbol(

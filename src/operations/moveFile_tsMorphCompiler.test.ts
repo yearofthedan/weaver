@@ -10,9 +10,8 @@ function makeScope(dir: string): WorkspaceScope {
 }
 
 describe("moveFile operation - TsMorphEngine", () => {
-  test.override({ fixtureName: FIXTURES.simpleTs.name });
-
-  test("throws FILE_NOT_FOUND for non-existent source", async ({ dir }) => {
+  test("throws FILE_NOT_FOUND for non-existent source", async ({ dir, seedNamedFixture }) => {
+    await seedNamedFixture(FIXTURES.simpleTs.name);
     const compiler = new TsMorphEngine();
 
     await expect(

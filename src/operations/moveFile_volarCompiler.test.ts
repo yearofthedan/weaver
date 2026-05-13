@@ -11,9 +11,8 @@ function makeScope(dir: string): WorkspaceScope {
 }
 
 describe("moveFile action - VolarEngine Integration", () => {
-  test.override({ fixtureName: FIXTURES.vueProject.name });
-
-  test("moves a composable file and updates .vue imports", async ({ dir }) => {
+  test("moves a composable file and updates .vue imports", async ({ dir, seedNamedFixture }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const compiler = new VolarEngine(new TsMorphEngine());
 
     const oldPath = `${dir}/src/composables/useCounter.ts`;
@@ -34,7 +33,11 @@ describe("moveFile action - VolarEngine Integration", () => {
     expect(result.filesModified).toContain(`${dir}/src/App.vue`);
   });
 
-  test("updates imports on move-back with the same compiler instance", async ({ dir }) => {
+  test("updates imports on move-back with the same compiler instance", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const compiler = new VolarEngine(new TsMorphEngine());
 
     await moveFile(
@@ -61,7 +64,9 @@ describe("moveFile action - VolarEngine Integration", () => {
 
   test("rewrites own relative imports when moving a file to a shallower directory depth", async ({
     dir,
+    seedNamedFixture,
   }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const compiler = new VolarEngine(new TsMorphEngine());
 
     const oldPath = `${dir}/tests/unit/counter.test.ts`;
@@ -82,7 +87,9 @@ describe("moveFile action - VolarEngine Integration", () => {
 
   test("rewrites imports in out-of-project .ts files that import the moved file", async ({
     dir,
+    seedNamedFixture,
   }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const compiler = new VolarEngine(new TsMorphEngine());
 
     const oldPath = `${dir}/src/composables/useCounter.ts`;
@@ -96,7 +103,8 @@ describe("moveFile action - VolarEngine Integration", () => {
     expect(testContent).not.toContain("composables/useCounter");
   });
 
-  test("throws FILE_NOT_FOUND for non-existent source", async ({ dir }) => {
+  test("throws FILE_NOT_FOUND for non-existent source", async ({ dir, seedNamedFixture }) => {
+    await seedNamedFixture(FIXTURES.vueProject.name);
     const compiler = new VolarEngine(new TsMorphEngine());
 
     await expect(

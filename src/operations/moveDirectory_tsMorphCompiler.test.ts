@@ -14,9 +14,11 @@ function makeScope(dir: string): WorkspaceScope {
 
 describe("moveDirectory", () => {
   describe("basic directory move", () => {
-    test.override({ fixtureName: FIXTURES.moveDirTs.name });
-
-    test("moves directory files and rewrites external imports", async ({ dir }) => {
+    test("moves directory files and rewrites external imports", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const compiler = new TsMorphEngine();
 
       const result = await moveDirectory(
@@ -51,7 +53,8 @@ describe("moveDirectory", () => {
       expect(result.newPath).toBe(`${dir}/src/lib/helpers`);
     });
 
-    test("includes moved files in filesModified", async ({ dir }) => {
+    test("includes moved files in filesModified", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const compiler = new TsMorphEngine();
 
       const result = await moveDirectory(
@@ -65,7 +68,11 @@ describe("moveDirectory", () => {
       expect(result.filesModified).toContain(`${dir}/src/lib/helpers/b.ts`);
     });
 
-    test("removes the old directory tree after a successful move", async ({ dir }) => {
+    test("removes the old directory tree after a successful move", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const compiler = new TsMorphEngine();
       const oldPath = `${dir}/src/utils`;
 
@@ -76,9 +83,11 @@ describe("moveDirectory", () => {
   });
 
   describe("non-source files", () => {
-    test.override({ fixtureName: FIXTURES.moveDirTs.name });
-
-    test("moves non-source files (json, css) via plain filesystem copy", async ({ dir }) => {
+    test("moves non-source files (json, css) via plain filesystem copy", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const compiler = new TsMorphEngine();
 
       fs.writeFileSync(path.join(dir, "src/utils/config.json"), '{"key": "value"}');
@@ -104,7 +113,9 @@ describe("moveDirectory", () => {
 
     test("creates destination directory when moving non-source files into a new directory", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const compiler = new TsMorphEngine();
 
       const assetsDir = path.join(dir, "assets");
@@ -127,11 +138,11 @@ describe("moveDirectory", () => {
   });
 
   describe("nested subdirectories", () => {
-    test.override({ fixtureName: FIXTURES.moveDirTs.name });
-
     test("excludes SKIP_DIRS (node_modules) contents from the filesMoved result", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const compiler = new TsMorphEngine();
 
       const fakeNodeModules = path.join(dir, "src/utils/node_modules");
@@ -154,11 +165,11 @@ describe("moveDirectory", () => {
   });
 
   describe("edge cases", () => {
-    test.override({ fixtureName: FIXTURES.moveDirTs.name });
-
     test("throws MOVE_INTO_SELF when oldPath and newPath are the same directory", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const compiler = new TsMorphEngine();
 
       await expect(
@@ -166,7 +177,8 @@ describe("moveDirectory", () => {
       ).rejects.toMatchObject({ code: "MOVE_INTO_SELF" });
     });
 
-    test("skips symlinks in directory enumeration", async ({ dir }) => {
+    test("skips symlinks in directory enumeration", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const compiler = new TsMorphEngine();
 
       const symlinkPath = path.join(dir, "src/utils/link-to-app");
@@ -187,11 +199,11 @@ describe("moveDirectory", () => {
   });
 
   describe("Vue import specifiers", () => {
-    test.override({ fixtureName: FIXTURES.moveDirVue.name });
-
     test("physically moves .vue files to the destination when the directory moves", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.moveDirVue.name);
       const compiler = new TsMorphEngine();
 
       await moveDirectory(
@@ -209,7 +221,9 @@ describe("moveDirectory", () => {
 
     test("preserves .vue extension in moved file content — no .vue.ts artifact introduced", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.moveDirVue.name);
       const compiler = new TsMorphEngine();
 
       await moveDirectory(
@@ -228,7 +242,9 @@ describe("moveDirectory", () => {
 
     test("preserves .vue extension in moved file content for moduleResolution bundler", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.moveDirVue.name);
       // The fixture uses moduleResolution: bundler — verify no extension stripping occurs
       const compiler = new TsMorphEngine();
 
@@ -245,7 +261,11 @@ describe("moveDirectory", () => {
       expect(buttonContent).toContain("<template>");
     });
 
-    test("preserves intra-directory .ts imports within the moved directory", async ({ dir }) => {
+    test("preserves intra-directory .ts imports within the moved directory", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirVue.name);
       const compiler = new TsMorphEngine();
 
       await moveDirectory(
@@ -261,7 +281,8 @@ describe("moveDirectory", () => {
       expect(buttonContent).not.toContain("components");
     });
 
-    test("includes moved .vue files in filesMoved result", async ({ dir }) => {
+    test("includes moved .vue files in filesMoved result", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.moveDirVue.name);
       const compiler = new TsMorphEngine();
 
       const result = await moveDirectory(
@@ -275,7 +296,11 @@ describe("moveDirectory", () => {
       expect(result.filesMoved).toContain(`${dir}/src/ui/widgets/Button.vue`);
     });
 
-    test("does not introduce .vue.ts artifacts in any file after move", async ({ dir }) => {
+    test("does not introduce .vue.ts artifacts in any file after move", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirVue.name);
       // ts-morph uses virtual .vue.ts stubs internally — these must never leak to disk
       const compiler = new TsMorphEngine();
 
@@ -293,9 +318,10 @@ describe("moveDirectory", () => {
   });
 
   describe("empty directory", () => {
-    test.override({ fixtureName: FIXTURES.moveDirTs.name });
-
-    test("returns empty arrays and no error for a directory with no files", async () => {
+    test("returns empty arrays and no error for a directory with no files", async ({
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const tmpRoot = fs.mkdtempSync(path.join(fs.realpathSync("/tmp"), "move-dir-empty-"));
       try {
         const emptyDir = path.join(tmpRoot, "source");
@@ -318,9 +344,8 @@ describe("moveDirectory", () => {
   });
 
   describe("error cases", () => {
-    test.override({ fixtureName: FIXTURES.moveDirTs.name });
-
-    test("throws FILE_NOT_FOUND when source does not exist", async ({ dir }) => {
+    test("throws FILE_NOT_FOUND when source does not exist", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       await expect(
         moveDirectory(
           new TsMorphEngine(),
@@ -331,19 +356,28 @@ describe("moveDirectory", () => {
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
-    test("throws NOT_A_DIRECTORY when source is a file", async ({ dir }) => {
+    test("throws NOT_A_DIRECTORY when source is a file", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       await expect(
         moveDirectory(new TsMorphEngine(), `${dir}/src/app.ts`, `${dir}/src/dest`, makeScope(dir)),
       ).rejects.toMatchObject({ code: "NOT_A_DIRECTORY" });
     });
 
-    test("throws DESTINATION_EXISTS when destination is a non-empty directory", async ({ dir }) => {
+    test("throws DESTINATION_EXISTS when destination is a non-empty directory", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       await expect(
         moveDirectory(new TsMorphEngine(), `${dir}/src/utils`, `${dir}/src`, makeScope(dir)),
       ).rejects.toMatchObject({ code: "DESTINATION_EXISTS" });
     });
 
-    test("throws MOVE_INTO_SELF when newPath is inside oldPath", async ({ dir }) => {
+    test("throws MOVE_INTO_SELF when newPath is inside oldPath", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       await expect(
         moveDirectory(
           new TsMorphEngine(),
@@ -356,7 +390,9 @@ describe("moveDirectory", () => {
 
     test("leaves all files at original paths when compiler.moveDirectory fails", async ({
       dir: _dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const tmpRoot = fs.mkdtempSync(path.join(fs.realpathSync("/tmp"), "move-dir-atomic-"));
       try {
         const srcDir = path.join(tmpRoot, "src");
