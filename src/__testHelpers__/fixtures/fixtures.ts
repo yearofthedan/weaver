@@ -86,19 +86,12 @@ export function copyFixture(name: FixtureName): string {
  * The temp dir is removed after the test regardless of which helpers ran.
  */
 export const fixtureTest = baseTest.extend<{
-  fixtureName: FixtureName | undefined;
   dir: string;
   seedNamedFixture: (name: FixtureName) => Promise<void>;
   seedInlineFixture: (files: Record<string, string>) => Promise<void>;
 }>({
-  fixtureName: async ({}, use) => {
-    await use(undefined);
-  },
-  dir: async ({ fixtureName }, use) => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `ns-${fixtureName ?? "tmp"}-`));
-    if (fixtureName) {
-      copyDirSync(path.join(__dirname, fixtureName), dir);
-    }
+  dir: async ({}, use) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-"));
     await use(dir);
     fs.rmSync(dir, { recursive: true, force: true });
   },
