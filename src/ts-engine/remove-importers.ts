@@ -67,9 +67,13 @@ async function removeInProjectImporters(
     scope.recordModified(filePath);
   }
 
+  // Catch files ts-morph dirtied as a side effect (e.g. re-export adjustments
+  // in barrel files) so filesModified stays exhaustive — callers rely on it.
   for (const sf of project.getSourceFiles()) {
-    if (!sf.isSaved() && scope.contains(sf.getFilePath() as string)) {
+    const filePath = sf.getFilePath() as string;
+    if (!sf.isSaved() && scope.contains(filePath)) {
       await sf.save();
+      scope.recordModified(filePath);
     }
   }
 
