@@ -2,8 +2,6 @@
 
 A refactoring bridge between AI coding agents and the compiler APIs that understand your codebase.
 
-> **Experimental.** Active development; the alpha tag is intentional. Core operations are stable and tested, but features will evolve as we explore better agentic patterns.
-
 AI agents can read and write files, but struggle with cross-file structural changes. Renaming a shared symbol or moving a file means loading every affected file into context, manually patching import paths, and hoping nothing is missed. **Weaver** removes that burden. The agent issues an intent, weaver handles the cascade using deterministic compiler-driven resolution, and the agent gets back a semantic summary without ever seeing the raw diffs.
 
 **[Why weaver?](docs/why.md)** — the thesis: speed, determinism, context efficiency.
@@ -11,9 +9,9 @@ AI agents can read and write files, but struggle with cross-file structural chan
 ## Install
 
 ```bash
-pnpm add -D @yearofthedan/weaver@alpha
+pnpm add -D @yearofthedan/weaver
 # or
-npm install -D @yearofthedan/weaver@alpha
+npm install -D @yearofthedan/weaver
 ```
 
 Requires Node.js 18+. Supports `.ts`, `.tsx`, `.js`, `.jsx`, and `.vue` (Vue support requires Volar; auto-detected).
