@@ -93,7 +93,7 @@ export const fixtureTest = baseTest.extend<{
   dir: async ({}, use) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-"));
     await use(dir);
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true });
   },
   seedNamedFixture: async ({ dir }, use) => {
     await use(async (name) => {
