@@ -12,9 +12,8 @@ function makeScope(dir: string): WorkspaceScope {
 }
 
 describe("tsAfterFileRename", () => {
-  test.override({ fixtureName: FIXTURES.simpleTs.name });
-
-  test("does not touch files outside the workspace boundary", async ({ dir }) => {
+  test("does not touch files outside the workspace boundary", async ({ dir, seedNamedFixture }) => {
+    await seedNamedFixture(FIXTURES.simpleTs.name);
     const engine = new TsMorphEngine();
     const narrowDir = path.join(dir, "src", "nested");
     fs.mkdirSync(narrowDir, { recursive: true });
@@ -30,7 +29,11 @@ describe("tsAfterFileRename", () => {
     expect(fs.readFileSync(outsideFile, "utf8")).toBe(originalContent);
   });
 
-  test("does not rewrite files that do not import the old path", async ({ dir }) => {
+  test("does not rewrite files that do not import the old path", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.simpleTs.name);
     const engine = new TsMorphEngine();
     const mainPath = path.join(dir, "src/main.ts");
     const originalContent = fs.readFileSync(mainPath, "utf8");
@@ -42,7 +45,8 @@ describe("tsAfterFileRename", () => {
     expect(scope.modified).not.toContain(mainPath);
   });
 
-  test("skips files already in scope.modified", async ({ dir }) => {
+  test("skips files already in scope.modified", async ({ dir, seedNamedFixture }) => {
+    await seedNamedFixture(FIXTURES.simpleTs.name);
     const engine = new TsMorphEngine();
     const mainPath = path.join(dir, "src/main.ts");
     const originalContent = fs.readFileSync(mainPath, "utf8");
@@ -56,7 +60,9 @@ describe("tsAfterFileRename", () => {
 
   test("records modified importers in scope when the file is physically renamed", async ({
     dir,
+    seedNamedFixture,
   }) => {
+    await seedNamedFixture(FIXTURES.simpleTs.name);
     const engine = new TsMorphEngine();
     const utils = path.join(dir, "src/utils.ts");
     const helpers = path.join(dir, "src/helpers.ts");

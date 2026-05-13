@@ -30,10 +30,12 @@ function makeStubEngine(overrides: Partial<Engine> = {}): Engine {
 }
 
 describe("deleteFile operation", () => {
-  test.override({ fixtureName: FIXTURES.deleteFileTs.name });
-
   describe("FILE_NOT_FOUND validation", () => {
-    test("throws FILE_NOT_FOUND when the target does not exist", async ({ dir }) => {
+    test("throws FILE_NOT_FOUND when the target does not exist", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const engine = makeStubEngine();
 
       await expect(
@@ -41,7 +43,11 @@ describe("deleteFile operation", () => {
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
-    test("does not call engine.deleteFile when the target is missing", async ({ dir }) => {
+    test("does not call engine.deleteFile when the target is missing", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const engineDeleteFile = vi.fn();
       const engine = makeStubEngine({ deleteFile: engineDeleteFile });
 
@@ -54,7 +60,11 @@ describe("deleteFile operation", () => {
   });
 
   describe("SENSITIVE_FILE rejection", () => {
-    test("throws SENSITIVE_FILE when the target is a sensitive file", async ({ dir }) => {
+    test("throws SENSITIVE_FILE when the target is a sensitive file", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const envFile = path.join(dir, ".env");
       fs.writeFileSync(envFile, "SECRET=abc\n", "utf8");
 
@@ -67,7 +77,11 @@ describe("deleteFile operation", () => {
       expect(fs.existsSync(envFile)).toBe(true);
     });
 
-    test("does not call engine.deleteFile when the target is sensitive", async ({ dir }) => {
+    test("does not call engine.deleteFile when the target is sensitive", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const envFile = path.join(dir, ".env");
       fs.writeFileSync(envFile, "SECRET=abc\n", "utf8");
 
@@ -83,7 +97,8 @@ describe("deleteFile operation", () => {
   });
 
   describe("result construction from scope", () => {
-    test("returns deletedFile as the resolved absolute path", async ({ dir }) => {
+    test("returns deletedFile as the resolved absolute path", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const targetFile = `${dir}/src/target.ts`;
       const engine = new TsMorphEngine();
       const result = await deleteFile(engine, targetFile, makeScope(dir));
@@ -91,7 +106,11 @@ describe("deleteFile operation", () => {
       expect(result.deletedFile).toBe(path.resolve(targetFile));
     });
 
-    test("returns filesModified populated by the engine's work", async ({ dir }) => {
+    test("returns filesModified populated by the engine's work", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const targetFile = `${dir}/src/target.ts`;
       const modifiedFile = `${dir}/src/importer.ts`;
 
@@ -107,7 +126,11 @@ describe("deleteFile operation", () => {
       expect(result.filesModified).toStrictEqual(scope.modified);
     });
 
-    test("returns filesSkipped populated by the engine's work", async ({ dir }) => {
+    test("returns filesSkipped populated by the engine's work", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const targetFile = `${dir}/src/target.ts`;
       const skippedFile = `/outside/workspace/file.ts`;
 
@@ -123,7 +146,11 @@ describe("deleteFile operation", () => {
       expect(result.filesSkipped).toStrictEqual(scope.skipped);
     });
 
-    test("returns importRefsRemoved from engine.deleteFile result", async ({ dir }) => {
+    test("returns importRefsRemoved from engine.deleteFile result", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const targetFile = path.join(dir, "src", "target.ts");
       const absTarget = path.resolve(targetFile);
 
@@ -137,7 +164,11 @@ describe("deleteFile operation", () => {
       expect(engineDeleteFile).toHaveBeenCalledWith(absTarget, scope);
     });
 
-    test("passes the resolved absolute path to engine.deleteFile", async ({ dir }) => {
+    test("passes the resolved absolute path to engine.deleteFile", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.deleteFileTs.name);
       const targetFile = `${dir}/src/target.ts`;
       const absTarget = path.resolve(targetFile);
 

@@ -19,9 +19,11 @@ function makeScope(root: string): WorkspaceScope {
 }
 
 describe("tsMoveSymbol — import rewriting", () => {
-  test.override({ fixtureName: FIXTURES.multiImporter.name });
-
-  test("updates all importers when multiple files import the moved symbol", async ({ dir }) => {
+  test("updates all importers when multiple files import the moved symbol", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.multiImporter.name);
     const tsCompiler = new TsMorphEngine();
     const scope = makeScope(dir);
 

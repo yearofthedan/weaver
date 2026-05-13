@@ -25,9 +25,6 @@ describe("CLI help and version", () => {
 
 describe("CLI operation subcommands", () => {
   const procs: import("node:child_process").ChildProcess[] = [];
-
-  test.override({ fixtureName: FIXTURES.simpleTs.name });
-
   test.afterEach(({ dir }) => {
     for (const proc of procs.splice(0)) {
       if (!proc.killed) proc.kill();
@@ -36,7 +33,11 @@ describe("CLI operation subcommands", () => {
     removeDaemonFiles(dir);
   });
 
-  test("renames a symbol end-to-end, prints JSON to stdout, exits 0", async ({ dir }) => {
+  test("renames a symbol end-to-end, prints JSON to stdout, exits 0", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.simpleTs.name);
     const daemon = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(daemon);
 
@@ -57,7 +58,8 @@ describe("CLI operation subcommands", () => {
     expect(exitCode).toBe(0);
   }, 60_000);
 
-  test("resolves relative paths against --workspace", async ({ dir }) => {
+  test("resolves relative paths against --workspace", async ({ dir, seedNamedFixture }) => {
+    await seedNamedFixture(FIXTURES.simpleTs.name);
     const daemon = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(daemon);
 
@@ -78,7 +80,11 @@ describe("CLI operation subcommands", () => {
     expect(exitCode).toBe(0);
   }, 60_000);
 
-  test("exits 1 and prints error status when the daemon returns an error", async ({ dir }) => {
+  test("exits 1 and prints error status when the daemon returns an error", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.simpleTs.name);
     const daemon = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(daemon);
 
@@ -99,7 +105,11 @@ describe("CLI operation subcommands", () => {
     expect(exitCode).toBe(1);
   }, 60_000);
 
-  test("prints VALIDATION_ERROR and exits 1 for invalid JSON", async ({ dir }) => {
+  test("prints VALIDATION_ERROR and exits 1 for invalid JSON", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.simpleTs.name);
     const daemon = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(daemon);
 
@@ -115,7 +125,11 @@ describe("CLI operation subcommands", () => {
     expect(exitCode).toBe(1);
   }, 60_000);
 
-  test("prints VALIDATION_ERROR and exits 1 when stdin is empty (no JSON)", async ({ dir }) => {
+  test("prints VALIDATION_ERROR and exits 1 when stdin is empty (no JSON)", async ({
+    dir,
+    seedNamedFixture,
+  }) => {
+    await seedNamedFixture(FIXTURES.simpleTs.name);
     // runCliCommand uses stdin: "ignore" — child gets an immediately-closed fd,
     // so readStdin() returns "" which fails JSON.parse
     const { exitCode, stdout } = await runCliCommand(["rename", "--workspace", dir], 15_000);

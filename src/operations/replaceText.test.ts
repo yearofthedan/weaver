@@ -16,9 +16,8 @@ describe("replaceText operation", () => {
   // ─── Pattern mode ───────────────────────────────────────────────────────
 
   describe("pattern mode", () => {
-    test.override({ fixtureName: FIXTURES.simpleTs.name });
-
-    test("replaces all occurrences across workspace files", async ({ dir }) => {
+    test("replaces all occurrences across workspace files", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const before = readFile(dir, "src/utils.ts");
       expect(before).toContain("greetUser");
 
@@ -39,7 +38,8 @@ describe("replaceText operation", () => {
       expect(mainAfter).not.toContain("greetUser");
     });
 
-    test("restricts replacement to files matching glob", async ({ dir }) => {
+    test("restricts replacement to files matching glob", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const result = await replaceText(makeScope(dir), {
         pattern: "greetUser",
         replacement: "welcomeUser",
@@ -54,7 +54,8 @@ describe("replaceText operation", () => {
       expect(mainAfter).toContain("greetUser");
     });
 
-    test("supports regex capture groups in replacement", async ({ dir }) => {
+    test("supports regex capture groups in replacement", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       // Wrap "greetUser" in parens → "GREET(greetUser)"
       const result = await replaceText(makeScope(dir), {
         pattern: "(greetUser)",
@@ -67,7 +68,8 @@ describe("replaceText operation", () => {
       expect(after).toContain("GREET(greetUser)");
     });
 
-    test("records unreadable files as skipped", async ({ dir: _dir }) => {
+    test("records unreadable files as skipped", async ({ dir: _dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-replace-skip-"));
       try {
         fs.mkdirSync(path.join(dir, "src"), { recursive: true });
@@ -84,7 +86,11 @@ describe("replaceText operation", () => {
       }
     });
 
-    test("returns empty result when no files match the pattern", async ({ dir: _dir }) => {
+    test("returns empty result when no files match the pattern", async ({
+      dir: _dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
       try {
         const result = await replaceText(makeScope(dir), {
@@ -99,7 +105,8 @@ describe("replaceText operation", () => {
       }
     });
 
-    test("throws PARSE_ERROR for invalid regex", async ({ dir: _dir }) => {
+    test("throws PARSE_ERROR for invalid regex", async ({ dir: _dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
       try {
         await expect(
@@ -112,7 +119,11 @@ describe("replaceText operation", () => {
       }
     });
 
-    test("throws REDOS for a catastrophic backtracking pattern", async ({ dir: _dir }) => {
+    test("throws REDOS for a catastrophic backtracking pattern", async ({
+      dir: _dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
       try {
         await expect(
@@ -123,7 +134,8 @@ describe("replaceText operation", () => {
       }
     });
 
-    test("does not modify sensitive files", async ({ dir }) => {
+    test("does not modify sensitive files", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const envPath = path.join(dir, ".env");
       fs.writeFileSync(envPath, "greetUser=secret\n");
 
@@ -138,7 +150,8 @@ describe("replaceText operation", () => {
       expect(fs.readFileSync(envPath, "utf8")).toContain("greetUser");
     });
 
-    test("rejects paths outside the workspace", async ({ dir: _dir }) => {
+    test("rejects paths outside the workspace", async ({ dir: _dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
       try {
         // edits array with a file outside workspace
@@ -156,9 +169,8 @@ describe("replaceText operation", () => {
   // ─── Surgical mode ──────────────────────────────────────────────────────
 
   describe("surgical mode", () => {
-    test.override({ fixtureName: FIXTURES.simpleTs.name });
-
-    test("applies exact text edits at specified locations", async ({ dir }) => {
+    test("applies exact text edits at specified locations", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       // utils.ts line 1, col 17: "greetUser"
       const result = await replaceText(makeScope(dir), {
         edits: [
@@ -179,7 +191,8 @@ describe("replaceText operation", () => {
       expect(after).toContain("welcomeUser");
     });
 
-    test("throws TEXT_MISMATCH when oldText does not match", async ({ dir }) => {
+    test("throws TEXT_MISMATCH when oldText does not match", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       await expect(
         replaceText(makeScope(dir), {
           edits: [
@@ -195,7 +208,8 @@ describe("replaceText operation", () => {
       ).rejects.toMatchObject({ code: "TEXT_MISMATCH" });
     });
 
-    test("applies multiple edits to the same file correctly", async ({ dir }) => {
+    test("applies multiple edits to the same file correctly", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       // utils.ts line 1: "export function greetUser(name: string): string {"
       // "greetUser" at col 17, "name" at col 27, "string" at col 33
       const result = await replaceText(makeScope(dir), {
@@ -223,7 +237,8 @@ describe("replaceText operation", () => {
       expect(after).toContain("user");
     });
 
-    test("rejects edits to sensitive files", async ({ dir }) => {
+    test("rejects edits to sensitive files", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const envPath = path.join(dir, ".env");
       fs.writeFileSync(envPath, "KEY=value\n");
 
@@ -234,7 +249,11 @@ describe("replaceText operation", () => {
       ).rejects.toMatchObject({ code: "SENSITIVE_FILE" });
     });
 
-    test("throws WORKSPACE_VIOLATION for edits outside workspace", async ({ dir }) => {
+    test("throws WORKSPACE_VIOLATION for edits outside workspace", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       await expect(
         replaceText(makeScope(dir), {
           edits: [{ file: "/etc/passwd", line: 1, col: 1, oldText: "root", newText: "x" }],
@@ -242,7 +261,11 @@ describe("replaceText operation", () => {
       ).rejects.toMatchObject({ code: "WORKSPACE_VIOLATION" });
     });
 
-    test("requires either pattern+replacement or edits", async ({ dir: _dir }) => {
+    test("requires either pattern+replacement or edits", async ({
+      dir: _dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-tmp-"));
       try {
         await expect(replaceText(makeScope(dir), {})).rejects.toMatchObject({

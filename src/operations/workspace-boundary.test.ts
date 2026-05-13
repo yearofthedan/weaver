@@ -9,11 +9,11 @@ import { moveFile } from "./moveFile.js";
 import { rename } from "./rename.js";
 
 describe("workspace boundary enforcement", () => {
-  test.override({ fixtureName: FIXTURES.crossBoundary.name });
-
   test("rename: skips out-of-workspace impacted files, writes in-workspace files", async ({
     dir: root,
+    seedNamedFixture,
   }) => {
+    await seedNamedFixture(FIXTURES.crossBoundary.name);
     const workspace = path.join(root, "workspace");
     const utilsFile = path.join(workspace, "src/utils.ts");
     const _consumerFile = path.join(root, "consumer/main.ts");
@@ -50,7 +50,9 @@ describe("workspace boundary enforcement", () => {
 
   test("moveFile: skips out-of-workspace import rewrites, performs the physical move", async ({
     dir: root,
+    seedNamedFixture,
   }) => {
+    await seedNamedFixture(FIXTURES.crossBoundary.name);
     const workspace = path.join(root, "workspace");
     const oldFilePath = path.join(workspace, "src/utils.ts");
     const newFilePath = path.join(workspace, "src/helpers.ts");

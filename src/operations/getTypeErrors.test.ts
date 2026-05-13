@@ -12,9 +12,11 @@ function makeScope(dir: string): WorkspaceScope {
 
 describe("getTypeErrors operation", () => {
   describe("single file mode (file param provided)", () => {
-    test.override({ fixtureName: FIXTURES.tsErrors.name });
-
-    test("returns type errors with correct shape for a file with errors", async ({ dir }) => {
+    test("returns type errors with correct shape for a file with errors", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.tsErrors.name);
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
@@ -33,7 +35,11 @@ describe("getTypeErrors operation", () => {
       }
     });
 
-    test("pins the exact error codes, positions and messages for broken.ts", async ({ dir }) => {
+    test("pins the exact error codes, positions and messages for broken.ts", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.tsErrors.name);
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
@@ -62,7 +68,9 @@ describe("getTypeErrors operation", () => {
 
     test("returns only the top-level message for chained diagnostics, not the full chain", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.tsErrors.name);
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/chained-error.ts`, makeScope(dir));
@@ -75,7 +83,8 @@ describe("getTypeErrors operation", () => {
       expect(message).not.toContain("Type 'string' is not assignable to type 'number'");
     });
 
-    test("returns empty diagnostics for a clean file", async ({ dir }) => {
+    test("returns empty diagnostics for a clean file", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.tsErrors.name);
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/clean.ts`, makeScope(dir));
@@ -85,7 +94,8 @@ describe("getTypeErrors operation", () => {
       expect(result.truncated).toBe(false);
     });
 
-    test("throws FILE_NOT_FOUND for a non-existent file", async ({ dir }) => {
+    test("throws FILE_NOT_FOUND for a non-existent file", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.tsErrors.name);
       const compiler = new TsMorphEngine();
 
       await expect(
@@ -93,7 +103,11 @@ describe("getTypeErrors operation", () => {
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
-    test("throws WORKSPACE_VIOLATION for a file outside the workspace", async ({ dir }) => {
+    test("throws WORKSPACE_VIOLATION for a file outside the workspace", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.tsErrors.name);
       const compiler = new TsMorphEngine();
 
       await expect(getTypeErrors(compiler, "/etc/hosts", makeScope(dir))).rejects.toMatchObject({
@@ -101,7 +115,11 @@ describe("getTypeErrors operation", () => {
       });
     });
 
-    test("errorCount equals diagnostics.length when not truncated", async ({ dir }) => {
+    test("errorCount equals diagnostics.length when not truncated", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.tsErrors.name);
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
@@ -112,7 +130,9 @@ describe("getTypeErrors operation", () => {
 
     test("caps at 100 and sets truncated=true when a single file has more than 100 errors", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.tsErrors.name);
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/many-errors.ts`, makeScope(dir));
@@ -124,11 +144,11 @@ describe("getTypeErrors operation", () => {
   });
 
   describe("single file mode — exactly 100 errors", () => {
-    test.override({ fixtureName: FIXTURES.ts100Errors.name });
-
     test("is not truncated and errorCount equals 100 when a file has exactly 100 errors", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.ts100Errors.name);
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, `${dir}/src/exactly-100.ts`, makeScope(dir));
@@ -140,9 +160,8 @@ describe("getTypeErrors operation", () => {
   });
 
   describe("project-wide mode (no file param)", () => {
-    test.override({ fixtureName: FIXTURES.tsErrors.name });
-
-    test("returns errors from all files in the project", async ({ dir }) => {
+    test("returns errors from all files in the project", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.tsErrors.name);
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
@@ -154,7 +173,9 @@ describe("getTypeErrors operation", () => {
 
     test("caps at 100 and sets truncated=true; errorCount reflects the full total", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.tsErrors.name);
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
@@ -165,7 +186,11 @@ describe("getTypeErrors operation", () => {
       expect(result.errorCount).toBeGreaterThan(result.diagnostics.length);
     });
 
-    test("each diagnostic in project-wide results has the correct shape", async ({ dir }) => {
+    test("each diagnostic in project-wide results has the correct shape", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.tsErrors.name);
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
@@ -184,11 +209,11 @@ describe("getTypeErrors operation", () => {
   });
 
   describe("project-wide mode — exactly 100 errors", () => {
-    test.override({ fixtureName: FIXTURES.ts100Errors.name });
-
     test("is not truncated and errorCount equals 100 when the project has exactly 100 errors", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.ts100Errors.name);
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
@@ -200,9 +225,8 @@ describe("getTypeErrors operation", () => {
   });
 
   describe("project-wide mode — clean project", () => {
-    test.override({ fixtureName: FIXTURES.simpleTs.name });
-
-    test("returns empty result for a project with no errors", async ({ dir }) => {
+    test("returns empty result for a project with no errors", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const compiler = new TsMorphEngine();
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
@@ -214,8 +238,6 @@ describe("getTypeErrors operation", () => {
   });
 
   describe("Vue SFC support via VolarEngine", () => {
-    test.override({ fixtureName: FIXTURES.vueErrors.name });
-
     function makeVolarEngine(dir: string): VolarEngine {
       return new VolarEngine(new TsMorphEngine(), dir);
     }
@@ -223,7 +245,9 @@ describe("getTypeErrors operation", () => {
     describe("single .vue file with type errors", () => {
       test("returns diagnostics with the real .vue path (not the virtual .vue.ts path)", async ({
         dir,
+        seedNamedFixture,
       }) => {
+        await seedNamedFixture(FIXTURES.vueErrors.name);
         const engine = makeVolarEngine(dir);
         const vuePath = `${dir}/src/Broken.vue`;
 
@@ -240,7 +264,9 @@ describe("getTypeErrors operation", () => {
 
       test("returns 1-based line and col in the real .vue source with correct error code", async ({
         dir,
+        seedNamedFixture,
       }) => {
+        await seedNamedFixture(FIXTURES.vueErrors.name);
         const engine = makeVolarEngine(dir);
         const vuePath = `${dir}/src/Broken.vue`;
 
@@ -257,7 +283,9 @@ describe("getTypeErrors operation", () => {
 
       test("pins exact position — error is at line 2 (the const x assignment) in Broken.vue", async ({
         dir,
+        seedNamedFixture,
       }) => {
+        await seedNamedFixture(FIXTURES.vueErrors.name);
         const engine = makeVolarEngine(dir);
         const vuePath = `${dir}/src/Broken.vue`;
 
@@ -270,7 +298,9 @@ describe("getTypeErrors operation", () => {
 
       test("returns no virtual-only positions — all diagnostics map to the real .vue file", async ({
         dir,
+        seedNamedFixture,
       }) => {
+        await seedNamedFixture(FIXTURES.vueErrors.name);
         const engine = makeVolarEngine(dir);
         const vuePath = `${dir}/src/Broken.vue`;
 
@@ -283,7 +313,8 @@ describe("getTypeErrors operation", () => {
     });
 
     describe("single .vue file with no errors", () => {
-      test("returns empty diagnostics for a clean .vue file", async ({ dir }) => {
+      test("returns empty diagnostics for a clean .vue file", async ({ dir, seedNamedFixture }) => {
+        await seedNamedFixture(FIXTURES.vueErrors.name);
         const engine = makeVolarEngine(dir);
         const vuePath = `${dir}/src/Clean.vue`;
 
@@ -296,7 +327,9 @@ describe("getTypeErrors operation", () => {
 
       test("returns empty diagnostics for a template-only .vue file (no script block)", async ({
         dir,
+        seedNamedFixture,
       }) => {
+        await seedNamedFixture(FIXTURES.vueErrors.name);
         const engine = makeVolarEngine(dir);
         const vuePath = `${dir}/src/TemplateOnly.vue`;
 
@@ -309,7 +342,11 @@ describe("getTypeErrors operation", () => {
     });
 
     describe("project-wide mode in a Vue project", () => {
-      test("includes errors from .vue files in the combined results", async ({ dir }) => {
+      test("includes errors from .vue files in the combined results", async ({
+        dir,
+        seedNamedFixture,
+      }) => {
+        await seedNamedFixture(FIXTURES.vueErrors.name);
         const engine = makeVolarEngine(dir);
 
         const result = await getTypeErrors(engine, undefined, makeScope(dir));
@@ -320,7 +357,11 @@ describe("getTypeErrors operation", () => {
         expect(vueDiags.length).toBeGreaterThan(0);
       });
 
-      test("includes errors from .ts files in the combined results", async ({ dir }) => {
+      test("includes errors from .ts files in the combined results", async ({
+        dir,
+        seedNamedFixture,
+      }) => {
+        await seedNamedFixture(FIXTURES.vueErrors.name);
         const engine = makeVolarEngine(dir);
 
         const result = await getTypeErrors(engine, undefined, makeScope(dir));
@@ -331,7 +372,9 @@ describe("getTypeErrors operation", () => {
 
       test(".vue diagnostics have the real .vue path, not the virtual .vue.ts path", async ({
         dir,
+        seedNamedFixture,
       }) => {
+        await seedNamedFixture(FIXTURES.vueErrors.name);
         const engine = makeVolarEngine(dir);
 
         const result = await getTypeErrors(engine, undefined, makeScope(dir));
@@ -341,7 +384,11 @@ describe("getTypeErrors operation", () => {
         }
       });
 
-      test("applies the 100-error cap across combined TS and Vue errors", async ({ dir }) => {
+      test("applies the 100-error cap across combined TS and Vue errors", async ({
+        dir,
+        seedNamedFixture,
+      }) => {
+        await seedNamedFixture(FIXTURES.vueErrors.name);
         const engine = makeVolarEngine(dir);
 
         const result = await getTypeErrors(engine, undefined, makeScope(dir));
@@ -358,7 +405,11 @@ describe("getTypeErrors operation", () => {
     });
 
     describe(".ts file in a Vue project (regression guard)", () => {
-      test("returns the same errors for a .ts file as TsMorphEngine would", async ({ dir }) => {
+      test("returns the same errors for a .ts file as TsMorphEngine would", async ({
+        dir,
+        seedNamedFixture,
+      }) => {
+        await seedNamedFixture(FIXTURES.vueErrors.name);
         const volarEngine = makeVolarEngine(dir);
         const tsEngine = new TsMorphEngine();
         const tsFilePath = `${dir}/src/utils.ts`;

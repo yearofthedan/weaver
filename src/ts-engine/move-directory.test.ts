@@ -25,9 +25,11 @@ describe("tsMoveDirectory", () => {
   });
 
   describe("source file handling", () => {
-    test.override({ fixtureName: FIXTURES.moveDirTs.name });
-
-    test("physically moves source files and rewrites external imports", async ({ dir }) => {
+    test("physically moves source files and rewrites external imports", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const engine = new TsMorphEngine();
 
       const result = await tsMoveDirectory(
@@ -52,7 +54,11 @@ describe("tsMoveDirectory", () => {
       expect(result.filesMoved).toContain(`${dir}/src/lib/helpers/b.ts`);
     });
 
-    test("records all moved source files as modified in scope", async ({ dir }) => {
+    test("records all moved source files as modified in scope", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const engine = new TsMorphEngine();
 
       await tsMoveDirectory(engine, `${dir}/src/utils`, `${dir}/src/lib/helpers`, makeScope(dir));
@@ -70,7 +76,11 @@ describe("tsMoveDirectory", () => {
       expect(result.filesMoved).toContain(`${dir}/src/lib/utils2/a.ts`);
     });
 
-    test("preserves intra-directory imports unchanged after move", async ({ dir }) => {
+    test("preserves intra-directory imports unchanged after move", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const engine = new TsMorphEngine();
 
       await tsMoveDirectory(engine, `${dir}/src/utils`, `${dir}/src/lib`, makeScope(dir));
@@ -149,9 +159,11 @@ describe("tsMoveDirectory", () => {
   });
 
   describe("SKIP_DIRS exclusion", () => {
-    test.override({ fixtureName: FIXTURES.moveDirTs.name });
-
-    test("does not include node_modules contents in filesMoved", async ({ dir }) => {
+    test("does not include node_modules contents in filesMoved", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const fakeNodeModules = path.join(dir, "src/utils/node_modules");
       fs.mkdirSync(fakeNodeModules);
       fs.writeFileSync(path.join(fakeNodeModules, "dep.ts"), "export const x = 1;");
@@ -174,9 +186,11 @@ describe("tsMoveDirectory", () => {
 
 describe("TsMorphEngine.moveDirectory", () => {
   describe("scope records modified files", () => {
-    test.override({ fixtureName: FIXTURES.moveDirTs.name });
-
-    test("records moved and externally-modified files in scope", async ({ dir }) => {
+    test("records moved and externally-modified files in scope", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const compiler = new TsMorphEngine();
       const scope = makeScope(dir);
 
@@ -189,7 +203,11 @@ describe("TsMorphEngine.moveDirectory", () => {
       expect(scope.modified).toContain(`${dir}/src/lib/b.ts`);
     });
 
-    test("does not record unchanged files unrelated to the move", async ({ dir }) => {
+    test("does not record unchanged files unrelated to the move", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const compiler = new TsMorphEngine();
       const scope = makeScope(dir);
 
@@ -201,11 +219,11 @@ describe("TsMorphEngine.moveDirectory", () => {
   });
 
   describe("empty directory", () => {
-    test.override({ fixtureName: FIXTURES.moveDirTs.name });
-
     test("does not record any files in scope when directory has no source files", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const emptyDir = `${dir}/src/empty-utils`;
       fs.mkdirSync(emptyDir, { recursive: true });
 
@@ -219,11 +237,11 @@ describe("TsMorphEngine.moveDirectory", () => {
   });
 
   describe("project cache invalidation", () => {
-    test.override({ fixtureName: FIXTURES.moveDirTs.name });
-
     test("subsequent moveDirectory calls on the same compiler instance work correctly", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       const compiler = new TsMorphEngine();
 
       // First move: utils -> lib
@@ -245,9 +263,11 @@ describe("TsMorphEngine.moveDirectory", () => {
   });
 
   describe("ESM .js extension preservation", () => {
-    test.override({ fixtureName: FIXTURES.moveDirTsEsm.name });
-
-    test("preserves .js extensions in import specifiers after directory move", async ({ dir }) => {
+    test("preserves .js extensions in import specifiers after directory move", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.moveDirTsEsm.name);
       const compiler = new TsMorphEngine();
       const scope = makeScope(dir);
 
@@ -268,11 +288,11 @@ describe("TsMorphEngine.moveDirectory", () => {
   });
 
   describe("sub-project boundary", () => {
-    test.override({ fixtureName: FIXTURES.moveDirSubproject.name });
-
     test("does not rewrite internal imports when moved directory has its own tsconfig", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.moveDirSubproject.name);
       const compiler = new TsMorphEngine();
       const scope = makeScope(dir);
 
@@ -289,11 +309,11 @@ describe("TsMorphEngine.moveDirectory", () => {
   });
 
   describe("files excluded from tsconfig project", () => {
-    test.override({ fixtureName: FIXTURES.moveDirTs.name });
-
     test("includes TS files on disk in the moved directory even when excluded from tsconfig", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.moveDirTs.name);
       // Rewrite tsconfig to only include app.ts — utils/*.ts are excluded
       fs.writeFileSync(
         path.join(dir, "tsconfig.json"),

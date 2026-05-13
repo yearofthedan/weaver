@@ -7,9 +7,8 @@ import { getDefinition } from "./getDefinition.js";
 
 describe("getDefinition action", () => {
   describe("with TsMorphEngine", () => {
-    test.override({ fixtureName: FIXTURES.simpleTs.name });
-
-    test("returns the definition location from a call site", async ({ dir }) => {
+    test("returns the definition location from a call site", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const compiler = new TsMorphEngine();
 
       // main.ts line 3: console.log(greetUser("World")); → col 13
@@ -26,7 +25,11 @@ describe("getDefinition action", () => {
       }
     });
 
-    test("returns the definition location from the declaration site itself", async ({ dir }) => {
+    test("returns the definition location from the declaration site itself", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const compiler = new TsMorphEngine();
 
       const result = await getDefinition(compiler, `${dir}/src/utils.ts`, 1, 17);
@@ -35,7 +38,8 @@ describe("getDefinition action", () => {
       expect(result.definitions.some((d) => d.file.endsWith("utils.ts"))).toBe(true);
     });
 
-    test("throws FILE_NOT_FOUND for a non-existent file", async ({ dir }) => {
+    test("throws FILE_NOT_FOUND for a non-existent file", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const compiler = new TsMorphEngine();
 
       await expect(
@@ -43,7 +47,8 @@ describe("getDefinition action", () => {
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
-    test("throws SYMBOL_NOT_FOUND for an out-of-range line", async ({ dir }) => {
+    test("throws SYMBOL_NOT_FOUND for an out-of-range line", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       const compiler = new TsMorphEngine();
 
       await expect(getDefinition(compiler, `${dir}/src/utils.ts`, 999, 1)).rejects.toMatchObject({
@@ -53,7 +58,9 @@ describe("getDefinition action", () => {
 
     test("throws SYMBOL_NOT_FOUND when position is valid but has no definition", async ({
       dir,
+      seedNamedFixture,
     }) => {
+      await seedNamedFixture(FIXTURES.simpleTs.name);
       // Exercises the `!defs || defs.length === 0` path in getDefinition.ts:
       // line 2 of main.ts is blank — resolveOffset succeeds but getDefinitionAtPosition returns null.
       const compiler = new TsMorphEngine();
@@ -65,9 +72,11 @@ describe("getDefinition action", () => {
   });
 
   describe("with VolarEngine", () => {
-    test.override({ fixtureName: FIXTURES.vueTsBoundary.name });
-
-    test("resolves a composable definition from a .vue call site", async ({ dir }) => {
+    test("resolves a composable definition from a .vue call site", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.vueTsBoundary.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       const appVue = `${dir}/src/App.vue`;
@@ -90,7 +99,8 @@ describe("getDefinition action", () => {
       expect(def?.length).toBeGreaterThan(0);
     });
 
-    test("throws FILE_NOT_FOUND for a non-existent file", async ({ dir }) => {
+    test("throws FILE_NOT_FOUND for a non-existent file", async ({ dir, seedNamedFixture }) => {
+      await seedNamedFixture(FIXTURES.vueTsBoundary.name);
       const compiler = new VolarEngine(new TsMorphEngine());
 
       await expect(
@@ -98,7 +108,11 @@ describe("getDefinition action", () => {
       ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
     });
 
-    test("throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", async ({ dir }) => {
+    test("throws SYMBOL_NOT_FOUND for an out-of-range line in a .vue file", async ({
+      dir,
+      seedNamedFixture,
+    }) => {
+      await seedNamedFixture(FIXTURES.vueTsBoundary.name);
       // Exercises the resolveOffset catch block in VolarEngine (volar.ts line 103).
       const compiler = new VolarEngine(new TsMorphEngine());
 
