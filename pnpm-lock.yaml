@@ -64,8 +64,8 @@ importers:
         specifier: 0.121.12
         version: 0.121.12(@types/json-schema@7.0.15)(@types/node@24.12.4)(pg@8.19.0)(playwright-core@1.60.0)(socks@2.8.7)
       tmp:
-        specifier: 0.2.6
-        version: 0.2.6
+        specifier: 0.2.7
+        version: 0.2.7
       tsx:
         specifier: 4.22.3
         version: 4.22.3
@@ -4490,8 +4490,8 @@ packages:
     resolution: {integrity: sha512-Bf+ILmBgretUrdJxzXM0SgXLZ3XfiaUuOj/IKQHuTXip+05Xn+uyEYdVg0kYDipTBcLrCVyUzAPz7QmArb0mmw==}
     engines: {node: '>=14.0.0'}
 
-  tmp@0.2.6:
-    resolution: {integrity: sha512-5sJPdPjfI5Kx+qbrDesxkglRBxW//g7hCsqspEjwkewGvBMGIKMOTKzLt1hFVJzyadba3lDUN20O9qhvbQUSTA==}
+  tmp@0.2.7:
+    resolution: {integrity: sha512-e0votIpp4Uo2AJYSzVHV6xCcawuiez3DzqDAbrTc3YxBkplN6e+dM13ZeIcZnDg/QpSuU2zfZ3rzwY8ukEnaXw==}
     engines: {node: '>=14.14'}
 
   toidentifier@1.0.1:
@@ -10265,7 +10265,7 @@ snapshots:
 
   tinyrainbow@3.1.0: {}
 
-  tmp@0.2.6: {}
+  tmp@0.2.7: {}
 
   toidentifier@1.0.1: {}
 

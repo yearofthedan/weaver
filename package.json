@@ -97,7 +97,7 @@
     "@volar/language-core": "2.4.28",
     "husky": "9.1.7",
     "promptfoo": "0.121.12",
-    "tmp": "0.2.6",
+    "tmp": "0.2.7",
     "tsx": "4.22.3",
     "vitest": "4.1.7"
   }
