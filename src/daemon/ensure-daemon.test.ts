@@ -69,10 +69,12 @@ function closeServer(server: net.Server): Promise<void> {
  * opts.ready=true (default): emits { status: "ready" } on stderr after a tick.
  * opts.exitCode: emits "exit" instead (simulates daemon crash before ready).
  */
+type FakeStderr = EventEmitter & { destroy: ReturnType<typeof vi.fn> };
+
 function makeFakeChild(opts: { ready?: boolean; exitCode?: number } = { ready: true }) {
-  const stderr = new EventEmitter();
+  const stderr = Object.assign(new EventEmitter(), { destroy: vi.fn() }) as FakeStderr;
   const child = new EventEmitter() as EventEmitter & {
-    stderr: EventEmitter;
+    stderr: FakeStderr;
     unref: ReturnType<typeof vi.fn>;
   };
   child.stderr = stderr;
@@ -237,9 +239,9 @@ describe("ensureDaemon", () => {
     it("rejects rather than resolving on a non-ready stderr line before crash", async () => {
       mockIsDaemonAlive.mockReturnValue(false);
 
-      const stderr = new EventEmitter();
+      const stderr = Object.assign(new EventEmitter(), { destroy: vi.fn() });
       const child = new EventEmitter() as EventEmitter & {
-        stderr: EventEmitter;
+        stderr: typeof stderr;
         unref: ReturnType<typeof vi.fn>;
       };
       child.stderr = stderr;
@@ -251,6 +253,18 @@ describe("ensureDaemon", () => {
       mockSpawn.mockImplementation(() => child);
 
       await expect(ensureDaemon(WORKSPACE)).rejects.toThrow(/exited unexpectedly/i);
+    });
+
+    it("detaches the child's stderr pipe and exit listener so the parent can exit", async () => {
+      mockIsDaemonAlive.mockReturnValue(false);
+      const child = makeFakeChild({ ready: true });
+      mockSpawn.mockReturnValue(child);
+
+      await ensureDaemon(WORKSPACE);
+
+      expect(child.stderr.destroy).toHaveBeenCalled();
+      expect(child.unref).toHaveBeenCalled();
+      expect(child.listenerCount("exit")).toBe(0);
     });
 
     it("skips ping on the next call after a successful spawn", async () => {
