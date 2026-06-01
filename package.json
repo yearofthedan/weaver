@@ -79,7 +79,7 @@
       "onnxruntime-node",
       "protobufjs",
       "sharp"
-    ],
+    ]
   },
   "publishConfig": {
     "access": "public"
