@@ -115,6 +115,11 @@ function spawnDaemon(absWorkspace: string, opts: { verbose?: boolean } = {}): Pr
       reject(new Error("Timed out waiting for daemon ready signal"));
     }, 30_000);
 
+    const onExit = (code: number | null) => {
+      clearTimeout(timer);
+      reject(new Error(`Daemon exited unexpectedly with code ${code}`));
+    };
+
     const onData = (chunk: Buffer) => {
       stderrBuf += chunk.toString();
       while (stderrBuf.indexOf("\n", consumed) !== -1) {
@@ -126,6 +131,10 @@ function spawnDaemon(absWorkspace: string, opts: { verbose?: boolean } = {}): Pr
           if (msg.status === "ready") {
             clearTimeout(timer);
             child.stderr.off("data", onData);
+            child.off("exit", onExit);
+            // The piped stderr is a separate handle from the child process;
+            // unref() alone leaves it active and hangs the parent's event loop.
+            child.stderr.destroy();
             child.unref();
             resolve();
             return;
@@ -137,10 +146,6 @@ function spawnDaemon(absWorkspace: string, opts: { verbose?: boolean } = {}): Pr
     };
 
     child.stderr.on("data", onData);
-
-    child.on("exit", (code) => {
-      clearTimeout(timer);
-      reject(new Error(`Daemon exited unexpectedly with code ${code}`));
-    });
+    child.on("exit", onExit);
   });
 }
