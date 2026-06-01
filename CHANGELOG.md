@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.4](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.3...weaver-v0.1.4) (2026-06-01)
+
+
+### Bug Fixes
+
+* **cli:** exit cleanly after spawning daemon ([72d5daa](https://github.com/yearofthedan/weaver/commit/72d5daa36573ef4bce506af47b4da0e3a284c8e9))
+* **deps:** update dependency @vue/language-core to v3.3.2 ([baad07b](https://github.com/yearofthedan/weaver/commit/baad07b45bb611110e291c6b5ded06727dfc1efa))
+* **deps:** update dependency commander to v15 ([b6afc74](https://github.com/yearofthedan/weaver/commit/b6afc74a97c216115eb0a2936fcab49f33042556))
+
 ## [0.1.3](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.2...weaver-v0.1.3) (2026-05-13)
 
 
