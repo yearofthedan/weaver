@@ -69,22 +69,23 @@ function closeServer(server: net.Server): Promise<void> {
  * opts.ready=true (default): emits { status: "ready" } on stderr after a tick.
  * opts.exitCode: emits "exit" instead (simulates daemon crash before ready).
  */
-type FakeStderr = EventEmitter & { destroy: ReturnType<typeof vi.fn> };
+class FakeStderr extends EventEmitter {
+  destroy = vi.fn();
+}
+
+class FakeChild extends EventEmitter {
+  stderr = new FakeStderr();
+  unref = vi.fn();
+}
 
 function makeFakeChild(opts: { ready?: boolean; exitCode?: number } = { ready: true }) {
-  const stderr = Object.assign(new EventEmitter(), { destroy: vi.fn() }) as FakeStderr;
-  const child = new EventEmitter() as EventEmitter & {
-    stderr: FakeStderr;
-    unref: ReturnType<typeof vi.fn>;
-  };
-  child.stderr = stderr;
-  child.unref = vi.fn();
+  const child = new FakeChild();
 
   if (opts.exitCode !== undefined) {
     setTimeout(() => child.emit("exit", opts.exitCode), 0);
   } else if (opts.ready !== false) {
     setTimeout(
-      () => stderr.emit("data", Buffer.from(`${JSON.stringify({ status: "ready" })}\n`)),
+      () => child.stderr.emit("data", Buffer.from(`${JSON.stringify({ status: "ready" })}\n`)),
       0,
     );
   }
@@ -239,15 +240,9 @@ describe("ensureDaemon", () => {
     it("rejects rather than resolving on a non-ready stderr line before crash", async () => {
       mockIsDaemonAlive.mockReturnValue(false);
 
-      const stderr = Object.assign(new EventEmitter(), { destroy: vi.fn() });
-      const child = new EventEmitter() as EventEmitter & {
-        stderr: typeof stderr;
-        unref: ReturnType<typeof vi.fn>;
-      };
-      child.stderr = stderr;
-      child.unref = vi.fn();
+      const child = new FakeChild();
       setTimeout(() => {
-        stderr.emit("data", Buffer.from(`${JSON.stringify({ status: "starting" })}\n`));
+        child.stderr.emit("data", Buffer.from(`${JSON.stringify({ status: "starting" })}\n`));
         child.emit("exit", 1);
       }, 0);
       mockSpawn.mockImplementation(() => child);
