@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.4...weaver-v0.1.5) (2026-06-05)
+
+
+### Bug Fixes
+
+* **deps:** update vue-language-tools monorepo to v3.3.3 ([ee006c0](https://github.com/yearofthedan/weaver/commit/ee006c0a2d5d85e5cb83f864b7615b1342c1e96d))
+
 ## [0.1.4](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.3...weaver-v0.1.4) (2026-06-01)
 
 
