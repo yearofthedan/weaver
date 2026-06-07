@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { callDaemon, ensureDaemon } from "../../daemon/ensure-daemon.js";
 import { socketPath } from "../../daemon/paths.js";
 import { validateWorkspace } from "../../domain/security.js";
-import { classifyDaemonError } from "./classify-error.js";
+import { classifyDaemonError } from "../cli/classify-error.js";
 import { TOOL_NAMES, TOOLS } from "./tools.js";
 
 export { TOOL_NAMES };

@@ -3,7 +3,6 @@ import type { Command, CommanderError } from "commander";
 import type { ZodTypeAny } from "zod";
 import { callDaemon, ensureDaemon } from "../../daemon/ensure-daemon.js";
 import { socketPath } from "../../daemon/paths.js";
-import { classifyDaemonError } from "../mcp/classify-error.js";
 import {
   DeleteFileArgsSchema,
   ExtractFunctionArgsSchema,
@@ -18,6 +17,7 @@ import {
   ReplaceTextBaseSchema,
   SearchTextArgsSchema,
 } from "../schema.js";
+import { classifyDaemonError } from "./classify-error.js";
 
 /**
  * Maps each kebab-case CLI subcommand name to the camelCase daemon method name
