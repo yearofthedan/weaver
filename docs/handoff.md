@@ -160,6 +160,10 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P2 — High-value features / bugs / tech debt
 
+- **Remove MCP transport — CLI-only** → [docs/specs/20260607-remove-mcp-transport.md](specs/20260607-remove-mcp-transport.md)
+
+- **Built-in skills installer (`weaver install`)** `[needs design]` — replace the current `npx skills add yearofthedan/weaver` ([vercel-labs/skills](https://github.com/vercel-labs/skills)) distribution with a Playwright-style built-in installer that copies the shipped skills into the consumer's `.claude/skills/`. More compelling once MCP is gone, since the migrated agent guidance ships entirely through skills. Decide: install ergonomics (`weaver install` vs `weaver skills add`), where skills are sourced from (the installed npm package's `.claude/skills/`), how updates/versioning work, and whether to keep the vercel-skills path as an alternative. Spec after the MCP removal ships.
+
 ---
 
 ### P3 — Medium-value features / bugs / tech debt
@@ -180,7 +184,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 - **`--dry-run` / rollback** `[needs design]` — add `--dry-run` flag to CLI operation subcommands that previews what would change without writing. Requires daemon-level support (compute-only mode that returns edits without applying them). Multi-file operations have no all-or-nothing guarantee; documented precondition (clean git working tree) is workable for now. Agents already have git as their undo mechanism. Revisit if non-git workflows emerge.
 - **CLI `--interactive` selection mode** `[needs design]` — interactive confirmation workflow for `replace-text` (present matches one-by-one like `git add -p`). Human-friendly; not useful for agents. Requires TTY detection and incremental confirmation loop.
 - **CLI human-friendly flag interface** `[needs design]` — add `--flag` aliases for JSON params on CLI subcommands (e.g. `weaver rename --file src/a.ts --line 5 --col 3 --new-name bar`). Syntactic sugar that constructs the same JSON. Layers on top of the JSON interface without breaking it.
-- **CLI `--help` should break down the JSON params** `[chore]` — `pnpm exec weaver rename --help` currently shows only `--workspace` and `-h`; the JSON parameter shape is invisible. The skill files describe each operation's params, but the CLI doesn't surface them. Generate per-subcommand help text from the Zod schemas in `src/adapters/schema.ts` (field name + type + one-line description) and/or include a worked JSON example. Each subcommand is registered in `src/adapters/cli/operations.ts` — add the help text there.
 - **`moveBlock`: move a contiguous code block between files** `[needs design]` — Move a block of code (e.g. a `describe(...)` block in a test file) from one file to another by line range: `moveBlock(sourceFile, startLine, endLine, destFile, insertAfterLine?)`. The block is self-contained — no callers to update, no reference graph involved. Main challenges: (1) import carrying — identify which imports the moved block uses, add missing ones to the destination; (2) import cleanup — remove now-unused imports from the source (ts-morph `organizeImports`); (3) insertion point — default is append to end of file. Primary use case: reorganising large test files by moving `describe` blocks without manual cut/paste + import fixup.
 - `createFile` `[needs design]` — scaffold a file with correct import paths
 - **Workspace split: `app` + `tooling` (`conventions` + `evals`)** `[needs design]` — move `agent:check`, `agent:doctor`, and `eval` scripts plus related tests into a tooling project; keep app unit tests and mutation testing with app initially; define dependency ownership and migration steps that preserve CI and publish flows
