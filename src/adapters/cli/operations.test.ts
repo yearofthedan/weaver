@@ -21,6 +21,29 @@ describe("CLI help and version", () => {
     expect(exitCode).toBe(0);
     expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
   });
+
+  it("rename --help lists JSON parameters with names, types, and descriptions, exits 0", async () => {
+    const { exitCode, stdout } = await runCliCommand(["rename", "--help"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).not.toContain("VALIDATION_ERROR");
+    // Each parameter name must be listed
+    expect(stdout).toContain("file");
+    expect(stdout).toContain("line");
+    expect(stdout).toContain("col");
+    expect(stdout).toContain("newName");
+    expect(stdout).toContain("checkTypeErrors");
+    // Descriptions must be present (sourced from schema.ts)
+    expect(stdout).toContain("Absolute path to the file");
+    expect(stdout).toContain("Line number (1-based)");
+    expect(stdout).toContain("New name for the symbol");
+    expect(stdout).toContain("When false, skip the post-write type check");
+    // Type labels must be present
+    expect(stdout).toContain("string");
+    expect(stdout).toContain("number");
+    expect(stdout).toContain("boolean?");
+    // --workspace is still listed
+    expect(stdout).toContain("--workspace");
+  });
 });
 
 describe("CLI operation subcommands", () => {
