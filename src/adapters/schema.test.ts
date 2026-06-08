@@ -240,3 +240,84 @@ describe("schema parameter descriptions", () => {
     });
   });
 });
+
+describe("schema validation", () => {
+  describe("RenameArgsSchema", () => {
+    it("rejects empty string for file (min-length guard)", () => {
+      const result = RenameArgsSchema.safeParse({ file: "", line: 1, col: 1, newName: "foo" });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects empty string for newName (min-length guard)", () => {
+      const result = RenameArgsSchema.safeParse({
+        file: "/a.ts",
+        line: 1,
+        col: 1,
+        newName: "",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects a newName that starts with a digit (identifier guard)", () => {
+      const result = RenameArgsSchema.safeParse({
+        file: "/a.ts",
+        line: 1,
+        col: 1,
+        newName: "1invalid",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects a newName containing spaces (identifier guard)", () => {
+      const result = RenameArgsSchema.safeParse({
+        file: "/a.ts",
+        line: 1,
+        col: 1,
+        newName: "foo bar",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("accepts a valid newName", () => {
+      const result = RenameArgsSchema.safeParse({
+        file: "/a.ts",
+        line: 1,
+        col: 1,
+        newName: "validName",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts a newName with leading underscore (identifier guard)", () => {
+      const result = RenameArgsSchema.safeParse({
+        file: "/a.ts",
+        line: 1,
+        col: 1,
+        newName: "_privateVar",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts a newName with dollar sign (identifier guard)", () => {
+      const result = RenameArgsSchema.safeParse({
+        file: "/a.ts",
+        line: 1,
+        col: 1,
+        newName: "$ref",
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe("MoveArgsSchema", () => {
+    it("rejects empty string for oldPath (min-length guard)", () => {
+      const result = MoveArgsSchema.safeParse({ oldPath: "", newPath: "/b.ts" });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects empty string for newPath (min-length guard)", () => {
+      const result = MoveArgsSchema.safeParse({ oldPath: "/a.ts", newPath: "" });
+      expect(result.success).toBe(false);
+    });
+  });
+});
