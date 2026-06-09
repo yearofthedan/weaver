@@ -7,6 +7,7 @@ import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
 import {
   callDaemonSocket,
   killDaemon,
+  runCliCommand,
   spawnAndWaitForReady,
 } from "../__testHelpers__/process-helpers.js";
 import { isDaemonAlive, PROTOCOL_VERSION, removeDaemonFiles } from "./daemon.js";
@@ -101,28 +102,16 @@ describe("protocol version", () => {
 
     const fakePid = (JSON.parse(fs.readFileSync(lockfilePath(dir), "utf8")) as { pid: number }).pid;
 
-    // daemon command runs ensureDaemon on startup: detects the wrong version,
-    // kills the fake daemon, and spawns a real one.
-    const daemon = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
-    procs.push(daemon);
+    // A CLI operation runs ensureDaemon first: it pings the incumbent, detects
+    // the mismatched version, kills the stale daemon, and spawns a real one
+    // before issuing the request. (`weaver daemon` would NOT exercise this — it
+    // overwrites any incumbent unconditionally without checking the version.)
+    const { exitCode } = await runCliCommand(["get-type-errors", "--workspace", dir, "{}"], 30_000);
+    expect(exitCode).toBe(0);
 
-    // Poll until the lockfile PID changes — that means the real daemon is up.
-    const deadline = Date.now() + 30_000;
-    let realPid: number | undefined;
-    while (Date.now() < deadline) {
-      try {
-        const lock = JSON.parse(fs.readFileSync(lockfilePath(dir), "utf8")) as { pid: number };
-        if (lock.pid !== fakePid) {
-          realPid = lock.pid;
-          break;
-        }
-      } catch {
-        // lockfile briefly absent during the transition — keep polling
-      }
-      await new Promise((r) => setTimeout(r, 100));
-    }
-
-    expect(realPid).toBeDefined();
+    // The stale daemon was replaced: a different PID now owns the lockfile.
+    const realPid = (JSON.parse(fs.readFileSync(lockfilePath(dir), "utf8")) as { pid: number }).pid;
+    expect(realPid).not.toBe(fakePid);
     expect(isDaemonAlive(dir)).toBe(true);
   }, 60_000);
 });
