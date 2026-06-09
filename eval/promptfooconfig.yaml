@@ -1,5 +1,13 @@
 description: "weaver tool-description smoke test"
 
+# ⚠️ BROKEN pending redesign. This harness presents weaver to the model as an
+# MCP server (it spawns `weaver serve` below), but the MCP transport has been
+# removed — `weaver serve` no longer exists, so `pnpm eval` cannot run. The
+# whole approach (assert the model selects the right MCP *tool*) needs reworking
+# for the CLI: present the skill, give the model bash, and assert on the
+# `weaver <command>` it emits. Tracked in docs/handoff.md. `pnpm check` does NOT
+# run this harness, so it stays green regardless.
+
 prompts:
   - "{{task}}"
 

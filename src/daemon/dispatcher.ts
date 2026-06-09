@@ -233,6 +233,9 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
   },
 };
 
+/** Canonical list of dispatchable operation names — the single source of truth. */
+export const OPERATION_NAMES: string[] = Object.keys(OPERATIONS);
+
 // ─── Dispatcher ────────────────────────────────────────────────────────────
 
 export async function dispatchRequest(
