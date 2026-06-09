@@ -101,10 +101,10 @@ describe("protocol version", () => {
 
     const fakePid = (JSON.parse(fs.readFileSync(lockfilePath(dir), "utf8")) as { pid: number }).pid;
 
-    // Serve runs ensureDaemon in the background: detects the wrong version,
+    // daemon command runs ensureDaemon on startup: detects the wrong version,
     // kills the fake daemon, and spawns a real one.
-    const serve = await spawnAndWaitForReady(["serve", "--workspace", dir], { pipeStdin: true });
-    procs.push(serve);
+    const daemon = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
+    procs.push(daemon);
 
     // Poll until the lockfile PID changes — that means the real daemon is up.
     const deadline = Date.now() + 30_000;

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { Command, type CommanderError } from "commander";
 import { runDaemon, runStop } from "../../daemon/daemon.js";
-import { runServe } from "../mcp/mcp.js";
 import { registerOperationSubcommands } from "./operations.js";
 
 function jsonError(message: string): void {
@@ -43,15 +42,6 @@ program
   .exitOverride(commanderExitOverride)
   .action(async (opts) => {
     await runStop(opts);
-  });
-
-program
-  .command("serve")
-  .description("Start a server for refactoring operations")
-  .option("--workspace <path>", "Root directory of the project to serve", process.cwd())
-  .exitOverride(commanderExitOverride)
-  .action(async (opts) => {
-    await runServe(opts);
   });
 
 registerOperationSubcommands(program, commanderExitOverride);

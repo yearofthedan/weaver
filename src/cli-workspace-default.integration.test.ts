@@ -1,6 +1,6 @@
 /**
- * Tests that --workspace defaults to process.cwd() for all three subcommands
- * (daemon, serve, stop) when the flag is omitted.
+ * Tests that --workspace defaults to process.cwd() for daemon and stop
+ * when the flag is omitted.
  */
 import * as fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
@@ -60,17 +60,6 @@ describe("--workspace default (process.cwd())", () => {
       const proc = await spawnAndWaitForReady(["daemon"], { cwd: dir });
       procs.push(proc);
       // If spawnAndWaitForReady resolves, the process emitted status:ready
-      expect(proc.killed).toBe(false);
-    });
-  });
-
-  describe("serve", () => {
-    it("accepts no --workspace flag and becomes ready using cwd", async () => {
-      const dir = copyFixture(FIXTURES.simpleTs.name);
-      dirs.push(dir);
-
-      const proc = await spawnAndWaitForReady(["serve"], { cwd: dir });
-      procs.push(proc);
       expect(proc.killed).toBe(false);
     });
   });
