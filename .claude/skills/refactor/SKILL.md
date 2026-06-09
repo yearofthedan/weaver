@@ -53,6 +53,8 @@ weaver move-symbol '{"sourceFile": "src/a.ts", "symbolName": "Foo", "destFile": 
 
 Moves the declaration and updates every importer. `destFile` is created automatically if it does not exist — no need to pre-create it. Check `typeErrors` after each move.
 
+Only top-level exported declarations (`export function`, `export const`, `export class`, …) — not class methods, and not re-exports via `export { }`. If `destFile` already exports a symbol with the same name, the call returns `SYMBOL_EXISTS`; pass `"force": true` to replace the destination's declaration with the source version and rewrite importers.
+
 Works for symbols declared in a `.vue` SFC's `<script setup>` block as well: pass the `.vue` file as `sourceFile`. The destination can be `.ts` (extract to a shared module) or `.vue` (move into another component's `<script setup>`). Transitive imports used by the moved symbol are not copied — `typeErrors` in the destination will tell you what to add.
 
 ## Delete a file safely
@@ -73,6 +75,8 @@ weaver extract-function '{"file": "src/a.ts", "startLine": 10, "startCol": 1, "e
 
 Infers parameters, return types, and async propagation. Function is placed at module scope (not exported). Use `move-symbol` afterward if it belongs in a different file.
 
+The selection must cover complete statements: `endCol` is inclusive and must point at the last character of the last statement (the `;` if present, or the last token in no-semicolon style).
+
 ## Response fields
 
 All write operations return:
@@ -91,5 +95,6 @@ Pass `"checkTypeErrors": false` when batching changes to check errors once at th
 
 - **`DAEMON_STARTING`** — retry after a short delay
 - **`SYMBOL_NOT_FOUND`** / **`FILE_NOT_FOUND`** — check coordinates or path
+- **`SYMBOL_EXISTS`** — `move-symbol` destination already exports that name; pass `"force": true` to replace it
 - **`NOT_SUPPORTED`** — operation doesn't support this target (e.g. `extract-function` on a `.vue` file without a `<script setup>` block)
 - **`WORKSPACE_VIOLATION`** — path is outside the workspace

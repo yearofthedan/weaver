@@ -5,7 +5,7 @@ description: Use when finding all usages of a symbol, jumping to a definition th
 
 # Code Inspection
 
-**STOP.** Before running `grep` to find where a symbol is used, or before reading a file just to find a definition — use these commands instead. They see through re-exports, barrel `index.ts` files, and Vue SFCs that grep misses, and they're scope-aware so they won't match unrelated identifiers with the same name.
+**STOP.** Before running `grep` to find where a symbol is used, or before reading a file just to find a definition — use these commands instead. They see through re-exports, barrel `index.ts` files, type-only imports, and Vue SFCs that grep misses, and they're scope-aware so they won't match unrelated identifiers with the same name.
 
 ## Trust the response
 
@@ -51,7 +51,7 @@ weaver get-type-errors '{"file": "/abs/path/src/a.ts"}'
 weaver get-type-errors '{}'
 ```
 
-Use to check the project baseline before a refactor, or to verify a specific file after manual edits.
+Use to check the project baseline before a refactor, or to verify a specific file after manual edits. Works for `.ts`/`.tsx` and, in Vue projects, `.vue` SFCs. Errors only — no warnings or suggestions.
 
 ## When NOT to use
 
