@@ -97,7 +97,6 @@ Numbers from `pnpm coverage` (vitest v8) as of 413 tests.
 | `src/utils/` | 98.70% | 96.55% | 95%+ | Healthy; maintain |
 | `src/security.ts` | 94.11% | 100% | 90%+ | All branches covered; two uncovered lines are `realpathSync` catch paths |
 | `src/daemon/` | 60.4% | 59.42% | 60%+ | At threshold (folder level); `daemon.ts` alone is 57.28% — `handleSocketRequest` and watcher-extension logic only run inside spawned processes |
-| `src/mcp.ts` | 33.67% | 40% | 60%+ | Below target; `ensureDaemon`, `startMcpServer`, `spawnDaemon` only run when the full MCP server is spawned — subprocess-level gap |
 | `src/schema.ts` | 100% | 100% | — | Declarative Zod schemas; trivially covered |
 
 Targets are floors, not goals. Mutation score is a better quality signal than line coverage for modules above 80%.
@@ -118,8 +117,8 @@ For Stryker config details, known surviving mutants, and hard-won lessons, see *
 
 Patterns established across the test suite — use these for consistency.
 
-**Test helpers are split into three files by concern.**
-`tests/helpers.ts` — fixture I/O only (`copyFixture`, `cleanup`, `readFile`, `fileExists`, `PROJECT_ROOT`). `tests/process-helpers.ts` — CLI spawn and daemon helpers (`spawnAndWaitForReady`, `waitForDaemon`, `killDaemon`, `callDaemonSocket`, `runCliCommand`). `tests/mcp-helpers.ts` — MCP client (`McpTestClient`, `parseMcpResult`, `useMcpContext`). Import from the appropriate module; `mcp-helpers` imports from both others.
+**Test helpers are split by concern.**
+`tests/helpers.ts` — fixture I/O only (`copyFixture`, `cleanup`, `readFile`, `fileExists`, `PROJECT_ROOT`). `tests/process-helpers.ts` — CLI spawn and daemon helpers (`spawnAndWaitForReady`, `waitForDaemon`, `killDaemon`, `callDaemonSocket`, `runCliCommand`). Import from the appropriate module.
 
 **`spawnAndWaitForReady` and `runCliCommand` accept a `cwd` option.**
 Pass `{ cwd: dir }` to spawn the CLI process with a different working directory. Required when testing the `--workspace` default (which falls back to `process.cwd()`).
@@ -132,12 +131,6 @@ If the code under test calls an async operation (e.g. a socket ping) before call
 
 **Mocking `process.exit` — use the throw pattern.**
 `vi.spyOn(process, "exit").mockImplementation((() => { throw new Error("EXIT"); }) as () => never)` is the standard pattern for testing code that calls `process.exit` on failure. The throw stops execution at the point the real exit would have, keeping the test hermetic. Always restore with `vi.restoreAllMocks()` in `afterEach`. For paths that do NOT call `process.exit` (happy paths), no mock is needed — await the function directly.
-
-**`useMcpContext()` in `tests/helpers.ts` for MCP integration tests.**
-Call once at the top of a `describe` block; returns `{ setup }`. `setup(fixture?)` copies the fixture, starts the MCP server, waits for the daemon, returns `{ dir, client }`. The `afterEach` cleanup (kill process, `removeDaemonFiles`, remove temp dir) is registered automatically.
-
-**`parseMcpResult(resp)` in `tests/helpers.ts` for MCP response parsing.**
-Extracts `.content[0].text` and JSON-parses it. Use instead of the two-line cast-and-parse inline in every MCP test.
 
 **Error assertions: always use `rejects.toMatchObject`.**
 `await expect(op(...)).rejects.toMatchObject({ code: "ERROR_CODE" })` is idiomatic vitest and safer than `try/catch + expect.fail`. The `try/catch` pattern silently passes if the wrong error type is thrown.

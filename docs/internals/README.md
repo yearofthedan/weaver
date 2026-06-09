@@ -30,7 +30,6 @@ User-facing reference is in [docs/commands/](../commands/). This directory docum
 | :--- | :--- |
 | [daemon.md](./daemon.md) | Lifecycle, discovery, auto-spawn, request serialisation, verbose logging. |
 | [watcher.md](./watcher.md) | Filesystem watcher, debouncing, invalidation strategy. |
-| [mcp-transport.md](./mcp-transport.md) | MCP wire protocol, tool registration, response contract. |
 | [../architecture.md](../architecture.md) | Provider/operation/dispatcher design. |
 
 ## Conventions
@@ -45,7 +44,7 @@ User-facing constraints, parameters, and error codes belong in the matching `doc
 
 ## Adding a new command
 
-1. Add the operation in `src/operations/`, the dispatcher entry in `src/daemon/dispatcher.ts`, and the MCP tool entry in `src/mcp.ts`.
+1. Add the operation in `src/operations/`, the dispatcher entry in `src/daemon/dispatcher.ts`, and the CLI subcommand entry in `src/adapters/cli/operations.ts`.
 2. Create `docs/commands/<kebab-name>.md` from the structure of an existing command page.
 3. Create `docs/internals/<kebab-name>.md` covering how-it-works, technical decisions, and any gotchas.
 4. Add the command to `docs/commands/README.md` and `docs/internals/README.md` indexes.

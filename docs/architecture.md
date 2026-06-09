@@ -77,7 +77,6 @@ Each plugin folder is a self-contained unit: project detection, compiler impleme
 ```mermaid
 graph TD
     subgraph Transport
-        MCP[MCP Server]
         CLI[CLI]
         Socket[Socket]
     end
@@ -117,7 +116,6 @@ graph TD
         IFS[InMemoryFileSystem]
     end
 
-    MCP --> D
     CLI --> D
     Socket --> D
     D --> Operations
@@ -134,7 +132,7 @@ graph TD
 
 ```mermaid
 sequenceDiagram
-    participant T as Transport (MCP/CLI)
+    participant T as CLI
     participant D as Dispatcher
     participant O as moveSymbol operation
     participant E as engine (TsMorphEngine or VolarEngine)
@@ -166,8 +164,6 @@ sequenceDiagram
 ### Which operations use which pattern
 
 All mutating operations receive a `WorkspaceScope`, use the `FileSystem` port for I/O, and rely on domain services for boundary tracking and import rewriting. Read-only operations (`findReferences`, `getDefinition`) do not write files and do not take a workspace argument.
-
-**MCP tool names use camelCase.** `rename`, `findReferences`, `getDefinition`, etc. — not kebab-case. This matches TypeScript naming conventions and is visible in the MCP tool descriptions agents read.
 
 ---
 
@@ -250,8 +246,8 @@ In a monorepo each package resolves to its own tsconfig and gets the right engin
 - `invoke(registry, params, workspace)` — calls the operation function with the resolved compilers
 
 ```
-tool call (MCP)
-  → mcp.ts: TOOLS table → callDaemon(method, params)
+CLI subcommand
+  → operations.ts: SUBCOMMANDS table → callDaemon(method, params)
   → daemon.ts: socket → dispatchRequest(method, params, workspace)
   → dispatcher.ts: OPERATIONS[method]
       1. validate params (schema.safeParse)
@@ -261,7 +257,7 @@ tool call (MCP)
       5. return { ok: true, ...result }
 ```
 
-Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and one entry in `TOOLS` (mcp.ts). No other files need to change.
+Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and one entry in `SUBCOMMANDS` (operations.ts). No other files need to change.
 
 ---
 
@@ -284,7 +280,7 @@ Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and on
 |-----------|---------------|-------|
 | `findReferences` | `projectCompiler` | Does not take `workspace` — returns all references, including outside the workspace |
 | `getDefinition` | `projectCompiler` | Same — workspace boundary is only enforced on inputs (the query file), not outputs |
-| `getTypeErrors` | `tsCompiler` | Returns semantic diagnostics for a single file or all files in the project; errors-only, capped at 100 |
+| `getTypeErrors` | `projectCompiler` | Returns semantic diagnostics for a single file or all files in the project; errors-only, capped at 100. `.ts`/`.tsx` via the TS engine; `.vue` SFCs via Volar in Vue projects. |
 
 ### Filesystem-only (no compiler)
 

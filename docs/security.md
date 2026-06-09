@@ -1,4 +1,4 @@
-**Purpose:** Threat model and security controls for the weaver MCP server.
+**Purpose:** Threat model and security controls for weaver.
 **Audience:** Security reviewers, developers implementing file operations, anyone touching workspace boundary logic.
 **Status:** Current
 **Related docs:** [Quality](quality.md) (reliability), [Commands](commands/) (per-command constraints), [Internals](internals/) (per-command security details)
@@ -7,13 +7,13 @@
 
 # Security
 
-Threat model, controls, and known limitations for the weaver MCP server.
+Threat model, controls, and known limitations for weaver.
 
 ## Threat model
 
-The primary actor is an **AI coding agent** running in a dev container, communicating with the MCP server over stdio. The agent is trusted but may be manipulated via prompt injection from source-file content (see below). The MCP server runs as the same user as the agent — there is no privilege boundary inside the container.
+The primary actor is an **AI coding agent** running in a dev container, invoking the weaver CLI, which talks to a local daemon over a Unix socket. The agent is trusted but may be manipulated via prompt injection from source-file content (see below). The daemon runs as the same user as the agent — there is no privilege boundary inside the container.
 
-The key invariant we enforce: **the MCP server may only read and write files within the declared workspace directory.** Files outside the workspace (system files, other projects, secrets) must not be touched regardless of what the agent sends.
+The key invariant we enforce: **weaver may only read and write files within the declared workspace directory.** Files outside the workspace (system files, other projects, secrets) must not be touched regardless of what the agent sends.
 
 ---
 
@@ -40,17 +40,17 @@ The TypeScript language service may compute import rewrites in files that are in
 
 Skipped files are returned to the agent in `result.filesSkipped` so it has visibility.
 
-### 3. `newName` identifier validation (MCP layer)
+### 3. `newName` identifier validation (schema layer)
 
-`schema.ts` defines `newName` as `/^[a-zA-Z_$][a-zA-Z0-9_$]*$/`, and `mcp.ts` reuses that schema for MCP tool registration. Invalid identifiers are rejected before reaching the daemon.
+`schema.ts` defines `newName` as `/^[a-zA-Z_$][a-zA-Z0-9_$]*$/`. The dispatcher validates every request against these Zod schemas at the socket boundary, so invalid identifiers are rejected before the engine is called.
 
 ### 4. JSON framing integrity (wire protocol)
 
-The daemon uses newline-delimited JSON over a Unix socket. All values are serialised with `JSON.stringify`, which escapes embedded newlines (`\n` → `\\n`). A malicious file path containing a newline cannot inject a second JSON command into the framing. Covered by regression test in `tests/mcp/security.test.ts`.
+The daemon uses newline-delimited JSON over a Unix socket. All values are serialised with `JSON.stringify`, which escapes embedded newlines (`\n` → `\\n`). A malicious file path containing a newline cannot inject a second JSON command into the framing. Covered by a regression test in `src/adapters/cli/security.integration.test.ts`.
 
 ### 5. No shell execution of agent input
 
-`spawnDaemon` in `mcp.ts` uses `spawn(cmd, args)` with an argument array and no `shell: true`. Agent-supplied values never reach a shell.
+`spawnDaemon` in `src/daemon/ensure-daemon.ts` uses `spawn(cmd, args)` with an argument array and no `shell: true`. Agent-supplied values never reach a shell.
 
 ### 6. Unix socket access control
 
@@ -62,7 +62,7 @@ The daemon socket path is derived from a hash of the workspace path (`src/daemon
 
 At daemon startup, the declared workspace path is checked against a hardcoded blocklist of system directories (`/`, `/etc`, `/usr`, `/var`, `/bin`, …) and user credential directories (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.kube`, `~/.azure`). Symlinks are resolved via `fs.realpathSync()` before the check, preventing indirect access through an innocuous-looking symlink target.
 
-A misconfigured or malicious MCP client config pointing the daemon at one of these paths is rejected at startup with `VALIDATION_ERROR` before any file operations are attempted.
+A misconfigured or malicious `--workspace` argument pointing the daemon at one of these paths is rejected at startup with `VALIDATION_ERROR` before any file operations are attempted.
 
 ---
 
@@ -70,9 +70,9 @@ A misconfigured or malicious MCP client config pointing the daemon at one of the
 
 ### Prompt injection via outbound content
 
-The response `message` field includes `symbolName` (taken from `target.getText()` in the source file) and file paths. If a source file contains a symbol with a prompt-injection payload as its name (e.g. `IGNORE_PREVIOUS_INSTRUCTIONS…`), that string will appear in the MCP response the agent receives. This is the general LLM prompt-injection problem; it is not a bug in this codebase but is worth noting as a design-level risk.
+The response `message` field includes `symbolName` (taken from `target.getText()` in the source file) and file paths. If a source file contains a symbol with a prompt-injection payload as its name (e.g. `IGNORE_PREVIOUS_INSTRUCTIONS…`), that string will appear in the response the agent receives. This is the general LLM prompt-injection problem; it is not a bug in this codebase but is worth noting as a design-level risk.
 
-Mitigations outside scope of this project: agent-side sandboxing, response sanitisation at the MCP host layer.
+Mitigations outside scope of this project: agent-side sandboxing, response sanitisation at the agent host layer.
 
 ### Vue scan is regex-based (not semantic)
 

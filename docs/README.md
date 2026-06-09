@@ -5,7 +5,7 @@
 ## Quick Start
 
 - **I want to use weaver** → [README](../README.md) — install, one-line example, agent integration
-- **I want a command's reference page** → [Commands](commands/) — every CLI/MCP command, one page each
+- **I want a command's reference page** → [Commands](commands/) — every CLI command, one page each
 - **I want shared conventions** → [Reference](reference/) — response format, error codes
 - **I'm implementing a feature** → [Handoff](handoff.md) — backlog, current state, finish checklist
 - **I'm reviewing security** → [Security](security.md), then specific [Internals](internals/)
@@ -30,7 +30,7 @@
 
 - [Architecture](architecture.md) — provider/operation/dispatcher design; read before touching `src/`
 - [Security](security.md) — threat model, controls, known limitations
-- [Internals](internals/) — per-command implementation, technical decisions, and shared infrastructure (daemon, watcher, MCP transport)
+- [Internals](internals/) — per-command implementation, technical decisions, and shared infrastructure (daemon, watcher)
 - [Volar v3](tech/volar-v3.md) — Vue provider internals; required reading before touching `plugins/vue/engine.ts`
 
 ## Agent docs

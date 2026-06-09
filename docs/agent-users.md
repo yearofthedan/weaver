@@ -1,7 +1,7 @@
 **Purpose:** Characteristics of AI coding agents that should inform every design decision in weaver.
 **Audience:** Anyone designing or speccing a feature. Read this before writing a spec.
 **Status:** Current
-**Related docs:** [Why](why.md) (product rationale), [MCP transport](internals/mcp-transport.md) (tool interface)
+**Related docs:** [Why](why.md) (product rationale), [Commands](commands/) (CLI interface)
 
 ---
 
@@ -19,9 +19,9 @@ This principle shows up in every section below. Each characteristic is a specifi
 
 ## How agents differ from humans
 
-### They read the tool description, nothing else
+### They read the skill and the command output, nothing else
 
-An agent discovers weaver through MCP tool descriptions. It will never browse a README, search a docs site, or read a changelog. If a capability isn't surfaced in the tool description the agent sees at call time, it doesn't exist. Opt-in flags that require the agent to know about a feature before using it are effectively invisible.
+An agent discovers weaver through its skill files and the CLI's own output — command `--help` and error messages. It will never browse a README, search a docs site, or read a changelog. If a capability isn't surfaced where the agent looks at call time, it doesn't exist. Opt-in flags that require the agent to know about a feature before using it are effectively invisible.
 
 ### They won't plan the optimal sequence of calls
 

@@ -38,20 +38,20 @@ The first call auto-spawns a daemon for the workspace and warms it. Subsequent c
 
 ## Commands
 
-Full per-command reference: [`docs/commands/`](docs/commands/). Common shape: each command takes a JSON argument (or stdin), returns JSON, and is also exposed as an MCP tool with the same arguments under the `camelCase` form (`move-file` ↔ `moveFile`).
+Full per-command reference: [`docs/commands/`](docs/commands/). Common shape: each command takes a JSON argument (or stdin) and returns JSON.
 
 | Category | Commands |
 | --- | --- |
 | Refactor | [`rename`](docs/commands/rename.md) · [`move-file`](docs/commands/move-file.md) · [`move-directory`](docs/commands/move-directory.md) · [`move-symbol`](docs/commands/move-symbol.md) · [`delete-file`](docs/commands/delete-file.md) · [`extract-function`](docs/commands/extract-function.md) |
 | Inspect | [`find-references`](docs/commands/find-references.md) · [`find-importers`](docs/commands/find-importers.md) · [`get-definition`](docs/commands/get-definition.md) · [`get-type-errors`](docs/commands/get-type-errors.md) |
 | Search | [`search-text`](docs/commands/search-text.md) · [`replace-text`](docs/commands/replace-text.md) |
-| Lifecycle | [`daemon`](docs/commands/daemon.md) · [`serve`](docs/commands/serve.md) · [`stop`](docs/commands/stop.md) |
+| Lifecycle | [`daemon`](docs/commands/daemon.md) · [`stop`](docs/commands/stop.md) |
 
 Shared conventions: [response format](docs/reference/response-format.md) · [error codes](docs/reference/error-codes.md).
 
 ## Agent integration
 
-### CLI (recommended)
+### CLI
 
 Any agent with shell access can call weaver directly. Install as a dev dependency, then invoke any command with a single JSON argument:
 
@@ -60,24 +60,6 @@ npx @yearofthedan/weaver move-file '{"oldPath": "src/old.ts", "newPath": "src/ne
 ```
 
 The daemon auto-spawns on the first call and stays warm for subsequent operations.
-
-### MCP
-
-For agent hosts that support the Model Context Protocol, weaver exposes the same operations via `weaver serve`. Add a `.mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "weaver": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@yearofthedan/weaver", "serve", "--workspace", "."]
-    }
-  }
-}
-```
-
-See [`docs/commands/serve.md`](docs/commands/serve.md) for portable-config notes.
 
 ### Skills
 
@@ -95,16 +77,6 @@ see `node_modules/@yearofthedan/weaver/.claude/skills/refactor`
 see `node_modules/@yearofthedan/weaver/.claude/skills/code-inspection`
 see `node_modules/@yearofthedan/weaver/.claude/skills/search-and-replace`
 ```
-
-## Architecture
-
-Three pieces, kept apart on purpose:
-
-- **Daemon** — long-lived process that loads the project graph, watches for file changes, and stays warm between agent sessions.
-- **CLI** — primary interface. Subcommands auto-spawn the daemon if needed and return JSON to stdout.
-- **MCP server** — thin stdio bridge (`weaver serve`) that connects to the daemon for hosts supporting MCP.
-
-Deeper detail in [`docs/architecture.md`](docs/architecture.md) and [`docs/internals/`](docs/internals/).
 
 ## Documentation
 

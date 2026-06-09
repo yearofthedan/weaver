@@ -14,10 +14,9 @@ Context that isn't in the command or internals docs — things you need to know 
 **New to the codebase?** Read in this order:
 1. [`docs/why.md`](why.md) — what this is and why it exists
 2. [`docs/agent-users.md`](agent-users.md) — how agents differ from human users; read before speccing any feature
-3. [`docs/internals/daemon.md`](internals/daemon.md) — understand the daemon before touching `serve`
-4. [`docs/internals/mcp-transport.md`](internals/mcp-transport.md) — how `serve` connects to the daemon
-5. [`docs/architecture.md`](architecture.md) — compiler/operation architecture; read before touching anything in `src/`
-6. [`docs/quality.md`](quality.md) — testing and reliability expectations
+3. [`docs/internals/daemon.md`](internals/daemon.md) — understand the daemon and how the CLI connects to it
+4. [`docs/architecture.md`](architecture.md) — compiler/operation architecture; read before touching anything in `src/`
+5. [`docs/quality.md`](quality.md) — testing and reliability expectations
 
 **Picking up a task?** Tasks have one of three states:
 - **`[chore]`** → implementation is unambiguous; implement directly, no spec needed. Any decision context is in the task description. Use for deferred admin tasks (dependency bumps, doc edits, config changes, dead code removal). Inline refactors spotted during a session don't need an entry — apply them in a separate commit and move on.
@@ -55,16 +54,13 @@ eval/
   code-inspection/    ← shipped with npm; agent guidance for find-references, get-definition, get-type-errors
 src/
   adapters/
-    schema.ts         ← Zod schemas + inferred arg types for all operations (used by tools.ts + dispatcher)
+    schema.ts         ← Zod schemas + per-field descriptions + inferred arg types (used by dispatcher + CLI --help)
     cli/
-      cli.ts          ← CLI entry point; registers daemon, serve, stop commands + operation subcommands
-      operations.ts   ← data-driven registration of 11 operation subcommands (rename, move-file, etc.)
-    mcp/
-      mcp.ts          ← MCP server (connects to daemon); runServe + startMcpServer + classifyDaemonError
-      tools.ts        ← TOOLS table (11 tool definitions) + ToolDefinition interface + TOOL_NAMES
+      cli.ts          ← CLI entry point; registers daemon, stop commands + operation subcommands
+      operations.ts   ← data-driven registration of 12 operation subcommands; SUBCOMMANDS table; renders --help from schemas
       classify-error.ts ← classifyDaemonError — maps socket error codes to DAEMON_STARTING / INTERNAL_ERROR
       classify-error.test.ts ← unit tests for classifyDaemonError
-      *.integration.test.ts  ← MCP integration tests (find-references, rename, move-file, security, etc.)
+      security.integration.test.ts ← CLI workspace-security integration tests (boundary, traversal, injection)
   ports/
     filesystem.ts         ← FileSystem interface + barrel re-exports
     node-filesystem.ts    ← NodeFileSystem wrapping node:fs (production)
@@ -139,7 +135,6 @@ src/
   *.integration.test.ts ← cross-cutting integration tests (cli-workspace-default, eval, agent-conventions, skill-file)
   __testHelpers__/
     helpers.ts        ← shared test utilities (cleanup, readFile, fileExists, PROJECT_ROOT); re-exports copyFixture
-    mcp-helpers.ts    ← MCP test utilities (useMcpContext, parseMcpResult)
     process-helpers.ts ← subprocess spawning utilities
     fake-daemon.ts    ← fake daemon script for protocol tests
     fixtures/
@@ -215,8 +210,7 @@ Each concern has a dedicated doc. Read those — don't rely on handoff for desig
 |-------|-----|
 | Agent user characteristics — design constraints for tool interfaces | [`docs/agent-users.md`](agent-users.md) |
 | Compiler/operation architecture, dispatcher design, `CompilerRegistry` | [`docs/architecture.md`](architecture.md) |
-| MCP wire protocol, tool interface, `DAEMON_STARTING`, `filesSkipped` | [`docs/internals/mcp-transport.md`](internals/mcp-transport.md) |
-| Daemon lifecycle, auto-spawn, socket protocol | [`docs/internals/daemon.md`](internals/daemon.md) |
+| Daemon lifecycle, auto-spawn, socket protocol, `DAEMON_STARTING` | [`docs/internals/daemon.md`](internals/daemon.md) |
 | Vue compiler internals, virtual↔real path translation, `toVirtualLocation` | [`docs/tech/volar-v3.md`](tech/volar-v3.md) |
-| Implementation gotchas (MCP naming, `workspace` convention, Volar quirks, etc.) | [`docs/architecture.md`](architecture.md), [`docs/tech/volar-v3.md`](tech/volar-v3.md) |
+| Implementation gotchas (`workspace` convention, Volar quirks, etc.) | [`docs/architecture.md`](architecture.md), [`docs/tech/volar-v3.md`](tech/volar-v3.md) |
 | Task specifications (ready and archived) | [`docs/specs/`](specs/) |

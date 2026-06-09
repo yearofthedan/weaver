@@ -1,8 +1,7 @@
 # Agent+MCP Eval Design
 
-**Status:** Approved
+**Status:** Superseded — describes the MCP-based eval harness, which broke when the MCP transport was removed. The harness must be reworked for the CLI (present the skill, give the model bash, assert on the emitted `weaver <command>` rather than on MCP tool selection). Tracked by the "Redesign the promptfoo eval harness for the CLI" entry in [handoff.md](handoff.md). Kept for historical context until that redesign lands.
 **Date:** 2026-03-01
-**Tracks:** [handoff.md](handoff.md) P2 eval task → implementation spec TBD
 
 ---
 

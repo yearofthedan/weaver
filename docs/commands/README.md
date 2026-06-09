@@ -7,7 +7,7 @@
 
 Each command page follows the same structure: **When to use**, **Synopsis**, **Inputs**, **Output**, **Error codes**, **Examples**, **Limitations**, and a link to internals.
 
-All operation commands accept JSON over CLI argument or stdin and return JSON on stdout. They are also exposed as MCP tools — JSON keys match exactly, MCP tool names are `camelCase` (e.g. CLI `move-file` ↔ MCP `moveFile`).
+All operation commands accept JSON over CLI argument or stdin and return JSON on stdout.
 
 ## Refactoring
 
@@ -45,12 +45,10 @@ All operation commands accept JSON over CLI argument or stdin and return JSON on
 | Command | Summary |
 | :--- | :--- |
 | [`daemon`](./daemon.md) | Start the long-lived engine host for a workspace. |
-| [`serve`](./serve.md) | Start the MCP stdio server for an agent session. |
 | [`stop`](./stop.md) | Stop the daemon for a workspace. |
 
 ## See also
 
 - [Response format](../reference/response-format.md) — `status` field, mutating vs read-only shapes, common fields.
 - [Error codes](../reference/error-codes.md) — every code, what it means, and when it can occur.
-- [MCP transport](../internals/mcp-transport.md) — wire protocol and tool registration internals.
 - [Architecture](../architecture.md) — provider/operation/dispatcher design.
