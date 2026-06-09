@@ -10,6 +10,7 @@ import {
   MoveDirectoryArgsSchema,
   MoveSymbolArgsSchema,
   RenameArgsSchema,
+  ReplaceTextArgsSchema,
   ReplaceTextBaseSchema,
   SearchTextArgsSchema,
   TextEditSchema,
@@ -318,6 +319,41 @@ describe("schema validation", () => {
     it("rejects empty string for newPath (min-length guard)", () => {
       const result = MoveArgsSchema.safeParse({ oldPath: "/a.ts", newPath: "" });
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe("ReplaceTextArgsSchema (exactly-one-mode invariant)", () => {
+    const edit = { file: "/a.ts", line: 1, col: 1, oldText: "a", newText: "b" };
+
+    it("rejects when neither pattern mode nor edits are provided", () => {
+      expect(ReplaceTextArgsSchema.safeParse({}).success).toBe(false);
+    });
+
+    it("rejects when both pattern mode and edits are provided", () => {
+      const result = ReplaceTextArgsSchema.safeParse({
+        pattern: "a",
+        replacement: "b",
+        edits: [edit],
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects pattern without replacement (incomplete pattern mode, no edits)", () => {
+      expect(ReplaceTextArgsSchema.safeParse({ pattern: "a" }).success).toBe(false);
+    });
+
+    it("rejects replacement without pattern (incomplete pattern mode, no edits)", () => {
+      expect(ReplaceTextArgsSchema.safeParse({ replacement: "b" }).success).toBe(false);
+    });
+
+    it("accepts pattern mode alone (pattern + replacement)", () => {
+      expect(ReplaceTextArgsSchema.safeParse({ pattern: "a", replacement: "b" }).success).toBe(
+        true,
+      );
+    });
+
+    it("accepts surgical edits mode alone", () => {
+      expect(ReplaceTextArgsSchema.safeParse({ edits: [edit] }).success).toBe(true);
     });
   });
 });
