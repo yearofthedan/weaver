@@ -168,6 +168,8 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
+- **Stryker static mutants in `schema.ts`** `[needs design]` — `src/adapters/schema.ts` consists entirely of module-level Zod schema declarations. In Stryker's `perTest` + ESM mode, all mutations are "static mutants" with no per-test attribution and ESM module caching prevents the mutated module from being reloaded between test runs. Targeted mutation runs on `schema.ts` show ~1% score even with validation tests that should catch min→max swaps. Options: (a) add `ignoreStatic: true` in Stryker config to exclude static mutants from schema.ts; (b) restructure schema.ts to use factory functions instead of top-level declarations; (c) add schema.ts to the Stryker global `mutate` list and accept the static limitation. See agent notes at `.claude/agent-notes/remove-mcp-transport-cli-build-up.md` for full analysis.
+
 ---
 
 ### P4 — Low priority
