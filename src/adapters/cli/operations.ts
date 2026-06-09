@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import type { Command, CommanderError } from "commander";
-import type { ZodTypeAny } from "zod";
+import { z } from "zod";
 import { callDaemon, ensureDaemon } from "../../daemon/ensure-daemon.js";
 import { socketPath } from "../../daemon/paths.js";
 import {
@@ -25,7 +25,7 @@ import { classifyDaemonError } from "./classify-error.js";
  */
 const SUBCOMMANDS: Record<
   string,
-  { method: string; pathParams: string[]; schema: { shape: Record<string, ZodTypeAny> } | null }
+  { method: string; pathParams: string[]; schema: z.ZodType | null }
 > = {
   rename: { method: "rename", pathParams: ["file"], schema: RenameArgsSchema },
   "move-file": { method: "moveFile", pathParams: ["oldPath", "newPath"], schema: MoveArgsSchema },
@@ -73,24 +73,29 @@ export function writeJsonError(error: string, message: string): void {
   process.stdout.write(`${JSON.stringify({ status: "error", error, message })}\n`);
 }
 
-/** Derive a human-readable type label from a Zod schema field. */
-function zodTypeName(field: ZodTypeAny): string {
-  const def = (field as { _zod?: { def?: { type?: string; innerType?: ZodTypeAny } } })._zod?.def;
-  if (!def) return "unknown";
-  if (def.type === "optional") {
-    const inner = def.innerType;
-    return inner ? `${zodTypeName(inner)}?` : "unknown?";
+/**
+ * Render a parameter breakdown block from a Zod object schema. Derives each
+ * field's name, description, and whether it's optional from the schema, so the
+ * help text can never drift from validation. Type is left to the description
+ * (e.g. "Line number (1-based)") rather than coupling the help to Zod's
+ * type-name rendering.
+ */
+function renderParamsHelp(schema: z.ZodType): string {
+  const json = z.toJSONSchema(schema);
+  const required = new Set(json.required ?? []);
+  const rows: { name: string; desc: string }[] = [];
+  for (const [name, prop] of Object.entries(json.properties ?? {})) {
+    // JSON Schema permits a boolean in place of a property schema; ours never are.
+    if (typeof prop === "boolean") continue;
+    const optional = required.has(name) ? "" : "(optional) ";
+    rows.push({ name, desc: `${optional}${prop.description ?? ""}` });
   }
-  return def.type ?? "unknown";
-}
+  if (rows.length === 0) return "";
 
-/** Render a parameter breakdown block from a Zod object schema's shape. */
-function renderParamsHelp(shape: Record<string, ZodTypeAny>): string {
-  const lines: string[] = ["\nJSON parameters:"];
-  for (const [name, field] of Object.entries(shape)) {
-    const typePart = zodTypeName(field);
-    const desc = field.description ?? "";
-    lines.push(`  ${name}  (${typePart})  ${desc}`);
+  const nameWidth = Math.max(...rows.map((r) => r.name.length));
+  const lines = ["\nJSON parameters:"];
+  for (const r of rows) {
+    lines.push(`  ${r.name.padEnd(nameWidth)}  ${r.desc}`);
   }
   return lines.join("\n");
 }
@@ -112,7 +117,7 @@ export function registerOperationSubcommands(
       .exitOverride(exitOverride);
 
     if (schema !== null) {
-      cmd.addHelpText("after", renderParamsHelp(schema.shape));
+      cmd.addHelpText("after", () => renderParamsHelp(schema));
     }
 
     cmd.action(async (jsonArg: string | undefined, opts: { workspace: string }) => {
@@ -166,7 +171,7 @@ export function resolveRelativePaths(
   }
 }
 
-export async function resolveInput(
+async function resolveInput(
   jsonArg: string | undefined,
   subcommand: string,
 ): Promise<string | null> {
@@ -179,7 +184,7 @@ export async function resolveInput(
   process.exit(1);
 }
 
-export function readStdin(): Promise<string> {
+function readStdin(): Promise<string> {
   return new Promise((resolve) => {
     let buf = "";
     process.stdin.setEncoding("utf8");

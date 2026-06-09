@@ -9,9 +9,7 @@ import {
 } from "../../__testHelpers__/process-helpers.js";
 import { removeDaemonFiles } from "../../daemon/daemon.js";
 import {
-  readStdin,
   registerOperationSubcommands,
-  resolveInput,
   resolveRelativePaths,
   writeJsonError,
 } from "./operations.js";
@@ -66,12 +64,11 @@ describe("registerOperationSubcommands help rendering", () => {
     expect(help).toContain("When false, skip the post-write type check");
   });
 
-  it("rename subcommand help includes type labels", () => {
+  it("rename subcommand help marks optional params and leaves required params unmarked", () => {
     const program = buildProgram();
     const help = captureHelp(findCmd(program, "rename"));
-    expect(help).toContain("(string)");
-    expect(help).toContain("(number)");
-    expect(help).toContain("(boolean?)");
+    expect(help).toContain("(optional) When false, skip the post-write type check");
+    expect(help).not.toContain("(optional) Absolute path to the file");
   });
 
   it("rename subcommand help includes --workspace option", () => {
@@ -89,12 +86,11 @@ describe("registerOperationSubcommands help rendering", () => {
     expect(help).toContain("Absolute destination path");
   });
 
-  it("get-type-errors subcommand help includes file param with optional marker", () => {
+  it("get-type-errors subcommand help marks its optional file param", () => {
     const program = buildProgram();
     const help = captureHelp(findCmd(program, "get-type-errors"));
     expect(help).toContain("file");
-    expect(help).toContain("string?");
-    expect(help).toContain("Absolute path to a single .ts/.tsx file");
+    expect(help).toContain("(optional) Absolute path to a single .ts/.tsx file");
   });
 
   it("all 12 subcommands are registered", () => {
@@ -203,89 +199,6 @@ describe("resolveRelativePaths", () => {
   });
 });
 
-describe("resolveInput", () => {
-  it("returns the jsonArg directly when it is provided", async () => {
-    const result = await resolveInput('{"file":"a.ts"}', "rename");
-    expect(result).toBe('{"file":"a.ts"}');
-  });
-
-  it("reads stdin when jsonArg is undefined and stdin is not a TTY", async () => {
-    const origIsTTY = process.stdin.isTTY;
-    const origOn = process.stdin.on.bind(process.stdin);
-    Object.defineProperty(process.stdin, "isTTY", { value: false, configurable: true });
-    const listeners: Record<string, Array<(...args: unknown[]) => void>> = {};
-    const mockOn = (event: string, cb: (...args: unknown[]) => void) => {
-      listeners[event] = listeners[event] ?? [];
-      listeners[event].push(cb);
-      return process.stdin;
-    };
-    (process.stdin as NodeJS.ReadStream & { on: typeof mockOn }).on = mockOn;
-
-    const promise = resolveInput(undefined, "rename");
-    for (const cb of listeners.data ?? []) cb('{"file":"stdin.ts"}');
-    for (const cb of listeners.end ?? []) cb();
-    const result = await promise;
-
-    Object.defineProperty(process.stdin, "isTTY", { value: origIsTTY, configurable: true });
-    (process.stdin as NodeJS.ReadStream & { on: typeof origOn }).on = origOn;
-
-    expect(result).toBe('{"file":"stdin.ts"}');
-  });
-});
-
-describe("readStdin", () => {
-  it("accumulates data chunks and returns trimmed string on end", async () => {
-    const origSetEncoding = process.stdin.setEncoding.bind(process.stdin);
-    const origOn = process.stdin.on.bind(process.stdin);
-    const listeners: Record<string, Array<(...args: unknown[]) => void>> = {};
-    const mockSetEncoding = () => process.stdin;
-    const mockOn = (event: string, cb: (...args: unknown[]) => void) => {
-      listeners[event] = listeners[event] ?? [];
-      listeners[event].push(cb);
-      return process.stdin;
-    };
-    (process.stdin as NodeJS.ReadStream & { setEncoding: typeof mockSetEncoding }).setEncoding =
-      mockSetEncoding;
-    (process.stdin as NodeJS.ReadStream & { on: typeof mockOn }).on = mockOn;
-
-    const promise = readStdin();
-    for (const cb of listeners.data ?? []) cb("chunk1 ");
-    for (const cb of listeners.data ?? []) cb("chunk2");
-    for (const cb of listeners.end ?? []) cb();
-    const result = await promise;
-
-    process.stdin.setEncoding = origSetEncoding;
-    (process.stdin as NodeJS.ReadStream & { on: typeof origOn }).on = origOn;
-
-    expect(result).toBe("chunk1 chunk2");
-  });
-
-  it("trims leading and trailing whitespace from the accumulated buffer", async () => {
-    const origSetEncoding = process.stdin.setEncoding.bind(process.stdin);
-    const origOn = process.stdin.on.bind(process.stdin);
-    const listeners: Record<string, Array<(...args: unknown[]) => void>> = {};
-    const mockSetEncoding = () => process.stdin;
-    const mockOn = (event: string, cb: (...args: unknown[]) => void) => {
-      listeners[event] = listeners[event] ?? [];
-      listeners[event].push(cb);
-      return process.stdin;
-    };
-    (process.stdin as NodeJS.ReadStream & { setEncoding: typeof mockSetEncoding }).setEncoding =
-      mockSetEncoding;
-    (process.stdin as NodeJS.ReadStream & { on: typeof mockOn }).on = mockOn;
-
-    const promise = readStdin();
-    for (const cb of listeners.data ?? []) cb("  json content  \n");
-    for (const cb of listeners.end ?? []) cb();
-    const result = await promise;
-
-    process.stdin.setEncoding = origSetEncoding;
-    (process.stdin as NodeJS.ReadStream & { on: typeof origOn }).on = origOn;
-
-    expect(result).toBe("json content");
-  });
-});
-
 describe("CLI help and version", () => {
   it("--help exits 0 with no JSON error", async () => {
     const { exitCode, stdout } = await runCliCommand(["--help"]);
@@ -300,26 +213,16 @@ describe("CLI help and version", () => {
     expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
-  it("rename --help lists JSON parameters with names, types, and descriptions, exits 0", async () => {
+  it("rename --help renders the JSON parameter block through the real CLI and exits 0", async () => {
     const { exitCode, stdout } = await runCliCommand(["rename", "--help"]);
     expect(exitCode).toBe(0);
     expect(stdout).not.toContain("VALIDATION_ERROR");
-    // Each parameter name must be listed
-    expect(stdout).toContain("file");
-    expect(stdout).toContain("line");
-    expect(stdout).toContain("col");
+    // Smoke: the lazy param-help render fired end-to-end. Exhaustive
+    // name/description/optional-marker coverage lives in the in-process unit
+    // tests above; here we only prove the spawned binary wires and renders it.
+    expect(stdout).toContain("JSON parameters:");
     expect(stdout).toContain("newName");
-    expect(stdout).toContain("checkTypeErrors");
-    // Descriptions must be present (sourced from schema.ts)
-    expect(stdout).toContain("Absolute path to the file");
-    expect(stdout).toContain("Line number (1-based)");
     expect(stdout).toContain("New name for the symbol");
-    expect(stdout).toContain("When false, skip the post-write type check");
-    // Type labels must be present
-    expect(stdout).toContain("string");
-    expect(stdout).toContain("number");
-    expect(stdout).toContain("boolean?");
-    // --workspace is still listed
     expect(stdout).toContain("--workspace");
   });
 });
