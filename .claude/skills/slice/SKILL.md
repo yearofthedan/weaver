@@ -9,7 +9,7 @@ metadata:
 
 ## Agent model
 
-Steps 1-2 and 4-10 run in the main conversation (interactive spec and review work). Step 3 dispatches ACs to `execution-agent` (defined in `.claude/agents/`), grouped by neighbourhood — ACs that touch the same files go in one call.
+Steps 1-2 and 4-10 run in the main conversation (interactive spec and review work). Step 3 dispatches ACs to `execution-agent` (defined in `.claude/agents/`), grouped by neighbourhood — ACs that touch the same files go in one call — and **reviews each batch in the main conversation before dispatching the next**.
 
 ---
 
@@ -20,7 +20,7 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
 
 2. **Read the spec.** Open the linked spec file. Confirm the task and its ACs with the user BEFORE writing any code.
 
-3. **Resolve open decisions and implement.** Before dispatching any execution agent, capture the current HEAD: `git rev-parse HEAD`. Store this as `<baseline-sha>` — you'll need it for step 4. Then check the spec for an `## Open decisions` section or any language deferring implementation choices (e.g. "the executor should choose", "either approach works"). These are architectural forks that must be resolved before dispatching to the execution agent.
+3. **Resolve open decisions and implement.** Before dispatching any execution agent, capture the current HEAD: `git rev-parse HEAD`. Store this as `<baseline-sha>` — the per-batch reviews below and the final pass (step 4) compare against it. Also note HEAD before each individual batch, so you can review just that batch's commits. Then check the spec for an `## Open decisions` section or any language deferring implementation choices (e.g. "the executor should choose", "either approach works"). These are architectural forks that must be resolved before dispatching to the execution agent.
 
    For each unresolved decision:
    - Read the relevant source files to understand the current architecture
@@ -44,12 +44,13 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
    - The spec file path
    - Explicit instruction: "Apply the fix described in the Fix section. Write a regression test for the reproduction case. Verify Done-when criteria. Run `pnpm check`, commit, then stop."
 
-   After each batch:
+   After each batch, before dispatching the next:
    - Read the agent's notes file from `.claude/agent-notes/` — it logs deviations, assumptions, and surprises as they happen
+   - Verify the batch's commits exist and `pnpm check` passes
+   - **Review the batch.** Run `/review-changes <this-batch-start-sha>..HEAD` on just this batch's commits and apply the fixes before moving on. Reviewing per batch — not once at the end — catches issues while they are cheap: before later batches build on them, and especially before a destructive or irreversible batch (deletions, migrations, dependency removal) runs against a problem the build-up introduced. It also surfaces problems through interactive follow-up that a single end-of-slice pass misses. Scrutinise anything the execution agent did beyond the batch's stated scope.
    - If the agent reported assumptions or spec mismatches, decide whether to adjust the next batch's instructions, fix something, or ask the user
-   - Verify commits exist and `pnpm check` passes before dispatching the next batch
 
-4. **Run `/review-changes <baseline-sha>..HEAD` on the implementation.** This reviews only the commits from this task. Apply any fixes and commit them before moving on. Skip for `[chore]` tasks only.
+4. **Final cross-batch review pass.** The per-batch reviews in step 3 do the heavy lifting; this pass catches interactions *between* batches that no single batch review could see (e.g. a late batch deletes something an early batch still depends on). Run `/review-changes <baseline-sha>..HEAD` over the whole task, apply any fixes, and commit. For a single-batch task the per-batch review already covered this — the final pass is then redundant. Skip entirely for `[chore]` tasks.
 
 5. **Run mutation testing on every new or significantly modified source file.** This step is not optional and cannot be deferred to a follow-up task.
    ```bash
