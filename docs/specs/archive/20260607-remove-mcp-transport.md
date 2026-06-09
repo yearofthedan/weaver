@@ -121,3 +121,29 @@ weaver currently ships two transports over the same persistent daemon: the CLI o
 - [ ] Tech debt discovered during implementation added to handoff.md as `[needs design]`
 - [ ] Non-obvious gotchas recorded (or skipped if none)
 - [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+---
+
+## Outcome
+
+**Shipped.** weaver is CLI-only over the persistent daemon. Removed: `weaver serve`, the MCP server (`mcp.ts`/`tools.ts`), `@modelcontextprotocol/sdk`, `.mcp.json`/`.cursor/mcp.json`, the MCP integration tests, and `mcp-helpers.ts`. `classifyDaemonError` moved to `adapters/cli/`. CLI `--help` renders the JSON parameter breakdown (name + `(optional)` marker + description) lazily from each Zod schema. Agent guidance migrated: 47 per-parameter `.describe()` strings co-located on `schema.ts`; behavioural/return guidance into the three skill files. Security guarantees re-proven through the CLI; docs reconciled across README, architecture, security, agent-users, and the index pages.
+
+**Tests added:** `cli/security.integration.test.ts` (6: out-of-workspace rename + both moveFile path params, traversal, newline-injection, invalid identifier); `schema.test.ts` grew to 54 (descriptions + validation + the replaceText XOR invariant); `--help` rendering tests in `operations.test.ts`; the callDaemon timeout test relocated to `daemon/`; the protocol-version test rewritten to drive the version-mismatch path through a CLI operation.
+
+**Mutation (touched files):** `operations.ts` 45.8%, `schema.ts` 64.5% (42% → 64% after adding the refine tests). The low figures are dominated by two artifacts, not missing tests: (1) the `.action()` handler and dispatcher are covered only by subprocess integration tests, which the vitest Stryker runner cannot attribute per-mutant; (2) module-level constraint mutants on `schema.ts` resist killing for reasons not fully explained. Both filed as `[needs design]`. The one genuine gap fixed was the `replaceText` exactly-one-mode refine (was entirely uncovered).
+
+### Reflection
+
+**What went well:** The per-batch review cadence (an experiment this slice) caught far more than a single end-of-slice review would have — an eager-`--help` hot-path bug, a docs↔Zod-contract coupling, a duplicate test left by an incomplete relocation, a silently-gutted protocol-version test, a stale "Vue type-errors unsupported" doc claim, and the entire broken eval harness. Several surfaced only through interactive pull-on-the-thread, not a checklist. (This experiment is being folded into the slice skill.)
+
+**What didn't go well / took longer than it should have:**
+- **The spec under-scoped two areas.** (a) The eval harness depends *fundamentally* on the MCP transport — `promptfooconfig.yaml` spawns `weaver serve` and asserts on MCP tool selection — yet the Done-when only said "confirm eval doesn't depend on MCP." (b) MCP references were woven through far more docs than the Done-when listed (security.md threat model, quality.md, eval-design.md). Both should have been found at spec time by actually reading the eval harness and grepping the whole docs tree.
+- **The execution-agents ran mutation per-batch on their own initiative**, producing stale results (operations.ts was rewritten in review afterward) and a *misdiagnosed* schema.ts `[needs design]` entry ("static mutants, ~1%, unkillable" — actually ~64% and the refine mutants were killable). Mutation must be a single end-of-slice pass.
+- **The schema.ts mutation puzzle** consumed significant time without full resolution; it's genuinely a Stryker-behaviour investigation, correctly left as `[needs design]`.
+
+**Recommendations for the next agent:** When removing a transport/interface, grep the *whole* docs tree and the eval harness for it during speccing — don't trust the Done-when list to be complete. Treat execution-agent mutation runs as advisory and re-run once at the end on the final code. The eval-harness redesign (`[needs design]`) is the natural follow-on and blocks any meaningful `pnpm eval`.
+
+**Discoveries worth preserving:**
+- `getTypeErrors` supports Vue SFCs via `VolarEngine` — contradicted the old MCP description *and* the architecture.md operations row (both corrected). Migrated guidance must be verified against current code, not copied.
+- CLI `--help` text must be lazy (`addHelpText(pos, () => …)`) — a string argument is computed eagerly at registration, i.e. on every invocation, not just on `--help`.
+- `z.toJSONSchema()` (public) renders `z.coerce.number()` as `integer` and drops per-field optionality — only the parent object's `required[]` carries it. Used to decouple `--help` from Zod's internal `_zod.def`.
