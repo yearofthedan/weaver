@@ -36,7 +36,7 @@
     ".": "./dist/adapters/cli/cli.js"
   },
   "engines": {
-    "node": ">=22",
+    "node": "v26.3.0",
     "pnpm": ">=10"
   },
   "scripts": {
