@@ -55,7 +55,7 @@
     "clean": "rm -rf dist .stryker-tmp",
     "test:mutate": "rm -rf .stryker-tmp && stryker run",
     "test:mutate:file": "rm -rf .stryker-tmp && stryker run --mutate",
-    "eval": "tsx eval/run-eval.ts",
+    "eval": "vitest run --config eval/vitest.llm.config.ts",
     "check": "biome check . && pnpm build && pnpm coverage && pnpm test:eval",
     "setup:dev": "bash scripts/setup-dev.sh",
     "prepare": "husky",
@@ -96,7 +96,6 @@
     "@vitest/coverage-v8": "4.1.8",
     "@volar/language-core": "2.4.28",
     "husky": "9.1.7",
-    "promptfoo": "0.121.15",
     "tmp": "0.2.7",
     "tsx": "4.22.4",
     "vitest": "4.1.8"
