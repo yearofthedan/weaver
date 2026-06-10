@@ -155,7 +155,9 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P2 — High-value features / bugs / tech debt
 
-- **Redesign the promptfoo eval harness for the CLI** `[needs design]` — `pnpm eval` is broken by the MCP removal. `eval/promptfooconfig.yaml` presents weaver to the model as an MCP server (spawns `weaver serve`) and asserts the model selects the right MCP *tool* (`tool-call-f1`); `eval/run-eval.ts` backs it with a fixture server impersonating the daemon. With CLI-only, there are no MCP tools to select — the model interacts via bash calling `weaver <command>`, discovered through the skill files. The eval must shift from "did it call the right tool" to "did it emit the right `weaver` command string" (put the skill in context, give the model bash, assert on the invocation). Note `pnpm check` does NOT run this harness (it needs an API key and hits Anthropic), so the breakage is invisible to CI. The `with-shell-alternatives` provider, which already exposes bash, is closer to the target shape. Decide: how to present the skill to the model, how to assert on emitted commands, and whether the fixture-server/daemon-impersonation still fits.
+- **Redesign the promptfoo eval harness for the CLI** — [spec](specs/20260610-cli-eval-harness.md)
+
+- **Agent-host hooks that redirect shell refactoring to weaver** `[needs design]` — skill descriptions alone may not pull agents in (this repo needed CLAUDE.md Rule 18 to force its own agent). A PreToolUse hook on Bash that pattern-matches shell refactoring commands (`sed -i` on source files, `mv` of a `.ts` file, `grep -r` for an identifier) and redirects to the matching weaver command would make adoption deterministic instead of probabilistic. The hook script is a pure function (command string → allow / redirect message) — unit-testable, no LLM needed. Design with the `weaver install` item below: the installer is the natural place to offer hook installation into the consumer's settings. Decide: block vs suggest semantics, false-positive policy (grep on logs is fine), and which host(s) to support.
 
 - **Built-in skills installer (`weaver install`)** `[needs design]` — replace the current `npx skills add yearofthedan/weaver` ([vercel-labs/skills](https://github.com/vercel-labs/skills)) distribution with a Playwright-style built-in installer that copies the shipped skills into the consumer's `.claude/skills/`. More compelling once MCP is gone, since the migrated agent guidance ships entirely through skills. Decide: install ergonomics (`weaver install` vs `weaver skills add`), where skills are sourced from (the installed npm package's `.claude/skills/`), how updates/versioning work, and whether to keep the vercel-skills path as an alternative. Spec after the MCP removal ships.
 
@@ -168,6 +170,8 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P4 — Low priority
+
+- **Check `agent-conventions` for dead MCP-era validation** `[chore]` — `eval/agent-conventions.test.ts` + `scripts/agent-conventions.js` validate `.mcp.json` MCP server configs, which likely no longer exist after the MCP transport removal. If `.mcp.json` is gone and nothing else calls the script, delete both; if a config remains, trim validation to what's still real.
 
 - **Migrate remaining standalone-`copyFixture` callers** `[chore]` — after the fixture-seed-helpers slice ships, ~8 files still call the standalone `copyFixture(name): string`. (a) Seven integration tests in `src/{cli-workspace-default,daemon/*}.integration.test.ts` pair it with subprocess lifecycle tracking — migrate `dir` to `fixtureTest` + `seedNamedFixture`; keep custom `afterEach` for procs. (b) `src/operations/searchText.test.ts` uses `beforeAll` to share one dir across many tests — convert to per-test `seedNamedFixture` (small perf cost, ~10 tests × one fixture copy each). Once both done, delete the standalone `copyFixture` and `cleanup` exports as dead code.
 
