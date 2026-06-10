@@ -21,6 +21,23 @@ export function extractBashCommands(toolCalls: ToolCall[]): string[] {
 }
 
 /**
+ * Extracts the shell command from a plain-text model response: strips markdown
+ * code fences, splits `&&`-chained commands into separate candidates — models
+ * legitimately chain a safety check before a destructive command — and returns
+ * one trimmed candidate per segment. Splitting stops at `&&` (not `;`) because
+ * semicolons appear inside legitimate JSON pattern arguments. Returns an empty
+ * array for blank responses.
+ */
+export function extractCommandsFromText(text: string): string[] {
+  const stripped = text.replace(/^```[a-z]*\n?/gm, "").replace(/^```\s*$/gm, "");
+  return stripped
+    .split("\n")
+    .flatMap((line) => line.split(/\s*&&\s*/))
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+}
+
+/**
  * Tests whether a bash command string is a valid weaver invocation for the
  * given subcommand with all required key arguments present and matching.
  *

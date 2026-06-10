@@ -7,7 +7,7 @@ const SKILLS_DIR = path.join(PROJECT_ROOT, ".claude/skills");
 export const SKILL_NAMES = ["search-and-replace", "refactor", "code-inspection"] as const;
 export type SkillName = (typeof SKILL_NAMES)[number];
 
-interface SkillFrontmatter {
+export interface SkillFrontmatter {
   name: string;
   description: string;
 }
@@ -40,16 +40,12 @@ function parseSkillFrontmatter(skillName: string): SkillFrontmatter {
 }
 
 /**
- * Returns a system prompt listing each shipped skill's name and description only.
- * Used for trigger-stage eval cases where the model must choose a skill without
- * seeing its full instructions.
+ * Returns each shipped skill's frontmatter (name + description), read from disk
+ * at call time. Trigger-stage cases surface these as per-skill tool definitions —
+ * the description under test becomes the tool description the model chooses by.
  */
-export function triggerContext(): string {
-  const lines = SKILL_NAMES.map((skillName) => {
-    const { name, description } = parseSkillFrontmatter(skillName);
-    return `- ${name}: ${description}`;
-  });
-  return `Available skills:\n${lines.join("\n")}`;
+export function skillFrontmatters(): SkillFrontmatter[] {
+  return SKILL_NAMES.map((skillName) => parseSkillFrontmatter(skillName));
 }
 
 /**

@@ -39,11 +39,12 @@ Directory layout matches domain boundaries:
 
 ```
 eval/
-  fixture-server.ts    ← socket server that impersonates the daemon for eval runs; exports startFixtureServer
-  run-eval.ts          ← entry point: starts fixture server, runs promptfoo, tears down
-  promptfooconfig.yaml ← PromptFoo config; 15 tests across two providers (weaver-only + with-shell-alternatives); inline test definitions
-  fixtures/            ← pre-recorded daemon JSON responses keyed by method name
-  cases/               ← (reserved for per-tool case files if extracted in future)
+  harness/             ← callModel (fetch to local OpenAI-compatible server), context builders, assertions, seed builder, config; unit-tested in test:eval lane
+  cases/               ← cases.ts typed case table (trigger + command stages); *.llm.test.ts run only via `pnpm eval`; coverage.test.ts invariant runs in pnpm check
+  fixtures/            ← canned CLI stdout JSON keyed by operation name; embedded as tool results in two-step cases
+  vitest.config.ts     ← test:eval lane (helpers + invariants, runs in pnpm check)
+  vitest.llm.config.ts ← pnpm eval lane (LLM cases; globalSetup probes the model server)
+  global-setup.llm.ts  ← fails fast with ollama-pull instructions when server/model missing
 .github/workflows/
   ci.yml               ← lint + build + test on push/PR
   quality-feedback.yml ← mutation testing (weekly + on push to main); Claude Code triage step on score < 75
@@ -155,8 +156,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P2 — High-value features / bugs / tech debt
 
-- **Redesign the promptfoo eval harness for the CLI** — [spec](specs/20260610-cli-eval-harness.md)
-
 - **Agent-host hooks that redirect shell refactoring to weaver** `[needs design]` — skill descriptions alone may not pull agents in (this repo needed CLAUDE.md Rule 18 to force its own agent). A PreToolUse hook on Bash that pattern-matches shell refactoring commands (`sed -i` on source files, `mv` of a `.ts` file, `grep -r` for an identifier) and redirects to the matching weaver command would make adoption deterministic instead of probabilistic. The hook script is a pure function (command string → allow / redirect message) — unit-testable, no LLM needed. Design with the `weaver install` item below: the installer is the natural place to offer hook installation into the consumer's settings. Decide: block vs suggest semantics, false-positive policy (grep on logs is fine), and which host(s) to support.
 
 - **Built-in skills installer (`weaver install`)** `[needs design]` — replace the current `npx skills add yearofthedan/weaver` ([vercel-labs/skills](https://github.com/vercel-labs/skills)) distribution with a Playwright-style built-in installer that copies the shipped skills into the consumer's `.claude/skills/`. More compelling once MCP is gone, since the migrated agent guidance ships entirely through skills. Decide: install ergonomics (`weaver install` vs `weaver skills add`), where skills are sourced from (the installed npm package's `.claude/skills/`), how updates/versioning work, and whether to keep the vercel-skills path as an alternative. Spec after the MCP removal ships.
@@ -164,6 +163,8 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P3 — Medium-value features / bugs / tech debt
+
+- **Skill-description findings from the first eval run** `[needs design]` — the 2026-06-10 eval run (21/23) surfaced two skill-content issues. (1) Description overlap: `code-inspection` ("before using grep to find references") and `search-and-replace` ("searching for all occurrences of a pattern") compete for text-pattern tasks — the model picked code-inspection for "find all TODO comments" (`trigger-search-and-replace-todos-grep-tempting`). Decide how the two descriptions should divide the "find X" space. (2) Pattern format ambiguity: the search-and-replace skill never says the `pattern` arg is a bare regex string — the model emitted `"/TODO/"` with regex delimiters (`command-search-text`). Changing descriptions is a product decision: re-run `pnpm eval` to verify improvements.
 
 - **Stryker survivors on `schema.ts` module-level constraints** `[needs design]` — `src/adapters/schema.ts` is module-level Zod schema declarations. After adding `replaceText` refine tests it scores ~64% (not the ~1% an earlier run reported — that measurement was wrong), and the refine (runtime-function) mutants are killable by tests, so a blanket "ESM static-mutant, unkillable" explanation does NOT hold. The real puzzle: a cluster of module-level *constraint* mutants survive despite tests that should catch them — e.g. removing the `^` anchor from the `newName` identifier regex survives even though a test asserts `"1invalid"` is rejected (which should fail under that mutant). Needs hands-on investigation: run one such mutant in isolation and inspect whether the mutated schema is actually constructed when a static mutant is active under the vitest runner. Once understood, options: targeted `ignoreStatic`, restructure to factory functions so constraints evaluate per-call, or accept and document. Do not chase the threshold meanwhile — `pnpm check` does not run mutation.
 

@@ -1,37 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { skillContext, triggerContext } from "./context.js";
+import { skillContext, skillFrontmatters } from "./context.js";
 
-describe("triggerContext", () => {
-  it("returns a prompt listing all three shipped skills by name", () => {
-    const prompt = triggerContext();
-    expect(prompt).toContain("search-and-replace");
-    expect(prompt).toContain("refactor");
-    expect(prompt).toContain("code-inspection");
+describe("skillFrontmatters", () => {
+  it("returns name and description for all three shipped skills", () => {
+    const frontmatters = skillFrontmatters();
+    expect(frontmatters.map((f) => f.name)).toEqual([
+      "search-and-replace",
+      "refactor",
+      "code-inspection",
+    ]);
   });
 
   it("includes each skill's description from the frontmatter", () => {
-    const prompt = triggerContext();
-    expect(prompt).toContain("changing a string, pattern, or text");
-    expect(prompt).toContain("renaming a symbol");
-    expect(prompt).toContain("finding all usages of a symbol");
+    const byName = new Map(skillFrontmatters().map((f) => [f.name, f.description]));
+    expect(byName.get("search-and-replace")).toContain("changing a string, pattern, or text");
+    expect(byName.get("refactor")).toContain("renaming a symbol");
+    expect(byName.get("code-inspection")).toContain("finding all usages of a symbol");
   });
 
-  it("does NOT include the full SKILL.md body text", () => {
-    const prompt = triggerContext();
-    expect(prompt).not.toContain("weaver search-text");
-    expect(prompt).not.toContain("weaver rename");
-    expect(prompt).not.toContain("weaver find-references");
-  });
-
-  it("formats each skill as a name and description on the same line", () => {
-    const prompt = triggerContext();
-    const lines = prompt.split("\n");
-    const searchLine = lines.find((l) => l.includes("search-and-replace"));
-    const refactorLine = lines.find((l) => l.includes("refactor"));
-    const inspectionLine = lines.find((l) => l.includes("code-inspection"));
-    expect(searchLine).toContain("changing a string");
-    expect(refactorLine).toContain("renaming a symbol");
-    expect(inspectionLine).toContain("finding all usages");
+  it("does NOT include the full SKILL.md body text in descriptions", () => {
+    for (const { description } of skillFrontmatters()) {
+      expect(description).not.toContain("weaver search-text");
+      expect(description).not.toContain("weaver rename");
+      expect(description).not.toContain("weaver find-references");
+    }
   });
 });
 

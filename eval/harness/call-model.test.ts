@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { callModel } from "./call-model.js";
 
 const BASE_URL = "http://localhost:11434/v1";
-const MODEL = "qwen3:8b";
+const MODEL = "qwen2.5:7b-instruct";
 
 let mockFetch: ReturnType<typeof vi.fn>;
 
@@ -74,6 +74,41 @@ describe("callModel", () => {
       expect(body.max_tokens).toBeGreaterThanOrEqual(4096);
       expect(body.model).toBe(MODEL);
       expect(body.messages).toEqual(messages);
+    });
+
+    it("serializes assistant tool_calls to the wire format with stringified arguments", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeTextResponse("ok"),
+      });
+
+      await callModel(
+        [
+          { role: "user", content: "task" },
+          {
+            role: "assistant",
+            content: null,
+            tool_calls: [{ id: "step1", name: "bash", arguments: { command: "weaver x '{}'" } }],
+          },
+          { role: "tool", content: '{"status":"success"}', tool_call_id: "step1" },
+        ],
+        [],
+      );
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(init.body as string);
+      expect(body.messages[1].tool_calls).toEqual([
+        {
+          id: "step1",
+          type: "function",
+          function: { name: "bash", arguments: '{"command":"weaver x \'{}\'"}' },
+        },
+      ]);
+      expect(body.messages[2]).toEqual({
+        role: "tool",
+        content: '{"status":"success"}',
+        tool_call_id: "step1",
+      });
     });
 
     it("sends an abort signal so a hung server cannot block until the test timeout", async () => {

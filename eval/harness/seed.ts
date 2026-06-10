@@ -1,22 +1,23 @@
-import type { ChatMessage, ToolCall } from "./call-model.js";
+import type { ChatMessage } from "./call-model.js";
 
 /**
- * Builds the pre-seeded message array for a two-step eval case.
+ * Builds the pre-seeded message array for a two-step eval case, as plain
+ * conversation turns:
  *
- * Produces three messages:
  *   1. User: the original task
- *   2. Assistant: a tool_use call representing the step-1 weaver command
- *   3. Tool result: the canned fixture JSON as the tool_result content
+ *   2. Assistant: the step-1 weaver command it "ran"
+ *   3. User: the command's output (the canned fixture JSON, embedded verbatim)
+ *      plus a prompt for the follow-up command
  *
- * The fixture content is embedded verbatim as a string — the model sees
- * exactly what it would see if it had run the step-1 command.
+ * Text turns rather than tool_call/tool messages: local-model servers parse
+ * tool calls unreliably (Ollama silently drops calls it cannot parse), and the
+ * assertion target is the command string either way.
  */
 export function buildSeedMessages(
   task: string,
-  step1ToolCall: ToolCall,
+  step1Command: string,
   fixtureContent: string,
 ): ChatMessage[] {
-  const toolCallId = step1ToolCall.id ?? "step1_call";
   return [
     {
       role: "user",
@@ -24,13 +25,11 @@ export function buildSeedMessages(
     },
     {
       role: "assistant",
-      content: null,
-      tool_calls: [step1ToolCall],
+      content: step1Command,
     },
     {
-      role: "tool",
-      content: fixtureContent,
-      tool_call_id: toolCallId,
+      role: "user",
+      content: `Output of \`${step1Command}\`:\n${fixtureContent}\n\nReply with ONLY the single shell command to run next. No explanation, no markdown.`,
     },
   ];
 }

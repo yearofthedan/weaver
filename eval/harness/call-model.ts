@@ -32,6 +32,24 @@ export interface ModelResponse {
   text: string;
 }
 
+// The wire format wants tool calls as {id, type, function: {name, arguments}}
+// with arguments as a JSON *string*; the harness's ToolCall keeps them as an
+// object. Seeded assistant messages must be converted or the server rejects
+// the request.
+function toWireMessage(message: ChatMessage): Record<string, unknown> {
+  if (!message.tool_calls) {
+    return { ...message };
+  }
+  return {
+    ...message,
+    tool_calls: message.tool_calls.map((tc, i) => ({
+      id: tc.id ?? `call_${i}`,
+      type: "function",
+      function: { name: tc.name, arguments: JSON.stringify(tc.arguments) },
+    })),
+  };
+}
+
 /**
  * Sends a single chat completion request to an OpenAI-compatible local model server.
  * Temperature is fixed at 0; max_tokens is generous to accommodate thinking-mode models
@@ -55,7 +73,7 @@ export async function callModel(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
-      messages,
+      messages: messages.map(toWireMessage),
       tools: tools.length > 0 ? tools : undefined,
       temperature: 0,
       max_tokens: MAX_TOKENS,

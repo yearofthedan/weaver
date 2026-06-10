@@ -24,7 +24,7 @@ Fixtures should be minimal but realistic — a small app with enough complexity 
 
 ### Eval suite
 
-The eval suite (`eval/`) tests a different quality dimension from unit/integration tests: **do the tool descriptions cause agents to select the right tool for a given task?** Unit tests verify correct outputs given correct inputs; evals verify that agents reach for the right tool in the first place.
+The eval suite (`eval/`) tests a different quality dimension from unit/integration tests: **do the shipped skill files cause agents to reach for weaver and emit the correct command?** Unit tests verify correct outputs given correct inputs; evals verify that agents pick the right tool in the first place.
 
 ### Don't fix pre-existing mutation scores by adding tests at the wrong layer
 
@@ -32,53 +32,9 @@ If mutation survivors are in code you didn't change, note them and move on. Addi
 
 **How it works:**
 
-- `eval/run-eval.ts` — entry point (`pnpm run eval`). Starts a fixture server that impersonates the daemon, runs `promptfoo eval` against `eval/promptfooconfig.yaml`, tears down on exit.
-- `eval/fixture-server.ts` — Unix socket server; responds to `ping` (version check) and serves pre-recorded JSON fixtures from `eval/fixtures/{method}.json` for every tool call. The model never touches a real project.
-- `eval/promptfooconfig.yaml` — defines providers and test cases. Two providers: `weaver-only` (MCP only) and `with-shell-alternatives` (MCP + bash/grep/sed stubs). Tests use `providers:` to target one or both.
+`pnpm eval` runs LLM cases (vitest, `eval/vitest.llm.config.ts`) against a local model server (Ollama, default `qwen2.5:7b-instruct`) — no API key, no cost, nothing leaves the machine. Emitted commands are asserted on, never executed. See [`docs/eval-design.md`](eval-design.md) for the full design: the two case stages (trigger and command), the seeded two-step flows, how to add cases for new operations, and how to interpret results (relative signal, not absolute scores).
 
-**Test structure — 15 tests:**
-
-- **Single-tool positives** — natural-language tasks that should map to exactly one weaver tool. Assert `tool-call-f1 ≥ 0.8` for the expected tool.
-- **Two-step flows** — tasks that require a discovery step before the action. Split into two tests each:
-  - *Step-1 test*: plain user message; assert the right first tool is selected.
-  - *Step-2 test*: conversation history pre-seeded with the step-1 call and its fixture response; assert the correct follow-up tool is selected.
-- **Negative cases** — tasks where a simpler tool might be chosen incorrectly. Assert the correct compiler-aware tool, optionally assert the wrong tool is absent via `type: javascript`.
-- **Competing-tool tests** — run against `with-shell-alternatives`. Assert weaver tool selected and bash/grep/sed absent from the output.
-
-**Seeded-history format (step-2 tests):**
-
-Set `vars.task` to a JSON messages array string. Promptfoo parses the rendered `{{task}}` prompt as a conversation when it's valid JSON:
-
-```yaml
-vars:
-  task: |
-    [
-      {"role": "user", "content": "..."},
-      {"role": "assistant", "content": [
-        {"type": "tool_use", "id": "toolu_s1", "name": "searchText", "input": {...}}
-      ]},
-      {"role": "user", "content": [
-        {"type": "tool_result", "tool_use_id": "toolu_s1", "content": "...fixture JSON..."}
-      ]}
-    ]
-```
-
-The fixture JSON in `tool_result` should match the content of the relevant `eval/fixtures/{method}.json` so the model gets realistic results to act on.
-
-**Running a single test:**
-
-```bash
-node_modules/.bin/tsx eval/run-eval.ts --filter-pattern "some description"
-```
-
-Do not use `pnpm eval -- --filter-pattern` — pnpm intercepts the `--` separator.
-
-**Adding new tests:**
-
-1. Add a fixture file `eval/fixtures/{newMethod}.json` if a new tool is involved.
-2. Add the test case(s) to `promptfooconfig.yaml` with natural-language prompts (no domain jargon, no workflow hints in the task text).
-3. For two-step flows, add both the step-1 and step-2 tests.
-4. Run `pnpm run eval` to confirm the new tests pass before committing.
+The pure parts of the harness (command matching, prompt assembly, the case-table invariants) are ordinary unit tests in the `test:eval` lane and run in `pnpm check` with no model server.
 
 ### Coverage expectations
 

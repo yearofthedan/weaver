@@ -1,16 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { extractBashCommands, matchWeaverCommand } from "../harness/assertions.js";
+import { extractCommandsFromText, matchWeaverCommand } from "../harness/assertions.js";
 import { callModel } from "../harness/call-model.js";
 import { SKILL_NAMES, skillContext } from "../harness/context.js";
 import { buildSeedMessages } from "../harness/seed.js";
-import { BASH_TOOL } from "../harness/tools.js";
 import { CASES, loadFixture, operationToSubcommand } from "./cases.js";
 
 /** Two-step command cases (have a seed). */
 const twoStepCases = CASES.filter((c) => c.stage === "command" && c.seed != null);
 
-const systemPrompt = skillContext([...SKILL_NAMES]);
-const tools = [BASH_TOOL];
+const skillContent = skillContext([...SKILL_NAMES]);
 
 describe("two-step flows", () => {
   it.each(twoStepCases)("$name — model emits correct follow-up weaver command", async (c) => {
@@ -20,29 +18,21 @@ describe("two-step flows", () => {
     if (!subcommand || !c.seed) return;
 
     const { operation } = c.seed;
-    const fixtureContent = loadFixture(operation);
-
-    const step1ToolCall = {
-      id: "step1_call",
-      name: "bash",
-      arguments: {
-        command: `weaver ${operationToSubcommand(operation)} '{}'`,
-      },
-    };
-
-    const seedMessages = buildSeedMessages(c.task, step1ToolCall, fixtureContent);
-
-    const response = await callModel(
-      [{ role: "system", content: systemPrompt }, ...seedMessages],
-      tools,
+    const step1Command = `weaver ${operationToSubcommand(operation)} '{}'`;
+    const seedMessages = buildSeedMessages(
+      `${skillContent}\n\n---\n\nTask: ${c.task}`,
+      step1Command,
+      loadFixture(operation),
     );
 
-    const commands = extractBashCommands(response.toolCalls);
+    const response = await callModel(seedMessages, []);
+
+    const commands = extractCommandsFromText(response.text);
 
     expect(
       commands.length,
-      `No bash command emitted after seeing ${operation} results for task: "${c.task}". ` +
-        `Model responded with text: ${response.text}`,
+      `No command emitted after seeing ${operation} results for task: "${c.task}". ` +
+        `Model responded with: ${response.text}`,
     ).toBeGreaterThan(0);
 
     const matches = commands.map((cmd) => matchWeaverCommand(cmd, subcommand, keyArgs));

@@ -1,5 +1,7 @@
 const DEFAULT_BASE_URL = "http://localhost:11434/v1";
-const DEFAULT_MODEL = "qwen3:8b";
+// qwen2.5 rather than qwen3: thinking-mode lineages stall on tool/command
+// emission under Ollama (see docs/eval-design.md gotchas).
+const DEFAULT_MODEL = "qwen2.5:7b-instruct";
 
 export interface ModelConfig {
   baseUrl: string;
