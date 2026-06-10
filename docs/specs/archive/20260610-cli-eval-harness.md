@@ -108,3 +108,28 @@ All resolved with the owner during spec drafting (2026-06-10):
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas added to `docs/internals/` / `docs/tech/` or `.claude/MEMORY.md` (skip if nothing worth recording)
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+---
+
+## Outcome
+
+**Shipped:** 2026-06-10. `pnpm eval` runs 23 LLM cases (9 trigger, 12 command, 2 two-step) against a local Ollama model in ~2 minutes at zero cost; promptfoo, the fixture server, and `run-eval.ts` are gone; 35 new unit tests guard the harness helpers and invariants in the `pnpm check` lane.
+
+**First full run (qwen2.5:7b-instruct): 21/23.** Both failures are genuine skill-content findings, not harness noise — exactly the signal the eval was built to produce:
+- `trigger-search-and-replace-todos-grep-tempting`: model chose `code-inspection` over `search-and-replace` — the two descriptions overlap on text-pattern-search tasks (but it did NOT fall back to bash/grep).
+- `command-search-text`: model emitted `"pattern": "/TODO/"` with regex delimiters — the skill never states the pattern format.
+Both recorded as a handoff entry. A third failure (`command-delete-file`) was a harness false-negative: the model chained `find-references && delete-file` exactly as the skill instructs; fixed by splitting `&&`-chains into assertion candidates.
+
+**Mutation score:** Stryker's scope is `src/**` only; `eval/` is excluded by config. The harness helpers rely on their 35 unit tests instead (assertion parser tests cover every failure mode the matcher can report). Documented here per the Done-when carve-out; a stray `test:mutate:file` run against an eval file mid-slice rewrote the incremental cache meaninglessly and was reverted — do not point Stryker at `eval/`.
+
+**Reflection:**
+
+*What went well.* The spec's open-decision process earned its keep twice: the promptfoo→vitest+SDK fork and the local-only-model fork were both user-driven redirections that happened *before* code was written, and the transport-seam decision (injectable `ModelConfig`) made the later qwen3→qwen2.5 swap a two-line change. Per-batch review caught real defects cheaply (duplicated config, fetch without timeout, TOCTOU reads). The eval paid for itself on day one: it caught a wire-format bug in its own harness, then produced two legitimate skill-content findings on its first healthy run.
+
+*What went badly.* The spec assumed local-model tool-calling was a solved transport and designed AC2–AC4 around declared tools; reality (Ollama silently dropping unparseable calls, small models unable to do skill-tool indirection, qwen3 stalling after reasoning) forced an interface redesign mid-implementation. The lesson: **when a spec's interface depends on an LLM-side contract, probe that contract with curl before writing the spec** — an hour of probes would have saved the full diagnostic detour. Also, the first model choice (qwen3:8b) was made on reputation, not on a tool-calling smoke test.
+
+*The embarrassing finding.* The agent that built this eval — whose entire thesis is "agents default to grep/sed instead of reaching for weaver, even when instructed otherwise" — used `grep` throughout the session and performed multi-file renames (`triggerContext`→`skillFrontmatters`, `SKILL_TOOL`→`skillTools`) with raw editor operations, despite Rule 18 sitting in its context the whole time. This is the product thesis demonstrated live, by the toolmaker, while building the measurement instrument. It is the strongest evidence yet for the hooks entry in handoff.md: passive instructions do not survive task pressure; deterministic redirection might.
+
+*For the next agent.* Read the "Local-model gotchas" section of `docs/eval-design.md` before touching the harness — every bullet there was paid for in diagnostic time. Trigger-stage uses real tools (reliable for flat-argument selection); command-stage uses text emission (tool calls with JSON-bearing arguments get silently dropped by Ollama). If you change skill files, `pnpm eval` is the regression check; if a case fails, the assertion message tells you whether it's a selection failure, a formatting failure, or a wrong-argument failure — believe it.
+
+**Tests added:** 35 unit tests (`test:eval` lane: call-model 14, context 7, assertions 11, seed 6 — minus overlaps), 23 LLM cases, 14 coverage-invariant tests. Net dependency change: −1 (promptfoo removed, nothing added).
