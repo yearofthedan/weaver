@@ -76,6 +76,18 @@ describe("callModel", () => {
       expect(body.messages).toEqual(messages);
     });
 
+    it("sends an abort signal so a hung server cannot block until the test timeout", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeTextResponse("hi"),
+      });
+
+      await callModel([{ role: "user", content: "hello" }], []);
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+    });
+
     it("includes tools in the request when provided", async () => {
       const tools = [
         {
@@ -200,6 +212,15 @@ describe("callModel", () => {
       });
 
       await expect(callModel([{ role: "user", content: "hi" }], [])).rejects.toThrow("404");
+    });
+
+    it("throws a descriptive error when the server returns no choices", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ choices: [] }),
+      });
+
+      await expect(callModel([{ role: "user", content: "hi" }], [])).rejects.toThrow("no choices");
     });
 
     it("propagates network errors without retrying", async () => {

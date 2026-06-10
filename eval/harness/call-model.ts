@@ -1,6 +1,9 @@
-const DEFAULT_BASE_URL = "http://localhost:11434/v1";
-const DEFAULT_MODEL = "qwen3:14b";
+import { modelConfig } from "./config.js";
+
 const MAX_TOKENS = 4096;
+// Well under the lane's 120s testTimeout so a hung server surfaces as a clear
+// fetch timeout instead of an opaque vitest timeout.
+const REQUEST_TIMEOUT_MS = 60_000;
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
@@ -43,8 +46,7 @@ export async function callModel(
   messages: ChatMessage[],
   tools: ToolDefinition[],
 ): Promise<ModelResponse> {
-  const baseUrl = process.env.WEAVER_EVAL_BASE_URL ?? DEFAULT_BASE_URL;
-  const model = process.env.WEAVER_EVAL_MODEL ?? DEFAULT_MODEL;
+  const { baseUrl, model } = modelConfig();
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
@@ -56,6 +58,7 @@ export async function callModel(
       temperature: 0,
       max_tokens: MAX_TOKENS,
     }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -76,7 +79,10 @@ export async function callModel(
     }>;
   };
 
-  const message = data.choices[0].message;
+  const message = data.choices[0]?.message;
+  if (!message) {
+    throw new Error(`Model server returned no choices: ${JSON.stringify(data)}`);
+  }
 
   const toolCalls: ToolCall[] = (message.tool_calls ?? []).map((tc) => ({
     id: tc.id,

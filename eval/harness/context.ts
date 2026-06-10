@@ -12,12 +12,20 @@ interface SkillFrontmatter {
   description: string;
 }
 
-function parseSkillFrontmatter(skillName: string): SkillFrontmatter {
+function readSkillFile(skillName: string): string {
   const skillPath = path.join(SKILLS_DIR, skillName, "SKILL.md");
-  if (!fs.existsSync(skillPath)) {
-    throw new Error(`Skill file not found: ${skillName} (expected at ${skillPath})`);
+  try {
+    return fs.readFileSync(skillPath, "utf-8");
+  } catch (err) {
+    if (err instanceof Error && "code" in err && err.code === "ENOENT") {
+      throw new Error(`Skill file not found: ${skillName} (expected at ${skillPath})`);
+    }
+    throw err;
   }
-  const content = fs.readFileSync(skillPath, "utf-8");
+}
+
+function parseSkillFrontmatter(skillName: string): SkillFrontmatter {
+  const content = readSkillFile(skillName);
   const match = content.match(/^---\n([\s\S]*?)\n---/);
   if (!match) {
     throw new Error(`Skill file has no valid frontmatter: ${skillName}`);
@@ -29,14 +37,6 @@ function parseSkillFrontmatter(skillName: string): SkillFrontmatter {
     throw new Error(`Skill frontmatter missing name or description: ${skillName}`);
   }
   return { name: nameMatch[1].trim(), description: descMatch[1].trim() };
-}
-
-function readSkillBody(skillName: string): string {
-  const skillPath = path.join(SKILLS_DIR, skillName, "SKILL.md");
-  if (!fs.existsSync(skillPath)) {
-    throw new Error(`Skill file not found: ${skillName} (expected at ${skillPath})`);
-  }
-  return fs.readFileSync(skillPath, "utf-8");
 }
 
 /**
@@ -59,8 +59,6 @@ export function triggerContext(): string {
  * Throws if any requested skill file does not exist on disk.
  */
 export function skillContext(skillNames: string[]): string {
-  const bodies = skillNames.map((skillName) => {
-    return readSkillBody(skillName);
-  });
+  const bodies = skillNames.map((skillName) => readSkillFile(skillName));
   return bodies.join("\n\n---\n\n");
 }

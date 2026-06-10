@@ -7,12 +7,10 @@
  * actionable rather than manifesting as 15+ individual test timeouts.
  */
 
-const DEFAULT_BASE_URL = "http://localhost:11434/v1";
-const DEFAULT_MODEL = "qwen3:14b";
+import { modelConfig } from "./harness/config.js";
 
 export default async function globalSetup(): Promise<void> {
-  const baseUrl = process.env.WEAVER_EVAL_BASE_URL ?? DEFAULT_BASE_URL;
-  const model = process.env.WEAVER_EVAL_MODEL ?? DEFAULT_MODEL;
+  const { baseUrl, model } = modelConfig();
 
   let models: string[];
   try {
