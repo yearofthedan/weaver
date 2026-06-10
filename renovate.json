@@ -9,9 +9,14 @@
       "automerge": true
     },
     {
+      "matchDepTypes": ["engines"],
+      "rangeStrategy": "replace",
+      "description": "Keep engines.node / engines.pnpm as loose ranges — never pin them, so installing weaver doesn't force consumers onto an exact runtime version. 'replace' only acts when the range stops covering the latest, so a >= range is left untouched."
+    },
+    {
       "matchDepNames": ["node"],
       "groupName": "node.js",
-      "description": "Keep engines.node and CI workflow node-version in sync"
+      "description": "Group node version bumps (dockerfile / devcontainer)"
     }
   ],
   "enabledManagers": ["npm", "dockerfile", "devcontainer"]
