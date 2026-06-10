@@ -57,7 +57,7 @@ export function matchWeaverCommand(
     };
   }
 
-  const [, actualSubcommand, , jsonText] = m;
+  const [, actualSubcommand, quote, jsonText] = m;
 
   if (actualSubcommand !== subcommand) {
     return {
@@ -66,10 +66,8 @@ export function matchWeaverCommand(
     };
   }
 
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(jsonText) as Record<string, unknown>;
-  } catch {
+  const parsed = parseJsonArgument(jsonText, quote);
+  if (parsed === undefined) {
     return {
       matched: false,
       reason: `weaver attempted but JSON malformed: ${jsonText}`,
@@ -94,4 +92,22 @@ export function matchWeaverCommand(
   }
 
   return { matched: true };
+}
+
+// A double-quoted argument usually carries bash-escaped inner quotes
+// (`"{\"k\":\"v\"}"`); retry with the escapes removed so that form is not
+// misreported as malformed JSON.
+function parseJsonArgument(jsonText: string, quote: string): Record<string, unknown> | undefined {
+  try {
+    return JSON.parse(jsonText) as Record<string, unknown>;
+  } catch {
+    if (quote !== '"') {
+      return undefined;
+    }
+  }
+  try {
+    return JSON.parse(jsonText.replace(/\\"/g, '"')) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
 }

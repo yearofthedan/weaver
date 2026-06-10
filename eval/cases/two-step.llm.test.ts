@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { extractBashCommands, matchWeaverCommand } from "../harness/assertions.js";
 import { callModel } from "../harness/call-model.js";
-import { skillContext } from "../harness/context.js";
+import { SKILL_NAMES, skillContext } from "../harness/context.js";
 import { buildSeedMessages } from "../harness/seed.js";
 import { BASH_TOOL } from "../harness/tools.js";
-import { CASES, loadFixture } from "./cases.js";
+import { CASES, loadFixture, operationToSubcommand } from "./cases.js";
 
 /** Two-step command cases (have a seed). */
 const twoStepCases = CASES.filter((c) => c.stage === "command" && c.seed != null);
 
-const systemPrompt = skillContext(["search-and-replace", "refactor", "code-inspection"]);
+const systemPrompt = skillContext([...SKILL_NAMES]);
 const tools = [BASH_TOOL];
 
 describe("two-step flows", () => {
@@ -55,7 +55,3 @@ describe("two-step flows", () => {
     ).toBeDefined();
   });
 });
-
-function operationToSubcommand(operation: string): string {
-  return operation.replace(/([A-Z])/g, (m) => `-${m.toLowerCase()}`);
-}

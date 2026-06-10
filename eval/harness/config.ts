@@ -1,5 +1,5 @@
 const DEFAULT_BASE_URL = "http://localhost:11434/v1";
-const DEFAULT_MODEL = "qwen3:14b";
+const DEFAULT_MODEL = "qwen3:8b";
 
 export interface ModelConfig {
   baseUrl: string;

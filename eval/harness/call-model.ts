@@ -1,4 +1,4 @@
-import { modelConfig } from "./config.js";
+import { type ModelConfig, modelConfig } from "./config.js";
 
 const MAX_TOKENS = 4096;
 // Well under the lane's 120s testTimeout so a hung server surfaces as a clear
@@ -37,16 +37,18 @@ export interface ModelResponse {
  * Temperature is fixed at 0; max_tokens is generous to accommodate thinking-mode models
  * that emit reasoning tokens before the tool call.
  *
- * Base URL: WEAVER_EVAL_BASE_URL (default http://localhost:11434/v1)
- * Model:    WEAVER_EVAL_MODEL    (default qwen3:14b)
+ * The target server defaults to the env-derived config (WEAVER_EVAL_BASE_URL /
+ * WEAVER_EVAL_MODEL); pass a config explicitly to target a different server or
+ * model, e.g. for a multi-model comparison run.
  *
  * HTTP/server errors throw immediately with the response body — no retries.
  */
 export async function callModel(
   messages: ChatMessage[],
   tools: ToolDefinition[],
+  config: ModelConfig = modelConfig(),
 ): Promise<ModelResponse> {
-  const { baseUrl, model } = modelConfig();
+  const { baseUrl, model } = config;
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",

@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { extractBashCommands, matchWeaverCommand } from "../harness/assertions.js";
 import { callModel } from "../harness/call-model.js";
-import { skillContext } from "../harness/context.js";
+import { SKILL_NAMES, skillContext } from "../harness/context.js";
 import { BASH_TOOL } from "../harness/tools.js";
 import { CASES } from "./cases.js";
 
 /** Single-step command cases (no seed). */
 const singleStepCases = CASES.filter((c) => c.stage === "command" && !c.seed);
 
-const systemPrompt = skillContext(["search-and-replace", "refactor", "code-inspection"]);
+const systemPrompt = skillContext([...SKILL_NAMES]);
 const tools = [BASH_TOOL];
 
 describe("command-stage cases", () => {

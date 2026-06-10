@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { callModel } from "./call-model.js";
 
 const BASE_URL = "http://localhost:11434/v1";
-const MODEL = "qwen3:14b";
+const MODEL = "qwen3:8b";
 
 let mockFetch: ReturnType<typeof vi.fn>;
 
@@ -118,6 +118,23 @@ describe("callModel", () => {
 
       const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(url).toBe("http://custom-server:8080/v1/chat/completions");
+    });
+
+    it("uses an explicitly passed config over the env-derived default", async () => {
+      process.env.WEAVER_EVAL_MODEL = "env-model";
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeTextResponse("hi"),
+      });
+
+      await callModel([{ role: "user", content: "test" }], [], {
+        baseUrl: "http://injected:9999/v1",
+        model: "injected-model",
+      });
+
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe("http://injected:9999/v1/chat/completions");
+      expect(JSON.parse(init.body as string).model).toBe("injected-model");
     });
 
     it("uses WEAVER_EVAL_MODEL when set", async () => {

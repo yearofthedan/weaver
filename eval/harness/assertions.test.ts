@@ -60,7 +60,14 @@ describe("matchWeaverCommand", () => {
     });
 
     it("matches double-quote form around the JSON argument", () => {
-      const result = matchWeaverCommand('weaver rename \'{"newName":"bar"}\'', "rename", {
+      const result = matchWeaverCommand('weaver rename "{"newName":"bar"}"', "rename", {
+        newName: "bar",
+      });
+      expect(result.matched).toBe(true);
+    });
+
+    it("matches double-quote form with bash-escaped inner quotes", () => {
+      const result = matchWeaverCommand('weaver rename "{\\"newName\\":\\"bar\\"}"', "rename", {
         newName: "bar",
       });
       expect(result.matched).toBe(true);

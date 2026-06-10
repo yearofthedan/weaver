@@ -18,12 +18,21 @@ export interface CaseEntry {
 
 function fixtureContent(operation: string): string {
   const fixturePath = path.join(FIXTURES_DIR, `${operation}.json`);
-  if (!fs.existsSync(fixturePath)) {
-    throw new Error(
-      `Case table references fixture "${operation}" but ${fixturePath} does not exist`,
-    );
+  try {
+    return fs.readFileSync(fixturePath, "utf-8");
+  } catch (err) {
+    if (err instanceof Error && "code" in err && err.code === "ENOENT") {
+      throw new Error(
+        `Case table references fixture "${operation}" but ${fixturePath} does not exist`,
+      );
+    }
+    throw err;
   }
-  return fs.readFileSync(fixturePath, "utf-8");
+}
+
+/** camelCase operation name → kebab-case CLI subcommand, matching src/adapters/cli/operations.ts */
+export function operationToSubcommand(operation: string): string {
+  return operation.replace(/([A-Z])/g, (m) => `-${m.toLowerCase()}`);
 }
 
 /** Eagerly validates all seed operations at module load. */
