@@ -4,7 +4,7 @@ A refactoring bridge between AI coding agents and compiler APIs. Provides ts-mor
 
 ## Tech stack
 
-- **Runtime**: Node.js 18+ with TypeScript (ESM)
+- **Runtime**: Node.js 22+ with TypeScript (ESM)
 - **Package manager**: pnpm
 - **Build**: `tsc`
 - **Test**: vitest

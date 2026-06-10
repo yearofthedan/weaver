@@ -14,7 +14,7 @@ pnpm add -D @yearofthedan/weaver
 npm install -D @yearofthedan/weaver
 ```
 
-Requires Node.js 18+. Supports `.ts`, `.tsx`, `.js`, `.jsx`, and `.vue` (Vue support requires Volar; auto-detected).
+Requires Node.js 22+. Supports `.ts`, `.tsx`, `.js`, `.jsx`, and `.vue` (Vue support requires Volar; auto-detected).
 
 ## Try it
 
