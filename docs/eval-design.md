@@ -101,6 +101,33 @@ Model and server are overridable: `WEAVER_EVAL_MODEL=qwen3:14b WEAVER_EVAL_BASE_
 `callModel` also accepts an explicit config parameter, so a multi-model comparison run or
 an alternate transport (e.g. the Anthropic API) plugs in without touching cases or assertions.
 
+## The skill-editing loop
+
+The eval exists for one workflow: **edit a skill file → `pnpm eval` → read what flipped.**
+Movement is the signal; the absolute score is not (see "Interpreting results"). A case
+that goes red after a description edit is a regression; a case that goes green confirms
+the fix. The skill files are read from disk at run time, so there is no build step
+between editing and re-running.
+
+### Reading a failure
+
+Every assertion failure names the case, the task, and what the model actually did:
+
+- **Trigger case failed** — a frontmatter description lost the selection. The message
+  says which tool won: `bash` means the description lost to shell habits (the core
+  failure weaver's skills exist to prevent); a sibling skill name means two descriptions
+  overlap on that task type.
+- **Command case failed** — the full skill text produced the wrong command. The message
+  lists every command emitted with a classified reason:
+  - `wrong subcommand` / `missing key arg` / `wrong key arg value` — the skill text
+    under-specifies; usually fixable with one clarifying line in the SKILL.md
+  - `weaver attempted but JSON malformed` — local-model formatting noise, not a
+    skill-text problem; ignore unless it dominates a case
+  - `no weaver attempt` — the skill content failed to land at all
+- **The file you edit for cases** is `eval/cases/cases.ts` — a flat typed table; each
+  case is ~6 lines and adding one is copying a neighbour. The coverage test in
+  `pnpm check` will tell you if an operation lacks a case.
+
 ## Interpreting results
 
 The eval model (`qwen2.5:7b-instruct`) is **not** the model weaver's users run. Results are:
