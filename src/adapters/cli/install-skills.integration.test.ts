@@ -49,11 +49,16 @@ function runBuiltCliCommand(
 
 describe("skills install — integration smoke", () => {
   let tempDir: string;
+  let installDir: string;
 
   beforeAll(() => {
     // The integration test requires a built dist. Build is run via pnpm check
     // before this suite executes; the dist must already exist.
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "weaver-skills-"));
+    // Install into a nested path that does not yet exist, mirroring the real
+    // default (<cwd>/.claude/skills). This exercises recursive directory
+    // creation — without it the spawned CLI would fail with ENOENT.
+    installDir = path.join(tempDir, ".claude", "skills");
   });
 
   afterAll(() => {
@@ -61,7 +66,12 @@ describe("skills install — integration smoke", () => {
   });
 
   it("installs all shipped skills into the destination directory", async () => {
-    const { exitCode, stdout } = await runBuiltCliCommand(["skills", "install", "--dir", tempDir]);
+    const { exitCode, stdout } = await runBuiltCliCommand([
+      "skills",
+      "install",
+      "--dir",
+      installDir,
+    ]);
 
     expect(exitCode).toBe(0);
 
@@ -69,7 +79,7 @@ describe("skills install — integration smoke", () => {
     expect(names.length).toBeGreaterThan(0);
 
     for (const name of names) {
-      const destFile = path.join(tempDir, name, "SKILL.md");
+      const destFile = path.join(installDir, name, "SKILL.md");
       expect(fs.existsSync(destFile), `Expected ${destFile} to exist`).toBe(true);
 
       const srcContent = fs.readFileSync(path.join(SKILLS_SRC, name, "SKILL.md"), "utf8");
@@ -82,8 +92,13 @@ describe("skills install — integration smoke", () => {
 
   it("reports up-to-date on second run with no changes", async () => {
     // First run installs; second run should report all up-to-date
-    await runBuiltCliCommand(["skills", "install", "--dir", tempDir]);
-    const { exitCode, stdout } = await runBuiltCliCommand(["skills", "install", "--dir", tempDir]);
+    await runBuiltCliCommand(["skills", "install", "--dir", installDir]);
+    const { exitCode, stdout } = await runBuiltCliCommand([
+      "skills",
+      "install",
+      "--dir",
+      installDir,
+    ]);
 
     expect(exitCode).toBe(0);
 
