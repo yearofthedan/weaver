@@ -59,6 +59,12 @@ Fixed gaps are removed. Remaining survivors by category:
 | `ensure-daemon.ts` | `.trim()` variants of the `stderrBuf.slice(consumed, newline).trim()` line | Only observable with multi-line or whitespace-padded stderr output from the spawned process. Single-line ready signal in tests makes both variants equivalent. |
 | `ensure-daemon.ts` | `NoCoverage` — timer callback and JSON-parse catch in `spawnDaemon` | Timer fires after 30s (no fake-timer tests for the timeout path); JSON-parse catch only fires on truly malformed stderr (never in production). |
 
+**`install-skills.ts` (scoped run, 92.31%):**
+
+| Area | Survivor | Why accepted |
+|------|----------|-------------|
+| `install-skills.ts` | `mkdir(dir, { recursive: true })` → `{}` / `{ recursive: false }` | `InMemoryFileSystem.mkdir` ignores its options and `writeFile` doesn't require a parent, so the option has no observable effect in-process — unkillable at the unit layer without rewriting the shared test double. Guarded instead by the integration smoke, which installs into a nested non-existent path (`<temp>/.claude/skills`): dropping `recursive` makes the spawned CLI fail with ENOENT and the test goes red. Loud-crash failure mode, not a silent wrong answer. The smoke runs the built `dist` in a separate process, so it cannot kill the mutant in Stryker — it is a real-execution guard only. |
+
 **`dispatcher.ts` (excluded from full run; narrow run score 65%):**
 
 | Area | Survivor | Why accepted |

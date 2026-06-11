@@ -63,13 +63,15 @@ The daemon auto-spawns on the first call and stays warm for subsequent operation
 
 ### Skills
 
-Weaver ships skill files that teach agents *when* to reach for each operation. Install with the [skills CLI](https://github.com/vercel-labs/skills):
+Weaver ships skill files that teach agents *when* to reach for each operation. After installing the package, copy them into your project's skills directory:
 
 ```bash
-npx skills add yearofthedan/weaver
+npx @yearofthedan/weaver skills install
 ```
 
-Or reference manually from your agent's configuration (e.g. `CLAUDE.md`):
+This copies the skills shipped with your installed version into `.claude/skills/` (override the location with `--dir`, overwrite local edits with `--force`). Because the skills come from the installed package, they always match your weaver version.
+
+Or reference them manually from your agent's configuration (e.g. `CLAUDE.md`):
 
 ```markdown
 ## Refactoring

@@ -110,5 +110,23 @@ Skills are currently distributed via `npx skills add yearofthedan/weaver` ([verc
 - [ ] Tech debt / future work added to handoff.md: (a) `search-text` brace-glob silently returns empty (`[needs design]`); (b) per-host skill *format* adaptation — a `--host` preset that rewrites SKILL.md into other hosts' rule formats (`[needs design]`)
 - [ ] `pnpm eval` re-baseline noted as a follow-up (run after merge; not a `pnpm check` gate)
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+Shipped `weaver skills install` and namespaced the shipped skills as `weaver-*`. Two batches: (1) the rename + reference update; (2) the installer command.
+
+**Tests added:** 19 for the installer (17 unit on `installSkills` + `deriveSkillNamesFromPackageJson` via `InMemoryFileSystem`; 2 integration smokes spawning the built CLI). Batch 1 updated the existing eval invariant tests to the new names. Final suite: 1043 main + 134 eval, all green.
+
+**Mutation (`install-skills.ts`): 92.31%.** Two survivors on the `mkdir(..., { recursive: true })` option (`{}` and `{ recursive: false }`). Classified as a **port-double limitation, not an unguarded gap**: `InMemoryFileSystem.mkdir` ignores its options and `writeFile` doesn't require a parent, so the option has no observable in-memory effect — unkillable in-process without a risky rewrite of the shared test double. The behaviour *is* guarded: the integration smoke installs into a nested non-existent path (`<temp>/.claude/skills`), so dropping `recursive` makes the spawned CLI fail with ENOENT and the test goes red. The failure mode is a loud crash, not a silent wrong answer (Rule 20's low-risk category). `cli.ts` was not mutation-run — it is an entry point exercised only by the spawned-dist integration test (see gotcha below).
+
+**Decisions worth keeping:**
+- **Enumerate shipped skills from `package.json` `files`, not a hardcoded const or `readdir`.** `files` is the npm-tarball manifest — the exact universe the installer copies from — so derivation is zero-drift with no new list and no guard test (the existing `eval/skill-file.test.ts` already pins `files` ↔ disk). Validated during implementation: the repo's `.claude/skills/` also holds internal dev skills (`brainstorm`, `slice`, …) that must NOT ship — `readdir` would have copied them; the `files`-derived list correctly ships only the three `weaver-*` skills.
+- **`--dir` from the start.** Drops the Claude-only *location* lock-in cheaply; per-host *format* adaptation is deliberately deferred (handoff P5).
+
+**Reflection / for the next agent:**
+- **Integration tests that spawn the built `dist` are invisible to Stryker.** Stryker instruments the source and runs vitest; a test that `spawn`s `node dist/.../cli.js` runs a separate, unmutated process, so it contributes *zero* mutation coverage. Mutation coverage must come from in-process unit tests; treat spawned-CLI smokes as real-execution guards only. This is why the installer's logic lives in a pure `installSkills` (unit-tested in-process) with only a thin spawn smoke on top.
+- **Dogfooding `search-text` beat grep for the rename** — it surfaced references grep missed (`.claude/agents/execution-agent.md`, `CONTRIBUTING.md`, intra-skill cross-references, the eval harness). But two defects still slipped through the agent's pass and were caught only in the per-batch review: a cross-reference left as "see refactor skill" and a test-case identifier over-replaced in handoff prose. Per-batch `replace-text` on a name that is also an English word ("refactor") needs a review pass over each hit, not a blind replace.
+- **The rename surfaced three `search-text`/`replace-text` defects** now queued in handoff: a silent zero-match on unsupported (brace) globs (P2 — a correctness footgun), a missing `excludeGlob`, and same-line coordinate-edit `TEXT_MISMATCH` (P3).
+- `pnpm eval` (the LLM lane) now shows the model `weaver-*` names; its pass-rate baseline shifts. Re-run to re-baseline — not a `pnpm check` gate.
 </content>
 </invoke>
