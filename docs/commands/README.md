@@ -40,6 +40,12 @@ All operation commands accept JSON over CLI argument or stdin and return JSON on
 | [`search-text`](./search-text.md) | Regex search across the workspace with glob filtering. |
 | [`replace-text`](./replace-text.md) | Regex replace-all or position-verified surgical edits. |
 
+## Setup
+
+| Command | Summary |
+| :--- | :--- |
+| [`skills install`](./skills-install.md) | Copy the shipped skill files into a project's skills directory. |
+
 ## Lifecycle
 
 | Command | Summary |
