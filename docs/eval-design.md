@@ -157,7 +157,12 @@ new task category) ships.
 
 1. **v1 (this design):** local model, single-shot, temperature 0, pass/fail per case
 2. **v2 candidates, in rough order of value:**
+   - an adversarial trigger lane — competing Edit/Grep-style tools, cluttered system
+     prompt, grep-primed seed turns — that pressures skill selection without changing
+     the skill files; clean lane stays as the regression baseline (queued in
+     `docs/handoff.md`)
    - statistical trigger rates (temperature > 0, repeat-N per case — free locally)
    - an Anthropic/Haiku transport as a canonical gate before skill releases
    - Agent SDK end-to-end runs (real bash, live daemon, file-state assertions) — highest
-     fidelity, but a subsystem-sized build; revisit once descriptions have stabilised
+     fidelity, but a subsystem-sized build and requires Anthropic API access, so it
+     cannot run against the local-only setup
