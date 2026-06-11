@@ -27,9 +27,9 @@
   "type": "module",
   "files": [
     "dist",
-    ".claude/skills/search-and-replace",
-    ".claude/skills/refactor",
-    ".claude/skills/code-inspection"
+    ".claude/skills/weaver-search-and-replace",
+    ".claude/skills/weaver-refactor",
+    ".claude/skills/weaver-code-inspection"
   ],
   "main": "./dist/adapters/cli/cli.js",
   "exports": {

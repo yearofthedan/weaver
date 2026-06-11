@@ -46,21 +46,21 @@ describe("case table", () => {
   describe("trigger coverage", () => {
     it("has at least one trigger case for the refactor skill", () => {
       const refactorTriggers = CASES.filter(
-        (c) => c.stage === "trigger" && c.expect.skill === "refactor",
+        (c) => c.stage === "trigger" && c.expect.skill === "weaver-refactor",
       );
       expect(refactorTriggers.length).toBeGreaterThanOrEqual(1);
     });
 
     it("has at least one trigger case for the search-and-replace skill", () => {
       const searchTriggers = CASES.filter(
-        (c) => c.stage === "trigger" && c.expect.skill === "search-and-replace",
+        (c) => c.stage === "trigger" && c.expect.skill === "weaver-search-and-replace",
       );
       expect(searchTriggers.length).toBeGreaterThanOrEqual(1);
     });
 
     it("has at least one trigger case for the code-inspection skill", () => {
       const inspectionTriggers = CASES.filter(
-        (c) => c.stage === "trigger" && c.expect.skill === "code-inspection",
+        (c) => c.stage === "trigger" && c.expect.skill === "weaver-code-inspection",
       );
       expect(inspectionTriggers.length).toBeGreaterThanOrEqual(1);
     });

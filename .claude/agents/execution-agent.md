@@ -6,9 +6,9 @@ tools: Read, Glob, Grep, Write, Edit, Bash
 disallowedTools: WebFetch, WebSearch
 skills:
   - implementation-context
-  - search-and-replace
-  - refactor
-  - code-inspection
+  - weaver-search-and-replace
+  - weaver-refactor
+  - weaver-code-inspection
   - run-checks
 memory: project
 ---

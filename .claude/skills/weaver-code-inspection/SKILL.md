@@ -1,5 +1,5 @@
 ---
-name: code-inspection
+name: weaver-code-inspection
 description: Use when finding all usages of a symbol, jumping to a definition through re-exports, or checking type errors — before using grep to find references or tsc to check types.
 ---
 
@@ -55,7 +55,7 @@ Use to check the project baseline before a refactor, or to verify a specific fil
 
 ## When NOT to use
 
-- **Searching for a text pattern** (not a symbol) — use `search-text` (see search-and-replace skill)
+- **Searching for a text pattern** (not a symbol) — use `search-text` (see weaver-search-and-replace skill)
 
 ## Errors
 

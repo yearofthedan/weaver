@@ -1,5 +1,5 @@
 ---
-name: search-and-replace
+name: weaver-search-and-replace
 description: Use when changing a string, pattern, or text across multiple files — before using Edit or sed on more than one file. Also use when searching for all occurrences of a pattern across the workspace.
 ---
 
@@ -7,7 +7,7 @@ description: Use when changing a string, pattern, or text across multiple files 
 
 **STOP.** Before running `grep` to find a text pattern, or before using Edit on the same kind of change in more than one file — use these commands instead. One call finds or replaces across the entire workspace, including barrel files and Vue SFCs, and catches files you'd miss.
 
-For *symbol* usages (function calls, type references, imports) use `find-references` instead (see code-inspection skill) — it's scope-aware and won't match string literals or comments.
+For *symbol* usages (function calls, type references, imports) use `find-references` instead (see weaver-code-inspection skill) — it's scope-aware and won't match string literals or comments.
 
 ## Trust the response
 

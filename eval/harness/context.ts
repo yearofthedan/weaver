@@ -4,7 +4,11 @@ import * as path from "node:path";
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
 const SKILLS_DIR = path.join(PROJECT_ROOT, ".claude/skills");
 
-export const SKILL_NAMES = ["search-and-replace", "refactor", "code-inspection"] as const;
+export const SKILL_NAMES = [
+  "weaver-search-and-replace",
+  "weaver-refactor",
+  "weaver-code-inspection",
+] as const;
 export type SkillName = (typeof SKILL_NAMES)[number];
 
 export interface SkillFrontmatter {

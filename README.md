@@ -73,9 +73,9 @@ Or reference manually from your agent's configuration (e.g. `CLAUDE.md`):
 
 ```markdown
 ## Refactoring
-see `node_modules/@yearofthedan/weaver/.claude/skills/refactor`
-see `node_modules/@yearofthedan/weaver/.claude/skills/code-inspection`
-see `node_modules/@yearofthedan/weaver/.claude/skills/search-and-replace`
+see `node_modules/@yearofthedan/weaver/.claude/skills/weaver-refactor`
+see `node_modules/@yearofthedan/weaver/.claude/skills/weaver-code-inspection`
+see `node_modules/@yearofthedan/weaver/.claude/skills/weaver-search-and-replace`
 ```
 
 ## Documentation

@@ -68,7 +68,7 @@ Specs are **changesets**, not features. They describe a unit of work to deliver,
 **Rule 9: Dogfood the tools — you are the target user.**
 Use the CLI (`pnpm exec weaver <command>`) for refactoring during development. This is the primary interface most users will have — if it doesn't work well for you, it won't work well for them. If the CLI can't do what you need, add it to `docs/handoff.md`. Shareable skills (`.claude/skills/`) are fine — they ship with the tool and any consumer can load them. Private memories and rules that only exist in this repo's config are not a substitute for good tool descriptions.
 
-The shipped skill files at `.claude/skills/{search-and-replace,refactor,code-inspection}/SKILL.md` are the canonical refactoring guidance — the same files external users load.
+The shipped skill files at `.claude/skills/{weaver-search-and-replace,weaver-refactor,weaver-code-inspection}/SKILL.md` are the canonical refactoring guidance — the same files external users load.
 
 Skill files are interface documentation, not agent playbooks. Describe what the tool returns and what each field means. Do not prescribe what the agent should do in response — that's the caller's policy, not the tool's contract. The agent has project context weaver doesn't: pre-existing errors, intent, conventions.
 
@@ -92,9 +92,9 @@ Read the code before forming opinions. Look at function bodies, indirection dept
 
 **Rule 18: Use skills and the CLI for code searches — not grep.**
 Before reaching for `grep` or `find`:
-- Refactoring (rename, move, delete, extract) → invoke the `refactor` skill
-- Symbol lookups, reference finding, definition jumping → invoke the `code-inspection` skill
-- Multi-file text searches or replacements → invoke the `search-and-replace` skill
+- Refactoring (rename, move, delete, extract) → invoke the `weaver-refactor` skill
+- Symbol lookups, reference finding, definition jumping → invoke the `weaver-code-inspection` skill
+- Multi-file text searches or replacements → invoke the `weaver-search-and-replace` skill
 
 Both skills use `pnpm exec weaver` under the hood — dogfooding the primary user interface (Rule 9). The skills are listed in every session; check their trigger conditions before defaulting to shell tools.
 
