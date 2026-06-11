@@ -7,16 +7,16 @@ const PACKAGE_JSON = path.join(PROJECT_ROOT, "package.json");
 
 const SHIPPED_SKILLS = [
   {
-    name: "search-and-replace",
-    path: ".claude/skills/search-and-replace/SKILL.md",
-    packageEntry: ".claude/skills/search-and-replace",
+    name: "weaver-search-and-replace",
+    path: ".claude/skills/weaver-search-and-replace/SKILL.md",
+    packageEntry: ".claude/skills/weaver-search-and-replace",
     operations: ["search-text", "replace-text"],
     errorCodes: ["DAEMON_STARTING"],
   },
   {
-    name: "refactor",
-    path: ".claude/skills/refactor/SKILL.md",
-    packageEntry: ".claude/skills/refactor",
+    name: "weaver-refactor",
+    path: ".claude/skills/weaver-refactor/SKILL.md",
+    packageEntry: ".claude/skills/weaver-refactor",
     operations: [
       "rename",
       "move-file",
@@ -28,9 +28,9 @@ const SHIPPED_SKILLS = [
     errorCodes: ["DAEMON_STARTING", "SYMBOL_NOT_FOUND", "FILE_NOT_FOUND"],
   },
   {
-    name: "code-inspection",
-    path: ".claude/skills/code-inspection/SKILL.md",
-    packageEntry: ".claude/skills/code-inspection",
+    name: "weaver-code-inspection",
+    path: ".claude/skills/weaver-code-inspection/SKILL.md",
+    packageEntry: ".claude/skills/weaver-code-inspection",
     operations: ["find-references", "get-definition", "get-type-errors"],
     errorCodes: ["DAEMON_STARTING", "SYMBOL_NOT_FOUND", "FILE_NOT_FOUND"],
   },
@@ -91,7 +91,7 @@ describe.each(SHIPPED_SKILLS)("shipped skill: $name", (skill) => {
 });
 
 describe("refactor skill", () => {
-  const fullPath = path.join(PROJECT_ROOT, ".claude/skills/refactor/SKILL.md");
+  const fullPath = path.join(PROJECT_ROOT, ".claude/skills/weaver-refactor/SKILL.md");
 
   it("describes response fields for write operations", () => {
     const content = fs.readFileSync(fullPath, "utf-8");
@@ -102,7 +102,7 @@ describe("refactor skill", () => {
 });
 
 describe("search-and-replace skill", () => {
-  const fullPath = path.join(PROJECT_ROOT, ".claude/skills/search-and-replace/SKILL.md");
+  const fullPath = path.join(PROJECT_ROOT, ".claude/skills/weaver-search-and-replace/SKILL.md");
 
   it("describes response fields", () => {
     const content = fs.readFileSync(fullPath, "utf-8");

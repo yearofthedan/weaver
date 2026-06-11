@@ -48,4 +48,4 @@ User-facing constraints, parameters, and error codes belong in the matching `doc
 2. Create `docs/commands/<kebab-name>.md` from the structure of an existing command page.
 3. Create `docs/internals/<kebab-name>.md` covering how-it-works, technical decisions, and any gotchas.
 4. Add the command to `docs/commands/README.md` and `docs/internals/README.md` indexes.
-5. If the command is part of an existing skill (`refactor`, `code-inspection`, `search-and-replace`), update that skill's `SKILL.md` with usage guidance.
+5. If the command is part of an existing skill (`refactor`, `weaver-code-inspection`, `weaver-search-and-replace`), update that skill's `SKILL.md` with usage guidance.

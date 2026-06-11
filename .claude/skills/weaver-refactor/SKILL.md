@@ -1,5 +1,5 @@
 ---
-name: refactor
+name: weaver-refactor
 description: Use when refactoring across files — renaming a symbol, moving a file or directory, moving an export between files, deleting a file that has importers, or extracting a function. Before using mv, rm, or manual import fixup.
 ---
 
@@ -89,7 +89,7 @@ Pass `"checkTypeErrors": false` when batching changes to check errors once at th
 
 ## When NOT to use
 
-- **Changing a string/pattern across files** — use `replace-text` (see search-and-replace skill)
+- **Changing a string/pattern across files** — use `replace-text` (see weaver-search-and-replace skill)
 
 ## Errors
 

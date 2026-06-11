@@ -5,17 +5,19 @@ describe("skillFrontmatters", () => {
   it("returns name and description for all three shipped skills", () => {
     const frontmatters = skillFrontmatters();
     expect(frontmatters.map((f) => f.name)).toEqual([
-      "search-and-replace",
-      "refactor",
-      "code-inspection",
+      "weaver-search-and-replace",
+      "weaver-refactor",
+      "weaver-code-inspection",
     ]);
   });
 
   it("includes each skill's description from the frontmatter", () => {
     const byName = new Map(skillFrontmatters().map((f) => [f.name, f.description]));
-    expect(byName.get("search-and-replace")).toContain("changing a string, pattern, or text");
-    expect(byName.get("refactor")).toContain("renaming a symbol");
-    expect(byName.get("code-inspection")).toContain("finding all usages of a symbol");
+    expect(byName.get("weaver-search-and-replace")).toContain(
+      "changing a string, pattern, or text",
+    );
+    expect(byName.get("weaver-refactor")).toContain("renaming a symbol");
+    expect(byName.get("weaver-code-inspection")).toContain("finding all usages of a symbol");
   });
 
   it("does NOT include the full SKILL.md body text in descriptions", () => {
@@ -29,19 +31,19 @@ describe("skillFrontmatters", () => {
 
 describe("skillContext", () => {
   it("returns the full SKILL.md body for the requested skills", () => {
-    const prompt = skillContext(["refactor"]);
+    const prompt = skillContext(["weaver-refactor"]);
     expect(prompt).toContain("weaver rename");
     expect(prompt).toContain("weaver move-file");
   });
 
   it("includes content for each named skill when multiple are requested", () => {
-    const prompt = skillContext(["refactor", "code-inspection"]);
+    const prompt = skillContext(["weaver-refactor", "weaver-code-inspection"]);
     expect(prompt).toContain("weaver rename");
     expect(prompt).toContain("weaver find-references");
   });
 
   it("does NOT include content for unrequested skills", () => {
-    const prompt = skillContext(["refactor"]);
+    const prompt = skillContext(["weaver-refactor"]);
     expect(prompt).not.toContain("weaver search-text");
     expect(prompt).not.toContain("weaver replace-text");
   });
@@ -55,7 +57,7 @@ describe("skillContext", () => {
   });
 
   it("includes the frontmatter in the returned content", () => {
-    const prompt = skillContext(["search-and-replace"]);
-    expect(prompt).toContain("name: search-and-replace");
+    const prompt = skillContext(["weaver-search-and-replace"]);
+    expect(prompt).toContain("name: weaver-search-and-replace");
   });
 });
