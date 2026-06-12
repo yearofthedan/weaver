@@ -59,7 +59,7 @@ Fixed gaps are removed. Remaining survivors by category:
 | `ensure-daemon.ts` | `.trim()` variants of the `stderrBuf.slice(consumed, newline).trim()` line | Only observable with multi-line or whitespace-padded stderr output from the spawned process. Single-line ready signal in tests makes both variants equivalent. |
 | `ensure-daemon.ts` | `NoCoverage` — timer callback and JSON-parse catch in `spawnDaemon` | Timer fires after 30s (no fake-timer tests for the timeout path); JSON-parse catch only fires on truly malformed stderr (never in production). |
 
-**`install-skills.ts` (scoped run, 92.31%):**
+**`install-skills.ts` (scoped run, 94.6%):**
 
 | Area | Survivor | Why accepted |
 |------|----------|-------------|
