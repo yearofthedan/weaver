@@ -11,9 +11,6 @@
     "ghcr.io/devcontainers/features/github-cli:1": {
       "version": "2.90.0"
     },
-    "ghcr.io/devcontainers-extra/features/pnpm:2": {
-      "version": "10.33.0"
-    },
     "ghcr.io/devcontainer-community/devcontainer-features/lazygit:1": {
       "version": "0.61.0"
     },
