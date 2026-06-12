@@ -1,10 +1,18 @@
 import { EngineError } from "../domain/errors.js";
 
 /**
- * Maximum number of patterns produced by brace expansion before compileGlob
- * throws INVALID_GLOB. Prevents {a,b}{a,b}… cartesian-product DoS.
+ * Maximum number of patterns produced by brace expansion. Enforced *during*
+ * expansion so a `{a,b}{a,b}…` cartesian product throws before its array is
+ * materialised, not after.
  */
 const BRACE_EXPANSION_CAP = 256;
+
+const GLOB_SYNTAX_HINT =
+  "brace groups like {a,b} are supported; character classes [...], nested braces, and unbalanced braces are not";
+
+function invalidGlob(glob: string, detail: string): EngineError {
+  return new EngineError(`Unsupported glob syntax: "${glob}" (${detail})`, "INVALID_GLOB");
+}
 
 /**
  * Validate and compile a user-supplied glob into a predicate over relative
@@ -18,14 +26,7 @@ const BRACE_EXPANSION_CAP = 256;
  */
 export function compileGlob(glob: string): (relPath: string) => boolean {
   validateGlob(glob);
-  const patterns = expandBraces(glob);
-  if (patterns.length > BRACE_EXPANSION_CAP) {
-    throw new EngineError(
-      `Unsupported glob syntax: "${glob}" (brace expansion produces ${patterns.length} patterns, which exceeds the limit of ${BRACE_EXPANSION_CAP})`,
-      "INVALID_GLOB",
-    );
-  }
-  const regexes = patterns.map(globToRegex);
+  const regexes = expandBraces(glob).map(globToRegex);
   return (relPath: string) => regexes.some((re) => re.test(relPath));
 }
 
@@ -34,61 +35,44 @@ export function compileGlob(glob: string): (relPath: string) => boolean {
  * Rejects: character classes [...], nested braces, unbalanced braces.
  */
 function validateGlob(glob: string): void {
-  if (glob.includes("[")) {
-    throw new EngineError(
-      `Unsupported glob syntax: "${glob}" (brace groups like {a,b} are supported; character classes [...], nested braces, and over-large expansions are not)`,
-      "INVALID_GLOB",
-    );
-  }
+  if (glob.includes("[")) throw invalidGlob(glob, GLOB_SYNTAX_HINT);
 
-  // Check for nested braces and unbalanced braces in a single pass
+  // Single pass catches both nesting (depth > 1) and imbalance (depth < 0 or
+  // a non-zero final depth).
   let depth = 0;
   for (const ch of glob) {
     if (ch === "{") {
-      depth++;
-      if (depth > 1) {
-        throw new EngineError(
-          `Unsupported glob syntax: "${glob}" (brace groups like {a,b} are supported; character classes [...], nested braces, and over-large expansions are not)`,
-          "INVALID_GLOB",
-        );
-      }
+      if (++depth > 1) throw invalidGlob(glob, GLOB_SYNTAX_HINT);
     } else if (ch === "}") {
-      if (depth === 0) {
-        throw new EngineError(
-          `Unsupported glob syntax: "${glob}" (brace groups like {a,b} are supported; character classes [...], nested braces, and over-large expansions are not)`,
-          "INVALID_GLOB",
-        );
-      }
+      if (depth === 0) throw invalidGlob(glob, GLOB_SYNTAX_HINT);
       depth--;
     }
   }
-  if (depth !== 0) {
-    throw new EngineError(
-      `Unsupported glob syntax: "${glob}" (brace groups like {a,b} are supported; character classes [...], nested braces, and over-large expansions are not)`,
-      "INVALID_GLOB",
-    );
-  }
+  if (depth !== 0) throw invalidGlob(glob, GLOB_SYNTAX_HINT);
 }
 
 /**
  * Expand all brace groups in a glob into a list of plain glob strings via
  * textual cartesian product. A glob with no braces returns `[glob]`.
+ *
+ * Precondition: `validateGlob` has accepted `glob`, so braces are balanced and
+ * non-nested — every `{` has a matching `}` after it at the same depth.
  */
 function expandBraces(glob: string): string[] {
-  // Find the first `{...}` group
   const open = glob.indexOf("{");
   if (open === -1) return [glob];
 
+  // validateGlob guarantees a matching close exists for the first open brace.
   const close = glob.indexOf("}", open);
-  // validateGlob already guarantees balanced braces, but guard defensively
-  if (close === -1) return [glob];
-
   const prefix = glob.slice(0, open);
-  const suffix = glob.slice(close + 1);
   const alts = glob.slice(open + 1, close).split(",");
 
-  // Recursively expand the suffix to handle multiple brace groups (cartesian product)
-  const suffixExpanded = expandBraces(suffix);
+  const suffixExpanded = expandBraces(glob.slice(close + 1));
+
+  // Check before building so a blow-up throws instead of allocating the array.
+  if (alts.length * suffixExpanded.length > BRACE_EXPANSION_CAP) {
+    throw invalidGlob(glob, `brace expansion exceeds the limit of ${BRACE_EXPANSION_CAP} patterns`);
+  }
 
   const result: string[] = [];
   for (const alt of alts) {
