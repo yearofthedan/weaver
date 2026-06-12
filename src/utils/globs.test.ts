@@ -134,6 +134,8 @@ describe("globToRegex", () => {
 
     it("foo/** matches anything under foo including direct children", () => {
       const re = globToRegex("foo/**");
+      // The bare directory itself matches (the trailing /** is optional)
+      expect(re.test("foo")).toBe(true);
       expect(re.test("foo/bar")).toBe(true);
       expect(re.test("foo/bar/baz")).toBe(true);
     });
@@ -207,6 +209,12 @@ describe("compileGlob", () => {
       );
     });
 
+    it("rejects a closing brace that precedes its opening brace", () => {
+      // Brace counts balance, but the } at depth 0 is still invalid — the
+      // inline guard must reject it, not just the final-depth check.
+      expect(() => compileGlob("}{")).toThrow(expect.objectContaining({ code: "INVALID_GLOB" }));
+    });
+
     it("rejects a glob whose expansion exceeds the cap", () => {
       // Build a glob with enough brace groups to exceed 256 patterns:
       // each {a,b} doubles the count, so 9 groups → 512 patterns
@@ -214,6 +222,11 @@ describe("compileGlob", () => {
       expect(() => compileGlob(manyGroups)).toThrow(
         expect.objectContaining({ code: "INVALID_GLOB" }),
       );
+    });
+
+    it("accepts a glob that expands to exactly the cap", () => {
+      // 8 groups → 256 patterns, the largest expansion still allowed.
+      expect(() => compileGlob("{a,b}".repeat(8))).not.toThrow();
     });
 
     it("error message names the offending glob", () => {
