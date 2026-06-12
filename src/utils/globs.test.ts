@@ -155,4 +155,30 @@ describe("compileGlob", () => {
       expect(pred("foo.txt")).toBe(false);
     });
   });
+
+  describe("multiple brace groups — cartesian product", () => {
+    it("matches all combinations from two brace groups", () => {
+      const pred = compileGlob("{src,lib}/*.{ts,js}");
+      expect(pred("src/a.ts")).toBe(true);
+      expect(pred("src/a.js")).toBe(true);
+      expect(pred("lib/b.ts")).toBe(true);
+      expect(pred("lib/b.js")).toBe(true);
+    });
+
+    it("rejects paths outside any expanded combination", () => {
+      const pred = compileGlob("{src,lib}/*.{ts,js}");
+      // wrong directory
+      expect(pred("test/a.ts")).toBe(false);
+      // wrong extension — valid directory but wrong extension
+      expect(pred("src/a.vue")).toBe(false);
+    });
+  });
+
+  describe("no brace groups — passes through to globToRegex unchanged", () => {
+    it("behaves identically to a direct globToRegex call", () => {
+      const pred = compileGlob("**/*.ts");
+      expect(pred("src/foo.ts")).toBe(true);
+      expect(pred("src/foo.js")).toBe(false);
+    });
+  });
 });
