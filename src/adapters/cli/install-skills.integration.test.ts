@@ -4,15 +4,18 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PROJECT_ROOT } from "../../__testHelpers__/helpers.js";
-import { deriveSkillNamesFromPackageJson } from "./install-skills.js";
 
 const CLI_DIST = path.join(PROJECT_ROOT, "dist", "adapters", "cli", "cli.js");
 const SKILLS_SRC = path.join(PROJECT_ROOT, ".claude", "skills");
 const PACKAGE_JSON_PATH = path.join(PROJECT_ROOT, "package.json");
 
+// The real shipped set is the package.json "files" manifest filtered to skills —
+// not every directory under .claude/skills (which also holds dev-only skills).
 function shippedSkillNames(): string[] {
-  const content = fs.readFileSync(PACKAGE_JSON_PATH, "utf8");
-  return deriveSkillNamesFromPackageJson(content);
+  const pkg = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, "utf8")) as { files?: string[] };
+  return (pkg.files ?? [])
+    .filter((entry) => entry.startsWith(".claude/skills/"))
+    .map((entry) => path.basename(entry));
 }
 
 function runBuiltCliCommand(
