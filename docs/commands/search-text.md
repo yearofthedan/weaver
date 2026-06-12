@@ -24,7 +24,7 @@ MCP tool name: `searchText`.
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `pattern` | string | yes | ECMAScript regex. Rejected if `safe-regex2` flags catastrophic backtracking. |
-| `glob` | string | no | Path glob filter. `**` and `*` only — no `{a,b}` or `[abc]` in the glob (regex char classes in `pattern` are fine). |
+| `glob` | string | no | Path glob filter. Supports `*`, `**`, `?`, and brace groups like `{ts,vue}` (e.g. `**/*.{ts,vue}`). Brace groups are a cartesian expansion — `{src,lib}/*.{ts,js}` expands to four patterns. Character classes `[abc]`, nested braces, and expansions over 256 patterns throw `INVALID_GLOB`. |
 | `context` | integer | no | Lines of context above and below each match. Omit or `0` for matches only. |
 | `maxResults` | integer | no | Default `500`. |
 
@@ -55,7 +55,9 @@ See [response format](../reference/response-format.md).
 
 ## Error codes
 
-`PARSE_ERROR`, `REDOS`, `VALIDATION_ERROR`. See [error codes](../reference/error-codes.md).
+`PARSE_ERROR`, `REDOS`, `INVALID_GLOB`, `VALIDATION_ERROR`. See [error codes](../reference/error-codes.md).
+
+`INVALID_GLOB` is returned — not an empty result — when the `glob` uses unsupported syntax. Do not interpret an empty result as "nothing matched" until you confirm the glob itself is valid.
 
 ## Examples
 
@@ -67,7 +69,7 @@ weaver search-text '{"pattern":"TODO\\(.*\\)","glob":"src/**/*.{ts,vue}","maxRes
 
 - ECMAScript regex syntax — no atomic groups or possessive quantifiers.
 - Per-line matching — patterns matching across `\n` are not supported.
-- Glob does not support `{a,b}` alternation or `[abc]` classes.
+- Glob supports brace groups (`{a,b}`) but not character classes (`[abc]`) or nested braces. Passing unsupported syntax throws `INVALID_GLOB`.
 - No fixed-string mode; literal regex metacharacters must be escaped.
 - Binary files and sensitive files are skipped automatically.
 

@@ -38,7 +38,7 @@ Exactly one mode must be provided — `pattern` + `replacement` *or* `edits`, no
 | --- | --- | --- | --- |
 | `pattern` | string | yes | ECMAScript regex. Same constraints as [`search-text`](./search-text.md). |
 | `replacement` | string | yes | Replacement string. `$1`, `$2`, … reference capture groups. |
-| `glob` | string | no | Same as `search-text`. |
+| `glob` | string | no | Same as `search-text` — supports brace groups like `{ts,js}`. |
 | `checkTypeErrors` | boolean | no | Default `true`. |
 
 ### Surgical mode
@@ -65,7 +65,7 @@ Exactly one mode must be provided — `pattern` + `replacement` *or* `edits`, no
 
 ## Error codes
 
-`PARSE_ERROR`, `REDOS`, `TEXT_MISMATCH`, `WORKSPACE_VIOLATION`, `SENSITIVE_FILE`, `VALIDATION_ERROR`. See [error codes](../reference/error-codes.md).
+`PARSE_ERROR`, `REDOS`, `INVALID_GLOB`, `TEXT_MISMATCH`, `WORKSPACE_VIOLATION`, `SENSITIVE_FILE`, `VALIDATION_ERROR`. See [error codes](../reference/error-codes.md).
 
 ## Examples
 

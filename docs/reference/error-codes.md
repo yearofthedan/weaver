@@ -8,6 +8,7 @@ Every failed tool call returns `{ "status": "error", "error": "<CODE>", "message
 | --- | --- | --- |
 | `VALIDATION_ERROR` | Input failed Zod schema validation (wrong type, missing field, bad regex for an identifier). | No — fix the input. |
 | `INVALID_PATH` | Path string is malformed (empty, contains null bytes, etc.). | No — fix the path. |
+| `INVALID_GLOB` | The `glob` argument uses unsupported syntax — character classes `[…]`, nested braces, unbalanced braces, or a brace expansion producing more than 256 patterns. | No — rewrite the glob using only `*`, `**`, `?`, and flat brace groups like `{ts,js}`. |
 | `PARSE_ERROR` | Malformed request payload, or invalid regex passed to `search-text`/`replace-text`. | No — fix the payload or regex. |
 | `REDOS` | Regex was rejected by `safe-regex2` as ReDoS-prone (star-height > 1). | No — rewrite the regex. |
 

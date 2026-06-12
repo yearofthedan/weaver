@@ -76,8 +76,20 @@ If you omit `glob`, every file under `workspace` (or the daemon's workspace) is 
 
 - **Renaming a TypeScript symbol** (variable, function, type, class) — use `weaver rename` instead (see weaver-refactor skill). It's scope-aware; text replacement is not.
 
+## Glob: supported syntax
+
+The `glob` field supports `*`, `**`, `?`, and brace groups like `{ts,vue}`:
+
+```bash
+# Brace groups expand to a cartesian product — both extensions are searched
+weaver search-text '{"pattern": "TODO", "glob": "**/*.{ts,vue}"}'
+```
+
+Unsupported syntax (character classes `[abc]`, nested braces `{a,{b,c}}`) throws `INVALID_GLOB` — not an empty result. If you see `INVALID_GLOB`, the glob is the problem, not the search pattern.
+
 ## Errors
 
 - **`DAEMON_STARTING`** — retry after a short delay
 - **`VALIDATION_ERROR`** — check your JSON
+- **`INVALID_GLOB`** — the `glob` uses unsupported syntax; rewrite using `*`, `**`, `?`, and flat brace groups
 - **`WORKSPACE_VIOLATION`** — path is outside the workspace

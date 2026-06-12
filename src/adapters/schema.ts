@@ -99,7 +99,7 @@ export const SearchTextArgsSchema = z.object({
     .string()
     .optional()
     .describe(
-      "Optional glob to restrict which files are searched (e.g. '**/*.ts', 'src/**/*.vue')",
+      "Optional glob to restrict which files are searched (e.g. '**/*.ts', '**/*.{ts,vue}'). Brace groups like {ts,vue} are expanded. Character classes [...] and nested braces are not supported and throw INVALID_GLOB.",
     ),
   context: z.coerce
     .number()
@@ -132,7 +132,9 @@ export const ReplaceTextBaseSchema = z.object({
   glob: z
     .string()
     .optional()
-    .describe("Optional glob to restrict which files are modified (pattern mode)"),
+    .describe(
+      "Optional glob to restrict which files are modified (pattern mode). Brace groups like {ts,js} are expanded. Character classes [...] and nested braces throw INVALID_GLOB.",
+    ),
   edits: z.array(TextEditSchema).optional().describe("Surgical edits array (surgical mode)"),
   checkTypeErrors: z
     .boolean()
