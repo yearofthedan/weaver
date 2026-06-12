@@ -14,10 +14,12 @@ describe("skillFrontmatters", () => {
   it("includes each skill's description from the frontmatter", () => {
     const byName = new Map(skillFrontmatters().map((f) => [f.name, f.description]));
     expect(byName.get("weaver-search-and-replace")).toContain(
-      "changing a string, pattern, or text",
+      "searching for or changing text across files",
     );
     expect(byName.get("weaver-refactor")).toContain("renaming a symbol");
-    expect(byName.get("weaver-code-inspection")).toContain("finding all usages of a symbol");
+    expect(byName.get("weaver-code-inspection")).toContain(
+      "finding all references to a named symbol",
+    );
   });
 
   it("does NOT include the full SKILL.md body text in descriptions", () => {

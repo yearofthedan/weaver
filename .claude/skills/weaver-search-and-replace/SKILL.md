@@ -1,6 +1,6 @@
 ---
 name: weaver-search-and-replace
-description: Use when changing a string, pattern, or text across multiple files — before using Edit or sed on more than one file. Also use when searching for all occurrences of a pattern across the workspace.
+description: Use when searching for or changing text across files — finding every occurrence of a string or text pattern (literals, labels, markers like TODO), or replacing across multiple files — before using grep, sed, or Edit. For usages of a named code symbol, use weaver-code-inspection.
 ---
 
 # Search and Replace Across Files

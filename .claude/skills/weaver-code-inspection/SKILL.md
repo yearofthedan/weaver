@@ -1,6 +1,6 @@
 ---
 name: weaver-code-inspection
-description: Use when finding all usages of a symbol, jumping to a definition through re-exports, or checking type errors — before using grep to find references or tsc to check types.
+description: Use when finding all references to a named symbol (function, variable, type) at a position, jumping to a definition through re-exports, or checking type errors — before grep for a symbol's usages or tsc for type errors. For free-text, comment, or string search (e.g. TODO), use weaver-search-and-replace.
 ---
 
 # Code Inspection
