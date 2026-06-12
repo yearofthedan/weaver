@@ -51,6 +51,11 @@ metadata:
     - What's the zero/empty case? The adversarial case?
     - If the operation wraps a compiler/external API, read the API source to answer these — don't guess
 
+    **Design-shape check.** Check the interface against `docs/design-principles.md`:
+    - If the change adds a CLI action, socket handler, or other transport entry point, the handler stays thin — translate input, call one named function, format output. Put the logic behind a seam testable with `InMemoryFileSystem`, and name that function in the Interface.
+    - Export the entry point, not its helpers. If a helper is exported only so a test can call it, test through the real entry point instead.
+    - New file reads/writes go through the `FileSystem` port, not `node:fs`.
+
 11. **Fill in Edges.** Ask: "what must NOT change?" and "what assumptions are we making?" These become regression tests during implementation.
 
 12. **Review the Done-when checklist.** Add any task-specific verification steps (e.g., "works via both MCP and CLI", "mutation score for this file specifically"). Check `.claude/skills/` for any skill file that references the changed tool — skill files are the primary way agents discover tool capabilities. If the skill doesn't mention the new mode, agents won't use it. Add skill updates to Done-when.

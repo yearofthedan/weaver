@@ -2,6 +2,8 @@
 
 Project-wide coding standards. Referenced by agents, skills, and CLAUDE.md.
 
+This doc answers *"is this written well?"* at implementation time. For *"is this the right shape?"* — where logic lives, what the boundaries are, what gets exposed — see [design-principles.md](design-principles.md), decided earlier, at design time. Several checks below (the test quality model, the source-extraction review) are the implementation-time symptoms of those design-time principles, and cross-link where relevant.
+
 These checks happen **before** implementing, not after. Read the target files, work through the assessment below, and decide whether extraction or refactoring is needed before adding new code. This is cheaper and cleaner than untangling changes after the fact.
 
 ## Before extending an existing file
@@ -51,7 +53,7 @@ Tests are production code. Everything above applies: read before extending, look
 
 A short test file can still be unhealthy. Assess test health on these dimensions:
 
-- **Layer fit.** Is each test at the lowest layer that can verify the behaviour? Pure logic belongs at the unit layer with in-memory dependencies. Integration tests verify wiring, not exhaustive input variations.
+- **Layer fit.** Is each test at the lowest layer that can verify the behaviour? Pure logic belongs at the unit layer with in-memory dependencies. Integration tests verify wiring, not exhaustive input variations. (When a behaviour *can't* be reached at a low layer, that's usually the [Dependency Rule](design-principles.md) failing in the source — the logic is in too outer a layer; fix the shape, not the test.)
 - **Setup proportionality.** Is the setup proportional to what's being verified? When the fixture ceremony dwarfs the assertion, the logic under test likely belongs behind a seam that can be tested with lighter dependencies.
 - **Coverage directness.** Is the behaviour asserted through a direct call, or indirectly through a chain of collaborators? Indirect coverage is fragile — a change to an unrelated collaborator can silently break the path that exercises the real logic.
 - **Mutation resilience.** Would a logic inversion in the code under test be caught? Assertions must pin exact output shapes and cover at least one boundary. TypeScript types don't kill mutants — only assertions do.

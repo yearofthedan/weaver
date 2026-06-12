@@ -28,6 +28,7 @@
 
 ## Architecture & implementation
 
+- [Design principles](design-principles.md) — the design-time decisions that shape a change (where logic lives, boundaries, what's exposed); consulted at `/spec` time
 - [Architecture](architecture.md) — provider/operation/dispatcher design; read before touching `src/`
 - [Security](security.md) — threat model, controls, known limitations
 - [Internals](internals/) — per-command implementation, technical decisions, and shared infrastructure (daemon, watcher)
