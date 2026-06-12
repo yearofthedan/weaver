@@ -131,7 +131,7 @@ src/
   utils/
     text-utils.ts      ← applyTextEdits(), offsetToLineCol()
     file-walk.ts       ← walkFiles() + walkWorkspaceFiles() + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS
-    globs.ts           ← globToRegex() — glob pattern to RegExp conversion
+    globs.ts           ← compileGlob() — validate + brace-expand a glob into a path predicate; globToRegex() per-pattern translation
     ts-project.ts      ← findTsConfig, findTsConfigForFile, isVueProject
     *.test.ts          ← colocated unit tests
   *.integration.test.ts ← cross-cutting integration tests (cli-workspace-default, eval, agent-conventions, skill-file)
@@ -156,8 +156,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P2 — High-value features / bugs / tech debt
-
-- **`search-text` silently returns zero matches for an unsupported glob** → [`docs/specs/20260612-glob-brace-expansion.md`](specs/20260612-glob-brace-expansion.md) — support brace globs (`**/*.{md,json,ts}`) and throw `INVALID_GLOB` for syntax weaver can't honour, instead of returning a silent false "no matches".
 
 - **Skill-description findings from the first eval run** `[needs design]` — the 2026-06-10 eval run (21/23) surfaced two skill-content issues. (1) Description overlap: `weaver-code-inspection` ("before using grep to find references") and `weaver-search-and-replace` ("searching for all occurrences of a pattern") compete for text-pattern tasks — the model picked weaver-code-inspection for "find all TODO comments" (`trigger-search-and-replace-todos-grep-tempting`). Decide how the two descriptions should divide the "find X" space. (2) Pattern format ambiguity: the weaver-search-and-replace skill never says the `pattern` arg is a bare regex string — the model emitted `"/TODO/"` with regex delimiters (`command-search-text`). Changing descriptions is a product decision: re-run `pnpm eval` to verify improvements.
 

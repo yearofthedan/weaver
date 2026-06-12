@@ -103,3 +103,22 @@
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas recorded if any
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+Shipped as planned — Option B (brace expansion + reject unsupported syntax). All four ACs implemented; `walkWorkspaceFiles` swapped `globToRegex` for the new `compileGlob` predicate, so both `search-text` and `replace-text` inherited the fix through a single chokepoint. `INVALID_GLOB` added to the `ErrorCode` union and documented across error-codes, both command pages, the schema descriptions, and the search-and-replace skill (the skill explicitly tells agents `INVALID_GLOB` means the glob is wrong, not "no matches" — the core failure mode this spec exists to kill).
+
+**Tests added:** 17 (1036 → 1053). 13 unit tests on `compileGlob` in `globs.test.ts`, 2 integration smokes each on `searchText`/`replaceText`.
+
+**Mutation score:** `src/utils/globs.ts` — 100% (75 killed, 3 timeout, 0 survived).
+
+### Reflection
+
+- **What went well:** The neighbourhood was tiny and cohesive — one util file plus two test seams — so a single execution-agent batch covered it cleanly. The cartesian-product-via-`globToRegex`-reuse decision held up: `globToRegex` never needed touching.
+- **What the batch review caught (and the spec should have):** The expansion cap was implemented *after* `expandBraces` materialised the full pattern array — so a `{a,b}×20` glob would allocate ~1M strings before the cap rejected it, defeating the DoS guard's entire purpose. The spec said "cap the expansion" without specifying *where* it must be enforced. **Lesson for future specs:** when a guard exists to bound resource use, the AC must state that the guard fires *before* the resource is consumed, not just that it fires. The fix (enforce inside the recursion) bounds peak memory to the cap at every level.
+- **What mutation testing earned:** Five survivors, all real gaps, all cheap to kill. Two were in the new code (the inline `depth === 0` imbalance guard was shadowed by the final-depth check; the cap boundary `>` vs `>=` was untested at exactly 256). Three were *pre-existing* gaps in the untouched `globToRegex` (`foo/**` tests never checked the bare-directory match). One assertion killed all three legacy ones — worth doing while in the file rather than leaving them.
+- **Recommendation to the next agent:** The remaining P2/P3 `search-text`/`replace-text` ergonomics items (`excludeGlob`, surgical-edit same-line ordering — already fixed per replaceText.ts) live near this code. `compileGlob` is now the single validated entry point for glob handling; any new glob feature should extend it, not re-parse globs elsewhere.
+
+### Gotcha recorded
+
+The `git add reports/stryker-incremental.json` failure (a bare `reports/` ignore rule makes the `!negation` a no-op, since git won't re-include a file under an excluded parent) was fixed in `.gitignore` (`reports/*` + negation) with an inline comment at the rule. No separate doc needed — the fix is self-documenting.
