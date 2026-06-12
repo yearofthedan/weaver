@@ -181,4 +181,45 @@ describe("compileGlob", () => {
       expect(pred("src/foo.js")).toBe(false);
     });
   });
+
+  describe("unsupported, malformed, or explosive syntax throws INVALID_GLOB", () => {
+    it("rejects character classes", () => {
+      expect(() => compileGlob("src/[abc].ts")).toThrow(
+        expect.objectContaining({ code: "INVALID_GLOB" }),
+      );
+    });
+
+    it("rejects nested braces", () => {
+      expect(() => compileGlob("a/{b,{c,d}}.ts")).toThrow(
+        expect.objectContaining({ code: "INVALID_GLOB" }),
+      );
+    });
+
+    it("rejects unbalanced opening brace", () => {
+      expect(() => compileGlob("**/*.{ts")).toThrow(
+        expect.objectContaining({ code: "INVALID_GLOB" }),
+      );
+    });
+
+    it("rejects unbalanced closing brace alone", () => {
+      expect(() => compileGlob("**/*.ts}")).toThrow(
+        expect.objectContaining({ code: "INVALID_GLOB" }),
+      );
+    });
+
+    it("rejects a glob whose expansion exceeds the cap", () => {
+      // Build a glob with enough brace groups to exceed 256 patterns:
+      // each {a,b} doubles the count, so 9 groups → 512 patterns
+      const manyGroups = "{a,b}".repeat(9);
+      expect(() => compileGlob(manyGroups)).toThrow(
+        expect.objectContaining({ code: "INVALID_GLOB" }),
+      );
+    });
+
+    it("error message names the offending glob", () => {
+      expect(() => compileGlob("src/[abc].ts")).toThrow(
+        expect.objectContaining({ message: expect.stringContaining("src/[abc].ts") }),
+      );
+    });
+  });
 });
