@@ -10,6 +10,11 @@ echo "🔑 Fixing workspace permissions..."
 sudo chown -R node:node .
 sudo chown -R node:node /home/node/.vscode-server 2>/dev/null || true
 
+# 📦 pnpm comes from corepack, pinned by packageManager in package.json —
+# no separate devcontainer feature to keep in sync.
+echo "📦 Enabling corepack for pnpm..."
+sudo corepack enable pnpm
+
 # ⬇️ Pull the repo
 if [ ! -d ".git" ]; then
     git init
