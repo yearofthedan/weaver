@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.6](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.5...weaver-v0.1.6) (2026-06-12)
+
+
+### Features
+
+* **cli:** add `weaver skills install` command ([2d5be91](https://github.com/yearofthedan/weaver/commit/2d5be91401ac5e81b769c63af9a5523b4ef37577))
+* **cli:** remove serve command and MCP transport ([500f95a](https://github.com/yearofthedan/weaver/commit/500f95abd7e6ab2eaa84e00f5e53cf88fd32b4cc))
+* **cli:** render JSON parameter breakdown in subcommand --help output ([b652295](https://github.com/yearofthedan/weaver/commit/b6522959dd0f2c38074ddaa09f8362f377419d0a))
+* **eval:** adapt harness to local-model realities — per-skill tools, text emission, qwen2.5 ([32ae35a](https://github.com/yearofthedan/weaver/commit/32ae35a64e76c604af95f54dc83d022dbbfe42f5))
+* **eval:** add case table, harness helpers, and coverage invariant ([b2f3455](https://github.com/yearofthedan/weaver/commit/b2f34559487c5bda81e818e38d3ceb7db8667144))
+* **eval:** replace promptfoo harness with vitest + local model calls ([e189712](https://github.com/yearofthedan/weaver/commit/e18971202024be9d3a18fff2020b0df25c996da7))
+* **schema:** co-locate parameter descriptions on Zod schema fields ([b5e4e7e](https://github.com/yearofthedan/weaver/commit/b5e4e7efe9991ffb864957f5f770b53887ae2f52))
+
+
+### Bug Fixes
+
+* **deps:** regenerate pnpm-lock.yaml in 9.0 format with pnpm 10 ([d8b101e](https://github.com/yearofthedan/weaver/commit/d8b101ebd6b95442ae06858b78812a6382f9cc31))
+* **deps:** update vue-language-tools monorepo to v3.3.4 ([e80afda](https://github.com/yearofthedan/weaver/commit/e80afda9548548ea2c9c3a1f01107aa2448fd7a3))
+* **skills:** correct stale cross-reference and over-replaced case id ([63fe9d0](https://github.com/yearofthedan/weaver/commit/63fe9d0207f9cd9170ab4773f7c505861e3a2daf))
+
 ## [0.1.5](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.4...weaver-v0.1.5) (2026-06-05)
 
 
