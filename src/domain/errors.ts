@@ -15,7 +15,8 @@ export type ErrorCode =
   | "INVALID_PATH"
   | "NOT_A_DIRECTORY"
   | "DESTINATION_EXISTS"
-  | "MOVE_INTO_SELF";
+  | "MOVE_INTO_SELF"
+  | "INVALID_GLOB";
 
 export class EngineError extends Error {
   readonly code: ErrorCode;

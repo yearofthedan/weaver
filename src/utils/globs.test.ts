@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { globToRegex } from "./globs.js";
+import { compileGlob, globToRegex } from "./globs.js";
 
 describe("globToRegex", () => {
   it("matches basename when pattern has no slash (prepends **/ internally)", () => {
@@ -136,6 +136,23 @@ describe("globToRegex", () => {
       const re = globToRegex("foo/**");
       expect(re.test("foo/bar")).toBe(true);
       expect(re.test("foo/bar/baz")).toBe(true);
+    });
+  });
+});
+
+describe("compileGlob", () => {
+  describe("single brace group expansion", () => {
+    it("matches each alternative in a single brace group", () => {
+      const pred = compileGlob("**/*.{md,json,ts}");
+      expect(pred("foo.ts")).toBe(true);
+      expect(pred("a.md")).toBe(true);
+      expect(pred("b/c.json")).toBe(true);
+    });
+
+    it("does not match extensions outside the brace group", () => {
+      const pred = compileGlob("**/*.{md,json,ts}");
+      expect(pred("foo.js")).toBe(false);
+      expect(pred("foo.txt")).toBe(false);
     });
   });
 });
