@@ -224,4 +224,37 @@ describe("replaceText operation", () => {
       });
     });
   });
+
+  // ─── Brace glob wiring ──────────────────────────────────────────────────
+
+  describe("brace glob wiring", () => {
+    test("brace glob restricts replacements to the expanded file set", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "src/app.ts": "const MARKER = 1;\n",
+        "src/app.js": "const MARKER = 2;\n",
+        "src/app.vue": "// MARKER\n",
+      });
+
+      const result = await replaceText(makeScope(dir), {
+        pattern: "MARKER",
+        replacement: "REPLACED",
+        glob: "**/*.{ts,js}",
+      });
+
+      // Only .ts and .js files should be modified
+      expect(result.filesModified.every((f) => f.endsWith(".ts") || f.endsWith(".js"))).toBe(true);
+      expect(result.filesModified.every((f) => !f.endsWith(".vue"))).toBe(true);
+      expect(result.replacementCount).toBe(2);
+    });
+
+    test("unsupported glob syntax throws INVALID_GLOB", async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({ "src/app.ts": "const x = 1;\n" });
+
+      await expect(
+        replaceText(makeScope(dir), { pattern: "x", replacement: "y", glob: "src/[abc].ts" }),
+      ).rejects.toMatchObject({ code: "INVALID_GLOB" });
+    });
+  });
 });

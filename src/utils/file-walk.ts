@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { globToRegex } from "./globs.js";
+import { compileGlob } from "./globs.js";
 
 /**
  * Directories that are never meaningful to an agent when walking or watching
@@ -47,7 +47,7 @@ export function walkFiles(dir: string, extensions: string[]): string[] {
  * recursive readdir that skips SKIP_DIRS.
  */
 export function walkWorkspaceFiles(workspace: string, glob?: string): string[] {
-  const globRe = glob ? globToRegex(glob) : null;
+  const globPred = glob ? compileGlob(glob) : null;
 
   const result = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], {
     cwd: workspace,
@@ -64,10 +64,10 @@ export function walkWorkspaceFiles(workspace: string, glob?: string): string[] {
     files = walkRecursive(workspace);
   }
 
-  if (globRe) {
+  if (globPred) {
     files = files.filter((f) => {
       const rel = path.relative(workspace, f).split(path.sep).join("/");
-      return globRe.test(rel);
+      return globPred(rel);
     });
   }
 

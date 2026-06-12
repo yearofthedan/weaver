@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { cleanup, copyFixture, FIXTURES, fixtureTest } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { makeThrowingScope } from "../ports/__testHelpers__/throwing-filesystem.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
@@ -305,4 +305,36 @@ describe("searchText operation", () => {
       cleanup(dir);
     }
   });
+});
+
+describe("searchText — brace glob wiring", () => {
+  fixtureTest(
+    "brace glob matches files with any of the expanded extensions",
+    async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({
+        "src/app.ts": "const MARKER = 1;\n",
+        "docs/guide.md": "# MARKER\n",
+        "src/styles.css": "/* unrelated */\n",
+      });
+
+      const result = await searchText("MARKER", makeScope(dir), { glob: "**/*.{ts,md}" });
+
+      const files = result.matches.map((m) => m.file);
+      expect(files.some((f) => f.endsWith("app.ts"))).toBe(true);
+      expect(files.some((f) => f.endsWith("guide.md"))).toBe(true);
+      // .css file is outside the expanded set
+      expect(files.every((f) => !f.endsWith("styles.css"))).toBe(true);
+    },
+  );
+
+  fixtureTest(
+    "unsupported glob syntax throws INVALID_GLOB rather than returning empty matches",
+    async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({ "src/app.ts": "const x = 1;\n" });
+
+      await expect(searchText("x", makeScope(dir), { glob: "src/[abc].ts" })).rejects.toMatchObject(
+        { code: "INVALID_GLOB" },
+      );
+    },
+  );
 });
