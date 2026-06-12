@@ -1,0 +1,4 @@
+# pnpm 11 reads non-auth settings from here, not .npmrc or package.json#pnpm.
+savePrefix: '' # pin exact versions on `pnpm add` — no auto-updating range prefixes
+allowBuilds:
+  esbuild: false # platform binary comes from optional deps; no build step needed
