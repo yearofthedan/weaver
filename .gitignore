@@ -12,7 +12,9 @@ coverage/
 .claude/skills/*
 !.claude/skills/*/
 .pnpm-store/
-reports/
+# Ignore reports/ contents (not the dir itself) so the negation below works —
+# git cannot re-include a file whose parent directory is excluded.
+reports/*
 # Stryker incremental cache — committed so local/CI runs reuse prior results
 !reports/stryker-incremental.json
 .stryker-tmp/
