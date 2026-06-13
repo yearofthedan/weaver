@@ -52,9 +52,12 @@ tests and the coverage invariant but never needs a model server.
 
 - **Trigger cases:** each shipped skill is declared as its own tool whose description is
   the skill's frontmatter description — the artifact under test sits directly on the
-  decision surface — alongside a `bash` tool. Pass = the model's first tool call selects
-  the expected skill. Prose-only answers, bash-first responses, and wrong-skill
-  selections fail.
+  decision surface — alongside a `bash` tool. Pass = the model's first tool call matches
+  the case's `expect.tool`. For most cases that is a skill, and a bash-first or wrong-skill
+  response fails. **Boundary cases** (`boundary-*`) invert this: their `expect.tool` is
+  `"bash"` — legitimate shell work (list files, run tests, tail a log) that must *not* be
+  pulled into a skill. They guard against an aggressive description over-triggering; a
+  skill-first response fails them.
 - **Command cases:** the full SKILL.md bodies plus the task go in the user turn, with an
   instruction to reply with only the command (text emission — see gotchas for why not a
   declared bash tool). Pass = the response parses as `weaver <expected-subcommand>
@@ -127,6 +130,34 @@ Every assertion failure names the case, the task, and what the model actually di
 - **The file you edit for cases** is `eval/cases/cases.ts` — a flat typed table; each
   case is ~6 lines and adding one is copying a neighbour. The coverage test in
   `pnpm check` will tell you if an operation lacks a case.
+
+### Running one lane, one case, and re-running for stability
+
+- **Filter to a lane** with `--testNamePattern` against the *static* part of the test
+  title, e.g. `pnpm exec vitest run --config eval/vitest.llm.config.ts --testNamePattern
+  "model selects the correct skill"` for the trigger lane, or `"model emits correct
+  weaver command"` for the command lane. **You cannot filter to a single case by name:**
+  the cases use `it.each(...)("$name — …")`, and vitest matches `--testNamePattern`
+  against the *uninterpolated* template (`"$name — …"`), not the interpolated case name.
+  Match a static suffix and read the per-case lines in the output.
+- **Re-run a lane 2–3× by hand when a knife-edge case is in play.** At temperature 0 the
+  same prompt is near-deterministic (a wording regression reproduces every run, a true
+  flap does not), so a couple of repeats cheaply separates "I broke it" from "this case
+  was always noisy." In-suite repeat-N is deliberately *not* built into this lane: at
+  temp 0 it would burn compute for identical answers. Repeat-N earns its cost only at
+  temperature > 0, where it estimates a trigger *rate* — that belongs to the adversarial
+  /statistical-rates lane queued in `docs/handoff.md`, not here.
+
+### Frontmatter feeds the command prompt too
+
+`skillContext()` returns the **whole** SKILL.md including frontmatter, so a description
+edit aimed at the *trigger* stage also lands in every *command*-stage prompt. A vivid
+example: rewording weaver-search-and-replace's description to say "TODO **comments**"
+fixed the trigger routing for "find all TODO comments" but simultaneously made the 7B
+model emit `pattern: "// TODO"` in the command lane (it read "comments" as the literal
+comment marker). The fix kept the trigger win and undid the command regression by using
+"markers like TODO" instead. Lesson: after any description edit, run **both** lanes, not
+just the one you were aiming at.
 
 ## Interpreting results
 
