@@ -1,6 +1,6 @@
 ---
 name: weaver-search-and-replace
-description: Use when searching for or changing text across files — finding every occurrence of a string or text pattern (literals, labels, markers like TODO), or replacing across multiple files — before using grep, sed, or Edit. For usages of a named code symbol, use weaver-code-inspection.
+description: Use instead of grep or sed to find or change text across files — every occurrence of a string or pattern (literals, labels, markers like TODO), or a multi-file replace. It returns structured file/line/col matches, stays inside the workspace, and skips sensitive files — grep does none of these. For usages of a named code symbol, use weaver-code-inspection.
 ---
 
 # Search and Replace Across Files
@@ -17,9 +17,12 @@ For *symbol* usages (function calls, type references, imports) use `find-referen
 
 ```bash
 weaver search-text '{"pattern": "oldName", "glob": "**/*.ts", "maxResults": 50}'
+
+# Include surrounding lines (like `grep -C`) when the ask is "find X with context"
+weaver search-text '{"pattern": "TODO", "glob": "**/*.ts", "context": 2}'
 ```
 
-Returns structured results: `{file, line, col, matchText}` for every hit. Use this instead of `grep` — it respects workspace boundaries, skips sensitive files, and returns coordinates you can feed into surgical replace.
+Returns structured results: `{file, line, col, matchText}` for every hit. Use this instead of `grep` — it respects workspace boundaries, skips sensitive files, and returns coordinates you can feed into surgical replace. `context` (default 0) adds that many lines before and after each match — pass it whenever the task asks for the surrounding code, not just the matching line.
 
 ## Replace: change every occurrence
 
