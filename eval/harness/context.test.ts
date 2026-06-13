@@ -11,15 +11,11 @@ describe("skillFrontmatters", () => {
     ]);
   });
 
-  it("includes each skill's description from the frontmatter", () => {
-    const byName = new Map(skillFrontmatters().map((f) => [f.name, f.description]));
-    expect(byName.get("weaver-search-and-replace")).toContain(
-      "searching for or changing text across files",
-    );
-    expect(byName.get("weaver-refactor")).toContain("renaming a symbol");
-    expect(byName.get("weaver-code-inspection")).toContain(
-      "finding all references to a named symbol",
-    );
+  it("extracts a non-empty, single-line description for each skill", () => {
+    for (const { name, description } of skillFrontmatters()) {
+      expect(description.length, `${name} description is empty`).toBeGreaterThan(0);
+      expect(description, `${name} description should be a single line`).not.toContain("\n");
+    }
   });
 
   it("does NOT include the full SKILL.md body text in descriptions", () => {

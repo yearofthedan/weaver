@@ -3,19 +3,19 @@ import { CASES, loadFixture } from "./cases.js";
 
 describe("case table", () => {
   describe("structure invariants", () => {
-    it("every case declares at least one of skill or subcommand", () => {
+    it("every case declares at least one of tool or subcommand", () => {
       for (const c of CASES) {
         expect(
-          c.expect.skill !== undefined || c.expect.subcommand !== undefined,
-          `Case "${c.name}" declares neither expect.skill nor expect.subcommand`,
+          c.expect.tool !== undefined || c.expect.subcommand !== undefined,
+          `Case "${c.name}" declares neither expect.tool nor expect.subcommand`,
         ).toBe(true);
       }
     });
 
-    it("every trigger case declares expect.skill", () => {
+    it("every trigger case declares expect.tool", () => {
       const triggerCases = CASES.filter((c) => c.stage === "trigger");
       for (const c of triggerCases) {
-        expect(c.expect.skill, `Trigger case "${c.name}" is missing expect.skill`).toBeDefined();
+        expect(c.expect.tool, `Trigger case "${c.name}" is missing expect.tool`).toBeDefined();
       }
     });
 
@@ -46,21 +46,21 @@ describe("case table", () => {
   describe("trigger coverage", () => {
     it("has at least one trigger case for the refactor skill", () => {
       const refactorTriggers = CASES.filter(
-        (c) => c.stage === "trigger" && c.expect.skill === "weaver-refactor",
+        (c) => c.stage === "trigger" && c.expect.tool === "weaver-refactor",
       );
       expect(refactorTriggers.length).toBeGreaterThanOrEqual(1);
     });
 
     it("has at least one trigger case for the search-and-replace skill", () => {
       const searchTriggers = CASES.filter(
-        (c) => c.stage === "trigger" && c.expect.skill === "weaver-search-and-replace",
+        (c) => c.stage === "trigger" && c.expect.tool === "weaver-search-and-replace",
       );
       expect(searchTriggers.length).toBeGreaterThanOrEqual(1);
     });
 
     it("has at least one trigger case for the code-inspection skill", () => {
       const inspectionTriggers = CASES.filter(
-        (c) => c.stage === "trigger" && c.expect.skill === "weaver-code-inspection",
+        (c) => c.stage === "trigger" && c.expect.tool === "weaver-code-inspection",
       );
       expect(inspectionTriggers.length).toBeGreaterThanOrEqual(1);
     });
@@ -70,6 +70,11 @@ describe("case table", () => {
         (c) => c.stage === "trigger" && (c.name.includes("sed") || c.name.includes("grep")),
       );
       expect(temptingCases.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("has at least one boundary case that must stay in bash", () => {
+      const boundaryCases = CASES.filter((c) => c.stage === "trigger" && c.expect.tool === "bash");
+      expect(boundaryCases.length).toBeGreaterThanOrEqual(1);
     });
   });
 

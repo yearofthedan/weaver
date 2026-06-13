@@ -10,7 +10,12 @@ export interface CaseEntry {
   task: string;
   seed?: { operation: string };
   expect: {
-    skill?: SkillName;
+    /**
+     * The expected first tool selection at the trigger stage: a skill name, or
+     * "bash" for boundary cases that must stay in the shell (guards against a
+     * description over-triggering and stealing legitimate shell work).
+     */
+    tool?: SkillName | "bash";
     subcommand?: string;
     keyArgs?: Record<string, unknown>;
   };
@@ -55,55 +60,91 @@ export const CASES: CaseEntry[] = validateCases([
     name: "trigger-refactor-rename",
     stage: "trigger",
     task: "`userId` is at line 12, column 8 of /tmp/weaver-eval/src/auth.ts — rename it to `accountId` everywhere in the project.",
-    expect: { skill: "weaver-refactor" },
+    expect: { tool: "weaver-refactor" },
   },
   {
     name: "trigger-refactor-rename-no-coords-sed-tempting",
     stage: "trigger",
     task: "Rename the variable `userId` to `accountId` across all TypeScript files in /tmp/weaver-eval/src. I don't have the line numbers.",
-    expect: { skill: "weaver-refactor" },
+    expect: { tool: "weaver-refactor" },
   },
   {
     name: "trigger-refactor-move-file",
     stage: "trigger",
     task: "Move /tmp/weaver-eval/src/auth.ts to /tmp/weaver-eval/src/authentication/auth.ts and update all imports.",
-    expect: { skill: "weaver-refactor" },
+    expect: { tool: "weaver-refactor" },
   },
   {
     name: "trigger-search-and-replace-pattern",
     stage: "trigger",
     task: 'Replace all occurrences of "v1" with "v2" across the project, including in comments.',
-    expect: { skill: "weaver-search-and-replace" },
+    expect: { tool: "weaver-search-and-replace" },
   },
   {
     name: "trigger-search-and-replace-todos-grep-tempting",
     stage: "trigger",
     task: "Find all the TODO comments in /tmp/weaver-eval/src — I need the file, line number, and context around each one.",
-    expect: { skill: "weaver-search-and-replace" },
+    expect: { tool: "weaver-search-and-replace" },
   },
   {
     name: "trigger-search-and-replace-sed-tempting",
     stage: "trigger",
     task: 'Replace every occurrence of the string "v1" with "v2" in all TypeScript source files under /tmp/weaver-eval/src. Make sure to get comments too.',
-    expect: { skill: "weaver-search-and-replace" },
+    expect: { tool: "weaver-search-and-replace" },
   },
   {
     name: "trigger-code-inspection-find-references",
     stage: "trigger",
     task: "Where is `authenticate` used? It's at line 5, column 17 of /tmp/weaver-eval/src/auth.ts.",
-    expect: { skill: "weaver-code-inspection" },
+    expect: { tool: "weaver-code-inspection" },
   },
   {
     name: "trigger-code-inspection-find-references-delete-intent",
     stage: "trigger",
     task: "I want to delete `parseToken` — it's at line 10, column 17 of /tmp/weaver-eval/src/auth.ts. What's using it before I remove it?",
-    expect: { skill: "weaver-code-inspection" },
+    expect: { tool: "weaver-code-inspection" },
   },
   {
     name: "trigger-code-inspection-get-type-errors",
     stage: "trigger",
     task: "Are there any TypeScript errors in /tmp/weaver-eval/src/auth.ts? I want to check before I start refactoring.",
-    expect: { skill: "weaver-code-inspection" },
+    expect: { tool: "weaver-code-inspection" },
+  },
+
+  // ── Boundary cases ────────────────────────────────────────────────────────
+  // The inverse of the tempting cases: legitimate shell work that must stay in
+  // `bash`. They guard against an aggressive description (e.g. "use instead of
+  // grep") over-triggering and stealing tasks no skill should claim.
+
+  {
+    name: "boundary-bash-list-files",
+    stage: "trigger",
+    task: "List the files in /tmp/weaver-eval/src.",
+    expect: { tool: "bash" },
+  },
+  {
+    name: "boundary-bash-run-tests",
+    stage: "trigger",
+    task: "Run the test suite in /tmp/weaver-eval.",
+    expect: { tool: "bash" },
+  },
+  {
+    name: "boundary-bash-tail-log",
+    stage: "trigger",
+    task: "Show me the last 30 lines of /tmp/weaver-eval/build.log.",
+    expect: { tool: "bash" },
+  },
+  {
+    name: "boundary-bash-count-lines",
+    stage: "trigger",
+    task: "How many lines are in /tmp/weaver-eval/src/auth.ts?",
+    expect: { tool: "bash" },
+  },
+  {
+    name: "boundary-bash-mkdir",
+    stage: "trigger",
+    task: "Make a new directory /tmp/weaver-eval/src/generated.",
+    expect: { tool: "bash" },
   },
 
   // ── Command-stage cases ───────────────────────────────────────────────────

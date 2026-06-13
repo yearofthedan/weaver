@@ -8,8 +8,9 @@ const triggerCases = CASES.filter((c) => c.stage === "trigger");
 const tools = [...skillTools(), BASH_TOOL];
 
 describe("trigger-stage cases", () => {
-  it.each(triggerCases)("$name — model selects the correct skill tool", async (c) => {
-    expect(c.expect.skill, "trigger case must declare expect.skill").toBeDefined();
+  it.each(triggerCases)("$name — model selects the correct tool", async (c) => {
+    const expectedTool = c.expect.tool;
+    expect(expectedTool, "trigger case must declare expect.tool").toBeDefined();
 
     const response = await callModel([{ role: "user", content: c.task }], tools);
 
@@ -22,9 +23,7 @@ describe("trigger-stage cases", () => {
 
     expect(
       firstCall.name,
-      firstCall?.name === "bash"
-        ? `Model called bash directly instead of a skill: ${JSON.stringify(firstCall.arguments)}`
-        : `Expected skill "${c.expect.skill}", got tool "${firstCall?.name}"`,
-    ).toBe(c.expect.skill);
+      `Expected "${expectedTool}", got "${firstCall?.name}" (args: ${JSON.stringify(firstCall?.arguments)})`,
+    ).toBe(expectedTool);
   });
 });
