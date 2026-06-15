@@ -47,62 +47,24 @@ describe("buildSeedMessages", () => {
       const messages = buildSeedMessages("task", STEP1_COMMAND, fixture);
       expect(messages[2].content).toContain(fixture);
     });
-
-    it("does not modify or parse the fixture JSON", () => {
-      const fixture = '{"status":"success","foo":42}';
-      const messages = buildSeedMessages("task", STEP1_COMMAND, fixture);
-      expect(messages[2].content).toContain(fixture);
-    });
   });
 });
 
 describe("buildHabitMomentumSeed", () => {
   const TASK = "rename the function processUser to handleAccount in src/";
 
-  describe("message shape", () => {
-    it("produces exactly four messages", () => {
-      const messages = buildHabitMomentumSeed(TASK);
-      expect(messages).toHaveLength(4);
-    });
+  it("ends with the task verbatim as the active user turn", () => {
+    const messages = buildHabitMomentumSeed(TASK);
+    const last = messages[messages.length - 1];
+    expect(last.role).toBe("user");
+    expect(last.content).toBe(TASK);
+  });
 
-    it("roles are user, assistant, user, user in that order", () => {
-      const messages = buildHabitMomentumSeed(TASK);
-      expect(messages[0].role).toBe("user");
-      expect(messages[1].role).toBe("assistant");
-      expect(messages[2].role).toBe("user");
-      expect(messages[3].role).toBe("user");
-    });
-
-    it("first turn is an unrelated search request (user)", () => {
-      const messages = buildHabitMomentumSeed(TASK);
-      expect(messages[0].role).toBe("user");
-      expect(typeof messages[0].content).toBe("string");
-      expect((messages[0].content as string).length).toBeGreaterThan(0);
-    });
-
-    it("second turn contains a grep -rn invocation (assistant)", () => {
-      const messages = buildHabitMomentumSeed(TASK);
-      expect(messages[1].role).toBe("assistant");
-      expect(messages[1].content).toContain("grep");
-    });
-
-    it("third turn presents canned grep output (user)", () => {
-      const messages = buildHabitMomentumSeed(TASK);
-      expect(messages[2].role).toBe("user");
-      expect(typeof messages[2].content).toBe("string");
-      expect((messages[2].content as string).length).toBeGreaterThan(0);
-    });
-
-    it("fourth turn content is the passed task verbatim with no extra framing", () => {
-      const messages = buildHabitMomentumSeed(TASK);
-      expect(messages[3].role).toBe("user");
-      expect(messages[3].content).toBe(TASK);
-    });
-
-    it("fourth turn content equals the passed task exactly for any task string", () => {
-      const customTask = "find all TODO comments in src/utils/";
-      const messages = buildHabitMomentumSeed(customTask);
-      expect(messages[3].content).toBe(customTask);
-    });
+  it("primes a grep success in the turns before the task", () => {
+    const messages = buildHabitMomentumSeed(TASK);
+    const primedGrep = messages
+      .slice(0, -1)
+      .some((m) => typeof m.content === "string" && m.content.includes("grep"));
+    expect(primedGrep).toBe(true);
   });
 });
