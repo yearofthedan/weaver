@@ -10,11 +10,16 @@
 import { modelConfig } from "./harness/config.js";
 
 export default async function globalSetup(): Promise<void> {
-  const { baseUrl, model } = modelConfig();
+  const { baseUrl, model, apiKey } = modelConfig();
+
+  const headers: Record<string, string> = {};
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
 
   let models: string[];
   try {
-    const response = await fetch(`${baseUrl}/models`);
+    const response = await fetch(`${baseUrl}/models`, { headers });
     if (!response.ok) {
       const body = await response.text();
       throw new Error(`Server responded with ${response.status}: ${body}`);

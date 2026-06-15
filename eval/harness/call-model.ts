@@ -66,11 +66,16 @@ export async function callModel(
   tools: ToolDefinition[],
   config: ModelConfig = modelConfig(),
 ): Promise<ModelResponse> {
-  const { baseUrl, model } = config;
+  const { baseUrl, model, apiKey } = config;
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       model,
       messages: messages.map(toWireMessage),

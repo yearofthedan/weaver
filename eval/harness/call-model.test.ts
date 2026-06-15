@@ -15,6 +15,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   delete process.env.WEAVER_EVAL_BASE_URL;
   delete process.env.WEAVER_EVAL_MODEL;
+  delete process.env.WEAVER_EVAL_API_KEY;
 });
 
 function makeCompletionResponse(
@@ -157,6 +158,53 @@ describe("callModel", () => {
       expect(JSON.parse(init.body as string).model).toBe("llama3:8b");
     });
 
+    it("sends Authorization header when apiKey is set in config", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeTextResponse("hi"),
+      });
+
+      await callModel([{ role: "user", content: "test" }], [], {
+        baseUrl: BASE_URL,
+        model: MODEL,
+        apiKey: "sk-test-secret-key",
+      });
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers.Authorization).toBe("Bearer sk-test-secret-key");
+    });
+
+    it("omits Authorization header when apiKey is not set", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeTextResponse("hi"),
+      });
+
+      await callModel([{ role: "user", content: "test" }], [], {
+        baseUrl: BASE_URL,
+        model: MODEL,
+      });
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers.Authorization).toBeUndefined();
+    });
+
+    it("picks up apiKey from WEAVER_EVAL_API_KEY env var", async () => {
+      process.env.WEAVER_EVAL_API_KEY = "sk-env-secret";
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeTextResponse("hi"),
+      });
+
+      await callModel([{ role: "user", content: "test" }], []);
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers.Authorization).toBe("Bearer sk-env-secret");
+    });
+
     it("uses an explicitly passed config over the env-derived default", async () => {
       process.env.WEAVER_EVAL_MODEL = "env-model";
       mockFetch.mockResolvedValueOnce({
@@ -256,6 +304,26 @@ describe("callModel", () => {
       await expect(callModel([{ role: "user", content: "hi" }], [])).rejects.toThrow(
         /503.*model not found/,
       );
+    });
+
+    it("does not include the apiKey value in the thrown error on HTTP failure", async () => {
+      const secretKey = "sk-super-secret-value";
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => '{"error":"unauthorized"}',
+      });
+
+      await expect(
+        callModel([{ role: "user", content: "hi" }], [], {
+          baseUrl: BASE_URL,
+          model: MODEL,
+          apiKey: secretKey,
+        }),
+      ).rejects.toSatisfy((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        return !message.includes(secretKey);
+      });
     });
 
     it("throws a descriptive error when the server returns no choices", async () => {
