@@ -72,8 +72,60 @@ Bounds: descriptions stay to ~2 sentences (frontmatter; part of the ~3.2k-token 
 
 ## Done-when
 
-- [ ] Both behaviour ACs verified by a full `pnpm eval` trigger-lane run (re-run once for stability).
-- [ ] Command lane re-run green (deferred `/TODO/` finding re-checked).
-- [ ] `pnpm check` passes (biome + build + test:eval invariants — no LLM lane).
-- [ ] Docs updated: the eval-design.md "skill-editing loop" already describes this workflow; no command/internals doc changes (skill descriptions are the only public surface). Update handoff.md — remove the P2 "Skill-description findings" entry (or trim to just the deferred `/TODO/` re-check if it resurfaces).
-- [ ] Spec moved to docs/specs/archive/ with Outcome section (record the before/after eval results and the final description wording).
+- [x] Both behaviour ACs verified by a full `pnpm eval` trigger-lane run (re-run once for stability).
+- [x] Command lane re-run green (deferred `/TODO/` finding re-checked).
+- [x] `pnpm check` passes (biome + build + test:eval invariants — no LLM lane).
+- [x] Docs updated: eval-design.md (boundary cases, lane filtering, frontmatter-in-prompt gotcha); handoff.md entry removed; skill body documents `context`.
+- [x] Spec moved to docs/specs/archive/ with Outcome section.
+
+## Outcome
+
+The scope grew well past the original divide-only fix through an interactive
+change/test/learn session across two local models and a cold frontier agent.
+
+**Shipped:**
+- Reworded both descriptions for the symbol-vs-text divide with bidirectional
+  cross-references. Fixed the original TODO mis-route on qwen2.5 (the AC).
+- A qwen3 (thinking-model) run exposed a deeper failure the divide didn't touch:
+  it skipped the skills entirely and reached for `grep` on "find TODO comments."
+  Fixed by making the search-and-replace description **reasoning-aware** — lead
+  with "use instead of grep" and state grep's concrete disadvantages (no
+  structured coords, not workspace-scoped, no sensitive-file skipping). A passive
+  "before using grep" mention is too weak for a model that *reasons* about tool
+  choice; it needs the decision criterion, not a finger-wag.
+- Final wording verified on qwen2.5 (trigger 9/9 → 14/14 with boundary, command
+  12/12), qwen3 (target TODO case 4/4 stable), and a **cold fresh-Claude subagent
+  with no design context (4/4)** — including a no-keyword generalization case
+  ("find every hardcoded localhost URL") that proves the divide isn't overfit to
+  the literal word "TODO."
+- Promoted a bash over-trigger guard into permanent `boundary-*` trigger cases (5)
+  + an invariant. The trigger lane previously had zero negative-boundary coverage;
+  aggressive wording makes over-triggering a real risk. Both models hold 5/5.
+- Documented search-text's `context` parameter in the skill body — surfaced by the
+  cold agent's reasoning (it justified its choice on "surrounding context," which
+  the description sells but the body never showed how to obtain).
+- Renamed `expect.skill` → `expect.tool` (a trigger selection is a skill *or* bash)
+  via `weaver rename`. Refactored context.test.ts from prose-pinning to structural
+  assertions (the pins broke on every legitimate description edit — twice).
+
+**Reflection — what went well:** the local two-model split worked as designed —
+qwen2.5 as the fast regression lane, qwen3 as a reasoning-pressure probe that
+surfaced a failure qwen2.5 structurally cannot (a keyword-matcher never reaches
+for grep over a "text" tool). The cold-Claude subagent was the highest-value
+single check: it validated on the real target-model class, and its *reasoning*
+exposed the `context` doc gap.
+
+**What didn't / for the next agent:** (1) Don't tune skill text to a single
+local-model run — qwen3-over-Ollama's emission stalls confound its signal
+(a move-file case flapped fail→pass with no relevant change); treat its failures
+as hypotheses, validate on a cold frontier session. (2) After any description
+edit, run **both** eval lanes — `skillContext` feeds frontmatter into the command
+prompt, so a trigger-aimed edit ("TODO comments") regressed the command lane
+("// TODO"). (3) I reached for `grep` to find references mid-session despite
+Rule 18 and the skills being loaded — live evidence that descriptions and rules
+don't reliably beat shell habit even for the target model, which is the core
+argument for the queued agent-host hooks.
+
+**Test count:** +6 (5 boundary cases, LLM lane only; +1 boundary invariant in the
+`pnpm check` lane, 134→135). **Mutation:** N/A — no `src/` changes (skill markdown,
+eval test/harness, docs only).
