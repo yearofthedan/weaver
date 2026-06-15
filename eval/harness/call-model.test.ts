@@ -142,8 +142,9 @@ describe("callModel", () => {
       expect(body.tools).toEqual(tools);
     });
 
-    it("uses WEAVER_EVAL_BASE_URL when set", async () => {
+    it("uses WEAVER_EVAL_BASE_URL and WEAVER_EVAL_MODEL when set", async () => {
       process.env.WEAVER_EVAL_BASE_URL = "http://custom-server:8080/v1";
+      process.env.WEAVER_EVAL_MODEL = "llama3:8b";
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => makeTextResponse("hi"),
@@ -151,8 +152,9 @@ describe("callModel", () => {
 
       await callModel([{ role: "user", content: "test" }], []);
 
-      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(url).toBe("http://custom-server:8080/v1/chat/completions");
+      expect(JSON.parse(init.body as string).model).toBe("llama3:8b");
     });
 
     it("uses an explicitly passed config over the env-derived default", async () => {
@@ -244,7 +246,7 @@ describe("callModel", () => {
   });
 
   describe("error handling", () => {
-    it("throws with the response body when the server returns a non-ok status", async () => {
+    it("throws with the status code and the response body on a non-ok response", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 503,
@@ -252,18 +254,8 @@ describe("callModel", () => {
       });
 
       await expect(callModel([{ role: "user", content: "hi" }], [])).rejects.toThrow(
-        '{"error":"model not found"}',
+        /503.*model not found/,
       );
-    });
-
-    it("includes the HTTP status code in the error message", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        text: async () => "not found",
-      });
-
-      await expect(callModel([{ role: "user", content: "hi" }], [])).rejects.toThrow("404");
     });
 
     it("throws a descriptive error when the server returns no choices", async () => {

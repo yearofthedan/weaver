@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-- Node.js 24+
-- pnpm 8+
+- Node.js 22+
+- pnpm 11+ (via corepack)
 
 ## Setup
 
@@ -52,106 +52,22 @@ pnpm run build
 
 ## Test
 
-```bash
-pnpm run test
-```
-
-## Agent workspace checks
+Tests are colocated with the code they exercise (`*.test.ts` beside each source file; cross-cutting integration tests as `*.integration.test.ts`).
 
 ```bash
-# Fast static policy check for committed MCP configs (CI-friendly)
-pnpm run agent:check
-
-# Optional runtime smoke check for local environment/debugging
-pnpm run agent:doctor
+pnpm test        # unit + integration
+pnpm test:eval   # eval-harness invariants (no model server)
+pnpm eval        # full LLM skill eval (needs a local model server — see docs/eval-design.md)
+pnpm check       # biome + build + coverage + test:eval (the pre-commit gate)
 ```
-
-Tests include:
-
-- **Operation tests** — per-operation behavior and boundary handling (`tests/operations/`)
-- **Provider tests** — ts-morph/Volar provider behavior (`tests/providers/`)
-- **MCP transport tests** — tool registration and end-to-end MCP calls (`tests/mcp/`)
-- **Daemon tests** — lifecycle, socket protocol, watcher, and stop behavior (`tests/daemon/`)
-- **Security tests** — workspace boundary and sensitive-file controls (`tests/security/`)
-- **Utility tests** — shared path/text/file helpers (`tests/utils/`)
 
 ## Project structure
 
-```
-src/
-├── cli.ts                 # CLI entry point (daemon, serve, stop)
-├── schema.ts              # Zod input validation
-├── types.ts               # Shared result/provider interfaces
-├── security.ts            # Workspace + sensitive-file checks
-├── mcp.ts                 # MCP server (connects to daemon)
-├── daemon/
-│   ├── daemon.ts          # Socket server; daemon lifecycle
-│   ├── ensure-daemon.ts   # ensureDaemon, callDaemon, spawnDaemon
-│   ├── paths.ts           # Socket/lockfile path utilities
-│   ├── dispatcher.ts      # Data-driven operation dispatch
-│   └── watcher.ts         # Filesystem watcher + invalidation callbacks
-├── operations/
-│   ├── rename.ts
-│   ├── moveFile.ts
-│   ├── moveSymbol.ts
-│   ├── deleteFile.ts
-│   ├── extractFunction.ts
-│   ├── findReferences.ts
-│   ├── getDefinition.ts
-│   ├── getTypeErrors.ts
-│   ├── searchText.ts
-│   └── replaceText.ts
-├── providers/
-│   ├── ts.ts              # TypeScript provider (ts-morph)
-│   ├── volar.ts           # Vue provider (Volar)
-│   ├── vue-scan.ts        # Vue import rewrite post-steps
-│   └── vue-service.ts     # Volar service factory
-└── utils/
-    ├── text-utils.ts
-    ├── file-walk.ts
-    ├── ts-project.ts
-    ├── relative-path.ts
-    ├── assert-file.ts
-    └── errors.ts
+The source layout is documented — and kept up to date — in one place rather than duplicated here:
 
-tests/
-├── operations/            # Operation behavior tests
-├── providers/             # Provider behavior tests
-├── mcp/                   # MCP transport + tool call tests
-├── daemon/                # Daemon lifecycle + protocol tests
-├── security/              # Boundary and sensitive-file tests
-├── utils/                 # Shared utility tests
-├── eval/                  # Fixture server unit tests
-├── helpers.ts             # Test utilities
-└── fixtures/              # Fixture projects
-
-eval/
-├── fixture-server.ts      # In-process daemon impersonator; exports startFixtureServer
-├── run-eval.ts            # Entry point: starts fixture server, runs promptfoo, tears down
-├── promptfooconfig.yaml   # PromptFoo config; 5 positive + 1 negative case
-└── fixtures/              # Pre-recorded daemon JSON responses keyed by method name
-
-.github/workflows/
-├── ci.yml                 # lint + build + test + pnpm audit on push/PR
-├── codeql.yml             # CodeQL security scanning on push/PR + weekly
-├── quality-feedback.yml   # mutation testing (weekly + on push to main); triggers Claude Code triage on score < 75
-└── release-please.yml     # automated releases: version bump PR + npm publish
-
-.claude/skills/
-│                          # Shipped with the package (for consumers):
-├── weaver-search-and-replace/    # agent guidance for search-text + replace-text
-├── refactor/              # agent guidance for rename, move-file, move-directory, move-symbol, delete-file, extract-function
-├── weaver-code-inspection/       # agent guidance for find-references, get-definition, get-type-errors
-│                          # Internal (dev workflow only, metadata.internal: true):
-├── slice/                 # /slice — pick up and implement the next task
-├── spec/                  # /spec — create a spec from a handoff entry
-├── mutate-triage/         # /mutate-triage — classify survivors, open issues or fix PRs
-├── brainstorm/            # /brainstorm — explore design before implementation
-├── run-checks/            # /run-checks — run tests/checks with tee output capture
-├── implementation-context/ # /implementation-context — absorb local patterns before coding
-├── using-git-worktrees/   # /using-git-worktrees — isolate feature work in a worktree
-└── writing-skills/        # /writing-skills — create or edit skill files
-```
+- [`docs/handoff.md`](docs/handoff.md) — current source tree and per-file responsibilities
+- [`docs/architecture.md`](architecture.md) — compiler/operation design and the daemon
+- [`docs/eval-design.md`](docs/eval-design.md) — the skill-eval harness
 
 ## CI and automation
 
@@ -179,3 +95,4 @@ Releases are automated via [Release Please](https://github.com/googleapis/releas
 - **`pnpm audit`** runs in CI and blocks merges when a production dependency has a known high-severity vulnerability
 - **Branch protection** requires PRs for all contributors except the repo owner, preventing accidental direct pushes to `main`
 - **Vulnerability reporting** follows the process in [SECURITY.md](SECURITY.md) — private advisory form, not public issues
+```
