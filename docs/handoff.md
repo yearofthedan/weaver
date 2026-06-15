@@ -161,6 +161,8 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 - **Agent-SDK frontier cold-context eval rung** `[needs design]` — make the top rung of the consumer-fidelity ladder (a fresh frontier Claude session with no design history, the authoritative audience) *repeatable* rather than manual. Options: a documented manual procedure, a committed prompt, or an Agent SDK harness with real bash + live daemon + file-state assertions (highest fidelity, subsystem-sized). Gated on Anthropic API access, so out of reach for the local-only setup until that changes. Split out of the adversarial-lane spec, which covers the local rungs only.
 
+- **Repeat-N fragility rates on the hosted calibration model** `[needs design]` — the adversarial lane runs at temperature 0, single-shot pass/fail, so it catches a poison only when it flips the model's top tool choice; it cannot see *sub-flip erosion* (P(skill) drops from 0.85→0.55 but the skill is still chosen). Quantifying that fragility needs repeat-N sampling at temperature > 0 — but the absolute rate is only trustworthy on a capable model, not the 7B canary. Design a repeat-N rate metric (sampling loop, `computeSelectionRate`, per-case rate reporting, a metric that reads movement not an absolute threshold) that runs against the hosted larger model reachable via `WEAVER_EVAL_API_KEY`. Decide: report-only vs a loose floor, N and temperature defaults, and how to surface clean-vs-poisoned rate deltas. Gated on the hosted calibration path being exercised.
+
 ---
 
 ### P3 — Medium-value features / bugs / tech debt

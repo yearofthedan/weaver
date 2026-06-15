@@ -35,8 +35,9 @@ trusting a clean-room pass rate that hides the failure.*
 - `eval/cases/cases.ts` — `CaseEntry` table + `triggerCases` filter; the poisoned lane
   reuses the *skill-expecting* trigger cases (those whose `expect.tool` is a skill).
 - `eval/harness/tools.ts` — `skillTools()` + `BASH_TOOL`; competing tools are added here.
-- `eval/harness/call-model.ts` — temperature is hardcoded to 0 and no auth header is sent;
-  both change here. Mocked-fetch unit tests already live in `call-model.test.ts`.
+- `eval/harness/call-model.ts` — no auth header is sent today; the auth header is added
+  here (temperature stays hardcoded at 0). Mocked-fetch unit tests already live in
+  `call-model.test.ts`.
 - `eval/harness/config.ts` — `ModelConfig` (baseUrl, model); gains `apiKey`.
 - `eval/harness/context.ts` — `SkillName`/`SKILL_NAMES` and prompt builders; the clutter
   prompt builder fits here or in a sibling module.
@@ -50,14 +51,14 @@ trusting a clean-room pass rate that hides the failure.*
 
 - (none) — the eval harness files are small and single-purpose. New poisons are additive
   pure functions (tool arrays, prompt strings, message arrays) rather than edits to
-  existing logic. `call-model.ts` is the only existing file with behaviour changes
-  (temperature param, auth header), both narrow.
+  existing logic. `call-model.ts` is the only existing file with a behaviour change (the
+  auth header), and it is narrow.
 
-**Layer-fit per AC** is noted inline below. The pattern throughout: each poison and the
-rate metric have a *pure core* (a function from inputs to a tool array / prompt string /
-message array / rate number) that is unit-tested in the `test:eval` lane (runs in
-`pnpm check`); the actual model-calling wiring lives in the new `*.llm.test.ts` and runs
-only under `pnpm eval`. No poison should be tested only through a live model.
+**Layer-fit per AC** is noted inline below. The pattern throughout: each poison has a
+*pure core* (a function from inputs to a tool array / prompt string / message array) that
+is unit-tested in the `test:eval` lane (runs in `pnpm check`); the actual model-calling
+wiring lives in the new `*.llm.test.ts` and runs only under `pnpm eval`. No poison should
+be tested only through a live model.
 
 ## Value / Effort
 
@@ -68,10 +69,10 @@ only under `pnpm eval`. No poison should be tested only through a live model.
   vague worry ("the clean lane reads optimistic") into a per-case, repeatable signal that
   *decides the next action* — reword the skill, or build a host hook. It is also the gate
   that the separately-queued "agent-host hooks" work is explicitly waiting on.
-- **Effort:** Contained to `eval/`. Five additive units (competing tools, clutter prompt,
-  grep-priming seed, repeat-N rate metric, auth header) plus one new `.llm.test.ts` lane
-  and a doc update. No production `src/` code, no daemon, no engine. The auth header is the
-  only change touching a shared harness function with existing tests.
+- **Effort:** Contained to `eval/`. Four additive units (competing tools, clutter prompt,
+  grep-priming seed, auth header) plus one new `.llm.test.ts` lane and a doc update. No
+  production `src/` code, no daemon, no engine. The auth header is the only change touching
+  a shared harness function with existing tests.
 
 ## Behaviour
 
@@ -79,36 +80,23 @@ The poisoned lane reuses the **skill-expecting** trigger cases only (those whose
 `expect.tool` is a skill, not `"bash"`). Boundary/over-trigger cases stay in the clean lane
 — under added tool competition, over-triggering is *less* likely, so they add no signal
 here. The lane lives in `eval/cases/trigger-adversarial.llm.test.ts` and runs only under
-`pnpm eval`.
+`pnpm eval`. It runs at **temperature 0, single-shot, pass/fail** — identical decoding to
+the clean lane, with the three poisons (AC1–AC3) as the *only* variable. This keeps the
+comparison a controlled A/B: any clean-pass/poisoned-fail difference is attributable to the
+poison, not to sampling luck. (Quantifying sub-flip *fragility* with repeat-N rates is
+deliberately deferred — see Open decisions.)
 
-- [ ] **AC1 — Repeat-N selection-rate metric at temperature > 0.** `callModel` accepts an
-  optional `temperature` (default `0`, preserving the clean lane and command lane
-  unchanged). A pure helper `computeSelectionRate(selections, isCorrect)` takes the N
-  tool-selections from N runs and returns the fraction where `isCorrect` holds — for a
-  skill case `isCorrect` = "first tool call name === the expected skill"; for the
-  degenerate empty-N input it returns `0`. The lane samples each case N times
-  (`WEAVER_EVAL_REPEAT_N`, default `5`) at temperature `WEAVER_EVAL_TEMPERATURE`
-  (default `0.7`), logs the per-case rate and the winning competitor distribution, and
-  asserts only a **collapse floor**: rate `> 0` (the skill was selected at least once in
-  N). Rationale: the eval is relative-signal-only and knife-edge cases flap at temp > 0, so
-  the *rate movement between runs/edits* is the signal the maintainer reads — not an
-  absolute threshold to chase. A per-case rate of 0 across the whole lane is the
-  both-fail / 7B-collapse alarm; a single case at 0 is a description that fully lost under
-  pressure. *(Layer-fit: `computeSelectionRate` is pure → unit test in `test:eval`
-  including the empty-N=0 case and a mixed-selections case. The N-loop + live model is the
-  `.llm` lane.)*
-
-- [ ] **AC2 — Competing realistic toolset.** `tools.ts` exports `COMPETING_TOOLS`: tool
+- [ ] **AC1 — Competing realistic toolset.** `tools.ts` exports `COMPETING_TOOLS`: tool
   definitions for `Edit`, `Grep`, `Glob`, and `Read` with plausible host-style
   descriptions (e.g. Grep: "Search file contents with a regex across the project"). The
   poisoned lane declares `[...skillTools(), BASH_TOOL, ...COMPETING_TOOLS]`. When a case
-  fails, the logged winning-competitor distribution names which habit won (e.g. "Grep 3/5,
-  weaver-search-and-replace 2/5") so a loss is diagnosable, not just a number.
-  *(Layer-fit: `COMPETING_TOOLS` is a static value → a unit test asserts the four tool
-  names and that none collides with a skill name or `bash`. Selection behaviour is the
-  `.llm` lane.)*
+  fails, the failure message names which competitor won (the first tool call's name) so a
+  loss is diagnosable — e.g. "expected weaver-search-and-replace, got Grep" — not just a
+  bare fail. *(Layer-fit: `COMPETING_TOOLS` is a static value → a unit test asserts the
+  four tool names and that none collides with a skill name or `bash`. Selection behaviour
+  is the `.llm` lane.)*
 
-- [ ] **AC3 — Cluttered system prompt.** A pure builder produces a multi-thousand-token
+- [ ] **AC2 — Cluttered system prompt.** A pure builder produces a multi-thousand-token
   system prompt of plausible agent scaffolding (persona, unrelated tool-use rules, style
   guidance) that wraps — but does not alter — the decision surface; the skill tool
   descriptions remain the only weaver-specific text. The builder's output length is
@@ -120,7 +108,7 @@ here. The lane lives in `eval/cases/trigger-adversarial.llm.test.ts` and runs on
   no skill description string leaks into the scaffolding. Truncation behaviour under a low
   context limit is environmental, documented, not unit-tested.)*
 
-- [ ] **AC4 — Grep-primed habit-momentum seed.** A `buildHabitMomentumSeed(task)` helper
+- [ ] **AC3 — Grep-primed habit-momentum seed.** A `buildHabitMomentumSeed(task)` helper
   (mirroring `buildSeedMessages`' plain-text-turn approach, since Ollama drops seeded tool
   calls) returns: a user turn with an *unrelated* search request, an assistant turn that
   used grep successfully (`grep -rn ...`), a user turn with canned grep output, then the
@@ -129,7 +117,7 @@ here. The lane lives in `eval/cases/trigger-adversarial.llm.test.ts` and runs on
   asserts the four-turn shape, that the assistant turn contains a grep invocation, and that
   the final turn is the passed task. The behavioural effect is the `.llm` lane.)*
 
-- [ ] **AC5 — `WEAVER_EVAL_API_KEY` auth header.** `ModelConfig` gains an optional
+- [ ] **AC4 — `WEAVER_EVAL_API_KEY` auth header.** `ModelConfig` gains an optional
   `apiKey` sourced from `WEAVER_EVAL_API_KEY`. When set, `callModel` sends
   `Authorization: Bearer <key>`; when unset, no `Authorization` header is sent (preserving
   local Ollama, which has no auth). The `global-setup.llm.ts` probe forwards the same
@@ -141,45 +129,44 @@ here. The lane lives in `eval/cases/trigger-adversarial.llm.test.ts` and runs on
 
 ## Interface
 
-No production/CLI surface changes — this is eval-harness-internal. Surfaces:
+No production/CLI surface changes — this is eval-harness-internal. `callModel` is reused
+**unchanged** (temperature stays hardcoded at 0). Surfaces:
 
-- **`callModel(messages, tools, config?, temperature?)`** — `temperature: number`, default
-  `0`. Realistic bounds 0–1; the poisoned lane uses 0.7. Zero case (`0`) is the existing
-  deterministic behaviour. Adversarial case: values > 1 are passed through to the server
-  (the server clamps/errors); not validated here.
 - **`ModelConfig.apiKey?: string`** — an opaque bearer token, e.g. a Together/Fireworks
   key. Empty/absent ⇒ no auth header (the common local case). Never logged or echoed (see
   Security).
 - **`COMPETING_TOOLS: ToolDefinition[]`** — fixed length 4 (`Edit`, `Grep`, `Glob`,
   `Read`). Names must not collide with any `SKILL_NAMES` entry or `"bash"`.
-- **`computeSelectionRate(selections: (string | undefined)[], isCorrect): number`** —
-  returns `[0,1]`. Empty input ⇒ `0`. `selections[i]` is the first tool-call name from run
-  `i`, or `undefined` if that run emitted no tool call (counts as not-correct).
 - **`buildClutterSystemPrompt(): string`** — deterministic; length > the documented
   clutter floor.
 - **`buildHabitMomentumSeed(task: string): ChatMessage[]`** — four plain-text turns ending
   in the verbatim `task`.
 
-Env vars (all optional, documented in `docs/eval-design.md`): `WEAVER_EVAL_REPEAT_N`
-(default 5), `WEAVER_EVAL_TEMPERATURE` (default 0.7), `WEAVER_EVAL_API_KEY` (default unset).
+Env vars (all optional, documented in `docs/eval-design.md`): `WEAVER_EVAL_API_KEY`
+(default unset).
 
 ## Open decisions
 
-> **Decision (resolved): does the poisoned lane gate on a fixed pass threshold, or
-> report rates with only a collapse floor?**
-> **Chosen:** report-first with a `rate > 0` collapse floor (AC1). **Reasoning:** the eval
-> is explicitly relative-signal-only and the docs warn knife-edge cases flap at temp > 0;
-> a fixed threshold (e.g. 0.8) would be a score to chase, contradicting the project's
-> stated philosophy and producing flaky failures. The maintainer reads *rate movement*
-> across edits/runs as the signal; the floor exists only to make a degenerate uniform
-> collapse (every case at 0 ⇒ 7B fell over, or the descriptions all lost) surface as a
-> loud failure rather than a silent "lane passed." **Consequence:** the lane will not
-> auto-fail on a meaningful-but-partial regression (e.g. 0.8→0.4); that is intentional —
-> partial movement is read from the logged rates, not gated. Revisit if a hosted larger
-> model makes rates stable enough to justify a real per-case threshold.
+> **Decision (resolved): does the poisoned lane measure a selection *rate*
+> (temperature > 0 + repeat-N) or a deterministic *pass/fail* (temperature 0,
+> single-shot)?**
+> **Chosen:** temperature 0, single-shot pass/fail — the same decoding as the clean lane.
+> **Reasoning:** the poisons are deterministic prompt changes, and the failures that matter
+> most — a poison flipping the model's top choice from skill to grep — are fully visible at
+> temperature 0 with one run. Temperature > 0 uniquely detects only *sub-flip erosion*
+> (P(skill) drops but the top choice holds); buying that costs N× runtime, and on a 7B
+> canary the *absolute* rate is untrustworthy anyway (only movement matters, which a temp-0
+> flip already provides for the loud cases). Holding temperature at 0 also keeps
+> clean-vs-poisoned a controlled A/B with the poison as the single variable — adding
+> temperature would inject sampling variance that repeat-N then exists only to average back
+> out. **Consequence:** this lane will *not* catch a poison that erodes a skill's
+> selection probability without flipping the top choice. That sub-flip fragility signal is
+> deferred to a follow-up (`[needs design]` in handoff) that runs repeat-N on the **hosted
+> larger model** reachable via AC4's auth header — where the probability is trustworthy and
+> quantifying fragility is the actual goal. Revisit when that hosted path exists.
 
 > **Decision (resolved): execution target.** Local Ollama (qwen2.5:7b) stays the default;
-> AC5 adds the auth header so a hosted larger model is reachable on demand for calibration.
+> AC4 adds the auth header so a hosted larger model is reachable on demand for calibration.
 > No rented-box dependency. Driven by the maintainer's 16 GB host (cannot run 32B/72B
 > locally) and a "small spend acceptable, not constant" budget.
 
@@ -201,38 +188,42 @@ Env vars (all optional, documented in `docs/eval-design.md`): `WEAVER_EVAL_REPEA
 
 ## Edges
 
-- The clean lane (`trigger.llm.test.ts`), command lane, and two-step lane must be
-  byte-for-byte unchanged in behaviour: `callModel`'s `temperature` defaults to `0`, so
-  every existing caller keeps single-shot determinism.
+- `callModel` is reused unchanged; the clean lane, command lane, and two-step lane must be
+  byte-for-byte unchanged in behaviour.
 - The poisoned lane runs **only** the skill-expecting trigger cases; boundary cases
   (`expect.tool === "bash"`) are excluded. A guard/assertion documents this so a future
   contributor doesn't "fix" the lane by adding them.
 - The coverage invariant in `pnpm check` must stay green — no new operations are added, so
   no new fixtures are required.
 - Competing tool names must not shadow skill names or `bash` (a collision would make a
-  pass/fail ambiguous). Enforced by the AC2 unit test.
-- Lane runtime: 9 skill trigger cases × N=5 ≈ 45 calls; must complete within the lane's
-  existing per-test timeout budget. Repeat-N is opt-in to the poisoned lane only — the
-  clean lane is not multiplied.
+  pass/fail ambiguous). Enforced by the AC1 unit test.
+- Lane runtime: 9 skill trigger cases, single-shot (one call each), within the lane's
+  existing per-test timeout budget.
+- **Known gap (intentional):** a poison that erodes a skill's selection probability without
+  flipping the top choice will pass this lane. Detecting that requires repeat-N rates on a
+  trustworthy model — deferred to the hosted follow-up (see Open decisions).
 
 ## Done-when
 
 - [ ] All ACs verified by tests (pure cores unit-tested in `test:eval`; lane wiring in the
       new `.llm.test.ts`)
-- [ ] Mutation score ≥ threshold for touched files (`call-model.ts`, `tools.ts`,
-      `config.ts`, and any new harness module)
+- [ ] Mutation score ≥ threshold for touched files (`tools.ts`, `config.ts`, and the new
+      harness modules — clutter builder, habit-momentum seed)
 - [ ] `pnpm check` passes (lint + build + test) — and runs without a model server
 - [ ] A manual `pnpm eval` run of the poisoned lane against local Ollama is sanity-checked
-      (rates logged, no crash); record the observed rates in the spec Outcome
+      (cases run, pass/fail recorded, no crash); record the observed clean-vs-poisoned
+      results in the spec Outcome
 - [ ] No touched source or test file exceeds the hard flag in `docs/code-standards.md`
 - [ ] `docs/eval-design.md` updated: (a) the consumer-fidelity ladder section naming the
       rungs and pinning each rung's metric (consolidates the "layered tiers" entry); (b)
-      the poisoned-lane section — its purpose, the three poisons, the repeat-N rate metric,
-      the `OLLAMA_CONTEXT_LENGTH` requirement, the auth-header calibration path, and the
-      clean-vs-poisoned reading guide (clean-pass+poisoned-fail ⇒ hooks; both-fail ⇒ text)
-- [ ] `docs/handoff.md`: remove the adversarial-trigger-lane entry and the "layered tiers"
-      entry; add a thin `[needs design]` entry for the deferred Agent-SDK tier-3
-      (frontier cold-context) repeatability rung; update the current-state eval section if
+      the poisoned-lane section — its purpose, the three poisons, the temp-0 single-shot
+      pass/fail metric, the `OLLAMA_CONTEXT_LENGTH` requirement, the auth-header calibration
+      path, the clean-vs-poisoned reading guide (clean-pass+poisoned-fail ⇒ hooks;
+      both-fail ⇒ text), and a note that sub-flip fragility rates are a deferred follow-up
+- [ ] `docs/handoff.md`: the adversarial-trigger-lane and "layered tiers" entries are
+      already retired (replaced by the spec link); add a thin `[needs design]` entry for
+      the deferred **repeat-N fragility rates on the hosted calibration model**; the
+      Agent-SDK frontier-rung entry already exists; update the current-state eval section if
       the file layout changed
 - [ ] Tech debt discovered during implementation added to handoff.md as `[needs design]`
 - [ ] Non-obvious gotchas added to `docs/eval-design.md` (it already hosts the local-model
