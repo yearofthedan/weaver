@@ -39,8 +39,8 @@ Directory layout matches domain boundaries:
 
 ```
 eval/
-  harness/             ← callModel (fetch to local OpenAI-compatible server), context builders, assertions, seed builder, config; unit-tested in test:eval lane
-  cases/               ← cases.ts typed case table (trigger + command stages); *.llm.test.ts run only via `pnpm eval`; coverage.test.ts invariant runs in pnpm check
+  harness/             ← callModel (fetch to local OpenAI-compatible server; WEAVER_EVAL_API_KEY bearer auth), context builders, assertions, seed builder (incl. grep-primed habit-momentum seed), clutter prompt builder, competing-tool defs, config; unit-tested in test:eval lane
+  cases/               ← cases.ts typed case table (trigger + command stages); *.llm.test.ts run only via `pnpm eval` (clean + adversarial trigger lanes); coverage.test.ts invariant runs in pnpm check
   fixtures/            ← canned CLI stdout JSON keyed by operation name; embedded as tool results in two-step cases
   vitest.config.ts     ← test:eval lane (helpers + invariants, runs in pnpm check)
   vitest.llm.config.ts ← pnpm eval lane (LLM cases; globalSetup probes the model server)

@@ -172,6 +172,57 @@ The eval model (`qwen2.5:7b-instruct`) is **not** the model weaver's users run. 
   tools differently than Qwen-class ones. Don't tune skill text to chase a local-model
   score.
 
+## Consumer-fidelity ladder
+
+The eval tests AI *consumers* of weaver's interface, not AI features in the product. The
+rungs climb toward the real audience, and each catches a different bug class — a reasoning
+model surfaces selection failures (reaching for grep over a text-search skill) that a
+keyword-matching model cannot. Each rung has its own metric; don't read a lower rung's
+signal as a higher rung's verdict.
+
+1. **Structural invariants** — no model; runs in `pnpm check` (`coverage.test.ts` plus the
+   harness unit tests): parsing, per-operation coverage, boundary-case existence. Metric:
+   deterministic pass/fail.
+2. **Local instruct canary** (`qwen2.5:7b-instruct`) — the fast, near-deterministic
+   regression lane for the edit→eval→read loop. Metric: single-shot pass/fail, read as
+   *relative movement*, not an absolute score.
+3. **Local reasoning probe** (e.g. `qwen3`) — a reasoning-pressure check. Free, but Ollama
+   emission stalls confound thinking-mode lineages (see gotchas), so failures are
+   hypotheses, not a gate.
+4. **Frontier cold-context** — a fresh Claude session with no design history, the
+   authoritative audience. Costs API time, so it is pre-release rather than per-edit, and
+   is currently manual (making it repeatable is queued in `docs/handoff.md`).
+
+The adversarial trigger lane below is not a new rung — it applies host-like *pressure* to
+the local rungs (2–3), holding the skill text constant so the pressure is the only variable.
+
+## The adversarial trigger lane
+
+`eval/cases/trigger-adversarial.llm.test.ts` reruns the skill-expecting trigger cases under
+the pressures a real agent host applies, without touching the skill files:
+
+- **Competing toolset** — `Edit`/`Grep`/`Glob`/`Read` declared alongside the skills, so a
+  loss names which habit won.
+- **Cluttered system prompt** — `buildClutterSystemPrompt()` wraps the decision surface in
+  generic agent scaffolding. This pushes the prompt past Ollama's 4096 default, so the lane
+  needs `OLLAMA_CONTEXT_LENGTH` raised (≈ 16384) or prompts are silently truncated; a 7B
+  fits that context on a 16 GB host.
+- **Grep-primed seed** — `buildHabitMomentumSeed()` prepends a successful grep before the
+  task, so the model already has shell momentum.
+
+Metric: temperature 0, single-shot pass/fail — the same decoding as the clean lane, with
+the poisons as the only variable. Reading the gap against the clean lane:
+
+- **clean-pass + poisoned-fail** → a pressure problem: the description is fine but loses
+  under a real host. This is the evidence for a forcing mechanism (host hooks).
+- **both fail** → a text problem: fix the skill description.
+
+Because the lane runs at temperature 0, it catches a poison only when it *flips* the top
+tool choice. Sub-flip erosion (P(skill) drops but the skill still wins) needs repeat-N
+rates on a trustworthy model — deferred to the hosted follow-up in `docs/handoff.md`. Point
+the lane at a hosted 32B/72B via `WEAVER_EVAL_MODEL`/`WEAVER_EVAL_BASE_URL` plus
+`WEAVER_EVAL_API_KEY` (bearer auth) for that calibration run.
+
 ## Adding a new operation
 
 The coverage invariant (`eval/cases/coverage.test.ts`, runs in `pnpm check`) fails until:
@@ -186,14 +237,11 @@ new task category) ships.
 
 ## Iteration path
 
-1. **v1 (this design):** local model, single-shot, temperature 0, pass/fail per case
-2. **v2 candidates, in rough order of value:**
-   - an adversarial trigger lane — competing Edit/Grep-style tools, cluttered system
-     prompt, grep-primed seed turns — that pressures skill selection without changing
-     the skill files; clean lane stays as the regression baseline (queued in
-     `docs/handoff.md`)
-   - statistical trigger rates (temperature > 0, repeat-N per case — free locally)
-   - an Anthropic/Haiku transport as a canonical gate before skill releases
+1. **v1:** local model, single-shot, temperature 0, pass/fail per case — the clean lane.
+2. **v2 (shipped):** the adversarial trigger lane (see above) — same metric, host-like
+   pressure, clean lane retained as the regression baseline.
+3. **Later candidates, queued in `docs/handoff.md`:**
+   - repeat-N fragility rates (temperature > 0) on the hosted calibration model, to catch
+     the sub-flip erosion the pass/fail lanes miss
    - Agent SDK end-to-end runs (real bash, live daemon, file-state assertions) — highest
-     fidelity, but a subsystem-sized build and requires Anthropic API access, so it
-     cannot run against the local-only setup
+     fidelity, but subsystem-sized and requires Anthropic API access
