@@ -206,7 +206,10 @@ the pressures a real agent host applies, without touching the skill files:
 - **Cluttered system prompt** — `buildClutterSystemPrompt()` wraps the decision surface in
   generic agent scaffolding. This pushes the prompt past Ollama's 4096 default, so the lane
   needs `OLLAMA_CONTEXT_LENGTH` raised (≈ 16384) or prompts are silently truncated; a 7B
-  fits that context on a 16 GB host.
+  fits that context on a 16 GB host. **Gotcha:** the macOS Ollama app starts `serve` at the
+  4096 default regardless of shell env — set the var in its launch environment, or quit the
+  app and run `OLLAMA_CONTEXT_LENGTH=16384 ollama serve` from a terminal. A truncated run
+  silently measures the wrong thing (the description gets squeezed, not the clutter).
 - **Grep-primed seed** — `buildHabitMomentumSeed()` prepends a successful grep before the
   task, so the model already has shell momentum.
 

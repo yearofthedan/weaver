@@ -205,27 +205,69 @@ Env vars (all optional, documented in `docs/eval-design.md`): `WEAVER_EVAL_API_K
 
 ## Done-when
 
-- [ ] All ACs verified by tests (pure cores unit-tested in `test:eval`; lane wiring in the
-      new `.llm.test.ts`)
-- [ ] Mutation score ≥ threshold for touched files (`tools.ts`, `config.ts`, and the new
-      harness modules — clutter builder, habit-momentum seed)
-- [ ] `pnpm check` passes (lint + build + test) — and runs without a model server
-- [ ] A manual `pnpm eval` run of the poisoned lane against local Ollama is sanity-checked
-      (cases run, pass/fail recorded, no crash); record the observed clean-vs-poisoned
-      results in the spec Outcome
-- [ ] No touched source or test file exceeds the hard flag in `docs/code-standards.md`
-- [ ] `docs/eval-design.md` updated: (a) the consumer-fidelity ladder section naming the
-      rungs and pinning each rung's metric (consolidates the "layered tiers" entry); (b)
-      the poisoned-lane section — its purpose, the three poisons, the temp-0 single-shot
-      pass/fail metric, the `OLLAMA_CONTEXT_LENGTH` requirement, the auth-header calibration
-      path, the clean-vs-poisoned reading guide (clean-pass+poisoned-fail ⇒ hooks;
-      both-fail ⇒ text), and a note that sub-flip fragility rates are a deferred follow-up
-- [ ] `docs/handoff.md`: the adversarial-trigger-lane and "layered tiers" entries are
-      already retired (replaced by the spec link); add a thin `[needs design]` entry for
-      the deferred **repeat-N fragility rates on the hosted calibration model**; the
-      Agent-SDK frontier-rung entry already exists; update the current-state eval section if
-      the file layout changed
-- [ ] Tech debt discovered during implementation added to handoff.md as `[needs design]`
-- [ ] Non-obvious gotchas added to `docs/eval-design.md` (it already hosts the local-model
-      gotchas) — e.g. anything learned about clutter + context truncation
-- [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+- [x] All ACs verified by tests (pure cores unit-tested in `test:eval`; lane wiring in the
+      new `.llm.test.ts`, validated by manual `pnpm eval`)
+- [x] Mutation score — N/A: Stryker's `ignorePatterns` excludes `eval/`, so no `eval/` file
+      is mutated. All touched source is eval infrastructure.
+- [x] `pnpm check` passes (lint + build + test) — and runs without a model server
+- [x] A manual `pnpm eval` run of the poisoned lane against local Ollama is sanity-checked;
+      clean-vs-poisoned results recorded in the Outcome below
+- [x] No touched source or test file exceeds the hard flag in `docs/code-standards.md`
+      (`clutter.ts` is ~324 lines but cohesive prose data, not tangled logic)
+- [x] `docs/eval-design.md` updated: consumer-fidelity ladder + poisoned-lane section
+- [x] `docs/handoff.md`: old entries retired; deferred repeat-N fragility-rates and
+      Agent-SDK rungs filed; current-state eval section updated
+- [x] Tech debt discovered during implementation added to handoff.md as `[needs design]`
+      (substitution-vs-sequencing metric blind spot folded into the Agent-SDK rung entry)
+- [x] Non-obvious gotchas added to `docs/eval-design.md`
+- [x] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+## Outcome
+
+**Shipped:** the adversarial trigger lane (`eval/cases/trigger-adversarial.llm.test.ts`)
+plus its four harness building blocks (competing toolset, clutter prompt, grep-primed seed,
+`WEAVER_EVAL_API_KEY` bearer auth), the consumer-fidelity ladder + lane docs in
+`eval-design.md`, and — as the first dogfood-driven improvement the lane produced — a
+sharpened `weaver-code-inspection` type-error description.
+
+**Tests added:** 17 harness unit tests in the `test:eval` lane (tools 2, clutter 2,
+habit-momentum seed 2, callModel auth 4, global-setup probe 7; net +16 after trimming one
+duplicate `buildSeedMessages` test). 9 LLM cases in the adversarial lane (`pnpm eval` only).
+Mutation testing N/A (Stryker excludes `eval/`).
+
+**Manual `pnpm eval` (qwen2.5:7b-instruct, `OLLAMA_CONTEXT_LENGTH=16384`):**
+- Clean trigger lane: 14/14.
+- Adversarial lane: 7/9, stable across 3 runs (temp-0, byte-identical). Failures:
+  - `get-type-errors → tsc` — a clean clean-pass/poisoned-fail; **fixed** by sharpening the
+    description, now passes under pressure with no regression in any lane.
+  - `refactor-rename → weaver-code-inspection` — skill-vs-skill; find-references before a
+    rename is a reasonable *precursor*, not a substitute. The single-shot first-call metric
+    cannot tell precursor from substitution — feeds the Agent-SDK/multi-step rung.
+  - `rename-no-coords → no tool call` — qwen narration/no-emission quirk, not a selection.
+
+**Reflection:**
+- *Went well:* clean pure-core / lane-wiring split (every poison unit-tested in `pnpm
+  check`; lane wiring isolated to the `.llm` file). The lane earned its keep on first use —
+  surfaced a real description gap, and the edit→both-lanes→read loop confirmed a defensible
+  fix flipped it without regression.
+- *Detours and lessons:*
+  - The repeat-N rate metric was specced, then dropped mid-slice once we pressure-tested
+    whether it was load-bearing (temp-0 A/B is the cleaner experiment). Only a partial AC
+    was reverted. Pressure-test "is this metric load-bearing" during `/spec`, not after.
+  - The first execution-agent dispatch over-tested constant data (asserting literals and
+    TypeScript-guaranteed properties); needed a trim pass (26→12 tests on the new files).
+  - **Truncation confound:** the first `pnpm eval` ran against Ollama's 4096 default,
+    truncating the clutter and producing a misleading flip. *Verify the server's
+    `OLLAMA_CONTEXT_LENGTH` before interpreting any clutter result.*
+  - **Don't edit the test on an unverified hypothesis:** neutralizing the clutter's
+    behavioral directives (believed to cause two confound failures) proved completely inert
+    — identical failures — and was reverted. Measure the cause before tuning the instrument;
+    editing the test toward an expected result is gaming.
+- *For the next agent:*
+  - The macOS Ollama app starts `serve` at the 4096 default regardless of shell env — set
+    `OLLAMA_CONTEXT_LENGTH` in its launch environment (or run `ollama serve` from a
+    terminal) before a clutter run.
+  - Clutter *content* had no measurable effect on selection here; the poison acts through
+    volume/presence. Don't over-engineer clutter wording.
+  - The substitution-vs-sequencing blind spot is the strongest motivation yet for the
+    multi-step/Agent-SDK rung.
