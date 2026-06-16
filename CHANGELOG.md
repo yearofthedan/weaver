@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.7](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.6...weaver-v0.1.7) (2026-06-16)
+
+
+### Features
+
+* **eval:** add adversarial trigger lane ([24e2bb3](https://github.com/yearofthedan/weaver/commit/24e2bb3a0adfbaed96f1e439a9a36b83a768ef85))
+* **eval:** add cluttered system prompt builder for the adversarial lane ([21adb51](https://github.com/yearofthedan/weaver/commit/21adb51440ec6fd652675cda41d31e923c2dd93a))
+* **eval:** add grep-primed habit-momentum seed for the adversarial lane ([8b1e8b4](https://github.com/yearofthedan/weaver/commit/8b1e8b45bb2537314f5388fd3cb431118e1bca8e))
+* **eval:** export COMPETING_TOOLS for the adversarial trigger lane ([5e877d5](https://github.com/yearofthedan/weaver/commit/5e877d56a89ac6107050990401f47656dea803fc))
+* **eval:** forward WEAVER_EVAL_API_KEY as bearer auth to model server ([5d8e144](https://github.com/yearofthedan/weaver/commit/5d8e144e97ce1271a5ff4d06880d92edfa642607))
+* **file-walk:** wire compileGlob into walkWorkspaceFiles; smoke-test both operations ([d75d167](https://github.com/yearofthedan/weaver/commit/d75d167cde5e0faffbfe0099af8a3f460c406862))
+* **globs:** add compileGlob with single brace group expansion ([862b53d](https://github.com/yearofthedan/weaver/commit/862b53d28c94ced342c6486acff7b10be57ed2bb))
+
+
+### Bug Fixes
+
+* ignore reports/ contents so stryker cache stays addable ([73f08b6](https://github.com/yearofthedan/weaver/commit/73f08b6ff57d179164dc897ce9e07d258a6cc335))
+* **test:** scrub leaked git env so the suite is hermetic ([0baea08](https://github.com/yearofthedan/weaver/commit/0baea085534b6927ec622715c6a1cc74167335cd))
+
 ## [0.1.6](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.5...weaver-v0.1.6) (2026-06-12)
 
 
