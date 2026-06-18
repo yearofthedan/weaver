@@ -177,9 +177,11 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ---
 
-### P4 — Low priority (cheap hygiene; clear opportunistically)
+- **Purify the domain layer (read-side port migration, slice 1)** → [`docs/specs/20260618-purify-domain-layer.md`](specs/20260618-purify-domain-layer.md) — make `src/domain/` import no `node:fs`/`node:os`: `isWithinWorkspace` becomes pure (symlink resolution moves to `WorkspaceScope`), workspace validation relocates to the daemon boundary with an injected `FileSystem`, plus a guard test. Spec-ready. Reframes the old "two domain files bypass the port" chore — the `assert-file.ts` half already shipped; the `import-rewriter.ts` `node:path` half was dropped (pure path math is not a platform dependency and doesn't belong on an I/O port).
 
-- **Two domain-layer files bypass the `FileSystem` port** `[chore]` — (1) `src/utils/assert-file.ts` calls `fs.existsSync` directly, forcing unit tests with `InMemoryFileSystem` to pass paths that physically exist on disk. (2) `src/ts-engine/import-rewriter.ts` imports `node:path` directly for `dirname` and `resolve`. The port already exposes `resolve`; adding `dirname` and routing both through `scope.fs` removes the domain layer's last direct platform dependency.
+- **Route the operations core through the `FileSystem` port (slice 2)** `[needs design]` — after the domain is pure, the application/operations core still reads disk directly: `findReferences`/`getDefinition`/`findImporters` (`existsSync` guards), `replaceText` (`realpathSync`), `moveDirectory` (`readdirSync`/`statSync`). Inject the port (via scope or the engine) and add a `readdir` method to the `FileSystem` port (+ both implementations + conformance suite). The engine and Vue-plugin adapters legitimately do I/O and stay as-is — the invariant is "domain + operations core don't touch `node:fs`," not "nothing does." Decide how the read-only ops (no current `scope` param) receive a `FileSystem`.
+
+### P4 — Low priority (cheap hygiene; clear opportunistically)
 
 - **Self-install weaver's bin for in-repo dogfooding** `[chore]` — `pnpm exec weaver` fails in this repo because the package's own `bin` isn't linked into `node_modules/.bin`, so agents/devs must call `node dist/adapters/cli/cli.js` directly even though CLAUDE.md Rule 9 says to use `pnpm exec weaver`. Adding `"@yearofthedan/weaver": "file:."` to `devDependencies` (a pnpm workspace self-link) makes `pnpm exec weaver` resolve after `pnpm install`. Low risk; improves dogfooding ergonomics. Re-runs needed after a clean install.
 
