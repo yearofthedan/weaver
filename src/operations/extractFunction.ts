@@ -13,6 +13,6 @@ export async function extractFunction(
   functionName: string,
   scope: WorkspaceScope,
 ): Promise<ExtractFunctionResult> {
-  assertFileExists(file);
+  assertFileExists(file, scope.fs);
   return engine.extractFunction(file, startLine, startCol, endLine, endCol, functionName, scope);
 }

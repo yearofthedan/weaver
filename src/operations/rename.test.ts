@@ -9,11 +9,6 @@ import { makeMockCompiler } from "../ts-engine/__testHelpers__/mock-compiler.js"
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import { rename } from "./rename.js";
 
-// assertFileExists (called inside rename) still uses the real filesystem — it is not yet
-// migrated to the FileSystem port. In unit tests that mock the compiler, we pass a path
-// that is guaranteed to exist on disk so that guard passes without creating extra files.
-const EXISTING_FILE = new URL(import.meta.url).pathname;
-
 function makeScope(workspace: string): WorkspaceScope {
   return new WorkspaceScope(workspace, new NodeFileSystem());
 }
@@ -174,10 +169,17 @@ describe("rename action", () => {
   });
 
   describe("via mock engine", () => {
+    const sourceFile = "/ws/src/auth.ts";
+
+    function scopeWith(file: string): WorkspaceScope {
+      const vfs = new InMemoryFileSystem();
+      vfs.writeFile(file, "");
+      return new WorkspaceScope("/ws", vfs);
+    }
+
     test("delegates to engine.rename() and returns the result", async () => {
-      const workspace = new URL("../..", import.meta.url).pathname;
       const expected = {
-        filesModified: [EXISTING_FILE],
+        filesModified: [sourceFile],
         filesSkipped: [],
         symbolName: "greetUser",
         newName: "greetPerson",
@@ -187,22 +189,21 @@ describe("rename action", () => {
         rename: vi.fn().mockResolvedValue(expected),
       });
 
-      const scope = new WorkspaceScope(workspace, new InMemoryFileSystem());
-      const result = await rename(compiler, EXISTING_FILE, 1, 17, "greetPerson", scope);
+      const scope = scopeWith(sourceFile);
+      const result = await rename(compiler, sourceFile, 1, 17, "greetPerson", scope);
 
       expect(result).toEqual(expected);
-      expect(compiler.rename).toHaveBeenCalledWith(EXISTING_FILE, 1, 17, "greetPerson", scope);
+      expect(compiler.rename).toHaveBeenCalledWith(sourceFile, 1, 17, "greetPerson", scope);
     });
 
     test("propagates errors thrown by engine.rename()", async () => {
-      const workspace = new URL("../..", import.meta.url).pathname;
       const compiler = makeMockCompiler({
         rename: vi.fn().mockRejectedValue({ code: "SYMBOL_NOT_FOUND" }),
       });
 
-      const scope = new WorkspaceScope(workspace, new InMemoryFileSystem());
+      const scope = scopeWith(sourceFile);
 
-      await expect(rename(compiler, EXISTING_FILE, 1, 17, "newName", scope)).rejects.toMatchObject({
+      await expect(rename(compiler, sourceFile, 1, 17, "newName", scope)).rejects.toMatchObject({
         code: "SYMBOL_NOT_FOUND",
       });
     });

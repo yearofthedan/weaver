@@ -9,7 +9,7 @@ export async function deleteFile(
   targetFile: string,
   scope: WorkspaceScope,
 ): Promise<DeleteFileResult> {
-  const absTarget = assertFileExists(targetFile);
+  const absTarget = assertFileExists(targetFile, scope.fs);
 
   if (isSensitiveFile(absTarget)) {
     throw Object.assign(new Error(`Refusing to delete sensitive file: ${absTarget}`), {

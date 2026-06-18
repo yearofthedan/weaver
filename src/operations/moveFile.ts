@@ -9,7 +9,7 @@ export async function moveFile(
   newPath: string,
   scope: WorkspaceScope,
 ): Promise<MoveResult> {
-  const absOld = assertFileExists(oldPath);
+  const absOld = assertFileExists(oldPath, scope.fs);
   const absNew = scope.fs.resolve(newPath);
 
   await compiler.moveFile(absOld, absNew, scope);

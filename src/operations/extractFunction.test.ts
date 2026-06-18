@@ -1,33 +1,29 @@
-import * as path from "node:path";
-import { describe, expect, vi } from "vitest";
-import { fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { describe, expect, it, vi } from "vitest";
+import { WorkspaceScope } from "../domain/workspace-scope.js";
+import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
 import type { Engine } from "../ts-engine/types.js";
 import { extractFunction } from "./extractFunction.js";
 
+function scopeWith(files: Record<string, string> = {}): WorkspaceScope {
+  const vfs = new InMemoryFileSystem();
+  for (const [path, content] of Object.entries(files)) {
+    vfs.writeFile(path, content);
+  }
+  return new WorkspaceScope("/ws", vfs);
+}
+
 describe("extractFunction operation", () => {
-  test("throws FILE_NOT_FOUND for a missing source file", async ({ dir }) => {
+  it("throws FILE_NOT_FOUND for a missing source file", async () => {
     const fakeEngine = {} as Engine;
 
     await expect(
-      extractFunction(
-        fakeEngine,
-        path.join(dir, "src/does-not-exist.ts"),
-        1,
-        1,
-        1,
-        10,
-        "myFn",
-        // biome-ignore lint/suspicious/noExplicitAny: test stub
-        {} as any,
-      ),
+      extractFunction(fakeEngine, "/ws/src/does-not-exist.ts", 1, 1, 1, 10, "myFn", scopeWith()),
     ).rejects.toMatchObject({ code: "FILE_NOT_FOUND" });
   });
 
-  test("delegates to engine.extractFunction with correct arguments and returns its result", async ({
-    seedInlineFixture,
-  }) => {
-    const dir = await seedInlineFixture({ "src/target.ts": "export function foo() {}\n" });
-    const filePath = path.join(dir, "src/target.ts");
+  it("delegates to engine.extractFunction with correct arguments and returns its result", async () => {
+    const filePath = "/ws/src/target.ts";
+    const scope = scopeWith({ [filePath]: "export function foo() {}\n" });
 
     const expectedResult = {
       filesModified: [filePath],
@@ -35,13 +31,9 @@ describe("extractFunction operation", () => {
       functionName: "extracted",
       parameterCount: 1,
     };
-
     const mockEngine = {
       extractFunction: vi.fn().mockResolvedValue(expectedResult),
     } as unknown as Engine;
-
-    // biome-ignore lint/suspicious/noExplicitAny: test stub
-    const scope = {} as any;
 
     const result = await extractFunction(mockEngine, filePath, 2, 3, 4, 19, "extracted", scope);
 

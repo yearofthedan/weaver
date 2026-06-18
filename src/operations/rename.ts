@@ -11,6 +11,6 @@ export async function rename(
   newName: string,
   scope: WorkspaceScope,
 ): Promise<RenameResult> {
-  const absPath = assertFileExists(filePath);
+  const absPath = assertFileExists(filePath, scope.fs);
   return compiler.rename(absPath, line, col, newName, scope);
 }

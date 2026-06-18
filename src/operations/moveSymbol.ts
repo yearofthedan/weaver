@@ -19,7 +19,7 @@ export async function moveSymbol(
   scope: WorkspaceScope,
   options?: { force?: boolean },
 ): Promise<MoveSymbolResult> {
-  const absSource = assertFileExists(sourceFile);
+  const absSource = assertFileExists(sourceFile, scope.fs);
   const absDest = path.resolve(destFile);
 
   await engine.moveSymbol(absSource, symbolName, absDest, scope, options);
