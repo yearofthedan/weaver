@@ -12,7 +12,7 @@ import {
   ReplaceTextArgsSchema,
   SearchTextArgsSchema,
 } from "../adapters/schema.js";
-import { isWithinWorkspace, validateFilePath } from "../domain/security.js";
+import { validateFilePath } from "../domain/security.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { extractFunction } from "../operations/extractFunction.js";
 import { findImporters } from "../operations/findImporters.js";
@@ -270,7 +270,7 @@ export async function dispatchRequest(
             : `path contains URI fragment or query character: ${paramKey}`,
       };
     }
-    if (!isWithinWorkspace(value, workspace)) {
+    if (!new WorkspaceScope(workspace, new NodeFileSystem()).contains(value)) {
       return {
         status: "error" as const,
         error: "WORKSPACE_VIOLATION",

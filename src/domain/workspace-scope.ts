@@ -6,8 +6,8 @@ import { isWithinWorkspace } from "./security.js";
  * Tracks workspace boundary membership and records which files were modified
  * or skipped during an operation.
  *
- * `contains()` delegates to `isWithinWorkspace` from security.ts, preserving
- * symlink-resolution behaviour — callers must not reimplement the boundary check.
+ * `contains()` resolves symlinks via `this.fs` before calling the pure
+ * `isWithinWorkspace` — callers must not reimplement the boundary check.
  *
  * `writeFile()` enforces the boundary before writing: paths outside the workspace
  * throw `EngineError` with code `"WORKSPACE_VIOLATION"`.
@@ -24,7 +24,17 @@ export class WorkspaceScope {
   }
 
   contains(filePath: string): boolean {
-    return isWithinWorkspace(filePath, this.root);
+    if (!isWithinWorkspace(filePath, this.root)) return false;
+    if (this.fs.exists(filePath)) {
+      try {
+        const realFile = this.fs.realpath(filePath);
+        const realRoot = this.fs.realpath(this.root);
+        return isWithinWorkspace(realFile, realRoot);
+      } catch {
+        return false;
+      }
+    }
+    return true;
   }
 
   recordModified(filePath: string): void {

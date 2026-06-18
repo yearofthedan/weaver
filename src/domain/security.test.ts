@@ -1,13 +1,5 @@
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import {
-  isSensitiveFile,
-  isWithinWorkspace,
-  validateFilePath,
-  validateWorkspace,
-} from "./security.js";
+import { describe, expect, it } from "vitest";
+import { isSensitiveFile, isWithinWorkspace, validateFilePath } from "./security.js";
 
 describe("isSensitiveFile", () => {
   it.each([
@@ -114,20 +106,6 @@ describe("validateFilePath", () => {
 describe("isWithinWorkspace", () => {
   const ws = "/tmp/my-workspace";
 
-  const tmpDirs: string[] = [];
-
-  afterEach(() => {
-    for (const d of tmpDirs.splice(0)) {
-      fs.rmSync(d, { recursive: true, force: true });
-    }
-  });
-
-  function makeTmpDir(): string {
-    const d = fs.mkdtempSync(path.join(os.tmpdir(), "ws-iswithin-"));
-    tmpDirs.push(d);
-    return d;
-  }
-
   it.each([
     { filePath: "/tmp/my-workspace/src/foo.ts", expected: true, desc: "path inside workspace" },
     { filePath: "/tmp/my-workspace", expected: true, desc: "workspace root itself" },
@@ -154,87 +132,11 @@ describe("isWithinWorkspace", () => {
     expect(isWithinWorkspace(filePath, ws)).toBe(expected);
   });
 
-  it("returns false for a symlink inside the workspace that resolves outside", () => {
-    const workspace = makeTmpDir();
-    const outside = makeTmpDir();
-    const outsideFile = path.join(outside, "secret.ts");
-    fs.writeFileSync(outsideFile, "");
-    const link = path.join(workspace, "escape.ts");
-    fs.symlinkSync(outsideFile, link);
-    expect(isWithinWorkspace(link, workspace)).toBe(false);
+  it("returns true for a lexically-inside path that does not exist on disk", () => {
+    expect(isWithinWorkspace("/tmp/my-workspace/ghost/does-not-exist.ts", ws)).toBe(true);
   });
 
-  it("returns true for a regular (non-symlink) file that actually exists inside the workspace", () => {
-    const workspace = makeTmpDir();
-    const file = path.join(workspace, "src", "index.ts");
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, "");
-    expect(isWithinWorkspace(file, workspace)).toBe(true);
-  });
-});
-
-describe("validateWorkspace", () => {
-  const tmpDirs: string[] = [];
-
-  afterEach(() => {
-    for (const d of tmpDirs.splice(0)) {
-      fs.rmSync(d, { recursive: true, force: true });
-    }
-  });
-
-  function makeTmpDir(): string {
-    const d = fs.mkdtempSync(path.join(os.tmpdir(), "ws-test-"));
-    tmpDirs.push(d);
-    return d;
-  }
-
-  it("accepts a valid workspace directory", () => {
-    const dir = makeTmpDir();
-    const result = validateWorkspace(dir);
-    expect(result).toMatchObject({ ok: true, workspace: dir });
-  });
-
-  it("rejects a non-existent path", () => {
-    const result = validateWorkspace("/tmp/does-not-exist-xyzzy-999");
-    expect(result).toMatchObject({ ok: false });
-  });
-
-  it("rejects a file (non-directory)", () => {
-    const dir = makeTmpDir();
-    const file = path.join(dir, "file.txt");
-    fs.writeFileSync(file, "");
-    const result = validateWorkspace(file);
-    expect(result).toMatchObject({ ok: false });
-  });
-
-  it.each([
-    "/",
-    "/etc",
-    "/usr",
-    "/var",
-    "/bin",
-  ])("rejects restricted system path: %s", (restrictedPath) => {
-    const result = validateWorkspace(restrictedPath);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/restricted/i);
-  });
-
-  const credentialDirs = [".aws", ".azure", ".gnupg", ".kube", ".ssh"]
-    .map((d) => path.join(os.homedir(), d))
-    .filter((p) => fs.existsSync(p));
-
-  it.each(credentialDirs)("rejects user credential directory: %s", (credPath) => {
-    const result = validateWorkspace(credPath);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/restricted/i);
-  });
-
-  it("rejects a symlink that resolves to a restricted path", () => {
-    const dir = makeTmpDir();
-    const link = path.join(dir, "etc-link");
-    fs.symlinkSync("/etc", link);
-    const result = validateWorkspace(link);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/restricted/i);
+  it("workspace root itself equals the empty relative path (zero-length rel)", () => {
+    expect(isWithinWorkspace(ws, ws)).toBe(true);
   });
 });

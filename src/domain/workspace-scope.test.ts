@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
+import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { EngineError } from "./errors.js";
 import { WorkspaceScope } from "./workspace-scope.js";
 
@@ -24,6 +28,47 @@ describe("WorkspaceScope", () => {
     ])("$label → $expected", ({ path: filePath, expected }) => {
       const scope = new WorkspaceScope(ROOT, new InMemoryFileSystem());
       expect(scope.contains(filePath)).toBe(expected);
+    });
+
+    it("returns true for a path that does not exist on disk (lexically inside)", () => {
+      const scope = new WorkspaceScope(ROOT, new InMemoryFileSystem());
+      expect(scope.contains("/workspace/src/does-not-exist.ts")).toBe(true);
+    });
+
+    describe("symlink resolution via injected FileSystem", () => {
+      const tmpDirs: string[] = [];
+
+      afterEach(() => {
+        for (const d of tmpDirs.splice(0)) {
+          fs.rmSync(d, { recursive: true, force: true });
+        }
+      });
+
+      function makeTmpDir(): string {
+        const d = fs.mkdtempSync(path.join(os.tmpdir(), "ws-scope-"));
+        tmpDirs.push(d);
+        return d;
+      }
+
+      it("rejects a symlink inside the workspace that resolves outside", () => {
+        const workspace = makeTmpDir();
+        const outside = makeTmpDir();
+        const outsideFile = path.join(outside, "secret.ts");
+        fs.writeFileSync(outsideFile, "");
+        const link = path.join(workspace, "escape.ts");
+        fs.symlinkSync(outsideFile, link);
+        const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+        expect(scope.contains(link)).toBe(false);
+      });
+
+      it("accepts a regular file that exists inside the workspace", () => {
+        const workspace = makeTmpDir();
+        const file = path.join(workspace, "src", "index.ts");
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, "");
+        const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+        expect(scope.contains(file)).toBe(true);
+      });
     });
   });
 

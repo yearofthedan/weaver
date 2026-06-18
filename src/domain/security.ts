@@ -2,49 +2,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-// Paths that must never be used as a workspace root.
-// Defense-in-depth: prevents a misconfigured or malicious MCP client config
-// from pointing the daemon at system directories or user credential stores.
-// Note: this is an exact-match blocklist of the directories themselves.
-// Subdirectories (e.g. /etc/nginx) are intentionally allowed — projects
-// legitimately live in subdirectories of system paths.
-// Each entry is expanded with its canonical real path so that both the
-// symlinked and resolved forms are covered. On macOS, /etc is a symlink to
-// /private/etc; resolving at construction time means both forms appear in
-// the set and validation works regardless of which form realpathSync produces.
-const RESTRICTED_WORKSPACE_ROOTS: ReadonlySet<string> = new Set(
-  [
-    // Filesystem root
-    "/",
-    // Core system directories
-    "/bin",
-    "/boot",
-    "/dev",
-    "/etc",
-    "/lib",
-    "/lib64",
-    "/proc",
-    "/root",
-    "/sbin",
-    "/sys",
-    "/usr",
-    "/var",
-    // User credential directories
-    path.join(os.homedir(), ".aws"),
-    path.join(os.homedir(), ".azure"),
-    path.join(os.homedir(), ".gnupg"),
-    path.join(os.homedir(), ".kube"),
-    path.join(os.homedir(), ".ssh"),
-  ].flatMap((p) => {
-    try {
-      const real = fs.realpathSync(p);
-      return real === p ? [p] : [p, real];
-    } catch {
-      return [p];
-    }
-  }),
-);
-
 /**
  * Validates a file path string for control characters and URI fragments.
  * Must be called before path.resolve() or path.normalize() — those calls
@@ -66,6 +23,38 @@ export function validateFilePath(
   return { ok: true };
 }
 
+// Paths that must never be used as a workspace root. See validate-workspace.ts
+// for the injected-FileSystem version used at the daemon boundary.
+const RESTRICTED_WORKSPACE_ROOTS: ReadonlySet<string> = new Set(
+  [
+    "/",
+    "/bin",
+    "/boot",
+    "/dev",
+    "/etc",
+    "/lib",
+    "/lib64",
+    "/proc",
+    "/root",
+    "/sbin",
+    "/sys",
+    "/usr",
+    "/var",
+    path.join(os.homedir(), ".aws"),
+    path.join(os.homedir(), ".azure"),
+    path.join(os.homedir(), ".gnupg"),
+    path.join(os.homedir(), ".kube"),
+    path.join(os.homedir(), ".ssh"),
+  ].flatMap((p) => {
+    try {
+      const real = fs.realpathSync(p);
+      return real === p ? [p] : [p, real];
+    } catch {
+      return [p];
+    }
+  }),
+);
+
 export function validateWorkspace(
   workspacePath: string,
 ): { ok: true; workspace: string } | { ok: false; error: string } {
@@ -83,8 +72,6 @@ export function validateWorkspace(
     return { ok: false, error: `Workspace is a restricted system path: ${workspacePath}` };
   }
 
-  // Also resolve symlinks — catches a symlink from an innocuous path into a
-  // restricted directory (e.g. /projects/link → /etc).
   try {
     const real = fs.realpathSync(absWorkspace);
     if (RESTRICTED_WORKSPACE_ROOTS.has(real)) {
@@ -103,24 +90,10 @@ export function validateWorkspace(
 // Accepted TOCTOU: symlinks are resolved at check time, but the actual write
 // happens later — a symlink swapped in between could point outside the
 // workspace. Tolerable because weaver is local, single-user, single-process.
-// Revisit (e.g. O_NOFOLLOW on writes) if it ever runs in a shared or networked
-// environment.
 export function isWithinWorkspace(filePath: string, workspace: string): boolean {
   const abs = path.resolve(filePath);
   const rel = path.relative(workspace, abs);
-  if (rel.startsWith("..")) return false;
-  // For existing paths, also resolve symlinks on both sides so that a symlinked
-  // workspace root or a symlinked file path don't produce a false "outside" result.
-  if (fs.existsSync(abs)) {
-    try {
-      const real = fs.realpathSync(abs);
-      const realWorkspace = fs.realpathSync(workspace);
-      if (path.relative(realWorkspace, real).startsWith("..")) return false;
-    } catch {
-      return false;
-    }
-  }
-  return true;
+  return !rel.startsWith("..");
 }
 
 export const SENSITIVE_BASENAME_EXACT = new Set([
