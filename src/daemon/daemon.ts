@@ -3,13 +3,14 @@ import * as net from "node:net";
 import * as path from "node:path";
 import { z } from "zod";
 import { EngineError } from "../domain/errors.js";
-import { validateWorkspace } from "../domain/security.js";
+import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../utils/extensions.js";
 import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
 import { dispatchRequest, invalidateAll, invalidateFile } from "./dispatcher.js";
 import type { DaemonLogger } from "./logger.js";
 import { createLogger, stripWorkspacePrefix } from "./logger.js";
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
+import { validateWorkspace } from "./validate-workspace.js";
 import { startWatcher } from "./watcher.js";
 
 /**
@@ -82,7 +83,7 @@ export async function stopDaemon(workspaceRoot: string, timeoutMs = 5_000): Prom
 }
 
 export async function runStop(opts: { workspace: string }): Promise<void> {
-  const wsResult = validateWorkspace(opts.workspace);
+  const wsResult = validateWorkspace(opts.workspace, new NodeFileSystem());
   if (!wsResult.ok) {
     process.stdout.write(
       `${JSON.stringify({ status: "error", error: "VALIDATION_ERROR", message: wsResult.error })}\n`,
@@ -134,7 +135,7 @@ function resolveVerbose(opts: { verbose?: boolean }): boolean {
 
 export async function runDaemon(opts: { workspace: string; verbose?: boolean }): Promise<void> {
   // 1. Validate workspace (existence, directory, not a restricted system path)
-  const wsResult = validateWorkspace(opts.workspace);
+  const wsResult = validateWorkspace(opts.workspace, new NodeFileSystem());
   if (!wsResult.ok) {
     process.stdout.write(
       `${JSON.stringify({ status: "error", error: "VALIDATION_ERROR", message: wsResult.error })}\n`,

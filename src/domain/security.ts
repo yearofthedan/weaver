@@ -1,5 +1,3 @@
-import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 
 /**
@@ -23,73 +21,6 @@ export function validateFilePath(
   return { ok: true };
 }
 
-// Paths that must never be used as a workspace root. See validate-workspace.ts
-// for the injected-FileSystem version used at the daemon boundary.
-const RESTRICTED_WORKSPACE_ROOTS: ReadonlySet<string> = new Set(
-  [
-    "/",
-    "/bin",
-    "/boot",
-    "/dev",
-    "/etc",
-    "/lib",
-    "/lib64",
-    "/proc",
-    "/root",
-    "/sbin",
-    "/sys",
-    "/usr",
-    "/var",
-    path.join(os.homedir(), ".aws"),
-    path.join(os.homedir(), ".azure"),
-    path.join(os.homedir(), ".gnupg"),
-    path.join(os.homedir(), ".kube"),
-    path.join(os.homedir(), ".ssh"),
-  ].flatMap((p) => {
-    try {
-      const real = fs.realpathSync(p);
-      return real === p ? [p] : [p, real];
-    } catch {
-      return [p];
-    }
-  }),
-);
-
-export function validateWorkspace(
-  workspacePath: string,
-): { ok: true; workspace: string } | { ok: false; error: string } {
-  const absWorkspace = path.resolve(workspacePath);
-
-  if (!fs.existsSync(absWorkspace)) {
-    return { ok: false, error: `Workspace directory not found: ${workspacePath}` };
-  }
-
-  if (!fs.statSync(absWorkspace).isDirectory()) {
-    return { ok: false, error: `Workspace is not a directory: ${workspacePath}` };
-  }
-
-  if (RESTRICTED_WORKSPACE_ROOTS.has(absWorkspace)) {
-    return { ok: false, error: `Workspace is a restricted system path: ${workspacePath}` };
-  }
-
-  try {
-    const real = fs.realpathSync(absWorkspace);
-    if (RESTRICTED_WORKSPACE_ROOTS.has(real)) {
-      return {
-        ok: false,
-        error: `Workspace resolves to a restricted system path: ${workspacePath}`,
-      };
-    }
-  } catch {
-    return { ok: false, error: `Could not resolve workspace path: ${workspacePath}` };
-  }
-
-  return { ok: true, workspace: absWorkspace };
-}
-
-// Accepted TOCTOU: symlinks are resolved at check time, but the actual write
-// happens later — a symlink swapped in between could point outside the
-// workspace. Tolerable because weaver is local, single-user, single-process.
 export function isWithinWorkspace(filePath: string, workspace: string): boolean {
   const abs = path.resolve(filePath);
   const rel = path.relative(workspace, abs);
