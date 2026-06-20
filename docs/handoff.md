@@ -71,7 +71,7 @@ src/
     *.test.ts              ← colocated unit tests
   domain/
     workspace-scope.ts    ← WorkspaceScope boundary tracking + modification recording
-    security.ts           ← validateFilePath(), validateWorkspace(), isWithinWorkspace(), isSensitiveFile() — all security policy
+    security.ts           ← validateFilePath(), isWithinWorkspace(), isSensitiveFile() — pure security policy (no node:fs)
     errors.ts             ← EngineError class + ErrorCode union
     *.test.ts              ← colocated unit tests
   daemon/
@@ -79,6 +79,7 @@ src/
     ensure-daemon.ts             ← ensureDaemon (version check + auto-spawn); callDaemon (socket client); spawnDaemon; forwards --verbose
     logger.ts                    ← DaemonLogger: structured JSON log file, 10 MB cap, workspace-prefix stripping
     paths.ts                     ← socketPath, lockfilePath, logfilePath, ensureCacheDir
+    validate-workspace.ts        ← validateWorkspace(path, fs) — boundary workspace existence/dir/restricted-root check
     dispatcher.ts                ← dispatchRequest; OPERATIONS table; re-exports registry functions
     post-write-diagnostics.ts    ← getTypeErrorsForFiles — post-write type error enrichment for dispatcher
     language-plugin-registry.ts  ← LanguagePlugin registry; makeRegistry; invalidateFile/invalidateAll; registers built-in Vue plugin
@@ -176,8 +177,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 - **Agent-host hooks that redirect shell refactoring to weaver** `[needs design]` — skill descriptions alone may not pull agents in (this repo needed CLAUDE.md Rule 18 to force its own agent). A PreToolUse hook on Bash that pattern-matches shell refactoring commands (`sed -i` on source files, `mv` of a `.ts` file, `grep -r` for an identifier) and redirects to the matching weaver command would make adoption deterministic instead of probabilistic. The hook script is a pure function (command string → allow / redirect message) — unit-testable, no LLM needed. The now-shipped `weaver skills install` command is the natural place to offer hook installation into the consumer's settings (extend it rather than building a separate installer). Decide: block vs suggest semantics, false-positive policy (grep on logs is fine), and which host(s) to support. **Gate now lifted** — the adversarial-eval lane shipped ([archived spec](specs/archive/20260615-adversarial-eval-lane.md)) and its verdict leans toward fixing the text, not building hooks: the one genuine clean-pass/poisoned-fail case (`get-type-errors → tsc`) was resolved by sharpening a tool description, with no regression. That weakens — but doesn't kill — the case for a forcing mechanism; decide whether the residual adoption risk warrants it. Value is also contingent: hooks are Claude-Code-only and only reach users who opt into hook config.
 
 ---
-
-- **Purify the domain layer (read-side port migration, slice 1)** → [`docs/specs/20260618-purify-domain-layer.md`](specs/20260618-purify-domain-layer.md) — make `src/domain/` import no `node:fs`/`node:os`: `isWithinWorkspace` becomes pure (symlink resolution moves to `WorkspaceScope`), workspace validation relocates to the daemon boundary with an injected `FileSystem`, plus a guard test. Spec-ready. Reframes the old "two domain files bypass the port" chore — the `assert-file.ts` half already shipped; the `import-rewriter.ts` `node:path` half was dropped (pure path math is not a platform dependency and doesn't belong on an I/O port).
 
 - **Route the operations core through the `FileSystem` port (slice 2)** `[needs design]` — after the domain is pure, the application/operations core still reads disk directly: `findReferences`/`getDefinition`/`findImporters` (`existsSync` guards), `replaceText` (`realpathSync`), `moveDirectory` (`readdirSync`/`statSync`). Inject the port (via scope or the engine) and add a `readdir` method to the `FileSystem` port (+ both implementations + conformance suite). The engine and Vue-plugin adapters legitimately do I/O and stay as-is — the invariant is "domain + operations core don't touch `node:fs`," not "nothing does." Decide how the read-only ops (no current `scope` param) receive a `FileSystem`.
 

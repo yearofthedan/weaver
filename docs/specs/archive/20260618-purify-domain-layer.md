@@ -83,3 +83,17 @@ No public CLI/socket surface changes. Internal signature changes only:
 - [ ] Slice-2 follow-up (operations core + `readdir` port method) is present in handoff.md as a `[needs design]` entry
 - [ ] Non-obvious gotchas (e.g. dispatcher scope availability, macOS realpath coverage) recorded in `docs/architecture.md` or alongside the code
 - [ ] Spec moved to `docs/specs/archive/` with an Outcome section appended
+
+## Outcome
+
+**Shipped:** the three ACs. `src/domain/security.ts` is now pure (imports only `node:path`); `isWithinWorkspace` is pure path math and the symlink-resolution it used to do lives in `WorkspaceScope.contains()`. `validateWorkspace` + `RESTRICTED_WORKSPACE_ROOTS` relocated to `src/daemon/validate-workspace.ts` with an injected `FileSystem`, killing the module-load `realpathSync`. `domain/domain-purity.test.ts` scans all of `src/domain/` and fails on any `node:fs`/`node:os` import. The dispatcher's boundary check routes through a per-invoke `WorkspaceScope`, consistent with how operations construct scopes.
+
+**Tests added:** +18 (1053 → 1071). New `validate-workspace.test.ts` (23 cases, `InMemoryFileSystem` + a `Proxy` to simulate `realpath` symlink mappings, plus 2 real-disk regression smokes); the `isWithinWorkspace` symlink case moved from `security.test.ts` to `workspace-scope.test.ts`; a fail-closed `contains()` case added.
+
+**Mutation:** `security.ts` 100%, `workspace-scope.ts` 100%, `validate-workspace.ts` 94.44%. The 2 remaining `validate-workspace.ts` survivors are genuine equivalents: the `real === p` Set-dedup branch (adds a duplicate either way) and the defensive build-set `catch` (only changes an error-message variant on an already-rejected unresolvable base path).
+
+**Reflection:**
+- *Went well:* the blast-radius check up front (`isWithinWorkspace` had 2 callers, `validateWorkspace` 1) confirmed the relocation was low-risk before any code moved. Constructor/parameter injection from the boundary (not a global) kept the domain genuinely pure rather than "pure but depends on a port."
+- *Review caught a real gap the agent mis-classified as noise:* the execution agent's tests asserted `expect.stringMatching(/restricted/i)` for *both* the direct-restricted and the resolves-to-restricted cases — so the security-meaningful "is" vs "resolves to" message distinction went untested and two mutants survived. Tightening to exact-message assertions killed them. Lesson for the next reviewer: a loose regex assertion on an error string is a classic mutation blind spot — when two code paths return different messages, pin both exactly.
+- *The `Proxy`-over-`InMemoryFileSystem` pattern* is the clean way to simulate `realpath` symlink resolution in-memory (the base `InMemoryFileSystem.realpath` is identity). Reusable for slice 2.
+- *For the next agent (slice 2):* the operations core still reads disk directly (`findReferences`/`getDefinition`/`findImporters` `existsSync` guards, `replaceText` `realpathSync`, `moveDirectory` `readdir`/`stat`). The read-only ops take no `scope` today — deciding how they receive a `FileSystem` is the open design question. The port needs a `readdir` method (3 callers). The engine/Vue plugins are adapters and stay on `node:fs` — do not migrate them.
