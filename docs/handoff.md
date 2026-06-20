@@ -178,7 +178,7 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ---
 
-- **Route the operations core through the `FileSystem` port (slice 2)** `[needs design]` — after the domain is pure, the application/operations core still reads disk directly: `findReferences`/`getDefinition`/`findImporters` (`existsSync` guards), `replaceText` (`realpathSync`), `moveDirectory` (`readdirSync`/`statSync`). Inject the port (via scope or the engine) and add a `readdir` method to the `FileSystem` port (+ both implementations + conformance suite). The engine and Vue-plugin adapters legitimately do I/O and stay as-is — the invariant is "domain + operations core don't touch `node:fs`," not "nothing does." Decide how the read-only ops (no current `scope` param) receive a `FileSystem`.
+- **Route the operations core through the `FileSystem` port (slice 2)** → [`docs/specs/20260620-operations-read-side-port.md`](specs/20260620-operations-read-side-port.md) — inject the port into the read-only ops (reusing `assertFileExists`), route `replaceText`/`moveDirectory`/`file-walk` through `scope.fs`, add `readdir` to the port, and extend the purity guard to `src/operations/**`. `ts-project.ts` and the compiler adapters stay out. Spec-ready.
 
 ### P4 — Low priority (cheap hygiene; clear opportunistically)
 
