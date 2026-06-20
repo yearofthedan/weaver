@@ -57,14 +57,22 @@ describe("validateWorkspace", () => {
     ])("rejects restricted system path: %s", (restrictedPath) => {
       const vfs = makeFs([restrictedPath]);
       const result = validateWorkspace(restrictedPath, vfs);
-      expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/restricted/i) });
+      // A path that *is* a restricted root reports "is", distinct from the
+      // "resolves to" message used for a symlink that escapes into one.
+      expect(result).toEqual({
+        ok: false,
+        error: `Workspace is a restricted system path: ${restrictedPath}`,
+      });
     });
 
     it("rejects a user credential directory", () => {
       const awsDir = path.join(os.homedir(), ".aws");
       const vfs = makeFs([awsDir]);
       const result = validateWorkspace(awsDir, vfs);
-      expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/restricted/i) });
+      expect(result).toEqual({
+        ok: false,
+        error: `Workspace is a restricted system path: ${awsDir}`,
+      });
     });
 
     it("rejects a path whose injected realpath resolves to a restricted root", () => {
@@ -82,7 +90,12 @@ describe("validateWorkspace", () => {
       }) as FileSystem;
 
       const result = validateWorkspace(innocuousDir, withSymlink);
-      expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/restricted/i) });
+      // The path itself is not restricted; it's rejected because it *resolves*
+      // into one — a distinct message from the direct case above.
+      expect(result).toEqual({
+        ok: false,
+        error: `Workspace resolves to a restricted system path: ${innocuousDir}`,
+      });
     });
 
     it("rejects a path whose injected realpath resolves to /private/etc (macOS /etc canonical form)", () => {
@@ -104,7 +117,10 @@ describe("validateWorkspace", () => {
       }) as FileSystem;
 
       const result = validateWorkspace(innocuousDir, withSymlink);
-      expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/restricted/i) });
+      expect(result).toEqual({
+        ok: false,
+        error: `Workspace resolves to a restricted system path: ${innocuousDir}`,
+      });
     });
 
     it("returns the path.resolve'd workspace path (not realpath) on success", () => {
@@ -163,7 +179,10 @@ describe("validateWorkspace", () => {
       const link = path.join(dir, "etc-link");
       fs.symlinkSync("/etc", link);
       const result = validateWorkspace(link, new NodeFileSystem());
-      expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/restricted/i) });
+      expect(result).toMatchObject({
+        ok: false,
+        error: expect.stringContaining("resolves to a restricted system path"),
+      });
     });
   });
 });

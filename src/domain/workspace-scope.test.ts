@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import type { FileSystem } from "../ports/filesystem.js";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { EngineError } from "./errors.js";
@@ -33,6 +34,23 @@ describe("WorkspaceScope", () => {
     it("returns true for a path that does not exist on disk (lexically inside)", () => {
       const scope = new WorkspaceScope(ROOT, new InMemoryFileSystem());
       expect(scope.contains("/workspace/src/does-not-exist.ts")).toBe(true);
+    });
+
+    it("fails closed (returns false) when realpath throws for an existing path", () => {
+      const vfs = new InMemoryFileSystem();
+      vfs.writeFile("/workspace/src/file.ts", "");
+      const throwingRealpath = new Proxy(vfs, {
+        get(target, prop) {
+          if (prop === "realpath") {
+            return () => {
+              throw new Error("ELOOP");
+            };
+          }
+          return (target as Record<string | symbol, unknown>)[prop];
+        },
+      }) as FileSystem;
+      const scope = new WorkspaceScope(ROOT, throwingRealpath);
+      expect(scope.contains("/workspace/src/file.ts")).toBe(false);
     });
 
     describe("symlink resolution via injected FileSystem", () => {
