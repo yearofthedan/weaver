@@ -125,13 +125,23 @@ describe("daemon lifecycle", () => {
         makeOpts({
           fs,
           host,
-          startServer: () => makeFakeServer(),
+          startServer: () => {
+            // Simulate the real server writing the socket file on listen
+            const server = makeFakeServer();
+            const origListen = server.listen.bind(server);
+            server.listen = (p) => {
+              fs.writeFile(p, "");
+              origListen(p);
+            };
+            return server;
+          },
           startWatcher: () => makeFakeWatcher(),
           signalReady: () => {},
         }),
       );
 
       expect(fs.exists(LOCK_PATH)).toBe(true);
+      expect(fs.exists(SOCK_PATH)).toBe(true);
 
       const sigtermHandler = host.capturedHandlers.get("SIGTERM");
       expect(sigtermHandler).toBeDefined();
@@ -195,13 +205,22 @@ describe("daemon lifecycle", () => {
         makeOpts({
           fs,
           host,
-          startServer: () => makeFakeServer(),
+          startServer: () => {
+            const server = makeFakeServer();
+            const origListen = server.listen.bind(server);
+            server.listen = (p) => {
+              fs.writeFile(p, "");
+              origListen(p);
+            };
+            return server;
+          },
           startWatcher: () => makeFakeWatcher(),
           signalReady: () => {},
         }),
       );
 
       expect(fs.exists(LOCK_PATH)).toBe(true);
+      expect(fs.exists(SOCK_PATH)).toBe(true);
 
       host.capturedHandlers.get("SIGINT")?.();
       await new Promise((r) => setTimeout(r, 0));
