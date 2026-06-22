@@ -7,6 +7,8 @@ import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../utils/extensions.js";
 import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
 import { dispatchRequest, invalidateAll, invalidateFile } from "./dispatcher.js";
+import type { DaemonHost } from "./lifecycle.js";
+import { runLifecycle } from "./lifecycle.js";
 import type { DaemonLogger } from "./logger.js";
 import { createLogger, stripWorkspacePrefix } from "./logger.js";
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
@@ -134,7 +136,6 @@ function resolveVerbose(opts: { verbose?: boolean }): boolean {
 }
 
 export async function runDaemon(opts: { workspace: string; verbose?: boolean }): Promise<void> {
-  // 1. Validate workspace (existence, directory, not a restricted system path)
   const wsResult = validateWorkspace(opts.workspace, new NodeFileSystem());
   if (!wsResult.ok) {
     process.stdout.write(
@@ -145,83 +146,76 @@ export async function runDaemon(opts: { workspace: string; verbose?: boolean }):
   const absWorkspace = wsResult.workspace;
   const verbose = resolveVerbose(opts);
 
-  // 2. Ensure cache dir exists
   ensureCacheDir();
 
   const sockPath = socketPath(absWorkspace);
   const pidPath = lockfilePath(absWorkspace);
   const logger = verbose ? createLogger(absWorkspace) : null;
 
-  // 3. Remove any leftover socket/lockfile from a previous run
   removeDaemonFiles(absWorkspace);
 
-  // 4. Write PID lockfile (JSON with pid + startedAt to detect recycled PIDs)
-  fs.writeFileSync(pidPath, JSON.stringify({ pid: process.pid, startedAt: Date.now() }));
+  const nodeFs = new NodeFileSystem();
+  const host: DaemonHost = {
+    onSignal: (signal, handler) => process.on(signal, handler),
+    exit: (code) => process.exit(code),
+  };
 
-  // 5. Open Unix socket and wait for connections
-  // Serialise all incoming requests with a promise-chain mutex. If two
-  // requests arrive concurrently (e.g. an MCP host retry while the first
-  // request is still in-flight), the second waits for the first to finish
-  // before dispatchRequest is called. Prevents interleaved file writes.
+  // Serialise all incoming requests with a promise-chain mutex so that
+  // concurrent connections never interleave file writes.
   let queue: Promise<void> = Promise.resolve();
-  const server = net.createServer((socket) => {
-    let buf = "";
-    socket.on("data", (chunk: Buffer) => {
-      buf += chunk.toString();
-      const lines = buf.split("\n");
-      buf = lines.pop() ?? "";
-      for (const line of lines) {
-        if (line.trim()) {
-          const trimmed = line.trim();
-          queue = queue.then(() => handleSocketRequest(socket, trimmed, absWorkspace, logger));
-        }
-      }
-    });
-    socket.on("error", (err) => {
-      if (logger) {
-        const code = (err as NodeJS.ErrnoException).code ?? "UNKNOWN";
-        logger.log({
-          ts: new Date().toISOString(),
-          method: "socket.error",
-          durationMs: 0,
-          status: "error",
-          error: code,
-          message: err.message,
+
+  await runLifecycle({
+    sockPath,
+    pidPath,
+    pid: process.pid,
+    fs: nodeFs,
+    host,
+    startServer: () => {
+      const server = net.createServer((socket) => {
+        let buf = "";
+        socket.on("data", (chunk: Buffer) => {
+          buf += chunk.toString();
+          const lines = buf.split("\n");
+          buf = lines.pop() ?? "";
+          for (const line of lines) {
+            if (line.trim()) {
+              const trimmed = line.trim();
+              queue = queue.then(() => handleSocketRequest(socket, trimmed, absWorkspace, logger));
+            }
+          }
         });
-      }
-    });
+        socket.on("error", (err) => {
+          if (logger) {
+            const code = (err as NodeJS.ErrnoException).code ?? "UNKNOWN";
+            logger.log({
+              ts: new Date().toISOString(),
+              method: "socket.error",
+              durationMs: 0,
+              status: "error",
+              error: code,
+              message: err.message,
+            });
+          }
+        });
+      });
+      return server;
+    },
+    startWatcher: () => {
+      const sentinelPath = path.join(absWorkspace, "__sentinel__");
+      const tsConfigPath = findTsConfigForFile(sentinelPath);
+      const watchExtensions =
+        tsConfigPath && isVueProject(tsConfigPath) ? VUE_EXTENSIONS : TS_EXTENSIONS;
+      return startWatcher(absWorkspace, watchExtensions, {
+        onFileChanged: invalidateFile,
+        onFileAdded: invalidateAll,
+        onFileRemoved: invalidateAll,
+      });
+    },
+    signalReady: () => {
+      process.stderr.write(`${JSON.stringify({ status: "ready", workspace: absWorkspace })}\n`);
+    },
+    logger: logger ?? undefined,
   });
-
-  server.listen(sockPath);
-
-  // 6. Watch for out-of-band file changes and invalidate stale compiler state.
-  // Extensions are chosen by project type — Vue projects also watch .vue files.
-  const sentinelPath = path.join(absWorkspace, "__sentinel__");
-  const tsConfigPath = findTsConfigForFile(sentinelPath);
-  const watchExtensions =
-    tsConfigPath && isVueProject(tsConfigPath) ? VUE_EXTENSIONS : TS_EXTENSIONS;
-
-  const watcher = startWatcher(absWorkspace, watchExtensions, {
-    onFileChanged: invalidateFile,
-    onFileAdded: invalidateAll,
-    onFileRemoved: invalidateAll,
-  });
-
-  // 7. Signal readiness
-  const readySignal = { status: "ready", workspace: absWorkspace };
-  process.stderr.write(`${JSON.stringify(readySignal)}\n`);
-
-  // 8. Clean up on shutdown
-  function shutdown(): void {
-    void watcher.stop();
-    server.close();
-    logger?.cleanup();
-    removeDaemonFiles(absWorkspace);
-    process.exit(0);
-  }
-
-  process.on("SIGTERM", shutdown);
-  process.on("SIGINT", shutdown);
 }
 
 const RequestEnvelopeSchema = z.object({

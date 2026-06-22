@@ -143,10 +143,15 @@ describe("daemon command", () => {
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
 
-    await new Promise<void>((resolve) => {
-      proc.on("exit", () => resolve());
-      proc.kill("SIGTERM");
-    });
+    const raw = fs.readFileSync(lockfilePath(dir), "utf8");
+    const { pid } = JSON.parse(raw) as { pid: number };
+    process.kill(pid, "SIGTERM");
+
+    const deadline = Date.now() + 5_000;
+    while (fs.existsSync(socketPath(dir)) || fs.existsSync(lockfilePath(dir))) {
+      if (Date.now() >= deadline) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
 
     expect(fs.existsSync(socketPath(dir))).toBe(false);
     expect(fs.existsSync(lockfilePath(dir))).toBe(false);
