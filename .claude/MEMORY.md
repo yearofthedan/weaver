@@ -51,6 +51,9 @@ The `afterSymbolMove` fallback scan walks all workspace TS files and rewrites im
 
 **Domain services must not know about file formats.** The plugin architecture exists so framework plugins (Vue, Svelte, etc.) handle their own file format concerns. A domain service like `ImportRewriter` operates on script content only — plugins extract script blocks from SFCs before calling the domain service and splice results back after. Never switch on file extensions or register format-specific extractors inside a domain service. If the word "vue" (or any framework name) appears outside the plugin directory or a single registration point, the abstraction is wrong.
 
+**Templates must be self-contained — no outward references.**
+A template gets copied into specs that get archived and outlive everything around them. Anything a template section points *out* to — a skill command (`/investigate`), a rule number ("see Rule 14"), another doc — is a pointer that rots when that thing is renamed, renumbered, or removed. State what each section means and when it is filled *inline, in the template's own words*. Routing ("which skill fills this") belongs in the routing docs (CLAUDE rules, handoff, the skill files), never in the artifact. Applies to any durable, archivable artifact.
+
 **Fix discovered tech debt in the same session.**
 If you discover misplaced tests, incorrect docs, or small structural problems during a migration, fix them now. Deferring turns a 10-minute fix into a full session to pick up, spec, and execute.
 

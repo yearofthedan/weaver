@@ -15,8 +15,11 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
 
 1. **Find the task.** Read `docs/handoff.md` — identify the first task by priority. Do not skip items or search `docs/specs/` for existing specs; the first item in the queue is the task, whatever its state.
    - **Has a spec link** → go to step 2.
+   - **`[needs investigation]` (no confirmed root cause)** → switch to the `/investigate` workflow: reproduce the failure, observe the mechanism, record a confirmed root cause in a bug spec, then route the fix back here (`/slice`) or to `/spec`. Do not begin implementation until the root cause is confirmed.
    - **`[needs design]` (no spec)** → switch to the `/spec` workflow: create a spec file from the appropriate template, walk through ACs with the user, update handoff.md with the spec link. After the spec is created, **commit the spec file and updated handoff.md** with message `docs(specs): add spec for [short-title]`. Do not begin implementation with an uncommitted spec. Then continue to step 2.
    - **Legacy inline ACs (no spec file, no `[needs design]` tag)** → ask the user: create a spec first, or proceed with inline ACs?
+
+   **Reclassification guard.** A `[needs investigation]` or `[needs design]` task cannot be downgraded to a direct fix because you *believe* you already know the root cause or the design. The tag is lowered only by running the discipline (`/investigate` or `/spec`) and recording its result — never by asserting the answer to skip the step.
 
 2. **Read the spec.** Open the linked spec file. Confirm the task and its ACs with the user BEFORE writing any code.
 

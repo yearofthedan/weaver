@@ -217,19 +217,71 @@ when designing a needs-design fix rather than creating a second one.
 
 ## Done-when
 
-- [ ] All five ACs verified by read-through (no test run — process/docs change).
-- [ ] `/investigate` skill is under 200 lines with valid internal frontmatter
-      (`name`, `description`, `metadata: internal: true`).
-- [ ] The `[needs investigation]` tag has identical meaning in CLAUDE Rule 10,
+- [x] All five ACs verified by read-through (no test run — process/docs change).
+- [x] `/investigate` skill is under 200 lines (59) with valid internal
+      frontmatter (`name`, `description`, `metadata: internal: true`).
+- [x] The `[needs investigation]` tag has identical meaning in CLAUDE Rule 10,
       handoff.md "Picking up a task", and `/slice` step 1; `/slice` routes it to
-      `/investigate` and refuses self-downgrade.
-- [ ] CLAUDE Rule 14 distinguishes confirmed-cause (reproduction + observed
+      `/investigate` and refuses self-downgrade (reclassification guard).
+- [x] CLAUDE Rule 14 distinguishes confirmed-cause (reproduction + observed
       mechanism) from fix-verification.
-- [ ] `bug.md` template notes `/investigate` (+`/spec`) ownership of Root cause /
-      Fix.
-- [ ] `pnpm check` passes (build + lint + tests still green — no new tests
+- [x] `bug.md` template marks Root cause / Fix as filled by investigation
+      (self-contained wording — see Outcome for the deviation from the drafted AC).
+- [x] `pnpm check` passes (build + lint + tests still green — no new tests
       expected; this guards against an accidental break, not new coverage).
-- [ ] No touched file exceeds the hard flag in `docs/code-standards.md` (the skill
+- [x] No touched file exceeds the hard flag in `docs/code-standards.md` (the skill
       stays <200 lines per the test convention for skills).
-- [ ] handoff.md entry removed (the `[needs design]` line for this task).
-- [ ] Spec moved to `docs/specs/archive/` with an Outcome section appended.
+- [x] handoff.md entry removed.
+- [x] Spec moved to `docs/specs/archive/` with an Outcome section appended.
+
+## Outcome
+
+**Shipped.** Five coupled process edits landed: the new `/investigate` skill
+(`.claude/skills/investigate/SKILL.md`, 59 lines), `[needs investigation]` added
+to the tag taxonomy in CLAUDE Rule 10 + handoff.md + `/slice` step 1 routing,
+CLAUDE Rule 14 sharpened to hold root-cause *claims* to a reproduce-plus-observe
+bar, a `/slice` reclassification guard (also stated in Rule 10), and the bug
+template marking Root cause / Fix as investigation-owned.
+
+- **No code, no tests.** Pure docs/process. `pnpm check` ran green via the
+  pre-commit hook (1081 main + 145 eval tests, unchanged). Mutation testing N/A.
+- **AC5 changed shape mid-flight.** The drafted AC said the bug template should
+  *name* `/investigate` (+`/spec`) as the owners of Root cause / Fix. During
+  implementation the user pushed back: a template is copied into specs that get
+  archived and outlive the things around it, so any outward reference — a skill
+  command *or* a CLAUDE rule number — is a pointer that rots. The template now
+  states the discipline inline ("filled only after the failure is reproduced and
+  its mechanism observed firsthand"; "complete only after the Root cause is
+  confirmed") with no outward references. Routing (which skill fills it) lives
+  only in the routing docs. Captured as a general rule in `.claude/MEMORY.md`
+  ("Templates must be self-contained — no outward references").
+- **The skill itself nearly shipped with two of its own anti-patterns.** First
+  draft over-corrected on the SIGTERM lesson — it demanded instrumentation
+  ceremony for *every* bug; revised so the reproduce-red gate is universal but the
+  observe-the-mechanism bar is proportional (escalate to instrumentation only when
+  the mechanism is hidden). It also carried narrative storytelling ("it did, twice,
+  in the daemon SIGTERM session"), the exact anti-pattern `writing-skills` warns
+  against — cut on a brevity pass that roughly halved the file (108 → 59 lines, the
+  discipline was stated three times).
+
+**Reflection.**
+
+- *What went well:* the spec's interface/edges framing of "the consistency
+  constraint *is* the verification" held up — the final check was a single grep
+  confirming the tag means the same thing in all four places and the route/guard
+  don't contradict.
+- *What did not:* I authored the skill without invoking `writing-skills`, despite
+  having read it during exploration — so the anti-patterns went in and only came
+  out under user prompting, not discipline. The lesson mirrors the skill's own
+  thesis: reading the guidance is not running it. When creating or editing a
+  skill, invoke `writing-skills` *first*. The Iron Law (RED baseline pressure test
+  before writing) was consciously skipped with user sign-off; this skill therefore
+  has methodology debt — its rationalization table and red-flags list are empty
+  because no baseline run has surfaced real rationalizations. If `/investigate`
+  proves leaky in use, run the RED-GREEN pressure loop and populate those.
+- *Recommendation to the next agent:* the next bug task is the place to dogfood
+  `/investigate` end-to-end — it has never actually been driven against a live
+  bug. Watch whether the create-bug-spec → reproduce → observe → route flow is
+  smooth in practice, especially the `/investigate` ↔ `/spec` handoff for a
+  needs-design fix (they both create spec files; the Open decision above says
+  `/spec` must pick up the existing file, not create a second).

@@ -35,13 +35,19 @@ What should happen instead. Same concrete format: input → expected output.
 
 ## Root cause
 
-*Filled in during investigation. Leave blank in the initial spec.*
+*Filled only after the failure has been reproduced and its mechanism observed
+firsthand — not reasoned toward, and not written at spec-creation time. Leave
+blank until then.*
 
 When filled, be specific enough that someone could point to the line(s)
 responsible. "The regex doesn't handle X" is better than "the validation
 is wrong."
 
 ## Fix
+
+> *Complete only after the Root cause above is confirmed. When the fix has
+> multiple viable approaches with different correctness or risk, it needs design
+> before implementation — not a guess written here.*
 
 > **Prompt:** If this bug affects a tool interface, response shape, or error path,
 > review [`docs/agent-users.md`](../../agent-users.md) — the fix should respect

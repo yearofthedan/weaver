@@ -53,11 +53,14 @@ Finish the test for a unit before moving to the next. The test is part of the im
 This project runs in a dev container. The home directory is deleted on every rebuild, taking `~/.claude/projects/` with it. Do NOT use the auto-memory system there. Use `.claude/MEMORY.md` (git-tracked) instead. Technical gotchas belong in the relevant `docs/internals/` or `docs/tech/` doc, not in MEMORY.md.
 
 **Rule 10: Not every task needs a spec — but every task needs a tag.**
-Tasks in `docs/handoff.md` carry one of three tags:
+Tasks in `docs/handoff.md` carry one of four tags:
 
 - **`[chore]`** — implementation is unambiguous; implement directly, no spec needed. Any decision context is in the task description itself. Use for: text/doc edits, dependency bumps, dead code removal, small config changes. If you find yourself unsure how to implement it, change the tag to `[needs design]`.
+- **`[needs investigation]`** — something is broken but the root cause is not yet confirmed. Run `/investigate` first — it reproduces the failure, observes the mechanism, and records a confirmed root cause, then routes the fix to `/slice` (unambiguous) or `/spec` (needs design). A bug whose cause is genuinely obvious is a spec-linked bug or a `[chore]`, not this.
 - **`[needs design]`** — problem understood, solution not agreed. Run `/spec` first — it picks the right template, walks through ACs with the user, and produces a ready-to-implement file. When adding new work discovered during a session, add a `[needs design]` entry and move on — do not spec it in the same session.
 - **spec link** — already designed, run `/slice` to implement.
+
+A `[needs investigation]` or `[needs design]` task cannot be downgraded to a direct fix by *claiming* you already know the cause or the design — the tag is lowered only by running the discipline (`/investigate` or `/spec`) and recording its result.
 
 Before writing a spec, ask: (1) does planning add safety? (real architectural choices, multiple code paths, meaningful risk) and (2) will an archived spec be a useful future reference? (the "why" isn't visible in the output itself). If neither is true, use `[chore]`.
 
@@ -79,7 +82,7 @@ Ranges let a compromised patch release auto-install on the next `pnpm install`, 
 Before adding code, read the target file and apply the pre-edit assessment in `docs/code-standards.md`.
 
 **Rule 14: When fixing a bug, establish a failing state first.**
-Before applying a fix, confirm the failure with a reproducible command or a failing test. After applying the fix, verify that the same command or test now passes. Reading code and reasoning about why it should work is not verification.
+Before applying a fix, confirm the failure with a reproducible command or a failing test. After applying the fix, verify that the same command or test now passes. Reading code and reasoning about why it should work is not verification. A *root-cause claim* is held to the same bar: it is confirmed only by a reproduced red state — plus, when the mechanism is hidden (a race, an ordering, unseen state), an observed mechanism from instrumenting the real path. Reasoning your way to a plausible cause, or a single green run of a flaky case, is not a confirmed cause. `/investigate` carries this discipline.
 
 **Rule 15: Pipe long-running commands through `tee` — and never re-launch them.**
 Always use `| tee /tmp/descriptive-name.log` for commands that take more than a few seconds (test suites, Stryker, builds). This preserves the full output for re-reading without re-running. Tail the tee output for immediate feedback: `command 2>&1 | tee /tmp/name.log | tail -20`. When running in the background, **wait for the completion notification**. Before even *thinking* about re-launching a background command: (1) `tail /tmp/the-tee-file.log` — the output file you created is the progress indicator, read it; (2) `pgrep -af <command>` — if the process is running, wait; (3) consider expected duration — mutation testing takes 10–20 minutes, `pnpm check` takes 1–2 minutes, builds take 10–30 seconds. Duplicate launches waste compute and corrupt shared state (temp dirs, caches).

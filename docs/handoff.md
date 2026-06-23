@@ -18,8 +18,9 @@ Context that isn't in the command or internals docs — things you need to know 
 4. [`docs/architecture.md`](architecture.md) — compiler/operation architecture; read before touching anything in `src/`
 5. [`docs/quality.md`](quality.md) — testing and reliability expectations
 
-**Picking up a task?** Tasks have one of three states:
+**Picking up a task?** Tasks have one of four states:
 - **`[chore]`** → implementation is unambiguous; implement directly, no spec needed. Any decision context is in the task description. Use for deferred admin tasks (dependency bumps, doc edits, config changes, dead code removal). Inline refactors spotted during a session don't need an entry — apply them in a separate commit and move on.
+- **`[needs investigation]`** → something is broken, root cause not yet confirmed. Run `/investigate` to reproduce the failure, observe the mechanism, and record a confirmed root cause, then route the fix to `/slice` or `/spec`.
 - **`[needs design]`** → problem understood, solution not yet agreed. Run `/spec` to create a spec with the user before writing code.
 - **Has a spec link** → already designed. Read the spec, then run `/slice`.
 
@@ -158,8 +159,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P2 — High-value features / bugs / tech debt
-
-- **`/investigate` skill for bug diagnosis (+ `[needs investigation]` tag)** → [`docs/specs/20260623-investigate-skill.md`](specs/20260623-investigate-skill.md) — new `/investigate` skill carrying debugging discipline + a `[needs investigation]` tag that `/slice` routes to, plus coupled edits to CLAUDE Rule 10/14, the `/slice` reclassification guard, and the bug template. Spec-ready.
 
 - **Local agentic trigger lane (eventual-operation metric)** → [`docs/specs/20260623-local-agentic-trigger-lane.md`](specs/20260623-local-agentic-trigger-lane.md) — multi-step local lane that credits a skill reached after a sensible precursor, removing the single-shot first-call false losses. Spec-ready.
 
