@@ -51,31 +51,51 @@ function makeOpts(overrides: Partial<Parameters<typeof runLifecycle>[0]> = {}) {
 
 describe("daemon lifecycle", () => {
   describe("startup ordering", () => {
-    it("installs signal handlers before the server and watcher are started", async () => {
+    it("installs both signal handlers before the daemon becomes discoverable (lockfile, then server, watcher, ready)", async () => {
       const fs = new InMemoryFileSystem();
-      const host = makeFakeHost();
-      const installOrder: string[] = [];
+      const events: string[] = [];
+      const origWrite = fs.writeFile.bind(fs);
+      fs.writeFile = (p, c) => {
+        events.push("lockfile");
+        origWrite(p, c);
+      };
+      const host: DaemonHost = {
+        onSignal: (signal) => {
+          events.push(`signal:${signal}`);
+        },
+        exit: () => {},
+      };
 
       await runLifecycle(
         makeOpts({
           fs,
           host,
           startServer: () => {
-            installOrder.push("server");
+            events.push("server");
             return makeFakeServer();
           },
           startWatcher: () => {
-            installOrder.push("watcher");
+            events.push("watcher");
             return makeFakeWatcher();
           },
           signalReady: () => {
-            installOrder.push("ready");
+            events.push("ready");
           },
         }),
       );
 
-      expect(host.capturedHandlers.size).toBe(2);
-      expect(installOrder).toEqual(["server", "watcher", "ready"]);
+      // The bug this guards against: a SIGTERM can arrive the instant the
+      // lockfile exists, so both handlers must already be installed when it is
+      // written. Pinning the full order catches a handler registration moved
+      // after the write — which no Stryker mutation would surface.
+      expect(events).toEqual([
+        "signal:SIGTERM",
+        "signal:SIGINT",
+        "lockfile",
+        "server",
+        "watcher",
+        "ready",
+      ]);
     });
 
     it("writes the lockfile with the given pid and a startedAt timestamp", async () => {
