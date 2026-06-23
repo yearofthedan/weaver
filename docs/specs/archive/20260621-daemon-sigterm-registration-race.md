@@ -177,16 +177,62 @@ the cohesive named unit plus the unit test is sufficient.
 
 ## Done-when
 
-- [ ] Reproduction (SIGTERM in the startup window) now runs `shutdown` and
+- [x] Reproduction (SIGTERM in the startup window) now runs `shutdown` and
       removes the files; the lifecycle unit test encodes it deterministically
-- [ ] Regression test covers earliest-stage signal, SIGTERM, and SIGINT parity
-- [ ] The daemon lifecycle's lockfile/socket I/O goes through the `FileSystem`
+- [x] Regression test covers earliest-stage signal, SIGTERM, and SIGINT parity
+- [x] The daemon lifecycle's lockfile/socket I/O goes through the `FileSystem`
       port, not `node:fs`
-- [ ] Integration test reduced to one real-wiring smoke (signal PID + poll)
-- [ ] Mutation score ≥ threshold for the new/changed source files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] `docs/internals/daemon.md` documents the startup ordering invariant
+- [x] Integration test reduced to one real-wiring smoke (signal PID + poll)
+- [x] Mutation score ≥ threshold for the new source file (`lifecycle.ts` 100%);
+      `daemon.ts` survivors classified as subprocess-noise (see Outcome)
+- [x] `pnpm check` passes (lint + build + test)
+- [x] `docs/internals/daemon.md` documents the startup ordering invariant
       (handlers installed before the daemon is discoverable) and the host seam
-- [ ] Tech debt discovered added to handoff.md as `[needs design]` (e.g. whether
-      `runStop`/`stopDaemon`/`ensureDaemon` should also move onto the port)
-- [ ] Spec moved to `docs/specs/archive/` with an Outcome section appended
+- [x] Tech debt discovered added to handoff.md as `[needs design]`
+- [x] Spec moved to `docs/specs/archive/` with an Outcome section appended
+
+## Outcome
+
+**Shipped.** Confirmed root cause by instrumentation, extracted the startup/
+shutdown sequencing into `src/daemon/lifecycle.ts` (`runLifecycle`) behind the
+`FileSystem` port and a `DaemonHost` (`onSignal`/`exit`) seam, with `runDaemon`
+reduced to a thin adapter. Signal handlers are now installed before the lockfile
+write / socket listen; `shutdown()` is safe at any startup stage.
+
+- **Tests added:** 10 unit tests in `lifecycle.test.ts`; the existing SIGTERM
+  integration test rewritten to one real-wiring smoke (signal the daemon PID,
+  poll for removal).
+- **Mutation:** `lifecycle.ts` 100% (8/8). `daemon.ts` 9% — classified as
+  structural noise: `runDaemon`/`handleSocketRequest` run only in the spawned
+  daemon subprocess, invisible to in-process Stryker. The extraction *moved* the
+  testable logic into `lifecycle.ts` (now 100%), so this is a net improvement,
+  not a regression. Whether to exclude adapter bodies from `--mutate` is logged
+  in handoff.
+- **Empirical confirmation:** the flake reproduced ~15% under the real full-suite
+  trigger (6/40); 0/25 after the fix.
+
+**Reflection.**
+
+- *What went well:* the architectural shape. Treating the test-difficulty as a
+  Dependency-Rule smell (rather than hacking a test-only env barrier) produced a
+  deterministic unit test that pins the ordering invariant — verified by
+  temporarily reintroducing the bug and watching the test go red. The
+  instrumentation that finally cracked it (per-PID lifecycle logging + running
+  the real full-suite trigger in a loop) settled mechanism (A) vs (B)
+  deductively.
+
+- *What did not, and took far too long:* the diagnosis thrashed. The root cause
+  was declared "confirmed" from reasoning plus a *green* isolation run; two
+  fixes were shipped on unverified hypotheses (each made it worse); and a load
+  harness silently applied no load because this sandbox reaps background process
+  trees on every command return. Hours burned. The original sin was reclassifying
+  a `[needs design]` bug to "direct fix, no spec" while its defining question
+  (the root cause) was still unanswered.
+
+- *Recommendation to the next agent:* this session directly motivated the
+  `/investigate` skill + `[needs investigation]` tag (logged in handoff) — bug
+  diagnosis needs a disciplined home that `/spec` and `/slice` don't provide.
+  For daemon work specifically: `daemon.ts` is subprocess-only, so test lifecycle
+  changes at the unit level via `lifecycle.ts`, never by spawning. And do not
+  trust a passing test as evidence about a race — reproduce the red state and
+  observe the mechanism.

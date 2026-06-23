@@ -18,8 +18,9 @@ The daemon solves both: load once, stay alive.
 ```
 weaver daemon --workspace /path/to/project
   ├── resolve and validate workspace path
-  ├── open Unix socket at ~/.cache/weaver/<workspace-hash>.sock
+  ├── register SIGTERM/SIGINT shutdown handlers   ← before anything discoverable
   ├── write lockfile with PID
+  ├── open Unix socket at ~/.cache/weaver/<workspace-hash>.sock
   ├── start filesystem watcher for the workspace
   └── write ready signal to stderr, wait for connections
 ```
@@ -70,6 +71,9 @@ The watcher keeps provider state fresh when files are edited outside weaver (edi
 
 **MCP server must start before the daemon auto-spawns.**
 In `serve`, bring the MCP server up before triggering daemon auto-spawn. If the daemon starts first and the socket connect happens before the MCP server is listening, the call times out.
+
+**Signal handlers are registered before the daemon becomes discoverable.**
+`runLifecycle` (`src/daemon/lifecycle.ts`) installs the SIGTERM/SIGINT handlers before writing the lockfile or opening the socket — a daemon is stoppable by PID the instant those exist, and a signal landing before the handler is installed would kill it on the default disposition, leaving a stale socket/lockfile. `shutdown()` is safe at any startup stage, so the server and watcher are optional when it fires. The sequencing sits behind the `FileSystem` port and a `DaemonHost` (`onSignal`/`exit`) seam, so lifecycle changes are unit-tested in `lifecycle.test.ts` rather than by spawning a process.
 
 **Test race: daemon socket not yet open when test connects.**
 After spawning the daemon process, the socket file may not exist yet. Use `waitForDaemon` (or equivalent retry logic) before sending the first socket request in tests.
