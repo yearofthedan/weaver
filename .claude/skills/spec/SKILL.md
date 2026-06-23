@@ -45,7 +45,7 @@ metadata:
 
    If red flags are severe enough to warrant cleanup before feature work, note that a cleanup sub-slice should be dispatched to the execution agent first.
 
-10. **Fill in Interface (change only).** See `docs/specs/templates/change.md` for the full walkthrough. For every parameter and return field, answer:
+10. **Fill in Interface (change only).** If the section doesn't apply (internal-only change, no public surface), mark it `N/A` and skip. Otherwise see `docs/specs/templates/change.md` for the full walkthrough. For every parameter and return field, answer:
     - What does it contain? (not just the type — the actual information)
     - What are the realistic bounds? What's an example value?
     - What's the zero/empty case? The adversarial case?
