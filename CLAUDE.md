@@ -109,6 +109,9 @@ Dynamic imports break Stryker's coverage attribution: the lines of the imported 
 **Rule 20: A mutation threshold is an alarm, not a target. Classify every survivor.**
 Mutation testing finds bugs. When a mutant survives, ask: what does this tell me about the code? Then classify: (a) real gap — the test suite cannot catch this logic inversion, write the missing assertion; (b) noise — the mutant is structurally unreachable or untestable, document exactly why; (c) dead code — the branch cannot be reached, remove it. "We hit 75%" is not a classification. Optional chaining, default values, and defensive guards that silently swallow impossible states are the most dangerous survivors — they turn future bugs into silent wrong answers instead of loud crashes. If the code is supposed to always find what it looks for, make it throw when it doesn't.
 
+**Rule 21: No narrative, no flavour, no history — in docs and in chat.**
+State the current point, then the evidence. Cut hype ("this is the real deal"), the "not just A, but B" construction, dramatic build-up ("the interesting bit is…"), and changelog narration ("moved from P2", "former X", "now reframed") in living docs — handoff/specs/docs describe what *is*, not what changed. Prefer a table, list, or bare fact over a paragraph that walks up to one. Applies to documentation, commit messages, and replies to the user.
+
 ---
 
 ## Commits
