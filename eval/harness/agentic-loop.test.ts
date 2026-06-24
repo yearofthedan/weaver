@@ -115,10 +115,14 @@ describe("runAgenticLoop", () => {
     });
 
     const secondTurn = histories[1];
+    const assistantEcho = secondTurn.find(
+      (m) => m.role === "assistant" && typeof m.content === "string" && m.content.includes("Grep"),
+    );
     const cannedTurn = secondTurn.find(
       (m) =>
         m.role === "user" && typeof m.content === "string" && m.content.includes("CANNED(Grep)"),
     );
+    expect(assistantEcho, "the prior call must be echoed as an assistant text turn").toBeDefined();
     expect(cannedTurn, "second turn must carry the canned result as a user message").toBeDefined();
     expect(secondTurn.every((m) => m.tool_calls === undefined)).toBe(true);
   });
