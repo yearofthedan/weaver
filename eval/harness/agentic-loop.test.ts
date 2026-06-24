@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { type ModelStep, runAgenticLoop } from "./agentic-loop.js";
+import { cannedToolResult, type ModelStep, runAgenticLoop } from "./agentic-loop.js";
 import type { ChatMessage, ModelResponse, ToolCall } from "./call-model.js";
+import { SKILL_NAMES } from "./context.js";
+import { BASH_TOOL, COMPETING_TOOLS } from "./tools.js";
 
 const tc = (name: string): ToolCall => ({ name, arguments: {} });
 const resp = (...names: string[]): ModelResponse => ({ toolCalls: names.map(tc), text: "" });
@@ -119,5 +121,21 @@ describe("runAgenticLoop", () => {
     );
     expect(cannedTurn, "second turn must carry the canned result as a user message").toBeDefined();
     expect(secondTurn.every((m) => m.tool_calls === undefined)).toBe(true);
+  });
+});
+
+describe("cannedToolResult", () => {
+  const laneToolNames = [
+    ...SKILL_NAMES,
+    ...COMPETING_TOOLS.map((t) => t.function.name),
+    BASH_TOOL.function.name,
+  ];
+
+  it.each(laneToolNames)("returns a non-empty canned result for %s", (name) => {
+    expect(cannedToolResult(tc(name))).toBeTruthy();
+  });
+
+  it("throws for an unknown tool name", () => {
+    expect(() => cannedToolResult(tc("unknownTool"))).toThrow(/unknownTool/);
   });
 });

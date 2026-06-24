@@ -1,6 +1,38 @@
 import type { ChatMessage, ModelResponse, ToolCall, ToolDefinition } from "./call-model.js";
 
 /**
+ * Canned tool output fed back after each loop turn, keyed by the tool name the
+ * model called. Results only have to look plausible enough to keep the model
+ * moving — they are never asserted on. Every tool the lane declares (each skill,
+ * each competing host tool, and bash) needs an entry; an unknown name throws so
+ * a drifted tool set fails loud instead of feeding an empty string.
+ */
+const CANNED_RESULTS: Record<string, string> = {
+  "weaver-search-and-replace": "src/auth.ts:12:  const v1 = config.v1;\nsrc/api.ts:5:  // v1 only",
+  "weaver-refactor": "Renamed across 3 files. No conflicts.",
+  "weaver-code-inspection":
+    "src/auth.ts:5:17 - reference\nsrc/api.ts:8:3 - reference\n2 references found.",
+  Edit: "Edit applied.",
+  Grep: "src/auth.ts:12:  userId\nsrc/api.ts:8:  userId",
+  Glob: "src/auth.ts\nsrc/api.ts",
+  Read: "export function authenticate(userId: string) { /* ... */ }",
+  bash: "src/auth.ts\nsrc/api.ts\nsrc/utils.ts",
+};
+
+/**
+ * Returns the canned result to feed back for a tool call. Throws when the tool
+ * name has no canned entry — a guard against the lane's tool set drifting ahead
+ * of this map.
+ */
+export function cannedToolResult(call: ToolCall): string {
+  const result = CANNED_RESULTS[call.name];
+  if (result === undefined) {
+    throw new Error(`No canned result for tool "${call.name}"`);
+  }
+  return result;
+}
+
+/**
  * The transport seam for {@link runAgenticLoop}: one model turn given the
  * current history and tools. `callModel` satisfies it directly; unit tests pass
  * a scripted fake so the loop's branching can be verified without a model server.
