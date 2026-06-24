@@ -226,6 +226,38 @@ rates on a trustworthy model — deferred to the hosted follow-up in `docs/hando
 the lane at a hosted 32B/72B via `WEAVER_EVAL_MODEL`/`WEAVER_EVAL_BASE_URL` plus
 `WEAVER_EVAL_API_KEY` (bearer auth) for that calibration run.
 
+## The agentic trigger lane
+
+`eval/cases/trigger-agentic.llm.test.ts` runs the same skill-trigger subset under the same
+pressures as the adversarial lane, but measures the *eventual* operation instead of the first
+tool call. `runAgenticLoop` (`eval/harness/agentic-loop.ts`) drives the model forward up to a
+step budget (default 3), feeding a canned result back after each turn, and passes when the
+expected skill is reached within the budget. Like the adversarial lane, it is a pressure variant
+of the local rungs (2–3), not a new rung.
+
+Why it exists: the single-shot first-call metric cannot tell a *substitution* (grep instead of
+search-text) from a reasonable *precursor* (find-references before a rename). It scores
+`rename-at-position → find-references-first` as a loss even though the model would rename next.
+The agentic lane credits the precursor and checks where the model actually lands.
+
+Reading the gap against the adversarial lane (same case subset, by design):
+
+- **red in adversarial, green here** → a precursor case: the description loses the first call but
+  wins within the budget. The single-shot loss was a false negative.
+- **red in both** → genuine non-convergence. The agentic lane's `trail` names what the model did
+  instead — a wrong-skill substitution (`inspection → search-and-replace → search-and-replace`)
+  or no tool call at all. This is the accurate attribution the single-shot lane cannot give: it
+  would blame the *precursor* skill that happened to win the first call.
+
+**Gotcha — plain-text echo.** Completed turns are echoed back as plain-text conversation turns
+(an assistant text turn plus a user turn carrying the canned result), never as `tool_call`/`tool`
+messages. Ollama silently drops seeded tool messages (the same reason seeds use plain text), so a
+tool-format echo would corrupt the next turn and silently measure nothing — the same invisible
+failure class as the `OLLAMA_CONTEXT_LENGTH` truncation gotcha. The model still emits a fresh tool
+call each turn, read straight from the response.
+
+Run it like the adversarial lane (`OLLAMA_CONTEXT_LENGTH` raised): `pnpm eval trigger-agentic`.
+
 ## Adding a new operation
 
 The coverage invariant (`eval/cases/coverage.test.ts`, runs in `pnpm check`) fails until:
@@ -243,7 +275,9 @@ new task category) ships.
 1. **v1:** local model, single-shot, temperature 0, pass/fail per case — the clean lane.
 2. **v2 (shipped):** the adversarial trigger lane (see above) — same metric, host-like
    pressure, clean lane retained as the regression baseline.
-3. **Later candidates, queued in `docs/handoff.md`:**
+3. **v3 (shipped):** the agentic trigger lane (see above) — eventual-operation metric under the
+   same pressure, crediting sensible precursors the single-shot lanes score as losses.
+4. **Later candidates, queued in `docs/handoff.md`:**
    - repeat-N fragility rates (temperature > 0) on the hosted calibration model, to catch
      the sub-flip erosion the pass/fail lanes miss
    - Agent SDK end-to-end runs (real bash, live daemon, file-state assertions) — highest

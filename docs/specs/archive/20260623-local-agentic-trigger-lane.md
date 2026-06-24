@@ -141,3 +141,43 @@ N/A — internal eval harness, no public surface.
       and how to read the gap between the single-shot and agentic lanes
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+Shipped. `runAgenticLoop` + `cannedToolResult` in `eval/harness/agentic-loop.ts`, 14 unit tests
+in `agentic-loop.test.ts` (run in `pnpm check`), and a 9-case lane in
+`eval/cases/trigger-agentic.llm.test.ts` (runs under `pnpm eval`). All ACs met. `pnpm check`
+green.
+
+**Validation run (`pnpm eval trigger-agentic`, qwen2.5:7b-instruct, OLLAMA_CONTEXT_LENGTH=16384).**
+Lane executed end-to-end in 78s, no stalls; 7/9 cases passed. The multi-step loop sustained
+correctly — one case ran the full 3-turn budget (`inspection → search-and-replace →
+search-and-replace`), confirming the plain-text echo keeps the model on-thread across turns. The
+motivating case (`trigger-refactor-rename`) behaved exactly as designed: the model took
+find-references as a precursor and the loop *tolerated* it rather than scoring an immediate loss
+— then the model converged on `weaver-search-and-replace`, not `weaver-refactor`. Compared
+against the adversarial single-shot lane (same 2 cases red), the value is clear: single-shot
+mis-attributes the failure to find-references ("weaver-code-inspection won"); the agentic trail
+gives the true cause (refactor losing to search-and-replace). No case flipped red→green this run
+because the one genuinely multi-step case didn't reach a *correct* target — but the
+precursor-tolerance that produces such a flip is demonstrated. The real skill-text finding is now
+a `[needs design]` handoff item.
+
+**Reflection.**
+- *Went well:* the `step` seam (injected model fn) made AC1–4 pure and deterministic — the loop's
+  branching is fully unit-tested with a scripted fake, no server. The empirical lane run then paid
+  off immediately by surfacing a genuine skill-selection signal the single-shot lane was
+  mis-attributing.
+- *Mis-specified in the spec:* the Done-when "mutation score ≥ threshold" item does **not** apply
+  here — `eval/` is in Stryker's `ignorePatterns` and the `mutate` globs are `src/`-only, so the
+  whole eval harness (seed, assertions, call-model, …) is excluded by design, and `StringLiteral`
+  mutations are globally excluded too. Adding `eval/` for one file would be inconsistent infra
+  churn. The loop's branches are instead covered by the unit tests. **Recommendation:** when
+  speccing eval-harness work, mark the mutation Done-when item N/A up front.
+- *Recommendation for the next agent:* the lane is a measurement, not a gate (it ships with red
+  cases, like the adversarial lane). Don't tune skill text to chase the agentic score from inside
+  this lane's slice — route skill-text changes through their own `[needs design]` items and
+  validate with both lanes.
+
+**Counts.** 14 unit tests added; 9-case LLM lane added. Mutation: N/A (eval excluded from
+Stryker by design).
