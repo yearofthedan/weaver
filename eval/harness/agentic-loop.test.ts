@@ -143,6 +143,47 @@ describe("runAgenticLoop", () => {
     });
   });
 
+  describe("malformed tool-call arguments", () => {
+    it("feeds an error back for a call with invalid arguments and lets the model retry", async () => {
+      const invalidCall: ToolCall = {
+        name: "bash",
+        arguments: {},
+        invalidArguments: '{"command":"unterminated',
+      };
+      const histories: ChatMessage[][] = [];
+      let calls = 0;
+      const step: ModelStep = async (messages) => {
+        histories.push(messages.map((m) => ({ ...m })));
+        calls += 1;
+        return calls === 1 ? { toolCalls: [invalidCall], text: "" } : resp("weaver-refactor");
+      };
+
+      const result = await runAgenticLoop({
+        messages: [{ role: "user", content: "task" }],
+        tools: [],
+        matches: (call) => call.name === "weaver-refactor",
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => {
+          throw new Error("must not consult canned results for an invalid call");
+        },
+      });
+
+      expect(result.matched).toBe(true);
+      expect(result.matchedAtStep).toBe(2);
+      expect(result.trail[0]).toBe(invalidCall);
+      const errorTurn = histories[1].find(
+        (m) =>
+          m.role === "user" &&
+          typeof m.content === "string" &&
+          m.content.includes("not valid JSON") &&
+          m.content.includes('{"command":"unterminated'),
+      );
+      expect(errorTurn, "the malformed call must be answered with an error turn").toBeDefined();
+    });
+  });
+
   describe("SKILL.md read tracking", () => {
     it("credits skill SKILL.md read, excludes it from trail, and matches at a later step", async () => {
       const skillReadCall = tc("Read");

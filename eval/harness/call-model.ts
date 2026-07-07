@@ -25,6 +25,12 @@ export interface ToolCall {
   id?: string;
   name: string;
   arguments: Record<string, unknown>;
+  /**
+   * The raw arguments string when the model emitted malformed JSON (in which
+   * case `arguments` is empty). A host feeds an error back for such a call
+   * rather than crashing — the loop does the same.
+   */
+  invalidArguments?: string;
 }
 
 export interface ModelResponse {
@@ -109,11 +115,22 @@ export async function callModel(
     throw new Error(`Model server returned no choices: ${JSON.stringify(data)}`);
   }
 
-  const toolCalls: ToolCall[] = (message.tool_calls ?? []).map((tc) => ({
-    id: tc.id,
-    name: tc.function.name,
-    arguments: JSON.parse(tc.function.arguments) as Record<string, unknown>,
-  }));
+  const toolCalls: ToolCall[] = (message.tool_calls ?? []).map((tc) => {
+    try {
+      return {
+        id: tc.id,
+        name: tc.function.name,
+        arguments: JSON.parse(tc.function.arguments) as Record<string, unknown>,
+      };
+    } catch {
+      return {
+        id: tc.id,
+        name: tc.function.name,
+        arguments: {},
+        invalidArguments: tc.function.arguments,
+      };
+    }
+  });
 
   return {
     toolCalls,

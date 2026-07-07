@@ -324,6 +324,53 @@ describe("callModel", () => {
       expect(result.text).toBe("I cannot help with that.");
     });
 
+    it("marks a tool call with malformed JSON arguments instead of throwing", async () => {
+      const rawArguments = '{"pattern":"unterminated';
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                role: "assistant",
+                content: null,
+                tool_calls: [
+                  {
+                    id: "call_0",
+                    type: "function",
+                    function: { name: "weaver-search-and-replace", arguments: rawArguments },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      });
+
+      const result = await callModel([{ role: "user", content: "go" }], [], explicitConfig());
+
+      expect(result.toolCalls).toEqual([
+        {
+          id: "call_0",
+          name: "weaver-search-and-replace",
+          arguments: {},
+          invalidArguments: rawArguments,
+        },
+      ]);
+    });
+
+    it("leaves invalidArguments unset when arguments parse cleanly", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeCompletionResponse([{ name: "bash", arguments: { command: "ls" } }]),
+      });
+
+      const result = await callModel([{ role: "user", content: "go" }], [], explicitConfig());
+
+      expect(result.toolCalls[0].invalidArguments).toBeUndefined();
+      expect(result.toolCalls[0].arguments).toEqual({ command: "ls" });
+    });
+
     it("returns empty text when the message content is null", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,

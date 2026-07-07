@@ -90,6 +90,14 @@ export async function runAgenticLoop(params: {
   let skillMdRead = false;
   let readTurn: number | undefined;
 
+  // A call whose arguments were malformed JSON gets a host-style error fed
+  // back instead of a canned result, so the model can retry rather than the
+  // run crashing.
+  const resultTextFor = (call: ToolCall): string =>
+    call.invalidArguments === undefined
+      ? cannedResultFor(call)
+      : `Error: arguments for tool "${call.name}" were not valid JSON: ${call.invalidArguments}`;
+
   for (let stepIndex = 1; stepIndex <= maxSteps; stepIndex++) {
     const response = await step(messages, tools);
     const calls = response.toolCalls;
@@ -109,7 +117,7 @@ export async function runAgenticLoop(params: {
       }
       messages.push(
         { role: "assistant", content: `I'll use ${call.name}.` },
-        { role: "user", content: `Output of ${call.name}:\n${cannedResultFor(call)}\n\nContinue.` },
+        { role: "user", content: `Output of ${call.name}:\n${resultTextFor(call)}\n\nContinue.` },
       );
       continue;
     }
@@ -129,7 +137,7 @@ export async function runAgenticLoop(params: {
 
     messages.push(
       { role: "assistant", content: `I'll use ${call.name}.` },
-      { role: "user", content: `Output of ${call.name}:\n${cannedResultFor(call)}\n\nContinue.` },
+      { role: "user", content: `Output of ${call.name}:\n${resultTextFor(call)}\n\nContinue.` },
     );
   }
 
