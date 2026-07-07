@@ -1,7 +1,7 @@
 {
   "name": "@yearofthedan/weaver",
   "version": "0.1.7",
-  "packageManager": "pnpm@11.7.0",
+  "packageManager": "pnpm@11.10.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/yearofthedan/weaver.git"
