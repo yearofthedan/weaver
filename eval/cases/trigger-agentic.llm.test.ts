@@ -31,6 +31,17 @@ const skillTriggerCases = CASES.filter((c) => c.stage === "trigger" && c.expect.
 const tools = rateLaneTools();
 const systemContent = `${buildClutterSystemPrompt()}\n\n${buildAvailableSkillsPrompt()}`;
 
+/**
+ * Renders a tool call with its raw arguments. For bash the command string is
+ * the evidence the lane exists to capture — a name-only trail cannot
+ * distinguish "never ran weaver" from a matcher false-negative.
+ */
+function formatCall(call: ToolCall): string {
+  const args =
+    call.name === "bash" ? String(call.arguments.command ?? "") : JSON.stringify(call.arguments);
+  return `${call.name}(${args})`;
+}
+
 /** Returns the skill name if this call is a Read of a skill's SKILL.md, else undefined. */
 function skillNameFromRead(call: ToolCall): string | undefined {
   if (call.name !== "Read") return undefined;
@@ -51,6 +62,8 @@ describe("agentic rate lane", () => {
     interface TrialRecord {
       matched: boolean;
       trail: ToolCall[];
+      skillMdRead: boolean;
+      readTurn?: number;
     }
 
     const trialRecords: TrialRecord[] = [];
@@ -84,7 +97,12 @@ describe("agentic rate lane", () => {
         },
       });
 
-      trialRecords.push({ matched: result.matched, trail: result.trail });
+      trialRecords.push({
+        matched: result.matched,
+        trail: result.trail,
+        skillMdRead: result.skillMdRead,
+        readTurn: result.readTurn,
+      });
     }
 
     const rate = computeRate(trialRecords.map((r) => r.matched));
@@ -92,9 +110,13 @@ describe("agentic rate lane", () => {
     const trailSummary = trialRecords
       .map(
         (r, i) =>
-          `  trial ${i + 1}: ${r.trail.map((t) => t.name).join(" → ") || "(no tool calls)"}`,
+          `  trial ${i + 1} [${r.matched ? "matched" : "no match"}, ${r.skillMdRead ? `SKILL.md read@${r.readTurn}` : "no SKILL.md read"}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}`,
       )
       .join("\n");
+
+    // Printed for passing cases too: the stopgap skill-name proxy can make the
+    // rate pass without any real weaver invocation — only the trail shows that.
+    console.log(`${c.name} — rate ${rate.passed}/${rate.total}\n${trailSummary}`);
 
     expect(
       rate.belowAlarm,
