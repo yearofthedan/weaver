@@ -56,12 +56,12 @@ export function matchWeaverCommand(
   subcommand: string,
   keyArgs?: Record<string, unknown>,
 ): WeaverCommandMatch {
-  // Match: (pnpm exec )?weaver <subcommand> ['"]...['"]\s*$
-  const pattern = /^(?:pnpm\s+exec\s+)?weaver\s+(\S+)\s+(['"])([\s\S]*)\2\s*$/;
+  // Match: (npx |pnpm exec )?weaver <subcommand> ['"]...['"]\s*$
+  const pattern = /^(?:npx\s+|pnpm\s+exec\s+)?weaver\s+(\S+)\s+(['"])([\s\S]*)\2\s*$/;
   const m = command.match(pattern);
 
   if (!m) {
-    if (/(?:pnpm\s+exec\s+)?weaver/.test(command)) {
+    if (/(?:npx\s+|pnpm\s+exec\s+)?weaver/.test(command)) {
       // weaver is present but format is unexpected
       return {
         matched: false,

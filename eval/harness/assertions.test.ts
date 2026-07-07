@@ -90,6 +90,25 @@ describe("matchWeaverCommand", () => {
       expect(result.matched).toBe(true);
     });
 
+    it("matches npx weaver prefix form", () => {
+      const result = matchWeaverCommand('npx weaver rename \'{"newName":"bar"}\'', "rename", {
+        newName: "bar",
+      });
+      expect(result.matched).toBe(true);
+    });
+
+    it("matches npx weaver with subcommand-only assertion", () => {
+      const result = matchWeaverCommand("npx weaver find-references '{}'", "find-references");
+      expect(result.matched).toBe(true);
+    });
+
+    it("does not match npx weaver with wrong subcommand", () => {
+      const result = matchWeaverCommand("npx weaver move-file '{}'", "rename");
+      expect(result.matched).toBe(false);
+      expect(result.reason).toContain("rename");
+      expect(result.reason).toContain("move-file");
+    });
+
     it("matches double-quote form around the JSON argument", () => {
       const result = matchWeaverCommand('weaver rename "{"newName":"bar"}"', "rename", {
         newName: "bar",
