@@ -53,6 +53,36 @@ export function skillFrontmatters(): SkillFrontmatter[] {
 }
 
 /**
+ * Returns the relative path to a skill's SKILL.md file, e.g.
+ * `.claude/skills/weaver-refactor/SKILL.md`. This is the single source of
+ * truth for the location string used in the `<available_skills>` block and
+ * matched by the loop's `isSkillMdRead` predicate.
+ */
+export function skillLocation(name: string): string {
+  return `.claude/skills/${name}/SKILL.md`;
+}
+
+/**
+ * Builds the `<available_skills>` system-prompt block for the rate lane.
+ * Lists each shipped skill's name, verbatim frontmatter description, and
+ * SKILL.md location. Follows with a framing instruction: skills are not
+ * callable tools — read the SKILL.md at its location, then act using
+ * existing tools (typically Bash).
+ */
+export function buildAvailableSkillsPrompt(): string {
+  const entries = skillFrontmatters()
+    .map(
+      ({ name, description }) =>
+        `<skill>\n<name>${name}</name>\n<description>${description}</description>\n<location>${skillLocation(name)}</location>\n</skill>`,
+    )
+    .join("\n");
+  return (
+    `<available_skills>\n${entries}\n</available_skills>\n\n` +
+    "Skills are not callable tools. To use a skill: read its SKILL.md at the location shown, then execute the instructions using your existing tools (typically Bash)."
+  );
+}
+
+/**
  * Returns a system prompt containing the full SKILL.md content for each named skill.
  * Used for command-stage eval cases where the model needs full instructions.
  *

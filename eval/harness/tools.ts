@@ -89,6 +89,17 @@ export const COMPETING_TOOLS: ToolDefinition[] = [
 ];
 
 /**
+ * The tool set for the rate lane: Bash + Glob + Grep + Read.
+ * Edit is excluded because the rate lane tests weaver skill selection, not
+ * direct file editing. Skills themselves are not declared as callable tools
+ * in this lane — the model must Read the SKILL.md then invoke weaver via Bash.
+ */
+export function rateLaneTools(): ToolDefinition[] {
+  const nonEdit = COMPETING_TOOLS.filter((t) => t.function.name !== "Edit");
+  return [BASH_TOOL, ...nonEdit];
+}
+
+/**
  * The bash tool used in both trigger-stage and command-stage cases.
  * In trigger cases it's present as a tempting alternative to using the skill.
  * In command cases it's the only tool — the model must emit a weaver command.

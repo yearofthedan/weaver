@@ -1,6 +1,32 @@
 import { describe, expect, it } from "vitest";
 import { SKILL_NAMES } from "./context.js";
-import { BASH_TOOL, COMPETING_TOOLS } from "./tools.js";
+import { BASH_TOOL, COMPETING_TOOLS, rateLaneTools } from "./tools.js";
+
+describe("rateLaneTools", () => {
+  it("contains exactly four tools", () => {
+    expect(rateLaneTools()).toHaveLength(4);
+  });
+
+  it("contains Bash, Glob, Grep, and Read", () => {
+    const names = new Set(rateLaneTools().map((t) => t.function.name));
+    expect(names).toContain("bash");
+    expect(names).toContain("Glob");
+    expect(names).toContain("Grep");
+    expect(names).toContain("Read");
+  });
+
+  it("does not contain Edit", () => {
+    const names = rateLaneTools().map((t) => t.function.name);
+    expect(names).not.toContain("Edit");
+  });
+
+  it("does not contain any skill name", () => {
+    const names = rateLaneTools().map((t) => t.function.name);
+    for (const skillName of SKILL_NAMES) {
+      expect(names).not.toContain(skillName);
+    }
+  });
+});
 
 describe("COMPETING_TOOLS", () => {
   it("declares the four expected competitor tools", () => {
