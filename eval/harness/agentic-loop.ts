@@ -43,22 +43,31 @@ export type ModelStep = (
 ) => Promise<ModelResponse>;
 
 export interface AgenticResult {
-  /** True if `expectedTool` was called within `maxSteps`. */
+  /** True if `matches` returned true for a call within `maxSteps`. */
   matched: boolean;
-  /** 1-based step at which `expectedTool` was first called; absent if never. */
+  /** 1-based step at which `matches` first returned true; absent if never. */
   matchedAtStep?: number;
-  /** Every tool call the model made, in order — the convergence trail. */
+  /** Every tool call the model made that was not a SKILL.md read, in order. */
   trail: ToolCall[];
   /** How many model turns were taken (≤ `maxSteps`). */
   steps: number;
+  /** True if a SKILL.md read was observed at any point during the run. */
+  skillMdRead: boolean;
+  /** 1-based step of the first SKILL.md read; absent if none occurred. */
+  readTurn?: number;
 }
 
 /**
  * Drives the model forward up to `maxSteps` turns, feeding a canned result back
- * after each turn, and reports whether the model reaches `expectedTool` — its
- * *eventual* selection, not just its first call. This credits a sensible
- * precursor (e.g. find-references before a rename) that the single-shot
+ * after each turn, and reports whether the model reaches a call satisfying
+ * `matches` — its *eventual* selection, not just its first call. This credits a
+ * sensible precursor (e.g. find-references before a rename) that the single-shot
  * first-call metric scores as a loss.
+ *
+ * When `isSkillMdRead` returns true for a call, the loop records the read
+ * (setting `skillMdRead` and `readTurn` on first occurrence) but does not add
+ * it to `trail` and does not treat it as a match — it is a navigation step
+ * toward the operation, not the operation itself.
  *
  * Completed turns are echoed as plain-text conversation turns, never as
  * tool_call/tool messages: Ollama silently drops seeded tool messages (see
@@ -69,14 +78,17 @@ export interface AgenticResult {
 export async function runAgenticLoop(params: {
   messages: ChatMessage[];
   tools: ToolDefinition[];
-  expectedTool: string;
+  matches: (call: ToolCall) => boolean;
+  isSkillMdRead: (call: ToolCall) => boolean;
   maxSteps: number;
   step: ModelStep;
   cannedResultFor: (call: ToolCall) => string;
 }): Promise<AgenticResult> {
-  const { tools, expectedTool, maxSteps, step, cannedResultFor } = params;
+  const { tools, matches, isSkillMdRead, maxSteps, step, cannedResultFor } = params;
   const messages = [...params.messages];
   const trail: ToolCall[] = [];
+  let skillMdRead = false;
+  let readTurn: number | undefined;
 
   for (let stepIndex = 1; stepIndex <= maxSteps; stepIndex++) {
     const response = await step(messages, tools);
@@ -85,21 +97,41 @@ export async function runAgenticLoop(params: {
     if (calls.length === 0) {
       // Model answered with text instead of a tool call — it has abandoned the
       // tools and will not converge. Stop here rather than burn the budget.
-      return { matched: false, trail, steps: stepIndex };
+      return { matched: false, trail, steps: stepIndex, skillMdRead, readTurn };
+    }
+
+    const call = calls[0];
+
+    if (isSkillMdRead(call)) {
+      if (!skillMdRead) {
+        skillMdRead = true;
+        readTurn = stepIndex;
+      }
+      messages.push(
+        { role: "assistant", content: `I'll use ${call.name}.` },
+        { role: "user", content: `Output of ${call.name}:\n${cannedResultFor(call)}\n\nContinue.` },
+      );
+      continue;
     }
 
     trail.push(...calls);
 
-    if (calls.some((call) => call.name === expectedTool)) {
-      return { matched: true, matchedAtStep: stepIndex, trail, steps: stepIndex };
+    if (calls.some((c) => matches(c))) {
+      return {
+        matched: true,
+        matchedAtStep: stepIndex,
+        trail,
+        steps: stepIndex,
+        skillMdRead,
+        readTurn,
+      };
     }
 
-    const call = calls[0];
     messages.push(
       { role: "assistant", content: `I'll use ${call.name}.` },
       { role: "user", content: `Output of ${call.name}:\n${cannedResultFor(call)}\n\nContinue.` },
     );
   }
 
-  return { matched: false, trail, steps: maxSteps };
+  return { matched: false, trail, steps: maxSteps, skillMdRead, readTurn };
 }

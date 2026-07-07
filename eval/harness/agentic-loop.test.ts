@@ -19,112 +19,248 @@ function scriptedModel(responses: ModelResponse[]): { step: ModelStep; callCount
 }
 
 describe("runAgenticLoop", () => {
-  it("reports a match when the expected skill is reached after a precursor", async () => {
-    const { step } = scriptedModel([resp("weaver-code-inspection"), resp("weaver-refactor")]);
+  describe("match predicate", () => {
+    it("reports a match when the predicate is satisfied after a precursor", async () => {
+      const { step } = scriptedModel([resp("weaver-code-inspection"), resp("weaver-refactor")]);
 
-    const result = await runAgenticLoop({
-      messages: [],
-      tools: [],
-      expectedTool: "weaver-refactor",
-      maxSteps: 3,
-      step,
-      cannedResultFor: () => "result",
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "weaver-refactor",
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.matched).toBe(true);
+      expect(result.matchedAtStep).toBe(2);
+      expect(result.trail.map((t) => t.name)).toEqual([
+        "weaver-code-inspection",
+        "weaver-refactor",
+      ]);
     });
 
-    expect(result.matched).toBe(true);
-    expect(result.matchedAtStep).toBe(2);
-    expect(result.trail.map((t) => t.name)).toEqual(["weaver-code-inspection", "weaver-refactor"]);
+    it("reports a match at step 1 when the predicate is satisfied on the first call", async () => {
+      const { step } = scriptedModel([resp("weaver-refactor")]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "weaver-refactor",
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.matched).toBe(true);
+      expect(result.matchedAtStep).toBe(1);
+    });
+
+    it("reports no match and stops at the budget when the predicate is never satisfied", async () => {
+      let calls = 0;
+      const step: ModelStep = async () => {
+        calls += 1;
+        return resp("Grep");
+      };
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "weaver-refactor",
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.matched).toBe(false);
+      expect(result.matchedAtStep).toBeUndefined();
+      expect(result.steps).toBe(3);
+      expect(calls).toBe(3);
+      expect(result.trail.map((t) => t.name)).toEqual(["Grep", "Grep", "Grep"]);
+    });
+
+    it("stops and reports no match when the model emits no tool call", async () => {
+      const { step, callCount } = scriptedModel([
+        resp("Grep"),
+        { toolCalls: [], text: "I'll just edit it by hand." },
+      ]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "weaver-refactor",
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.matched).toBe(false);
+      expect(result.steps).toBe(2);
+      expect(callCount()).toBe(2);
+    });
+
+    it("feeds the canned result back as plain-text turns, never tool-format messages", async () => {
+      const histories: ChatMessage[][] = [];
+      let calls = 0;
+      const step: ModelStep = async (messages) => {
+        histories.push(messages.map((m) => ({ ...m })));
+        calls += 1;
+        return calls === 1 ? resp("Grep") : resp("weaver-refactor");
+      };
+
+      await runAgenticLoop({
+        messages: [{ role: "user", content: "task" }],
+        tools: [],
+        matches: (call) => call.name === "weaver-refactor",
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: (call) => `CANNED(${call.name})`,
+      });
+
+      const secondTurn = histories[1];
+      const assistantEcho = secondTurn.find(
+        (m) =>
+          m.role === "assistant" && typeof m.content === "string" && m.content.includes("Grep"),
+      );
+      const cannedTurn = secondTurn.find(
+        (m) =>
+          m.role === "user" && typeof m.content === "string" && m.content.includes("CANNED(Grep)"),
+      );
+      expect(
+        assistantEcho,
+        "the prior call must be echoed as an assistant text turn",
+      ).toBeDefined();
+      expect(
+        cannedTurn,
+        "second turn must carry the canned result as a user message",
+      ).toBeDefined();
+      expect(secondTurn.every((m) => m.tool_calls === undefined)).toBe(true);
+    });
   });
 
-  it("reports a match at step 1 when the expected skill is the first call", async () => {
-    const { step } = scriptedModel([resp("weaver-refactor")]);
+  describe("SKILL.md read tracking", () => {
+    it("credits skill SKILL.md read, excludes it from trail, and matches at a later step", async () => {
+      const skillReadCall = tc("Read");
+      const bashCall = tc("bash");
 
-    const result = await runAgenticLoop({
-      messages: [],
-      tools: [],
-      expectedTool: "weaver-refactor",
-      maxSteps: 3,
-      step,
-      cannedResultFor: () => "result",
+      const { step } = scriptedModel([
+        { toolCalls: [skillReadCall], text: "" },
+        { toolCalls: [bashCall], text: "" },
+      ]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "bash",
+        isSkillMdRead: (call) => call === skillReadCall,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.matched).toBe(true);
+      expect(result.matchedAtStep).toBe(2);
+      expect(result.skillMdRead).toBe(true);
+      expect(result.readTurn).toBe(1);
+      expect(result.trail.map((t) => t.name)).not.toContain("Read");
+      expect(result.trail.map((t) => t.name)).toContain("bash");
     });
 
-    expect(result.matched).toBe(true);
-    expect(result.matchedAtStep).toBe(1);
-  });
+    it("matches with no prior skill SKILL.md read", async () => {
+      const bashCall = tc("bash");
+      const { step } = scriptedModel([{ toolCalls: [bashCall], text: "" }]);
 
-  it("reports no match and stops at the budget when the skill is never reached", async () => {
-    // Always returns a non-expected call, so the loop must exhaust the budget.
-    let calls = 0;
-    const step: ModelStep = async () => {
-      calls += 1;
-      return resp("Grep");
-    };
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "bash",
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
 
-    const result = await runAgenticLoop({
-      messages: [],
-      tools: [],
-      expectedTool: "weaver-refactor",
-      maxSteps: 3,
-      step,
-      cannedResultFor: () => "result",
+      expect(result.matched).toBe(true);
+      expect(result.skillMdRead).toBe(false);
+      expect(result.readTurn).toBeUndefined();
     });
 
-    expect(result.matched).toBe(false);
-    expect(result.matchedAtStep).toBeUndefined();
-    expect(result.steps).toBe(3);
-    expect(calls).toBe(3); // never calls the model past the budget
-    expect(result.trail.map((t) => t.name)).toEqual(["Grep", "Grep", "Grep"]);
-  });
+    it("reports skill SKILL.md read but no match when budget exhausted before a match", async () => {
+      const skillReadCall = tc("Read");
+      let callIndex = 0;
+      const step: ModelStep = async () => {
+        callIndex += 1;
+        return callIndex === 1 ? { toolCalls: [skillReadCall], text: "" } : resp("Grep");
+      };
 
-  it("stops and reports no match when the model emits no tool call", async () => {
-    const { step, callCount } = scriptedModel([
-      resp("Grep"),
-      { toolCalls: [], text: "I'll just edit it by hand." },
-    ]);
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "bash",
+        isSkillMdRead: (call) => call === skillReadCall,
+        maxSteps: 2,
+        step,
+        cannedResultFor: () => "result",
+      });
 
-    const result = await runAgenticLoop({
-      messages: [],
-      tools: [],
-      expectedTool: "weaver-refactor",
-      maxSteps: 3,
-      step,
-      cannedResultFor: () => "result",
+      expect(result.matched).toBe(false);
+      expect(result.skillMdRead).toBe(true);
+      expect(result.readTurn).toBe(1);
+      expect(result.trail.map((t) => t.name)).toEqual(["Grep"]);
     });
 
-    expect(result.matched).toBe(false);
-    expect(result.steps).toBe(2);
-    expect(callCount()).toBe(2); // did not take a third turn despite budget remaining
-  });
+    it("records a non-matching competing call in the trail", async () => {
+      const grepCall = tc("Grep");
+      const { step } = scriptedModel([
+        { toolCalls: [grepCall], text: "" },
+        { toolCalls: [], text: "Done." },
+      ]);
 
-  it("feeds the canned result back as plain-text turns, never tool-format messages", async () => {
-    const histories: ChatMessage[][] = [];
-    let calls = 0;
-    const step: ModelStep = async (messages) => {
-      histories.push(messages.map((m) => ({ ...m })));
-      calls += 1;
-      return calls === 1 ? resp("Grep") : resp("weaver-refactor");
-    };
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "bash",
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
 
-    await runAgenticLoop({
-      messages: [{ role: "user", content: "task" }],
-      tools: [],
-      expectedTool: "weaver-refactor",
-      maxSteps: 3,
-      step,
-      cannedResultFor: (call) => `CANNED(${call.name})`,
+      expect(result.matched).toBe(false);
+      expect(result.trail.map((t) => t.name)).toEqual(["Grep"]);
     });
 
-    const secondTurn = histories[1];
-    const assistantEcho = secondTurn.find(
-      (m) => m.role === "assistant" && typeof m.content === "string" && m.content.includes("Grep"),
-    );
-    const cannedTurn = secondTurn.find(
-      (m) =>
-        m.role === "user" && typeof m.content === "string" && m.content.includes("CANNED(Grep)"),
-    );
-    expect(assistantEcho, "the prior call must be echoed as an assistant text turn").toBeDefined();
-    expect(cannedTurn, "second turn must carry the canned result as a user message").toBeDefined();
-    expect(secondTurn.every((m) => m.tool_calls === undefined)).toBe(true);
+    it("records the first SKILL.md read turn and ignores subsequent reads", async () => {
+      const skillReadCall1 = tc("Read");
+      const skillReadCall2 = tc("Read");
+      const bashCall = tc("bash");
+
+      const { step } = scriptedModel([
+        { toolCalls: [skillReadCall1], text: "" },
+        { toolCalls: [skillReadCall2], text: "" },
+        { toolCalls: [bashCall], text: "" },
+      ]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "bash",
+        isSkillMdRead: (call) => call === skillReadCall1 || call === skillReadCall2,
+        maxSteps: 4,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.skillMdRead).toBe(true);
+      expect(result.readTurn).toBe(1);
+      expect(result.matched).toBe(true);
+      expect(result.trail.map((t) => t.name)).not.toContain("Read");
+    });
   });
 });
 
