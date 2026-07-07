@@ -56,20 +56,13 @@ N/A — internal eval harness. No public CLI, socket, or MCP surface changes. Ne
 
 ## Open decisions
 
-- **Decision: rate-lane temperature — pin a value or use the provider default?**
-  - **Options:** (a) pin an explicit modest value (e.g. `0.7`) via the default of `WEAVER_EVAL_TEMPERATURE`; (b) send no temperature and let OpenRouter/Llama's server default apply.
-  - **Tradeoffs:** (b) makes rates non-comparable across runs if the provider changes its default, and hides the sampling setting from the record — the rate is only interpretable relative to a known temperature. (a) fixes the sampling regime so a rate delta between two description versions is attributable to the text, not a drifting default.
-  - **Recommendation:** (a) pin `0.7` as the documented default; it is a real sampling regime (satisfies "never temperature 0") and keeps rates comparable. Revisit only if 0.7 proves too hot to separate signal from noise.
+*All resolved 2026-07-07 (slice kickoff, user-confirmed).*
 
-- **Decision: config default when no hosted endpoint is set.**
-  - **Options:** (a) keep `DEFAULT_BASE_URL` at local Ollama, so an unconfigured run targets localhost and fails there; (b) treat the hosted lane as requiring explicit env, with `global-setup.llm.ts` failing fast and printing the OpenRouter setup (base URL + model + key) when unset.
-  - **Tradeoffs:** (a) leaves a dead local default that no longer reflects how the eval is run and produces a confusing connection error. (b) makes the required configuration explicit at the point of failure, mirroring the existing ollama-pull fail-fast.
-  - **Recommendation:** (b). Keep the env-driven config but make the rate lane's setup probe assert a hosted endpoint is configured and print the exact env to set otherwise. Do not hardcode a key.
+- **Rate-lane temperature → pin `0.7` as the `WEAVER_EVAL_TEMPERATURE` default.** A known sampling regime keeps trigger rates comparable across runs, so a rate delta between two description versions is attributable to the text rather than a drifting provider default. Satisfies "never temperature 0". Watch: if 0.7 proves too hot to separate signal from noise, lower it — the env var makes that a config change, not a code change. Rules out relying on OpenRouter's unspecified server default.
 
-- **Decision: where the trial loop and rate live.**
-  - **Options:** (a) a shared `runTrials` helper called by the lane, aggregating in-test with a rich failure message; (b) a custom vitest reporter aggregating across the whole run.
-  - **Tradeoffs:** (b) is nicer for a run-level summary but is more machinery and couples the lane to reporter internals. (a) keeps the aggregation a pure, unit-testable helper and the lane self-contained.
-  - **Recommendation:** (a) now; a reporter-level summary is a later nicety, not this slice.
+- **Config default when no hosted endpoint is set → fail fast requiring explicit env.** `global-setup.llm.ts` asserts a hosted endpoint is configured and prints the exact OpenRouter env to set (base URL + model + key) when unset, mirroring the existing ollama-pull fail-fast. The dead local-Ollama `DEFAULT_BASE_URL` no longer reflects how the eval runs and would produce a confusing localhost connection error. Never hardcode a key. Watch: the command/two-step lanes may also key off `modelConfig()` — the fail-fast must live in the rate lane's setup path, not globally break lanes that could still run against a different endpoint.
+
+- **Trial loop and rate → a shared pure `runTrials`/aggregation helper the lane calls.** Keeps aggregation a unit-testable pure function and the lane self-contained, with a rich per-trial failure message. A run-level custom vitest reporter is a later nicety, not this slice. Rules out (for now) a cross-run summary view.
 
 ## Security
 
