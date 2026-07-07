@@ -9,7 +9,7 @@ const tools = [...skillTools(), BASH_TOOL];
 
 describe("trigger-stage cases", () => {
   it.each(triggerCases)("$name — model selects the correct tool", async (c) => {
-    const expectedTool = c.expect.tool;
+    const expectedTool = c.expect.skill;
     expect(expectedTool, "trigger case must declare expect.tool").toBeDefined();
 
     const response = await callModel([{ role: "user", content: c.task }], tools);

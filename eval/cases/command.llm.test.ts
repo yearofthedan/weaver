@@ -19,9 +19,9 @@ function commandPrompt(task: string): string {
 
 describe("command-stage cases", () => {
   it.each(singleStepCases)("$name — model emits correct weaver command", async (c) => {
-    const { subcommand, keyArgs } = c.expect;
-    expect(subcommand, "command case must declare expect.subcommand").toBeDefined();
-    if (!subcommand) return;
+    const { command, keyArgs } = c.expect;
+    expect(command, "command case must declare expect.subcommand").toBeDefined();
+    if (!command) return;
 
     const response = await callModel([{ role: "user", content: commandPrompt(c.task) }], [], {
       ...modelConfig(),
@@ -35,7 +35,7 @@ describe("command-stage cases", () => {
       `No command emitted for task: "${c.task}". Model responded with: ${response.text}`,
     ).toBeGreaterThan(0);
 
-    const matches = commands.map((cmd) => matchWeaverCommand(cmd, subcommand, keyArgs));
+    const matches = commands.map((cmd) => matchWeaverCommand(cmd, command, keyArgs));
     const passing = matches.find((m) => m.matched);
 
     expect(

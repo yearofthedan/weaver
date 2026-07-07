@@ -15,8 +15,8 @@ export interface CaseEntry {
      * "bash" for boundary cases that must stay in the shell (guards against a
      * description over-triggering and stealing legitimate shell work).
      */
-    tool?: SkillName | "bash";
-    subcommand?: string;
+    skill?: SkillName | "bash";
+    command?: string;
     keyArgs?: Record<string, unknown>;
   };
 }
@@ -60,55 +60,55 @@ export const CASES: CaseEntry[] = validateCases([
     name: "trigger-refactor-rename",
     stage: "trigger",
     task: "`userId` is at line 12, column 8 of /tmp/weaver-eval/src/auth.ts — rename it to `accountId` everywhere in the project.",
-    expect: { tool: "weaver-refactor", subcommand: "rename" },
+    expect: { skill: "weaver-refactor", command: "rename" },
   },
   {
     name: "trigger-refactor-rename-no-coords-sed-tempting",
     stage: "trigger",
     task: "Rename the variable `userId` to `accountId` across all TypeScript files in /tmp/weaver-eval/src. I don't have the line numbers.",
-    expect: { tool: "weaver-refactor", subcommand: "rename" },
+    expect: { skill: "weaver-refactor", command: "rename" },
   },
   {
     name: "trigger-refactor-move-file",
     stage: "trigger",
     task: "Move /tmp/weaver-eval/src/auth.ts to /tmp/weaver-eval/src/authentication/auth.ts and update all imports.",
-    expect: { tool: "weaver-refactor", subcommand: "move-file" },
+    expect: { skill: "weaver-refactor", command: "move-file" },
   },
   {
     name: "trigger-search-and-replace-pattern",
     stage: "trigger",
     task: 'Replace all occurrences of "v1" with "v2" across the project, including in comments.',
-    expect: { tool: "weaver-search-and-replace", subcommand: "replace-text" },
+    expect: { skill: "weaver-search-and-replace", command: "replace-text" },
   },
   {
     name: "trigger-search-and-replace-todos-grep-tempting",
     stage: "trigger",
     task: "Find all the TODO comments in /tmp/weaver-eval/src — I need the file, line number, and context around each one.",
-    expect: { tool: "weaver-search-and-replace", subcommand: "search-text" },
+    expect: { skill: "weaver-search-and-replace", command: "search-text" },
   },
   {
     name: "trigger-search-and-replace-sed-tempting",
     stage: "trigger",
     task: 'Replace every occurrence of the string "v1" with "v2" in all TypeScript source files under /tmp/weaver-eval/src. Make sure to get comments too.',
-    expect: { tool: "weaver-search-and-replace", subcommand: "replace-text" },
+    expect: { skill: "weaver-search-and-replace", command: "replace-text" },
   },
   {
     name: "trigger-code-inspection-find-references",
     stage: "trigger",
     task: "Where is `authenticate` used? It's at line 5, column 17 of /tmp/weaver-eval/src/auth.ts.",
-    expect: { tool: "weaver-code-inspection", subcommand: "find-references" },
+    expect: { skill: "weaver-code-inspection", command: "find-references" },
   },
   {
     name: "trigger-code-inspection-find-references-delete-intent",
     stage: "trigger",
     task: "I want to delete `parseToken` — it's at line 10, column 17 of /tmp/weaver-eval/src/auth.ts. What's using it before I remove it?",
-    expect: { tool: "weaver-code-inspection", subcommand: "find-references" },
+    expect: { skill: "weaver-code-inspection", command: "find-references" },
   },
   {
     name: "trigger-code-inspection-get-type-errors",
     stage: "trigger",
     task: "Are there any TypeScript errors in /tmp/weaver-eval/src/auth.ts? I want to check before I start refactoring.",
-    expect: { tool: "weaver-code-inspection", subcommand: "get-type-errors" },
+    expect: { skill: "weaver-code-inspection", command: "get-type-errors" },
   },
 
   // ── Boundary cases ────────────────────────────────────────────────────────
@@ -120,31 +120,31 @@ export const CASES: CaseEntry[] = validateCases([
     name: "boundary-bash-list-files",
     stage: "trigger",
     task: "List the files in /tmp/weaver-eval/src.",
-    expect: { tool: "bash" },
+    expect: { skill: "bash" },
   },
   {
     name: "boundary-bash-run-tests",
     stage: "trigger",
     task: "Run the test suite in /tmp/weaver-eval.",
-    expect: { tool: "bash" },
+    expect: { skill: "bash" },
   },
   {
     name: "boundary-bash-tail-log",
     stage: "trigger",
     task: "Show me the last 30 lines of /tmp/weaver-eval/build.log.",
-    expect: { tool: "bash" },
+    expect: { skill: "bash" },
   },
   {
     name: "boundary-bash-count-lines",
     stage: "trigger",
     task: "How many lines are in /tmp/weaver-eval/src/auth.ts?",
-    expect: { tool: "bash" },
+    expect: { skill: "bash" },
   },
   {
     name: "boundary-bash-mkdir",
     stage: "trigger",
     task: "Make a new directory /tmp/weaver-eval/src/generated.",
-    expect: { tool: "bash" },
+    expect: { skill: "bash" },
   },
 
   // ── Command-stage cases ───────────────────────────────────────────────────
@@ -156,7 +156,7 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "command",
     task: "`userId` is at line 12, column 8 of /tmp/weaver-eval/src/auth.ts — rename it to `accountId` everywhere in the project.",
     expect: {
-      subcommand: "rename",
+      command: "rename",
       keyArgs: { newName: "accountId" },
     },
   },
@@ -165,7 +165,7 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "command",
     task: "Move /tmp/weaver-eval/src/auth.ts to /tmp/weaver-eval/src/authentication/auth.ts.",
     expect: {
-      subcommand: "move-file",
+      command: "move-file",
       keyArgs: { oldPath: "/tmp/weaver-eval/src/auth.ts" },
     },
   },
@@ -174,7 +174,7 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "command",
     task: "Move the /tmp/weaver-eval/src/utils directory to /tmp/weaver-eval/src/lib/helpers.",
     expect: {
-      subcommand: "move-directory",
+      command: "move-directory",
       keyArgs: { oldPath: "/tmp/weaver-eval/src/utils" },
     },
   },
@@ -183,7 +183,7 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "command",
     task: "Move the exported function `parseToken` from /tmp/weaver-eval/src/auth.ts to /tmp/weaver-eval/src/utils/token.ts.",
     expect: {
-      subcommand: "move-symbol",
+      command: "move-symbol",
       keyArgs: { symbolName: "parseToken" },
     },
   },
@@ -192,7 +192,7 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "command",
     task: "Extract lines 10–20 of /tmp/weaver-eval/src/auth.ts into a new function called `hashPassword`.",
     expect: {
-      subcommand: "extract-function",
+      command: "extract-function",
       keyArgs: { functionName: "hashPassword" },
     },
   },
@@ -201,7 +201,7 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "command",
     task: "Which files import /tmp/weaver-eval/src/auth.ts?",
     expect: {
-      subcommand: "find-importers",
+      command: "find-importers",
       keyArgs: { file: "/tmp/weaver-eval/src/auth.ts" },
     },
   },
@@ -210,7 +210,7 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "command",
     task: "Find all references to the symbol `authenticate` at line 5, column 17 of /tmp/weaver-eval/src/auth.ts.",
     expect: {
-      subcommand: "find-references",
+      command: "find-references",
       keyArgs: { file: "/tmp/weaver-eval/src/auth.ts" },
     },
   },
@@ -219,7 +219,7 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "command",
     task: "Where is `User` actually defined? I'm looking at line 8, column 12 of /tmp/weaver-eval/src/api.ts.",
     expect: {
-      subcommand: "get-definition",
+      command: "get-definition",
       keyArgs: { file: "/tmp/weaver-eval/src/api.ts" },
     },
   },
@@ -228,7 +228,7 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "command",
     task: "Are there any TypeScript errors in /tmp/weaver-eval/src/auth.ts?",
     expect: {
-      subcommand: "get-type-errors",
+      command: "get-type-errors",
     },
   },
   {
@@ -236,7 +236,7 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "command",
     task: "Find all TODO comments in /tmp/weaver-eval/src — file, line, and surrounding context.",
     expect: {
-      subcommand: "search-text",
+      command: "search-text",
       keyArgs: { pattern: "TODO" },
     },
   },
@@ -245,7 +245,7 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "command",
     task: "Delete /tmp/weaver-eval/src/old-helper.ts and clean up all its imports.",
     expect: {
-      subcommand: "delete-file",
+      command: "delete-file",
       keyArgs: { file: "/tmp/weaver-eval/src/old-helper.ts" },
     },
   },
@@ -254,7 +254,7 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "command",
     task: 'Replace every occurrence of "v1" with "v2" across all TypeScript files in the project.',
     expect: {
-      subcommand: "replace-text",
+      command: "replace-text",
       keyArgs: { replacement: "v2" },
     },
   },
@@ -269,7 +269,7 @@ export const CASES: CaseEntry[] = validateCases([
     task: "Rename `userId` to `accountId` everywhere in the project. It's in /tmp/weaver-eval/src/auth.ts but I don't have the line number.",
     seed: { operation: "searchText" },
     expect: {
-      subcommand: "rename",
+      command: "rename",
       keyArgs: { newName: "accountId" },
     },
   },
@@ -279,7 +279,7 @@ export const CASES: CaseEntry[] = validateCases([
     task: "Move `parseToken` from /tmp/weaver-eval/src/auth.ts to /tmp/weaver-eval/src/utils/token.ts.",
     seed: { operation: "findReferences" },
     expect: {
-      subcommand: "move-symbol",
+      command: "move-symbol",
       keyArgs: { symbolName: "parseToken" },
     },
   },

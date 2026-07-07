@@ -7,7 +7,7 @@ import { CASES, operationToSubcommand } from "./cases.js";
 const FIXTURES_DIR = join(import.meta.dirname, "../fixtures");
 
 const commandCases = CASES.filter((c) => c.stage === "command");
-const commandSubcommands = new Set(commandCases.map((c) => c.expect.subcommand).filter(Boolean));
+const commandSubcommands = new Set(commandCases.map((c) => c.expect.command).filter(Boolean));
 
 describe("eval case coverage", () => {
   describe("operation coverage", () => {

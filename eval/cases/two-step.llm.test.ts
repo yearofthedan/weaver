@@ -13,10 +13,10 @@ const skillContent = skillContext([...SKILL_NAMES]);
 
 describe("two-step flows", () => {
   it.each(twoStepCases)("$name — model emits correct follow-up weaver command", async (c) => {
-    const { subcommand, keyArgs } = c.expect;
-    expect(subcommand, "two-step case must declare expect.subcommand").toBeDefined();
+    const { command, keyArgs } = c.expect;
+    expect(command, "two-step case must declare expect.subcommand").toBeDefined();
     expect(c.seed, "two-step case must have a seed").toBeDefined();
-    if (!subcommand || !c.seed) return;
+    if (!command || !c.seed) return;
 
     const { operation } = c.seed;
     const step1Command = `weaver ${operationToSubcommand(operation)} '{}'`;
@@ -36,7 +36,7 @@ describe("two-step flows", () => {
         `Model responded with: ${response.text}`,
     ).toBeGreaterThan(0);
 
-    const matches = commands.map((cmd) => matchWeaverCommand(cmd, subcommand, keyArgs));
+    const matches = commands.map((cmd) => matchWeaverCommand(cmd, command, keyArgs));
     const passing = matches.find((m) => m.matched);
 
     expect(

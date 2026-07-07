@@ -7,13 +7,13 @@ import { CASES } from "./cases.js";
 
 // Boundary (bash) cases are excluded on purpose — they guard over-triggering,
 // which competition makes less likely, so they stay in the clean lane.
-const skillTriggerCases = CASES.filter((c) => c.stage === "trigger" && c.expect.tool !== "bash");
+const skillTriggerCases = CASES.filter((c) => c.stage === "trigger" && c.expect.skill !== "bash");
 
 const tools = [...skillTools(), BASH_TOOL, ...COMPETING_TOOLS];
 
 describe("adversarial trigger lane", () => {
   it.each(skillTriggerCases)("$name — skill still wins under pressure", async (c) => {
-    const expectedTool = c.expect.tool;
+    const expectedTool = c.expect.skill;
     expect(expectedTool, "trigger case must declare expect.tool").toBeDefined();
 
     const messages: ChatMessage[] = [

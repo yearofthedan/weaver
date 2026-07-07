@@ -13,7 +13,7 @@ const MAX_STEPS = 3;
 // Same skill-trigger subset as the adversarial lane; boundary/bash cases stay
 // single-shot there. The two lanes share this subset so the gap between them is
 // interpretable: red in adversarial but green here means a precursor case.
-const skillTriggerCases = CASES.filter((c) => c.stage === "trigger" && c.expect.tool !== "bash");
+const skillTriggerCases = CASES.filter((c) => c.stage === "trigger" && c.expect.skill !== "bash");
 
 const tools = [...skillTools(), BASH_TOOL, ...COMPETING_TOOLS];
 
@@ -21,7 +21,7 @@ describe("agentic trigger lane", () => {
   it.each(
     skillTriggerCases,
   )("$name — skill is reached within the step budget under pressure", async (c) => {
-    const expectedTool = c.expect.tool;
+    const expectedTool = c.expect.skill;
     expect(expectedTool, "trigger case must declare expect.tool").toBeDefined();
     if (!expectedTool) return;
 
