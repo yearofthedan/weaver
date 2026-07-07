@@ -7,6 +7,22 @@ export interface WeaverCommandMatch {
 }
 
 /**
+ * Returns true when the given bash command is a weaver invocation for the
+ * given subcommand, tolerating any argument format (flags, quoted JSON, bare
+ * strings). Accepts the `weaver`, `npx weaver`, and `pnpm exec weaver` prefix
+ * forms. The word boundary prevents a prefix-matched subcommand (e.g. "renamed")
+ * from satisfying the predicate for a shorter name (e.g. "rename").
+ *
+ * This is the trigger-lane pass rule. For the command lane, use
+ * `matchWeaverCommand` instead — it additionally requires a parseable
+ * quoted-JSON argument.
+ */
+export function isWeaverInvocation(command: string, subcommand: string): boolean {
+  const escapedSub = subcommand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^(?:npx\\s+|pnpm\\s+exec\\s+)?weaver\\s+${escapedSub}\\b`).test(command);
+}
+
+/**
  * Filters tool calls to those with name "bash", returning their command argument.
  * Returns an empty array when no bash calls exist.
  */

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { extractBashCommands, extractCommandsFromText, matchWeaverCommand } from "./assertions.js";
+import {
+  extractBashCommands,
+  extractCommandsFromText,
+  isWeaverInvocation,
+  matchWeaverCommand,
+} from "./assertions.js";
 import type { ToolCall } from "./call-model.js";
 
 function bashCall(command: string): ToolCall {
@@ -37,6 +42,44 @@ describe("extractBashCommands", () => {
 
     it("returns empty array when no bash calls are present", () => {
       expect(extractBashCommands([otherCall("skill"), otherCall("grep")])).toEqual([]);
+    });
+  });
+});
+
+describe("isWeaverInvocation", () => {
+  describe("matching forms", () => {
+    it("matches a bare weaver subcommand with flag-style args", () => {
+      expect(isWeaverInvocation("weaver rename --file x", "rename")).toBe(true);
+    });
+
+    it("matches npx weaver prefix with a quoted JSON argument", () => {
+      expect(isWeaverInvocation('npx weaver rename \'{"file":"x"}\'', "rename")).toBe(true);
+    });
+
+    it("matches pnpm exec weaver prefix", () => {
+      expect(isWeaverInvocation("pnpm exec weaver rename --newName bar", "rename")).toBe(true);
+    });
+
+    it("matches a hyphenated subcommand", () => {
+      expect(isWeaverInvocation("weaver search-text --pattern foo", "search-text")).toBe(true);
+    });
+  });
+
+  describe("non-matching cases", () => {
+    it("does not match a different subcommand", () => {
+      expect(isWeaverInvocation("weaver search-text --pattern foo", "rename")).toBe(false);
+    });
+
+    it("does not match a subcommand that is only a prefix of the actual name (word boundary)", () => {
+      expect(isWeaverInvocation("weaver renamed --newName bar", "rename")).toBe(false);
+    });
+
+    it("does not match a non-weaver command", () => {
+      expect(isWeaverInvocation("grep -r userId src/", "rename")).toBe(false);
+    });
+
+    it("does not match an empty command string", () => {
+      expect(isWeaverInvocation("", "rename")).toBe(false);
     });
   });
 });

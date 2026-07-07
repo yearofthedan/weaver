@@ -16,7 +16,7 @@ export interface SkillFrontmatter {
   description: string;
 }
 
-function readSkillFile(skillName: string): string {
+export function readSkillFile(skillName: string): string {
   const skillPath = path.join(SKILLS_DIR, skillName, "SKILL.md");
   try {
     return fs.readFileSync(skillPath, "utf-8");
