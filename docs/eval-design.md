@@ -1,9 +1,15 @@
 # CLI Eval Design
 
-**Status:** Current
+**Status:** Partly superseded — see the status note below.
 **Date:** 2026-06-10 (supersedes the MCP-based design of 2026-03-01)
 
 ---
+
+> **Status note (2026-07-07).** The trigger lane has pivoted **off local Ollama to a hosted OSS model** (OpenRouter, OpenAI-compatible, via the existing `callModel`) and now reports a **trigger *rate*** over N trials rather than temp-0 pass/fail (archived spec `20260707-hosted-model-trigger-rate`). The Ollama-specific sections below (local-model gotchas, `OLLAMA_CONTEXT_LENGTH`, the consumer-fidelity ladder's local rungs) are **superseded** for the rate lane and pending a full rewrite once the framing settles.
+>
+> **Running the rate lane:** the eval needs an OpenAI-compatible hosted endpoint — set `WEAVER_EVAL_BASE_URL`, `WEAVER_EVAL_MODEL`, and `WEAVER_EVAL_API_KEY` (e.g. an OpenRouter key); `WEAVER_EVAL_TEMPERATURE` (default 0.7) and `WEAVER_EVAL_TRIALS` (default 3) tune the rate. `global-setup.llm.ts` fails fast listing any missing var. Run `pnpm eval trigger-agentic`.
+>
+> **Open finding (gates further work):** the first hosted baseline scored 0/9 — the model never runs the two-hop chain (Read SKILL.md → bash `weaver <cmd>`), treating the `<available_skills>` block as tool defs or falling back to shell, with large run-to-run variance. This is a **framing** problem; a `[needs investigation]` in `docs/handoff.md` gates the spec-2 grader/audit work.
 
 ## Goal
 

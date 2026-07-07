@@ -102,6 +102,9 @@ If the user corrects you, ask: "what skill, template, or rule file should change
 **Do simple docs tasks directly — don't delegate to subagents.**
 For straightforward docs updates (fixing text, adding diagrams, updating tables), do the work inline.
 
+**Shared docs name what the reader must provide — never personal-environment specifics.**
+Git-tracked docs are read by people without your machine. A credential's *location* (a password-manager entry), local paths, or personal tooling do not belong in them — state what to supply (e.g. "set `WEAVER_EVAL_API_KEY` to an OpenRouter key") and let the reader source it their way. Personal-environment details stay session-only.
+
 **Stryker CLI: use `--mutate`, not `--include`.**
 To scope a mutation run to specific files: `pnpm exec stryker run --mutate 'src/foo.ts'`. For multiple files use a comma-separated glob or multiple `--mutate` flags. There is no `--include` flag — that causes `too many arguments for 'run'`.
 

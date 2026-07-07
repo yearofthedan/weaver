@@ -92,3 +92,30 @@ N/A — internal eval harness. No public CLI, socket, or MCP surface changes. Ne
 - [ ] Tech debt discovered during implementation added to handoff.md as `[needs design]`
 - [ ] Non-obvious gotchas (e.g. OpenRouter tool-call behaviour vs Ollama) added to `docs/eval-design.md`
 - [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+---
+
+## Outcome
+
+**Shipped.** The trigger lane pivoted off local Ollama to a hosted OSS model (OpenRouter Llama 3.3 70B) over the existing fetch `callModel`, with: per-lane temperature (`WEAVER_EVAL_TEMPERATURE`, default 0.7; command/two-step stay 0), an N-trial (`WEAVER_EVAL_TRIALS`, default 3) trigger-*rate* metric with a 2/3 alarm floor, the two-hop `<available_skills>` framing + SKILL.md read tracking (`skillMdRead`/`readTurn`), a `computeRate` aggregator, and an `isWeaverInvocation` pass rule. Fail-fast setup requires the hosted endpoint be configured. **Zero new dependencies** — OpenRouter is OpenAI-compatible; `callModel` already spoke it.
+
+**Baseline finding — the important result, and why "trusted baseline" (Done-when) is deliberately NOT met.** Two hosted runs both scored **0/9** (every scenario below the floor), but classification shows this is a **framing** result, not a skill-text one:
+
+| | Run 1 | Run 2 |
+|---|---|---|
+| Model behaviour | hallucinated tool calls named after skills (`weaver-refactor`, `weaver-search-and-replace`) | raw shell (`bash`/`Grep`/`Glob`) |
+| Outcome | 0/9 | 0/9 |
+
+The model **never executed the two-hop chain** (Read SKILL.md → bash `weaver <cmd>`) in either run. The outcome (~zero correct CLI invocation) was stable; the *path* swung completely run-to-run — too large for temp 0.7 alone, so OpenRouter provider routing is the suspected extra variance. Presenting weaver as an `<available_skills>` block leads a hosted model to treat skills as callable tools (or ignore them for shell), not to run the CLI. A right-skill tool call is credited as a **stopgap proxy** (`matches` accepts a call named `expect.skill`) — this is *skill selection*, not correct weaver usage (weaver is a CLI); the real fix is queued.
+
+**Decision (user-confirmed):** close spec 1 here; the framing fix gates spec 2 and runs first as a `[needs investigation]` (see handoff). Spec 2's grader/audit work is meaningless until the lane actually produces weaver invocations.
+
+**Reflection.**
+- *Went well:* the pivot was pure env config (zero deps) as predicted; the generic `callModel`/loop absorbed it cleanly. Unit-test discipline held — note **mutation is N/A here: `eval/` is in stryker `ignorePatterns`**, so unit-test assertions were the only quality gate (scrutinised each batch accordingly).
+- *Didn't:* the two-hop premise didn't survive contact with the model. The single-shot lanes declared skills *as tools* precisely because small models can't do skill indirection; the pivot assumed a 70B would do the two-hop chain — it doesn't, it calls skills as tools too, non-deterministically.
+- *Slower than needed:* two full baseline runs to see the path variance. **A raw-bash-command log would have shown it in one — do that first next time.**
+- *For the next agent (cold start):* the trail records only tool *names*, so "the model never emitted `weaver` via bash" is **unverified vs a matcher false-negative**. Step zero of the framing investigation is to log the raw bash command strings and re-run once to confirm, before any framing change.
+
+**Tests added:** batch 1 — 17 (config, call-model temperature, global-setup, assertions `npx`); batch 2 — 16 (context builder, `rateLaneTools`, loop predicates/read-tracking, cases invariant); batch 3 — 15 (`isWeaverInvocation`, `computeRate`). Eval unit lane totals 208 tests in `pnpm check`. **Mutation:** N/A (`eval/` stryker-excluded). The LLM rate lane runs only under `pnpm eval` and is not counted.
+
+**Dogfooding note:** the `CaseEntry.expect` field rename (`tool`→`skill`, `subcommand`→`command`) was done with `weaver rename` across 8 files — the tool renaming its own eval harness.
