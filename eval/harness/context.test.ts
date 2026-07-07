@@ -74,14 +74,14 @@ describe("buildAvailableSkillsPrompt", () => {
     }
   });
 
-  it("contains the framing instruction that skills are not callable tools", () => {
+  it("contains the host-style instruction to invoke a skill as a tool by name", () => {
     const prompt = buildAvailableSkillsPrompt();
-    expect(prompt.toLowerCase()).toContain("not callable tools");
+    expect(prompt.toLowerCase()).toContain("invoke it as a tool by name");
   });
 
-  it("instructs reading the SKILL.md and acting via existing tools", () => {
+  it("states that invoking a skill loads its instructions, to be followed via other tools", () => {
     const prompt = buildAvailableSkillsPrompt();
-    expect(prompt).toContain("SKILL.md");
+    expect(prompt.toLowerCase()).toContain("loaded into the conversation");
     expect(prompt.toLowerCase()).toContain("bash");
   });
 });

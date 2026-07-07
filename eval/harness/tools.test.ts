@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SKILL_NAMES } from "./context.js";
-import { BASH_TOOL, COMPETING_TOOLS, rateLaneTools } from "./tools.js";
+import { BASH_TOOL, COMPETING_TOOLS, rateLaneTools, SKILL_TOOL } from "./tools.js";
 
 describe("rateLaneTools", () => {
   it("contains exactly four tools", () => {
@@ -25,6 +25,28 @@ describe("rateLaneTools", () => {
     for (const skillName of SKILL_NAMES) {
       expect(names).not.toContain(skillName);
     }
+  });
+});
+
+describe("SKILL_TOOL", () => {
+  it("is one indirect tool named Skill, not one tool per skill", () => {
+    expect(SKILL_TOOL.function.name).toBe("Skill");
+    for (const skillName of SKILL_NAMES) {
+      expect(SKILL_TOOL.function.name).not.toBe(skillName);
+    }
+  });
+
+  it("requires the skill name as its only mandatory parameter", () => {
+    const parameters = SKILL_TOOL.function.parameters as {
+      properties: Record<string, unknown>;
+      required: string[];
+    };
+    expect(Object.keys(parameters.properties)).toEqual(["skill"]);
+    expect(parameters.required).toEqual(["skill"]);
+  });
+
+  it("describes loading instructions to follow, not performing the task itself", () => {
+    expect(SKILL_TOOL.function.description.toLowerCase()).toContain("instructions");
   });
 });
 

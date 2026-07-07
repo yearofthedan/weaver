@@ -12,7 +12,7 @@ import {
 } from "../harness/context.js";
 import { computeRate } from "../harness/rate.js";
 import { buildHabitMomentumSeed } from "../harness/seed.js";
-import { rateLaneTools } from "../harness/tools.js";
+import { rateLaneTools, SKILL_TOOL } from "../harness/tools.js";
 import { CASES } from "./cases.js";
 
 // Two-hop trajectory: Read SKILL.md → optional precursor → weaver bash call.
@@ -28,7 +28,7 @@ const TRIALS = raw === undefined || raw === "" ? 3 : Number.parseInt(raw, 10);
 // red in adversarial but green here means a precursor case.
 const skillTriggerCases = CASES.filter((c) => c.stage === "trigger" && c.expect.skill !== "bash");
 
-const tools = rateLaneTools();
+const tools = [SKILL_TOOL, ...rateLaneTools()];
 const systemContent = `${buildClutterSystemPrompt()}\n\n${buildAvailableSkillsPrompt()}`;
 
 /**
@@ -50,12 +50,25 @@ function skillNameFromRead(call: ToolCall): string | undefined {
   return SKILL_NAMES.find((name) => filePath.endsWith(skillLocation(name)));
 }
 
+/**
+ * Returns the skill name when this call loads a skill the way a host allows:
+ * a `Skill(skill: <name>)` invocation, or a Read of the skill's SKILL.md.
+ * A direct call named after a skill is NOT a load — no host declares such a
+ * tool; it gets an unknown-tool error like any other hallucination.
+ */
+function skillNameFromLoad(call: ToolCall): string | undefined {
+  if (call.name === "Skill") {
+    const requested = String(call.arguments.skill ?? "");
+    return SKILL_NAMES.find((name) => name === requested);
+  }
+  return skillNameFromRead(call);
+}
+
 describe("agentic rate lane", () => {
   it.each(
     skillTriggerCases,
   )("$name — weaver is invoked within the step budget across trials", async (c) => {
     const expectedCommand = c.expect.command;
-    const expectedSkill = c.expect.skill;
     expect(expectedCommand, "trigger case must declare expect.command").toBeDefined();
     if (!expectedCommand) return;
 
@@ -77,21 +90,24 @@ describe("agentic rate lane", () => {
       const result = await runAgenticLoop({
         messages,
         tools,
+        // Pass = the model actually runs the CLI: a bash `weaver <command>` call.
         matches: (call) =>
-          // Real invocation: a bash `weaver <command>` call.
-          (call.name === "bash" &&
-            extractBashCommands([call]).some((cmd) => isWeaverInvocation(cmd, expectedCommand))) ||
-          // Stopgap: the model calls the owning skill as a (hallucinated) tool
-          // rather than running the CLI. Credits skill selection, not real
-          // invocation — see the framing-fix follow-up in handoff.md.
-          call.name === expectedSkill,
-        isSkillMdRead: (call) => skillNameFromRead(call) !== undefined,
+          call.name === "bash" &&
+          extractBashCommands([call]).some((cmd) => isWeaverInvocation(cmd, expectedCommand)),
+        isSkillMdRead: (call) => skillNameFromLoad(call) !== undefined,
         maxSteps: MAX_STEPS,
         step: callModel,
         cannedResultFor: (call) => {
-          const skillName = skillNameFromRead(call);
+          const skillName = skillNameFromLoad(call);
           if (skillName !== undefined) {
             return readSkillFile(skillName);
+          }
+          if (call.name === "Skill") {
+            return `Error: unknown skill "${String(call.arguments.skill ?? "")}".`;
+          }
+          if (SKILL_NAMES.some((name) => name === call.name)) {
+            // Hallucinated direct skill-name call — respond as a host would.
+            return `Error: no such tool "${call.name}". Available tools: Skill, bash, Grep, Glob, Read.`;
           }
           return cannedToolResult(call);
         },
@@ -110,7 +126,7 @@ describe("agentic rate lane", () => {
     const trailSummary = trialRecords
       .map(
         (r, i) =>
-          `  trial ${i + 1} [${r.matched ? "matched" : "no match"}, ${r.skillMdRead ? `SKILL.md read@${r.readTurn}` : "no SKILL.md read"}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}`,
+          `  trial ${i + 1} [${r.matched ? "matched" : "no match"}, ${r.skillMdRead ? `skill loaded@${r.readTurn}` : "no skill load"}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}`,
       )
       .join("\n");
 

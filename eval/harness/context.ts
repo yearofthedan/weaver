@@ -65,9 +65,10 @@ export function skillLocation(name: string): string {
 /**
  * Builds the `<available_skills>` system-prompt block for the rate lane.
  * Lists each shipped skill's name, verbatim frontmatter description, and
- * SKILL.md location. Follows with a framing instruction: skills are not
- * callable tools — read the SKILL.md at its location, then act using
- * existing tools (typically Bash).
+ * SKILL.md location — mirroring how a real host surfaces installed skills.
+ * The trailing instruction mirrors the host's skill mechanism: invoking a
+ * skill loads its instructions into context; the model then acts on them
+ * with its other tools.
  */
 export function buildAvailableSkillsPrompt(): string {
   const entries = skillFrontmatters()
@@ -78,7 +79,7 @@ export function buildAvailableSkillsPrompt(): string {
     .join("\n");
   return (
     `<available_skills>\n${entries}\n</available_skills>\n\n` +
-    "Skills are not callable tools. To use a skill: read its SKILL.md at the location shown, then execute the instructions using your existing tools (typically Bash)."
+    "To use a skill, invoke it as a tool by name. Its instructions will be loaded into the conversation; follow them using your other tools (typically bash)."
   );
 }
 

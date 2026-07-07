@@ -91,13 +91,38 @@ export const COMPETING_TOOLS: ToolDefinition[] = [
 /**
  * The tool set for the rate lane: Bash + Glob + Grep + Read.
  * Edit is excluded because the rate lane tests weaver skill selection, not
- * direct file editing. Skills themselves are not declared as callable tools
- * in this lane — the model must Read the SKILL.md then invoke weaver via Bash.
+ * direct file editing. Skills are not declared as per-skill tools — the lane
+ * adds {@link SKILL_TOOL} alongside, and a load feeds back the SKILL.md body.
  */
 export function rateLaneTools(): ToolDefinition[] {
   const nonEdit = COMPETING_TOOLS.filter((t) => t.function.name !== "Edit");
   return [BASH_TOOL, ...nonEdit];
 }
+
+/**
+ * The host's generic skill-invocation tool, mirroring how a real agent host
+ * exposes installed skills: one indirect tool taking the skill name, not one
+ * tool per skill. Invoking it loads the skill's instructions into the
+ * conversation.
+ */
+export const SKILL_TOOL: ToolDefinition = {
+  type: "function",
+  function: {
+    name: "Skill",
+    description:
+      "Load a skill by name. Returns the skill's full instructions; follow them to complete the task.",
+    parameters: {
+      type: "object",
+      properties: {
+        skill: {
+          type: "string",
+          description: "Name of the skill to load, exactly as listed in available_skills.",
+        },
+      },
+      required: ["skill"],
+    },
+  },
+};
 
 /**
  * The bash tool used in both trigger-stage and command-stage cases.
