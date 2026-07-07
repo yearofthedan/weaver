@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { callModel } from "./call-model.js";
 
-const BASE_URL = "http://localhost:11434/v1";
-const MODEL = "qwen2.5:7b-instruct";
+const TEST_BASE_URL = "http://test-server/v1";
+const TEST_MODEL = "test-model";
 
 let mockFetch: ReturnType<typeof vi.fn>;
 
@@ -16,6 +16,7 @@ afterEach(() => {
   delete process.env.WEAVER_EVAL_BASE_URL;
   delete process.env.WEAVER_EVAL_MODEL;
   delete process.env.WEAVER_EVAL_API_KEY;
+  delete process.env.WEAVER_EVAL_TEMPERATURE;
 });
 
 function makeCompletionResponse(
@@ -56,25 +57,60 @@ function makeTextResponse(text: string) {
   };
 }
 
+function explicitConfig(overrides: { temperature?: number; apiKey?: string } = {}) {
+  return {
+    baseUrl: TEST_BASE_URL,
+    model: TEST_MODEL,
+    temperature: 0.7,
+    ...overrides,
+  };
+}
+
 describe("callModel", () => {
   describe("request shape", () => {
-    it("posts to the chat completions endpoint with temperature 0 and generous max_tokens", async () => {
+    it("posts to the chat completions endpoint with generous max_tokens", async () => {
       const messages = [{ role: "user" as const, content: "hello" }];
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => makeTextResponse("hi"),
       });
 
-      await callModel(messages, []);
+      await callModel(messages, [], explicitConfig());
 
       expect(mockFetch).toHaveBeenCalledOnce();
       const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-      expect(url).toBe(`${BASE_URL}/chat/completions`);
+      expect(url).toBe(`${TEST_BASE_URL}/chat/completions`);
+      const body = JSON.parse(init.body as string);
+      expect(body.max_tokens).toBeGreaterThanOrEqual(4096);
+      expect(body.model).toBe(TEST_MODEL);
+      expect(body.messages).toEqual(messages);
+    });
+
+    it("sends the configured temperature — not a hardcoded value", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeTextResponse("hi"),
+      });
+
+      await callModel([{ role: "user", content: "hi" }], [], explicitConfig({ temperature: 0.7 }));
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(init.body as string);
+      expect(body.temperature).toBe(0.7);
+      expect(body.temperature).not.toBe(0);
+    });
+
+    it("sends temperature 0 when explicitly overridden to 0", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeTextResponse("hi"),
+      });
+
+      await callModel([{ role: "user", content: "hi" }], [], explicitConfig({ temperature: 0 }));
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       const body = JSON.parse(init.body as string);
       expect(body.temperature).toBe(0);
-      expect(body.max_tokens).toBeGreaterThanOrEqual(4096);
-      expect(body.model).toBe(MODEL);
-      expect(body.messages).toEqual(messages);
     });
 
     it("serializes assistant tool_calls to the wire format with stringified arguments", async () => {
@@ -94,6 +130,7 @@ describe("callModel", () => {
           { role: "tool", content: '{"status":"success"}', tool_call_id: "step1" },
         ],
         [],
+        explicitConfig(),
       );
 
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
@@ -118,7 +155,7 @@ describe("callModel", () => {
         json: async () => makeTextResponse("hi"),
       });
 
-      await callModel([{ role: "user", content: "hello" }], []);
+      await callModel([{ role: "user", content: "hello" }], [], explicitConfig());
 
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(init.signal).toBeInstanceOf(AbortSignal);
@@ -136,7 +173,7 @@ describe("callModel", () => {
         json: async () => makeTextResponse("ok"),
       });
 
-      await callModel([{ role: "user", content: "go" }], tools);
+      await callModel([{ role: "user", content: "go" }], tools, explicitConfig());
 
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       const body = JSON.parse(init.body as string);
@@ -164,11 +201,11 @@ describe("callModel", () => {
         json: async () => makeTextResponse("hi"),
       });
 
-      await callModel([{ role: "user", content: "test" }], [], {
-        baseUrl: BASE_URL,
-        model: MODEL,
-        apiKey: "sk-test-secret-key",
-      });
+      await callModel(
+        [{ role: "user", content: "test" }],
+        [],
+        explicitConfig({ apiKey: "sk-test-secret-key" }),
+      );
 
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       const headers = init.headers as Record<string, string>;
@@ -181,10 +218,7 @@ describe("callModel", () => {
         json: async () => makeTextResponse("hi"),
       });
 
-      await callModel([{ role: "user", content: "test" }], [], {
-        baseUrl: BASE_URL,
-        model: MODEL,
-      });
+      await callModel([{ role: "user", content: "test" }], [], explicitConfig());
 
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       const headers = init.headers as Record<string, string>;
@@ -215,6 +249,7 @@ describe("callModel", () => {
       await callModel([{ role: "user", content: "test" }], [], {
         baseUrl: "http://injected:9999/v1",
         model: "injected-model",
+        temperature: 0,
       });
 
       const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
@@ -245,7 +280,11 @@ describe("callModel", () => {
           makeCompletionResponse([{ name: "weaver_rename", arguments: { newName: "bar" } }]),
       });
 
-      const result = await callModel([{ role: "user", content: "rename foo to bar" }], []);
+      const result = await callModel(
+        [{ role: "user", content: "rename foo to bar" }],
+        [],
+        explicitConfig(),
+      );
 
       expect(result.toolCalls).toHaveLength(1);
       expect(result.toolCalls[0].name).toBe("weaver_rename");
@@ -262,7 +301,7 @@ describe("callModel", () => {
           ]),
       });
 
-      const result = await callModel([{ role: "user", content: "multi" }], []);
+      const result = await callModel([{ role: "user", content: "multi" }], [], explicitConfig());
 
       expect(result.toolCalls).toHaveLength(2);
       expect(result.toolCalls[0].name).toBe("tool_a");
@@ -275,7 +314,11 @@ describe("callModel", () => {
         json: async () => makeTextResponse("I cannot help with that."),
       });
 
-      const result = await callModel([{ role: "user", content: "explain everything" }], []);
+      const result = await callModel(
+        [{ role: "user", content: "explain everything" }],
+        [],
+        explicitConfig(),
+      );
 
       expect(result.toolCalls).toEqual([]);
       expect(result.text).toBe("I cannot help with that.");
@@ -287,7 +330,7 @@ describe("callModel", () => {
         json: async () => makeCompletionResponse([{ name: "do_thing", arguments: {} }], ""),
       });
 
-      const result = await callModel([{ role: "user", content: "go" }], []);
+      const result = await callModel([{ role: "user", content: "go" }], [], explicitConfig());
 
       expect(result.text).toBe("");
     });
@@ -301,9 +344,9 @@ describe("callModel", () => {
         text: async () => '{"error":"model not found"}',
       });
 
-      await expect(callModel([{ role: "user", content: "hi" }], [])).rejects.toThrow(
-        /503.*model not found/,
-      );
+      await expect(
+        callModel([{ role: "user", content: "hi" }], [], explicitConfig()),
+      ).rejects.toThrow(/503.*model not found/);
     });
 
     it("does not include the apiKey value in the thrown error on HTTP failure", async () => {
@@ -315,11 +358,7 @@ describe("callModel", () => {
       });
 
       await expect(
-        callModel([{ role: "user", content: "hi" }], [], {
-          baseUrl: BASE_URL,
-          model: MODEL,
-          apiKey: secretKey,
-        }),
+        callModel([{ role: "user", content: "hi" }], [], explicitConfig({ apiKey: secretKey })),
       ).rejects.toSatisfy((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err);
         return !message.includes(secretKey);
@@ -332,15 +371,17 @@ describe("callModel", () => {
         json: async () => ({ choices: [] }),
       });
 
-      await expect(callModel([{ role: "user", content: "hi" }], [])).rejects.toThrow("no choices");
+      await expect(
+        callModel([{ role: "user", content: "hi" }], [], explicitConfig()),
+      ).rejects.toThrow("no choices");
     });
 
     it("propagates network errors without retrying", async () => {
       mockFetch.mockRejectedValueOnce(new TypeError("fetch failed"));
 
-      await expect(callModel([{ role: "user", content: "hi" }], [])).rejects.toThrow(
-        "fetch failed",
-      );
+      await expect(
+        callModel([{ role: "user", content: "hi" }], [], explicitConfig()),
+      ).rejects.toThrow("fetch failed");
 
       expect(mockFetch).toHaveBeenCalledOnce();
     });

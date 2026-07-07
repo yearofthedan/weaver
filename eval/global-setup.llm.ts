@@ -1,45 +1,52 @@
 /**
  * globalSetup for the LLM eval lane.
  *
- * Probes the model server before any case runs. If the server is unreachable
- * or the configured model is not listed, it throws an actionable error naming
- * the base URL and the ollama pull command — so the failure is immediately
- * actionable rather than manifesting as 15+ individual test timeouts.
+ * Asserts that the hosted model endpoint is explicitly configured before any
+ * case runs, so the failure is immediately actionable rather than manifesting
+ * as individual test timeouts or confusing connection errors.
+ *
+ * Required env vars:
+ *   WEAVER_EVAL_BASE_URL  — base URL of an OpenAI-compatible endpoint
+ *   WEAVER_EVAL_MODEL     — model identifier to use
+ *   WEAVER_EVAL_API_KEY   — API key for the endpoint
+ *
+ * Example (OpenRouter):
+ *   WEAVER_EVAL_BASE_URL=https://openrouter.ai/api/v1
+ *   WEAVER_EVAL_MODEL=meta-llama/llama-3.3-70b-instruct
+ *   WEAVER_EVAL_API_KEY=<your key>
  */
 
-import { modelConfig } from "./harness/config.js";
+/**
+ * Returns true when all three required hosted-endpoint env vars are set to a
+ * non-empty value. Pure function — no side effects, safe to call in tests.
+ */
+export function isHostedEndpointConfigured(): boolean {
+  return Boolean(
+    process.env.WEAVER_EVAL_BASE_URL &&
+      process.env.WEAVER_EVAL_MODEL &&
+      process.env.WEAVER_EVAL_API_KEY,
+  );
+}
 
 export default async function globalSetup(): Promise<void> {
-  const { baseUrl, model, apiKey } = modelConfig();
-
-  const headers: Record<string, string> = {};
-  if (apiKey) {
-    headers.Authorization = `Bearer ${apiKey}`;
+  if (isHostedEndpointConfigured()) {
+    return;
   }
 
-  let models: string[];
-  try {
-    const response = await fetch(`${baseUrl}/models`, { headers });
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`Server responded with ${response.status}: ${body}`);
-    }
-    const data = (await response.json()) as { data?: Array<{ id: string }> };
-    models = (data.data ?? []).map((m) => m.id);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(
-      `Cannot reach model server at ${baseUrl} — ${message}\n` +
-        `Start the server and ensure the model is available:\n` +
-        `  ollama pull ${model}`,
-    );
-  }
-
-  if (!models.includes(model)) {
-    throw new Error(
-      `Model "${model}" is not available at ${baseUrl}.\n` +
-        `Available models: ${models.length > 0 ? models.join(", ") : "(none)"}\n` +
-        `Run: ollama pull ${model}`,
-    );
-  }
+  throw new Error(
+    "Hosted model endpoint not configured. Set all three env vars before running evals:\n" +
+      "\n" +
+      "  WEAVER_EVAL_BASE_URL=https://openrouter.ai/api/v1\n" +
+      "  WEAVER_EVAL_MODEL=meta-llama/llama-3.3-70b-instruct\n" +
+      "  WEAVER_EVAL_API_KEY=<your OpenRouter key>\n" +
+      "\n" +
+      "Missing: " +
+      [
+        !process.env.WEAVER_EVAL_BASE_URL && "WEAVER_EVAL_BASE_URL",
+        !process.env.WEAVER_EVAL_MODEL && "WEAVER_EVAL_MODEL",
+        !process.env.WEAVER_EVAL_API_KEY && "WEAVER_EVAL_API_KEY",
+      ]
+        .filter(Boolean)
+        .join(", "),
+  );
 }

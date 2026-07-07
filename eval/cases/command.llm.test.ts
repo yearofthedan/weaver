@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { extractCommandsFromText, matchWeaverCommand } from "../harness/assertions.js";
 import { callModel } from "../harness/call-model.js";
+import { modelConfig } from "../harness/config.js";
 import { SKILL_NAMES, skillContext } from "../harness/context.js";
 import { CASES } from "./cases.js";
 
@@ -22,7 +23,10 @@ describe("command-stage cases", () => {
     expect(subcommand, "command case must declare expect.subcommand").toBeDefined();
     if (!subcommand) return;
 
-    const response = await callModel([{ role: "user", content: commandPrompt(c.task) }], []);
+    const response = await callModel([{ role: "user", content: commandPrompt(c.task) }], [], {
+      ...modelConfig(),
+      temperature: 0,
+    });
 
     const commands = extractCommandsFromText(response.text);
 

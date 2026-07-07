@@ -51,13 +51,13 @@ function toWireMessage(message: ChatMessage): Record<string, unknown> {
 }
 
 /**
- * Sends a single chat completion request to an OpenAI-compatible local model server.
- * Temperature is fixed at 0; max_tokens is generous to accommodate thinking-mode models
- * that emit reasoning tokens before the tool call.
+ * Sends a single chat completion request to an OpenAI-compatible model server.
+ * max_tokens is generous to accommodate thinking-mode models that emit reasoning
+ * tokens before the tool call.
  *
- * The target server defaults to the env-derived config (WEAVER_EVAL_BASE_URL /
- * WEAVER_EVAL_MODEL); pass a config explicitly to target a different server or
- * model, e.g. for a multi-model comparison run.
+ * The target server comes from the injected config (WEAVER_EVAL_BASE_URL /
+ * WEAVER_EVAL_MODEL / WEAVER_EVAL_API_KEY / WEAVER_EVAL_TEMPERATURE); pass a
+ * config explicitly to override, e.g. to pin temperature 0 for deterministic lanes.
  *
  * HTTP/server errors throw immediately with the response body — no retries.
  */
@@ -66,7 +66,7 @@ export async function callModel(
   tools: ToolDefinition[],
   config: ModelConfig = modelConfig(),
 ): Promise<ModelResponse> {
-  const { baseUrl, model, apiKey } = config;
+  const { baseUrl, model, apiKey, temperature } = config;
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (apiKey) {
@@ -80,7 +80,7 @@ export async function callModel(
       model,
       messages: messages.map(toWireMessage),
       tools: tools.length > 0 ? tools : undefined,
-      temperature: 0,
+      temperature,
       max_tokens: MAX_TOKENS,
     }),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { extractCommandsFromText, matchWeaverCommand } from "../harness/assertions.js";
 import { callModel } from "../harness/call-model.js";
+import { modelConfig } from "../harness/config.js";
 import { SKILL_NAMES, skillContext } from "../harness/context.js";
 import { buildSeedMessages } from "../harness/seed.js";
 import { CASES, loadFixture, operationToSubcommand } from "./cases.js";
@@ -25,7 +26,7 @@ describe("two-step flows", () => {
       loadFixture(operation),
     );
 
-    const response = await callModel(seedMessages, []);
+    const response = await callModel(seedMessages, [], { ...modelConfig(), temperature: 0 });
 
     const commands = extractCommandsFromText(response.text);
 
