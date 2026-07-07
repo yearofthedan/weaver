@@ -33,6 +33,17 @@ describe("modelConfig", () => {
       const config = modelConfig();
       expect(config.temperature).toBe(0);
     });
+
+    it("falls back to the default when WEAVER_EVAL_TEMPERATURE is blank — not Number('') === 0", () => {
+      process.env.WEAVER_EVAL_TEMPERATURE = "";
+      const config = modelConfig();
+      expect(config.temperature).toBe(0.7);
+    });
+
+    it("throws when WEAVER_EVAL_TEMPERATURE is set to a non-numeric value", () => {
+      process.env.WEAVER_EVAL_TEMPERATURE = "hot";
+      expect(() => modelConfig()).toThrow(/finite number/);
+    });
   });
 
   describe("other fields", () => {
