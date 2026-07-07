@@ -19,6 +19,18 @@ describe("case table", () => {
       }
     });
 
+    it("every skill-trigger case declares expect.subcommand", () => {
+      const skillTriggerCases = CASES.filter(
+        (c) => c.stage === "trigger" && c.expect.tool !== "bash",
+      );
+      for (const c of skillTriggerCases) {
+        expect(
+          c.expect.subcommand,
+          `Skill-trigger case "${c.name}" is missing expect.subcommand`,
+        ).toBeDefined();
+      }
+    });
+
     it("every command case declares expect.subcommand", () => {
       const commandCases = CASES.filter((c) => c.stage === "command");
       for (const c of commandCases) {
