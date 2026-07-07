@@ -9,7 +9,7 @@
 >
 > **Running the rate lane:** the eval needs an OpenAI-compatible hosted endpoint — set `WEAVER_EVAL_BASE_URL`, `WEAVER_EVAL_MODEL`, and `WEAVER_EVAL_API_KEY` (e.g. an OpenRouter key); `WEAVER_EVAL_TEMPERATURE` (default 0.7) and `WEAVER_EVAL_TRIALS` (default 3) tune the rate. `global-setup.llm.ts` fails fast listing any missing var. Run `pnpm eval trigger-agentic`.
 >
-> **Open finding (gates further work):** the first hosted baseline scored 0/9 — the model never runs the two-hop chain (Read SKILL.md → bash `weaver <cmd>`), treating the `<available_skills>` block as tool defs or falling back to shell, with large run-to-run variance. This is a **framing** problem; a `[needs investigation]` in `docs/handoff.md` gates the spec-2 grader/audit work.
+> **Rate-lane framing (2026-07-07, settled):** the lane surfaces skills as an `<available_skills>` block plus a host-style generic `Skill` tool. Invoking `Skill(skill: <name>)` — or Reading the SKILL.md path — is the *load hop*: the harness feeds back the skill's real SKILL.md body, simulating the host's skill expansion. Pass = a bash `weaver <expected-command>` call within the step budget. Two gotchas discovered baselining on a hosted 70B: (1) the model reliably *hallucinates direct skill-name tool calls* (`weaver-refactor({...})`, invented arg schemas); the harness answers with a host-style unknown-tool error and the model reliably recovers to the proper `Skill` form — do not declare per-skill tools to "fix" this, that removes the recovery behaviour a real host exhibits. (2) Hosted models sometimes emit tool calls with **malformed JSON arguments**; `callModel` marks such calls (`invalidArguments`) and the loop feeds back an invalid-arguments error instead of crashing the trial. An earlier framing (instruction to Read the SKILL.md, no `Skill` tool) baselined 0/9 with zero skill loads — hosted models consume an `<available_skills>` block as a tool catalogue no matter what the surrounding text says.
 
 ## Goal
 
@@ -237,9 +237,12 @@ the lane at a hosted 32B/72B via `WEAVER_EVAL_MODEL`/`WEAVER_EVAL_BASE_URL` plus
 `eval/cases/trigger-agentic.llm.test.ts` runs the same skill-trigger subset under the same
 pressures as the adversarial lane, but measures the *eventual* operation instead of the first
 tool call. `runAgenticLoop` (`eval/harness/agentic-loop.ts`) drives the model forward up to a
-step budget (default 3), feeding a canned result back after each turn, and passes when the
-expected skill is reached within the budget. Like the adversarial lane, it is a pressure variant
-of the local rungs (2–3), not a new rung.
+step budget (6 — room for the skill-load hop, a precursor, and the operation), feeding a canned
+result back after each turn. A skill load (`Skill` tool call or SKILL.md Read) feeds back the
+real SKILL.md body and is tracked as `skillMdRead`/`readTurn` without entering the trail; the
+case passes when a bash `weaver <expected-command>` invocation is reached within the budget.
+Per-trial trails print with raw bash command strings — a name-only trail cannot distinguish
+"never ran weaver" from a matcher false-negative.
 
 Why it exists: the single-shot first-call metric cannot tell a *substitution* (grep instead of
 search-text) from a reasonable *precursor* (find-references before a rename). It scores
@@ -262,7 +265,10 @@ tool-format echo would corrupt the next turn and silently measure nothing — th
 failure class as the `OLLAMA_CONTEXT_LENGTH` truncation gotcha. The model still emits a fresh tool
 call each turn, read straight from the response.
 
-Run it like the adversarial lane (`OLLAMA_CONTEXT_LENGTH` raised): `pnpm eval trigger-agentic`.
+Run: `pnpm eval trigger-agentic` (hosted env vars per the status note). Filter to a case subset
+with `-t <case-name-regex>` for cheap iteration; `WEAVER_EVAL_TRIALS=1` for spot checks. Test
+titles carry full case names (`chaiConfig.truncateThreshold: 0` in `vitest.llm.config.ts` —
+the default 40-char truncation made long case names collide and silently broke `-t` filtering).
 
 ## Adding a new operation
 
