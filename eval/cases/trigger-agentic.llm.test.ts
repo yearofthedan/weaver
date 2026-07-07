@@ -35,7 +35,8 @@ const systemContent = `${buildClutterSystemPrompt()}\n\n${buildAvailableSkillsPr
 function skillNameFromRead(call: ToolCall): string | undefined {
   if (call.name !== "Read") return undefined;
   const filePath = String(call.arguments.file ?? call.arguments.file_path ?? "");
-  return SKILL_NAMES.find((name) => filePath === skillLocation(name));
+  // suffix, not exact: tolerate an absolute or ./-prefixed read path
+  return SKILL_NAMES.find((name) => filePath.endsWith(skillLocation(name)));
 }
 
 describe("agentic rate lane", () => {
