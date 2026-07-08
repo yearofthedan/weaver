@@ -130,8 +130,9 @@ describe("agentic rate lane", () => {
       )
       .join("\n");
 
-    // Printed for passing cases too: the stopgap skill-name proxy can make the
-    // rate pass without any real weaver invocation — only the trail shows that.
+    // Printed for passing cases too: the rate alone hides how the model got
+    // there — the trail shows precursor steps and any loaded-but-didn't-convert
+    // trials (right skill loaded, CLI never run) a bare pass/fail would mask.
     console.log(`${c.name} — rate ${rate.passed}/${rate.total}\n${trailSummary}`);
 
     expect(
