@@ -6,6 +6,7 @@ afterEach(() => {
   delete process.env.WEAVER_EVAL_MODEL;
   delete process.env.WEAVER_EVAL_API_KEY;
   delete process.env.WEAVER_EVAL_TEMPERATURE;
+  delete process.env.WEAVER_EVAL_PROVIDER;
 });
 
 describe("modelConfig", () => {
@@ -55,6 +56,17 @@ describe("modelConfig", () => {
       expect(config.baseUrl).toBe("http://openrouter:8080/v1");
       expect(config.model).toBe("meta-llama/llama-3.3-70b-instruct");
       expect(config.apiKey).toBe("sk-or-test");
+    });
+
+    it("returns the pinned provider when WEAVER_EVAL_PROVIDER is set", () => {
+      process.env.WEAVER_EVAL_PROVIDER = "DeepInfra";
+      expect(modelConfig().provider).toBe("DeepInfra");
+    });
+
+    it("leaves provider undefined when unset or blank — so OpenRouter routes", () => {
+      expect(modelConfig().provider).toBeUndefined();
+      process.env.WEAVER_EVAL_PROVIDER = "";
+      expect(modelConfig().provider).toBeUndefined();
     });
   });
 });

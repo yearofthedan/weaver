@@ -57,7 +57,9 @@ function makeTextResponse(text: string) {
   };
 }
 
-function explicitConfig(overrides: { temperature?: number; apiKey?: string } = {}) {
+function explicitConfig(
+  overrides: { temperature?: number; apiKey?: string; provider?: string } = {},
+) {
   return {
     baseUrl: TEST_BASE_URL,
     model: TEST_MODEL,
@@ -111,6 +113,36 @@ describe("callModel", () => {
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       const body = JSON.parse(init.body as string);
       expect(body.temperature).toBe(0);
+    });
+
+    it("pins the OpenRouter provider with fallbacks off when configured", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeTextResponse("hi"),
+      });
+
+      await callModel(
+        [{ role: "user", content: "hi" }],
+        [],
+        explicitConfig({ provider: "DeepInfra" }),
+      );
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(init.body as string);
+      expect(body.provider).toEqual({ order: ["DeepInfra"], allow_fallbacks: false });
+    });
+
+    it("omits the provider field entirely when unset — lets OpenRouter route", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeTextResponse("hi"),
+      });
+
+      await callModel([{ role: "user", content: "hi" }], [], explicitConfig());
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(init.body as string);
+      expect(body).not.toHaveProperty("provider");
     });
 
     it("serializes assistant tool_calls to the wire format with stringified arguments", async () => {

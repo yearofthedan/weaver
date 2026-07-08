@@ -72,7 +72,7 @@ export async function callModel(
   tools: ToolDefinition[],
   config: ModelConfig = modelConfig(),
 ): Promise<ModelResponse> {
-  const { baseUrl, model, apiKey, temperature } = config;
+  const { baseUrl, model, apiKey, temperature, provider } = config;
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (apiKey) {
@@ -88,6 +88,10 @@ export async function callModel(
       tools: tools.length > 0 ? tools : undefined,
       temperature,
       max_tokens: MAX_TOKENS,
+      // OpenRouter routing: pin to one backend with fallbacks off so the rate
+      // is reproducible. Omitted entirely when unset (non-OpenRouter endpoints
+      // ignore it, but there is no reason to send it).
+      ...(provider ? { provider: { order: [provider], allow_fallbacks: false } } : {}),
     }),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });

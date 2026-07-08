@@ -10,6 +10,13 @@ export interface ModelConfig {
    * Command and two-step lanes pass 0 explicitly to stay deterministic.
    */
   temperature: number;
+  /**
+   * OpenRouter provider to pin (WEAVER_EVAL_PROVIDER), e.g. "DeepInfra". When set,
+   * every request is routed to that one backend with fallbacks disabled, so runs
+   * are reproducible — OpenRouter otherwise load-balances a model across providers
+   * whose quantization and tool-calling behaviour differ. Undefined = let OpenRouter route.
+   */
+  provider?: string;
 }
 
 // An unset or blank env var falls back to the default; a set-but-non-numeric
@@ -34,5 +41,6 @@ export function modelConfig(): ModelConfig {
     // Intentionally undefined when unset so callModel's "no header" branch keys off absence.
     apiKey: process.env.WEAVER_EVAL_API_KEY,
     temperature: parseTemperature(),
+    provider: process.env.WEAVER_EVAL_PROVIDER || undefined,
   };
 }
