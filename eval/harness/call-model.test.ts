@@ -465,4 +465,89 @@ describe("callModel", () => {
       expect(mockFetch).toHaveBeenCalledOnce();
     });
   });
+
+  describe("transient provider faults", () => {
+    const oneTool = [
+      {
+        type: "function" as const,
+        function: { name: "bash", description: "run a command", parameters: {} },
+      },
+    ];
+
+    function timeoutError(): DOMException {
+      return new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    }
+
+    it("retries a network timeout once, then returns the recovered response", async () => {
+      mockFetch.mockRejectedValueOnce(timeoutError()).mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeCompletionResponse([{ name: "bash", arguments: { command: "ls" } }]),
+      });
+
+      const result = await callModel([{ role: "user", content: "go" }], oneTool, explicitConfig());
+
+      expect(result.toolCalls[0].name).toBe("bash");
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("propagates a persistent timeout after the single retry", async () => {
+      mockFetch.mockRejectedValue(timeoutError());
+
+      await expect(
+        callModel([{ role: "user", content: "go" }], oneTool, explicitConfig()),
+      ).rejects.toSatisfy((err: unknown) => (err as { name?: string }).name === "TimeoutError");
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("retries an empty completion returned while tools were offered, then returns the recovery", async () => {
+      mockFetch
+        .mockResolvedValueOnce({ ok: true, json: async () => makeCompletionResponse([], "") })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () =>
+            makeCompletionResponse([{ name: "bash", arguments: { command: "ls" } }]),
+        });
+
+      const result = await callModel([{ role: "user", content: "go" }], oneTool, explicitConfig());
+
+      expect(result.toolCalls[0].name).toBe("bash");
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("throws a named provider fault when the empty completion persists across retries", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => makeCompletionResponse([], "") });
+
+      await expect(
+        callModel([{ role: "user", content: "go" }], oneTool, explicitConfig()),
+      ).rejects.toThrow(/empty completion.*WEAVER_EVAL_PROVIDER/s);
+
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("does not treat an empty completion as a fault when no tools were offered", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeCompletionResponse([], ""),
+      });
+
+      const result = await callModel([{ role: "user", content: "go" }], [], explicitConfig());
+
+      expect(result.toolCalls).toEqual([]);
+      expect(result.text).toBe("");
+      expect(mockFetch).toHaveBeenCalledOnce();
+    });
+
+    it("returns a text-only reply with tools offered without retrying — text is not an empty fault", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeTextResponse("I will not use a tool for this."),
+      });
+
+      const result = await callModel([{ role: "user", content: "go" }], oneTool, explicitConfig());
+
+      expect(result.text).toBe("I will not use a tool for this.");
+      expect(mockFetch).toHaveBeenCalledOnce();
+    });
+  });
 });

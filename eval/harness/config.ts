@@ -11,10 +11,12 @@ export interface ModelConfig {
    */
   temperature: number;
   /**
-   * OpenRouter provider to pin (WEAVER_EVAL_PROVIDER), e.g. "DeepInfra". When set,
+   * OpenRouter provider to pin (WEAVER_EVAL_PROVIDER), e.g. "AkashML". When set,
    * every request is routed to that one backend with fallbacks disabled, so runs
    * are reproducible — OpenRouter otherwise load-balances a model across providers
-   * whose quantization and tool-calling behaviour differ. Undefined = let OpenRouter route.
+   * whose quantization and tool-calling behaviour differ. Pin a provider that emits
+   * tool calls: "DeepInfra" returns empty completions for llama-3.3-70b when tools
+   * are present (see docs/eval-design.md). Undefined = let OpenRouter route.
    */
   provider?: string;
 }
