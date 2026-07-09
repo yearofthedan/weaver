@@ -78,11 +78,11 @@
     "@stryker-mutator/vitest-runner": "9.6.1",
     "@types/node": "24.13.2",
     "@types/tmp": "0.2.6",
-    "@vitest/coverage-v8": "4.1.9",
+    "@vitest/coverage-v8": "4.1.10",
     "@volar/language-core": "2.4.28",
     "husky": "9.1.7",
     "tmp": "0.2.7",
     "tsx": "4.23.0",
-    "vitest": "4.1.9"
+    "vitest": "4.1.10"
   }
 }
