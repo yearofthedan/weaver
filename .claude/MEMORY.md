@@ -33,6 +33,31 @@ Do not log per-session "fixed X" history here; keep durable process guidance onl
 
 ---
 
+## Running the hosted eval lanes (LLM rate lane)
+
+Two lanes — Haiku primary/gate, OSS-70B stress instrument; roles and reading rules in
+`docs/eval-design.md`. The OpenRouter key lives in Proton Pass (pass-cli), item
+"Open Router - weaver evals", Personal vault, field "API Key". Inject via a secret
+reference — never print the key or `item view` it into a transcript:
+
+```bash
+SC=<scratch dir>
+pass-cli item view --vault-name Personal --item-title "Open Router - weaver evals" \
+  --output json > "$SC/or-item.json"
+# Write an env file whose WEAVER_EVAL_API_KEY is "pass://<share_id>/<id>/API Key"
+# (read share_id/id from the JSON), plus:
+#   Haiku lane: WEAVER_EVAL_BASE_URL=https://openrouter.ai/api/v1
+#               WEAVER_EVAL_MODEL=anthropic/claude-haiku-4.5      (no provider pin)
+#   70B lane:   WEAVER_EVAL_MODEL=meta-llama/llama-3.3-70b-instruct
+#               WEAVER_EVAL_PROVIDER=AkashML                      (never DeepInfra)
+pass-cli run --env-file "$SC/eval.env" -- pnpm eval trigger-agentic --disable-console-intercept
+```
+
+`pass-cli test` checks auth (the user runs `pass-cli login` themselves if it fails).
+`-t <case-regex>` filters cases; `WEAVER_EVAL_TRIALS=6` for re-checking a surprising rate.
+
+---
+
 ## Hard-won rules
 
 **Never reference AC numbers or spec identifiers in code comments or test labels.**

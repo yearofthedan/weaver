@@ -17,6 +17,7 @@ export interface ModelConfig {
    * whose quantization and tool-calling behaviour differ. Pin a provider that emits
    * tool calls: "DeepInfra" returns empty completions for llama-3.3-70b when tools
    * are present (see docs/eval-design.md). Undefined = let OpenRouter route.
+   * Anthropic models (the primary Haiku lane) need no pin — single provider.
    */
   provider?: string;
 }
