@@ -65,14 +65,12 @@ tests and the coverage invariant but never needs a model server.
 
 ### Case stages
 
-- **Trigger cases:** each shipped skill is declared as its own tool whose description is
-  the skill's frontmatter description — the artifact under test sits directly on the
-  decision surface — alongside a `bash` tool. Pass = the model's first tool call matches
-  the case's `expect.tool`. For most cases that is a skill, and a bash-first or wrong-skill
-  response fails. **Boundary cases** (`boundary-*`) invert this: their `expect.tool` is
-  `"bash"` — legitimate shell work (list files, run tests, tail a log) that must *not* be
-  pulled into a skill. They guard against an aggressive description over-triggering; a
-  skill-first response fails them.
+- **Trigger cases:** run exclusively on the agentic trigger lane (see below) — a generic
+  `Skill` tool loads a skill's real SKILL.md body, and a case passes when the model reaches
+  a `weaver <expected-command>` bash call within the step budget. **Boundary cases**
+  (`boundary-*`, `expect.skill: "bash"`) invert this: legitimate shell work (list files, run
+  tests, tail a log) that must *not* pull a skill in; they pass when every trial neither loads
+  a skill nor reaches any `weaver` invocation.
 - **Command cases:** the full SKILL.md bodies plus the task go in the user turn, with an
   instruction to reply with only the command (text emission — see gotchas for why not a
   declared bash tool). Pass = the response parses as `weaver <expected-subcommand>
@@ -208,64 +206,41 @@ signal as a higher rung's verdict.
    authoritative audience. Costs API time, so it is pre-release rather than per-edit, and
    is currently manual (making it repeatable is queued in `docs/handoff.md`).
 
-The adversarial trigger lane below is not a new rung — it applies host-like *pressure* to
+The agentic trigger lane below is not a new rung — it applies host-like *pressure* to
 the local rungs (2–3), holding the skill text constant so the pressure is the only variable.
-
-## The adversarial trigger lane
-
-`eval/cases/trigger-adversarial.llm.test.ts` reruns the skill-expecting trigger cases under
-the pressures a real agent host applies, without touching the skill files:
-
-- **Competing toolset** — `Edit`/`Grep`/`Glob`/`Read` declared alongside the skills, so a
-  loss names which habit won.
-- **Cluttered system prompt** — `buildClutterSystemPrompt()` wraps the decision surface in
-  generic agent scaffolding. This pushes the prompt past Ollama's 4096 default, so the lane
-  needs `OLLAMA_CONTEXT_LENGTH` raised (≈ 16384) or prompts are silently truncated; a 7B
-  fits that context on a 16 GB host. **Gotcha:** the macOS Ollama app starts `serve` at the
-  4096 default regardless of shell env — set the var in its launch environment, or quit the
-  app and run `OLLAMA_CONTEXT_LENGTH=16384 ollama serve` from a terminal. A truncated run
-  silently measures the wrong thing (the description gets squeezed, not the clutter).
-- **Grep-primed seed** — `buildHabitMomentumSeed()` prepends a successful grep before the
-  task, so the model already has shell momentum.
-
-Metric: temperature 0, single-shot pass/fail — the same decoding as the clean lane, with
-the poisons as the only variable. Reading the gap against the clean lane:
-
-- **clean-pass + poisoned-fail** → a pressure problem: the description is fine but loses
-  under a real host. This is the evidence for a forcing mechanism (host hooks).
-- **both fail** → a text problem: fix the skill description.
-
-Because the lane runs at temperature 0, it catches a poison only when it *flips* the top
-tool choice. Sub-flip erosion (P(skill) drops but the skill still wins) needs repeat-N
-rates on a trustworthy model — deferred to the hosted follow-up in `docs/handoff.md`. Point
-the lane at a hosted 32B/72B via `WEAVER_EVAL_MODEL`/`WEAVER_EVAL_BASE_URL` plus
-`WEAVER_EVAL_API_KEY` (bearer auth) for that calibration run.
 
 ## The agentic trigger lane
 
-`eval/cases/trigger-agentic.llm.test.ts` runs the same skill-trigger subset under the same
-pressures as the adversarial lane, but measures the *eventual* operation instead of the first
-tool call. `runAgenticLoop` (`eval/harness/agentic-loop.ts`) drives the model forward up to a
-step budget (6 — room for the skill-load hop, a precursor, and the operation), feeding a canned
-result back after each turn. A skill load (`Skill` tool call or SKILL.md Read) feeds back the
-real SKILL.md body and is tracked as `skillMdRead`/`readTurn` without entering the trail; the
-case passes when a bash `weaver <expected-command>` invocation is reached within the budget.
-Per-trial trails print with raw bash command strings — a name-only trail cannot distinguish
-"never ran weaver" from a matcher false-negative.
+`eval/cases/trigger-agentic.llm.test.ts` runs the skill-trigger cases plus the `boundary-*`
+cases under host-like pressure — a competing toolset (`Skill`, `bash`, `Grep`, `Glob`, `Read`),
+a cluttered system prompt (`buildClutterSystemPrompt()`), and a grep-primed seed
+(`buildHabitMomentumSeed()` prepends a successful grep before the task) — and measures the
+*eventual* operation instead of the first tool call. `runAgenticLoop`
+(`eval/harness/agentic-loop.ts`) drives the model forward up to a step budget (6 — room for
+the skill-load hop, a precursor, and the operation), feeding a canned result back after each
+turn. A skill load (`Skill` tool call or SKILL.md Read) feeds back the real SKILL.md body and
+is tracked as `skillMdRead`/`readTurn` without entering the trail. Per-trial trails print with
+raw bash command strings — a name-only trail cannot distinguish "never ran weaver" from a
+matcher false-negative.
 
-Why it exists: the single-shot first-call metric cannot tell a *substitution* (grep instead of
-search-text) from a reasonable *precursor* (find-references before a rename). It scores
-`rename-at-position → find-references-first` as a loss even though the model would rename next.
-The agentic lane credits the precursor and checks where the model actually lands.
+Why the eventual-operation metric exists: a single-shot first-call metric cannot tell a
+*substitution* (grep instead of search-text) from a reasonable *precursor* (find-references
+before a rename). It scores `rename-at-position → find-references-first` as a loss even though
+the model would rename next. The agentic lane credits the precursor and checks where the model
+actually lands.
 
-Reading the gap against the adversarial lane (same case subset, by design):
+**Skill-trigger cases** (`expect.skill` names a skill) pass when a bash
+`weaver <expected-command>` invocation is reached within the budget. `matchedAtStep` — the
+1-based step of that invocation, absent if the trial never matched — is recorded per trial and
+printed in the trail summary, so a first-call win (`matched@1`) is distinguishable from a
+precursor-then-win (`matched@3`).
 
-- **red in adversarial, green here** → a precursor case: the description loses the first call but
-  wins within the budget. The single-shot loss was a false negative.
-- **red in both** → genuine non-convergence. The agentic lane's `trail` names what the model did
-  instead — a wrong-skill substitution (`inspection → search-and-replace → search-and-replace`)
-  or no tool call at all. This is the accurate attribution the single-shot lane cannot give: it
-  would blame the *precursor* skill that happened to win the first call.
+**Boundary cases** (`expect.skill: "bash"` — legitimate shell work) invert the pass condition:
+they guard against an aggressive description over-triggering and stealing a task no skill
+should claim. A trial is clean when it neither loads a skill nor reaches a `weaver` invocation
+for *any* subcommand within the budget (`boundaryTrialClean` in `eval/harness/agentic-loop.ts`);
+the case passes only when every trial is clean. This is at least as strong as a first-call-only
+guard — it catches an over-trigger anywhere in the trajectory, not only the first call.
 
 **Gotcha — plain-text echo.** Completed turns are echoed back as plain-text conversation turns
 (an assistant text turn plus a user turn carrying the canned result), never as `tool_call`/`tool`
@@ -293,12 +268,11 @@ new task category) ships.
 
 ## Iteration path
 
-1. **v1:** local model, single-shot, temperature 0, pass/fail per case — the clean lane.
-2. **v2 (shipped):** the adversarial trigger lane (see above) — same metric, host-like
-   pressure, clean lane retained as the regression baseline.
-3. **v3 (shipped):** the agentic trigger lane (see above) — eventual-operation metric under the
-   same pressure, crediting sensible precursors the single-shot lanes score as losses.
-4. **Later candidates, queued in `docs/handoff.md`:**
+1. **Agentic trigger lane** (see above) — the current and only trigger-stage lane:
+   eventual-operation metric under host-like pressure, crediting sensible precursors a
+   single-shot first-call metric would score as losses; owns the boundary over-trigger guard
+   and the first-call (`matchedAtStep`) signal.
+2. **Later candidates, queued in `docs/handoff.md`:**
    - repeat-N fragility rates (temperature > 0) on the hosted calibration model, to catch
      the sub-flip erosion the pass/fail lanes miss
    - Agent SDK end-to-end runs (real bash, live daemon, file-state assertions) — highest
