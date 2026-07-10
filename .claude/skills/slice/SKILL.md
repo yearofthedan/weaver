@@ -48,7 +48,7 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
    - Explicit instruction: "Apply the fix described in the Fix section. Write a regression test for the reproduction case. Verify Done-when criteria. Run `pnpm check`, commit, then stop."
 
    After each batch, before dispatching the next:
-   - Read the agent's notes file from `.claude/agent-notes/` — it logs deviations, assumptions, and surprises as they happen
+   - **Read the agent's notes file** from `.claude/agent-notes/` — the file itself, not the completion summary the agent hands back (that summary is lossy and buries self-review catches). It logs deviations, assumptions, surprises, and self-corrections as they happen. Mine it for batch-specific issues *and* generalisable learnings to promote in step 8
    - Verify the batch's commits exist and `pnpm check` passes
    - **Review the batch.** Run `/review-changes <this-batch-start-sha>..HEAD` on just this batch's commits and apply the fixes before moving on. Reviewing per batch — not once at the end — catches issues while they are cheap: before later batches build on them, and especially before a destructive or irreversible batch (deletions, migrations, dependency removal) runs against a problem the build-up introduced. It also surfaces problems through interactive follow-up that a single end-of-slice pass misses. Scrutinise anything the execution agent did beyond the batch's stated scope.
    - If the agent reported assumptions or spec mismatches, decide whether to adjust the next batch's instructions, fix something, or ask the user
@@ -74,7 +74,7 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
 
    **Do NOT proceed to step 8 until the Outcome section — including the Reflection — is written in the archived spec file.**
 
-8. **Capture any non-obvious gotchas** discovered during implementation. Put them in the relevant `docs/internals/` or `docs/tech/` doc, or in `.claude/MEMORY.md` if cross-cutting. Add a code comment if the gotcha is visible at the call site.
+8. **Harvest learnings and capture gotchas.** Read the batch's notes under `.claude/agent-notes/` *and* any entries the agent wrote under `.claude/agent-memory/`. Neither path is git-tracked — a "durable" learning left there is lost on the next container rebuild, so it must be promoted here or it is lost. For each finding: put a non-obvious *gotcha* in the relevant `docs/internals/` or `docs/tech/` doc (add a code comment if it is visible at the call site); fold a generalisable *discipline* into the doc that already owns that topic (e.g. a test-writing lesson → `docs/code-standards.md`) rather than adding a new standalone rule. Do this every slice, not only when prompted — agents generate learnings continuously and the default path drops them on the floor.
 
 9. **Commit** docs changes with a conventional commit message (see `CLAUDE.md`).
 
