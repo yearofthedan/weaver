@@ -1,6 +1,6 @@
 ---
 name: weaver-search-and-replace
-description: Use instead of grep or sed to find or change text across files — every occurrence of a string or pattern (literals, labels, markers like TODO), or a multi-file replace. It returns structured file/line/col matches, stays inside the workspace, and skips sensitive files — grep does none of these. For usages of a named code symbol, use weaver-code-inspection.
+description: Any text search or bulk text change — "find the TODOs", "replace Y with Z across files" — use instead of grep or sed. Finds every occurrence of a string or pattern (literals, labels, markers like TODO), or does a multi-file replace. Returns structured file/line/col matches, stays inside the workspace, and skips sensitive files — grep does none of these. For usages of a named code symbol, use weaver-code-inspection.
 ---
 
 # Search and Replace Across Files

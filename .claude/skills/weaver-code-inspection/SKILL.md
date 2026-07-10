@@ -1,11 +1,11 @@
 ---
 name: weaver-code-inspection
-description: Use when finding all references to a named symbol (function, variable, type) at a position, jumping to a definition through re-exports, or getting the TypeScript type errors for a file or project — use instead of grep for a symbol's usages, or tsc/build to check types. For free-text, comment, or string search (e.g. TODO), use weaver-search-and-replace.
+description: Any symbol or type question — "where is X used / who calls X?", "any TypeScript errors?", "where is X defined?" — use instead of grep for a symbol's usages, or tsc/build to check types. Finds all references to a named symbol (function, variable, type) at a position, jumps to a definition through re-exports, gets the TypeScript type errors for a file or project. For free-text, comment, or string search (e.g. TODO), use weaver-search-and-replace.
 ---
 
 # Code Inspection
 
-**STOP.** Before running `grep` to find where a symbol is used, or before reading a file just to find a definition — use these commands instead. They see through re-exports, barrel `index.ts` files, type-only imports, and Vue SFCs that grep misses, and they're scope-aware so they won't match unrelated identifiers with the same name.
+**STOP.** Before running `grep` to find where a symbol is used, before running `tsc` or a build just to check for type errors, or before reading a file just to find a definition — use these commands instead. They see through re-exports, barrel `index.ts` files, type-only imports, and Vue SFCs that grep misses, and they're scope-aware so they won't match unrelated identifiers with the same name.
 
 ## Trust the response
 
@@ -52,6 +52,12 @@ weaver get-type-errors '{}'
 ```
 
 Use to check the project baseline before a refactor, or to verify a specific file after manual edits. Works for `.ts`/`.tsx` and, in Vue projects, `.vue` SFCs. Errors only — no warnings or suggestions.
+
+**Instead of:**
+```bash
+tsc --noEmit src/auth.ts
+```
+**Use `get-type-errors`** — it resolves the project's real tsconfig (bare `tsc` on one file ignores it) and returns structured `{file, line, col, message}` errors instead of text to parse.
 
 ## When NOT to use
 
