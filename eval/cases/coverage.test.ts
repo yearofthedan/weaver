@@ -31,9 +31,33 @@ describe("eval case coverage", () => {
       fixtureOperations,
     )("fixture %s.json corresponds to a registered operation", (fixtureName) => {
       expect(
-        OPERATION_NAMES,
-        `Fixture ${fixtureName}.json has no registered operation. Remove the fixture or register the operation.`,
-      ).toContain(fixtureName);
+        fixtureCorrespondsToOperation(fixtureName),
+        `Fixture ${fixtureName}.json has no registered operation and is not a focused variant of one (an "<operation>-<detail>" name). Remove the fixture or register the operation.`,
+      ).toBe(true);
+    });
+
+    it("accepts an exact operation name", () => {
+      expect(fixtureCorrespondsToOperation("rename")).toBe(true);
+    });
+
+    it("accepts a focused variant of a registered operation", () => {
+      expect(fixtureCorrespondsToOperation("searchText-userId")).toBe(true);
+    });
+
+    it("rejects a name with no registered operation, exact or as a prefix", () => {
+      expect(fixtureCorrespondsToOperation("totallyUnregisteredOperation")).toBe(false);
     });
   });
 });
+
+/**
+ * True when `fixtureName` is a registered operation's exact camelCase name, or
+ * a focused variant of one (`"<operation>-<detail>"`) — a case-scoped stub for
+ * a single scenario rather than the operation's generic default fixture.
+ */
+function fixtureCorrespondsToOperation(fixtureName: string): boolean {
+  return (
+    OPERATION_NAMES.includes(fixtureName) ||
+    OPERATION_NAMES.some((operation) => fixtureName.startsWith(`${operation}-`))
+  );
+}

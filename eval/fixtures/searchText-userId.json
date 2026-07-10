@@ -1,0 +1,17 @@
+{
+  "status": "success",
+  "matches": [
+    {
+      "file": "/tmp/weaver-eval/src/auth.ts",
+      "line": 12,
+      "col": 9,
+      "matchText": "userId",
+      "context": [
+        { "line": 11, "text": "  const token = req.headers.authorization;", "isMatch": false },
+        { "line": 12, "text": "  const userId = verifyJwt(token);", "isMatch": true },
+        { "line": 13, "text": "  return { userId };", "isMatch": false }
+      ]
+    }
+  ],
+  "truncated": false
+}

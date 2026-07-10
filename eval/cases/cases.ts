@@ -19,6 +19,15 @@ export interface CaseEntry {
     command?: string;
     keyArgs?: Record<string, unknown>;
   };
+  /**
+   * Overrides the canned result fed back for specific tool calls the agentic
+   * lane makes during this case, keyed by weaver subcommand (e.g.
+   * "search-text") or tool name (e.g. "bash"). Absent keys fall through to
+   * the harness's global defaults — see `cannedToolResult` in
+   * `eval/harness/agentic-loop.ts`. Empty/absent is the common case; only a
+   * multi-hop scenario that needs a realistic intermediate result sets this.
+   */
+  cannedResults?: Record<string, string>;
 }
 
 function fixtureContent(operation: string): string {
@@ -67,6 +76,11 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "trigger",
     task: "Rename the variable `userId` to `accountId` across all TypeScript files in /tmp/weaver-eval/src. I don't have the line numbers.",
     expect: { skill: "weaver-refactor", command: "rename" },
+    // A rename without coordinates needs a search precursor to locate `userId`
+    // before it can act; the focused fixture hands back only that position, so
+    // the case measures whether the model converges on the rename rather than
+    // stalling on a harness that never carries a position back.
+    cannedResults: { "search-text": loadFixture("searchText-userId") },
   },
   {
     name: "trigger-refactor-move-file",
@@ -287,7 +301,9 @@ export const CASES: CaseEntry[] = validateCases([
 
 /**
  * Reads the named fixture file and returns its content as a string.
- * Used by the LLM test runner to embed fixture JSON as a tool_result.
+ * Used by the LLM test runner to embed fixture JSON as a tool_result, and by
+ * case-scoped `cannedResults` overrides to reference a focused fixture
+ * variant (e.g. `"searchText-userId"`) rather than inlining JSON.
  */
 export function loadFixture(operation: string): string {
   return fixtureContent(operation);

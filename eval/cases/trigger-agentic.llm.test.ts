@@ -71,11 +71,12 @@ function skillNameFromLoad(call: ToolCall): string | undefined {
 
 /**
  * Feeds a skill's real SKILL.md body back for a load, a host-style
- * unknown-tool error for a hallucinated call, and the generic canned result
- * otherwise. Shared by both `it.each` blocks below — they run the same tool
- * set and only differ in `matches`.
+ * unknown-tool error for a hallucinated call, and the case's canned result
+ * otherwise (case override first, then the harness's global defaults — see
+ * `cannedToolResult`). Shared by both `it.each` blocks below — they run the
+ * same tool set and only differ in `matches`.
  */
-function cannedResultForCall(call: ToolCall): string {
+function cannedResultForCall(call: ToolCall, caseResults?: Record<string, string>): string {
   const skillName = skillNameFromLoad(call);
   if (skillName !== undefined) {
     return readSkillFile(skillName);
@@ -87,7 +88,7 @@ function cannedResultForCall(call: ToolCall): string {
     // Hallucinated direct skill-name call — respond as a host would.
     return `Error: no such tool "${call.name}". Available tools: Skill, bash, Grep, Glob, Read.`;
   }
-  return cannedToolResult(call);
+  return cannedToolResult(call, caseResults);
 }
 
 describe("agentic rate lane", () => {
@@ -125,7 +126,7 @@ describe("agentic rate lane", () => {
         isSkillMdRead: (call) => skillNameFromLoad(call) !== undefined,
         maxSteps: MAX_STEPS,
         step: callModel,
-        cannedResultFor: cannedResultForCall,
+        cannedResultFor: (call) => cannedResultForCall(call, c.cannedResults),
       });
 
       trialRecords.push({
@@ -187,7 +188,7 @@ describe("agentic rate lane — boundary", () => {
         isSkillMdRead: (call) => skillNameFromLoad(call) !== undefined,
         maxSteps: MAX_STEPS,
         step: callModel,
-        cannedResultFor: cannedResultForCall,
+        cannedResultFor: (call) => cannedResultForCall(call, c.cannedResults),
       });
 
       trialRecords.push({

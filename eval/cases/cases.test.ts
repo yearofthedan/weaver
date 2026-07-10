@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { cannedToolResult } from "../harness/agentic-loop.js";
+import type { ToolCall } from "../harness/call-model.js";
 import { CASES, loadFixture } from "./cases.js";
+
+function bashCall(command: string): ToolCall {
+  return { name: "bash", arguments: { command } };
+}
 
 describe("case table", () => {
   describe("structure invariants", () => {
@@ -87,6 +93,25 @@ describe("case table", () => {
     it("has at least one boundary case that must stay in bash", () => {
       const boundaryCases = CASES.filter((c) => c.stage === "trigger" && c.expect.skill === "bash");
       expect(boundaryCases.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe("cannedResults", () => {
+    it("resolves the no-coords rename case's search-text override to the positional stub, not the file list", () => {
+      const noCoordsCase = CASES.find(
+        (c) => c.name === "trigger-refactor-rename-no-coords-sed-tempting",
+      );
+      expect(noCoordsCase?.cannedResults).toBeDefined();
+
+      const result = cannedToolResult(
+        bashCall('weaver search-text \'{"pattern":"userId"}\''),
+        noCoordsCase?.cannedResults,
+      );
+
+      const parsed = JSON.parse(result) as { matches: Array<{ line: number; col: number }> };
+      expect(parsed.matches).toHaveLength(1);
+      expect(parsed.matches[0]).toMatchObject({ line: 12, col: 9 });
+      expect(result).not.toBe("src/auth.ts\nsrc/api.ts\nsrc/utils.ts");
     });
   });
 
