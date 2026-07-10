@@ -2,7 +2,8 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { OPERATION_NAMES } from "../../src/daemon/dispatcher.js";
-import { CASES, operationToSubcommand } from "./cases.js";
+import { operationToSubcommand } from "../harness/fixtures.js";
+import { CASES } from "./cases.js";
 
 const FIXTURES_DIR = join(import.meta.dirname, "../fixtures");
 
@@ -26,6 +27,16 @@ describe("eval case coverage", () => {
     const fixtureOperations = readdirSync(FIXTURES_DIR)
       .filter((f) => f.endsWith(".json"))
       .map((f) => f.replace(/\.json$/, ""));
+
+    // The harness builds a default weaver stub for every operation by eagerly
+    // reading its fixture at module load, so a missing fixture would break the
+    // whole eval lane with an ENOENT rather than a clear failure here.
+    it.each(OPERATION_NAMES)("operation %s has a default fixture", (operationName) => {
+      expect(
+        fixtureOperations,
+        `Operation "${operationName}" has no eval/fixtures/${operationName}.json. Add one — the harness needs a weaver-shaped default stub for every operation.`,
+      ).toContain(operationName);
+    });
 
     it.each(
       fixtureOperations,

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { loadFixture } from "../cases/cases.js";
 import {
   boundaryTrialClean,
   cannedToolResult,
@@ -8,6 +7,7 @@ import {
 } from "./agentic-loop.js";
 import type { ChatMessage, ModelResponse, ToolCall } from "./call-model.js";
 import { SKILL_NAMES } from "./context.js";
+import { loadFixture } from "./fixtures.js";
 import { BASH_TOOL, COMPETING_TOOLS } from "./tools.js";
 
 const tc = (name: string): ToolCall => ({ name, arguments: {} });

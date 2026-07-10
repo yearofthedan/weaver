@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { cannedToolResult } from "../harness/agentic-loop.js";
 import type { ToolCall } from "../harness/call-model.js";
-import { CASES, loadFixture } from "./cases.js";
+import { loadFixture } from "../harness/fixtures.js";
+import { CASES } from "./cases.js";
 
 function bashCall(command: string): ToolCall {
   return { name: "bash", arguments: { command } };

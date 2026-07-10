@@ -1,7 +1,7 @@
 import { OPERATION_NAMES } from "../../src/daemon/dispatcher.js";
-import { loadFixture, operationToSubcommand } from "../cases/cases.js";
 import { extractBashCommands, isAnyWeaverInvocation, weaverSubcommand } from "./assertions.js";
 import type { ChatMessage, ModelResponse, ToolCall, ToolDefinition } from "./call-model.js";
+import { loadFixture, operationToSubcommand } from "./fixtures.js";
 
 /**
  * Canned tool output fed back after each loop turn, keyed by the tool name the
@@ -25,8 +25,8 @@ const CANNED_RESULTS: Record<string, string> = {
 /**
  * Global default result for each weaver subcommand, keyed by the kebab-case
  * subcommand name — one entry per registered operation, sourced from its
- * `eval/fixtures/<operation>.json` stub. Falls back to when a scenario doesn't
- * own a result for a weaver call it happens to make.
+ * `eval/fixtures/<operation>.json` stub. Used as the fallback when a scenario
+ * doesn't own a result for a weaver call it happens to make.
  */
 const WEAVER_SUBCOMMAND_DEFAULTS: Record<string, string> = Object.fromEntries(
   OPERATION_NAMES.map((operation) => [operationToSubcommand(operation), loadFixture(operation)]),

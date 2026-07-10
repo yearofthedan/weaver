@@ -3,8 +3,9 @@ import { extractCommandsFromText, matchWeaverCommand } from "../harness/assertio
 import { callModel } from "../harness/call-model.js";
 import { modelConfig } from "../harness/config.js";
 import { SKILL_NAMES, skillContext } from "../harness/context.js";
+import { loadFixture, operationToSubcommand } from "../harness/fixtures.js";
 import { buildSeedMessages } from "../harness/seed.js";
-import { CASES, loadFixture, operationToSubcommand } from "./cases.js";
+import { CASES } from "./cases.js";
 
 /** Two-step command cases (have a seed). */
 const twoStepCases = CASES.filter((c) => c.stage === "command" && c.seed != null);
