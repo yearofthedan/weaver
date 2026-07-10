@@ -34,6 +34,18 @@ export function isAnyWeaverInvocation(command: string): boolean {
 }
 
 /**
+ * Returns the subcommand token of a weaver invocation (e.g. `"search-text"`),
+ * or `undefined` when the command is not a weaver invocation. Accepts the same
+ * `weaver`/`npx weaver`/`pnpm exec weaver` prefix forms as
+ * {@link isAnyWeaverInvocation} and is anchored the same way. The token is
+ * returned verbatim, up to the first whitespace — no normalisation.
+ */
+export function weaverSubcommand(command: string): string | undefined {
+  const match = command.match(/^(?:npx\s+|pnpm\s+exec\s+)?weaver\s+(\S+)/);
+  return match?.[1];
+}
+
+/**
  * Filters tool calls to those with name "bash", returning their command
  * arguments. `&&`-chained commands are split into separate candidates — models
  * legitimately chain a setup step before the command under test (e.g.

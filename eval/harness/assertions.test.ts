@@ -5,6 +5,7 @@ import {
   isAnyWeaverInvocation,
   isWeaverInvocation,
   matchWeaverCommand,
+  weaverSubcommand,
 } from "./assertions.js";
 import type { ToolCall } from "./call-model.js";
 
@@ -127,6 +128,44 @@ describe("isAnyWeaverInvocation", () => {
 
     it("does not match weaver with no subcommand", () => {
       expect(isAnyWeaverInvocation("weaver")).toBe(false);
+    });
+  });
+});
+
+describe("weaverSubcommand", () => {
+  describe("matching forms", () => {
+    it("extracts the subcommand from a bare weaver invocation", () => {
+      expect(weaverSubcommand("weaver search-text '{}'")).toBe("search-text");
+    });
+
+    it("extracts the subcommand from an npx weaver prefix", () => {
+      expect(weaverSubcommand("npx weaver move-file --oldPath a.ts")).toBe("move-file");
+    });
+
+    it("extracts the subcommand from a pnpm exec weaver prefix", () => {
+      expect(weaverSubcommand('pnpm exec weaver rename \'{"newName":"bar"}\'')).toBe("rename");
+    });
+
+    it("returns the whole token, not a shorter subcommand it prefixes", () => {
+      expect(weaverSubcommand("weaver renamer --file x")).toBe("renamer");
+    });
+  });
+
+  describe("non-matching cases", () => {
+    it("returns undefined for a non-weaver command", () => {
+      expect(weaverSubcommand("mkdir -p /x")).toBeUndefined();
+    });
+
+    it("returns undefined for a command that only mentions weaver mid-string", () => {
+      expect(weaverSubcommand("echo weaver search-text")).toBeUndefined();
+    });
+
+    it("returns undefined for an empty command string", () => {
+      expect(weaverSubcommand("")).toBeUndefined();
+    });
+
+    it("returns undefined for weaver with no subcommand", () => {
+      expect(weaverSubcommand("weaver")).toBeUndefined();
     });
   });
 });
