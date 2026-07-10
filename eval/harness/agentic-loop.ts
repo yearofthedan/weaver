@@ -55,6 +55,13 @@ export interface AgenticResult {
   skillMdRead: boolean;
   /** 1-based step of the first SKILL.md read; absent if none occurred. */
   readTurn?: number;
+  /**
+   * The model's text reply on the turn it stopped emitting tool calls; absent
+   * if the run matched or exhausted the step budget. This is the evidence for
+   * diagnosing *why* a trial abandoned — e.g. answering from priors after a
+   * skill load instead of acting on it.
+   */
+  abandonedText?: string;
 }
 
 /**
@@ -105,7 +112,14 @@ export async function runAgenticLoop(params: {
     if (calls.length === 0) {
       // Model answered with text instead of a tool call — it has abandoned the
       // tools and will not converge. Stop here rather than burn the budget.
-      return { matched: false, trail, steps: stepIndex, skillMdRead, readTurn };
+      return {
+        matched: false,
+        trail,
+        steps: stepIndex,
+        skillMdRead,
+        readTurn,
+        abandonedText: response.text,
+      };
     }
 
     const call = calls[0];

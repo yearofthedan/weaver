@@ -77,6 +77,7 @@ describe("agentic rate lane", () => {
       trail: ToolCall[];
       skillMdRead: boolean;
       readTurn?: number;
+      abandonedText?: string;
     }
 
     const trialRecords: TrialRecord[] = [];
@@ -118,6 +119,7 @@ describe("agentic rate lane", () => {
         trail: result.trail,
         skillMdRead: result.skillMdRead,
         readTurn: result.readTurn,
+        abandonedText: result.abandonedText,
       });
     }
 
@@ -126,7 +128,7 @@ describe("agentic rate lane", () => {
     const trailSummary = trialRecords
       .map(
         (r, i) =>
-          `  trial ${i + 1} [${r.matched ? "matched" : "no match"}, ${r.skillMdRead ? `skill loaded@${r.readTurn}` : "no skill load"}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}`,
+          `  trial ${i + 1} [${r.matched ? "matched" : "no match"}, ${r.skillMdRead ? `skill loaded@${r.readTurn}` : "no skill load"}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}${r.abandonedText !== undefined ? `\n    abandoned with text: ${JSON.stringify(r.abandonedText.slice(0, 500))}` : ""}`,
       )
       .join("\n");
 

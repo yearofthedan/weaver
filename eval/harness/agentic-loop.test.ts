@@ -101,6 +101,31 @@ describe("runAgenticLoop", () => {
       expect(result.matched).toBe(false);
       expect(result.steps).toBe(2);
       expect(callCount()).toBe(2);
+      expect(result.abandonedText).toBe("I'll just edit it by hand.");
+    });
+
+    it("leaves abandonedText unset when the run matches or exhausts the budget", async () => {
+      const matched = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "weaver-refactor",
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step: async () => resp("weaver-refactor"),
+        cannedResultFor: () => "result",
+      });
+      expect(matched.abandonedText).toBeUndefined();
+
+      const exhausted = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "weaver-refactor",
+        isSkillMdRead: () => false,
+        maxSteps: 2,
+        step: async () => resp("Grep"),
+        cannedResultFor: () => "result",
+      });
+      expect(exhausted.abandonedText).toBeUndefined();
     });
 
     it("feeds the canned result back as plain-text turns, never tool-format messages", async () => {
