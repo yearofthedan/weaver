@@ -1,3 +1,4 @@
+import { extractBashCommands, isAnyWeaverInvocation } from "./assertions.js";
 import type { ChatMessage, ModelResponse, ToolCall, ToolDefinition } from "./call-model.js";
 
 /**
@@ -156,4 +157,18 @@ export async function runAgenticLoop(params: {
   }
 
   return { matched: false, trail, steps: maxSteps, skillMdRead, readTurn };
+}
+
+/**
+ * Returns true when a boundary trial stayed in the shell the whole way: no
+ * skill was loaded, and no call in `trail` reached `weaver` for any
+ * subcommand. Either signal alone is an over-trigger — a skill load that
+ * never converts to a `weaver` call has still stolen the model's attention
+ * from a legitimate shell task, and a `weaver` call without a prior load
+ * would mean the model already knew to skip the skill and go straight to
+ * the CLI, which is just as much a boundary violation.
+ */
+export function boundaryTrialClean(result: Pick<AgenticResult, "skillMdRead" | "trail">): boolean {
+  if (result.skillMdRead) return false;
+  return !extractBashCommands(result.trail).some((cmd) => isAnyWeaverInvocation(cmd));
 }

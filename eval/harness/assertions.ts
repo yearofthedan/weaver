@@ -23,6 +23,17 @@ export function isWeaverInvocation(command: string, subcommand: string): boolean
 }
 
 /**
+ * Returns true when the given bash command invokes `weaver` with any
+ * subcommand, tolerating the same `npx`/`pnpm exec` prefix forms as
+ * {@link isWeaverInvocation}. Used where the subcommand under test is
+ * unknown up front — e.g. a boundary case that must not reach `weaver` at
+ * all, regardless of which operation it would have been.
+ */
+export function isAnyWeaverInvocation(command: string): boolean {
+  return /^(?:npx\s+|pnpm\s+exec\s+)?weaver\s+\S+/.test(command);
+}
+
+/**
  * Filters tool calls to those with name "bash", returning their command
  * arguments. `&&`-chained commands are split into separate candidates — models
  * legitimately chain a setup step before the command under test (e.g.

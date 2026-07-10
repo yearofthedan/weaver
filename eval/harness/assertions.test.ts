@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractBashCommands,
   extractCommandsFromText,
+  isAnyWeaverInvocation,
   isWeaverInvocation,
   matchWeaverCommand,
 } from "./assertions.js";
@@ -92,6 +93,40 @@ describe("isWeaverInvocation", () => {
 
     it("does not match an empty command string", () => {
       expect(isWeaverInvocation("", "rename")).toBe(false);
+    });
+  });
+});
+
+describe("isAnyWeaverInvocation", () => {
+  describe("matching forms", () => {
+    it("matches a bare weaver command regardless of subcommand", () => {
+      expect(isAnyWeaverInvocation("weaver rename --file x")).toBe(true);
+    });
+
+    it("matches npx weaver prefix form", () => {
+      expect(isAnyWeaverInvocation('npx weaver search-text \'{"pattern":"x"}\'')).toBe(true);
+    });
+
+    it("matches pnpm exec weaver prefix form", () => {
+      expect(isAnyWeaverInvocation("pnpm exec weaver find-references --file x")).toBe(true);
+    });
+  });
+
+  describe("non-matching cases", () => {
+    it("does not match a non-weaver command", () => {
+      expect(isAnyWeaverInvocation("ls -la /tmp/weaver-eval/src")).toBe(false);
+    });
+
+    it("does not match a command that merely mentions weaver mid-string", () => {
+      expect(isAnyWeaverInvocation("echo 'ask weaver later'")).toBe(false);
+    });
+
+    it("does not match an empty command string", () => {
+      expect(isAnyWeaverInvocation("")).toBe(false);
+    });
+
+    it("does not match weaver with no subcommand", () => {
+      expect(isAnyWeaverInvocation("weaver")).toBe(false);
     });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cannedToolResult, runAgenticLoop } from "../harness/agentic-loop.js";
+import { boundaryTrialClean, cannedToolResult, runAgenticLoop } from "../harness/agentic-loop.js";
 import { extractBashCommands, isWeaverInvocation } from "../harness/assertions.js";
 import type { ToolCall } from "../harness/call-model.js";
 import { type ChatMessage, callModel } from "../harness/call-model.js";
@@ -23,10 +23,15 @@ const MAX_STEPS = 6;
 const raw = process.env.WEAVER_EVAL_TRIALS;
 const TRIALS = raw === undefined || raw === "" ? 3 : Number.parseInt(raw, 10);
 
-// Same skill-trigger subset as the adversarial lane; boundary/bash cases stay
-// single-shot there. The two lanes share this subset so the gap is interpretable:
-// red in adversarial but green here means a precursor case.
+// Same skill-trigger subset as the adversarial lane; the two lanes share it so
+// the gap is interpretable: red in adversarial but green here means a
+// precursor case.
 const skillTriggerCases = CASES.filter((c) => c.stage === "trigger" && c.expect.skill !== "bash");
+
+// Legitimate shell work a description must not steal. Distinct from
+// skillTriggerCases: there is no expected weaver command to converge on —
+// the pass condition is that the model never converges on one.
+const boundaryCases = CASES.filter((c) => c.stage === "trigger" && c.expect.skill === "bash");
 
 const tools = [SKILL_TOOL, ...rateLaneTools()];
 const systemContent = `${buildClutterSystemPrompt()}\n\n${buildAvailableSkillsPrompt()}`;
@@ -64,6 +69,27 @@ function skillNameFromLoad(call: ToolCall): string | undefined {
   return skillNameFromRead(call);
 }
 
+/**
+ * Feeds a skill's real SKILL.md body back for a load, a host-style
+ * unknown-tool error for a hallucinated call, and the generic canned result
+ * otherwise. Shared by both `it.each` blocks below — they run the same tool
+ * set and only differ in `matches`.
+ */
+function cannedResultForCall(call: ToolCall): string {
+  const skillName = skillNameFromLoad(call);
+  if (skillName !== undefined) {
+    return readSkillFile(skillName);
+  }
+  if (call.name === "Skill") {
+    return `Error: unknown skill "${String(call.arguments.skill ?? "")}".`;
+  }
+  if (SKILL_NAMES.some((name) => name === call.name)) {
+    // Hallucinated direct skill-name call — respond as a host would.
+    return `Error: no such tool "${call.name}". Available tools: Skill, bash, Grep, Glob, Read.`;
+  }
+  return cannedToolResult(call);
+}
+
 describe("agentic rate lane", () => {
   it.each(
     skillTriggerCases,
@@ -74,6 +100,7 @@ describe("agentic rate lane", () => {
 
     interface TrialRecord {
       matched: boolean;
+      matchedAtStep?: number;
       trail: ToolCall[];
       skillMdRead: boolean;
       readTurn?: number;
@@ -98,24 +125,12 @@ describe("agentic rate lane", () => {
         isSkillMdRead: (call) => skillNameFromLoad(call) !== undefined,
         maxSteps: MAX_STEPS,
         step: callModel,
-        cannedResultFor: (call) => {
-          const skillName = skillNameFromLoad(call);
-          if (skillName !== undefined) {
-            return readSkillFile(skillName);
-          }
-          if (call.name === "Skill") {
-            return `Error: unknown skill "${String(call.arguments.skill ?? "")}".`;
-          }
-          if (SKILL_NAMES.some((name) => name === call.name)) {
-            // Hallucinated direct skill-name call — respond as a host would.
-            return `Error: no such tool "${call.name}". Available tools: Skill, bash, Grep, Glob, Read.`;
-          }
-          return cannedToolResult(call);
-        },
+        cannedResultFor: cannedResultForCall,
       });
 
       trialRecords.push({
         matched: result.matched,
+        matchedAtStep: result.matchedAtStep,
         trail: result.trail,
         skillMdRead: result.skillMdRead,
         readTurn: result.readTurn,
@@ -125,10 +140,12 @@ describe("agentic rate lane", () => {
 
     const rate = computeRate(trialRecords.map((r) => r.matched));
 
+    // matchedAtStep distinguishes a first-call win (1 — no precursor needed)
+    // from a precursor-then-win (matched later); absent when the trial never matched.
     const trailSummary = trialRecords
       .map(
         (r, i) =>
-          `  trial ${i + 1} [${r.matched ? "matched" : "no match"}, ${r.skillMdRead ? `skill loaded@${r.readTurn}` : "no skill load"}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}${r.abandonedText !== undefined ? `\n    abandoned with text: ${JSON.stringify(r.abandonedText.slice(0, 500))}` : ""}`,
+          `  trial ${i + 1} [${r.matched ? `matched@${r.matchedAtStep}` : "no match"}, ${r.skillMdRead ? `skill loaded@${r.readTurn}` : "no skill load"}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}${r.abandonedText !== undefined ? `\n    abandoned with text: ${JSON.stringify(r.abandonedText.slice(0, 500))}` : ""}`,
       )
       .join("\n");
 
@@ -141,5 +158,58 @@ describe("agentic rate lane", () => {
       rate.belowAlarm,
       `"${c.name}" trigger rate ${rate.passed}/${rate.total} is below the 2/3 floor for command "${expectedCommand}". Trails:\n${trailSummary}`,
     ).toBe(false);
+  });
+});
+
+describe("agentic rate lane — boundary", () => {
+  it.each(boundaryCases)("$name — the model stays in bash across trials", async (c) => {
+    interface TrialRecord {
+      clean: boolean;
+      trail: ToolCall[];
+      skillMdRead: boolean;
+    }
+
+    const trialRecords: TrialRecord[] = [];
+
+    for (let trial = 0; trial < TRIALS; trial++) {
+      const messages: ChatMessage[] = [
+        { role: "system", content: systemContent },
+        ...buildHabitMomentumSeed(c.task),
+      ];
+
+      // Never satisfied: a boundary trial has no target command to converge
+      // on, so the loop runs to the step budget (or the model abandons with
+      // text after its bash result) and boundaryTrialClean judges the trail.
+      const result = await runAgenticLoop({
+        messages,
+        tools,
+        matches: () => false,
+        isSkillMdRead: (call) => skillNameFromLoad(call) !== undefined,
+        maxSteps: MAX_STEPS,
+        step: callModel,
+        cannedResultFor: cannedResultForCall,
+      });
+
+      trialRecords.push({
+        clean: boundaryTrialClean(result),
+        trail: result.trail,
+        skillMdRead: result.skillMdRead,
+      });
+    }
+
+    const trailSummary = trialRecords
+      .map(
+        (r, i) =>
+          `  trial ${i + 1} [${r.clean ? "clean" : "OVER-TRIGGERED"}${r.skillMdRead ? ", skill loaded" : ""}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}`,
+      )
+      .join("\n");
+
+    const cleanCount = trialRecords.filter((r) => r.clean).length;
+    console.log(`${c.name} — ${cleanCount}/${trialRecords.length} clean\n${trailSummary}`);
+
+    expect(
+      trialRecords.every((r) => r.clean),
+      `"${c.name}" over-triggered in at least one trial — a boundary case must stay clean (no skill load, no weaver call) across all trials. Trails:\n${trailSummary}`,
+    ).toBe(true);
   });
 });

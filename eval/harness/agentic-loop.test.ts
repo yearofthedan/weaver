@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { cannedToolResult, type ModelStep, runAgenticLoop } from "./agentic-loop.js";
+import {
+  boundaryTrialClean,
+  cannedToolResult,
+  type ModelStep,
+  runAgenticLoop,
+} from "./agentic-loop.js";
 import type { ChatMessage, ModelResponse, ToolCall } from "./call-model.js";
 import { SKILL_NAMES } from "./context.js";
 import { BASH_TOOL, COMPETING_TOOLS } from "./tools.js";
 
 const tc = (name: string): ToolCall => ({ name, arguments: {} });
+const bashCall = (command: string): ToolCall => ({ name: "bash", arguments: { command } });
 const resp = (...names: string[]): ModelResponse => ({ toolCalls: names.map(tc), text: "" });
 
 /** A model that returns the given responses in order, counting its invocations. */
@@ -327,6 +333,37 @@ describe("runAgenticLoop", () => {
       expect(result.matched).toBe(true);
       expect(result.trail.map((t) => t.name)).not.toContain("Read");
     });
+  });
+});
+
+describe("boundaryTrialClean", () => {
+  it.each([
+    {
+      name: "a non-weaver bash command with no skill load",
+      skillMdRead: false,
+      trail: [bashCall("ls -la /tmp/weaver-eval/src")],
+      expected: true,
+    },
+    {
+      name: "an empty trail with no skill load",
+      skillMdRead: false,
+      trail: [] as ToolCall[],
+      expected: true,
+    },
+    {
+      name: "a skill load with an otherwise empty trail",
+      skillMdRead: true,
+      trail: [] as ToolCall[],
+      expected: false,
+    },
+    {
+      name: "a weaver invocation for any subcommand",
+      skillMdRead: false,
+      trail: [bashCall('weaver move-file \'{"oldPath":"a.ts"}\'')],
+      expected: false,
+    },
+  ])("returns $expected for $name", ({ skillMdRead, trail, expected }) => {
+    expect(boundaryTrialClean({ skillMdRead, trail })).toBe(expected);
   });
 });
 
