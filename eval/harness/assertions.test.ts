@@ -33,6 +33,18 @@ describe("extractBashCommands", () => {
       const result = extractBashCommands(calls);
       expect(result).toEqual(["weaver rename '{}'"]);
     });
+
+    it("splits &&-chained commands into separate candidates", () => {
+      const result = extractBashCommands([
+        bashCall(`cd /tmp/weaver-eval && weaver replace-text '{"pattern": "v1"}'`),
+      ]);
+      expect(result).toEqual(["cd /tmp/weaver-eval", `weaver replace-text '{"pattern": "v1"}'`]);
+    });
+
+    it("does not split on semicolons, which appear inside JSON pattern arguments", () => {
+      const result = extractBashCommands([bashCall(`weaver search-text '{"pattern": "a;b"}'`)]);
+      expect(result).toEqual([`weaver search-text '{"pattern": "a;b"}'`]);
+    });
   });
 
   describe("zero case", () => {

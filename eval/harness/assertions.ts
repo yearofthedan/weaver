@@ -23,8 +23,13 @@ export function isWeaverInvocation(command: string, subcommand: string): boolean
 }
 
 /**
- * Filters tool calls to those with name "bash", returning their command argument.
- * Returns an empty array when no bash calls exist.
+ * Filters tool calls to those with name "bash", returning their command
+ * arguments. `&&`-chained commands are split into separate candidates — models
+ * legitimately chain a setup step before the command under test (e.g.
+ * `cd /workspace && weaver replace-text …`), and `isWeaverInvocation` anchors
+ * at the start of the string, so an unsplit chain could never match. Splitting
+ * stops at `&&` (not `;`) because semicolons appear inside legitimate JSON
+ * pattern arguments. Returns an empty array when no bash calls exist.
  */
 export function extractBashCommands(toolCalls: ToolCall[]): string[] {
   return toolCalls
@@ -33,6 +38,8 @@ export function extractBashCommands(toolCalls: ToolCall[]): string[] {
       const cmd = tc.arguments.command;
       return typeof cmd === "string" ? cmd : "";
     })
+    .flatMap((cmd) => cmd.split(/\s*&&\s*/))
+    .map((cmd) => cmd.trim())
     .filter((cmd) => cmd.length > 0);
 }
 
