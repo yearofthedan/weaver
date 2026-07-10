@@ -113,4 +113,49 @@ argument correctness.)
 - [ ] Docs updated: `docs/eval-design.md` lane inventory + iteration path drop the two retired lanes; the boundary guard and first-call signal are documented as agentic-lane responsibilities
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas recorded (the degenerate-seed root cause is already in the spike)
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+Shipped in three commits (`fe649db`, `c85e6e5`, `e268d19`).
+
+**Delivered:**
+- Boundary over-trigger guard folded onto the agentic lane via the pure
+  `boundaryTrialClean(result)` predicate (fails a trial that loads a skill or
+  reaches any `weaver` call), plus `isAnyWeaverInvocation` — a subcommand-agnostic
+  sibling of `isWeaverInvocation`.
+- `matchedAtStep` surfaced per trial in the trail summary (`matched@1` = first-call
+  win vs `matched@3` = precursor-then-win).
+- `trigger.llm.test.ts`, `trigger-adversarial.llm.test.ts`, and `skillTools()`
+  deleted; no export orphaned; `docs/eval-design.md` updated to name the agentic lane
+  as sole trigger-stage lane. Command and two-step lanes untouched, as scoped.
+
+**Verification:**
+- `pnpm check` green; eval-helper lane 232 → 243 tests (+11: 4 for `boundaryTrialClean`,
+  7 for `isAnyWeaverInvocation`).
+- Hosted Haiku confirmation: boundary cases **5/5, all 3/3 clean** at temp 0.7 — the
+  every-trial-clean strictness does not flap, so no rate floor is needed for boundary
+  cases. Retained skill-trigger cases still pass (rename/move-file/search-replace 3/3;
+  `matchedAtStep` reporting confirmed live).
+- Mutation: N/A — `stryker.config.mjs` excludes `eval/`; the new helpers are outside the
+  mutation surface (consistent with repo config).
+
+**Reflection:**
+- *Spike-first paid off.* The audit ([spike](archive/20260710-assertion-audit-spike.md))
+  reframed the task twice: it showed Parts 2 and 3 were entangled, then — prompted by the
+  user's coverage question — that the command/two-step lanes were never in the retirement's
+  scope. A spec drafted cold would have retired the command lane and silently dropped
+  arg-coverage for six operations. Read the handoff entry's *exact* wording before scoping.
+- *`cannedResultForCall` extraction was behaviour-preserving* (character-identical to the
+  old inline logic), so the skill-trigger block needed no re-verification — confirmed by
+  diff, not by burning API budget.
+- *Cost lesson (took longer than it should have):* the day's baselines + spike + a full
+  hosted run exhausted the OpenRouter daily key limit mid-verification, 403-ing the boundary
+  cases. Recovered by re-running scoped to `-t boundary` (5 cases, cheap). Scope hosted runs
+  with `-t` from the start when only a subset needs signal; treat the daily limit as a real
+  budget.
+- *Next work:* the shared root cause of the two-step false negative and the no-coords
+  non-convergence — canned responses keyed by tool name, not by scenario — is recorded in
+  the handoff's "Grader refinement + scenario-owned canned responses" entry with the design
+  (per-case results map + fallback; LLM responder rejected). Actual test count added: 11.
+  Mutation score: N/A (eval excluded).
