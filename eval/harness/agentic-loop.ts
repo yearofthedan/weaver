@@ -1,4 +1,6 @@
-import { extractBashCommands, isAnyWeaverInvocation } from "./assertions.js";
+import { OPERATION_NAMES } from "../../src/daemon/dispatcher.js";
+import { loadFixture, operationToSubcommand } from "../cases/cases.js";
+import { extractBashCommands, isAnyWeaverInvocation, weaverSubcommand } from "./assertions.js";
 import type { ChatMessage, ModelResponse, ToolCall, ToolDefinition } from "./call-model.js";
 
 /**
@@ -21,12 +23,43 @@ const CANNED_RESULTS: Record<string, string> = {
 };
 
 /**
- * Returns the canned result to feed back for a tool call. Throws when the tool
- * name has no canned entry — a guard against the lane's tool set drifting ahead
- * of this map.
+ * Global default result for each weaver subcommand, keyed by the kebab-case
+ * subcommand name — one entry per registered operation, sourced from its
+ * `eval/fixtures/<operation>.json` stub. Falls back to when a scenario doesn't
+ * own a result for a weaver call it happens to make.
  */
-export function cannedToolResult(call: ToolCall): string {
-  const result = CANNED_RESULTS[call.name];
+const WEAVER_SUBCOMMAND_DEFAULTS: Record<string, string> = Object.fromEntries(
+  OPERATION_NAMES.map((operation) => [operationToSubcommand(operation), loadFixture(operation)]),
+);
+
+/**
+ * Returns the canned result to feed back for a tool call, letting a scenario
+ * override the result for a specific subcommand or tool name via `caseResults`.
+ *
+ * Weaver-faithful-stub contract: a bash call that invokes `weaver` always
+ * resolves to a weaver-shaped result (the case override, or the fixture
+ * default for that subcommand) — it never falls back to the generic bash file
+ * list, and an unmapped subcommand throws rather than silently returning one.
+ *
+ * A non-weaver bash call, or any other declared tool, resolves the case
+ * override first and then the global canned result; an unmapped non-bash tool
+ * still throws — a guard against the lane's tool set drifting ahead of this map.
+ */
+export function cannedToolResult(call: ToolCall, caseResults?: Record<string, string>): string {
+  if (call.name === "bash") {
+    const command = typeof call.arguments.command === "string" ? call.arguments.command : "";
+    const subcommand = weaverSubcommand(command);
+    if (subcommand !== undefined) {
+      const result = caseResults?.[subcommand] ?? WEAVER_SUBCOMMAND_DEFAULTS[subcommand];
+      if (result === undefined) {
+        throw new Error(`No weaver stub for subcommand "${subcommand}"`);
+      }
+      return result;
+    }
+    return caseResults?.bash ?? CANNED_RESULTS.bash;
+  }
+
+  const result = caseResults?.[call.name] ?? CANNED_RESULTS[call.name];
   if (result === undefined) {
     throw new Error(`No canned result for tool "${call.name}"`);
   }

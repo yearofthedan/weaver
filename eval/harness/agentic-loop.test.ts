@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { loadFixture } from "../cases/cases.js";
 import {
   boundaryTrialClean,
   cannedToolResult,
@@ -374,11 +375,61 @@ describe("cannedToolResult", () => {
     BASH_TOOL.function.name,
   ];
 
+  const GENERIC_FILE_LIST = "src/auth.ts\nsrc/api.ts\nsrc/utils.ts";
+  const GREP_STUB = "src/auth.ts:12:  userId\nsrc/api.ts:8:  userId";
+
   it.each(laneToolNames)("returns a non-empty canned result for %s", (name) => {
     expect(cannedToolResult(tc(name))).toBeTruthy();
   });
 
   it("throws for an unknown tool name", () => {
     expect(() => cannedToolResult(tc("unknownTool"))).toThrow(/unknownTool/);
+  });
+
+  describe("weaver bash calls", () => {
+    it("resolves to the fixture-backed default when no case override exists", () => {
+      const result = cannedToolResult(bashCall('weaver rename \'{"newName":"accountId"}\''));
+      expect(result).toBe(loadFixture("rename"));
+    });
+
+    it("prefers a per-case override over the fixture default", () => {
+      const result = cannedToolResult(bashCall("weaver rename '{}'"), { rename: "CUSTOM STUB" });
+      expect(result).toBe("CUSTOM STUB");
+    });
+
+    it("throws for an unmapped weaver subcommand rather than falling back to the file list", () => {
+      expect(() => cannedToolResult(bashCall("weaver bogus-command '{}'"))).toThrow(
+        /No weaver stub for subcommand "bogus-command"/,
+      );
+    });
+
+    it("never returns the generic bash file list for a weaver call", () => {
+      const result = cannedToolResult(bashCall("weaver rename '{}'"));
+      expect(result).not.toBe(GENERIC_FILE_LIST);
+    });
+  });
+
+  describe("non-weaver bash calls", () => {
+    it("returns the generic file list when no case override exists", () => {
+      expect(cannedToolResult(bashCall("mkdir -p /tmp/weaver-eval/src/generated"))).toBe(
+        GENERIC_FILE_LIST,
+      );
+    });
+
+    it("prefers a per-case override over the generic file list", () => {
+      const result = cannedToolResult(bashCall("ls -la"), { bash: "CUSTOM BASH STUB" });
+      expect(result).toBe("CUSTOM BASH STUB");
+    });
+  });
+
+  describe("non-bash tools with a case override", () => {
+    it("prefers the case override over the global canned result", () => {
+      const result = cannedToolResult(tc("Grep"), { Grep: "CUSTOM GREP STUB" });
+      expect(result).toBe("CUSTOM GREP STUB");
+    });
+
+    it("falls back to the global canned result when the case has no override", () => {
+      expect(cannedToolResult(tc("Grep"), { Read: "unrelated" })).toBe(GREP_STUB);
+    });
   });
 });
