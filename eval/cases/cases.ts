@@ -71,6 +71,10 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "trigger",
     task: 'Replace all occurrences of "v1" with "v2" across the project, including in comments.',
     expect: { skill: "weaver-search-and-replace", command: "replace-text" },
+    // A replace often searches first to confirm the pattern exists; the focused
+    // fixture hands back real `v1` hits so the precursor doesn't read as
+    // "nothing to replace" and strand the model short of `replace-text`.
+    cannedResults: { "search-text": loadFixture("searchText-v1") },
   },
   {
     name: "trigger-search-and-replace-todos-grep-tempting",
@@ -83,6 +87,7 @@ export const CASES: CaseEntry[] = validateCases([
     stage: "trigger",
     task: 'Replace every occurrence of the string "v1" with "v2" in all TypeScript source files under /tmp/weaver-eval/src. Make sure to get comments too.',
     expect: { skill: "weaver-search-and-replace", command: "replace-text" },
+    cannedResults: { "search-text": loadFixture("searchText-v1") },
   },
   {
     name: "trigger-code-inspection-find-references",

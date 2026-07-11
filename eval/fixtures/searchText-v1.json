@@ -1,0 +1,27 @@
+{
+  "status": "success",
+  "matches": [
+    {
+      "file": "/tmp/weaver-eval/src/api.ts",
+      "line": 1,
+      "col": 21,
+      "matchText": "v1",
+      "context": [
+        { "line": 1, "text": "const BASE_PATH = '/api/v1/users';", "isMatch": true },
+        { "line": 2, "text": "export function fetchUser(id: string) {", "isMatch": false }
+      ]
+    },
+    {
+      "file": "/tmp/weaver-eval/src/api.ts",
+      "line": 7,
+      "col": 5,
+      "matchText": "v1",
+      "context": [
+        { "line": 6, "text": "  // legacy v1 endpoint — remove after migration", "isMatch": false },
+        { "line": 7, "text": "  const legacy = 'v1';", "isMatch": true },
+        { "line": 8, "text": "  return legacy;", "isMatch": false }
+      ]
+    }
+  ],
+  "truncated": false
+}
