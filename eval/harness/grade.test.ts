@@ -61,4 +61,16 @@ describe("isMutatingCompetitor", () => {
   it("returns false for a non-bash tool call", () => {
     expect(isMutatingCompetitor(tc("Grep"), "rename")).toBe(false);
   });
+
+  it("detects a mutating competitor after a cd && chain", () => {
+    expect(
+      isMutatingCompetitor(bashCall("cd /tmp/weaver-eval && weaver replace-text '{}'"), "rename"),
+    ).toBe(true);
+  });
+
+  it("returns false for the expected command after a cd && chain", () => {
+    expect(
+      isMutatingCompetitor(bashCall("cd /tmp/weaver-eval && weaver rename '{}'"), "rename"),
+    ).toBe(false);
+  });
 });

@@ -1,4 +1,4 @@
-import { weaverSubcommand } from "./assertions.js";
+import { extractBashCommands, weaverSubcommand } from "./assertions.js";
 import type { ToolCall } from "./call-model.js";
 
 /**
@@ -32,15 +32,17 @@ export const SUBCOMMAND_MUTABILITY: Record<string, SubcommandMutability> = {
  * loop hard-fails on rather than lets the model recover from. A read-only
  * subcommand, the expected command itself, or a non-weaver/non-bash call are
  * all `false` — they are legitimate precursors or unrelated calls, not
- * competitors.
+ * competitors. `&&`-chains are split the same way the match predicate splits
+ * them, so a `cd <dir> && weaver <sub>` chain is inspected on the weaver
+ * segment rather than slipping through as a non-weaver command.
  */
 export function isMutatingCompetitor(call: ToolCall, expectedCommand: string): boolean {
-  if (call.name !== "bash") return false;
-  const command = typeof call.arguments.command === "string" ? call.arguments.command : "";
-  const subcommand = weaverSubcommand(command);
-  return (
-    subcommand !== undefined &&
-    subcommand !== expectedCommand &&
-    SUBCOMMAND_MUTABILITY[subcommand] === "mutating"
-  );
+  return extractBashCommands([call]).some((cmd) => {
+    const subcommand = weaverSubcommand(cmd);
+    return (
+      subcommand !== undefined &&
+      subcommand !== expectedCommand &&
+      SUBCOMMAND_MUTABILITY[subcommand] === "mutating"
+    );
+  });
 }
