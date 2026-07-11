@@ -28,13 +28,14 @@ describe("eval case coverage", () => {
       .filter((f) => f.endsWith(".json"))
       .map((f) => f.replace(/\.json$/, ""));
 
-    // The harness builds a default weaver stub for every operation by eagerly
-    // reading its fixture at module load, so a missing fixture would break the
-    // whole eval lane with an ENOENT rather than a clear failure here.
-    it.each(OPERATION_NAMES)("operation %s has a default fixture", (operationName) => {
+    // Every operation keeps a weaver-shaped fixture: the command and two-step
+    // lanes embed it as a tool result, and any case's `cannedResults` can load
+    // it. Asserting presence here surfaces a missing one as a clear failure
+    // rather than an ENOENT from `loadFixture` mid-lane.
+    it.each(OPERATION_NAMES)("operation %s has a fixture", (operationName) => {
       expect(
         fixtureOperations,
-        `Operation "${operationName}" has no eval/fixtures/${operationName}.json. Add one — the harness needs a weaver-shaped default stub for every operation.`,
+        `Operation "${operationName}" has no eval/fixtures/${operationName}.json. Add one — the command and two-step lanes need a weaver-shaped fixture for every operation.`,
       ).toContain(operationName);
     });
 
