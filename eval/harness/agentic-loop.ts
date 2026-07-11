@@ -81,6 +81,12 @@ export interface AgenticResult {
   matched: boolean;
   /** 1-based step at which `matches` first returned true; absent if never. */
   matchedAtStep?: number;
+  /**
+   * 1-based step at which a call satisfied `hardFails` (and no call that step
+   * satisfied `matches`); absent if the run never hard-failed, including when
+   * `hardFails` was not supplied.
+   */
+  failedAtStep?: number;
   /** Every tool call the model made that was not a SKILL.md read, in order. */
   trail: ToolCall[];
   /** How many model turns were taken (≤ `maxSteps`). */
@@ -115,17 +121,24 @@ export interface AgenticResult {
  * `tool`-role result for every call. The model is stateless, so this faithful
  * history is what lets it advance across hops instead of re-planning from
  * scratch — a lossy echo strands multi-hop trajectories on their first call.
+ *
+ * `hardFails` is an optional veto: when a call does not satisfy `matches` but
+ * does satisfy `hardFails`, the loop records the call in `trail` and stops
+ * immediately — it does not echo the turn or continue toward the step budget.
+ * `matches` is checked first, so a call satisfying both is a match, not a
+ * hard fail. Omitting `hardFails` reproduces today's run-to-budget behaviour.
  */
 export async function runAgenticLoop(params: {
   messages: ChatMessage[];
   tools: ToolDefinition[];
   matches: (call: ToolCall) => boolean;
+  hardFails?: (call: ToolCall) => boolean;
   isSkillMdRead: (call: ToolCall) => boolean;
   maxSteps: number;
   step: ModelStep;
   cannedResultFor: (call: ToolCall) => string;
 }): Promise<AgenticResult> {
-  const { tools, matches, isSkillMdRead, maxSteps, step, cannedResultFor } = params;
+  const { tools, matches, hardFails, isSkillMdRead, maxSteps, step, cannedResultFor } = params;
   const messages = [...params.messages];
   const trail: ToolCall[] = [];
   let skillMdRead = false;
@@ -218,6 +231,17 @@ export async function runAgenticLoop(params: {
       return {
         matched: true,
         matchedAtStep: stepIndex,
+        trail,
+        steps: stepIndex,
+        skillMdRead,
+        readTurn,
+      };
+    }
+
+    if (hardFails !== undefined && calls.some((c) => hardFails(c))) {
+      return {
+        matched: false,
+        failedAtStep: stepIndex,
         trail,
         steps: stepIndex,
         skillMdRead,

@@ -136,6 +136,74 @@ describe("runAgenticLoop", () => {
     });
   });
 
+  describe("hard-fail predicate", () => {
+    it("stops at a hard-failing call after a read-only precursor: no match, failedAtStep set, call in trail", async () => {
+      const { step } = scriptedModel([resp("weaver-code-inspection"), resp("weaver-refactor")]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "weaver-search-and-replace",
+        hardFails: (call) => call.name === "weaver-refactor",
+        isSkillMdRead: () => false,
+        maxSteps: 5,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.matched).toBe(false);
+      expect(result.failedAtStep).toBe(2);
+      expect(result.steps).toBe(2);
+      expect(result.steps).toBeLessThan(5);
+      expect(result.trail.map((t) => t.name)).toEqual([
+        "weaver-code-inspection",
+        "weaver-refactor",
+      ]);
+    });
+
+    it("prefers a match over a hard fail when a call satisfies both predicates", async () => {
+      const { step } = scriptedModel([resp("weaver-refactor")]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "weaver-refactor",
+        hardFails: (call) => call.name === "weaver-refactor",
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.matched).toBe(true);
+      expect(result.matchedAtStep).toBe(1);
+      expect(result.failedAtStep).toBeUndefined();
+    });
+
+    it("runs to the step budget when hardFails is omitted, even for a call a caller elsewhere would hard-fail on", async () => {
+      let calls = 0;
+      const step: ModelStep = async () => {
+        calls += 1;
+        return resp("weaver-refactor");
+      };
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "weaver-search-and-replace",
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.matched).toBe(false);
+      expect(result.failedAtStep).toBeUndefined();
+      expect(result.steps).toBe(3);
+      expect(calls).toBe(3);
+    });
+  });
+
   describe("standard tool exchange", () => {
     it("replays the prior turn as an assistant tool_calls message plus a tool result per call", async () => {
       const histories: ChatMessage[][] = [];
