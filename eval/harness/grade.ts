@@ -1,3 +1,6 @@
+import { weaverSubcommand } from "./assertions.js";
+import type { ToolCall } from "./call-model.js";
+
 /**
  * Classifies every weaver CLI subcommand as `"mutating"` (writes to the
  * workspace) or `"read-only"` (inspects it). The completeness-guard test in
@@ -22,3 +25,22 @@ export const SUBCOMMAND_MUTABILITY: Record<string, SubcommandMutability> = {
   "get-type-errors": "read-only",
   "search-text": "read-only",
 };
+
+/**
+ * True when `call` is a `weaver <sub>` bash invocation whose subcommand is
+ * mutating and is not `expectedCommand` — a destructive detour the agentic
+ * loop hard-fails on rather than lets the model recover from. A read-only
+ * subcommand, the expected command itself, or a non-weaver/non-bash call are
+ * all `false` — they are legitimate precursors or unrelated calls, not
+ * competitors.
+ */
+export function isMutatingCompetitor(call: ToolCall, expectedCommand: string): boolean {
+  if (call.name !== "bash") return false;
+  const command = typeof call.arguments.command === "string" ? call.arguments.command : "";
+  const subcommand = weaverSubcommand(command);
+  return (
+    subcommand !== undefined &&
+    subcommand !== expectedCommand &&
+    SUBCOMMAND_MUTABILITY[subcommand] === "mutating"
+  );
+}

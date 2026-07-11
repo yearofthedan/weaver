@@ -10,6 +10,7 @@ import {
   SKILL_NAMES,
   skillLocation,
 } from "../harness/context.js";
+import { isMutatingCompetitor } from "../harness/grade.js";
 import { computeRate } from "../harness/rate.js";
 import { buildHabitMomentumSeed } from "../harness/seed.js";
 import { rateLaneTools, SKILL_TOOL } from "../harness/tools.js";
@@ -102,6 +103,7 @@ describe("agentic rate lane", () => {
     interface TrialRecord {
       matched: boolean;
       matchedAtStep?: number;
+      failedAtStep?: number;
       trail: ToolCall[];
       skillMdRead: boolean;
       readTurn?: number;
@@ -123,6 +125,9 @@ describe("agentic rate lane", () => {
         matches: (call) =>
           call.name === "bash" &&
           extractBashCommands([call]).some((cmd) => isWeaverInvocation(cmd, expectedCommand)),
+        // Fail = the model reaches for a different destructive weaver op
+        // instead — a wrong-op detour, not a recoverable precursor.
+        hardFails: (call) => isMutatingCompetitor(call, expectedCommand),
         isSkillMdRead: (call) => skillNameFromLoad(call) !== undefined,
         maxSteps: MAX_STEPS,
         step: callModel,
@@ -132,6 +137,7 @@ describe("agentic rate lane", () => {
       trialRecords.push({
         matched: result.matched,
         matchedAtStep: result.matchedAtStep,
+        failedAtStep: result.failedAtStep,
         trail: result.trail,
         skillMdRead: result.skillMdRead,
         readTurn: result.readTurn,
@@ -142,12 +148,18 @@ describe("agentic rate lane", () => {
     const rate = computeRate(trialRecords.map((r) => r.matched));
 
     // matchedAtStep distinguishes a first-call win (1 — no precursor needed)
-    // from a precursor-then-win (matched later); absent when the trial never matched.
+    // from a precursor-then-win (matched later); failedAtStep marks a trial
+    // that hard-failed on a mutating competitor rather than merely running
+    // out of budget; both are absent when the trial never matched or failed.
     const trailSummary = trialRecords
-      .map(
-        (r, i) =>
-          `  trial ${i + 1} [${r.matched ? `matched@${r.matchedAtStep}` : "no match"}, ${r.skillMdRead ? `skill loaded@${r.readTurn}` : "no skill load"}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}${r.abandonedText !== undefined ? `\n    abandoned with text: ${JSON.stringify(r.abandonedText.slice(0, 500))}` : ""}`,
-      )
+      .map((r, i) => {
+        const outcome = r.matched
+          ? `matched@${r.matchedAtStep}`
+          : r.failedAtStep !== undefined
+            ? `competitor@${r.failedAtStep}`
+            : "no match";
+        return `  trial ${i + 1} [${outcome}, ${r.skillMdRead ? `skill loaded@${r.readTurn}` : "no skill load"}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}${r.abandonedText !== undefined ? `\n    abandoned with text: ${JSON.stringify(r.abandonedText.slice(0, 500))}` : ""}`;
+      })
       .join("\n");
 
     // Printed for passing cases too: the rate alone hides how the model got
