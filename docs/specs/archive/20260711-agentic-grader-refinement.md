@@ -97,12 +97,32 @@ None — the two design forks were resolved before drafting:
 
 ## Done-when
 
-- [ ] All ACs verified by unit tests in the `test:eval` lane (runs in `pnpm check`).
-- [ ] **Live Haiku verification (part 2):** `pass-cli run --env-file "$SC/eval-haiku.env" -- pnpm eval trigger-agentic --disable-console-intercept` confirms (a) the no-coords case is scored as a competitor fail or non-convergence — never a spurious pass; (b) no previously-green case regresses except as explained by the stricter grader (record the before/after rates in the Outcome).
-- [ ] Mutation score — **N/A**: `eval/` is excluded from Stryker (`stryker.config.mjs` `ignorePatterns`; `vitest.stryker.config.ts` is `src/**`-only). Bringing the harness into a mutation lane is the separate `[needs design]` "Eval harness mutation-testing scope" item. Compensate with assertion-strong unit tests (pin exact verdicts and the neutral-vs-fixture distinction, not just truthiness).
-- [ ] `pnpm check` passes.
-- [ ] No touched file exceeds the hard flag in `docs/code-standards.md` (extract `grade.ts` keeps the loop file within threshold).
-- [ ] Docs updated: `docs/eval-design.md` — the "Scenario-owned results and the weaver-faithful-stub contract" paragraph (per-subcommand fixture default → neutral fallback) and the standard-tool-exchange/grader description (the mutating-competitor verdict); `docs/handoff.md` — the `eval/harness/` current-state line ("per-subcommand fixture defaults with a weaver-faithful-stub contract" → neutral fallback) and this task entry.
-- [ ] Tech debt discovered during implementation added to handoff.md as `[needs design]`.
-- [ ] Non-obvious gotchas recorded in `docs/eval-design.md` (skip if none).
-- [ ] Spec moved to `docs/specs/archive/` with an Outcome section (including the live before/after rates).
+- [x] All ACs verified by unit tests in the `test:eval` lane (runs in `pnpm check`).
+- [x] **Live Haiku verification (part 2):** confirmed — see Outcome for before/after rates.
+- [x] Mutation score — **N/A**: `eval/` is excluded from Stryker (`stryker.config.mjs` `ignorePatterns`; `vitest.stryker.config.ts` is `src/**`-only). Compensated with assertion-strong unit tests (exact verdicts and the neutral-vs-fixture distinction pinned).
+- [x] `pnpm check` passes (pre-commit hook ran the full suite green on every commit).
+- [x] No touched file exceeds the hard flag in `docs/code-standards.md` (`grade.ts` is 46 lines; the loop file stayed within threshold).
+- [x] Docs updated: `docs/eval-design.md` (grader verdict + neutral-fallback contract + `&&`-split gotcha); `docs/handoff.md` (`eval/harness/` current-state line, task entry).
+- [x] Tech debt: none new. The stale `coverage.test.ts` fixture-coverage comment was corrected in-session rather than deferred.
+- [x] Non-obvious gotchas recorded in `docs/eval-design.md` (the `&&`-split requirement for any bash-string predicate).
+- [x] Spec moved to `docs/specs/archive/` with this Outcome section.
+
+## Outcome
+
+**Shipped:** parts 1 + 3. Six commits: subcommand mutability classification (`grade.ts`); optional `hardFails` veto on `runAgenticLoop` (`failedAtStep`); the skill-trigger lane's mutating-competitor wiring (`competitor@<step>` in the trail); the neutral fixture fallback; then two verification fixes (below).
+
+**Live Haiku before/after** (`pnpm eval trigger-agentic`, 3 trials/case, 14 cases):
+
+| Run | Result | Notes |
+|-----|--------|-------|
+| First (mechanism only) | 12/14 | `search-and-replace-pattern` regressed to 1/3; `no-coords` 0/3 but **misgraded** — a `cd … && weaver replace-text` competitor read as "no match" |
+| After fixes | 13/14 | only `no-coords` red (1/3), now honestly graded: `competitor@3, competitor@3, matched@4` — the one pass is a genuine `rename` |
+
+Both live criteria met: the no-coords case never passes spuriously (its pass is a real `rename`), and no previously-green case regressed. The case stays red **by design** — Haiku reaches for `replace-text` (the sed-temptation), which the grader now names a competitor; flipping it green is a skill-text lever tracked with the pressure ladder.
+
+**Tests added:** eval `test:eval` lane 280 → 315 (+35).
+
+**Reflection:**
+- *What went well:* resolving the two design forks up front (differentiator deferred, no-coords red-by-design) kept the implementation mechanical. The mutability classification + `isMutatingCompetitor` are a clean, reusable foundation for the deferred differentiator rule.
+- *What the unit lane could not catch:* both verification fixes came only from the live run. (1) `isMutatingCompetitor` inspected the raw bash string, so a `cd <dir> && weaver <sub>` competitor slipped through — the `matches` predicate splits `&&` via `extractBashCommands` and this one did not. **Generalisable:** any predicate over a bash command string in this harness must go through `extractBashCommands` (recorded in `eval/harness/grade.ts` and `docs/eval-design.md`). (2) The neutral fallback (AC4) shipped without the companion case-ownership updates, regressing a replace case whose on-path `search-text` precursor now returned "no results." **Generalisable:** a fixture-fallback mechanism change and the case-data that mechanism now requires (cases own on-path hops) are *one* behavioural unit — splitting them across "mechanism now, data later" produced a red lane. Worth folding into the spec discipline: when a default becomes inert, audit which cases relied on the old non-inert default in the same changeset.
+- *For the next agent (pressure ladder):* every new multi-hop case must own coherent `cannedResults` for each on-path hop, or it strands on the neutral stub. The differentiator rule needs read-vs-write-target cases to be defined against — build those first, then the rule.

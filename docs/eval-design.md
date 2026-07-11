@@ -235,6 +235,17 @@ actually lands.
 printed in the trail summary, so a first-call win (`matched@1`) is distinguishable from a
 precursor-then-win (`matched@3`).
 
+The verdict per call is three-way (`isMutatingCompetitor` in `eval/harness/grade.ts`, wired as
+the loop's `hardFails`): the expected op is a **pass**; a *different mutating* weaver op — a
+wrong destructive action the model cannot walk back — is a **hard fail** that stops the trial
+(`failedAtStep`, printed as `competitor@<step>`); a read-only weaver op or a non-weaver call is
+a **precursor** that is credited toward a later match. So a trajectory that runs the wrong
+destructive op and then the right one fails rather than passing on the later call, and a
+read-only op is allowed as an intermediate step but never as the terminal action for a
+mutating-target case. Subcommands are classified mutating vs read-only by `SUBCOMMAND_MUTABILITY`,
+completeness-guarded against `OPERATION_NAMES`. `&&`-chains are split before inspection, so a
+`cd <dir> && weaver <sub>` chain is judged on its weaver segment.
+
 **Boundary cases** (`expect.skill: "bash"` — legitimate shell work) invert the pass condition:
 they guard against an aggressive description over-triggering and stealing a task no skill
 should claim. A trial is clean when it neither loads a skill nor reaches a `weaver` invocation
@@ -250,15 +261,17 @@ then act) on its first call, re-planning the same step forever. `buildHabitMomen
 same format. (The earlier plain-text echo existed only because Ollama drops seeded
 `tool_call`/`tool` messages; Ollama is no longer a target lane.)
 
-**Scenario-owned results and the weaver-faithful-stub contract.** The result fed back for a call
-is resolved by `cannedToolResult` (`eval/harness/agentic-loop.ts`): a case owns the result for a
-specific weaver subcommand or tool via `CaseEntry.cannedResults`, falling back to global defaults.
-A `weaver <sub>` bash call *always* resolves to a weaver-shaped result — the case override, or the
-per-subcommand fixture default (`WEAVER_SUBCOMMAND_DEFAULTS`, one per operation) — and an unmapped
-subcommand throws rather than silently returning the generic `bash` file list, which is reserved
-for non-weaver shell commands. Now that multi-hop trajectories converge, every hop the model might
-take needs a scenario-coherent stub, not just the first: an unanticipated `find-references` call
-gets that operation's *generic* fixture, whose content may not match the case's scenario.
+**Scenario-owned results, inert unowned hops.** The result fed back for a call is resolved by
+`cannedToolResult` (`eval/harness/agentic-loop.ts`): a case owns the result for a specific weaver
+subcommand or tool via `CaseEntry.cannedResults`. A `weaver <sub>` bash call the case does *not*
+own resolves to a single inert stub (`NEUTRAL_WEAVER_RESULT`, "No results for this call.") — never
+another operation's fixture content, and never the generic `bash` file list (reserved for
+non-weaver shell commands). `cannedResults` is therefore the *only* source of scenario content: a
+multi-hop case must own a coherent result for every on-path hop it might take (e.g. a replace case
+that searches before replacing owns `search-text`), or the neutral stub reads as "nothing to do"
+and strands the model. The inert default is deliberate — an *unanticipated* hop (a stray
+`find-references` in a rename scenario) gets nothing to act on rather than another scenario's data
+that would derail it. The tool-set-drift guard remains: an unknown *tool name* still throws.
 
 Run: `pnpm eval trigger-agentic` (hosted env vars per the status note). Filter to a case subset
 with `-t <case-name-regex>` for cheap iteration; `WEAVER_EVAL_TRIALS=1` for spot checks;
