@@ -508,20 +508,22 @@ describe("cannedToolResult", () => {
   });
 
   describe("weaver bash calls", () => {
-    it("resolves to the fixture-backed default when no case override exists", () => {
-      const result = cannedToolResult(bashCall('weaver rename \'{"newName":"accountId"}\''));
-      expect(result).toBe(loadFixture("rename"));
-    });
+    const NEUTRAL_WEAVER_RESULT = "No results for this call.";
 
-    it("prefers a per-case override over the fixture default", () => {
+    it("prefers a per-case override over the neutral stub", () => {
       const result = cannedToolResult(bashCall("weaver rename '{}'"), { rename: "CUSTOM STUB" });
       expect(result).toBe("CUSTOM STUB");
     });
 
-    it("throws for an unmapped weaver subcommand rather than falling back to the file list", () => {
-      expect(() => cannedToolResult(bashCall("weaver bogus-command '{}'"))).toThrow(
-        /No weaver stub for subcommand "bogus-command"/,
-      );
+    it("resolves to the neutral stub, not the operation's fixture, when the case does not own the subcommand", () => {
+      const result = cannedToolResult(bashCall('weaver rename \'{"newName":"accountId"}\''));
+      expect(result).toBe(NEUTRAL_WEAVER_RESULT);
+      expect(result).not.toBe(loadFixture("rename"));
+    });
+
+    it("resolves an unregistered subcommand to the same neutral stub rather than throwing", () => {
+      const result = cannedToolResult(bashCall("weaver bogus-command '{}'"));
+      expect(result).toBe(NEUTRAL_WEAVER_RESULT);
     });
 
     it("never returns the generic bash file list for a weaver call", () => {

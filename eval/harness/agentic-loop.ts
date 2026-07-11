@@ -1,7 +1,5 @@
-import { OPERATION_NAMES } from "../../src/daemon/dispatcher.js";
 import { extractBashCommands, isAnyWeaverInvocation, weaverSubcommand } from "./assertions.js";
 import type { ChatMessage, ModelResponse, ToolCall, ToolDefinition } from "./call-model.js";
-import { loadFixture, operationToSubcommand } from "./fixtures.js";
 
 /**
  * Canned tool output fed back after each loop turn, keyed by the tool name the
@@ -23,23 +21,21 @@ const CANNED_RESULTS: Record<string, string> = {
 };
 
 /**
- * Global default result for each weaver subcommand, keyed by the kebab-case
- * subcommand name — one entry per registered operation, sourced from its
- * `eval/fixtures/<operation>.json` stub. Used as the fallback when a scenario
- * doesn't own a result for a weaver call it happens to make.
+ * Fed back for a `weaver <sub>` bash call whose subcommand the case does not
+ * own. Deliberately inert — a scenario-coherent result is only available via
+ * a case's `cannedResults`; falling back to another operation's fixture or
+ * the generic bash file list would feed the model mismatched scenario data
+ * on a hop the case never anticipated.
  */
-const WEAVER_SUBCOMMAND_DEFAULTS: Record<string, string> = Object.fromEntries(
-  OPERATION_NAMES.map((operation) => [operationToSubcommand(operation), loadFixture(operation)]),
-);
+const NEUTRAL_WEAVER_RESULT = "No results for this call.";
 
 /**
  * Returns the canned result to feed back for a tool call, letting a scenario
  * override the result for a specific subcommand or tool name via `caseResults`.
  *
- * Weaver-faithful-stub contract: a bash call that invokes `weaver` always
- * resolves to a weaver-shaped result (the case override, or the fixture
- * default for that subcommand) — it never falls back to the generic bash file
- * list, and an unmapped subcommand throws rather than silently returning one.
+ * A bash call that invokes `weaver` resolves the case's override for that
+ * subcommand, falling back to the inert `NEUTRAL_WEAVER_RESULT` stub — never
+ * the generic bash file list, and never another operation's fixture content.
  *
  * A non-weaver bash call, or any other declared tool, resolves the case
  * override first and then the global canned result; an unmapped non-bash tool
@@ -50,11 +46,7 @@ export function cannedToolResult(call: ToolCall, caseResults?: Record<string, st
     const command = typeof call.arguments.command === "string" ? call.arguments.command : "";
     const subcommand = weaverSubcommand(command);
     if (subcommand !== undefined) {
-      const result = caseResults?.[subcommand] ?? WEAVER_SUBCOMMAND_DEFAULTS[subcommand];
-      if (result === undefined) {
-        throw new Error(`No weaver stub for subcommand "${subcommand}"`);
-      }
-      return result;
+      return caseResults?.[subcommand] ?? NEUTRAL_WEAVER_RESULT;
     }
     return caseResults?.bash ?? CANNED_RESULTS.bash;
   }
