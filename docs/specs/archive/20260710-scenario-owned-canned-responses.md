@@ -98,3 +98,20 @@ Internal eval-harness surface only — no shipped CLI/MCP/socket change.
 
 - **Grader rules** (read-only vs mutating competitors, shadowing metric, search/replace differentiator) — separate spec.
 - **Two-step lane rebuild.** The two-step lane's degenerate `'{}'` seed stays as-is; it remains a documented false negative until it is retired or rebuilt on this infrastructure. No band-aid seed fix here.
+
+## Outcome
+
+**Shipped as infrastructure; the applied win was not delivered — and that was the point of verifying.**
+
+The infrastructure landed and is correct: `weaverSubcommand` (AC1), `cannedToolResult(call, caseResults?)` with the weaver-faithful-stub contract and per-subcommand fixture defaults (AC2), `CaseEntry.cannedResults` + the no-coords `search-text` override + lane wiring (AC3). A review pass extracted the fixture helpers to `eval/harness/fixtures.ts` (removing a harness→cases import inversion against the `seed.ts` convention) and added a coverage guard that every operation has a default fixture (the defaults map loads them all at import).
+
+**The applied win — the no-coords rename case converging — was falsified on the real Haiku lane.** Unit tests proved the wiring (the positional `search-text` stub is fed back), but the case stayed 0/3. Feeding back `line:col` is necessary, not sufficient. The real run exposed two independent blockers the spec's premise (inherited from the assertion-audit spike) missed:
+- **A lossy plain-text echo** meant multi-hop trajectories never converged at all — root-caused and fixed in the follow-on bug spec [`20260711-agentic-loop-tool-exchange`](20260711-agentic-loop-tool-exchange.md).
+- **Skill/grader (Finding B):** for a no-coords variable rename, Haiku picks `weaver-search-and-replace` (→ `replace-text`), not `weaver-refactor` (`rename`). Routed to the grader spec.
+
+**Reflection:**
+- *Verify the applied win on the real instrument before claiming it.* The unit layer confirmed the stub is fed back; only the hosted lane could confirm convergence, and it refuted the premise. The insistence on a real `pnpm eval` run (not just green units) is what caught it — a lesson worth carrying: an eval-infra change's *observable* claim lives on the model, not in the unit suite.
+- *The premise came from a spike, and the spike was incomplete.* The assertion-audit attributed non-convergence solely to the missing `line:col`. It was one of three causes. A spike finding is a hypothesis until the fix is verified end-to-end.
+- The weaver-faithful-stub invariant proved its worth immediately: once multi-hop worked, an unanticipated `find-references` hop still got a weaver-shaped (if scenario-incoherent) result rather than the file list. That incoherence is now its own tracked item.
+
+**Tests added:** `test:eval` lane 243 → 276 (weaverSubcommand ×8; cannedToolResult resolution ×8; cannedResults wiring ×1; coverage guards, incl. per-operation fixture existence). **Mutation:** N/A — `eval/` is excluded from Stryker (`ignorePatterns` + src-only sandbox); mutation-aware unit tests + the hosted-lane run are the quality gate. Gap logged as a `[needs design]` handoff item.

@@ -85,3 +85,19 @@ Keep `WEAVER_EVAL_DEBUG` (added during the investigation) and render its per-tur
 - [ ] `docs/eval-design.md` updated: the agentic lane simulates a standard tool exchange (no plain-text echo); note Ollama is no longer a target and the plain-text workaround is retired
 - [ ] Leftover Ollama-sweep note (command lane text-emission, two-step seed) added to handoff.md
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Fixed and verified — the mechanism works; the target case is still red for reasons downstream of this fix.**
+
+`runAgenticLoop` now replays each turn as a standard tool exchange (assistant message with real `tool_calls`, a `tool`-role result per call, ids normalised inside the echo so `trail` keeps the model's original call objects). `buildHabitMomentumSeed` is the same format. `WEAVER_EVAL_DEBUG` (the trace that root-caused this) is kept as harness tooling.
+
+**Verification (Haiku lane):** the full agentic lane held — 8 single-hop skill cases 3/3, 5 boundary cases 3/3 clean, no regression from the format change. The `WEAVER_EVAL_DEBUG` trace confirmed the fix directly: before, the model ran the *identical* `weaver search-text` 3–4× and never advanced; after, it progresses through distinct reasoned hops (search → reasons about the result → find-references → reads the file → re-searches) and even articulates the scope-aware-rename argument. The no-coords case is still 0/3, but now because it explores without landing `rename` in the 6-step budget and because an unanticipated `find-references` hop got the generic `authenticate` fixture — both downstream of this fix (Finding B / grader).
+
+**Reflection:**
+- *The transport already supported the fix.* `call-model.ts` had `tool`-role messages, `tool_calls`, and id round-tripping all along — the loop just wasn't using them. This was removing a workaround (Ollama's dropped tool messages), not building machinery. The "why it's lossy" was a stale comment, not a real constraint.
+- *Reframing dissolved the problem.* The first-instinct fix was a "faithful plain-text echo." The user's "Ollama is out — do a standard simulation exchange" was simpler and correct; don't preserve a workaround's shape once its reason is gone.
+- *Multi-hop working surfaces the next gap.* The moment trajectories converge, every hop needs a scenario-coherent stub — the generic per-operation fixture derails the model. Logged for the grader/pressure-ladder work.
+- *id normalisation belongs in the echo, not at the top of the loop* — normalising `response.toolCalls` up front would replace the objects `trail` reports on and break reference identity a test relied on.
+
+**Tests added:** `test:eval` 276 → 280 (standard-exchange replay incl. multi-call id-matching and text-vs-null content; malformed-arg error now asserted on the `tool` message; `buildHabitMomentumSeed` tool-format shape). **Mutation:** N/A — `eval/` is outside Stryker scope (tracked separately in handoff).

@@ -242,17 +242,30 @@ for *any* subcommand within the budget (`boundaryTrialClean` in `eval/harness/ag
 the case passes only when every trial is clean. This is at least as strong as a first-call-only
 guard — it catches an over-trigger anywhere in the trajectory, not only the first call.
 
-**Gotcha — plain-text echo.** Completed turns are echoed back as plain-text conversation turns
-(an assistant text turn plus a user turn carrying the canned result), never as `tool_call`/`tool`
-messages. Ollama silently drops seeded tool messages (the same reason seeds use plain text), so a
-tool-format echo would corrupt the next turn and silently measure nothing — the same invisible
-failure class as the `OLLAMA_CONTEXT_LENGTH` truncation gotcha. The model still emits a fresh tool
-call each turn, read straight from the response.
+**Standard tool exchange.** Completed turns are replayed as a standard tool-use conversation:
+the model's own assistant message (its text and real `tool_calls`) followed by a `tool`-role
+result for every call. The model is stateless, so this faithful history is what lets it advance
+across hops — a lossy placeholder echo strands any multi-hop trajectory (search for a position,
+then act) on its first call, re-planning the same step forever. `buildHabitMomentumSeed` uses the
+same format. (The earlier plain-text echo existed only because Ollama drops seeded
+`tool_call`/`tool` messages; Ollama is no longer a target lane.)
+
+**Scenario-owned results and the weaver-faithful-stub contract.** The result fed back for a call
+is resolved by `cannedToolResult` (`eval/harness/agentic-loop.ts`): a case owns the result for a
+specific weaver subcommand or tool via `CaseEntry.cannedResults`, falling back to global defaults.
+A `weaver <sub>` bash call *always* resolves to a weaver-shaped result — the case override, or the
+per-subcommand fixture default (`WEAVER_SUBCOMMAND_DEFAULTS`, one per operation) — and an unmapped
+subcommand throws rather than silently returning the generic `bash` file list, which is reserved
+for non-weaver shell commands. Now that multi-hop trajectories converge, every hop the model might
+take needs a scenario-coherent stub, not just the first: an unanticipated `find-references` call
+gets that operation's *generic* fixture, whose content may not match the case's scenario.
 
 Run: `pnpm eval trigger-agentic` (hosted env vars per the status note). Filter to a case subset
-with `-t <case-name-regex>` for cheap iteration; `WEAVER_EVAL_TRIALS=1` for spot checks. Test
-titles carry full case names (`chaiConfig.truncateThreshold: 0` in `vitest.llm.config.ts` —
-the default 40-char truncation made long case names collide and silently broke `-t` filtering).
+with `-t <case-name-regex>` for cheap iteration; `WEAVER_EVAL_TRIALS=1` for spot checks;
+`WEAVER_EVAL_DEBUG=1` dumps the full turn-by-turn exchange (initial prompt, each model turn, each
+fed-back result) for diagnosing non-convergence. Test titles carry full case names
+(`chaiConfig.truncateThreshold: 0` in `vitest.llm.config.ts` — the default 40-char truncation
+made long case names collide and silently broke `-t` filtering).
 
 ## Adding a new operation
 
