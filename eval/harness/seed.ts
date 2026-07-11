@@ -1,18 +1,25 @@
 import type { ChatMessage } from "./call-model.js";
 
+const SEED_GREP_OUTPUT =
+  "src/daemon/daemon.ts:3:import { Logger } from '../utils/logger.js';\n" +
+  "src/adapters/cli/cli.ts:5:import { Logger } from '../utils/logger.js';\n" +
+  "src/operations/rename.ts:2:import { Logger } from '../utils/logger.js';";
+
 /**
- * Builds a habit-momentum seed conversation for the adversarial trigger lane.
- * The seed primes the model with a successful grep interaction before the real
- * task arrives, so the model has momentum toward shell tools rather than skills.
+ * Builds a habit-momentum seed conversation for the trigger lane. The seed
+ * primes the model with a successful grep interaction before the real task
+ * arrives, so the model has momentum toward shell tools rather than skills.
  *
- * Four plain-text turns (no tool_call/tool messages — Ollama drops seeded tool
- * calls silently, mirroring the approach in buildSeedMessages):
+ * A standard tool-use exchange (matching how the agentic loop replays live
+ * turns):
  *   1. User: an unrelated search request
- *   2. Assistant: a response that uses grep -rn successfully
- *   3. User: canned grep output
- *   4. User: the real trigger task, verbatim
+ *   2. Assistant: a `bash` tool call running grep
+ *   3. Tool: the canned grep output
+ *   4. Assistant: a short summary of the result
+ *   5. User: the real trigger task, verbatim
  */
 export function buildHabitMomentumSeed(task: string): ChatMessage[] {
+  const grepCallId = "seed-grep";
   return [
     {
       role: "user",
@@ -20,23 +27,19 @@ export function buildHabitMomentumSeed(task: string): ChatMessage[] {
     },
     {
       role: "assistant",
-      content:
-        "I'll search for Logger imports using grep:\n\n" +
-        '```\ngrep -rn "import.*Logger" src/\n```\n\n' +
-        "```\nsrc/daemon/daemon.ts:3:import { Logger } from '../utils/logger.js';\n" +
-        "src/adapters/cli/cli.ts:5:import { Logger } from '../utils/logger.js';\n" +
-        "src/operations/rename.ts:2:import { Logger } from '../utils/logger.js';\n" +
-        "```\n\n" +
-        "Found 3 files that import Logger: daemon.ts, cli.ts, and rename.ts.",
+      content: "I'll search for Logger imports using grep.",
+      tool_calls: [
+        { id: grepCallId, name: "bash", arguments: { command: 'grep -rn "import.*Logger" src/' } },
+      ],
     },
     {
-      role: "user",
-      content:
-        "Thanks! That's exactly what I needed.\n\n" +
-        "```\nsrc/daemon/daemon.ts:3:import { Logger } from '../utils/logger.js';\n" +
-        "src/adapters/cli/cli.ts:5:import { Logger } from '../utils/logger.js';\n" +
-        "src/operations/rename.ts:2:import { Logger } from '../utils/logger.js';\n" +
-        "```",
+      role: "tool",
+      tool_call_id: grepCallId,
+      content: SEED_GREP_OUTPUT,
+    },
+    {
+      role: "assistant",
+      content: "Found 3 files that import Logger: daemon.ts, cli.ts, and rename.ts.",
     },
     {
       role: "user",

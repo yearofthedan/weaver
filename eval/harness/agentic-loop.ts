@@ -110,11 +110,11 @@ export interface AgenticResult {
  * it to `trail` and does not treat it as a match — it is a navigation step
  * toward the operation, not the operation itself.
  *
- * Completed turns are echoed as plain-text conversation turns, never as
- * tool_call/tool messages: Ollama silently drops seeded tool messages (see
- * docs/eval-design.md), so a tool-format echo would make the next turn measure
- * the wrong thing. The model still emits a fresh tool call each turn, which is
- * read straight from the response.
+ * Each completed turn is replayed as a standard tool-use exchange: the model's
+ * own assistant message (its text and real `tool_calls`) followed by a
+ * `tool`-role result for every call. The model is stateless, so this faithful
+ * history is what lets it advance across hops instead of re-planning from
+ * scratch — a lossy echo strands multi-hop trajectories on their first call.
  */
 export async function runAgenticLoop(params: {
   messages: ChatMessage[];
@@ -131,6 +131,10 @@ export async function runAgenticLoop(params: {
   let skillMdRead = false;
   let readTurn: number | undefined;
 
+  // Opt-in tracing of the full turn-by-turn exchange (model text, the tool call,
+  // and the exact result fed back) for diagnosing why a trial does not converge.
+  const debug = process.env.WEAVER_EVAL_DEBUG === "1";
+
   // A call whose arguments were malformed JSON gets a host-style error fed
   // back instead of a canned result, so the model can retry rather than the
   // run crashing.
@@ -138,6 +142,38 @@ export async function runAgenticLoop(params: {
     call.invalidArguments === undefined
       ? cannedResultFor(call)
       : `Error: arguments for tool "${call.name}" were not valid JSON: ${call.invalidArguments}`;
+
+  // Replay a completed turn as a standard tool exchange: the model's assistant
+  // message with its real tool_calls, then a tool-role result for every call.
+  // An OpenAI-compatible endpoint rejects the next request if any tool_call in
+  // the assistant message has no matching tool response, so answer them all.
+  // Each call is given a concrete id (some providers omit it) so the assistant
+  // tool_calls and their tool responses reference the same one.
+  const echoTurn = (text: string, calls: ToolCall[], turn: number): void => {
+    const withIds = calls.map((call, i) =>
+      call.id === undefined ? { ...call, id: `call_${turn}_${i}` } : call,
+    );
+    messages.push({ role: "assistant", content: text || null, tool_calls: withIds });
+    for (const call of withIds) {
+      const result = resultTextFor(call);
+      if (debug) {
+        console.error(`  ← ${call.name} result:\n${indent(truncate(result, 800))}`);
+      }
+      messages.push({ role: "tool", tool_call_id: call.id, content: result });
+    }
+  };
+
+  if (debug) {
+    console.error("═══ initial prompt ═══");
+    for (const message of messages) {
+      const toolCalls = message.tool_calls
+        ?.map((c) => `${c.name}(${JSON.stringify(c.arguments)})`)
+        .join(", ");
+      const body = message.content ?? (toolCalls ? `→ ${toolCalls}` : "");
+      const label = message.tool_call_id ? `${message.role} ${message.tool_call_id}` : message.role;
+      console.error(`\n[${label}]\n${indent(truncate(body, 4000))}`);
+    }
+  }
 
   for (let stepIndex = 1; stepIndex <= maxSteps; stepIndex++) {
     const response = await step(messages, tools);
@@ -158,15 +194,21 @@ export async function runAgenticLoop(params: {
 
     const call = calls[0];
 
+    if (debug) {
+      const arg =
+        call.name === "bash"
+          ? String(call.arguments.command ?? "")
+          : JSON.stringify(call.arguments);
+      console.error(`\n─ step ${stepIndex} ─ model said: ${JSON.stringify(response.text)}`);
+      console.error(`  → ${call.name}(${arg})`);
+    }
+
     if (isSkillMdRead(call)) {
       if (!skillMdRead) {
         skillMdRead = true;
         readTurn = stepIndex;
       }
-      messages.push(
-        { role: "assistant", content: `I'll use ${call.name}.` },
-        { role: "user", content: `Output of ${call.name}:\n${resultTextFor(call)}\n\nContinue.` },
-      );
+      echoTurn(response.text, calls, stepIndex);
       continue;
     }
 
@@ -183,14 +225,20 @@ export async function runAgenticLoop(params: {
       };
     }
 
-    messages.push(
-      { role: "assistant", content: `I'll use ${call.name}.` },
-      { role: "user", content: `Output of ${call.name}:\n${resultTextFor(call)}\n\nContinue.` },
-    );
+    echoTurn(response.text, calls, stepIndex);
   }
 
   return { matched: false, trail, steps: maxSteps, skillMdRead, readTurn };
 }
+
+const truncate = (text: string, max: number): string =>
+  text.length <= max ? text : `${text.slice(0, max)}… (${text.length - max} more chars)`;
+
+const indent = (text: string): string =>
+  text
+    .split("\n")
+    .map((line) => `    ${line}`)
+    .join("\n");
 
 /**
  * Returns true when a boundary trial stayed in the shell the whole way: no

@@ -134,8 +134,10 @@ describe("runAgenticLoop", () => {
       });
       expect(exhausted.abandonedText).toBeUndefined();
     });
+  });
 
-    it("feeds the canned result back as plain-text turns, never tool-format messages", async () => {
+  describe("standard tool exchange", () => {
+    it("replays the prior turn as an assistant tool_calls message plus a tool result per call", async () => {
       const histories: ChatMessage[][] = [];
       let calls = 0;
       const step: ModelStep = async (messages) => {
@@ -155,23 +157,71 @@ describe("runAgenticLoop", () => {
       });
 
       const secondTurn = histories[1];
-      const assistantEcho = secondTurn.find(
-        (m) =>
-          m.role === "assistant" && typeof m.content === "string" && m.content.includes("Grep"),
-      );
-      const cannedTurn = secondTurn.find(
-        (m) =>
-          m.role === "user" && typeof m.content === "string" && m.content.includes("CANNED(Grep)"),
-      );
-      expect(
-        assistantEcho,
-        "the prior call must be echoed as an assistant text turn",
-      ).toBeDefined();
-      expect(
-        cannedTurn,
-        "second turn must carry the canned result as a user message",
-      ).toBeDefined();
-      expect(secondTurn.every((m) => m.tool_calls === undefined)).toBe(true);
+      const assistantEcho = secondTurn.find((m) => m.role === "assistant" && m.tool_calls);
+      expect(assistantEcho?.tool_calls?.map((c) => c.name)).toEqual(["Grep"]);
+      // No text this turn — assistant content is null, not a fabricated placeholder.
+      expect(assistantEcho?.content).toBeNull();
+
+      const callId = assistantEcho?.tool_calls?.[0].id;
+      expect(callId).toBeDefined();
+
+      const toolResult = secondTurn.find((m) => m.role === "tool");
+      expect(toolResult?.tool_call_id).toBe(callId);
+      expect(toolResult?.content).toBe("CANNED(Grep)");
+    });
+
+    it("answers every call in a multi-call turn with its own id-matched tool result", async () => {
+      const histories: ChatMessage[][] = [];
+      let calls = 0;
+      const step: ModelStep = async (messages) => {
+        histories.push(messages.map((m) => ({ ...m })));
+        calls += 1;
+        return calls === 1 ? resp("Grep", "Glob") : resp("weaver-refactor");
+      };
+
+      await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "weaver-refactor",
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: (call) => `CANNED(${call.name})`,
+      });
+
+      const secondTurn = histories[1];
+      const assistant = secondTurn.find((m) => m.role === "assistant" && m.tool_calls);
+      const toolResults = secondTurn.filter((m) => m.role === "tool");
+      const callIds = assistant?.tool_calls?.map((c) => c.id) ?? [];
+
+      expect(callIds).toHaveLength(2);
+      expect(toolResults.map((m) => m.tool_call_id)).toEqual(callIds);
+      expect(toolResults.map((m) => m.content)).toEqual(["CANNED(Grep)", "CANNED(Glob)"]);
+    });
+
+    it("carries the model's text as assistant content when it emitted some", async () => {
+      const histories: ChatMessage[][] = [];
+      let calls = 0;
+      const step: ModelStep = async (messages) => {
+        histories.push(messages.map((m) => ({ ...m })));
+        calls += 1;
+        return calls === 1
+          ? { toolCalls: [tc("Grep")], text: "Let me search first." }
+          : resp("weaver-refactor");
+      };
+
+      await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "weaver-refactor",
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      const assistant = histories[1].find((m) => m.role === "assistant" && m.tool_calls);
+      expect(assistant?.content).toBe("Let me search first.");
     });
   });
 
@@ -207,12 +257,15 @@ describe("runAgenticLoop", () => {
       expect(result.trail[0]).toBe(invalidCall);
       const errorTurn = histories[1].find(
         (m) =>
-          m.role === "user" &&
+          m.role === "tool" &&
           typeof m.content === "string" &&
           m.content.includes("not valid JSON") &&
           m.content.includes('{"command":"unterminated'),
       );
-      expect(errorTurn, "the malformed call must be answered with an error turn").toBeDefined();
+      expect(
+        errorTurn,
+        "the malformed call must be answered with an error tool result",
+      ).toBeDefined();
     });
   });
 

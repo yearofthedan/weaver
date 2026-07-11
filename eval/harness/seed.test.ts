@@ -60,11 +60,28 @@ describe("buildHabitMomentumSeed", () => {
     expect(last.content).toBe(TASK);
   });
 
-  it("primes a grep success in the turns before the task", () => {
+  it("primes the grep as a bash tool call, not plain text", () => {
     const messages = buildHabitMomentumSeed(TASK);
-    const primedGrep = messages
-      .slice(0, -1)
-      .some((m) => typeof m.content === "string" && m.content.includes("grep"));
-    expect(primedGrep).toBe(true);
+    const assistantWithCall = messages.find((m) => m.role === "assistant" && m.tool_calls);
+    expect(assistantWithCall?.tool_calls).toHaveLength(1);
+    const call = assistantWithCall?.tool_calls?.[0];
+    expect(call?.name).toBe("bash");
+    expect(String(call?.arguments.command)).toContain("grep");
+  });
+
+  it("returns the grep output in a tool message matching the call id", () => {
+    const messages = buildHabitMomentumSeed(TASK);
+    const call = messages.find((m) => m.tool_calls)?.tool_calls?.[0];
+    const toolMessage = messages.find((m) => m.role === "tool");
+    expect(toolMessage?.tool_call_id).toBe(call?.id);
+    expect(toolMessage?.content).toContain("import { Logger }");
+  });
+
+  it("primes a successful grep before the task turn", () => {
+    const messages = buildHabitMomentumSeed(TASK);
+    const grepCall = messages.findIndex((m) => m.tool_calls);
+    const taskTurn = messages.length - 1;
+    expect(grepCall).toBeGreaterThanOrEqual(0);
+    expect(grepCall).toBeLessThan(taskTurn);
   });
 });
