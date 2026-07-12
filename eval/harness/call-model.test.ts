@@ -57,9 +57,7 @@ function makeTextResponse(text: string) {
   };
 }
 
-function explicitConfig(
-  overrides: { temperature?: number; apiKey?: string; provider?: string } = {},
-) {
+function explicitConfig(overrides: { temperature?: number; apiKey?: string } = {}) {
   return {
     baseUrl: TEST_BASE_URL,
     model: TEST_MODEL,
@@ -113,36 +111,6 @@ describe("callModel", () => {
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       const body = JSON.parse(init.body as string);
       expect(body.temperature).toBe(0);
-    });
-
-    it("pins the OpenRouter provider with fallbacks off when configured", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("hi"),
-      });
-
-      await callModel(
-        [{ role: "user", content: "hi" }],
-        [],
-        explicitConfig({ provider: "DeepInfra" }),
-      );
-
-      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-      const body = JSON.parse(init.body as string);
-      expect(body.provider).toEqual({ order: ["DeepInfra"], allow_fallbacks: false });
-    });
-
-    it("omits the provider field entirely when unset — lets OpenRouter route", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("hi"),
-      });
-
-      await callModel([{ role: "user", content: "hi" }], [], explicitConfig());
-
-      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
-      const body = JSON.parse(init.body as string);
-      expect(body).not.toHaveProperty("provider");
     });
 
     it("serializes assistant tool_calls to the wire format with stringified arguments", async () => {
@@ -214,7 +182,7 @@ describe("callModel", () => {
 
     it("uses WEAVER_EVAL_BASE_URL and WEAVER_EVAL_MODEL when set", async () => {
       process.env.WEAVER_EVAL_BASE_URL = "http://custom-server:8080/v1";
-      process.env.WEAVER_EVAL_MODEL = "llama3:8b";
+      process.env.WEAVER_EVAL_MODEL = "anthropic/claude-haiku-4.5";
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => makeTextResponse("hi"),
@@ -224,7 +192,7 @@ describe("callModel", () => {
 
       const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       expect(url).toBe("http://custom-server:8080/v1/chat/completions");
-      expect(JSON.parse(init.body as string).model).toBe("llama3:8b");
+      expect(JSON.parse(init.body as string).model).toBe("anthropic/claude-haiku-4.5");
     });
 
     it("sends Authorization header when apiKey is set in config", async () => {
@@ -290,7 +258,7 @@ describe("callModel", () => {
     });
 
     it("uses WEAVER_EVAL_MODEL when set", async () => {
-      process.env.WEAVER_EVAL_MODEL = "llama3:8b";
+      process.env.WEAVER_EVAL_MODEL = "anthropic/claude-haiku-4.5";
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => makeTextResponse("hi"),
@@ -300,7 +268,7 @@ describe("callModel", () => {
 
       const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
       const body = JSON.parse(init.body as string);
-      expect(body.model).toBe("llama3:8b");
+      expect(body.model).toBe("anthropic/claude-haiku-4.5");
     });
   });
 
@@ -466,7 +434,7 @@ describe("callModel", () => {
     });
   });
 
-  describe("transient provider faults", () => {
+  describe("timeout retry and non-retryable responses", () => {
     const oneTool = [
       {
         type: "function" as const,
@@ -500,45 +468,20 @@ describe("callModel", () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
-    it("retries an empty completion returned while tools were offered, then returns the recovery", async () => {
-      mockFetch
-        .mockResolvedValueOnce({ ok: true, json: async () => makeCompletionResponse([], "") })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () =>
-            makeCompletionResponse([{ name: "bash", arguments: { command: "ls" } }]),
-        });
-
-      const result = await callModel([{ role: "user", content: "go" }], oneTool, explicitConfig());
-
-      expect(result.toolCalls[0].name).toBe("bash");
-      expect(mockFetch).toHaveBeenCalledTimes(2);
-    });
-
-    it("throws a named provider fault when the empty completion persists across retries", async () => {
-      mockFetch.mockResolvedValue({ ok: true, json: async () => makeCompletionResponse([], "") });
-
-      await expect(
-        callModel([{ role: "user", content: "go" }], oneTool, explicitConfig()),
-      ).rejects.toThrow(/empty completion.*WEAVER_EVAL_PROVIDER/s);
-
-      expect(mockFetch).toHaveBeenCalledTimes(3);
-    });
-
-    it("does not treat an empty completion as a fault when no tools were offered", async () => {
+    it("returns an empty completion as-is without retrying", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => makeCompletionResponse([], ""),
       });
 
-      const result = await callModel([{ role: "user", content: "go" }], [], explicitConfig());
+      const result = await callModel([{ role: "user", content: "go" }], oneTool, explicitConfig());
 
       expect(result.toolCalls).toEqual([]);
       expect(result.text).toBe("");
       expect(mockFetch).toHaveBeenCalledOnce();
     });
 
-    it("returns a text-only reply with tools offered without retrying — text is not an empty fault", async () => {
+    it("returns a text-only reply without retrying", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => makeTextResponse("I will not use a tool for this."),
