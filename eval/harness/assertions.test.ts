@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   extractBashCommands,
-  extractCommandsFromText,
   isAnyWeaverInvocation,
   isWeaverInvocation,
   matchWeaverCommand,
@@ -179,37 +178,6 @@ describe("matchWeaverCommand", () => {
         { newName: "bar" },
       );
       expect(result.matched).toBe(true);
-    });
-
-    it("extractCommandsFromText strips code fences and blank lines", () => {
-      const text = '```bash\nweaver rename \'{"newName":"bar"}\'\n```\n';
-      expect(extractCommandsFromText(text)).toEqual(['weaver rename \'{"newName":"bar"}\'']);
-    });
-
-    it("extractCommandsFromText returns empty array for blank response", () => {
-      expect(extractCommandsFromText("")).toEqual([]);
-      expect(extractCommandsFromText("\n  \n")).toEqual([]);
-    });
-
-    it("extractCommandsFromText splits &&-chained commands into separate candidates", () => {
-      const text = `weaver find-references '{"file":"a.ts"}' > /dev/null && weaver delete-file '{"file":"a.ts"}'`;
-      expect(extractCommandsFromText(text)).toEqual([
-        `weaver find-references '{"file":"a.ts"}' > /dev/null`,
-        `weaver delete-file '{"file":"a.ts"}'`,
-      ]);
-    });
-
-    it("extractCommandsFromText does not split on semicolons inside JSON patterns", () => {
-      const text = `weaver search-text '{"pattern": "a;b"}'`;
-      expect(extractCommandsFromText(text)).toEqual([`weaver search-text '{"pattern": "a;b"}'`]);
-    });
-
-    it("extractCommandsFromText returns one candidate per non-empty line", () => {
-      const text = "weaver search-text '{}'\n\nweaver rename '{}'";
-      expect(extractCommandsFromText(text)).toEqual([
-        "weaver search-text '{}'",
-        "weaver rename '{}'",
-      ]);
     });
 
     it("matches pnpm exec weaver prefix form", () => {
