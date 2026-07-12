@@ -1,7 +1,13 @@
 import type { ToolCall } from "./call-model.js";
 
+export type CommandOutcome = "correct" | "wrong-tool" | "wrong-args";
+
 export interface WeaverCommandMatch {
   matched: boolean;
+  /** `"correct"` iff matched; otherwise distinguishes reaching the right
+   * subcommand with bad/missing args ("wrong-args") from never reaching it
+   * ("wrong-tool"). */
+  outcome: CommandOutcome;
   /** Populated when matched is false. */
   reason?: string;
 }
@@ -102,6 +108,20 @@ export function matchWeaverCommand(
   subcommand: string,
   keyArgs?: Record<string, unknown>,
 ): WeaverCommandMatch {
+  const { matched, reason } = classifyCommand(command, subcommand, keyArgs);
+  const outcome: CommandOutcome = matched
+    ? "correct"
+    : weaverSubcommand(command) === subcommand
+      ? "wrong-args"
+      : "wrong-tool";
+  return reason === undefined ? { matched, outcome } : { matched, outcome, reason };
+}
+
+function classifyCommand(
+  command: string,
+  subcommand: string,
+  keyArgs: Record<string, unknown> | undefined,
+): { matched: boolean; reason?: string } {
   // Match: (npx |pnpm exec )?weaver <subcommand> ['"]...['"]\s*$
   const pattern = /^(?:npx\s+|pnpm\s+exec\s+)?weaver\s+(\S+)\s+(['"])([\s\S]*)\2\s*$/;
   const m = command.match(pattern);

@@ -334,4 +334,55 @@ describe("matchWeaverCommand", () => {
       expect(result.reason).toContain("no weaver attempt");
     });
   });
+
+  describe("outcome", () => {
+    it("is 'correct' for a fully matching command", () => {
+      const result = matchWeaverCommand('weaver rename \'{"newName":"accountId"}\'', "rename", {
+        newName: "accountId",
+      });
+      expect(result.matched).toBe(true);
+      expect(result.outcome).toBe("correct");
+    });
+
+    it("is 'wrong-args' when the JSON is well-formed but the value is wrong", () => {
+      const result = matchWeaverCommand('weaver rename \'{"newName":"wrong"}\'', "rename", {
+        newName: "accountId",
+      });
+      expect(result.outcome).toBe("wrong-args");
+    });
+
+    it("is 'wrong-args' when a required key is missing", () => {
+      const result = matchWeaverCommand("weaver rename '{\"whoops\":true}'", "rename", {
+        newName: "accountId",
+      });
+      expect(result.outcome).toBe("wrong-args");
+    });
+
+    it("is 'wrong-args' when the right subcommand is invoked with no argument at all", () => {
+      const result = matchWeaverCommand("weaver rename", "rename", { newName: "accountId" });
+      expect(result.outcome).toBe("wrong-args");
+    });
+
+    it("is 'wrong-args' when the argument is malformed JSON", () => {
+      const result = matchWeaverCommand("weaver rename 'not-json'", "rename");
+      expect(result.outcome).toBe("wrong-args");
+    });
+
+    it("is 'wrong-tool' when a different subcommand is invoked", () => {
+      const result = matchWeaverCommand("weaver move-file '{}'", "rename");
+      expect(result.outcome).toBe("wrong-tool");
+    });
+
+    it("is 'wrong-tool' when the command does not invoke weaver at all", () => {
+      const result = matchWeaverCommand("grep -r userId src/", "rename");
+      expect(result.outcome).toBe("wrong-tool");
+    });
+
+    it("is 'correct' if and only if matched, for the happy path", () => {
+      const result = matchWeaverCommand('weaver rename \'{"newName":"accountId"}\'', "rename", {
+        newName: "accountId",
+      });
+      expect(result.outcome === "correct").toBe(result.matched);
+    });
+  });
 });
