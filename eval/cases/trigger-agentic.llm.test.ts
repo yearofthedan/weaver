@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { boundaryTrialClean, cannedToolResult, runAgenticLoop } from "../harness/agentic-loop.js";
-import { extractBashCommands, isWeaverInvocation } from "../harness/assertions.js";
+import {
+  extractBashCommands,
+  isWeaverInvocation,
+  matchWeaverCommand,
+} from "../harness/assertions.js";
 import type { ToolCall } from "../harness/call-model.js";
 import { type ChatMessage, callModel } from "../harness/call-model.js";
 import { buildClutterSystemPrompt } from "../harness/clutter.js";
@@ -153,11 +157,18 @@ describe("agentic rate lane", () => {
     // out of budget; both are absent when the trial never matched or failed.
     const trailSummary = trialRecords
       .map((r, i) => {
-        const outcome = r.matched
-          ? `matched@${r.matchedAtStep}`
-          : r.failedAtStep !== undefined
-            ? `competitor@${r.failedAtStep}`
-            : "no match";
+        let outcome: string;
+        if (r.matched) {
+          const segment = extractBashCommands(r.trail).find((cmd) =>
+            isWeaverInvocation(cmd, expectedCommand),
+          );
+          const argsVerdict = segment
+            ? matchWeaverCommand(segment, expectedCommand, c.expect.keyArgs).outcome
+            : undefined;
+          outcome = `matched@${r.matchedAtStep}${argsVerdict !== undefined ? ` args:${argsVerdict}` : ""}`;
+        } else {
+          outcome = r.failedAtStep !== undefined ? `competitor@${r.failedAtStep}` : "no match";
+        }
         return `  trial ${i + 1} [${outcome}, ${r.skillMdRead ? `skill loaded@${r.readTurn}` : "no skill load"}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}${r.abandonedText !== undefined ? `\n    abandoned with text: ${JSON.stringify(r.abandonedText.slice(0, 500))}` : ""}`;
       })
       .join("\n");

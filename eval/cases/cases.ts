@@ -52,13 +52,13 @@ export const CASES: CaseEntry[] = validateCases([
     name: "trigger-refactor-rename",
     stage: "trigger",
     task: "`userId` is at line 12, column 8 of /tmp/weaver-eval/src/auth.ts — rename it to `accountId` everywhere in the project.",
-    expect: { skill: "weaver-refactor", command: "rename" },
+    expect: { skill: "weaver-refactor", command: "rename", keyArgs: { newName: "accountId" } },
   },
   {
     name: "trigger-refactor-rename-no-coords-sed-tempting",
     stage: "trigger",
     task: "Rename the variable `userId` to `accountId` across all TypeScript files in /tmp/weaver-eval/src. I don't have the line numbers.",
-    expect: { skill: "weaver-refactor", command: "rename" },
+    expect: { skill: "weaver-refactor", command: "rename", keyArgs: { newName: "accountId" } },
     // A rename without coordinates needs a search precursor to locate `userId`
     // before it can act; the focused fixture hands back only that position, so
     // the case measures whether the model converges on the rename rather than
@@ -69,13 +69,21 @@ export const CASES: CaseEntry[] = validateCases([
     name: "trigger-refactor-move-file",
     stage: "trigger",
     task: "Move /tmp/weaver-eval/src/auth.ts to /tmp/weaver-eval/src/authentication/auth.ts and update all imports.",
-    expect: { skill: "weaver-refactor", command: "move-file" },
+    expect: {
+      skill: "weaver-refactor",
+      command: "move-file",
+      keyArgs: { oldPath: "/tmp/weaver-eval/src/auth.ts" },
+    },
   },
   {
     name: "trigger-search-and-replace-pattern",
     stage: "trigger",
     task: 'Replace all occurrences of "v1" with "v2" across the project, including in comments.',
-    expect: { skill: "weaver-search-and-replace", command: "replace-text" },
+    expect: {
+      skill: "weaver-search-and-replace",
+      command: "replace-text",
+      keyArgs: { replacement: "v2" },
+    },
     // A replace often searches first to confirm the pattern exists; the focused
     // fixture hands back real `v1` hits so the precursor doesn't read as
     // "nothing to replace" and strand the model short of `replace-text`.
@@ -85,26 +93,42 @@ export const CASES: CaseEntry[] = validateCases([
     name: "trigger-search-and-replace-todos-grep-tempting",
     stage: "trigger",
     task: "Find all the TODO comments in /tmp/weaver-eval/src — I need the file, line number, and context around each one.",
-    expect: { skill: "weaver-search-and-replace", command: "search-text" },
+    expect: {
+      skill: "weaver-search-and-replace",
+      command: "search-text",
+      keyArgs: { pattern: "TODO" },
+    },
   },
   {
     name: "trigger-search-and-replace-sed-tempting",
     stage: "trigger",
     task: 'Replace every occurrence of the string "v1" with "v2" in all TypeScript source files under /tmp/weaver-eval/src. Make sure to get comments too.',
-    expect: { skill: "weaver-search-and-replace", command: "replace-text" },
+    expect: {
+      skill: "weaver-search-and-replace",
+      command: "replace-text",
+      keyArgs: { replacement: "v2" },
+    },
     cannedResults: { "search-text": loadFixture("searchText-v1") },
   },
   {
     name: "trigger-code-inspection-find-references",
     stage: "trigger",
     task: "Where is `authenticate` used? It's at line 5, column 17 of /tmp/weaver-eval/src/auth.ts.",
-    expect: { skill: "weaver-code-inspection", command: "find-references" },
+    expect: {
+      skill: "weaver-code-inspection",
+      command: "find-references",
+      keyArgs: { file: "/tmp/weaver-eval/src/auth.ts" },
+    },
   },
   {
     name: "trigger-code-inspection-find-references-delete-intent",
     stage: "trigger",
     task: "I want to delete `parseToken` — it's at line 10, column 17 of /tmp/weaver-eval/src/auth.ts. What's using it before I remove it?",
-    expect: { skill: "weaver-code-inspection", command: "find-references" },
+    expect: {
+      skill: "weaver-code-inspection",
+      command: "find-references",
+      keyArgs: { file: "/tmp/weaver-eval/src/auth.ts" },
+    },
   },
   {
     name: "trigger-code-inspection-get-type-errors",
