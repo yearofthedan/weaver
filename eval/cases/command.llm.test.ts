@@ -12,7 +12,10 @@ const singleStepCases = CASES.filter((c) => c.stage === "command" && !c.seed);
 const skillContent = skillContext([...SKILL_NAMES]);
 
 function commandPrompt(task: string): string {
-  return `${skillContent}\n\n---\n\nTask: ${task}`;
+  // Constrain to a single call so the lane measures the one command the model
+  // commits to, not a precursor it would take first. Deliberately does not name
+  // weaver — the model must still select it from the skill content above.
+  return `${skillContent}\n\n---\n\nTask: ${task}\n\nUse the bash tool to make a single call that accomplishes this task.`;
 }
 
 describe("command-stage cases", () => {
