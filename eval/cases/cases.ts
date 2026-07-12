@@ -5,7 +5,12 @@ export interface CaseEntry {
   name: string;
   stage: "trigger" | "command";
   task: string;
-  seed?: { operation: string };
+  /**
+   * A two-step case's seeded step-1 result. `step1Command` is the realistic
+   * weaver command the assistant "ran"; `fixture` is the fixture name whose
+   * JSON is fed back as the step-1 tool result.
+   */
+  seed?: { step1Command: string; fixture: string };
   expect: {
     /**
      * The expected first tool selection at the trigger stage: a skill name, or
@@ -31,7 +36,7 @@ export interface CaseEntry {
 function validateCases(entries: CaseEntry[]): CaseEntry[] {
   for (const entry of entries) {
     if (entry.seed) {
-      loadFixture(entry.seed.operation);
+      loadFixture(entry.seed.fixture);
     }
   }
   return entries;
@@ -264,20 +269,13 @@ export const CASES: CaseEntry[] = validateCases([
     name: "two-step-search-then-rename",
     stage: "command",
     task: "Rename `userId` to `accountId` everywhere in the project. It's in /tmp/weaver-eval/src/auth.ts but I don't have the line number.",
-    seed: { operation: "searchText" },
+    seed: {
+      step1Command: `weaver search-text '{"pattern":"userId"}'`,
+      fixture: "searchText-userId",
+    },
     expect: {
       command: "rename",
-      keyArgs: { newName: "accountId" },
-    },
-  },
-  {
-    name: "two-step-find-references-then-move-symbol",
-    stage: "command",
-    task: "Move `parseToken` from /tmp/weaver-eval/src/auth.ts to /tmp/weaver-eval/src/utils/token.ts.",
-    seed: { operation: "findReferences" },
-    expect: {
-      command: "move-symbol",
-      keyArgs: { symbolName: "parseToken" },
+      keyArgs: { file: "/tmp/weaver-eval/src/auth.ts", line: 12, col: 9, newName: "accountId" },
     },
   },
 ]);

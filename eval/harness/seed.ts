@@ -49,23 +49,22 @@ export function buildHabitMomentumSeed(task: string): ChatMessage[] {
 }
 
 /**
- * Builds the pre-seeded message array for a two-step eval case, as plain
- * conversation turns:
+ * Builds the pre-seeded message array for a two-step eval case, as a real
+ * tool exchange (mirroring {@link buildHabitMomentumSeed}):
  *
  *   1. User: the original task
- *   2. Assistant: the step-1 weaver command it "ran"
- *   3. User: the command's output (the canned fixture JSON, embedded verbatim)
- *      plus a prompt for the follow-up command
+ *   2. Assistant: a `bash` tool call running the step-1 weaver command
+ *   3. Tool: the command's output (the canned fixture JSON, embedded verbatim)
  *
- * Text turns rather than tool_call/tool messages: local-model servers parse
- * tool calls unreliably (Ollama silently drops calls it cannot parse), and the
- * assertion target is the command string either way.
+ * The follow-up call is left for the model to make in response — this only
+ * builds the seed, not the request.
  */
 export function buildSeedMessages(
   task: string,
   step1Command: string,
   fixtureContent: string,
 ): ChatMessage[] {
+  const step1CallId = "seed-step1";
   return [
     {
       role: "user",
@@ -73,11 +72,13 @@ export function buildSeedMessages(
     },
     {
       role: "assistant",
-      content: step1Command,
+      content: null,
+      tool_calls: [{ id: step1CallId, name: "bash", arguments: { command: step1Command } }],
     },
     {
-      role: "user",
-      content: `Output of \`${step1Command}\`:\n${fixtureContent}\n\nReply with ONLY the single shell command to run next. No explanation, no markdown.`,
+      role: "tool",
+      tool_call_id: step1CallId,
+      content: fixtureContent,
     },
   ];
 }

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { extractCommandsFromText, matchWeaverCommand } from "../harness/assertions.js";
+import { extractBashCommands, matchWeaverCommand } from "../harness/assertions.js";
 import { callModel } from "../harness/call-model.js";
 import { modelConfig } from "../harness/config.js";
 import { SKILL_NAMES, skillContext } from "../harness/context.js";
-import { loadFixture, operationToSubcommand } from "../harness/fixtures.js";
+import { loadFixture } from "../harness/fixtures.js";
 import { buildSeedMessages } from "../harness/seed.js";
+import { BASH_TOOL } from "../harness/tools.js";
 import { CASES } from "./cases.js";
 
 /** Two-step command cases (have a seed). */
@@ -19,22 +20,23 @@ describe("two-step flows", () => {
     expect(c.seed, "two-step case must have a seed").toBeDefined();
     if (!command || !c.seed) return;
 
-    const { operation } = c.seed;
-    const step1Command = `weaver ${operationToSubcommand(operation)} '{}'`;
     const seedMessages = buildSeedMessages(
       `${skillContent}\n\n---\n\nTask: ${c.task}`,
-      step1Command,
-      loadFixture(operation),
+      c.seed.step1Command,
+      loadFixture(c.seed.fixture),
     );
 
-    const response = await callModel(seedMessages, [], { ...modelConfig(), temperature: 0 });
+    const response = await callModel(seedMessages, [BASH_TOOL], {
+      ...modelConfig(),
+      temperature: 0,
+    });
 
-    const commands = extractCommandsFromText(response.text);
+    const commands = extractBashCommands(response.toolCalls);
 
     expect(
       commands.length,
-      `No command emitted after seeing ${operation} results for task: "${c.task}". ` +
-        `Model responded with: ${response.text}`,
+      `did not call the bash tool after seeing the search-text result for task: "${c.task}". ` +
+        `Model responded with text: ${response.text}`,
     ).toBeGreaterThan(0);
 
     const matches = commands.map((cmd) => matchWeaverCommand(cmd, command, keyArgs));

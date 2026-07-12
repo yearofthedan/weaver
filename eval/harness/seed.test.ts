@@ -21,23 +21,22 @@ describe("buildSeedMessages", () => {
       expect(messages[0].content).toBe("rename userId to accountId");
     });
 
-    it("second message is the assistant turn containing the step-1 command", () => {
+    it("second message is the assistant turn with a single bash tool call for the step-1 command", () => {
       const messages = buildSeedMessages("task", STEP1_COMMAND, FIXTURE_CONTENT);
       expect(messages[1].role).toBe("assistant");
-      expect(messages[1].content).toBe(STEP1_COMMAND);
+      expect(messages[1].tool_calls).toHaveLength(1);
+      const call = messages[1].tool_calls?.[0];
+      expect(call?.name).toBe("bash");
+      expect(call?.arguments.command).toBe(STEP1_COMMAND);
+      expect(call?.id).toBeDefined();
     });
 
-    it("third message is a user turn presenting the command output", () => {
+    it("third message is a tool turn matching the step-1 call id and carrying the fixture", () => {
       const messages = buildSeedMessages("task", STEP1_COMMAND, FIXTURE_CONTENT);
-      expect(messages[2].role).toBe("user");
-      expect(messages[2].content).toContain(STEP1_COMMAND);
-      expect(messages[2].content).toContain(FIXTURE_CONTENT);
-    });
-
-    it("third message asks for a single command with no markdown", () => {
-      const messages = buildSeedMessages("task", STEP1_COMMAND, FIXTURE_CONTENT);
-      expect(messages[2].content).toContain("ONLY the single shell command");
-      expect(messages[2].content).toContain("No explanation, no markdown.");
+      const call = messages[1].tool_calls?.[0];
+      expect(messages[2].role).toBe("tool");
+      expect(messages[2].tool_call_id).toBe(call?.id);
+      expect(messages[2].content).toBe(FIXTURE_CONTENT);
     });
   });
 
