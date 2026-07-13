@@ -70,18 +70,23 @@ tests and the coverage invariant but never needs a model server.
   a `weaver <expected-command>` bash call within the step budget. **Boundary cases**
   (`boundary-*`, `expect.skill: "bash"`) invert this: legitimate shell work (list files, run
   tests, tail a log) that must *not* pull a skill in; they pass when every trial neither loads
-  a skill nor reaches any `weaver` invocation.
-- **Command cases:** the full SKILL.md bodies plus the task go in the user turn, with an
-  instruction to reply with only the command (text emission — see gotchas for why not a
-  declared bash tool). Pass = the response parses as `weaver <expected-subcommand>
-  '<json>'` with the case's key arguments. `&&`-chained commands are split into
-  candidates: a safety check before a destructive command is correct behaviour.
-  Assertion failures distinguish "no weaver attempt" from "weaver attempted but JSON
-  malformed" — the latter is a local-model formatting failure, not a skill-text failure.
-- **Two-step cases:** the conversation is pre-seeded as plain turns — user task,
-  assistant step-1 command, user turn with the command's canned output from
-  `eval/fixtures/`; the assertion checks the follow-up command (e.g. `search-text`
-  results in context → `rename`).
+  a skill nor reaches any `weaver` invocation. Each matched trial also prints a non-gating
+  args verdict (`matchWeaverCommand.outcome`) so a right-selection/wrong-args trial is
+  visible in the trail without affecting the selection rate.
+- **Command cases:** the full SKILL.md bodies plus the task go in the user turn, a `bash`
+  tool is declared, and the prompt asks for a single call. Pass = the model's **bash tool
+  call** parses as `weaver <expected-subcommand> '<json>'` with the case's key arguments;
+  a response with no bash tool call fails as "did not call the bash tool". The prompt does
+  not name weaver — the model must still select it from the skill content. `&&`-chained
+  commands are split into candidates: a safety check before a destructive command is correct
+  behaviour. `matchWeaverCommand` classifies the result as `correct` / `wrong-tool` /
+  `wrong-args`, separating the right op reached with bad args from the wrong op entirely.
+- **Two-step cases:** the conversation is pre-seeded as a real tool exchange — user task,
+  assistant `bash` tool call running the step-1 weaver command, `tool`-role result carrying
+  a canned fixture from `eval/fixtures/`; the assertion checks the follow-up `bash` tool
+  call. The seeded search→rename case proves a **result-derived** carry-through: the task
+  withholds the line number, so the `line`/`col` the follow-up `rename` carries exist only
+  in the seeded `search-text` result (`searchText-userId.json`: line 12, col 9).
 
 ### Local-model gotchas (hard-won, 2026-06-10)
 
