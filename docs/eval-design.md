@@ -93,13 +93,15 @@ coverage invariant but never needs a model server; the live lanes run only under
   args verdict (`matchWeaverCommand.outcome`) so a right-selection/wrong-args trial is
   visible in the trail without affecting the selection rate.
 - **Command cases:** the full SKILL.md bodies plus the task go in the user turn, a `bash`
-  tool is declared, and the prompt asks for a single call. Pass = the model's **bash tool
-  call** parses as `weaver <expected-subcommand> '<json>'` with the case's key arguments;
-  a response with no bash tool call fails as "did not call the bash tool". The prompt does
-  not name weaver — the model must still select it from the skill content. `&&`-chained
-  commands are split into candidates: a safety check before a destructive command is correct
-  behaviour. `matchWeaverCommand` classifies the result as `correct` / `wrong-tool` /
-  `wrong-args`, separating the right op reached with bad args from the wrong op entirely.
+  tool is declared, and the model is driven over a single deterministic trajectory
+  (`runAgenticLoop`, temperature 0) up to a small step budget. Pass = the model reaches a
+  **bash tool call** parsing as `weaver <expected-subcommand> '<json>'` with the case's key
+  arguments; a benign precursor (a `cat`/`sed` before the op) is credited, and the *eventual*
+  weaver call is what is graded. The prompt does not name weaver — the model must still select
+  it from the skill content. `&&`-chained commands are split into candidates: a safety check
+  before a destructive command is correct behaviour. `matchWeaverCommand` classifies the
+  committed segment as `correct` / `wrong-tool` / `wrong-args`, separating the right op reached
+  with bad args from the wrong op entirely.
 - **Two-step cases:** the conversation is pre-seeded as a real tool exchange — user task,
   assistant `bash` tool call running the step-1 weaver command, `tool`-role result carrying
   a canned fixture from `eval/fixtures/`; the assertion checks the follow-up `bash` tool
@@ -213,10 +215,27 @@ carry full case names (`chaiConfig.truncateThreshold: 0` in `vitest.llm.config.t
 
 ## The command and two-step lanes (deterministic)
 
-Both run at temperature 0, single-shot per case, so a regression reproduces every run and a one-off
-is noise. When a command case fails, the message classifies via `matchWeaverCommand`:
+Both run at temperature 0 so a regression reproduces every run and a one-off is noise. They are the
+argument-fidelity lanes, kept distinct from the selection-rate lane: correctness on a clear task is
+not variable, and a rate there would only add flakiness.
 
-- `wrong-tool` — never reached the expected subcommand (no weaver at all, or a different op).
+The **command lane** drives the model with `runAgenticLoop` over a single trajectory (temperature 0,
+one trial — no clutter prompt, no habit-momentum seed, `BASH_TOOL` only). It credits a benign
+precursor — a `cat`/`sed` to read a file before acting — and asserts the *eventual*
+`weaver <command>` call rather than the model's first bash call, so a task that invites a look
+before the op no longer fails on the look. The budget is small (`MAX_STEPS = 3`: no skill-load hop,
+so precursor + op only). A precursor's fed-back result comes from the case's `cannedResults` (a
+`bash` stub for a `cat`), never real execution. `matches` stops the loop at the first bash call that
+reaches the expected subcommand (subcommand only); the test then grades that segment with
+`matchWeaverCommand` and passes **only** when the outcome is `correct` — arguments stay gating.
+
+The **two-step lane** is single-shot: the conversation is pre-seeded with step 1 (see below) and the
+follow-up bash call is asserted directly.
+
+When a command case fails, the message classifies via `matchWeaverCommand`:
+
+- `wrong-tool` — never reached the expected subcommand within the budget (no weaver at all, or a
+  different op the model settled on).
 - `wrong-args` — the right op was reached but a key arg is malformed, missing, or the wrong value.
 
 **Frontmatter feeds the command prompt too.** `skillContext()` returns the **whole** SKILL.md

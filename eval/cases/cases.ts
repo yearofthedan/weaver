@@ -221,6 +221,30 @@ export const CASES: CaseEntry[] = validateCases([
       command: "extract-function",
       keyArgs: { functionName: "hashPassword" },
     },
+    // The model often reads the file (a `cat`/`sed`) before extracting; the
+    // task already states the line range, so this stub only has to read as a
+    // real file body rather than an empty file that strands the precursor.
+    cannedResults: {
+      bash: [
+        "import { createHash, randomBytes } from 'node:crypto';",
+        "",
+        "export function authenticate(userId: string, password: string): boolean {",
+        "  const user = lookupUser(userId);",
+        "  if (!user) return false;",
+        "",
+        "  const salt = user.salt;",
+        "  const iterations = 100_000;",
+        "  const keyLength = 64;",
+        "  let derived = password + salt;",
+        "  for (let i = 0; i < iterations; i++) {",
+        "    derived = createHash('sha256').update(derived).digest('hex');",
+        "  }",
+        "  const hashed = derived.slice(0, keyLength);",
+        "",
+        "  return hashed === user.passwordHash;",
+        "}",
+      ].join("\n"),
+    },
   },
   {
     name: "command-find-importers",
