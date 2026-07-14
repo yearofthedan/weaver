@@ -53,6 +53,8 @@
     "clean": "rm -rf dist .stryker-tmp",
     "test:mutate": "rm -rf .stryker-tmp && stryker run",
     "test:mutate:file": "rm -rf .stryker-tmp && stryker run --mutate",
+    "test:mutate:eval": "rm -rf .stryker-tmp && stryker run stryker.eval.config.mjs",
+    "test:mutate:eval:file": "rm -rf .stryker-tmp && stryker run stryker.eval.config.mjs --mutate",
     "eval": "vitest run --config eval/vitest.llm.config.ts",
     "check": "biome check . && pnpm build && pnpm coverage && pnpm test:eval",
     "setup:dev": "bash scripts/setup-dev.sh",

@@ -43,6 +43,22 @@ Stryker's sandbox directories (`.stryker-tmp/sandbox-*`) can't be removed by `rm
 
 ---
 
+## Eval harness lane
+
+`pnpm test:mutate:eval` runs a separate Stryker lane (`stryker.eval.config.mjs` / `vitest.stryker.eval.config.ts`) over `eval/harness/**/*.ts` — the branching logic behind the agentic eval harness (case-table resolution, grading, the agentic loop, frontmatter parsing). `pnpm test:mutate:eval:file <path>` scopes to one file, same pattern as the src lane.
+
+- **Own incremental cache:** `reports/stryker-eval-incremental.json` — running one lane never invalidates the other's cache.
+- **Own report directory:** `reports/mutation-eval/`.
+- **Own vitest sandbox config:** `vitest.stryker.eval.config.ts` includes `eval/**/*.test.ts` and excludes `eval/cases/**/*.llm.test.ts` — those cases need the hosted model endpoint, unavailable in Stryker's sandbox.
+
+**Sandbox retains `src/` and `.claude/skills/`, unlike the src lane.** Eval unit tests import `OPERATION_NAMES` from `src/daemon/dispatcher.js`, and `skill-file.test.ts`/`context.test.ts` read the shipped `SKILL.md` bodies verbatim. The eval config's `ignorePatterns` therefore omits `src`, `eval`, and `.claude` wholesale — it only excludes `.claude/agent-notes` and `.claude/agent-memory`, which are session-local and not part of the shipped product.
+
+**`eval/harness/clutter.ts` and `eval/harness/tools.ts` are excluded from the `mutate` array.** Both are content fixtures, not logic: `clutter.ts` builds decoy prompt text for the agentic loop, `tools.ts` defines static tool schemas. Their surviving `ObjectLiteral`/`BlockStatement` mutants (`{...} → {}`, function body → `{}`) replace prompt text or schema objects that no assertion is meant to pin by design — no test should break because a decoy prompt's wording changed. Including them drags the score down on unkillable noise without covering any real branch.
+
+**Current score:** Run `pnpm test:mutate:eval` — scores are not tracked in docs to avoid stale data.
+
+---
+
 ## Known surviving mutants (current)
 
 Fixed gaps are removed. Remaining survivors by category:

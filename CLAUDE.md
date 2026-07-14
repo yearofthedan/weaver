@@ -23,6 +23,8 @@ pnpm format       # format in place (whitespace/style only — does NOT fix impo
 pnpm exec biome check --write .  # fix everything: format + lint assists (organizeImports etc.)
 pnpm test:mutate              # full mutation run (slow — hours)
 pnpm test:mutate:file <path>  # targeted mutation on one file (minutes)
+pnpm test:mutate:eval              # mutation run scoped to eval/harness (seconds)
+pnpm test:mutate:eval:file <path>  # targeted mutation on one eval harness file
 pnpm eval                     # LLM eval of skill files vs a local Ollama model (see docs/eval-design.md)
 ```
 
