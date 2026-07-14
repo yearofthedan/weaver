@@ -84,3 +84,65 @@ jobs:
             --model claude-opus-4-6
             --max-turns 50
             --allowedTools "Bash,Read,Edit,Write,Glob,Grep"
+
+  mutation-eval:
+    name: Mutation Testing (eval harness)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25.9.0
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      # Restore the most recent Stryker eval incremental cache. Save uses a
+      # unique key (with run_id) so partial-progress runs always persist
+      # their results for the next run to pick up. Kept separate from the
+      # src lane's cache so neither run clobbers the other's baseline.
+      - name: Restore Stryker eval incremental cache
+        uses: actions/cache/restore@v5
+        with:
+          path: reports/stryker-eval-incremental.json
+          key: stryker-eval-incremental-${{ github.run_id }}
+          restore-keys: |
+            stryker-eval-incremental-
+
+      - name: Run eval harness mutation tests
+        id: mutate-eval
+        run: pnpm test:mutate:eval
+        continue-on-error: true
+
+      - name: Save Stryker eval incremental cache
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: reports/stryker-eval-incremental.json
+          key: stryker-eval-incremental-${{ github.run_id }}
+
+      - name: Upload eval mutation report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mutation-eval-report
+          path: |
+            reports/mutation-eval/mutation.html
+            reports/mutation-eval/mutation.json
+
+      - name: Post summary
+        if: always()
+        run: |
+          if [ "${{ steps.mutate-eval.outcome }}" == "success" ]; then
+            echo "## Eval harness mutation score: above threshold" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Eval harness mutation score: below threshold ⚠️" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Full report: download the \`mutation-eval-report\` artifact." >> $GITHUB_STEP_SUMMARY
