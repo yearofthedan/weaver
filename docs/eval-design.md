@@ -222,7 +222,11 @@ carry full case names (`chaiConfig.truncateThreshold: 0` in `vitest.llm.config.t
 ## The command and two-step lanes (deterministic)
 
 Both run at temperature 0, single-shot per case, so a regression reproduces every run and a one-off
-is noise. When a command case fails, the message classifies via `matchWeaverCommand`:
+is noise. The single call is deliberate — it isolates argument fidelity from selection. A task the
+model won't do in one shot (it reads a file first) becomes a two-step case with the precursor
+seeded, not a case with a wider step budget: given room to act, the model finishes shell-doable
+tasks in shell (`mv`, `grep`, `npx tsc`) and never reaches weaver. When a command case fails, the
+message classifies via `matchWeaverCommand`:
 
 - `wrong-tool` — never reached the expected subcommand (no weaver at all, or a different op).
 - `wrong-args` — the right op was reached but a key arg is malformed, missing, or the wrong value.

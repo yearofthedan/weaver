@@ -204,3 +204,32 @@ correctness (temp 0, single trajectory, gating args).
       unification onto the shared loop, deferred here).
 - [ ] Non-obvious gotchas recorded in `docs/eval-design.md` if any surface.
 - [ ] Spec moved to `docs/specs/archive/` with Outcome section appended.
+
+## Outcome
+
+**Shipped:** extract-function's precursor is a two-step seeded case (`cat` → assert
+`extract-function`), not the free-hand `runAgenticLoop` this spec proposed.
+
+**Why the approach changed.** The spec's plan was implemented (ff4cf28) and regressed the live lane
+10/12 → 6/12: without the single-call constraint the model does shell-doable tasks in plain shell
+(`mv`, `grep`, `npx tsc`) and never reaches weaver. The single call is what isolates argument
+fidelity from selection; relaxing it turns the command lane into a selection lane (the agentic
+lane's job). Reverted (28d3f0e), refixed by seeding the precursor — the pattern the two-step lane
+already uses.
+
+**Result (live `pnpm eval command two-step`):** extract-function green in the two-step lane;
+search→rename unregressed; command lane 10/11. The remaining fail, `move-directory`, is a selection
+miss (`mv` treated as done), not a precursor — out of scope, routes to skill text / the pressure
+ladder.
+
+**Also shipped:** `loadFixture` reads a fixture by filename (no `.json` default), so a non-weaver
+precursor result (a `cat` body) lives in a real `.ts` file. Reuse review logged a dedup chore
+(readFileOrThrow / FIXTURES_DIR) to handoff.
+
+**Reflection:** The spec accepted the handoff's "follow the precursor, assert the eventual call"
+framing without checking whether a free-hand loop keeps the lane deterministic-on-args. It doesn't,
+and only running it showed that — as the eval's own discipline says: run → observe → debug, never
+predict-then-carve. For the command lane, keep the single-call constraint and handle a precursor by
+seeding it, never by opening the budget.
+
+Tests: no new unit tests (LLM cases, verified live). Mutation: N/A (eval Stryker-excluded).
