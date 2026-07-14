@@ -36,20 +36,17 @@ Do not log per-session "fixed X" history here; keep durable process guidance onl
 ## Running the hosted eval lane (Haiku)
 
 One lane — `anthropic/claude-haiku-4.5` via OpenRouter (no provider pin — single Anthropic
-provider); roles and reading rules in `docs/eval-design.md`. The OpenRouter key lives in Proton
-Pass (pass-cli), item "Open Router - weaver evals", Personal vault, field "API Key". Inject via a
-secret reference — never print the key or write its value to disk (`item view --output json` to a
-file materializes the secret and is blocked by the sandbox guard):
+provider); roles and reading rules in `docs/eval-design.md`. Config template: `.env.example`
+(committed, tool-agnostic). Copy to `.env` (gitignored) and set `WEAVER_EVAL_API_KEY` to a secret
+reference — never a raw key. The OpenRouter key lives in Proton Pass (pass-cli), item
+"Open Router - weaver evals", Personal vault, field "API Key", so the value is
+`pass://<share-id>/<item-id>/API Key`. Find the ids with `pass-cli item list Personal --output json`
+(metadata only — NOT the secret). pass-cli resolves the reference in memory at run time; never print
+the key or write its resolved value to disk (`item view --output json` to a file materializes the
+secret and is blocked by the sandbox guard). Run:
 
 ```bash
-SC=<scratch dir>
-# Metadata only (share_id/id) — NOT the secret value:
-pass-cli item list --vault-name Personal --output json   # find "Open Router - weaver evals"
-# Write "$SC/eval.env":
-#   WEAVER_EVAL_BASE_URL=https://openrouter.ai/api/v1
-#   WEAVER_EVAL_MODEL=anthropic/claude-haiku-4.5
-#   WEAVER_EVAL_API_KEY=pass://<share_id>/<id>/API Key
-pass-cli run --env-file "$SC/eval.env" -- pnpm eval --disable-console-intercept
+pass-cli run --env-file .env -- pnpm eval --disable-console-intercept
 ```
 
 `pass-cli test` checks auth (the user runs `pass-cli login` themselves if it fails).
