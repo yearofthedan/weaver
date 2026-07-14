@@ -35,7 +35,7 @@ describe("two-step flows", () => {
 
     expect(
       commands.length,
-      `did not call the bash tool after seeing the search-text result for task: "${c.task}". ` +
+      `did not call the bash tool after seeing the seeded step-1 result for task: "${c.task}". ` +
         `Model responded with text: ${response.text}`,
     ).toBeGreaterThan(0);
 

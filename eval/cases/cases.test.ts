@@ -117,14 +117,14 @@ describe("case table", () => {
   });
 
   describe("fixture loading", () => {
-    it("loads a valid fixture by operation name", () => {
-      const content = loadFixture("rename");
+    it("loads a valid fixture by filename", () => {
+      const content = loadFixture("rename.json");
       const parsed = JSON.parse(content) as Record<string, unknown>;
       expect(parsed.status).toBe("success");
     });
 
-    it("throws when the operation name does not correspond to a fixture", () => {
-      expect(() => loadFixture("nonExistentOperation")).toThrow("nonExistentOperation");
+    it("throws when the fixture file does not exist", () => {
+      expect(() => loadFixture("nonExistent.json")).toThrow("nonExistent.json");
     });
   });
 });

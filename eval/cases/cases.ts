@@ -7,8 +7,9 @@ export interface CaseEntry {
   task: string;
   /**
    * A two-step case's seeded step-1 result. `step1Command` is the realistic
-   * weaver command the assistant "ran"; `fixture` is the fixture name whose
-   * JSON is fed back as the step-1 tool result.
+   * command the assistant "ran" (a `weaver` op, or a plain shell read like
+   * `cat`); `fixture` is the fixture filename (extension included) whose content
+   * is fed back as the step-1 tool result.
    */
   seed?: { step1Command: string; fixture: string };
   expect: {
@@ -63,7 +64,7 @@ export const CASES: CaseEntry[] = validateCases([
     // before it can act; the focused fixture hands back only that position, so
     // the case measures whether the model converges on the rename rather than
     // stalling on a harness that never carries a position back.
-    cannedResults: { "search-text": loadFixture("searchText-userId") },
+    cannedResults: { "search-text": loadFixture("searchText-userId.json") },
   },
   {
     name: "trigger-refactor-move-file",
@@ -87,7 +88,7 @@ export const CASES: CaseEntry[] = validateCases([
     // A replace often searches first to confirm the pattern exists; the focused
     // fixture hands back real `v1` hits so the precursor doesn't read as
     // "nothing to replace" and strand the model short of `replace-text`.
-    cannedResults: { "search-text": loadFixture("searchText-v1") },
+    cannedResults: { "search-text": loadFixture("searchText-v1.json") },
   },
   {
     name: "trigger-search-and-replace-todos-grep-tempting",
@@ -108,7 +109,7 @@ export const CASES: CaseEntry[] = validateCases([
       command: "replace-text",
       keyArgs: { replacement: "v2" },
     },
-    cannedResults: { "search-text": loadFixture("searchText-v1") },
+    cannedResults: { "search-text": loadFixture("searchText-v1.json") },
   },
   {
     name: "trigger-code-inspection-find-references",
@@ -214,15 +215,6 @@ export const CASES: CaseEntry[] = validateCases([
     },
   },
   {
-    name: "command-extract-function",
-    stage: "command",
-    task: "Extract lines 10–20 of /tmp/weaver-eval/src/auth.ts into a new function called `hashPassword`.",
-    expect: {
-      command: "extract-function",
-      keyArgs: { functionName: "hashPassword" },
-    },
-  },
-  {
     name: "command-find-importers",
     stage: "command",
     task: "Which files import /tmp/weaver-eval/src/auth.ts?",
@@ -295,11 +287,26 @@ export const CASES: CaseEntry[] = validateCases([
     task: "Rename `userId` to `accountId` everywhere in the project. It's in /tmp/weaver-eval/src/auth.ts but I don't have the line number.",
     seed: {
       step1Command: `weaver search-text '{"pattern":"userId"}'`,
-      fixture: "searchText-userId",
+      fixture: "searchText-userId.json",
     },
     expect: {
       command: "rename",
       keyArgs: { file: "/tmp/weaver-eval/src/auth.ts", line: 12, col: 9, newName: "accountId" },
+    },
+  },
+  {
+    // The task gives the line range, but the model reads the file first; the
+    // seed carries that `cat` so the asserted follow-up is the extract itself.
+    name: "two-step-cat-then-extract",
+    stage: "command",
+    task: "Extract lines 10–20 of /tmp/weaver-eval/src/auth.ts into a new function called `hashPassword`.",
+    seed: {
+      step1Command: "cat /tmp/weaver-eval/src/auth.ts",
+      fixture: "sources/auth.ts",
+    },
+    expect: {
+      command: "extract-function",
+      keyArgs: { functionName: "hashPassword" },
     },
   },
 ]);

@@ -74,7 +74,7 @@ eval/harness/assertions.ts    ← extractBashCommands + matchWeaverCommand (→ 
 eval/harness/seed.ts          ← pre-seeded tool-exchange conversations (two-step, habit-momentum)
 eval/harness/agentic-loop.ts  ← runAgenticLoop + cannedToolResult
 eval/harness/grade.ts         ← SUBCOMMAND_MUTABILITY + isMutatingCompetitor (the loop's hard-fail verdict)
-eval/fixtures/*.json          ← canned CLI stdout, embedded as tool results
+eval/fixtures/                ← canned tool stdout, embedded as tool results
 eval/global-setup.llm.ts      ← fails fast unless the three hosted-endpoint env vars are set
 ```
 
@@ -101,11 +101,19 @@ coverage invariant but never needs a model server; the live lanes run only under
   behaviour. `matchWeaverCommand` classifies the result as `correct` / `wrong-tool` /
   `wrong-args`, separating the right op reached with bad args from the wrong op entirely.
 - **Two-step cases:** the conversation is pre-seeded as a real tool exchange — user task,
-  assistant `bash` tool call running the step-1 weaver command, `tool`-role result carrying
-  a canned fixture from `eval/fixtures/`; the assertion checks the follow-up `bash` tool
-  call. The seeded search→rename case proves a **result-derived** carry-through: the task
-  withholds the line number, so the `line`/`col` the follow-up `rename` carries exist only
-  in the seeded `search-text` result (`searchText-userId.json`: line 12, col 9).
+  assistant `bash` tool call running the step-1 command, `tool`-role result carrying a canned
+  fixture from `eval/fixtures/`; the assertion checks the follow-up `bash` tool call. Seeding
+  the precursor is how a command-stage case handles a task the model won't do in one shot,
+  while keeping the single asserted follow-up call that makes the command lane deterministic.
+  Two shapes:
+  - **Result-derived carry-through** (search→rename): the task withholds the line number, so
+    the `line`/`col` the follow-up `rename` carries exist only in the seeded `search-text`
+    result (`searchText-userId.json`: line 12, col 9).
+  - **Read-then-act** (cat→extract): the model reads the file before extracting, so the seed
+    carries that `cat` and the asserted follow-up is the `extract-function` itself, not the
+    look. The precursor here is a plain shell read, so its fixture is the file's source in a
+    real `.ts` file (`sources/auth.ts`) — `loadFixture` reads a fixture by filename, so a
+    non-weaver result need not be JSON.
 
 ## Interpreting results
 

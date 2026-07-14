@@ -518,7 +518,7 @@ describe("cannedToolResult", () => {
     it("resolves to the neutral stub, not the operation's fixture, when the case does not own the subcommand", () => {
       const result = cannedToolResult(bashCall('weaver rename \'{"newName":"accountId"}\''));
       expect(result).toBe(NEUTRAL_WEAVER_RESULT);
-      expect(result).not.toBe(loadFixture("rename"));
+      expect(result).not.toBe(loadFixture("rename.json"));
     });
 
     it("resolves an unregistered subcommand to the same neutral stub rather than throwing", () => {

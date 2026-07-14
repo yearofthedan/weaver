@@ -192,6 +192,8 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P4 — Low priority (cheap hygiene; clear opportunistically)
 
+- **Dedupe the eval-harness file readers** `[chore]` — `loadFixture` (`eval/harness/fixtures.ts`) and `readSkillFile` (`eval/harness/context.ts`) are the same `path.join` + `readFileSync` + ENOENT-friendly-rethrow shape; extract one `readFileOrThrow(absPath, notFoundMessage)`. Also `FIXTURES_DIR` is computed in both `fixtures.ts` and `coverage.test.ts` — export it from `fixtures.ts`.
+
 - **Self-install weaver's bin for in-repo dogfooding** `[chore]` — `pnpm exec weaver` fails in this repo because the package's own `bin` isn't linked into `node_modules/.bin`, so agents/devs must call `node dist/adapters/cli/cli.js` directly even though CLAUDE.md Rule 9 says to use `pnpm exec weaver`. Adding `"@yearofthedan/weaver": "file:."` to `devDependencies` (a pnpm workspace self-link) makes `pnpm exec weaver` resolve after `pnpm install`. Low risk; improves dogfooding ergonomics. Re-runs needed after a clean install.
 
 - **`VolarLanguageService` hand-typed interface** `[chore]` — `src/plugins/vue/compiler.ts` manually narrows the TS LanguageService surface used by the Vue compiler; an upstream signature change can compile but fail at runtime. Replace with `Pick<ts.LanguageService, 'findRenameLocations' | 'getReferencesAtPosition' | 'getEditsForFileRename'>` for compile-time safety. May fall out naturally during further Volar refactoring.
