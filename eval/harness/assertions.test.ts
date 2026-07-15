@@ -46,6 +46,18 @@ describe("extractBashCommands", () => {
       const result = extractBashCommands([bashCall(`weaver search-text '{"pattern": "a;b"}'`)]);
       expect(result).toEqual([`weaver search-text '{"pattern": "a;b"}'`]);
     });
+
+    it("splits on a bare && with no surrounding whitespace", () => {
+      expect(
+        extractBashCommands([bashCall("weaver rename '{}'&&weaver search-text '{}'")]),
+      ).toEqual(["weaver rename '{}'", "weaver search-text '{}'"]);
+    });
+
+    it("trims leading and trailing whitespace from a command", () => {
+      expect(extractBashCommands([bashCall("  weaver rename '{}'  ")])).toEqual([
+        "weaver rename '{}'",
+      ]);
+    });
   });
 
   describe("zero case", () => {
@@ -55,6 +67,29 @@ describe("extractBashCommands", () => {
 
     it("returns empty array when no bash calls are present", () => {
       expect(extractBashCommands([otherCall("skill"), otherCall("grep")])).toEqual([]);
+    });
+
+    it("returns empty array when the command is an empty string", () => {
+      expect(extractBashCommands([bashCall("")])).toEqual([]);
+    });
+
+    it("returns empty array when a whitespace-only command trims to empty", () => {
+      expect(extractBashCommands([bashCall("   ")])).toEqual([]);
+    });
+  });
+
+  describe("non-bash tool calls", () => {
+    it("excludes a non-bash call by name even when its arguments carry a command field", () => {
+      const grepWithCommandArg: ToolCall = {
+        name: "grep",
+        arguments: { command: "weaver rename '{}'" },
+      };
+      expect(extractBashCommands([grepWithCommandArg])).toEqual([]);
+    });
+
+    it("returns empty string for a bash call whose command argument is not a string", () => {
+      const bashWithNonStringCommand: ToolCall = { name: "bash", arguments: { command: 123 } };
+      expect(extractBashCommands([bashWithNonStringCommand])).toEqual([]);
     });
   });
 });
@@ -110,6 +145,15 @@ describe("isAnyWeaverInvocation", () => {
     it("matches pnpm exec weaver prefix form", () => {
       expect(isAnyWeaverInvocation("pnpm exec weaver find-references --file x")).toBe(true);
     });
+
+    it.each([
+      ["npx from weaver", "npx  weaver rename --file x"],
+      ["pnpm from exec", "pnpm  exec weaver rename --file x"],
+      ["exec from weaver", "pnpm exec  weaver rename --file x"],
+      ["weaver from the subcommand", "weaver  rename --file x"],
+    ])("matches when extra whitespace separates %s", (_label, command) => {
+      expect(isAnyWeaverInvocation(command)).toBe(true);
+    });
   });
 
   describe("non-matching cases", () => {
@@ -147,6 +191,15 @@ describe("weaverSubcommand", () => {
 
     it("returns the whole token, not a shorter subcommand it prefixes", () => {
       expect(weaverSubcommand("weaver renamer --file x")).toBe("renamer");
+    });
+
+    it.each([
+      ["npx from weaver", "npx  weaver rename --file x"],
+      ["pnpm from exec", "pnpm  exec weaver rename --file x"],
+      ["exec from weaver", "pnpm exec  weaver rename --file x"],
+      ["weaver from the subcommand", "weaver  rename --file x"],
+    ])("extracts the subcommand when extra whitespace separates %s", (_label, command) => {
+      expect(weaverSubcommand(command)).toBe("rename");
     });
   });
 
@@ -229,6 +282,47 @@ describe("matchWeaverCommand", () => {
       const result = matchWeaverCommand('weaver rename \'{"newName":"x"}\'', "rename", {});
       expect(result.matched).toBe(true);
     });
+
+    it("does not carry a reason property on a successful match", () => {
+      const result = matchWeaverCommand('weaver rename \'{"newName":"bar"}\'', "rename", {
+        newName: "bar",
+      });
+      expect(Object.hasOwn(result, "reason")).toBe(false);
+    });
+
+    it.each([
+      ["the subcommand from the quoted argument", 'weaver  rename \'{"newName":"bar"}\''],
+      ["the JSON quote from the subcommand", 'weaver rename  \'{"newName":"bar"}\''],
+      ["npx from weaver", 'npx  weaver rename \'{"newName":"bar"}\''],
+      ["pnpm from exec", 'pnpm  exec weaver rename \'{"newName":"bar"}\''],
+      ["exec from weaver", 'pnpm exec  weaver rename \'{"newName":"bar"}\''],
+    ])("matches when extra whitespace separates %s", (_label, command) => {
+      const result = matchWeaverCommand(command, "rename", { newName: "bar" });
+      expect(result.matched).toBe(true);
+    });
+
+    it("parses JSON content containing spaces after colons and commas", () => {
+      const result = matchWeaverCommand(
+        'weaver rename \'{"file": "src/a.ts", "newName": "bar"}\'',
+        "rename",
+        { newName: "bar" },
+      );
+      expect(result.matched).toBe(true);
+    });
+
+    it("matches when trailing whitespace follows the closing quote", () => {
+      const result = matchWeaverCommand('weaver rename \'{"newName":"bar"}\' ', "rename", {
+        newName: "bar",
+      });
+      expect(result.matched).toBe(true);
+    });
+
+    it("parses single-quoted JSON containing a backslash-escaped inner quote directly, without the double-quote unescaping fallback", () => {
+      const result = matchWeaverCommand(`weaver rename '{"newName":"say \\"hi\\""}'`, "rename", {
+        newName: 'say "hi"',
+      });
+      expect(result.matched).toBe(true);
+    });
   });
 
   describe("wrong subcommand", () => {
@@ -279,6 +373,42 @@ describe("matchWeaverCommand", () => {
       const noWeaver = matchWeaverCommand("grep -r foo .", "rename");
       expect(malformed.reason).toContain("JSON malformed");
       expect(noWeaver.reason).toContain("no weaver attempt");
+    });
+
+    it("reports malformed JSON for a double-quoted argument that stays invalid after the escape-stripping retry", () => {
+      const result = matchWeaverCommand('weaver rename "not-json-at-all"', "rename");
+      expect(result.matched).toBe(false);
+      expect(result.reason).toContain("JSON malformed");
+    });
+
+    it("does not rescue single-quoted malformed JSON via the double-quote unescaping fallback", () => {
+      const result = matchWeaverCommand(`weaver rename '{\\"newName\\":\\"bar\\"}'`, "rename", {
+        newName: "bar",
+      });
+      expect(result.matched).toBe(false);
+      expect(result.reason).toContain("JSON malformed");
+    });
+  });
+
+  describe("command format anchoring", () => {
+    it("does not match weaver appearing mid-word without a real npx/pnpm prefix", () => {
+      const result = matchWeaverCommand("xweaver rename '{}'", "rename");
+      expect(result.matched).toBe(false);
+    });
+
+    it("does not match when unexpected content trails the closing quote", () => {
+      const result = matchWeaverCommand(
+        'weaver rename \'{"newName":"bar"}\' unexpected-trailer',
+        "rename",
+        { newName: "bar" },
+      );
+      expect(result.matched).toBe(false);
+    });
+
+    it("reports command format not recognised for an unquoted argument, distinct from no weaver attempt", () => {
+      const result = matchWeaverCommand("weaver rename someUnquotedArg", "rename");
+      expect(result.matched).toBe(false);
+      expect(result.reason).toContain("command format not recognised");
     });
   });
 

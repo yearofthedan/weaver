@@ -110,7 +110,11 @@ function classifyCommand(
   const m = command.match(pattern);
 
   if (!m) {
-    if (/(?:npx\s+|pnpm\s+exec\s+)?weaver/.test(command)) {
+    // No prefix alternation here: this check only distinguishes "weaver was
+    // attempted" from "weaver wasn't invoked at all", so a bare substring
+    // test is enough — the npx/pnpm prefix forms all contain the literal
+    // "weaver" token regardless of how they're spaced.
+    if (/weaver/.test(command)) {
       // weaver is present but format is unexpected
       return {
         matched: false,
