@@ -1,11 +1,87 @@
-import { describe, expect, it } from "vitest";
+import * as fs from "node:fs";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildAvailableSkillsPrompt,
+  readSkillFile,
   SKILL_NAMES,
   skillContext,
   skillFrontmatters,
   skillLocation,
 } from "./context.js";
+
+// Wraps the real readFileSync so most calls behave normally; individual
+// tests override a single call with mockReturnValueOnce/mockImplementationOnce
+// to inject synthetic frontmatter content or a synthetic read error, then
+// fall back to the real implementation automatically once consumed.
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return { ...actual, readFileSync: vi.fn(actual.readFileSync) };
+});
+
+describe("readSkillFile", () => {
+  it("throws the friendly not-found message for a missing skill", () => {
+    expect(() => readSkillFile("nonexistent-skill")).toThrow("Skill file not found");
+  });
+
+  it("re-throws the original error unchanged when the read fails for a reason other than a missing file", () => {
+    const eacces = Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
+    vi.mocked(fs.readFileSync).mockImplementationOnce(() => {
+      throw eacces;
+    });
+    expect(() => readSkillFile("weaver-refactor")).toThrow("EACCES: permission denied");
+  });
+
+  it("re-throws a thrown value as-is when it carries an ENOENT code but is not an Error instance", () => {
+    const nonError = { code: "ENOENT" };
+    vi.mocked(fs.readFileSync).mockImplementationOnce(() => {
+      throw nonError;
+    });
+    let caught: unknown;
+    try {
+      readSkillFile("weaver-refactor");
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBe(nonError);
+  });
+});
+
+describe("parseSkillFrontmatter (via skillFrontmatters)", () => {
+  it("does not match a frontmatter block that starts partway through the file", () => {
+    vi.mocked(fs.readFileSync).mockReturnValueOnce(
+      "garbage before frontmatter\n---\nname: x\ndescription: y\n---\nbody",
+    );
+    expect(() => skillFrontmatters()).toThrow("no valid frontmatter");
+  });
+
+  it("throws the friendly missing-frontmatter message, not a raw property-access error, when no frontmatter block exists at all", () => {
+    vi.mocked(fs.readFileSync).mockReturnValueOnce("no frontmatter markers in this file at all");
+    expect(() => skillFrontmatters()).toThrow("no valid frontmatter");
+  });
+
+  it("requires name/description keys to start their line, not merely contain the key as a substring", () => {
+    vi.mocked(fs.readFileSync).mockReturnValueOnce(
+      "---\nxname: wrong-name\nname: real-name\nxdescription: wrong-desc\ndescription: real-desc\n---\n",
+    );
+    const [frontmatter] = skillFrontmatters();
+    expect(frontmatter.name).toBe("real-name");
+    expect(frontmatter.description).toBe("real-desc");
+  });
+
+  it("throws the friendly missing-key message, not a raw property-access error, when description is absent", () => {
+    vi.mocked(fs.readFileSync).mockReturnValueOnce("---\nname: only-name\n---\n");
+    expect(() => skillFrontmatters()).toThrow("missing name or description");
+  });
+
+  it("trims trailing whitespace from both the name and description values", () => {
+    vi.mocked(fs.readFileSync).mockReturnValueOnce(
+      "---\nname: padded-name   \ndescription: padded-desc   \n---\n",
+    );
+    const [frontmatter] = skillFrontmatters();
+    expect(frontmatter.name).toBe("padded-name");
+    expect(frontmatter.description).toBe("padded-desc");
+  });
+});
 
 describe("skillFrontmatters", () => {
   it("returns name and description for all three shipped skills", () => {
