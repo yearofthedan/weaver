@@ -83,4 +83,25 @@ describe("buildHabitMomentumSeed", () => {
     expect(grepCall).toBeGreaterThanOrEqual(0);
     expect(grepCall).toBeLessThan(taskTurn);
   });
+
+  it("opens with a user turn requesting the unrelated Logger-import search", () => {
+    const messages = buildHabitMomentumSeed(TASK);
+    expect(messages[0].role).toBe("user");
+    expect(messages[0].content).toBe(
+      "Find all files that import the Logger class in the src/ directory.",
+    );
+  });
+
+  it("follows the grep result with an assistant summary naming the three matched files", () => {
+    const messages = buildHabitMomentumSeed(TASK);
+    expect(messages[3].role).toBe("assistant");
+    expect(messages[3].content).toBe(
+      "Found 3 files that import Logger: daemon.ts, cli.ts, and rename.ts.",
+    );
+  });
+
+  it("produces exactly five messages in user/assistant/tool/assistant/user order", () => {
+    const messages = buildHabitMomentumSeed(TASK);
+    expect(messages.map((m) => m.role)).toEqual(["user", "assistant", "tool", "assistant", "user"]);
+  });
 });
