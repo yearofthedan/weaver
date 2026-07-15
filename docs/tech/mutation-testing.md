@@ -57,6 +57,16 @@ Stryker's sandbox directories (`.stryker-tmp/sandbox-*`) can't be removed by `rm
 
 **Current score:** Run `pnpm test:mutate:eval` — scores are not tracked in docs to avoid stale data.
 
+### Eval harness — known surviving mutants
+
+| Area | Survivor | Why accepted |
+|------|----------|-------------|
+| `assertions.ts` | `isAnyWeaverInvocation`'s trailing `\S+` → `\S` (line 39) | `.test()` only checks whether a match exists, not its extent. Both quantifiers require at least one non-whitespace character to be present after `weaver\s+`; there is no input where one matches and the other doesn't, since neither cares how many characters follow. |
+| `assertions.ts` | `parseJsonArgument`'s final `catch { return undefined; }` emptied (line 176) | It's the last statement in the function. An empty catch and an explicit `return undefined` are identical — a function that falls off its end implicitly returns `undefined` in JS. |
+| `context.ts` | `parseSkillFrontmatter`'s `name:`/`description:` regexes, `\s+` → `\s` (lines 38–39) | The captured group is always passed through `.trim()` before use (`nameMatch[1].trim()`). Any leading-whitespace difference the shorter quantifier introduces is erased by `trim()`, and both quantifiers require ≥1 whitespace character, so there's no zero-space input to exploit the difference either. |
+| `context.ts` | Same regexes, trailing `$` dropped (lines 38–39) | `(.+)` in non-dotall mode can never match across the line's `\n` — the capture is already bounded by the next newline regardless of whether `$` is present. Removing `$` changes nothing observable. |
+| `grade.ts` | `isMutatingCompetitor`'s `subcommand !== undefined &&` clause replaced with `true` (line 43) | `SUBCOMMAND_MUTABILITY` has no entry for the string `"undefined"` (the key a literal `undefined` coerces to on bracket access), so when `subcommand` is `undefined` the third clause — `SUBCOMMAND_MUTABILITY[subcommand] === "mutating"` — already evaluates to `undefined === "mutating"` → `false`, independent of the first clause. Verified by hand-applying the mutation and running the full `grade.test.ts` suite (31 tests, all pass unchanged); no constructible input diverges. |
+
 ---
 
 ## Known surviving mutants (current)
@@ -200,3 +210,6 @@ Mutation `> 0 → >= 0` includes importers with 0 matching specifiers. These "fa
 
 **Symlink branch coverage requires real filesystem artefacts.**
 The `isWithinWorkspace` symlink branch only fires when the path exists and `fs.existsSync` passes. Create real temp dirs and symlinks pointing outside the workspace — non-existent paths skip the `realpathSync` call and leave the branch dead.
+
+**Incremental-cache staleness on `"static": true` mutants after adding a new test file.**
+A mutant on module-top-level code (e.g. `const truncate = (text, max) => ...;` declared outside any function) is marked `"static": true` in the JSON report — it can't be attributed to a specific test's coverage, since it runs once at module load rather than per-test. Stryker's incremental cache (`reports/stryker-eval-incremental.json` / `reports/stryker-incremental.json`) can reuse a prior `Survived` verdict for a static mutant even after new tests that would kill it are added to the suite, if the *source* file itself didn't change — the cache invalidation is keyed off the source, not the current test count. Symptom: a scoped run reports "Ran all tests for this mutant" and still shows `Survived`, with a `testsCompleted` count lower than the current total test count. Fix: delete the incremental cache file and re-run for an honest result; do this before trusting a `Survived` verdict on a `static: true` mutant that you've just added tests for.
