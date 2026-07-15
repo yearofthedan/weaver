@@ -57,6 +57,22 @@ function makeTextResponse(text: string) {
   };
 }
 
+/** Queues a single successful text-only completion for the next fetch call. */
+function mockTextReply(text = "hi") {
+  mockFetch.mockResolvedValueOnce({ ok: true, json: async () => makeTextResponse(text) });
+}
+
+/** Queues a single successful tool-call completion for the next fetch call. */
+function mockCompletionReply(
+  toolCalls: Array<{ name: string; arguments: Record<string, unknown> }>,
+  text = "",
+) {
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    json: async () => makeCompletionResponse(toolCalls, text),
+  });
+}
+
 function explicitConfig(overrides: { temperature?: number; apiKey?: string } = {}) {
   return {
     baseUrl: TEST_BASE_URL,
@@ -70,10 +86,7 @@ describe("callModel", () => {
   describe("request shape", () => {
     it("posts to the chat completions endpoint with generous max_tokens", async () => {
       const messages = [{ role: "user" as const, content: "hello" }];
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("hi"),
-      });
+      mockTextReply();
 
       await callModel(messages, [], explicitConfig());
 
@@ -87,10 +100,7 @@ describe("callModel", () => {
     });
 
     it("sends the configured temperature — not a hardcoded value", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("hi"),
-      });
+      mockTextReply();
 
       await callModel([{ role: "user", content: "hi" }], [], explicitConfig({ temperature: 0.7 }));
 
@@ -101,10 +111,7 @@ describe("callModel", () => {
     });
 
     it("sends temperature 0 when explicitly overridden to 0", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("hi"),
-      });
+      mockTextReply();
 
       await callModel([{ role: "user", content: "hi" }], [], explicitConfig({ temperature: 0 }));
 
@@ -114,10 +121,7 @@ describe("callModel", () => {
     });
 
     it("serializes assistant tool_calls to the wire format with stringified arguments", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("ok"),
-      });
+      mockTextReply("ok");
 
       await callModel(
         [
@@ -150,10 +154,7 @@ describe("callModel", () => {
     });
 
     it("sends an abort signal so a hung server cannot block until the test timeout", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("hi"),
-      });
+      mockTextReply();
 
       await callModel([{ role: "user", content: "hello" }], [], explicitConfig());
 
@@ -168,10 +169,7 @@ describe("callModel", () => {
           function: { name: "my_tool", description: "does a thing", parameters: {} },
         },
       ];
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("ok"),
-      });
+      mockTextReply("ok");
 
       await callModel([{ role: "user", content: "go" }], tools, explicitConfig());
 
@@ -180,13 +178,20 @@ describe("callModel", () => {
       expect(body.tools).toEqual(tools);
     });
 
+    it("omits the tools key entirely when no tools are provided, rather than sending an empty array", async () => {
+      mockTextReply();
+
+      await callModel([{ role: "user", content: "go" }], [], explicitConfig());
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(init.body as string);
+      expect(body.tools).toBeUndefined();
+    });
+
     it("uses WEAVER_EVAL_BASE_URL and WEAVER_EVAL_MODEL when set", async () => {
       process.env.WEAVER_EVAL_BASE_URL = "http://custom-server:8080/v1";
       process.env.WEAVER_EVAL_MODEL = "anthropic/claude-haiku-4.5";
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("hi"),
-      });
+      mockTextReply();
 
       await callModel([{ role: "user", content: "test" }], []);
 
@@ -196,10 +201,7 @@ describe("callModel", () => {
     });
 
     it("sends Authorization header when apiKey is set in config", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("hi"),
-      });
+      mockTextReply();
 
       await callModel(
         [{ role: "user", content: "test" }],
@@ -213,10 +215,7 @@ describe("callModel", () => {
     });
 
     it("omits Authorization header when apiKey is not set", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("hi"),
-      });
+      mockTextReply();
 
       await callModel([{ role: "user", content: "test" }], [], explicitConfig());
 
@@ -225,12 +224,19 @@ describe("callModel", () => {
       expect(headers.Authorization).toBeUndefined();
     });
 
+    it("always sends a Content-Type header of application/json", async () => {
+      mockTextReply();
+
+      await callModel([{ role: "user", content: "test" }], [], explicitConfig());
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers["Content-Type"]).toBe("application/json");
+    });
+
     it("picks up apiKey from WEAVER_EVAL_API_KEY env var", async () => {
       process.env.WEAVER_EVAL_API_KEY = "sk-env-secret";
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("hi"),
-      });
+      mockTextReply();
 
       await callModel([{ role: "user", content: "test" }], []);
 
@@ -241,10 +247,7 @@ describe("callModel", () => {
 
     it("uses an explicitly passed config over the env-derived default", async () => {
       process.env.WEAVER_EVAL_MODEL = "env-model";
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("hi"),
-      });
+      mockTextReply();
 
       await callModel([{ role: "user", content: "test" }], [], {
         baseUrl: "http://injected:9999/v1",
@@ -259,10 +262,7 @@ describe("callModel", () => {
 
     it("uses WEAVER_EVAL_MODEL when set", async () => {
       process.env.WEAVER_EVAL_MODEL = "anthropic/claude-haiku-4.5";
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("hi"),
-      });
+      mockTextReply();
 
       await callModel([{ role: "user", content: "test" }], []);
 
@@ -274,11 +274,7 @@ describe("callModel", () => {
 
   describe("response parsing", () => {
     it("returns tool calls with parsed arguments from the assistant message", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () =>
-          makeCompletionResponse([{ name: "weaver_rename", arguments: { newName: "bar" } }]),
-      });
+      mockCompletionReply([{ name: "weaver_rename", arguments: { newName: "bar" } }]);
 
       const result = await callModel(
         [{ role: "user", content: "rename foo to bar" }],
@@ -292,14 +288,10 @@ describe("callModel", () => {
     });
 
     it("returns multiple tool calls when the model emits more than one", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () =>
-          makeCompletionResponse([
-            { name: "tool_a", arguments: { x: 1 } },
-            { name: "tool_b", arguments: { y: 2 } },
-          ]),
-      });
+      mockCompletionReply([
+        { name: "tool_a", arguments: { x: 1 } },
+        { name: "tool_b", arguments: { y: 2 } },
+      ]);
 
       const result = await callModel([{ role: "user", content: "multi" }], [], explicitConfig());
 
@@ -309,10 +301,7 @@ describe("callModel", () => {
     });
 
     it("returns empty toolCalls and the text content when no tool is called", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("I cannot help with that."),
-      });
+      mockTextReply("I cannot help with that.");
 
       const result = await callModel(
         [{ role: "user", content: "explain everything" }],
@@ -360,10 +349,7 @@ describe("callModel", () => {
     });
 
     it("leaves invalidArguments unset when arguments parse cleanly", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeCompletionResponse([{ name: "bash", arguments: { command: "ls" } }]),
-      });
+      mockCompletionReply([{ name: "bash", arguments: { command: "ls" } }]);
 
       const result = await callModel([{ role: "user", content: "go" }], [], explicitConfig());
 
@@ -372,10 +358,7 @@ describe("callModel", () => {
     });
 
     it("returns empty text when the message content is null", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeCompletionResponse([{ name: "do_thing", arguments: {} }], ""),
-      });
+      mockCompletionReply([{ name: "do_thing", arguments: {} }], "");
 
       const result = await callModel([{ role: "user", content: "go" }], [], explicitConfig());
 
@@ -447,10 +430,8 @@ describe("callModel", () => {
     }
 
     it("retries a network timeout once, then returns the recovered response", async () => {
-      mockFetch.mockRejectedValueOnce(timeoutError()).mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeCompletionResponse([{ name: "bash", arguments: { command: "ls" } }]),
-      });
+      mockFetch.mockRejectedValueOnce(timeoutError());
+      mockCompletionReply([{ name: "bash", arguments: { command: "ls" } }]);
 
       const result = await callModel([{ role: "user", content: "go" }], oneTool, explicitConfig());
 
@@ -469,10 +450,7 @@ describe("callModel", () => {
     });
 
     it("returns an empty completion as-is without retrying", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeCompletionResponse([], ""),
-      });
+      mockCompletionReply([], "");
 
       const result = await callModel([{ role: "user", content: "go" }], oneTool, explicitConfig());
 
@@ -482,14 +460,30 @@ describe("callModel", () => {
     });
 
     it("returns a text-only reply without retrying", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => makeTextResponse("I will not use a tool for this."),
-      });
+      mockTextReply("I will not use a tool for this.");
 
       const result = await callModel([{ role: "user", content: "go" }], oneTool, explicitConfig());
 
       expect(result.text).toBe("I will not use a tool for this.");
+      expect(mockFetch).toHaveBeenCalledOnce();
+    });
+
+    it("does not treat a thrown function value as a transient timeout, even though functions carry a .name property", async () => {
+      function TimeoutError() {}
+      mockFetch.mockRejectedValueOnce(TimeoutError);
+
+      await expect(
+        callModel([{ role: "user", content: "go" }], oneTool, explicitConfig()),
+      ).rejects.toBe(TimeoutError);
+      expect(mockFetch).toHaveBeenCalledOnce();
+    });
+
+    it('does not retry a null rejection, despite typeof null being "object"', async () => {
+      mockFetch.mockRejectedValueOnce(null);
+
+      await expect(
+        callModel([{ role: "user", content: "go" }], oneTool, explicitConfig()),
+      ).rejects.toBe(null);
       expect(mockFetch).toHaveBeenCalledOnce();
     });
   });
