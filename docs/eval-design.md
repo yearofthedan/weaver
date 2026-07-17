@@ -29,7 +29,9 @@ two decision points:
 - **Real command execution** — emitted commands are asserted on, never run; no daemon involved.
   The fixtures stand in for real CLI output (see Working discipline).
 - **CI gating** — the eval runs on the maintainer's machine on demand (`pnpm eval`), against a
-  hosted model (API key + pennies per run).
+  hosted model. Runs cost real money, not pennies: a 4-case spike at n=6 is ~US$0.75 (clutter
+  prompt + skill bodies × trials × steps add up). Budget paid runs deliberately — scope the case
+  set and trial count to the question, and never waste a run (see Working discipline).
 - **Absolute scores** — see "Interpreting results".
 
 ## The model: one Haiku lane
@@ -263,6 +265,21 @@ prose, so outputs are low-entropy on a clear task. That shapes how to work on it
   `getPositionOfLineAndCharacter(line - 1, col - 1)` — the two ops agree, so col 9 targets the same
   character. Had they disagreed, the red would have been the *product*: a real search→rename
   carry-through bug, not fragility to design around.
+- **A momentum seed primes a habit, not a substitution precedent.** The habit-momentum seed
+  (`buildHabitMomentumSeed`) exists to carry *legitimate shell fluency* into the target task. Every
+  seeded pre-step must be work weaver does **not** own — grep a log, `git log --grep`, `find` by
+  name. It must never be a task a skill claims (find-importers, find-references, replace-text). A
+  weaver-shaped pre-step stops being habit and becomes an in-session precedent that weaver-work is
+  done in the shell — an unrealistic pressure that contaminates the signal, so a red then reflects
+  the seed teaching substitution rather than genuine habit. (This is specific to *momentum/pressure*
+  seeds; the two-step carry-through seed deliberately seeds a real weaver op as its precursor — that
+  is the point there, not a violation.)
+- **A paid run must never be wasted — capture output to a file, not `console.log`.** Vitest's
+  reporter swallows `console.log` from *passing* tests, so an observational lane (a spike that
+  asserts nothing gating) prints nothing and the run's data — which cost real money — is lost. Write
+  results with `fs.appendFileSync` to a known path as the trials run, so the output survives the
+  reporter regardless of pass/fail. Same reason to scope a spike tightly before running: at ~US$0.75
+  a run, a second run to recover lost output is a real cost, not a free retry.
 - **Selection is a rate; correctness is deterministic.** The agentic lane runs at temperature > 0
   over N trials and reports a *rate* — selection under pressure is genuinely variable. The command
   and two-step lanes run at temperature 0, single-shot — argument correctness on a clear task is
