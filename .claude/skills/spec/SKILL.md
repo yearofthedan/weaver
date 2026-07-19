@@ -7,7 +7,7 @@ metadata:
 
 # Spec Workflow
 
-**Hard rule: steps 1–14 are checkpoints, not suggestions.** When a step says "confirm with the user", "ask the user", or "do NOT proceed" — STOP. Output what you have and wait for the user's response. Do not write spec files, update handoff.md, or commit until the user has agreed to the ACs at step 7. Skipping checkpoints to "save time" makes the workflow useless. Steps 3–6 and 8–13 produce draft content that is only written to disk AFTER step 7 confirmation.
+**Hard rule: steps 1–16 are checkpoints, not suggestions.** When a step says "confirm with the user", "ask the user", or "do NOT proceed" — STOP. Output what you have and wait for the user's response. Do not write spec files, update handoff.md, or commit until the user has agreed to the ACs at step 7. Skipping checkpoints to "save time" makes the workflow useless. Steps 3–6 and 8–12 produce draft content that is only written to disk AFTER step 7 confirmation.
 
 1. **Identify the task.** Read `docs/handoff.md` — find the entry the user wants to spec. If no entry is specified, show the `[needs design]` entries and ask which one.
 
@@ -25,7 +25,7 @@ metadata:
 6. **Fill in the Value / Effort section.** Articulate why this is worth doing now and what the implementation surface looks like. Use the template prompts. If value is low or effort is high relative to alternatives, flag this to the user before continuing.
 
 7. **Draft the Behaviour / Fix section with the user.** This is the core of the spec.
-   - **Changes:** Write concrete ACs as input → output pairs wherever possible. For each AC, apply the template prompts: "what's the laziest wrong implementation?", "what's the narrowest fix that leaves siblings broken?" Then apply the **type matrix check**: enumerate the distinct input types (file extensions, parameter combinations, engine paths) that exercise different code paths. If a feature applies to both `.ts` and `.vue` files, test both as inputs *and* outputs — don't assume symmetry. If different combinations flow through different engine methods or translation layers, they need separate ACs. If you have more than 5 ACs, stop and discuss splitting with the user (see template guidance).
+   - **Changes:** Write concrete ACs as input → output pairs wherever possible. For each AC, apply the template prompts: "what's the laziest wrong implementation?", "what's the narrowest fix that leaves siblings broken?" Then apply the **type matrix check**: enumerate the distinct input types (file extensions, parameter combinations, engine paths) that exercise different code paths. If a feature applies to both `.ts` and `.vue` files, test both as inputs *and* outputs — don't assume symmetry. If different combinations flow through different engine methods or translation layers, they need separate ACs. Apply the split test: if the ACs contain two independently-shippable slices of user value, split into separate specs with the user (a high AC count is a hint to run this test, not a limit — see template guidance). Splitting is about size, not over-build — check the shape against the minimal-shape principle in `docs/design-principles.md`.
    - **Bugs:** Describe the fix — what to change and where. Bugs don't have ACs; the Expected section defines the target behaviour. Verification criteria go in Done-when ("reproduction case now produces expected output", "regression test covers the failing case"). The fix is dispatched as a single unit to the execution agent.
    - Do NOT proceed past this step without user agreement
 
@@ -60,12 +60,19 @@ metadata:
 
 12. **Review the Done-when checklist.** Add any task-specific verification steps (e.g., "works via both MCP and CLI", "mutation score for this file specifically"). Check `.claude/skills/` for any skill file that references the changed tool — skill files are the primary way agents discover tool capabilities. If the skill doesn't mention the new mode, agents won't use it. Add skill updates to Done-when.
 
-13. **Update handoff.md.** Change the entry from `[needs design]` to a link to the new spec file. Remove inline ACs or description that moved to the spec — the handoff entry becomes one line.
+13. **Subtractive review — cut to the minimal shape.** Every other step in this workflow adds structure; this one exists to remove it. Before confirming, review the whole drafted spec against the **Minimal shape** principle in `docs/design-principles.md`.
+    - **Write the skeleton first.** State the smallest change that satisfies the User intent — the fewest ACs, types, modules, and commands that deliver it. Anchor on this *before* judging what you drafted, so you argue up from minimal rather than down from what you built.
+    - **Diff the spec against the skeleton.** List every element beyond it: each new type, module, builder, classification, AC, and extra command or engine path.
+    - **Justify or cut each surplus element.** Keep it only if a *present* force requires it — instances that exist now, or consistency with a pattern the codebase already uses. "A future matrix", "we'll want it later", or "for symmetry" is not a force: cut the element, or defer it to a follow-on `[needs design]` handoff entry (step 14).
+    - **Produce a cut-list** of what you removed or deferred, and carry it to step 15. Do NOT write it into the spec file — it is transient. If the cut-list is empty on a spec that introduces new structure, you have not run the review; run it again.
 
-14. **Confirm with the user.** Show a summary of the spec before finishing:
+14. **Update handoff.md.** Change the entry from `[needs design]` to a link to the new spec file. Remove inline ACs or description that moved to the spec — the handoff entry becomes one line. Add any elements the subtractive review deferred as new `[needs design]` entries.
+
+15. **Confirm with the user.** Show a summary of the spec before finishing:
     - **Changes:** Number of ACs, key interface decisions
     - **Bugs:** Fix approach summary, verification criteria in Done-when
     - Any open decisions flagged in step 8
+    - The subtractive-review cut-list from step 13 — what you removed or deferred and why, or note the spec was already minimal
     - Ask: "Ready to implement, or want to revise?"
 
-15. **Report for commit.** Tell the caller that the spec file and the updated handoff.md are ready to commit with message `docs(specs): add spec for [short-title]`. **Do NOT commit until the user has explicitly signed off on the spec.** The spec agent does not commit directly — the orchestrator or user handles the commit. A premature commit forces amends or reverts when the user requests changes, which is wasteful and error-prone.
+16. **Report for commit.** Tell the caller that the spec file and the updated handoff.md are ready to commit with message `docs(specs): add spec for [short-title]`. **Do NOT commit until the user has explicitly signed off on the spec.** The spec agent does not commit directly — the orchestrator or user handles the commit. A premature commit forces amends or reverts when the user requests changes, which is wasteful and error-prone.

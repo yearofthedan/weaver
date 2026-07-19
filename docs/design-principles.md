@@ -19,6 +19,12 @@ Source-level dependencies point **inward**: volatile detail (transport, I/O, fra
 
 A module exposes only its contract: the entry point the next layer out needs, and nothing else. Helpers, intermediate types, and internal state stay private. If you are exporting something *only* so a test can call it directly, that is the smell — test through the real entry point, at the real altitude. A wide public surface is a wide blast radius: every export is something another module can come to depend on, and something you can no longer change freely.
 
+## Minimal shape
+
+Build the smallest shape that delivers the intent. Structure — a new type, module, builder, or classification — needs a force that exists *now*: instances already in front of you, or consistency with a pattern the codebase already uses. A guessed future is not a force: a matrix you plan to add or a symmetry you expect means build flat now and extract when the instances arrive. Reversibility is the reason — duplication is cheap to consolidate once you can see what repeats, while an abstraction shaped around imagined instances is welded to a guess and expensive to unpick.
+
+Validate the foundation before structuring it. Build the crudest thing that produces the signal, confirm it is real, then add structure. Tiers, gating, or classification over a measurement you have not shown can separate its cases organizes a distinction that may not exist.
+
 ## Compute before mutate
 
 A write operation separates computation (read, resolve, validate) from mutation (write, rename, delete). If the compute phase fails, nothing on disk has changed. This is what makes a failure recoverable: import rewrites touch arbitrary files across the workspace, and a half-applied change — some files updated, others not — cannot be rolled back.

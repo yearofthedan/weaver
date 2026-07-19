@@ -112,9 +112,13 @@ Acceptance criteria as concrete **input → output** statements.
 > verification detail within X's tests. Mechanical consequences don't need their
 > own acceptance criteria; they need assertions.
 >
-> **If you have more than 5 ACs, split the spec.** Each spec should deliver in a
-> single slice. Too many criteria means the scope is too wide or the criteria are
-> too granular. The Edges section handles constraints that aren't ACs.
+> **Split when the spec isn't one independently-shippable vertical slice.** If one
+> group of ACs delivers user value on its own and the rest delivers value on its own,
+> they are two specs — split them (INVEST: Independent, Valuable, Small). A high AC
+> count is a *hint* to run this test, not a limit. Splitting is about size, not
+> over-build: for whether the shape itself is gold-plated, check the minimal-shape
+> principle in [`docs/design-principles.md`](../../design-principles.md). The Edges
+> section handles constraints that aren't ACs.
 
 ## Interface
 

@@ -207,6 +207,15 @@ sounds like an endpoint. Before attributing a red to a text edit, A/B against th
 (`git stash`). **YAML trap:** a `description:` value starting with `"` is truncated by real hosts'
 frontmatter parsers — the harness's regex parser masks this; start descriptions with a plain word.
 
+**Don't tier what n=3 can't resolve.** At n=3 a case has four possible rates — 0, 1/3, 2/3, 3/3 —
+and the alarm fires below 2/3, so the only passing non-ceiling value is exactly 2/3: one flip from
+failing, one from the ceiling. A "discriminating band" between floor and ceiling is a single
+knife-edge point at n=3, indistinguishable from noise. Do not design rung classes, bands, or gating
+tiers for a case before a spike has shown the lane discriminates at all; and do not chase a stable
+band by raising the default n — a band that only exists at n=6 doubles the trial count — and the paid cost — of every
+run, buying resolution the regression signal (a visible multi-step flip, 3/3 → 1/3 or 0/3) does not need. Escalate trials only
+to confirm a surprising flip, never as the standing configuration.
+
 Two host-behaviour gotchas the lane deliberately reproduces: (1) the model sometimes *hallucinates
 direct skill-name tool calls* (`weaver-refactor({...})`, invented arg schemas); the harness answers
 with a host-style unknown-tool error and the model recovers to the proper `Skill` form — do **not**
