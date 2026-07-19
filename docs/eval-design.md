@@ -73,7 +73,8 @@ eval/cases/coverage.test.ts   ← invariant: every operation has a case (runs in
 eval/harness/call-model.ts    ← one fetch per turn; per-lane temperature; 60s abort, one timeout retry
 eval/harness/context.ts       ← system prompts built from .claude/skills/ at run time
 eval/harness/assertions.ts    ← extractBashCommands + matchWeaverCommand (→ matched + outcome); pure, unit-tested
-eval/harness/seed.ts          ← pre-seeded tool-exchange conversations (two-step, habit-momentum)
+eval/harness/seed.ts          ← pre-seeded tool-exchange conversations (two-step, true-shell momentum)
+eval/harness/case-lane.ts     ← seedForCase + caseIsGating (per-case seed depth and gating; pure, unit-tested)
 eval/harness/agentic-loop.ts  ← runAgenticLoop + cannedToolResult
 eval/harness/grade.ts         ← SUBCOMMAND_MUTABILITY + isMutatingCompetitor (the loop's hard-fail verdict)
 eval/fixtures/                ← canned tool stdout, embedded as tool results
@@ -135,9 +136,13 @@ but read it as *relative movement*, not absolute truth:
 
 `eval/cases/trigger-agentic.llm.test.ts` runs the skill-trigger cases plus the `boundary-*`
 cases under host-like pressure — a competing toolset (`Skill`, `bash`, `Grep`, `Glob`, `Read`),
-a cluttered system prompt (`buildClutterSystemPrompt()`), and a grep-primed seed
-(`buildHabitMomentumSeed()` prepends a successful grep before the task) — and measures the
-*eventual* operation instead of the first tool call. `runAgenticLoop`
+a cluttered system prompt (`buildClutterSystemPrompt()`), and a true-shell multi-turn momentum
+seed (`buildHabitMomentumSeed(task, turns)` prepends `turns` distinct true-shell pre-steps —
+log grep, `git log --grep`, `find` by name — before the task; each pre-step is work weaver does
+not own, so seeding it primes a general shell habit rather than a substitution precedent).
+Depth is a first-class lever, per-case via `CaseEntry.momentumTurns` (`seedForCase` in
+`eval/harness/case-lane.ts` reads it, defaulting to `1`); requesting more turns than the pool
+holds throws rather than cycling or silently under-seeding. `runAgenticLoop`
 (`eval/harness/agentic-loop.ts`) drives the model forward up to a step budget (6 — room for
 the skill-load hop, a precursor, and the operation), feeding a canned result back after each
 turn. A skill load (`Skill` tool call or SKILL.md Read) feeds back the real SKILL.md body and
@@ -159,6 +164,18 @@ precursor-then-win (`matched@3`). Each matched trial additionally prints a **non
 verdict (`args:correct` / `args:wrong-args` from `matchWeaverCommand.outcome`): a
 right-selection/wrong-args trial is surfaced in the trail but still counts as a selection match,
 so args noise never smears into the selection rate.
+
+**Observational pressured cases** (`CaseEntry.observational: true`, read via `caseIsGating` in
+`eval/harness/case-lane.ts`) report the same rate + trail as any skill-trigger case but carry no
+`belowAlarm` assertion — the lane never fails on them. Gating stays on the existing ceiling
+trigger cases (the catastrophic floor) and the boundary cases (the over-trigger guard). Seed
+depth co-varies with the rung: the light rungs (existing direct/indirect trigger cases) keep
+`momentumTurns` at its default of `1` as ceiling canaries — depth-1 pressure should not move
+them; the pressured buried rung sets `momentumTurns: 3` as the discriminator, pairing a deeper
+seed with phrasing that embeds the op inside a broader task. This is deliberately observational,
+not gated, per "Don't tier what n=3 can't resolve" below — at n=3 a 2/3 gate on a case that the
+spike put at ~1/6 would fail every run and force a paid tuning loop; reading the rate on demand
+gets the regression signal (a visible drop) without a standing false alarm.
 
 The verdict per call is three-way (`isMutatingCompetitor` in `eval/harness/grade.ts`, wired as
 the loop's `hardFails`): the expected op is a **pass**; a *different mutating* weaver op — a
