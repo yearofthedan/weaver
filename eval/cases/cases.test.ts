@@ -97,6 +97,28 @@ describe("case table", () => {
     });
   });
 
+  describe("pressured buried rung", () => {
+    it.each([
+      "rename",
+      "replace-text",
+      "search-text",
+      "find-references",
+    ])("has a deep, observational trigger case for %s", (command) => {
+      const pressuredCases = CASES.filter(
+        (c) =>
+          c.stage === "trigger" &&
+          c.observational === true &&
+          c.momentumTurns !== undefined &&
+          c.momentumTurns >= 3 &&
+          c.expect.command === command,
+      );
+      expect(
+        pressuredCases.length,
+        `Expected a pressured buried trigger case for "${command}"`,
+      ).toBeGreaterThanOrEqual(1);
+    });
+  });
+
   describe("cannedResults", () => {
     it("resolves the no-coords rename case's search-text override to the positional stub, not the file list", () => {
       const noCoordsCase = CASES.find(

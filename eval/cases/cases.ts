@@ -150,6 +150,64 @@ export const CASES: CaseEntry[] = validateCases([
     expect: { skill: "weaver-code-inspection", command: "get-type-errors" },
   },
 
+  // ── Pressured buried cases (observational discrimination rung) ─────────────
+  // The op request is embedded inside a broader, multi-part task rather than
+  // stated directly, and the case seeds a three-turn true-shell momentum trail
+  // before the task. These report rate + trail but do not gate (observational:
+  // true) — see docs/eval-design.md, "Don't tier what n=3 can't resolve".
+  // Coords co-vary with the mechanism: the mutating targets (rename,
+  // replace-text) withhold coordinates and own a search precursor fixture to
+  // reproduce the precursor-stall path; the read-only targets (search-text,
+  // find-references) get coordinates where the op needs them and manufacture
+  // no precursor.
+
+  {
+    name: "pressured-buried-rename",
+    stage: "trigger",
+    task: "I'm cleaning up the auth module before the release: check what's currently exported from it, then rename `userId` to `accountId` across the project since we've standardized on the new naming, and note anything else that looks inconsistent while you're in there.",
+    momentumTurns: 3,
+    observational: true,
+    expect: { skill: "weaver-refactor", command: "rename", keyArgs: { newName: "accountId" } },
+    cannedResults: { "search-text": loadFixture("searchText-userId.json") },
+  },
+  {
+    name: "pressured-buried-replace-text",
+    stage: "trigger",
+    task: "We're doing a version bump across the repo: skim the changelog for context, then replace every `v1` with `v2` including comments throughout the project, and flag any file where the replacement looks risky.",
+    momentumTurns: 3,
+    observational: true,
+    expect: {
+      skill: "weaver-search-and-replace",
+      command: "replace-text",
+      keyArgs: { replacement: "v2" },
+    },
+    cannedResults: { "search-text": loadFixture("searchText-v1.json") },
+  },
+  {
+    name: "pressured-buried-search-text",
+    stage: "trigger",
+    task: "I'm doing a cleanup pass before the sprint review: check the recent commits for context, then find all the TODO comments in the project with file, line number, and surrounding context, and summarize how many there are.",
+    momentumTurns: 3,
+    observational: true,
+    expect: {
+      skill: "weaver-search-and-replace",
+      command: "search-text",
+      keyArgs: { pattern: "TODO" },
+    },
+  },
+  {
+    name: "pressured-buried-find-references",
+    stage: "trigger",
+    task: "I'm prepping the auth module for release: skim the recent commits, then find everything using `authenticate` at line 5, column 17 of /tmp/weaver-eval/src/auth.ts, and note anything odd in the changelog.",
+    momentumTurns: 3,
+    observational: true,
+    expect: {
+      skill: "weaver-code-inspection",
+      command: "find-references",
+      keyArgs: { file: "/tmp/weaver-eval/src/auth.ts" },
+    },
+  },
+
   // ── Boundary cases ────────────────────────────────────────────────────────
   // The inverse of the tempting cases: legitimate shell work that must stay in
   // `bash`. They guard against an aggressive description (e.g. "use instead of
