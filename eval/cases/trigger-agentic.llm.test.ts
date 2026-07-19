@@ -7,6 +7,7 @@ import {
 } from "../harness/assertions.js";
 import type { ToolCall } from "../harness/call-model.js";
 import { type ChatMessage, callModel } from "../harness/call-model.js";
+import { caseIsGating, seedForCase } from "../harness/case-lane.js";
 import { buildClutterSystemPrompt } from "../harness/clutter.js";
 import {
   buildAvailableSkillsPrompt,
@@ -16,7 +17,6 @@ import {
 } from "../harness/context.js";
 import { isMutatingCompetitor } from "../harness/grade.js";
 import { computeRate } from "../harness/rate.js";
-import { buildHabitMomentumSeed } from "../harness/seed.js";
 import { rateLaneTools, SKILL_TOOL } from "../harness/tools.js";
 import { CASES } from "./cases.js";
 
@@ -119,7 +119,7 @@ describe("agentic rate lane", () => {
     for (let trial = 0; trial < TRIALS; trial++) {
       const messages: ChatMessage[] = [
         { role: "system", content: systemContent },
-        ...buildHabitMomentumSeed(c.task),
+        ...seedForCase(c),
       ];
 
       const result = await runAgenticLoop({
@@ -178,10 +178,14 @@ describe("agentic rate lane", () => {
     // trials (right skill loaded, CLI never run) a bare pass/fail would mask.
     console.log(`${c.name} — rate ${rate.passed}/${rate.total}\n${trailSummary}`);
 
-    expect(
-      rate.belowAlarm,
-      `"${c.name}" trigger rate ${rate.passed}/${rate.total} is below the 2/3 floor for command "${expectedCommand}". Trails:\n${trailSummary}`,
-    ).toBe(false);
+    // Observational cases (buried phrasing under a deep pressure seed) report
+    // the rate above but carry no pass/fail assertion — see caseIsGating.
+    if (caseIsGating(c)) {
+      expect(
+        rate.belowAlarm,
+        `"${c.name}" trigger rate ${rate.passed}/${rate.total} is below the 2/3 floor for command "${expectedCommand}". Trails:\n${trailSummary}`,
+      ).toBe(false);
+    }
   });
 });
 
@@ -198,7 +202,7 @@ describe("agentic rate lane — boundary", () => {
     for (let trial = 0; trial < TRIALS; trial++) {
       const messages: ChatMessage[] = [
         { role: "system", content: systemContent },
-        ...buildHabitMomentumSeed(c.task),
+        ...seedForCase(c),
       ];
 
       // Never satisfied: a boundary trial has no target command to converge

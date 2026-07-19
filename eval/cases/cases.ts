@@ -31,6 +31,18 @@ export interface CaseEntry {
    * multi-hop scenario that needs a realistic intermediate result sets this.
    */
   cannedResults?: Record<string, string>;
+  /**
+   * Turns of true-shell momentum the agentic trigger lane prepends before
+   * the task (see `buildHabitMomentumSeed`). Absent defaults to `1`. Only
+   * the agentic trigger lane reads this field.
+   */
+  momentumTurns?: number;
+  /**
+   * When true, the agentic trigger lane reports this case's rate + trail
+   * but does not gate on the `belowAlarm` floor. Absent defaults to
+   * `false` (gating). Only meaningful on `stage: "trigger"` skill cases.
+   */
+  observational?: boolean;
 }
 
 /** Eagerly validates all seed operations at module load. */
