@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { weaverSubcommand } from "./assertions.js";
 import { buildHabitMomentumSeed, buildSeedMessages } from "./seed.js";
 
 const FIXTURE_CONTENT = JSON.stringify({ status: "success", matches: [] });
@@ -52,56 +53,86 @@ describe("buildSeedMessages", () => {
 describe("buildHabitMomentumSeed", () => {
   const TASK = "rename the function processUser to handleAccount in src/";
 
-  it("ends with the task verbatim as the active user turn", () => {
-    const messages = buildHabitMomentumSeed(TASK);
-    const last = messages[messages.length - 1];
-    expect(last.role).toBe("user");
-    expect(last.content).toBe(TASK);
+  describe("turns omitted", () => {
+    it("defaults to one pre-step, producing five messages", () => {
+      const messages = buildHabitMomentumSeed(TASK);
+      expect(messages).toHaveLength(5);
+    });
+
+    it("ends with the task verbatim as the active user turn", () => {
+      const messages = buildHabitMomentumSeed(TASK);
+      const last = messages[messages.length - 1];
+      expect(last.role).toBe("user");
+      expect(last.content).toBe(TASK);
+    });
   });
 
-  it("primes the grep as a bash tool call, not plain text", () => {
-    const messages = buildHabitMomentumSeed(TASK);
-    const assistantWithCall = messages.find((m) => m.role === "assistant" && m.tool_calls);
-    expect(assistantWithCall?.tool_calls).toHaveLength(1);
-    const call = assistantWithCall?.tool_calls?.[0];
-    expect(call?.name).toBe("bash");
-    expect(String(call?.arguments.command)).toContain("grep");
+  describe("turns = 0", () => {
+    it("produces exactly the task turn with no seeded pre-steps", () => {
+      const messages = buildHabitMomentumSeed(TASK, 0);
+      expect(messages).toEqual([{ role: "user", content: TASK }]);
+    });
   });
 
-  it("returns the grep output in a tool message matching the call id", () => {
-    const messages = buildHabitMomentumSeed(TASK);
-    const call = messages.find((m) => m.tool_calls)?.tool_calls?.[0];
-    const toolMessage = messages.find((m) => m.role === "tool");
-    expect(toolMessage?.tool_call_id).toBe(call?.id);
-    expect(toolMessage?.content).toContain("import { Logger }");
+  describe("turns = 2", () => {
+    it("produces nine messages ending in the task", () => {
+      const messages = buildHabitMomentumSeed(TASK, 2);
+      expect(messages).toHaveLength(9);
+      expect(messages[8]).toEqual({ role: "user", content: TASK });
+    });
+
+    it("seeds two distinct bash commands drawn from the true-shell pool", () => {
+      const messages = buildHabitMomentumSeed(TASK, 2);
+      const commands = messages
+        .filter((m) => m.role === "assistant" && m.tool_calls)
+        .map((m) => String(m.tool_calls?.[0]?.arguments.command));
+      expect(commands).toHaveLength(2);
+      expect(new Set(commands).size).toBe(2);
+    });
+
+    it("follows the standard user/assistant-bash/tool/assistant cycle per pre-step", () => {
+      const messages = buildHabitMomentumSeed(TASK, 2);
+      expect(messages.slice(0, 4).map((m) => m.role)).toEqual([
+        "user",
+        "assistant",
+        "tool",
+        "assistant",
+      ]);
+      expect(messages.slice(4, 8).map((m) => m.role)).toEqual([
+        "user",
+        "assistant",
+        "tool",
+        "assistant",
+      ]);
+    });
+
+    it("matches each tool result's tool_call_id to its preceding bash call", () => {
+      const messages = buildHabitMomentumSeed(TASK, 2);
+      const firstCallId = messages[1].tool_calls?.[0]?.id;
+      const secondCallId = messages[5].tool_calls?.[0]?.id;
+      expect(messages[2].tool_call_id).toBe(firstCallId);
+      expect(messages[6].tool_call_id).toBe(secondCallId);
+      expect(firstCallId).not.toBe(secondCallId);
+    });
   });
 
-  it("primes a successful grep before the task turn", () => {
-    const messages = buildHabitMomentumSeed(TASK);
-    const grepCall = messages.findIndex((m) => m.tool_calls);
-    const taskTurn = messages.length - 1;
-    expect(grepCall).toBeGreaterThanOrEqual(0);
-    expect(grepCall).toBeLessThan(taskTurn);
+  describe("turns beyond the pool size", () => {
+    it("throws instead of cycling or under-seeding", () => {
+      expect(() => buildHabitMomentumSeed(TASK, 4)).toThrow(/4/);
+    });
   });
 
-  it("opens with a user turn requesting the unrelated Logger-import search", () => {
-    const messages = buildHabitMomentumSeed(TASK);
-    expect(messages[0].role).toBe("user");
-    expect(messages[0].content).toBe(
-      "Find all files that import the Logger class in the src/ directory.",
-    );
-  });
-
-  it("follows the grep result with an assistant summary naming the three matched files", () => {
-    const messages = buildHabitMomentumSeed(TASK);
-    expect(messages[3].role).toBe("assistant");
-    expect(messages[3].content).toBe(
-      "Found 3 files that import Logger: daemon.ts, cli.ts, and rename.ts.",
-    );
-  });
-
-  it("produces exactly five messages in user/assistant/tool/assistant/user order", () => {
-    const messages = buildHabitMomentumSeed(TASK);
-    expect(messages.map((m) => m.role)).toEqual(["user", "assistant", "tool", "assistant", "user"]);
+  describe("anti-substitution guard", () => {
+    it("every seeded bash command is a true shell tool, never a weaver invocation", () => {
+      const messages = buildHabitMomentumSeed(TASK, 3);
+      const commands = messages
+        .filter((m) => m.role === "assistant" && m.tool_calls)
+        .map((m) => String(m.tool_calls?.[0]?.arguments.command));
+      expect(commands).toHaveLength(3);
+      for (const command of commands) {
+        expect(weaverSubcommand(command)).toBeUndefined();
+        expect(/^(grep|git|find)\b/.test(command)).toBe(true);
+      }
+    });
   });
 });
