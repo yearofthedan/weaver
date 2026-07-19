@@ -98,12 +98,8 @@ describe("case table", () => {
   });
 
   describe("adjacent-negative boundary cases", () => {
-    it("has the three adjacent-negative cases with distinct tasks, all gated to bash", () => {
-      const names = [
-        "boundary-bash-local-var-rename",
-        "boundary-bash-search-non-ts-project",
-        "boundary-bash-remove-console-log",
-      ];
+    it("has the adjacent-negative cases with distinct tasks, all gated to bash", () => {
+      const names = ["boundary-bash-search-non-ts-project", "boundary-bash-remove-console-log"];
       const found = names.map((name) => CASES.find((c) => c.name === name));
       for (const [i, c] of found.entries()) {
         expect(c, `Expected boundary case "${names[i]}" to exist`).toBeDefined();

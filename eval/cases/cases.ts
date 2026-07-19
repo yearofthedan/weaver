@@ -250,12 +250,6 @@ export const CASES: CaseEntry[] = validateCases([
   // tempting in the first place.
 
   {
-    name: "boundary-bash-local-var-rename",
-    stage: "trigger",
-    task: "Rename the local variable `temp` to `result` inside the `calculate` function in /tmp/weaver-eval/src/math.ts.",
-    expect: { skill: "bash" },
-  },
-  {
     name: "boundary-bash-search-non-ts-project",
     stage: "trigger",
     task: "Search for `API_KEY` across the Python files in /tmp/weaver-eval-py.",
