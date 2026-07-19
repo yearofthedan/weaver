@@ -61,20 +61,23 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
    ```
    The threshold is an alarm that quality is failing — it is not a target to coast to. For each survivor, ask: what does this tell me about the code? Then classify: (a) real gap — write the missing test and commit, (b) noise — the mutant is structurally unreachable, document exactly why, or (c) dead code — remove the branch. "We hit 75%" is not a classification. Every survivor gets one. Commit the updated `reports/stryker-incremental.json` after the run.
 
-6. **Complete the spec's Done-when checklist.** Walk through every item in the spec's Done-when section (defined by the template — see `docs/specs/templates/change.md` or `bug.md`). Additionally:
+6. **Verify the behaviour — the gate before anything else.** Not "unit tests pass" and not "`pnpm check` is green": drive the change on its real path (CLI, daemon, live-model eval, host) and observe it does what the spec says. If that path can't run in-session (missing credential, unavailable service), the task is **BLOCKED** — it stays in the queue, nothing is archived, no Outcome is written, you surface the blocker. Verification is yours; never delegate it to a human "later". No step past here runs until this passes.
+
+7. **Complete the spec's Done-when checklist.** Walk through every item in the spec's Done-when section (defined by the template — see `docs/specs/templates/change.md` or `bug.md`). Additionally:
    - [ ] **Standards check.** For every file you extended, walk through `docs/code-standards.md`. Apply the refactoring hierarchy if needed. This is the checkpoint that catches implementation-time bloat; do NOT defer it to a future task.
    - [ ] **Remove** the handoff.md task entry entirely — handoff.md is a work queue, not a history. Do not mark it shipped, do not leave a link to the archive. Just delete the line. Update the "Current state" section (test count, layout changes) if needed.
    - [ ] If public surfaces changed, update the corresponding docs (the spec's Done-when checklist specifies which)
 
-7. **Archive the spec with reflection.** Move the spec file from `docs/specs/` to `docs/specs/archive/`. Append an `## Outcome` section with:
+8. **Archive the spec with reflection.** Move the spec file from `docs/specs/` to `docs/specs/archive/`. Append an `## Outcome` section with:
+   - **Verification:** the real path you exercised and what you observed (actual result / rates / output)
    - **Reflection:** What went well? What did not go well? What took longer than it should have? What would you recommend to the next agent picking up related work?
    - Actual test count added
    - Mutation score for touched files
    - Any architectural decisions or discoveries worth preserving
 
-   **Do NOT proceed to step 8 until the Outcome section — including the Reflection — is written in the archived spec file.**
+   **Do NOT proceed to step 9 until the Outcome section — including the Reflection — is written in the archived spec file.**
 
-8. **Harvest learnings and capture gotchas.** Read the batch's notes under `.claude/agent-notes/` *and* any entries the agent wrote under `.claude/agent-memory/`. Neither path is git-tracked — a "durable" learning left there is lost on the next container rebuild, so it must be promoted here or it is lost. For each finding: put a non-obvious *gotcha* in the relevant `docs/internals/` or `docs/tech/` doc (add a code comment if it is visible at the call site); fold a generalisable *discipline* into the doc that already owns that topic (e.g. a test-writing lesson → `docs/code-standards.md`) rather than adding a new standalone rule. Do this every slice, not only when prompted — agents generate learnings continuously and the default path drops them on the floor.
+9. **Harvest learnings and capture gotchas.** Read the batch's notes under `.claude/agent-notes/` *and* any entries the agent wrote under `.claude/agent-memory/`. Neither path is git-tracked — a "durable" learning left there is lost on the next container rebuild, so it must be promoted here or it is lost. For each finding: put a non-obvious *gotcha* in the relevant `docs/internals/` or `docs/tech/` doc (add a code comment if it is visible at the call site); fold a generalisable *discipline* into the doc that already owns that topic (e.g. a test-writing lesson → `docs/code-standards.md`) rather than adding a new standalone rule. Do this every slice, not only when prompted — agents generate learnings continuously and the default path drops them on the floor.
 
 9. **Commit** docs changes with a conventional commit message (see `CLAUDE.md`).
 

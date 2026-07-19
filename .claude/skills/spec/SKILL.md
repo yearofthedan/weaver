@@ -20,7 +20,7 @@ metadata:
 
 4. **Fill in the Context / Symptom section.** Pull from the handoff entry and any linked command/internals docs. Keep it to one paragraph — if you need more, the background belongs in the command or internals doc.
 
-5. **Fill in User intent (change only).** Write the core intent as: *As a [user type], I want [action], so that [outcome].* This must describe what the user is trying to achieve — not an edge case, not a mechanism. Every design decision in the spec must trace back to this statement. If a proposed AC contradicts the intent, the AC is wrong.
+5. **Fill in User intent (change only).** Write the core intent as: *As a [user type], I want [action], so that [outcome].* The `[user type]` is the end user — a developer using weaver — never a maintainer or an internal role; even for tooling or eval work, trace the value to what that developer gets. This must describe what the user is trying to achieve — not an edge case, not a mechanism. Every design decision in the spec must trace back to this statement. If a proposed AC contradicts the intent, the AC is wrong.
 
 6. **Fill in the Value / Effort section.** Articulate why this is worth doing now and what the implementation surface looks like. Use the template prompts. If value is low or effort is high relative to alternatives, flag this to the user before continuing.
 
