@@ -244,6 +244,30 @@ export const CASES: CaseEntry[] = validateCases([
     expect: { skill: "bash" },
   },
 
+  // ── Adjacent-negative boundary cases ────────────────────────────────────────
+  // Sit close to weaver's territory but are correctly shell/Edit work — a
+  // stricter guard than the plain boundary cases above, which are never
+  // tempting in the first place.
+
+  {
+    name: "boundary-bash-local-var-rename",
+    stage: "trigger",
+    task: "Rename the local variable `temp` to `result` inside the `calculate` function in /tmp/weaver-eval/src/math.ts.",
+    expect: { skill: "bash" },
+  },
+  {
+    name: "boundary-bash-search-non-ts-project",
+    stage: "trigger",
+    task: "Search for `API_KEY` across the Python files in /tmp/weaver-eval-py.",
+    expect: { skill: "bash" },
+  },
+  {
+    name: "boundary-bash-remove-console-log",
+    stage: "trigger",
+    task: "Remove the leftover `console.log('debug')` on line 15 of /tmp/weaver-eval/src/app.ts.",
+    expect: { skill: "bash" },
+  },
+
   // ── Command-stage cases ───────────────────────────────────────────────────
   // Each case tests that the model emits the correct `weaver <subcommand>` call
   // with the right key arguments. The full skill content is in context.
