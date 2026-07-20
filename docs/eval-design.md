@@ -1,7 +1,8 @@
 # CLI Eval Design
 
+**Purpose:** What the CLI eval measures and why it's shaped this way — one Haiku lane, fixture-backed. To run it, see [`eval/README.md`](../eval/README.md).
+**Audience:** Anyone who edits the skills the eval guards, changes the harness, or interprets a run.
 **Status:** Current
-**Date:** 2026-07-13 (supersedes the local-Ollama design of 2026-06-10 and the MCP-based design of 2026-03-01)
 
 ---
 
@@ -41,23 +42,8 @@ The eval runs against **`anthropic/claude-haiku-4.5`** over an OpenAI-compatible
 Claude Code's format, so a Claude-family model is the realistic consumer. It is the sole lane and
 the release gate — skill-text changes should be green here before shipping.
 
-Set three env vars (`global-setup.llm.ts` fails fast if any is missing):
-
-```
-WEAVER_EVAL_BASE_URL=https://openrouter.ai/api/v1
-WEAVER_EVAL_MODEL=anthropic/claude-haiku-4.5
-WEAVER_EVAL_API_KEY=<OpenRouter key>
-```
-
-`WEAVER_EVAL_TEMPERATURE` (default 0.7) and `WEAVER_EVAL_TRIALS` (default 3) tune the agentic rate
-lane. Run:
-
-```bash
-pnpm eval                        # all lanes
-pnpm eval trigger-agentic        # the agentic trigger/rate lane only
-pnpm eval -t <case-regex>        # filter cases
-WEAVER_EVAL_TRIALS=6 pnpm eval trigger-agentic   # re-check a surprising rate
-```
+The lane needs a hosted OpenAI-compatible endpoint (base URL, model, API key); `global-setup.llm.ts`
+fails fast if any is unset. To run it, see [`eval/README.md`](../eval/README.md).
 
 `callModel` accepts an explicit config parameter, so an alternate transport (e.g. the Anthropic
 API directly) plugs in without touching cases or assertions.

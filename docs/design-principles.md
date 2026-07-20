@@ -33,6 +33,20 @@ A write operation separates computation (read, resolve, validate) from mutation 
 
 When an operation touches multiple interdependent files, compute all changes against one consistent view of the project before writing — rather than looping single-file calls that each observe intermediate state and may rewrite each other's work.
 
+## Domain services are format-agnostic
+
+A domain service operates on script content only — it never switches on file extensions or registers format-specific handlers. The plugin architecture exists so framework plugins (Vue, Svelte, …) own their file-format concerns: a plugin extracts the script block from an SFC, calls the domain service, and splices the result back. `ImportRewriter` sees script text, not `.vue` files. If a framework name (`vue`, `svelte`) appears outside the plugin directory or a single registration point, the abstraction is wrong — this is the [Dependency Rule](#the-dependency-rule) and [information hiding](#information-hiding) applied to file formats.
+
+## Specs describe *what*, not *how*
+
+A spec states the change to deliver and where — "move symbol X to file Y", "rename Z across the workspace" — not the manual steps to get there. Prescribing steps competes with the refactoring skills and pushes the executor to hand-edit instead of reaching for `moveSymbol`/`moveFile`/`rename`. The executor owns *how*.
+
+Each acceptance criterion must also leave the codebase in a working state: build and tests pass after it lands. If the natural operation does X+Y atomically, that is one AC, not two.
+
+## Durable artifacts are self-contained
+
+An artifact that gets archived and outlives its surroundings — a spec, a template — must not point *out* to things that rot: a rule name, a skill command, another doc's numbering. State what each section means inline, in the artifact's own words. Routing ("which skill fills this") belongs in the routing docs (CLAUDE rules, handoff, the skill files), never in the artifact.
+
 ---
 
 How these apply concretely to weaver's engine, operation, and plugin layers — and the structural facts specific to this system — are in [architecture.md](architecture.md). How code that already follows them is written — naming, comments, casts, test structure — is in [code-standards.md](code-standards.md).

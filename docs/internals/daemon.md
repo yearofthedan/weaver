@@ -69,6 +69,9 @@ The watcher keeps provider state fresh when files are edited outside weaver (edi
 
 ## Implementation notes
 
+**The daemon routes through `VolarCompiler` only when the tsconfig includes `.vue` files.**
+`isVueProject` (`src/utils/ts-project.ts`) calls `ts.parseJsonConfigFileContent` with a `.vue` extra extension to check whether any `.vue` file sits in the project graph, respecting the tsconfig's `include`/`exclude`. Only `.vue` files matched by the tsconfig trigger `VolarCompiler` routing. When debugging a daemon-only bug, confirm which compiler is handling the request before investigating compiler internals — the real project (with `node_modules`, `.vue` fixtures, cached compiler state) may route differently than a simplified copy.
+
 **MCP server must start before the daemon auto-spawns.**
 In `serve`, bring the MCP server up before triggering daemon auto-spawn. If the daemon starts first and the socket connect happens before the MCP server is listening, the call times out.
 

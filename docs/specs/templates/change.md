@@ -208,5 +208,5 @@ Examples of what belongs here:
       - Skill files in `.claude/skills/` that reference the changed tool (these are the primary discovery surface for agents — if the skill doesn't mention the new mode, agents won't use it)
       - handoff.md current-state section
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `.claude/MEMORY.md` if cross-cutting (skip if nothing worth recording)
+- [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended

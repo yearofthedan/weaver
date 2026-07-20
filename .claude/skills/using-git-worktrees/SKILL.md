@@ -15,6 +15,8 @@ Git worktrees create isolated workspaces sharing the same repository, allowing w
 
 **Core principle:** Systematic directory selection + safety verification = reliable isolation.
 
+**When to use for parallel work:** dispatching independent ACs to execution agents in parallel — give each agent its own worktree (`isolation: "worktree"`) so agents on the same working tree don't conflict (e.g. both editing the same test file), and merge results back after both finish. Only parallelise ACs that are truly independent; run sequentially when one AC depends on another's output.
+
 **Announce at start:** "I'm using the using-git-worktrees skill to set up an isolated workspace."
 
 ## Directory Selection Process

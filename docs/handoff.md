@@ -30,7 +30,7 @@ An agent discovering new work should add a `[needs design]` entry and move on �
 1. Archive the spec to `docs/specs/archive/` with an Outcome section
 2. Remove or update the entry below
 3. Update docs if public surfaces changed (see Done-when in the spec)
-4. Write gotchas to the relevant `docs/internals/` or `docs/tech/` doc; cross-cutting process rules go in `.claude/MEMORY.md`
+4. Write gotchas to the relevant `docs/internals/` or `docs/tech/` doc; cross-cutting process rules go in `CLAUDE.md` (route by its "Where the rules live" table)
 
 ---
 
@@ -47,6 +47,7 @@ eval/
   # harness logic is mutation-tested via a dedicated lane: `pnpm test:mutate:eval` (stryker.eval.config.mjs / vitest.stryker.eval.config.ts, own incremental cache, CI job `mutation-eval`) — see docs/tech/mutation-testing.md
   vitest.llm.config.ts ← pnpm eval lane (LLM cases; globalSetup requires the hosted endpoint env vars)
   global-setup.llm.ts  ← fails fast requiring a hosted endpoint (WEAVER_EVAL_BASE_URL/MODEL/API_KEY) when unset
+  README.md            ← operational runbook: setup, secret injection, run commands (design rationale lives in docs/eval-design.md)
 .github/workflows/
   ci.yml               ← lint + build + test on push/PR
   quality-feedback.yml ← mutation testing (weekly + on push to main); Claude Code triage step on score < 75
@@ -180,8 +181,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 - **Daemon discovery cache invalidation** `[needs design]` — `src/utils/ts-project.ts` caches `findTsConfig` and `isVueProject` results in module-level Maps for the daemon's whole lifetime. If a `tsconfig.json` is created/deleted/moved or `.vue` files appear during the daemon run, decisions go stale until restart. Fix: hook the watcher's `onFileAdded`/`onFileRemoved` callbacks to clear the relevant entries. Design choice: which path patterns invalidate which cache.
 
 - **Consolidate the `/spec` skill against the template** `[chore]` — `.claude/skills/spec/SKILL.md` has grown to 16 steps by enumerating each template section as its own step, duplicating the per-section prompts the template already carries. Fold the pure section-fill steps (Context, User intent, Value/Effort, Edges, Done-when review) into one "fill the remaining template sections per their prompts" step. Keep as distinct steps: the two user checkpoints (draft Behaviour, final confirm), the cross-cutting checks (test-hotspot/layer-fit, design-shape vs `design-principles.md`), and the subtractive review. Target ~8–9 steps. Same division as the template/skill split — the skill holds the workflow, the template holds section guidance.
-
-- **Consolidate and streamline the rule surface** `[needs design]` — the repo has two overlapping rule corpora: `CLAUDE.md` (Rules 1–21) and `.claude/MEMORY.md` (its own "Hard-won rules" + "Agent behaviour" sections). There is no stated boundary between them, both accumulate, so neither is authoritative and a new learning has no obvious home (surfaced repeatedly while promoting a test-discipline learning — it kept snagging on "which file?"). Scope: (1) **Taxonomy** — one canonical rules file (`CLAUDE.md`); `MEMORY.md` becomes durable *state* + an index/pointers, not a second rules corpus; domain specifics live in the owning doc (`docs/code-standards.md`, `docs/internals/`, `docs/tech/`, `docs/eval-design.md`). (2) **Generalise to streamline** — review every existing rule across both files; several are instances of one principle (e.g. the various "verify empirically / establish a failing state first" rules; the several commit-hygiene rules) — merge each cluster into the general rule and delete the instances, per the existing "Write general rules, not incident reports" guidance. Target fewer, more general rules. (3) **Migrate** MEMORY.md's rules into `CLAUDE.md` or the owning doc, leaving pointers. Until this ships, fold new learnings into the owning topical doc rather than adding standalone rules (the `/slice` step-8 harvest already directs this).
 
 - **Agent-host hooks that redirect shell refactoring to weaver** `[needs design]` **(deprioritized — evidence now points against)** — a PreToolUse hook on Bash that pattern-matches shell refactoring commands (`sed -i` on source files, `mv` of a `.ts` file, `grep -r` for an identifier) and redirects to the matching weaver command would make adoption deterministic instead of probabilistic. The hook script is a pure function (command string → allow / redirect message) — unit-testable, no LLM needed; `weaver skills install` is the natural installation point. **Evidence status ([spike](specs/archive/20260710-skill-shape-trigger-spike.md)):** hooks are Claude-Code-only, and the Claude-family audience — including Haiku, its weakest member — beats every shell-habit case under full adversarial pressure with the shipped (now tuned) skill text; the only cases text cannot fix (`todos-grep`, `sed-tempting`) fail solely on sub-frontier OSS models, which hooks cannot reach. Revisit only if a real-host signal appears (a frontier agent observed shell-refactoring in the wild despite the skills).
 

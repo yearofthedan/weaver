@@ -84,3 +84,8 @@ Once `stmt.remove()` runs, ts-morph's in-memory project state changes. Re-queryi
 
 **Why a post-step for Vue files?**
 ts-morph's project graph is driven by `tsconfig.json`. Vue `<script setup>` blocks are compiled to virtual `.vue.ts` files by Volar; the underlying `.vue` files are not first-class nodes in the ts-morph project. The post-step (`afterSymbolMove`) runs a regex scan over `.vue` files to patch import paths that ts-morph doesn't track.
+
+## Gotchas
+
+- **The declaration is appended to the destination file.** If the destination already declares a symbol of the same name, `moveSymbol` produces a duplicate declaration — it does not detect the collision. A caller writing the destination ahead of time must read it back afterwards and drop the duplicate.
+- **Importers outside the ts-morph project graph are still rewritten.** The `afterSymbolMove` fallback scan walks all workspace TS files, so test files and other importers outside `tsconfig` `include` have their imports updated without manual fixup — the same regex-scan mechanism as the `.vue` post-step above.

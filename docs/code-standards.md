@@ -138,6 +138,23 @@ Mutation testing exposes these: a surviving mutant on a guard you "know" can't b
 
 If a surviving mutant genuinely cannot be killed because the branch is unreachable, delete the branch — don't document it.
 
+## Imports
+
+Default to static imports at the top of the file. Use `await import()` only when you can name the specific reason — and write that reason as a comment.
+
+- **Legitimate reasons:** a genuinely optional peer dependency that may not be installed, breaking a real circular dependency, an ESM-only module loaded from a CJS context.
+- **Not legitimate:** "the package is heavy," "we only sometimes call this."
+
+Dynamic imports break Stryker's coverage attribution — the lines of the imported module are invisible to the mutation runner when the import is dynamic (this applies to test bodies too: `await import()` inside a test stops Stryker associating that test with the imported module's lines). Static imports are also the standard here — `await import()` without a comment is a bug.
+
+## Dependencies
+
+Pin exact versions in `package.json` — never `^` or `~` ranges. A range lets a compromised patch release auto-install on the next `pnpm install`, turning a single package takeover into a supply-chain attack across every consumer. All versions must be exact (`"1.2.3"`, not `"^1.2.3"`). Only add actively maintained packages — check for deprecation warnings first.
+
+## Engineering judgment
+
+Read the code before forming an opinion. Look at function bodies, indirection depth, and seam boundaries before defending test placement or code structure — don't defend a position you haven't verified by reading the source. Spot clean-code opportunities proactively (dead code, tests at the wrong level, unnecessary indirection, duplicated logic) and fix them in separate commits. Treat wasted compute (hour-long mutation runs, redundant CI cycles) as a cost worth investigating, not dismissing.
+
 ## Refactoring triggers
 
 These are signals to pause and refactor before continuing:

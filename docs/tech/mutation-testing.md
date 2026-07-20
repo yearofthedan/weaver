@@ -19,9 +19,15 @@ Use [Stryker](https://stryker-mutator.io/) with vitest (`pnpm test:mutate`) to v
 
 **Scoping a run to a single file:** use the `--mutate` flag:
 ```bash
-stryker run --mutate 'src/operations/getTypeErrors.ts'
+stryker run --mutate 'src/operations/getTypeErrors.ts'          # one file
+stryker run --mutate 'src/foo.ts' --mutate 'src/bar.ts'         # multiple
+stryker run --mutate 'src/operations/getTypeErrors.ts:68-70'    # line range — fastest feedback
 ```
-This overrides the `mutate` array from the config. Useful when checking mutation score for touched files without running the full suite.
+This overrides the `mutate` array from the config. Useful when checking mutation score for touched files without running the full suite. There is **no `--include` flag** — passing it fails with `too many arguments for 'run'`.
+
+**Re-run with `--force` after adding tests — but always scope it.** `--force` ignores the incremental cache and re-runs *every mutant in scope* — it forces a full rebuild of the incremental file, not a targeted re-check. After adding tests, the cache may still report a now-killable mutant as `survived` because it reuses the prior result; `--force` rebuilds it. Always combine with `--mutate` so you rebuild only the touched file — `pnpm test:mutate:file src/foo.ts --force`. Never `--force` a bare `pnpm test:mutate`: that re-runs the entire hours-long suite, defeating the cache.
+
+**Commit `reports/stryker-incremental.json` after a run.** It is git-tracked so every developer and agent starts from the last known baseline. Targeted runs accumulate — run a few files at a time and the cache builds up. (The execution agent commits it as part of its post-implementation mutation step.)
 
 **`vitest.related: true` doesn't meaningfully speed up an integration-heavy run.**
 When most tests transitively import most of `src/` (as in weaver's integration tests), Vitest's import-graph filter barely narrows the per-mutant test set. `related: true` is harmless and may help slightly for isolated utilities.
@@ -136,6 +142,8 @@ Fixed gaps are removed. Remaining survivors by category:
 ---
 
 ## Hard-won lessons
+
+A mutation threshold is an alarm, not a target — the CI floor of 75 is not something to "hit". When a mutant survives, classify it: (a) **real gap** — the suite can't catch this logic inversion, write the missing assertion; (b) **noise** — structurally unreachable or equivalent, document exactly why (the catalog below is that record); (c) **dead code** — the branch can't be reached, remove it (see [code-standards § Defensive code vs. dead branches](../code-standards.md)). "We hit 75%" is not a classification. Optional chaining, default values, and defensive guards that silently swallow impossible states are the most dangerous survivors — they turn future bugs into silent wrong answers instead of loud crashes. If the code is supposed to always find what it looks for, make it throw when it doesn't. `/mutate-triage` carries this discipline.
 
 Patterns that recur across mutation rounds — read before writing tests intended to kill surviving mutants.
 

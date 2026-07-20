@@ -36,4 +36,5 @@
 
 ## Agent docs
 
-- [MEMORY](./../.claude/MEMORY.md) — process rules and project state signpost
+- [CLAUDE.md](./../CLAUDE.md) — cross-cutting agent process rules and the "where the rules live" routing map
+- [handoff.md](handoff.md) — current state, source layout, and the task index
