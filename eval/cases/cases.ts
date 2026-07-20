@@ -208,46 +208,11 @@ export const CASES: CaseEntry[] = validateCases([
     },
   },
 
-  // ── Boundary cases ────────────────────────────────────────────────────────
-  // The inverse of the tempting cases: legitimate shell work that must stay in
-  // `bash`. They guard against an aggressive description (e.g. "use instead of
-  // grep") over-triggering and stealing tasks no skill should claim.
-
-  {
-    name: "boundary-bash-list-files",
-    stage: "trigger",
-    task: "List the files in /tmp/weaver-eval/src.",
-    expect: { skill: "bash" },
-  },
-  {
-    name: "boundary-bash-run-tests",
-    stage: "trigger",
-    task: "Run the test suite in /tmp/weaver-eval.",
-    expect: { skill: "bash" },
-  },
-  {
-    name: "boundary-bash-tail-log",
-    stage: "trigger",
-    task: "Show me the last 30 lines of /tmp/weaver-eval/build.log.",
-    expect: { skill: "bash" },
-  },
-  {
-    name: "boundary-bash-count-lines",
-    stage: "trigger",
-    task: "How many lines are in /tmp/weaver-eval/src/auth.ts?",
-    expect: { skill: "bash" },
-  },
-  {
-    name: "boundary-bash-mkdir",
-    stage: "trigger",
-    task: "Make a new directory /tmp/weaver-eval/src/generated.",
-    expect: { skill: "bash" },
-  },
-
-  // ── Adjacent-negative boundary cases ────────────────────────────────────────
-  // Sit close to weaver's territory but are correctly shell/Edit work — a
-  // stricter guard than the plain boundary cases above, which are never
-  // tempting in the first place.
+  // ── Boundary cases (over-trigger guard) ─────────────────────────────────────
+  // Legitimate shell/Edit work that must stay in `bash`, guarding against an
+  // over-broad description stealing a task no skill should claim. Both are
+  // adjacent negatives on a description's decision boundary; see
+  // docs/eval-design.md for why tasks far from any description aren't included.
 
   {
     name: "boundary-bash-search-non-ts-project",

@@ -195,6 +195,14 @@ for *any* subcommand within the budget (`boundaryTrialClean` in `eval/harness/ag
 the case passes only when every trial is clean. This is at least as strong as a first-call-only
 guard — it catches an over-trigger anywhere in the trajectory, not only the first call.
 
+Boundary cases are epistemically weak — "never triggers weaver" has unbounded scope — and each
+costs paid trials, so the pressure is to keep them minimal, not to add them. One earns a place
+only when a plausible description error would flip it: the task must sit on a skill description's
+decision boundary. A task no description could plausibly claim — list files, run tests, tail a
+log — can only fail by hallucinating a nonexistent op, not by over-trigger, so it costs trials
+without buying signal. And it must be shell work *by intent*: a task that should route to weaver,
+asserted as a negative, tests against intent, not behaviour.
+
 **Standard tool exchange.** Completed turns are replayed as a standard tool-use conversation:
 the model's own assistant message (its text and real `tool_calls`) followed by a `tool`-role
 result for every call. The model is stateless, so this faithful history is what lets it advance
