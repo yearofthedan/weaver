@@ -87,32 +87,41 @@ rule in `eval-design.md`: a pre-step must be work the harness can satisfy.
 
 ## Fix
 
-**Needs design — routed to `/spec` (direction chosen, design deferred).**
+**Design settled 2026-07-20 (`/spec` pass): Design A — drop the unsatisfiable
+live pre-step; rely on the momentum seed that already carries context.**
 
-The confirmed cause is a live context pre-step the harness cannot satisfy. Two
-approaches were weighed:
+Correction to the direction proposed above. Direction C framed the fix as
+*adding* authored seeded-context machinery. That over-scoped: the depth-3
+momentum seed (`buildHabitMomentumSeed`) already prepends three context-gathering
+exchanges — build-log grep, `git log`, `find` — each with an authored,
+satisfiable tool result. It *is* the "context pre-steps in seeded history" C
+describes. The changelog clause in the live task was a *second, redundant*
+context step, and the broken one: a live non-weaver bash call resolves to
+`CANNED_RESULTS.bash` (the generic file list), which no changelog hunt can
+satisfy. So the realization is subtractive (remove the redundant live clause),
+not additive (build a slot). The root-cause diagnosis held; the proposed fix
+direction did not.
 
-- **A (patch):** reword this rung's preamble to a tolerable `git log`-style step.
-  One line, but relies on the model gracefully degrading on a wrong canned
-  result, costs 1–2 budget steps, and leaves the footgun for the next author.
-- **C (chosen):** move context pre-steps out of the live task string and into
-  *seeded history* — the `[canned user, canned assistant+toolcall, canned tool
-  result, model turn]` shape `buildHabitMomentumSeed` already emits — with an
-  **authored** tool result. The model never executes the pre-step against the
-  dumb bash stub, so the loop cannot occur; the result is whatever we write.
+Change: remove `"skim the changelog for context, then"` from the
+`pressured-buried-replace-text` task. What remains — the "version bump" framing,
+the buried replace phrasing, and the `"flag any file where the replacement looks
+risky"` tail — keeps the burial; the depth-3 seed keeps the pressure (per
+2026-07-19: seed depth dominates, task-string burial barely moves the rate).
 
-C is the design because it removes the failure class, not the instance. Scope for
-the `/spec` pass:
-- Applies across the pressured rungs, not just `replace-text`. The `rename`
-  rung's "check what's currently exported" is the same live-inspection shape and
-  may benefit; the `search-text`/`find-references` git-log preambles are tolerated
-  today but would be more robust seeded.
-- Decide how much burial stays in the live task (the 2026-07-19 result found seed
-  depth dominates and task-string burial barely moves the rate, so a more direct
-  task loses little).
-- Subsumes the separate "make the generic bash stub fail safe" idea — with context
-  pre-steps seeded, an authored task no longer requires an unsatisfiable live step.
-- Reconfirm each reshaped rung with a scoped `-t` run (this rung must clear 0/3).
+Durable guard (removes the failure *class*, not just this instance): a rule added
+to `docs/eval-design.md` — a pressured case's live task must contain no leading
+pre-step the harness cannot satisfy (an artifact the canned results never
+produce); scenario context belongs in the momentum seed, which weaver does not
+own. This subsumes the separate "make the generic bash stub fail safe" idea.
+
+Scope: `replace-text` rung only.
+- `rename`/`search-text` read low for skill-text reasons under the separate
+  "pressured mutating rungs read low" item; reshaping their preambles here would
+  confound that item's one-change-at-a-time A/B.
+- `find-references` passes 3/3 and its changelog mention is a *trailing* note the
+  model reaches only after matching (the loop returns on match), so no hunt-loop
+  occurs — the doc rule (leading pre-steps) leaves it compliant untouched.
+- Reconfirm with a scoped `-t` run (this rung must clear 0/3).
 
 ## Security
 
@@ -136,11 +145,50 @@ the `/spec` pass:
 
 ## Done-when
 
-- [ ] Reproduction case now produces expected output
-- [ ] Regression test covers the exact failing case
-- [ ] Mutation score ≥ threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated if public surface changed (N/A expected — eval-internal)
-- [ ] Tech debt discovered during investigation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant doc (`docs/eval-design.md`) if any
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Scoped paid re-baseline (`-t "pressured-buried-replace-text"`, n=3) clears
+      the 0/3 floor — this is the reproduction/verification. The failure only
+      manifests against the live model, so there is no in-`pnpm check` regression
+      test; the durable guard is the doc rule below, not a unit test.
+- [x] `docs/eval-design.md` rule added: a pressured case's live task carries no
+      leading pre-step the harness cannot satisfy (this *is* the failure-class fix)
+- [x] `pnpm check` passes (lint + build + test:eval invariants)
+- [x] No public surface changed (eval-internal case data + doc)
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Verification (real path — scoped paid eval, n=3):**
+
+```
+pass-cli run --env-file .env -- pnpm eval trigger-agentic \
+  -t "pressured-buried-replace-text" --disable-console-intercept
+```
+
+`pressured-buried-replace-text — rate 3/3` (was 0/3). All three trials identical:
+skill loaded@1 → `weaver search-text` → `weaver replace-text` (`matched@3
+args:correct`). The ideal search→replace trajectory, matching the root-cause
+A/B's changelog-off arm. `pnpm check` green (377 eval-invariant tests).
+
+**The fix:** removed the `"skim the changelog for context, then"` clause from the
+one case's task string (`eval/cases/cases.ts`) + a failure-class rule in
+`docs/eval-design.md`. No new machinery, no source change.
+
+**Reflection:**
+- *What the investigation got right / wrong.* Root cause was correct and
+  A/B-confirmed. The proposed fix *direction* (C — build an authored seeded-context
+  slot) over-scoped: it did not register that the depth-3 momentum seed already
+  *is* seeded context with authored, satisfiable results. Once seen, the fix
+  collapsed from "add a builder + field + tests" to "delete one clause." The lesson
+  for the next agent: when a fix direction proposes new machinery to *supply* a
+  capability, first check whether an existing harness path already supplies it —
+  here `buildHabitMomentumSeed` did.
+- *Instrument value, honestly.* Post-fix the rung sits at ceiling (3/3), so it is a
+  *regression canary* for the `weaver-search-and-replace` conversion path (fires on
+  a drop), not a fine-grained good-vs-better discriminator. Before the fix it
+  signalled nothing (floored for a scenario reason). Whether the pressured ladder
+  has enough mid-range discriminators vs ceiling canaries is a real open question —
+  it belongs to the "pressured mutating rungs read low" item, not here.
+- *Scope discipline paid off.* Touching only `replace-text` kept this fix from
+  confounding that separate item's one-change-at-a-time A/B on `rename`/`search-text`.
+- Test count added: 0 (case-data + doc fix; no unit-testable seam). Mutation: N/A
+  (no source touched).
