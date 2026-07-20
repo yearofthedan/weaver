@@ -14,6 +14,9 @@ Why this change exists. One paragraph max — the feature doc has the background
 
 > **Prompt:** State the core intent — not the edge case, not the mechanism.
 > Write it as: *As a [user type], I want [action], so that [outcome].*
+> The `[user type]` is the end user — a developer using weaver — never a
+> maintainer or an internal role; even for tooling or eval work, trace the
+> value to what that developer gets.
 > This must describe what the user is trying to achieve, not how the
 > implementation handles a particular scenario. Edge cases are handled
 > by ACs in service of this intent. Every design decision in the spec

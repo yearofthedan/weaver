@@ -7,72 +7,45 @@ metadata:
 
 # Spec Workflow
 
-**Hard rule: steps 1–16 are checkpoints, not suggestions.** When a step says "confirm with the user", "ask the user", or "do NOT proceed" — STOP. Output what you have and wait for the user's response. Do not write spec files, update handoff.md, or commit until the user has agreed to the ACs at step 7. Skipping checkpoints to "save time" makes the workflow useless. Steps 3–6 and 8–12 produce draft content that is only written to disk AFTER step 7 confirmation.
+The workflow holds the *procedure*; the template holds the *section guidance*. When you fill a section, follow that section's prompt in the template — this skill does not restate them.
+
+**Hard rule: steps 1–9 are checkpoints, not suggestions.** When a step says "confirm with the user", "ask the user", or "do NOT proceed" — STOP. Output what you have and wait for the user's response. Do not write the spec file, update handoff.md, or commit until the user has agreed to the ACs at step 3. The Behaviour draft (step 3) is discussed in the conversation; steps 4–7 write to disk only after that confirmation.
 
 1. **Identify the task.** Read `docs/handoff.md` — find the entry the user wants to spec. If no entry is specified, show the `[needs design]` entries and ask which one.
 
-2. **Pick the template.** Read the spec templates in `docs/specs/templates/`. Choose:
+2. **Pick the template and name the file.** Read the spec templates in `docs/specs/templates/`. Choose:
    - `change.md` — new capability, enhancement, refactoring, or tech debt
    - `bug.md` — something is broken and needs fixing
    - (per-command reference docs live in `docs/commands/`/`docs/internals/`; they are reference, not spec templates)
 
-3. **Create the spec file.** Name it `docs/specs/YYYYMMDD-short-slug.md` using today's date and a 2-4 word slug (lowercase, hyphens). Copy the template content.
+   Name the file `docs/specs/YYYYMMDD-short-slug.md` using today's date and a 2-4 word slug (lowercase, hyphens). Do not write it yet — draft in the conversation until the ACs are agreed at step 3.
 
-4. **Fill in the Context / Symptom section.** Pull from the handoff entry and any linked command/internals docs. Keep it to one paragraph — if you need more, the background belongs in the command or internals doc.
-
-5. **Fill in User intent (change only).** Write the core intent as: *As a [user type], I want [action], so that [outcome].* The `[user type]` is the end user — a developer using weaver — never a maintainer or an internal role; even for tooling or eval work, trace the value to what that developer gets. This must describe what the user is trying to achieve — not an edge case, not a mechanism. Every design decision in the spec must trace back to this statement. If a proposed AC contradicts the intent, the AC is wrong.
-
-6. **Fill in the Value / Effort section.** Articulate why this is worth doing now and what the implementation surface looks like. Use the template prompts. If value is low or effort is high relative to alternatives, flag this to the user before continuing.
-
-7. **Draft the Behaviour / Fix section with the user.** This is the core of the spec.
+3. **Draft the Behaviour / Fix section with the user.** This is the core of the spec, drafted interactively before anything is written to disk.
    - **Changes:** Write concrete ACs as input → output pairs wherever possible. For each AC, apply the template prompts: "what's the laziest wrong implementation?", "what's the narrowest fix that leaves siblings broken?" Then apply the **type matrix check**: enumerate the distinct input types (file extensions, parameter combinations, engine paths) that exercise different code paths. If a feature applies to both `.ts` and `.vue` files, test both as inputs *and* outputs — don't assume symmetry. If different combinations flow through different engine methods or translation layers, they need separate ACs. Apply the split test: if the ACs contain two independently-shippable slices of user value, split into separate specs with the user (a high AC count is a hint to run this test, not a limit — see template guidance). Splitting is about size, not over-build — check the shape against the minimal-shape principle in `docs/design-principles.md`.
    - **Bugs:** Describe the fix — what to change and where. Bugs don't have ACs; the Expected section defines the target behaviour. Verification criteria go in Done-when ("reproduction case now produces expected output", "regression test covers the failing case"). The fix is dispatched as a single unit to the execution agent.
-   - Do NOT proceed past this step without user agreement
+   - Do NOT proceed past this step without user agreement.
 
-8. **Flag open implementation decisions.** As you explored the codebase, you may have found places where the implementation has a meaningful fork — e.g. AST vs regex, sync vs async, new abstraction vs inline. For each fork where the approaches have **different correctness or risk profiles**, add an `## Open decisions` section to the spec with:
-   - The decision to make (framed as a question)
-   - The viable approaches
-   - The tradeoffs (especially correctness, maintainability, and risk — not just effort)
-   - A recommendation if you have one, with reasoning
+4. **Write the file and fill the remaining template sections per their prompts.** Copy the chosen template, drop in the agreed Behaviour/Fix content, and fill every other section by following its prompt in the template: Context/Symptom, User intent, Value/Effort, Relevant files + Red flags, Interface, Open decisions, Security, Edges, Done-when. Change-only sections (User intent, Interface) are marked `N/A` for bugs. The template prompts are the authority on each section's content — do not restate them here. Two things carry across all of them:
+   - **Raise blockers, don't bury them.** If filling a section surfaces a blocker — low value against high effort, an internal contradiction, an architectural fork with different correctness/risk profiles that belongs in Open decisions — stop and raise it with the user before finalizing. Never write "the executor should choose": Open decisions must be resolved before the spec can be picked up.
+   - **Populate from what you already read.** Relevant files, Red flags, and Interface bounds come from the code you explored while drafting the ACs — it's nearly free. If an operation wraps a compiler/external API, read the API source to answer the Interface questions rather than guessing.
 
-   These are **not** implementation details the executor can figure out. They are architectural forks that affect what gets built. The spec cannot be picked up for implementation until every open decision is resolved. Never write "the executor should choose" — that defers a design decision to an agent that isn't equipped to make it.
+5. **Cross-cutting checks.** These span sections and need active judgment, so they run as their own pass rather than folding into a section fill:
+   - **Test hotspot / layer-fit.** Check the test files this spec will touch. If any are at or near threshold, assess them with the test refactoring hierarchy in `docs/code-standards.md` and add a prep step to refactor them before adding new tests. For each AC, decide whether the behaviour is a pure function of its inputs (extract a helper, unit-test it directly) or needs real I/O / project graph / workspace state (one smoke test per wiring path), and record that next to the AC so the execution agent doesn't default to the existing test style.
+   - **Design-shape.** Check the Interface against `docs/design-principles.md`: a new CLI action / socket handler / transport entry point stays thin (translate input, call one named function, format output) with the logic behind a seam testable with `InMemoryFileSystem`; export the entry point, not its helpers; new file reads/writes go through the `FileSystem` port, not `node:fs`.
 
-9. **Populate Relevant files and Red flags.** As you explored the codebase to draft ACs, you read files containing reusable logic, similar patterns, and shared types. List them in the `Relevant files` section with a brief note on why each matters. Also note any code smells in the target area — poor cohesion, duplication, missing abstractions, tangled responsibilities — under `Red flags`. Assess using the quality model in `docs/code-standards.md`, not just the size thresholds.
+6. **Subtractive review — cut to the minimal shape.** Every other step adds structure; this one removes it. Review the whole drafted spec against the **Minimal shape** principle in `docs/design-principles.md`.
+   - **Write the skeleton first.** State the smallest change that satisfies the User intent — the fewest ACs, types, modules, and commands that deliver it. Anchor on this *before* judging what you drafted, so you argue up from minimal rather than down from what you built.
+   - **Diff the spec against the skeleton.** List every element beyond it: each new type, module, builder, classification, AC, and extra command or engine path.
+   - **Justify or cut each surplus element.** Keep it only if a *present* force requires it — instances that exist now, or consistency with a pattern the codebase already uses. "A future matrix", "we'll want it later", or "for symmetry" is not a force: cut the element, or defer it to a follow-on `[needs design]` handoff entry (step 7).
+   - **Produce a cut-list** of what you removed or deferred, and carry it to step 8. Do NOT write it into the spec file — it is transient. If the cut-list is empty on a spec that introduces new structure, you have not run the review; run it again.
 
-   **Test hotspot assessment:** Check the test files that will be touched by this spec. If any are at or near threshold, assess them using the test refactoring hierarchy in `docs/code-standards.md` and include a prep step in the spec to refactor them before adding new tests.
+7. **Update handoff.md.** Change the entry from `[needs design]` to a link to the new spec file. Remove inline ACs or description that moved to the spec — the handoff entry becomes one line. Add any elements the subtractive review deferred as new `[needs design]` entries.
 
-   **Layer-fit pre-check (per AC):** For each AC, ask *"is the behaviour under test a pure function of its inputs, or does it require real I/O, project graph, or workspace state?"* If pure, plan to extract a helper and unit-test it directly — do not route through full integration setup. If integration, keep one smoke test per wiring path. This decision goes in the spec's Behaviour section as a sub-note under each AC, so the execution agent doesn't default to mirroring the existing test style.
+8. **Confirm with the user.** Show a summary of the spec before finishing:
+   - **Changes:** Number of ACs, key interface decisions
+   - **Bugs:** Fix approach summary, verification criteria in Done-when
+   - Any open decisions surfaced while filling the spec
+   - The subtractive-review cut-list from step 6 — what you removed or deferred and why, or note the spec was already minimal
+   - Ask: "Ready to implement, or want to revise?"
 
-   If red flags are severe enough to warrant cleanup before feature work, note that a cleanup sub-slice should be dispatched to the execution agent first.
-
-10. **Fill in Interface (change only).** If the section doesn't apply (internal-only change, no public surface), mark it `N/A` and skip. Otherwise see `docs/specs/templates/change.md` for the full walkthrough. For every parameter and return field, answer:
-    - What does it contain? (not just the type — the actual information)
-    - What are the realistic bounds? What's an example value?
-    - What's the zero/empty case? The adversarial case?
-    - If the operation wraps a compiler/external API, read the API source to answer these — don't guess
-
-    **Design-shape check.** Check the interface against `docs/design-principles.md`:
-    - If the change adds a CLI action, socket handler, or other transport entry point, the handler stays thin — translate input, call one named function, format output. Put the logic behind a seam testable with `InMemoryFileSystem`, and name that function in the Interface.
-    - Export the entry point, not its helpers. If a helper is exported only so a test can call it, test through the real entry point instead.
-    - New file reads/writes go through the `FileSystem` port, not `node:fs`.
-
-11. **Fill in Edges.** Ask: "what must NOT change?" and "what assumptions are we making?" These become regression tests during implementation.
-
-12. **Review the Done-when checklist.** Add any task-specific verification steps (e.g., "works via both MCP and CLI", "mutation score for this file specifically"). Check `.claude/skills/` for any skill file that references the changed tool — skill files are the primary way agents discover tool capabilities. If the skill doesn't mention the new mode, agents won't use it. Add skill updates to Done-when.
-
-13. **Subtractive review — cut to the minimal shape.** Every other step in this workflow adds structure; this one exists to remove it. Before confirming, review the whole drafted spec against the **Minimal shape** principle in `docs/design-principles.md`.
-    - **Write the skeleton first.** State the smallest change that satisfies the User intent — the fewest ACs, types, modules, and commands that deliver it. Anchor on this *before* judging what you drafted, so you argue up from minimal rather than down from what you built.
-    - **Diff the spec against the skeleton.** List every element beyond it: each new type, module, builder, classification, AC, and extra command or engine path.
-    - **Justify or cut each surplus element.** Keep it only if a *present* force requires it — instances that exist now, or consistency with a pattern the codebase already uses. "A future matrix", "we'll want it later", or "for symmetry" is not a force: cut the element, or defer it to a follow-on `[needs design]` handoff entry (step 14).
-    - **Produce a cut-list** of what you removed or deferred, and carry it to step 15. Do NOT write it into the spec file — it is transient. If the cut-list is empty on a spec that introduces new structure, you have not run the review; run it again.
-
-14. **Update handoff.md.** Change the entry from `[needs design]` to a link to the new spec file. Remove inline ACs or description that moved to the spec — the handoff entry becomes one line. Add any elements the subtractive review deferred as new `[needs design]` entries.
-
-15. **Confirm with the user.** Show a summary of the spec before finishing:
-    - **Changes:** Number of ACs, key interface decisions
-    - **Bugs:** Fix approach summary, verification criteria in Done-when
-    - Any open decisions flagged in step 8
-    - The subtractive-review cut-list from step 13 — what you removed or deferred and why, or note the spec was already minimal
-    - Ask: "Ready to implement, or want to revise?"
-
-16. **Report for commit.** Tell the caller that the spec file and the updated handoff.md are ready to commit with message `docs(specs): add spec for [short-title]`. **Do NOT commit until the user has explicitly signed off on the spec.** The spec agent does not commit directly — the orchestrator or user handles the commit. A premature commit forces amends or reverts when the user requests changes, which is wasteful and error-prone.
+9. **Report for commit.** Tell the caller that the spec file and the updated handoff.md are ready to commit with message `docs(specs): add spec for [short-title]`. **Do NOT commit until the user has explicitly signed off on the spec.** The spec agent does not commit directly — the orchestrator or user handles the commit. A premature commit forces amends or reverts when the user requests changes, which is wasteful and error-prone.
