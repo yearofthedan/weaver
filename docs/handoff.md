@@ -166,10 +166,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P3 — Medium-value features / bugs / tech debt
 
-- **Search/replace differentiator rule for the eval grader** `[needs design]` — deferred from the pressure-ladder spec. A search/replace scenario should pass on any weaver op of the right read/write class (not only the exact expected subcommand) and fail on grep/sed; the current grader matches the exact command. Define against the pressure-ladder matrix, where read-vs-write-target cases exist to bound it.
-
-- **Shadowing metric for the eval** `[needs design]` — deferred from the pressure-ladder spec. A non-gating count of trials where weaver was reached *and* grep/sed also ran for the same intent. Add once the pressure ladder has cases where it fires.
-
 - **Tune skill text to convert precursor-stall under pressure** `[needs design]` — the pressure ladder's first calibration run (2026-07-19, `pnpm eval trigger-agentic`, n=3) put the buried + deep-seed rungs at `rename` 0/3, `replace-text` 0/3, `search-text` 2/3, `find-references` 3/3. The two mutating targets collapse because the model reaches weaver's read side then stalls in grep/cat instead of converting to the mutating op — the failure mode the two-step "recipe pairings" task targets. Tune the `weaver-refactor` / `weaver-search-and-replace` bodies to push convert-to-action and re-run the ladder to confirm the rungs lift. (Was: also route no-coords `variable` rename to `weaver-refactor` — spike finding #4 — but that rung passed at ceiling here; fold in only if a later run shows the `variable` framing biting.)
 
 - **Body-under-pressure eval lane** `[needs design]` — [`docs/eval-readiness.md`](eval-readiness.md) gap finding: no lane pairs the body (NONE / emission) with a pressured context, so we only know the *description* survives clutter + habit-momentum, never the body. Add a command/sequencing lane under the same pressure (still canary, cheap). Decide: single-shot emission under pressure, or multi-step.
