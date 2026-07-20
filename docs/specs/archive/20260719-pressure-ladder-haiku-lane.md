@@ -116,3 +116,24 @@ Two pure helpers (exported for unit tests, consumed by the lane): `seedForCase(c
 - [ ] **Maintainer paid-run calibration (not an execution-agent step):** run `pnpm eval trigger-agentic` at n=3 with the OpenRouter env vars; confirm the existing gating cases stay green under the new depth-1 seed, and record where the four pressured rungs land (the discrimination baseline) in the archived Outcome.
 - [ ] Non-obvious gotchas added to `docs/eval-design.md` (skip if none).
 - [ ] Spec moved to `docs/specs/archive/` with Outcome section appended.
+
+---
+
+## Outcome
+
+**Verification** — `pass-cli run --env-file .env -- pnpm eval trigger-agentic --disable-console-intercept`, n=3, against `anthropic/claude-haiku-4.5` (2026-07-19). Real path, real model, not offline proxies:
+
+- **Floor holds — the seed swap is safe.** Every existing gating trigger case stayed 3/3 under the new true-shell depth-1 seed. The seed-swap regression guard (Edges) passed.
+- **The lane discriminates — the deliverable, proven.** Buried + deep-seed rungs: `rename` **0/3**, `replace-text` **0/3**, `search-text` **2/3**, `find-references` **3/3**. The spread matches the spike's mechanism prediction — the two mutating targets collapse via precursor-stall (model reaches weaver's read side, stalls in grep/cat, never converts), the read-only `find-references` holds at ceiling. A skill-text regression on the mutating ops would now move a visible rate.
+- **The 0/3 rungs are real product reds, not "observational, all good."** They report the skill failing to route to weaver under pressure. They are deferred to the skill-tuning follow-on in handoff.md, not fixed here — the task was to build and prove the instrument.
+- **Boundary cases:** all clean except `boundary-bash-local-var-rename`, which over-triggered 0/3 (the model loaded `weaver-refactor` on "rename the variable" and never actually ran weaver). That case asserted against intent — a variable rename *should* route to weaver — so it was removed, not fixed. The two genuine adjacent negatives (non-TS search, `console.log` removal) stayed 3/3 clean.
+
+**Tests** — the offline `test:eval` lane went 364 → 377 (+13). `seed.test.ts` rebuilt (true-shell pool + anti-substitution guard), `case-lane.test.ts` new (6, safe-default assertions load-bearing), `cases.test.ts` +5 structural (pressured-rung `it.each` ×4, adjacent-negative existence).
+
+**Mutation** — `eval/harness/seed.ts` 100% (18/18), `eval/harness/case-lane.ts` 100% (6/6). `eval/cases/**` is outside the eval mutation scope (data table, not logic).
+
+**Reflection:**
+- *Went well:* the spike-driven reframing shrank the task from "build a 12-cell matrix" to "add the missing buried rung + fix the weaver-shaped seed." Discrimination came out exactly as the spike predicted, so the instrument is trustworthy on first run.
+- *Went badly — the important one:* I nearly closed this WITHOUT running the eval, treating a green `pnpm check` as verification. Worse, the spec I wrote *encoded that escape hatch* — a Done-when item handing the paid run to a fictional "maintainer" role. There is no such role; verification is the agent's, on the real path the change ships. Corrected structurally: the `/slice` skill now gates completion/archive on real-path verification, and `/spec` names the end user (a developer), never a maintainer.
+- *Also:* a negative/boundary case (`local-var-rename`) encoded contestable policy and asserted against intent. Negatives are epistemically weak — "never triggers" has unbounded scope. A follow-on now questions whether the boundary set earns its paid trials.
+- *For the next agent:* the 0/3 rungs are genuine reds — precursor-stall is real product work (the skill-tuning follow-on), not a curiosity. To verify any eval change, run `pass-cli run --env-file .env -- pnpm eval trigger-agentic --disable-console-intercept` — the `--disable-console-intercept` is required or vitest swallows the per-case rate lines on passing tests.

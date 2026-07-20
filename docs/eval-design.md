@@ -241,7 +241,9 @@ models occasionally emit tool calls with **malformed JSON arguments**; `callMode
 (`invalidArguments`) and the loop feeds back an invalid-arguments error instead of crashing the
 trial.
 
-Run: `pnpm eval trigger-agentic`. Filter to a case subset with `-t <case-name-regex>`;
+Run: `pnpm eval trigger-agentic --disable-console-intercept` — the flag is required or vitest
+swallows the per-case rate/trail `console.log` lines on passing tests, so the observational rungs
+print nothing. Filter to a case subset with `-t <case-name-regex>`;
 `WEAVER_EVAL_TRIALS=1` for spot checks; `WEAVER_EVAL_DEBUG=1` dumps the full turn-by-turn exchange
 (initial prompt, each model turn, each fed-back result) for diagnosing non-convergence. Test titles
 carry full case names (`chaiConfig.truncateThreshold: 0` in `vitest.llm.config.ts` — the default
