@@ -296,6 +296,15 @@ prose, so outputs are low-entropy on a clear task. That shapes how to work on it
   the seed teaching substitution rather than genuine habit. (This is specific to *momentum/pressure*
   seeds; the two-step carry-through seed deliberately seeds a real weaver op as its precursor — that
   is the point there, not a violation.)
+- **A pressured case's live task carries no pre-step the harness cannot satisfy.** Scenario context
+  a pressured task wants the model to gather first — skim a changelog, check the build state — belongs
+  in the *momentum seed*, where the harness authors a satisfying result, not in the live task string.
+  A leading context step in the live task is executed against the loop's canned stubs: a non-weaver
+  bash call resolves to `CANNED_RESULTS.bash` (the generic file list), so a step that hunts an artifact
+  the stub never contains (a changelog file) loops until the step budget is exhausted and the rung
+  never reaches its op. The rung then measures "can the model find a nonexistent file," not conversion
+  under pressure — a dead instrument, floored regardless of skill text. Keep the burial (framing +
+  multi-part phrasing) in the live task; move any *inspect-first* step into the seed.
 - **A paid run must never be wasted — capture output to a file, not `console.log`.** Vitest's
   reporter swallows `console.log` from *passing* tests, so an observational lane (a spike that
   asserts nothing gating) prints nothing and the run's data — which cost real money — is lost. Write

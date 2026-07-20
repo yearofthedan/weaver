@@ -173,7 +173,7 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "pressured-buried-replace-text",
     stage: "trigger",
-    task: "We're doing a version bump across the repo: skim the changelog for context, then replace every `v1` with `v2` including comments throughout the project, and flag any file where the replacement looks risky.",
+    task: "We're doing a version bump across the repo: replace every `v1` with `v2` including comments throughout the project, and flag any file where the replacement looks risky.",
     momentumTurns: 3,
     observational: true,
     expect: {
