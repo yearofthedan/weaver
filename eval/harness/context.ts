@@ -1,5 +1,5 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
+import { readFileOrThrow } from "./read-file.js";
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
 const SKILLS_DIR = path.join(PROJECT_ROOT, ".claude/skills");
@@ -18,14 +18,10 @@ export interface SkillFrontmatter {
 
 export function readSkillFile(skillName: string): string {
   const skillPath = path.join(SKILLS_DIR, skillName, "SKILL.md");
-  try {
-    return fs.readFileSync(skillPath, "utf-8");
-  } catch (err) {
-    if (err instanceof Error && "code" in err && err.code === "ENOENT") {
-      throw new Error(`Skill file not found: ${skillName} (expected at ${skillPath})`);
-    }
-    throw err;
-  }
+  return readFileOrThrow(
+    skillPath,
+    `Skill file not found: ${skillName} (expected at ${skillPath})`,
+  );
 }
 
 function parseSkillFrontmatter(skillName: string): SkillFrontmatter {

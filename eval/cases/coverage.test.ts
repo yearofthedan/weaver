@@ -1,11 +1,8 @@
 import { readdirSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { OPERATION_NAMES } from "../../src/daemon/dispatcher.js";
-import { operationToSubcommand } from "../harness/fixtures.js";
+import { FIXTURES_DIR, operationToSubcommand } from "../harness/fixtures.js";
 import { CASES } from "./cases.js";
-
-const FIXTURES_DIR = join(import.meta.dirname, "../fixtures");
 
 const commandCases = CASES.filter((c) => c.stage === "command");
 const commandSubcommands = new Set(commandCases.map((c) => c.expect.command).filter(Boolean));

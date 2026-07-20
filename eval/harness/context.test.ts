@@ -22,28 +22,6 @@ describe("readSkillFile", () => {
   it("throws the friendly not-found message for a missing skill", () => {
     expect(() => readSkillFile("nonexistent-skill")).toThrow("Skill file not found");
   });
-
-  it("re-throws the original error unchanged when the read fails for a reason other than a missing file", () => {
-    const eacces = Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
-    vi.mocked(fs.readFileSync).mockImplementationOnce(() => {
-      throw eacces;
-    });
-    expect(() => readSkillFile("weaver-refactor")).toThrow("EACCES: permission denied");
-  });
-
-  it("re-throws a thrown value as-is when it carries an ENOENT code but is not an Error instance", () => {
-    const nonError = { code: "ENOENT" };
-    vi.mocked(fs.readFileSync).mockImplementationOnce(() => {
-      throw nonError;
-    });
-    let caught: unknown;
-    try {
-      readSkillFile("weaver-refactor");
-    } catch (err) {
-      caught = err;
-    }
-    expect(caught).toBe(nonError);
-  });
 });
 
 describe("parseSkillFrontmatter (via skillFrontmatters)", () => {
