@@ -54,6 +54,9 @@ importers:
       '@volar/language-core':
         specifier: 2.4.28
         version: 2.4.28
+      '@yearofthedan/weaver':
+        specifier: file:.
+        version: 'file:'
       husky:
         specifier: 9.1.7
         version: 9.1.7
@@ -821,6 +824,11 @@ packages:
 
   '@vue/shared@3.5.35':
     resolution: {integrity: sha512-zSbjL7gRXwks2ZQLRGCajBtBXEOXW9Ddhn/HvSdrGkE2dqGnumzW8XtusRrxrE9LvqtiqDXQ+A60Hp6mvdYxfA==}
+
+  '@yearofthedan/weaver@file:':
+    resolution: {directory: '', type: directory}
+    engines: {node: '>=22', pnpm: '>=11'}
+    hasBin: true
 
   ajv@8.18.0:
     resolution: {integrity: sha512-PlXPeEWMXMZ7sPYOHqmDyCJzcfNrUr3fGNKtezX14ykXOEIvyK81d+qydx89KY5O71FKMPaQ2vBfBFI5NHR63A==}
@@ -2317,6 +2325,17 @@ snapshots:
       picomatch: 4.0.4
 
   '@vue/shared@3.5.35': {}
+
+  '@yearofthedan/weaver@file:':
+    dependencies:
+      '@volar/typescript': 2.4.28
+      '@vue/language-core': 3.3.6
+      chokidar: 5.0.0
+      commander: 15.0.0
+      safe-regex2: 5.1.1
+      ts-morph: 28.0.0
+      typescript: 6.0.3
+      zod: 4.4.3
 
   ajv@8.18.0:
     dependencies:
