@@ -62,6 +62,8 @@ Tasks in `docs/handoff.md` carry one of four tags:
 - **`[needs design]`** — problem understood, solution not agreed. Run `/spec` first — it picks the right template, walks through ACs with the user, and produces a ready-to-implement file. When adding new work discovered during a session, add a `[needs design]` entry and move on — do not spec it in the same session.
 - **spec link** — already designed, run `/slice` to implement.
 
+`/spec` sessions stay frontier-led — design judgment is where a weaker model silently makes an expensive wrong call. A Sonnet-class orchestrator is only for `/slice` on a task that already has a finished spec, where the work is mechanical.
+
 A `[needs investigation]` or `[needs design]` task cannot be downgraded to a direct fix by *claiming* you already know the cause or the design — the tag is lowered only by running the discipline (`/investigate` or `/spec`) and recording its result.
 
 Before writing a spec, ask: (1) does planning add safety? (real architectural choices, multiple code paths, meaningful risk) and (2) will an archived spec be a useful future reference? (the "why" isn't visible in the output itself). If neither is true, use `[chore]`.

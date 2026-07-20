@@ -28,8 +28,7 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
    For each unresolved decision:
    - Read the relevant source files to understand the current architecture
    - Evaluate the approaches against the system's existing patterns and constraints
-   - If the user is in the loop, present the tradeoffs and get their call
-   - If autonomous, choose the approach that prioritises correctness over convenience
+   - Present the tradeoffs to the user and get their call. An open architectural decision is never resolved by the orchestrator alone — this holds however capable the orchestrator model is, so a Sonnet-class orchestrator does not lower the bar. If the user is unavailable, dispatch the built-in `Plan` agent with `model: "opus"` to evaluate the fork and record its reasoning in the spec.
 
    **Document the decision** in the spec file: replace the open question with the chosen approach, the reasoning, and the consequences (what this enables, what it rules out, what to watch for). This becomes the implementation instruction for the execution agent. Never forward an unresolved architectural fork to the execution agent — it is optimised for mechanical code changes, not design judgment.
 
@@ -52,6 +51,7 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
    - Verify the batch's commits exist and `pnpm check` passes
    - **Review the batch.** Run `/review-changes <this-batch-start-sha>..HEAD` on just this batch's commits and apply the fixes before moving on. Reviewing per batch — not once at the end — catches issues while they are cheap: before later batches build on them, and especially before a destructive or irreversible batch (deletions, migrations, dependency removal) runs against a problem the build-up introduced. It also surfaces problems through interactive follow-up that a single end-of-slice pass misses. Scrutinise anything the execution agent did beyond the batch's stated scope.
    - If the agent reported assumptions or spec mismatches, decide whether to adjust the next batch's instructions, fix something, or ask the user
+   - **Spec-reality tripwire.** If a batch fails for reasons that require changing an AC's *interface* — the shape it exposes to callers (signature, parameters, return type, error contract), not just how it is implemented — stop. Do not adapt the interface in-flight and carry on. Escalate to the user (or, if unavailable, the `Plan` agent per step 3's rule), record the resolution in the spec, then resume. An interface that drifts mid-slice leaves the spec describing something the code no longer does.
 
 4. **Final cross-batch review pass.** The per-batch reviews in step 3 do the heavy lifting; this pass catches interactions *between* batches that no single batch review could see (e.g. a late batch deletes something an early batch still depends on). Run `/review-changes <baseline-sha>..HEAD` over the whole task, apply any fixes, and commit. For a single-batch task the per-batch review already covered this — the final pass is then redundant. Skip entirely for `[chore]` tasks.
 
