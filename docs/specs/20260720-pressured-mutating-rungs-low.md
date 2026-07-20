@@ -123,6 +123,37 @@ without confounding — and deciding how much of each rung's low read is a case-
 artifact worth removing vs a genuine skill-text signal worth preserving — is a
 design call. The `/spec` pass owns the experiment plan.
 
+## Resolution log (per rung, one at a time)
+
+### search-text — RESOLVED (case-scenario reshape), 2026-07-20
+
+Single-variable A/Bs, n=6 each:
+
+1. **Driver = seed depth.** Same task at `momentumTurns` 1 → **6/6**; at 3 → **0/6**.
+   The `weaver-search-and-replace` description triggers fine for a TODO search at
+   depth-1; it collapses only under the depth-3 seed. So the description is *not* the
+   weak link.
+2. **Description tuning is not the lever.** Front-loading the grep-substitution
+   directive in the description, at depth-3 → **1/6** (from 0/6) — noise. Reverted.
+3. **Root cause = rung-design mismatch.** The original task (count TODO comments in a
+   clean fixture) is one where `grep -n` is *legitimately adequate*, so no honest
+   skill text makes weaver preferred — the model greps rationally. Contrast
+   replace-text (same skill, loads@1 every trial): weaver is decisively better than
+   `sed` for a bulk replace, so the model reaches for it. The asymmetry is the model
+   correctly weighing how much better weaver is per task, not the description failing.
+4. **Fix = reshape the task so weaver's edge is real.** New task: an exhaustive
+   `apiKey` audit needing exact file/line/col across source+config+env, scoped to own
+   code (not deps), feeding a downstream script — a search where weaver's structured,
+   complete, workspace-scoped output genuinely beats grep. At depth-3 → **~67%**
+   (5/6, 3/6, 4/6 across wording variants = 12/18; the variants are within n=6 noise).
+   Case-table edit only; description untouched; the task stays honest.
+
+Classification: **case-scenario fix, not skill-text** — same class as the changelog
+fix. ~67% is a healthy mid-range discriminator (can move both directions when the
+skill changes), not a floored dead instrument.
+
+### rename — pending (next). ### replace-text residual — pending.
+
 ## Security
 
 - **Workspace boundary:** N/A — eval-only case-table/skill-text data; no file

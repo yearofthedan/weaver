@@ -186,13 +186,13 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "pressured-buried-search-text",
     stage: "trigger",
-    task: "I'm doing a cleanup pass before the sprint review: check the recent commits for context, then find all the TODO comments in the project with file, line number, and surrounding context, and summarize how many there are.",
+    task: "I'm auditing secret usage: check the recent commits for context, then find every reference to `apiKey` across the whole project — source, config, and env files — with the exact file, line, and column for each. I'm feeding the list into a remediation script, so it has to be exhaustive and scoped to our own code, not dependencies.",
     momentumTurns: 3,
     observational: true,
     expect: {
       skill: "weaver-search-and-replace",
       command: "search-text",
-      keyArgs: { pattern: "TODO" },
+      keyArgs: { pattern: "apiKey" },
     },
   },
   {
