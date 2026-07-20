@@ -182,12 +182,17 @@ one case's task string (`eval/cases/cases.ts`) + a failure-class rule in
   for the next agent: when a fix direction proposes new machinery to *supply* a
   capability, first check whether an existing harness path already supplies it —
   here `buildHabitMomentumSeed` did.
-- *Instrument value, honestly.* Post-fix the rung sits at ceiling (3/3), so it is a
-  *regression canary* for the `weaver-search-and-replace` conversion path (fires on
-  a drop), not a fine-grained good-vs-better discriminator. Before the fix it
-  signalled nothing (floored for a scenario reason). Whether the pressured ladder
-  has enough mid-range discriminators vs ceiling canaries is a real open question —
-  it belongs to the "pressured mutating rungs read low" item, not here.
+- *Instrument value, honestly.* The n=3 verification read 3/3 — but a later n=6
+  baseline (2026-07-20, "pressured mutating rungs" investigation) observed **2/6**,
+  combined 5/9. So the "sits at ceiling" reading above was n=3 optimism, corrected
+  here: the rung is mid-range, not at ceiling. The changelog fix itself holds — at
+  n=6 every trail still loads the skill@1 and runs `weaver search-text` correctly.
+  The residual failures do not reach `replace-text`; the trails show the model
+  reading each file after searching, which *plausibly* services the task's "flag any
+  file where the replacement looks risky" tail (observed mechanism; not isolated by
+  A/B, so a theory, not a confirmed driver). Net: the changelog blocker is removed,
+  and a separate, milder cause is now visible and owned by the "pressured mutating
+  rungs read low" investigation.
 - *Scope discipline paid off.* Touching only `replace-text` kept this fix from
   confounding that separate item's one-change-at-a-time A/B on `rename`/`search-text`.
 - Test count added: 0 (case-data + doc fix; no unit-testable seam). Mutation: N/A
