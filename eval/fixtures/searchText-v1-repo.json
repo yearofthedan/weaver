@@ -1,0 +1,75 @@
+{
+  "status": "success",
+  "matches": [
+    {
+      "file": "/tmp/weaver-eval/src/api.ts",
+      "line": 1,
+      "col": 21,
+      "matchText": "v1",
+      "context": [
+        { "line": 1, "text": "const BASE_PATH = '/api/v1/users';", "isMatch": true },
+        { "line": 2, "text": "export function fetchUser(id: string) {", "isMatch": false }
+      ]
+    },
+    {
+      "file": "/tmp/weaver-eval/src/api.ts",
+      "line": 7,
+      "col": 5,
+      "matchText": "v1",
+      "context": [
+        { "line": 6, "text": "  // legacy v1 endpoint — remove after migration", "isMatch": false },
+        { "line": 7, "text": "  const legacy = 'v1';", "isMatch": true },
+        { "line": 8, "text": "  return legacy;", "isMatch": false }
+      ]
+    },
+    {
+      "file": "/tmp/weaver-eval/src/auth.ts",
+      "line": 3,
+      "col": 24,
+      "matchText": "v1",
+      "context": [
+        { "line": 2, "text": "", "isMatch": false },
+        { "line": 3, "text": "const API_VERSION = 'v1';", "isMatch": true },
+        { "line": 4, "text": "", "isMatch": false }
+      ]
+    },
+    {
+      "file": "/tmp/weaver-eval/src/utils.ts",
+      "line": 4,
+      "col": 20,
+      "matchText": "v1",
+      "context": [
+        {
+          "line": 3,
+          "text": "// build tag — do not confuse with the API version",
+          "isMatch": false
+        },
+        { "line": 4, "text": "const BUILD_TAG = 'v10';", "isMatch": true },
+        { "line": 5, "text": "", "isMatch": false }
+      ]
+    },
+    {
+      "file": "/tmp/weaver-eval/src/utils.ts",
+      "line": 9,
+      "col": 25,
+      "matchText": "v1",
+      "context": [
+        { "line": 8, "text": "", "isMatch": false },
+        { "line": 9, "text": "const SCHEMA_VERSION = 'v1.2';", "isMatch": true },
+        { "line": 10, "text": "", "isMatch": false }
+      ]
+    },
+    {
+      "file": "/tmp/weaver-eval/config.json",
+      "line": 2,
+      "col": 17,
+      "matchText": "v1",
+      "context": [
+        { "line": 1, "text": "{", "isMatch": false },
+        { "line": 2, "text": "  \"apiVersion\": \"v1\",", "isMatch": true },
+        { "line": 3, "text": "  \"name\": \"eval-fixture\"", "isMatch": false }
+      ]
+    }
+  ],
+  "truncated": false
+}

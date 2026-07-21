@@ -170,10 +170,16 @@ export const CASES: CaseEntry[] = validateCases([
     expect: { skill: "weaver-refactor", command: "rename", keyArgs: { newName: "accountId" } },
     cannedResults: { "search-text": loadFixture("searchText-userId.json") },
   },
+  // Two realistic phrasings of the same repo-wide bump, sharing one fixture. The
+  // active form ends with an explicit imperative ("go ahead and apply it"); the
+  // passive form states the change as intent with no action push. The passive
+  // form is the harder discriminator — whether the model still converts to the
+  // mutating op from a declarative ask is a real signal about phrasing, lifted
+  // (if at all) by honest skill-body guidance, never by tuning the wording.
   {
-    name: "pressured-buried-replace-text",
+    name: "pressured-buried-replace-text-active",
     stage: "trigger",
-    task: "We're doing a version bump across the repo: replace every `v1` with `v2` including comments throughout the project, and flag any file where the replacement looks risky.",
+    task: "We're doing a version bump across the repo: replace every `v1` with `v2`, comments included — just not the ones that are part of something like `v10` or `v1.2`. Go ahead and apply it across the project.",
     momentumTurns: 3,
     observational: true,
     expect: {
@@ -181,7 +187,20 @@ export const CASES: CaseEntry[] = validateCases([
       command: "replace-text",
       keyArgs: { replacement: "v2" },
     },
-    cannedResults: { "search-text": loadFixture("searchText-v1.json") },
+    cannedResults: { "search-text": loadFixture("searchText-v1-repo.json") },
+  },
+  {
+    name: "pressured-buried-replace-text-passive",
+    stage: "trigger",
+    task: "We're doing a version bump across the repo: replace every `v1` with `v2`, comments included.",
+    momentumTurns: 3,
+    observational: true,
+    expect: {
+      skill: "weaver-search-and-replace",
+      command: "replace-text",
+      keyArgs: { replacement: "v2" },
+    },
+    cannedResults: { "search-text": loadFixture("searchText-v1-repo.json") },
   },
   {
     name: "pressured-buried-search-text",
