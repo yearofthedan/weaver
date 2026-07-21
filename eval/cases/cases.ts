@@ -164,7 +164,7 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "pressured-buried-rename",
     stage: "trigger",
-    task: "I'm cleaning up the auth module before the release: check what's currently exported from it, then rename `userId` to `accountId` across the project since we've standardized on the new naming, and note anything else that looks inconsistent while you're in there.",
+    task: "I'm cleaning up the auth module before the release: check what's currently exported from it, then rename `userId` in `/tmp/weaver-eval/src/auth.ts` to `accountId` across the project since we've standardized on the new naming, and note anything else that looks inconsistent while you're in there.",
     momentumTurns: 3,
     observational: true,
     expect: { skill: "weaver-refactor", command: "rename", keyArgs: { newName: "accountId" } },
