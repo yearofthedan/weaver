@@ -362,6 +362,79 @@ describe("matchWeaverCommand", () => {
     });
   });
 
+  describe("path key args", () => {
+    it("accepts a workspace-relative path when the model cd'd into the workspace", () => {
+      const result = matchWeaverCommand(
+        'weaver move-directory \'{"oldPath":"src/utils","newPath":"src/lib/helpers"}\'',
+        "move-directory",
+        { oldPath: "/tmp/weaver-eval/src/utils" },
+      );
+      expect(result.matched).toBe(true);
+    });
+
+    it("accepts the absolute path form unchanged", () => {
+      const result = matchWeaverCommand(
+        'weaver move-directory \'{"oldPath":"/tmp/weaver-eval/src/utils"}\'',
+        "move-directory",
+        { oldPath: "/tmp/weaver-eval/src/utils" },
+      );
+      expect(result.matched).toBe(true);
+    });
+
+    it("rejects a different directory whose name is not a trailing segment", () => {
+      const result = matchWeaverCommand(
+        'weaver move-directory \'{"oldPath":"src/wrong"}\'',
+        "move-directory",
+        { oldPath: "/tmp/weaver-eval/src/utils" },
+      );
+      expect(result.matched).toBe(false);
+      expect(result.outcome).toBe("wrong-args");
+    });
+
+    it("requires a segment boundary — a bare substring of the final segment does not match", () => {
+      const result = matchWeaverCommand('weaver delete-file \'{"file":"ils.ts"}\'', "delete-file", {
+        file: "/tmp/weaver-eval/src/utils.ts",
+      });
+      expect(result.matched).toBe(false);
+    });
+
+    it("applies suffix matching to the file key too, not just oldPath", () => {
+      const result = matchWeaverCommand(
+        'weaver delete-file \'{"file":"src/old-helper.ts"}\'',
+        "delete-file",
+        { file: "/tmp/weaver-eval/src/old-helper.ts" },
+      );
+      expect(result.matched).toBe(true);
+    });
+
+    it("falls back to exact equality for a non-string actual value (no coercion into a suffix match)", () => {
+      // A model could emit a bare number; endsWith would coerce it and wrongly
+      // match `/tmp/x/42`. The type guard prevents that.
+      const result = matchWeaverCommand("weaver delete-file '{\"file\":42}'", "delete-file", {
+        file: "/tmp/x/42",
+      });
+      expect(result.matched).toBe(false);
+    });
+
+    it("falls back to exact equality for a non-string expected value", () => {
+      const result = matchWeaverCommand('weaver delete-file \'{"file":"x/42"}\'', "delete-file", {
+        file: 42,
+      });
+      expect(result.matched).toBe(false);
+    });
+
+    it("keeps a slash-containing non-path key exact — a trailing segment does not match", () => {
+      // `replacement` can legitimately contain `/`, so it must not be suffix-matched:
+      // emitting "bar" for an expected "foo/bar" is a different replacement.
+      const result = matchWeaverCommand(
+        'weaver replace-text \'{"replacement":"bar"}\'',
+        "replace-text",
+        { replacement: "foo/bar" },
+      );
+      expect(result.matched).toBe(false);
+    });
+  });
+
   describe("malformed JSON", () => {
     it("does not match when the JSON argument does not parse", () => {
       const result = matchWeaverCommand("weaver rename 'not-json'", "rename");

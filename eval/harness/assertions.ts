@@ -1,5 +1,14 @@
 import type { ToolCall } from "./call-model.js";
 
+/**
+ * Key args whose value is a filesystem path. These are compared by trailing
+ * path segment rather than exact string, because a model legitimately `cd`s
+ * into the workspace and passes a workspace-relative path — `cd /ws && weaver
+ * move-directory '{"oldPath":"src/x"}'` targets the same directory as the
+ * absolute `/ws/src/x`. Non-path key args (`newName`, `pattern`, …) stay exact.
+ */
+const PATH_KEY_ARGS = new Set(["oldPath", "newPath", "file", "sourceFile", "destFile"]);
+
 export type CommandOutcome = "correct" | "wrong-tool" | "wrong-args";
 
 export interface WeaverCommandMatch {
@@ -152,7 +161,10 @@ function classifyCommand(
           reason: `missing key arg "${key}" in ${JSON.stringify(parsed)}`,
         };
       }
-      if (parsed[key] !== expected) {
+      const argMatches = PATH_KEY_ARGS.has(key)
+        ? pathArgMatches(expected, parsed[key])
+        : parsed[key] === expected;
+      if (!argMatches) {
         return {
           matched: false,
           reason: `wrong key arg value for "${key}": expected ${JSON.stringify(expected)}, got ${JSON.stringify(parsed[key])}`,
@@ -162,6 +174,22 @@ function classifyCommand(
   }
 
   return { matched: true };
+}
+
+/**
+ * Compares a path-valued key arg, accepting the workspace-relative form a model
+ * emits after `cd`-ing into the workspace. `expected` is the case-authored
+ * absolute path; `actual` matches when it equals `expected` or is a trailing
+ * path-segment suffix of it (`src/utils` vs `/ws/src/utils`). The leading `/`
+ * in the suffix check enforces a segment boundary, so `ils.ts` does not match
+ * `/ws/src/utils.ts` while `utils.ts` does. A different directory (`src/wrong`)
+ * is still rejected. Non-string values fall back to exact equality.
+ */
+function pathArgMatches(expected: unknown, actual: unknown): boolean {
+  if (typeof expected !== "string" || typeof actual !== "string") {
+    return expected === actual;
+  }
+  return expected === actual || expected.endsWith(`/${actual}`);
 }
 
 // A double-quoted argument usually carries bash-escaped inner quotes
