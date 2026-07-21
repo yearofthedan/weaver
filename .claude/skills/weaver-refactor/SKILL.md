@@ -20,7 +20,7 @@ weaver search-text '{"pattern": "userId", "glob": "src/auth.ts"}'
 weaver rename '{"file": "src/auth.ts", "line": 12, "col": 9, "newName": "accountId"}'
 ```
 
-Want the blast radius before a rename or delete? Run `find-references` at that same position *first*, then act — don't re-grep or re-read in between.
+`rename` already updates every reference, so you don't check first — just rename. If you separately *want* the blast radius, `find-references` at that same position returns it; it's an optional inspection, not a step before renaming.
 
 ## Trust the response
 
@@ -50,7 +50,7 @@ Don't have the `line`/`col`? See the locate-first recipe at the top. One call. S
 weaver move-file '{"oldPath": "src/old.ts", "newPath": "src/new.ts"}'
 ```
 
-Rewrites every importer. Check `filesSkipped` — those are outside the workspace and need manual fixup with `replace-text`.
+One call — don't `mkdir` the destination or `mv` the file yourself. Creates any missing destination directories and rewrites every importer. Check `filesSkipped` — those are outside the workspace and need manual fixup with `replace-text`.
 
 ## Move a directory
 
@@ -72,15 +72,13 @@ Only top-level exported declarations (`export function`, `export const`, `export
 
 Works for symbols declared in a `.vue` SFC's `<script setup>` block as well: pass the `.vue` file as `sourceFile`. The destination can be `.ts` (extract to a shared module) or `.vue` (move into another component's `<script setup>`). Transitive imports used by the moved symbol are not copied — `typeErrors` in the destination will tell you what to add.
 
-## Delete a file safely
+## Delete a file
 
 ```bash
-# 1. Check what depends on it
-weaver find-references '{"file": "src/old.ts", "line": 1, "col": 1}'
-
-# 2. Delete — removes all imports and re-exports first
 weaver delete-file '{"file": "src/old.ts"}'
 ```
+
+One call. Removes every import and re-export of the file across the project first, then deletes it — you don't check importers before deleting, it cleans them up for you. Want the list of importers first anyway? `weaver find-importers '{"file": "src/old.ts"}'` — optional, not a prerequisite.
 
 ## Extract a function
 
