@@ -152,7 +152,51 @@ Classification: **case-scenario fix, not skill-text** — same class as the chan
 fix. ~67% is a healthy mid-range discriminator (can move both directions when the
 skill changes), not a floored dead instrument.
 
-### rename — pending (next). ### replace-text residual — pending.
+### rename — RESOLVED (problem-shaped skill rewrite + case reshape), 2026-07-21
+
+Single-variable A/Bs, n=6. Final: **6/6** (from 0/6), three sharp skills intact, no
+dilution, boundary clean.
+
+Diagnosis path (each step isolated):
+1. **Not seed-driven:** 0/6 at depth-1 *and* depth-3 → intrinsic.
+2. **Two coupled blockers:** the task withheld the file (vague "auth module" → the
+   model burned its budget hunting the file), and the model wouldn't cross skills to
+   locate.
+3. **Give the file, not the coords** (realistic — agents know the file, not the
+   line): 0/6 → **4/6 on the merged skill**, but still **0/6 on three skills** — on
+   three skills the model loads `weaver-refactor`, needs the position, and *greps*,
+   because the refactor skill neither advertised nor contained the locate step.
+4. **Merge to one skill:** got the composition (4/6) but **diluted the descriptions**
+   — `todos-grep` and `get-type-errors` regressed to 0/3 (one description can't hold
+   every per-op trigger).
+5. **Problem-shaped rewrite of `weaver-refactor`** (description advertises "locates it
+   for you if you don't have the line/col"; body carries a 2-step `search-text →
+   rename` recipe): **6/6**. Regression clean — 9/9 light triggers 3/3 (incl.
+   todos-grep, get-type-errors), both boundary cases 3/3.
+
+Fix shipped: (1) `weaver-refactor` rewritten — description owns the whole problem,
+body has the locate-first recipe. (2) `cases.ts` — the pressured rename task names
+the file but not the line/col.
+
+Durable learnings (these cost real paid runs — keep them):
+- **A skill's description frames what the model consults it for.** Putting
+  `search-text` in the refactor *body* did nothing (0/6) until the *description*
+  advertised locating — then the model reached for it (6/6).
+- **A tool can live in multiple skills as a precursor** (`search-text`: primary in
+  search-and-replace, locate-precursor in refactor). Overlap is correct; a strict
+  one-tool-one-skill partition breaks cross-skill recipes. This is the validated core
+  of the "problem-shaped skills" idea.
+- **Merging to one skill trades composition for trigger dilution.** The merge fixed
+  rename but broke two gating triggers. Problem-shaped skills (sharp per-domain
+  descriptions + overlapping precursor tools) get the composition without the cost.
+- **A 3-step recipe with `find-references` as a code-block step invites a detour** —
+  the model runs it, stalls verifying, never converts (1/6). Demote it to a trailing
+  note; 2-step `search → rename` direct converts cleanly (6/6).
+- **Infra:** the LLM lane's per-test timeout bit three runs this session (rename @120s,
+  console-log boundary @300s). Boundary cases always run the full step budget, so
+  they time out first. Raise `testTimeout` in `eval/vitest.llm.config.ts`.
+
+### replace-text residual — pending (the "flag risky" tail; observational, ~2/6, does not gate).
 
 ## Security
 
