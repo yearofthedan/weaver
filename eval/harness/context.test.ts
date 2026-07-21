@@ -155,8 +155,12 @@ describe("skillContext", () => {
 
   it("does NOT include content for unrequested skills", () => {
     const prompt = skillContext(["weaver-refactor"]);
-    expect(prompt).not.toContain("weaver search-text");
-    expect(prompt).not.toContain("weaver replace-text");
+    // Sentinels are the other skills' unique H1 headings, not tool names: tool
+    // names deliberately overlap across skills (e.g. weaver-refactor references
+    // `search-text` as a locate precursor), so a tool name no longer proves a
+    // skill's body is absent.
+    expect(prompt).not.toContain("Search and Replace Across Files");
+    expect(prompt).not.toContain("# Code Inspection");
   });
 
   it("throws when a named skill file does not exist", () => {

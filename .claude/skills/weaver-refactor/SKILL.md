@@ -1,11 +1,26 @@
 ---
 name: weaver-refactor
-description: Use when refactoring across files — renaming a symbol, moving a file or directory, moving an export between files, deleting a file that has importers, or extracting a function. Before using mv, rm, or manual import fixup.
+description: Rename, move, or restructure a symbol or file across the codebase — rename a symbol everywhere, move a file/directory/export, delete a file with importers, extract a function. If you don't have the symbol's line/col, it locates it for you first. Rewrites every import, re-export, and reference that mv, rm, sed, or manual edits miss — including across Vue SFCs.
 ---
 
 # Refactor Across Files
 
 **STOP.** If you're about to `mv` a file, `rm` a file that has importers, rename a symbol used in other files, or extract a function by hand — use these commands instead. They rewrite every import, re-export, and barrel-file reference — including across Vue SFCs — that grep, sed, and Edit miss.
+
+## No `line`/`col`? Locate with `search-text` first — don't grep.
+
+`rename` (and the `find-references` impact check) take a symbol's `file`/`line`/`col`. If you don't have them, **`search-text` returns exactly that shape** — locate first, then act at the returned position. **The returned `{file, line, col}` is the proof: pass it straight to the next command. Do not `grep`, `cat`, or re-open the file to re-confirm the match — that just burns your budget before you act.**
+
+```bash
+# 1. Locate the symbol in the file it lives in — returns {file, line, col}.
+#    Scope the glob to that file; don't broad-hunt the whole tree.
+weaver search-text '{"pattern": "userId", "glob": "src/auth.ts"}'
+
+# 2. Rename at the returned position — one call, updates every reference
+weaver rename '{"file": "src/auth.ts", "line": 12, "col": 9, "newName": "accountId"}'
+```
+
+Want the blast radius before a rename or delete? Run `find-references` at that same position *first*, then act — don't re-grep or re-read in between.
 
 ## Trust the response
 
@@ -27,7 +42,7 @@ description: Use when refactoring across files — renaming a symbol, moving a f
 weaver rename '{"file": "src/a.ts", "line": 5, "col": 3, "newName": "bar"}'
 ```
 
-One call. Scope-aware — won't touch unrelated identifiers that share the same name. Check `typeErrors` in the response. For TypeScript renames, also review `nameMatches` — a complete list of identifiers in the modified files whose text still contains the old name as a substring (e.g. `tsProviderSingleton` after renaming `TsProvider`). Each entry has `file`, `line`, `col`, `name`, and `kind`. Use `replace-text` to update any derived names you want to change after reviewing the list.
+Don't have the `line`/`col`? See the locate-first recipe at the top. One call. Scope-aware — won't touch unrelated identifiers that share the same name. Check `typeErrors` in the response. For TypeScript renames, also review `nameMatches` — a complete list of identifiers in the modified files whose text still contains the old name as a substring (e.g. `tsProviderSingleton` after renaming `TsProvider`). Each entry has `file`, `line`, `col`, `name`, and `kind`. Use `replace-text` to update any derived names you want to change after reviewing the list.
 
 ## Move a file
 
