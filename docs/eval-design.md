@@ -255,6 +255,15 @@ message classifies via `matchWeaverCommand`:
 - `wrong-tool` — never reached the expected subcommand (no weaver at all, or a different op).
 - `wrong-args` — the right op was reached but a key arg is malformed, missing, or the wrong value.
 
+**Path key args are matched by trailing segment, not exact string.** A model legitimately `cd`s
+into the workspace and passes a workspace-relative path — `cd /ws && weaver move-directory
+'{"oldPath":"src/utils"}'` targets the same directory as the absolute `/ws/src/utils`. So path-typed
+keys (`oldPath`, `newPath`, `file`, `sourceFile`, `destFile`) match when the emitted value equals the
+expected absolute path *or* is a trailing path-segment suffix of it. A different directory
+(`src/wrong`) still fails. Non-path keys (`newName`, `pattern`, `replacement`, …) stay exact —
+`replacement` can contain `/`, so suffix-matching it would be wrong. Author the expected value in the
+case table as the absolute path; the suffix tolerance is the harness's, not the case's.
+
 **Frontmatter feeds the command prompt too.** `skillContext()` returns the **whole** SKILL.md
 including frontmatter, so a description edit aimed at the *trigger* stage also lands in every
 *command*-stage prompt — a trigger-routing fix can silently regress command args (e.g. rewording a
