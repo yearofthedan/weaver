@@ -268,6 +268,10 @@ The eval is a **black-box** behavioural test of a stochastic system — but a *n
 one: it exercises skill/tool **selection** and structured tool-call **arguments**, not free-form
 prose, so outputs are low-entropy on a clear task. That shapes how to work on it:
 
+- **Every case must be a task a real user would plausibly ask.** Before adding, removing, or
+  rewording a case, stop and ask: *is this a reasonable thing for someone to ask?* That is the test
+  that separates a legitimate clarity fix from tuning the instrument to pass — a phrasing kept or
+  cut for any reason other than realism is gaming, however much the rate moves.
 - **Run → observe → debug. Never predict-then-carve.** Write the assertion for the real flow, run
   it, watch what the model actually emits, debug from the result. Do not reason to what the model
   "should" emit and shape the assertion to match — reading engine source to *fix an expected model
@@ -279,7 +283,10 @@ prose, so outputs are low-entropy on a clear task. That shapes how to work on it
   assertion (e.g. a carried `line`/`col`) is legitimate and a red is far more likely real signal
   than sampling noise.
 - **Fixtures are the scenario.** The eval never runs real commands, so a fixture that diverges from
-  real CLI stdout tests a fiction — silently. Verify a fixture against real output, and make sure
+  real CLI stdout tests a fiction — silently. Fidelity is to the *scenario*, not just the format: a
+  result that contradicts the task's stated scope — too few hits for a "whole project" ask, missing
+  the substrings the task names — reads as incomplete and drives the model to re-verify in shell,
+  confounding the trail. Verify a fixture against real output, and make sure
   any downstream argument the eval asserts a model *carried* is exactly what the real upstream op
   *emits*. Worked example: the two-step search→rename carry-through asserts `line: 12, col: 9`.
   That is correct only because `search-text` emits 1-based `col = m.index + 1` (col 9 for `userId`
@@ -305,6 +312,15 @@ prose, so outputs are low-entropy on a clear task. That shapes how to work on it
   never reaches its op. The rung then measures "can the model find a nonexistent file," not conversion
   under pressure — a dead instrument, floored regardless of skill text. Keep the burial (framing +
   multi-part phrasing) in the live task; move any *inspect-first* step into the seed.
+- **An embedded secondary step gates the metric on that step, not the tool.** A pressured task
+  that asks the model to *report/flag/inspect before acting* ("flag the risky matches before you
+  apply") can read low even with sound skill text and a faithful fixture: the model reasonably does
+  the sub-step first, then stops at it or over-verifies (re-grep, re-read) until the budget is gone,
+  while a plain declarative ask for the same change converts freely. Diagnose by removing *only* the
+  suspected step and re-measuring. Integrity guard: removing a confounding step is a fair clarity
+  fix, but lifting a rate by rewording the ask until the model complies is tuning the instrument to
+  pass — the tell is a rate that moves only under a multi-change rewrite, not a single isolated
+  removal.
 - **A paid run must never be wasted — capture output to a file, not `console.log`.** Vitest's
   reporter swallows `console.log` from *passing* tests, so an observational lane (a spike that
   asserts nothing gating) prints nothing and the run's data — which cost real money — is lost. Write

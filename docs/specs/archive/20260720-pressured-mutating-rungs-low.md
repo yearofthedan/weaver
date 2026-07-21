@@ -196,7 +196,54 @@ Durable learnings (these cost real paid runs — keep them):
   console-log boundary @300s). Boundary cases always run the full step budget, so
   they time out first. Raise `testTimeout` in `eval/vitest.llm.config.ts`.
 
-### replace-text residual — pending (the "flag risky" tail; observational, ~2/6, does not gate).
+### replace-text residual — RESOLVED (embedded report step was the driver), 2026-07-21
+
+**Root cause: an embedded report step in the task, not the skill text or the
+fixture.** The original rung asked the model to "flag any file where the
+replacement looks risky" *before* applying. Triggering was always healthy (skill
+loads@1, `search-text` runs every trial); the failure was pure non-conversion. The
+report step is what suppressed it — the model completes the sub-step and then
+either treats the report as the deliverable and stops, or front-loads verification
+(re-grep, re-read every file) and exhausts the 6-step budget before it reaches
+`replace-text`.
+
+**How it was isolated (final n=6 reads):** a plain declarative bump with *no*
+report step converts at **6/6** (`replace-text@2` every trial); the same task with
+the report step reads **0–2/6**. That contrast — same fixture, the report clause
+the only difference — is what pins the driver. The tidy story only emerged at the
+end: earlier A/Bs bundled changes (a case-text reshape *and* a fixture swap *and*
+directness), which isolated nothing, and a mid-session theory that the low read was
+a *genuine* conversion limit (the model rightly hesitating before a destructive
+repo-wide replace) was **wrong** — disproved by the 6/6 plain ask.
+
+**Fixture fidelity was a necessary sub-fix.** The original `searchText-v1.json`
+returned 2 clean hits in one file for a "throughout the project" task and none of
+the `v10`/`v1.2` substrings the task named — so the model distrusted it and
+re-verified in shell. The dedicated `searchText-v1-repo.json` (6 matches across
+`api.ts`/`auth.ts`/`utils.ts`/`config.json`, including `v10`/`v1.2` in context) is
+faithful to the scenario. Necessary but not sufficient: with the report step still
+present, even the faithful fixture read 0/6.
+
+**Shipped shape — two realistic phrasings, skill body untouched:**
+- `pressured-buried-replace-text-active` — imperative bump with a light risk
+  *exclusion* ("not the ones part of `v10`/`v1.2`. Go ahead and apply it"): **5/6**,
+  a live discriminator. The model excludes the bad matches via surgical `edits` or a
+  word-boundary regex — correct behaviour; the surgical path shows `args:wrong-args`
+  (no top-level `replacement`) but still counts, since the rate keys on the
+  subcommand only.
+- `pressured-buried-replace-text-passive` — plain declarative bump, no report step:
+  **6/6**, a pressured control proving directness was never the driver.
+
+Both share `searchText-v1-repo.json`; the shared `searchText-v1.json` is left for
+the two light-trigger cases (`pattern`, `sed-tempting`). **No skill-text change** —
+the earlier hypothesis that the body needed a louder "don't grep on top" was made
+moot by the 6/6 plain ask (the re-grep lived only in the report-first phrasing).
+
+Integrity note: removing the report step is a *clarity* fix (it was a confounding
+extra step), not tuning to pass — confirmed by keeping the report-shaped ask alive
+as its own measured case rather than deleting it to lift a number. The governing
+test — "is this a reasonable thing for a user to ask?" — is now recorded in
+`docs/eval-design.md`.
 
 ## Security
 
@@ -226,3 +273,42 @@ Durable learnings (these cost real paid runs — keep them):
 
 The `/spec` pass then owns: per-rung fix design + the single-variable A/B plan,
 its own Done-when for the shipped edits.
+
+## Outcome
+
+All three rungs resolved (search-text, rename, replace-text — see the per-rung
+resolution logs above). Shipped as case-table + fixture edits; **no skill-text
+change** for any rung's final fix.
+
+**Verification (final, n=6 unless noted):**
+- search-text — ~67% (case reshape; live discriminator)
+- rename — 6/6 (problem-shaped `weaver-refactor` rewrite + case reshape)
+- replace-text — active 5/6, passive 6/6 (report step removed; faithful fixture
+  `searchText-v1-repo.json`)
+- `command-replace-text` and the two-step lane: green.
+
+**Discovered regression (logged, not fixed here):** the command lane re-run
+surfaced 3 stable temp-0 failures in `weaver-refactor` ops — `command-move-file`
+(emits `mkdir && mv`), `command-move-directory` (emits `mv`), `command-delete-file`
+(runs `find-importers`, never converts). Theory: the `3422c66` locate→rename
+rewrite over-emphasized the rename/impact-check flow and crowded out move/delete
+emission. Not isolated (needs a pre-rewrite `git` A/B). Filed as a `[needs
+investigation]` handoff entry; out of scope for this spec (a different skill).
+
+**Reflection:**
+- *What went well:* the two prior rungs' pattern (a case-design artifact, not skill
+  text, drives a low read) held for replace-text too. Keeping the report-shaped ask
+  alive as its own measured case — rather than deleting it to lift a number — is
+  what made the fix honest.
+- *What did not:* the replace-text A/Bs bundled multiple changes (case text + fixture
+  + directness) and isolated nothing until forced to a single-variable removal. The
+  driver was found late, and a mid-session "genuine conversion limit" theory was
+  wrong (the 6/6 plain ask disproved it). Change one element and re-measure — do not
+  accept a higher rate from a multi-change rewrite.
+- *For the next agent:* the governing case-design test — "is this a reasonable thing
+  for a user to ask?" — and the embedded-secondary-step driver are now in
+  `docs/eval-design.md` (Working discipline). The `weaver-refactor` command
+  regression is the next thing to pick up; start with the pre-rewrite `git` A/B.
+
+Test count: 0 unit tests (eval case-table + fixture data only; the harness invariant
+lane stays green at 378). Mutation: N/A (no source logic changed).
