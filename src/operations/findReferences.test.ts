@@ -109,8 +109,8 @@ describe("findReferences action", () => {
     it("resolves existence from the injected fs, not real disk", async () => {
       // Seed the file only in memory — it does not exist on disk, so the
       // laziest wrong impl (inline node:fs.existsSync) would throw FILE_NOT_FOUND.
-      const fs = new InMemoryFileSystem();
-      fs.writeFile("/ws/src/a.ts", "greetUser");
+      const memFs = new InMemoryFileSystem();
+      memFs.writeFile("/ws/src/a.ts", "greetUser");
       const compiler = makeMockCompiler({
         getReferencesAtPosition: async () => [
           { fileName: "/ws/src/a.ts", textSpan: { start: 0, length: 9 } },
@@ -118,7 +118,7 @@ describe("findReferences action", () => {
         readFile: () => "greetUser()",
       });
 
-      const result = await findReferences(compiler, "/ws/src/a.ts", 1, 1, fs);
+      const result = await findReferences(compiler, "/ws/src/a.ts", 1, 1, memFs);
 
       expect(result.symbolName).toBe("greetUser");
       expect(result.references).toHaveLength(1);
