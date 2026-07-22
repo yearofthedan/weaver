@@ -149,7 +149,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params) {
       const { file } = params as { file: string };
       const engine = await registry.projectEngine();
-      return findImporters(engine, file);
+      return findImporters(engine, file, new NodeFileSystem());
     },
   },
 
@@ -159,7 +159,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params) {
       const { file, line, col } = params as { file: string; line: number; col: number };
       const engine = await registry.projectEngine();
-      return findReferences(engine, file, line, col);
+      return findReferences(engine, file, line, col, new NodeFileSystem());
     },
   },
 
@@ -169,7 +169,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params) {
       const { file, line, col } = params as { file: string; line: number; col: number };
       const engine = await registry.projectEngine();
-      return getDefinition(engine, file, line, col);
+      return getDefinition(engine, file, line, col, new NodeFileSystem());
     },
   },
 

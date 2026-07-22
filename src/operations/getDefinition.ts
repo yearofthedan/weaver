@@ -1,7 +1,7 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { EngineError } from "../domain/errors.js";
+import type { FileSystem } from "../ports/filesystem.js";
 import type { Engine } from "../ts-engine/types.js";
+import { assertFileExists } from "../utils/assert-file.js";
 import { offsetToLineCol } from "../utils/text-utils.js";
 import type { GetDefinitionResult } from "./types.js";
 
@@ -10,12 +10,9 @@ export async function getDefinition(
   filePath: string,
   line: number,
   col: number,
+  fs: FileSystem,
 ): Promise<GetDefinitionResult> {
-  const absPath = path.resolve(filePath);
-
-  if (!fs.existsSync(absPath)) {
-    throw new EngineError(`File not found: ${filePath}`, "FILE_NOT_FOUND");
-  }
+  const absPath = assertFileExists(filePath, fs);
 
   const offset = compiler.resolveOffset(absPath, line, col);
   const defs = await compiler.getDefinitionAtPosition(absPath, offset);
