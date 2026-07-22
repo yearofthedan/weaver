@@ -129,5 +129,39 @@ export function conformanceSuite(
         expect(vfs.stat(p).isDirectory()).toBe(false);
       });
     });
+
+    describe("readdir", () => {
+      it("lists immediate child files by basename, classified as files", () => {
+        vfs.writeFile(`${root}/a.txt`, "");
+        vfs.writeFile(`${root}/b.txt`, "");
+        const entries = vfs.readdir(root);
+        expect(entries.map((e) => e.name).sort()).toEqual(["a.txt", "b.txt"]);
+        expect(entries.every((e) => e.isFile() && !e.isDirectory())).toBe(true);
+      });
+
+      it("lists a child directory once, classified as a directory, without recursing", () => {
+        vfs.mkdir(`${root}/sub`);
+        vfs.writeFile(`${root}/sub/c.txt`, "");
+        vfs.writeFile(`${root}/sub/d.txt`, "");
+        const entries = vfs.readdir(root);
+        const names = entries.map((e) => e.name);
+        expect(names).toContain("sub");
+        expect(names).not.toContain("c.txt");
+        expect(names.filter((n) => n === "sub")).toHaveLength(1);
+        const sub = entries.find((e) => e.name === "sub");
+        expect(sub?.isDirectory()).toBe(true);
+        expect(sub?.isFile()).toBe(false);
+      });
+
+      it("throws when the path does not exist", () => {
+        expect(() => vfs.readdir(`${root}/missing-dir`)).toThrow();
+      });
+
+      it("throws when the path is a file, not a directory", () => {
+        const p = `${root}/afile.txt`;
+        vfs.writeFile(p, "");
+        expect(() => vfs.readdir(p)).toThrow();
+      });
+    });
   });
 }

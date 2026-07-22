@@ -1,5 +1,5 @@
 import * as nodePath from "node:path";
-import type { FileSystem } from "./filesystem.js";
+import type { DirEntry, FileSystem } from "./filesystem.js";
 
 /**
  * In-memory file-system backed by a `Map<string, string>`.
@@ -65,6 +65,32 @@ export class InMemoryFileSystem implements FileSystem {
   stat(path: string): { isDirectory(): boolean } {
     const isDir = this.isDirectory(path);
     return { isDirectory: () => isDir };
+  }
+
+  readdir(path: string): DirEntry[] {
+    if (!this.isDirectory(path)) {
+      throw new Error(`ENOTDIR: not a directory: '${path}'`);
+    }
+    const prefix = path.endsWith("/") ? path : `${path}/`;
+    // name → isDirectory. A name is a directory if any key nests below it;
+    // a plain key with no further slash is a file. Directory wins on conflict.
+    const childIsDir = new Map<string, boolean>();
+    for (const key of this.store.keys()) {
+      if (!key.startsWith(prefix)) continue;
+      const rest = key.slice(prefix.length);
+      if (rest === "") continue; // the directory marker itself
+      const slash = rest.indexOf("/");
+      if (slash === -1) {
+        if (!childIsDir.has(rest)) childIsDir.set(rest, false);
+      } else {
+        childIsDir.set(rest.slice(0, slash), true);
+      }
+    }
+    return [...childIsDir].map(([name, isDir]) => ({
+      name,
+      isDirectory: () => isDir,
+      isFile: () => !isDir,
+    }));
   }
 
   private isDirectory(path: string): boolean {

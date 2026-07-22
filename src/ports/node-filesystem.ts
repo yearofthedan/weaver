@@ -1,6 +1,6 @@
 import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
-import type { FileSystem } from "./filesystem.js";
+import type { DirEntry, FileSystem } from "./filesystem.js";
 
 /**
  * Production implementation that delegates to `node:fs` synchronous methods
@@ -44,5 +44,9 @@ export class NodeFileSystem implements FileSystem {
 
   stat(path: string): { isDirectory(): boolean } {
     return nodeFs.statSync(path);
+  }
+
+  readdir(path: string): DirEntry[] {
+    return nodeFs.readdirSync(path, { withFileTypes: true });
   }
 }

@@ -17,6 +17,7 @@ export function makeThrowingScope(dir: string, failPath: string): WorkspaceScope
     realpath: (p) => base.realpath(p),
     resolve: (...s) => base.resolve(...s),
     stat: (p) => base.stat(p),
+    readdir: (p) => base.readdir(p),
   };
   return new WorkspaceScope(dir, throwingFs);
 }
