@@ -1,26 +1,14 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { EngineError } from "../domain/errors.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
+import type { FileSystem } from "../ports/filesystem.js";
 import type { Engine } from "../ts-engine/types.js";
 import type { MoveDirectoryResult } from "./types.js";
 
-function resolveAbs(p: string): string {
-  return path.resolve(p);
-}
-
-function statDir(absPath: string): fs.Stats | null {
+function isNonEmptyDir(absPath: string, fs: FileSystem): boolean {
+  if (!fs.exists(absPath)) return false;
   try {
-    return fs.statSync(absPath);
-  } catch {
-    return null;
-  }
-}
-
-function isNonEmptyDir(absPath: string): boolean {
-  try {
-    const entries = fs.readdirSync(absPath);
-    return entries.length > 0;
+    return fs.readdir(absPath).length > 0;
   } catch {
     return false;
   }
@@ -32,14 +20,13 @@ export async function moveDirectory(
   newPath: string,
   scope: WorkspaceScope,
 ): Promise<MoveDirectoryResult> {
-  const absOld = resolveAbs(oldPath);
-  const absNew = resolveAbs(newPath);
+  const absOld = path.resolve(oldPath);
+  const absNew = path.resolve(newPath);
 
-  const oldStat = statDir(absOld);
-  if (!oldStat) {
+  if (!scope.fs.exists(absOld)) {
     throw new EngineError(`Directory not found: ${absOld}`, "FILE_NOT_FOUND");
   }
-  if (!oldStat.isDirectory()) {
+  if (!scope.fs.stat(absOld).isDirectory()) {
     throw new EngineError(`Path is not a directory: ${absOld}`, "NOT_A_DIRECTORY");
   }
 
@@ -48,7 +35,7 @@ export async function moveDirectory(
     throw new EngineError(`Cannot move a directory into itself: ${absNew}`, "MOVE_INTO_SELF");
   }
 
-  if (isNonEmptyDir(absNew)) {
+  if (isNonEmptyDir(absNew, scope.fs)) {
     throw new EngineError(
       `Destination already exists and is non-empty: ${absNew}`,
       "DESTINATION_EXISTS",

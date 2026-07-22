@@ -67,7 +67,7 @@ function applyPatternReplace(
     );
   }
 
-  const files = walkWorkspaceFiles(scope.root, glob);
+  const files = walkWorkspaceFiles(scope.root, glob, scope.fs);
   let replacementCount = 0;
 
   for (const filePath of files) {

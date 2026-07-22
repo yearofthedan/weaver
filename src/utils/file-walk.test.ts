@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
 import { walkFiles, walkWorkspaceFiles } from "./file-walk.js";
 
 describe("walkFiles", () => {
@@ -83,6 +84,18 @@ describe("walkFiles", () => {
       write("src/a.ts");
       const result = walkFiles(tmpDir, [".ts"]);
       expect(path.isAbsolute(result[0])).toBe(true);
+    });
+
+    it("does not follow symlinks, so a symlink cycle cannot hang the walk", () => {
+      // src/loop → tmpDir is a real cycle: tmpDir contains src, which contains
+      // loop. A walk that stat-followed the link would recurse src/loop/src/loop…
+      // forever. Because a symlink is neither isFile() nor isDirectory() it is
+      // skipped outright — the cycle never begins and only the real file returns.
+      write("src/a.ts");
+      fs.symlinkSync(tmpDir, path.join(tmpDir, "src", "loop"));
+
+      const result = walkFiles(tmpDir, [".ts"]);
+      expect(result.map((f) => path.basename(f))).toEqual(["a.ts"]);
     });
   });
 
@@ -385,6 +398,28 @@ describe("walkWorkspaceFiles", () => {
         expect(fs.statSync(f).isFile()).toBe(true);
       }
       expect(result.map((f) => path.basename(f))).toContain("a.ts");
+    });
+  });
+
+  describe("injected FileSystem (in-memory fallback)", () => {
+    // /ws does not exist on disk, so `git ls-files` fails and the walk falls
+    // back to walkRecursive over the injected in-memory port — no real disk.
+    function seed(): InMemoryFileSystem {
+      const vfs = new InMemoryFileSystem();
+      vfs.writeFile("/ws/src/a.ts", "");
+      vfs.writeFile("/ws/src/b.js", "");
+      vfs.writeFile("/ws/README.md", "");
+      return vfs;
+    }
+
+    it("walks the in-memory tree when no glob is given", () => {
+      const result = walkWorkspaceFiles("/ws", undefined, seed());
+      expect(result.map((f) => path.basename(f)).sort()).toEqual(["README.md", "a.ts", "b.js"]);
+    });
+
+    it("applies the glob filter against the in-memory tree", () => {
+      const result = walkWorkspaceFiles("/ws", "**/*.ts", seed());
+      expect(result.map((f) => path.basename(f))).toEqual(["a.ts"]);
     });
   });
 });

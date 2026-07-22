@@ -45,7 +45,7 @@ export async function searchText(
     );
   }
 
-  const files = walkWorkspaceFiles(scope.root, glob);
+  const files = walkWorkspaceFiles(scope.root, glob, scope.fs);
   const matches: SearchMatch[] = [];
   let truncated = false;
 
