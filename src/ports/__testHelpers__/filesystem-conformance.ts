@@ -153,6 +153,13 @@ export function conformanceSuite(
         expect(sub?.isFile()).toBe(false);
       });
 
+      it("returns an empty list for a freshly created directory", () => {
+        // Guards the directory's own marker key from leaking in as a phantom "" entry.
+        const dir = `${root}/empty-dir`;
+        vfs.mkdir(dir);
+        expect(vfs.readdir(dir)).toEqual([]);
+      });
+
       it("throws when the path does not exist", () => {
         expect(() => vfs.readdir(`${root}/missing-dir`)).toThrow();
       });

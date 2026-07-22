@@ -241,6 +241,16 @@ describe("walkWorkspaceFiles", () => {
       expect(walkWorkspaceFiles(nonExistent)).toEqual([]);
     });
 
+    it("excludes symlinks — only real files are returned", () => {
+      // No extension filter here, so a symlink erroneously treated as a file
+      // would surface. It must not: a symlink is neither isFile nor isDirectory.
+      write("src/a.ts");
+      fs.symlinkSync(path.join(tmpDir, "src", "a.ts"), path.join(tmpDir, "src", "link.ts"));
+
+      const result = walkWorkspaceFiles(tmpDir);
+      expect(result.map((f) => path.basename(f))).toEqual(["a.ts"]);
+    });
+
     it("filters by glob pattern", () => {
       write("src/a.ts");
       write("src/b.js");

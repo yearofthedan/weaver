@@ -72,25 +72,23 @@ export class InMemoryFileSystem implements FileSystem {
       throw new Error(`ENOTDIR: not a directory: '${path}'`);
     }
     const prefix = path.endsWith("/") ? path : `${path}/`;
-    // name → isDirectory. A name is a directory if any key nests below it;
-    // a plain key with no further slash is a file. Directory wins on conflict.
-    const childIsDir = new Map<string, boolean>();
+    // A child is a directory if any key nests below it (has a further slash),
+    // otherwise a plain file. Collecting into sets keeps this order-independent
+    // and lets directory classification win when a name appears as both.
+    const dirs = new Set<string>();
+    const files = new Set<string>();
     for (const key of this.store.keys()) {
       if (!key.startsWith(prefix)) continue;
       const rest = key.slice(prefix.length);
-      if (rest === "") continue; // the directory marker itself
+      if (rest === "") continue; // the directory's own marker key
       const slash = rest.indexOf("/");
-      if (slash === -1) {
-        if (!childIsDir.has(rest)) childIsDir.set(rest, false);
-      } else {
-        childIsDir.set(rest.slice(0, slash), true);
-      }
+      if (slash === -1) files.add(rest);
+      else dirs.add(rest.slice(0, slash));
     }
-    return [...childIsDir].map(([name, isDir]) => ({
-      name,
-      isDirectory: () => isDir,
-      isFile: () => !isDir,
-    }));
+    return [...new Set([...dirs, ...files])].map((name) => {
+      const isDir = dirs.has(name);
+      return { name, isDirectory: () => isDir, isFile: () => !isDir };
+    });
   }
 
   private isDirectory(path: string): boolean {

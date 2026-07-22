@@ -326,6 +326,24 @@ describe("moveDirectory", () => {
         fs.rmSync(tmpRoot, { recursive: true, force: true });
       }
     });
+
+    test("allows moving into an existing but empty destination directory", async ({
+      seedNamedFixture,
+    }) => {
+      // An existing empty destination is not a DESTINATION_EXISTS conflict — only
+      // a non-empty one is. Pins the empty/non-empty boundary in isNonEmptyDir.
+      const dir = await seedNamedFixture(FIXTURES.moveDirTs.name);
+      fs.mkdirSync(`${dir}/src/empty-dest`);
+
+      const result = await moveDirectory(
+        new TsMorphEngine(),
+        `${dir}/src/utils`,
+        `${dir}/src/empty-dest`,
+        makeScope(dir),
+      );
+
+      expect(result.filesMoved.length).toBeGreaterThan(0);
+    });
   });
 
   describe("error cases", () => {

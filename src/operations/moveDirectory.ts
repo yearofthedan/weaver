@@ -6,7 +6,7 @@ import type { Engine } from "../ts-engine/types.js";
 import type { MoveDirectoryResult } from "./types.js";
 
 function isNonEmptyDir(absPath: string, fs: FileSystem): boolean {
-  if (!fs.exists(absPath)) return false;
+  // readdir throws for a missing path or a file — both mean "not a non-empty dir".
   try {
     return fs.readdir(absPath).length > 0;
   } catch {
