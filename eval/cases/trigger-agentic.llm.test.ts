@@ -19,6 +19,7 @@ import {
   readSkillFile,
 } from "../harness/context.js";
 import { isMutatingCompetitor } from "../harness/grade.js";
+import { classifyTrialOutcome, computeOutcomes } from "../harness/outcome.js";
 import { computeRate } from "../harness/rate.js";
 import { rateLaneTools, SKILL_TOOL } from "../harness/tools.js";
 import { CASES } from "./cases.js";
@@ -104,6 +105,7 @@ describe("agentic rate lane", () => {
         failedAtStep?: number;
         trail: ToolCall[];
         skillMdRead: boolean;
+        skillCalledAsTool: boolean;
         readTurn?: number;
         abandonedText?: string;
       }
@@ -139,12 +141,26 @@ describe("agentic rate lane", () => {
           failedAtStep: result.failedAtStep,
           trail: result.trail,
           skillMdRead: result.skillMdRead,
+          skillCalledAsTool: result.skillCalledAsTool,
           readTurn: result.readTurn,
           abandonedText: result.abandonedText,
         });
       }
 
       const rate = computeRate(trialRecords.map((r) => r.matched));
+
+      // Reporting only, alongside the gating rate above: names which tier each
+      // trial landed in — clean content signal, host-exposure noise on an
+      // otherwise-right answer, a body that didn't guide, or a skill never
+      // reached at all.
+      const trialOutcomes = trialRecords.map((r) =>
+        classifyTrialOutcome({
+          matched: r.matched,
+          skillMdRead: r.skillMdRead,
+          skillCalledAsTool: r.skillCalledAsTool,
+        }),
+      );
+      const outcomeTally = computeOutcomes(trialOutcomes);
 
       // matchedAtStep distinguishes a first-call win (1 — no precursor needed)
       // from a precursor-then-win (matched later); failedAtStep marks a trial
@@ -164,14 +180,18 @@ describe("agentic rate lane", () => {
           } else {
             outcome = r.failedAtStep !== undefined ? `competitor@${r.failedAtStep}` : "no match";
           }
-          return `  trial ${i + 1} [${outcome}, ${r.skillMdRead ? `skill loaded@${r.readTurn}` : "no skill load"}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}${r.abandonedText !== undefined ? `\n    abandoned with text: ${JSON.stringify(r.abandonedText.slice(0, 500))}` : ""}`;
+          return `  trial ${i + 1} [${outcome}, ${r.skillMdRead ? `skill loaded@${r.readTurn}` : "no skill load"}, ${trialOutcomes[i]}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}${r.abandonedText !== undefined ? `\n    abandoned with text: ${JSON.stringify(r.abandonedText.slice(0, 500))}` : ""}`;
         })
         .join("\n");
 
       // Printed for passing cases too: the rate alone hides how the model got
       // there — the trail shows precursor steps and any loaded-but-didn't-convert
       // trials (right skill loaded, CLI never run) a bare pass/fail would mask.
-      console.log(`${c.name} — rate ${rate.passed}/${rate.total}\n${trailSummary}`);
+      // The composition names each tier's count so a red or a warned pass can
+      // be attributed to weaver's content vs. the host's skill-exposure style.
+      console.log(
+        `${c.name} — rate ${rate.passed}/${rate.total} (clean-pass ${outcomeTally.cleanPass}, warned-pass ${outcomeTally.warnedPass}, content-fail ${outcomeTally.contentFail}, never-reached ${outcomeTally.neverReached})\n${trailSummary}`,
+      );
 
       // Observational cases (buried phrasing under a deep pressure seed) report
       // the rate above but carry no pass/fail assertion — see caseIsGating.
