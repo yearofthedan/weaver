@@ -39,6 +39,7 @@ Comments exist to provide context that cannot be gathered from names, types, and
 - **Prefer a well-named function over a comment.** If you need a comment to explain *what* a block does, extract it into a function whose name provides that context.
 - **Doc blocks over inline comments.** A single JSDoc block on a function is better than comments scattered through the body.
 - **Excessive comments are a refactoring trigger.** If a function needs many comments to be understood, it's too complex — simplify or decompose it.
+- **Keep comments proportionate, in plain sentences.** A comment should be shorter than the code it explains; if a header block dwarfs the file, cut it to the one non-obvious point. Write brief, complete sentences — not exhaustive paragraphs, and not clipped fragments.
 
 **Test-specific:**
 
