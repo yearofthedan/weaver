@@ -1,5 +1,70 @@
 # Changelog
 
+## [0.1.8](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.7...weaver-v0.1.8) (2026-07-23)
+
+
+### Features
+
+* **eval:** accept npx weaver prefix in matchWeaverCommand ([a5b9e59](https://github.com/yearofthedan/weaver/commit/a5b9e59a15a33efb4501a2030597844cb996a20d))
+* **eval:** add a mutation-testing lane scoped to the eval harness ([6c52de0](https://github.com/yearofthedan/weaver/commit/6c52de0755d9f1c21a8377206dc5b5ca736a3149))
+* **eval:** add agentic loop for eventual-operation trigger metric ([6d68af8](https://github.com/yearofthedan/weaver/commit/6d68af8d9275d019bc620a9bd9f6c7de5ea389d9))
+* **eval:** add agentic trigger lane ([4649ef5](https://github.com/yearofthedan/weaver/commit/4649ef5da626aca5bd8c11e556df66fd7ba41b1a))
+* **eval:** add available_skills framing and rate-lane tool set ([a2ea8f7](https://github.com/yearofthedan/weaver/commit/a2ea8f7e6d5bb6ce8983fcb0bea2dae68931e6bd))
+* **eval:** add boundary over-trigger guard and matchedAtStep reporting to agentic lane ([fe649db](https://github.com/yearofthedan/weaver/commit/fe649db2a605ce7aa98f3e86f0682ed29f9029a7))
+* **eval:** add canned tool-result source for the agentic loop ([3f47ec2](https://github.com/yearofthedan/weaver/commit/3f47ec2e62b4ac8e899fc339eefd7ed5d36f3a21))
+* **eval:** add expected weaver subcommand to skill-trigger cases ([5b1a430](https://github.com/yearofthedan/weaver/commit/5b1a4303f282b3caf295ab0369a18364875f14cc))
+* **eval:** add isWeaverInvocation, computeRate, and export readSkillFile ([e9df4db](https://github.com/yearofthedan/weaver/commit/e9df4db8c9228c13b6c615570d8309ced4487391))
+* **eval:** add optional hard-fail veto to runAgenticLoop ([84d892d](https://github.com/yearofthedan/weaver/commit/84d892df16d74633f2a220492013539bd4f888ee))
+* **eval:** add per-case seed depth and observational gating to the agentic trigger lane ([cbe9ed1](https://github.com/yearofthedan/weaver/commit/cbe9ed162c82c389f078555fe548609024e0acf1))
+* **eval:** add per-lane temperature config and hosted-endpoint fail-fast ([9d3b94e](https://github.com/yearofthedan/weaver/commit/9d3b94eeb0a1c90fd97c6da26ebe0914f1816713))
+* **eval:** add WEAVER_EVAL_PROVIDER to pin the OpenRouter backend ([5e69744](https://github.com/yearofthedan/weaver/commit/5e697449403de44c475d8f818df50acaac2ebeb9))
+* **eval:** add weaverSubcommand to parse the CLI subcommand token ([f0e8cc8](https://github.com/yearofthedan/weaver/commit/f0e8cc8ddbda2b7647537a2e472714a28c77c1dc))
+* **eval:** capture the model's text when an agentic trial abandons ([d9dfb9b](https://github.com/yearofthedan/weaver/commit/d9dfb9b0b32dea12d841086e36bf7e81633ab790))
+* **eval:** classify command matches into correct/wrong-tool/wrong-args ([c83c1d0](https://github.com/yearofthedan/weaver/commit/c83c1d0fbf6c14462c91e8232f2d6f4b6f706afc))
+* **eval:** classify weaver subcommands as mutating or read-only ([66b33fb](https://github.com/yearofthedan/weaver/commit/66b33fb482baa6f91cdcac74b9ca088f848d5155))
+* **eval:** credit right-skill tool call as a stopgap trigger proxy ([1283cc5](https://github.com/yearofthedan/weaver/commit/1283cc5fafede7e356802b53e462aa6468f9c121))
+* **eval:** generalize agentic loop to predicate-based matching with SKILL.md tracking ([5a58952](https://github.com/yearofthedan/weaver/commit/5a58952683717f72bb9f31440907019d7c1d4270))
+* **eval:** hard-fail the skill-trigger lane on a mutating competitor ([8125ea2](https://github.com/yearofthedan/weaver/commit/8125ea26df858d89c90c4624157d7b0797604ff8))
+* **eval:** let a case override the canned result per weaver subcommand ([eb9415a](https://github.com/yearofthedan/weaver/commit/eb9415a85dfe235ed72eec0ff7c7b99668919aab))
+* **eval:** let a case own its canned tool results ([ce1a1de](https://github.com/yearofthedan/weaver/commit/ce1a1dec3accccefe20ac6171039e18210accc4d))
+* **eval:** log raw tool arguments and SKILL.md reads in rate-lane trails ([a3d223b](https://github.com/yearofthedan/weaver/commit/a3d223b90c82893d2ab62619d36cdf5a20e74157))
+* **eval:** retire the single-shot trigger lanes and skillTools() ([c85e6e5](https://github.com/yearofthedan/weaver/commit/c85e6e5ec353516a46c63c86d2f057ce9a23274f))
+* **eval:** rewire agentic trigger lane to two-hop rate design ([49bc204](https://github.com/yearofthedan/weaver/commit/49bc204c8f9aa0012bd61604a35e23298b588db1))
+* **eval:** simulate the host skill mechanism in the rate lane ([d0d8c11](https://github.com/yearofthedan/weaver/commit/d0d8c11a1b3d9c4940c755ab6ed613b1b04a905e))
+* **ports:** add readdir to the FileSystem port ([63087a7](https://github.com/yearofthedan/weaver/commit/63087a75c150d794a30bc55ee338730d623770ff))
+* **skills:** add /investigate skill and [needs investigation] tag ([de744df](https://github.com/yearofthedan/weaver/commit/de744dfb21f53c83ba47dea228897e1d112ef2bc))
+* **skills:** lead trigger descriptions with task phrasings, add tsc contrast ([8455693](https://github.com/yearofthedan/weaver/commit/845569363fdb0e5510ac1f80ebee52858c99475e))
+
+
+### Bug Fixes
+
+* **daemon:** register signal handlers before the daemon becomes discoverable ([eb44349](https://github.com/yearofthedan/weaver/commit/eb44349be5f0d7c468b5f4ca8932895a4fc21d52))
+* **deps:** update dependency @vue/language-core to v3.3.6 ([4945d20](https://github.com/yearofthedan/weaver/commit/4945d20f6ad5a8138fff57baae086b6a95ded241))
+* **deps:** update dependency @vue/language-core to v3.3.7 ([a9d6342](https://github.com/yearofthedan/weaver/commit/a9d63427ce28c28a5dc6693a84b5488f626088e1))
+* **deps:** update vue-language-tools monorepo to v3.3.5 ([e4fda04](https://github.com/yearofthedan/weaver/commit/e4fda046a6a9202f50f5d6024f6329fd4c85402e))
+* **eval:** detect a skill-load bundled as a non-first call ([8e02e00](https://github.com/yearofthedan/weaver/commit/8e02e00f0035ffce861527ac12f40672291be973))
+* **eval:** drop unsatisfiable changelog pre-step from pressured replace-text rung ([ffd0745](https://github.com/yearofthedan/weaver/commit/ffd0745dbd80c61965cc0f92386db6b7ef7da567))
+* **eval:** grade a hallucinated tool as a miss, not a harness crash ([50d6285](https://github.com/yearofthedan/weaver/commit/50d62857231397acdc2749e6b7a64b792ea0f00b))
+* **eval:** guard WEAVER_EVAL_TEMPERATURE against blank and non-numeric values ([3bb8550](https://github.com/yearofthedan/weaver/commit/3bb8550da60a8feeed469266added406eeec2f86))
+* **eval:** match path key args by trailing segment, not exact string ([deeda72](https://github.com/yearofthedan/weaver/commit/deeda723edaaa1a419fd93608b42f42be4cbb78a))
+* **eval:** match skill SKILL.md reads by path suffix, not exact equality ([d51608c](https://github.com/yearofthedan/weaver/commit/d51608caafc8ba0ea2bc2fce3879c50f6a403191))
+* **eval:** name the file in the pressured rename task ([9730c60](https://github.com/yearofthedan/weaver/commit/9730c60bf7b5679831c45901a621400712123a89))
+* **eval:** replay agentic turns as a standard tool exchange ([d43ca3b](https://github.com/yearofthedan/weaver/commit/d43ca3b71c4f52b2a6e88f630a9af7bbccc0d592))
+* **eval:** reshape pressured search-text rung so weaver's edge is real ([23f8eb0](https://github.com/yearofthedan/weaver/commit/23f8eb0d508b9f439a720482f0098a5fe5882e70))
+* **eval:** split &&-chained bash commands in trigger matching ([533d09a](https://github.com/yearofthedan/weaver/commit/533d09a43bbf4d8a237585c3f8a85792c0a86d09))
+* **eval:** split &&-chains when detecting a mutating competitor ([8e09165](https://github.com/yearofthedan/weaver/commit/8e091657c986a3d83acc8edc5061733edda664a0))
+* **eval:** split pressured replace-text rung into active/passive ([2b7c808](https://github.com/yearofthedan/weaver/commit/2b7c808e7bcb1216f759183d63486aa4c71e9e74))
+* **eval:** stop feeding unrelated scenario fixtures on unanticipated hops ([a2d1faf](https://github.com/yearofthedan/weaver/commit/a2d1faf5aaf4cba0d499bd9c4d9e3629232b905e))
+* **eval:** surface empty-completion providers instead of scoring them 0 ([57d5510](https://github.com/yearofthedan/weaver/commit/57d5510e837808c3e0e84092b405c8875dbcf108))
+* **eval:** tolerate malformed tool-call JSON from hosted models ([e8fd623](https://github.com/yearofthedan/weaver/commit/e8fd623b4bb372a2195a663aaba976a973f8de2b))
+* **skills:** restore move-file/delete-file command-stage emission ([df6f951](https://github.com/yearofthedan/weaver/commit/df6f95126ac86a6bc77089360ef5de379fa32a97))
+* **skills:** weaver-refactor owns the locate→rename flow ([3422c66](https://github.com/yearofthedan/weaver/commit/3422c667f0c0a2ec6e3edfb498f0c57bd7e967e8))
+
+
+### Reverts
+
+* command-lane free-hand runAgenticLoop rewrite ([28d3f0e](https://github.com/yearofthedan/weaver/commit/28d3f0e6da04bb3cbcf451da79f7a265d0f933f1))
+
 ## [0.1.7](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.6...weaver-v0.1.7) (2026-06-16)
 
 
