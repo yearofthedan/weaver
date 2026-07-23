@@ -17,6 +17,11 @@
       "matchDepNames": ["node"],
       "groupName": "node.js",
       "description": "Group node version bumps (dockerfile / devcontainer)"
+    },
+    {
+      "matchDepNames": ["typescript"],
+      "allowedVersions": "<7.0.0",
+      "description": "TS 7 removed the classic Compiler API that Volar's LanguageServiceHost and weaver's own diagnostics code depend on. Revisit when Volar ships TS7 support."
     }
   ],
   "enabledManagers": ["npm", "dockerfile", "devcontainer"]
