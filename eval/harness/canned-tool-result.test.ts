@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cannedToolResult } from "./agentic-loop.js";
+import { cannedToolResult, resolveCannedResult } from "./agentic-loop.js";
 import type { ToolCall } from "./call-model.js";
 import { SKILL_NAMES } from "./context.js";
 import { loadFixture } from "./fixtures.js";
@@ -73,5 +73,36 @@ describe("cannedToolResult", () => {
     it("falls back to the global canned result when the case has no override", () => {
       expect(cannedToolResult(tc("Grep"), { Read: "unrelated" })).toBe(GREP_STUB);
     });
+  });
+});
+
+describe("resolveCannedResult", () => {
+  const declared = ["Skill", "bash", "Grep", "Glob", "Read"];
+
+  it("returns a host no-such-tool error for a hallucinated tool name, in any separator style, without throwing", () => {
+    // weaver_code_inspection is the underscore variant a provider emitted that
+    // crashed the lane; weaver-code-inspection and frobnicate confirm the guard
+    // is not skill-name-specific — any undeclared name is treated as invented.
+    for (const name of ["weaver_code_inspection", "weaver-code-inspection", "frobnicate"]) {
+      expect(resolveCannedResult(tc(name), declared)).toContain(`no such tool "${name}"`);
+    }
+  });
+
+  it("lists the declared tools in the unknown-tool error", () => {
+    expect(resolveCannedResult(tc("mystery"), declared)).toContain(
+      "Available tools: Skill, bash, Grep, Glob, Read.",
+    );
+  });
+
+  it("routes a declared tool to its canned result", () => {
+    expect(resolveCannedResult(tc("Grep"), declared)).toBe(cannedToolResult(tc("Grep")));
+  });
+
+  it("honours a per-case override for a declared tool", () => {
+    expect(resolveCannedResult(tc("Grep"), declared, { Grep: "OVERRIDE" })).toBe("OVERRIDE");
+  });
+
+  it("still throws for a declared tool with no canned result — a harness drift is kept loud", () => {
+    expect(() => resolveCannedResult(tc("Ghost"), ["Ghost"])).toThrow(/Ghost/);
   });
 });

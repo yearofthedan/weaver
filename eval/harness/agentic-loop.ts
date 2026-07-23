@@ -59,6 +59,27 @@ export function cannedToolResult(call: ToolCall, caseResults?: Record<string, st
 }
 
 /**
+ * Resolves the result for a tool call given the lane's declared tool set. A
+ * call to a name the lane never declared is a hallucinated tool (a model
+ * inventing a tool, in whatever separator style — `weaver_code_inspection`,
+ * `frobnicate`); it gets the host-style "no such tool" error so the trial is
+ * graded as the miss it is, rather than crashing on a missing canned result.
+ * A declared tool still routes to {@link cannedToolResult}, which throws only
+ * when a declared tool has no canned result — a real harness gap (tool set
+ * drifted ahead of the map), kept loud on purpose.
+ */
+export function resolveCannedResult(
+  call: ToolCall,
+  declaredToolNames: readonly string[],
+  caseResults?: Record<string, string>,
+): string {
+  if (!declaredToolNames.includes(call.name)) {
+    return `Error: no such tool "${call.name}". Available tools: ${declaredToolNames.join(", ")}.`;
+  }
+  return cannedToolResult(call, caseResults);
+}
+
+/**
  * The transport seam for {@link runAgenticLoop}: one model turn given the
  * current history and tools. `callModel` satisfies it directly; unit tests pass
  * a scripted fake so the loop's branching can be verified without a model server.

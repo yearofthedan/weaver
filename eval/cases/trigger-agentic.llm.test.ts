@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { boundaryTrialClean, cannedToolResult, runAgenticLoop } from "../harness/agentic-loop.js";
+import {
+  boundaryTrialClean,
+  resolveCannedResult,
+  runAgenticLoop,
+} from "../harness/agentic-loop.js";
 import {
   extractBashCommands,
   isWeaverInvocation,
@@ -50,6 +54,10 @@ const skillTriggerCases = CASES.filter((c) => c.stage === "trigger" && c.expect.
 const boundaryCases = CASES.filter((c) => c.stage === "trigger" && c.expect.skill === "bash");
 
 const tools = [SKILL_TOOL, ...rateLaneTools()];
+// The names the lane actually declares. A call to anything else is a
+// hallucinated tool — resolveCannedResult turns it into a host error rather
+// than crashing on a missing canned result.
+const declaredToolNames = tools.map((t) => t.function.name);
 const systemContent = `${buildClutterSystemPrompt()}\n\n${buildAvailableSkillsPrompt()}`;
 
 /**
@@ -86,11 +94,12 @@ function skillNameFromLoad(call: ToolCall): string | undefined {
 }
 
 /**
- * Feeds a skill's real SKILL.md body back for a load, a host-style
- * unknown-tool error for a hallucinated call, and the case's canned result
- * otherwise (case override first, then the harness's global defaults — see
- * `cannedToolResult`). Shared by both `it.each` blocks below — they run the
- * same tool set and only differ in `matches`.
+ * Feeds a skill's real SKILL.md body back for a load and a host-style
+ * unknown-skill error for a bad `Skill()` name; anything else is resolved by
+ * `resolveCannedResult` against the lane's declared tools (a hallucinated tool
+ * name gets a host "no such tool" error, a declared tool its canned result).
+ * Shared by both `it.each` blocks below — they run the same tool set and only
+ * differ in `matches`.
  */
 function cannedResultForCall(call: ToolCall, caseResults?: Record<string, string>): string {
   const skillName = skillNameFromLoad(call);
@@ -100,11 +109,7 @@ function cannedResultForCall(call: ToolCall, caseResults?: Record<string, string
   if (call.name === "Skill") {
     return `Error: unknown skill "${String(call.arguments.skill ?? "")}".`;
   }
-  if (SKILL_NAMES.some((name) => name === call.name)) {
-    // Hallucinated direct skill-name call — respond as a host would.
-    return `Error: no such tool "${call.name}". Available tools: Skill, bash, Grep, Glob, Read.`;
-  }
-  return cannedToolResult(call, caseResults);
+  return resolveCannedResult(call, declaredToolNames, caseResults);
 }
 
 describe("agentic rate lane", () => {
