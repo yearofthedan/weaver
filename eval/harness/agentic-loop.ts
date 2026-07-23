@@ -4,15 +4,13 @@ import type { ChatMessage, ModelResponse, ToolCall, ToolDefinition } from "./cal
 /**
  * Canned tool output fed back after each loop turn, keyed by the tool name the
  * model called. Results only have to look plausible enough to keep the model
- * moving — they are never asserted on. Every tool the lane declares (each skill,
- * each competing host tool, and bash) needs an entry; an unknown name throws so
- * a drifted tool set fails loud instead of feeding an empty string.
+ * moving — they are never asserted on. Skills are not tools: they load via
+ * Skill()/Read, and a call naming one directly is a hallucination handled by
+ * resolveCannedResult, so only the actual host tools (bash + the competing
+ * editing/search tools) need an entry. An unknown declared tool throws so a
+ * drifted tool set fails loud instead of feeding an empty string.
  */
 const CANNED_RESULTS: Record<string, string> = {
-  "weaver-search-and-replace": "src/auth.ts:12:  const v1 = config.v1;\nsrc/api.ts:5:  // v1 only",
-  "weaver-refactor": "Renamed across 3 files. No conflicts.",
-  "weaver-code-inspection":
-    "src/auth.ts:5:17 - reference\nsrc/api.ts:8:3 - reference\n2 references found.",
   Edit: "Edit applied.",
   Grep: "src/auth.ts:12:  userId\nsrc/api.ts:8:  userId",
   Glob: "src/auth.ts\nsrc/api.ts",

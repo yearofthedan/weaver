@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cannedToolResult, resolveCannedResult } from "./agentic-loop.js";
 import type { ToolCall } from "./call-model.js";
-import { SKILL_NAMES } from "./context.js";
 import { loadFixture } from "./fixtures.js";
 import { BASH_TOOL, COMPETING_TOOLS } from "./tools.js";
 
@@ -9,11 +8,7 @@ const tc = (name: string): ToolCall => ({ name, arguments: {} });
 const bashCall = (command: string): ToolCall => ({ name: "bash", arguments: { command } });
 
 describe("cannedToolResult", () => {
-  const laneToolNames = [
-    ...SKILL_NAMES,
-    ...COMPETING_TOOLS.map((t) => t.function.name),
-    BASH_TOOL.function.name,
-  ];
+  const laneToolNames = [...COMPETING_TOOLS.map((t) => t.function.name), BASH_TOOL.function.name];
 
   const GENERIC_FILE_LIST = "src/auth.ts\nsrc/api.ts\nsrc/utils.ts";
   const GREP_STUB = "src/auth.ts:12:  userId\nsrc/api.ts:8:  userId";

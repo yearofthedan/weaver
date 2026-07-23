@@ -206,7 +206,10 @@ multi-hop case must own a coherent result for every on-path hop it might take (e
 that searches before replacing owns `search-text`), or the neutral stub reads as "nothing to do"
 and strands the model. The inert default is deliberate — an *unanticipated* hop (a stray
 `find-references` in a rename scenario) gets nothing to act on rather than another scenario's data
-that would derail it. The tool-set-drift guard remains: an unknown *tool name* still throws.
+that would derail it. A tool the lane never declared — a hallucinated tool name, in any separator
+style — gets a host-style unknown-tool error via `resolveCannedResult` (graded as the miss it is),
+not a crash. The tool-set-drift guard is narrower now: only a *declared* tool with no canned result
+throws — that is the real drift, the map falling behind the tool set.
 
 **Reading a rate.** n=3 is coarse — re-run a surprising flip at `WEAVER_EVAL_TRIALS=6` before
 acting on it. Classify the trail mechanism, not just the rate: *never-touch* → the frontmatter
@@ -228,9 +231,11 @@ run, buying resolution the regression signal (a visible multi-step flip, 3/3 →
 to confirm a surprising flip, never as the standing configuration.
 
 Two host-behaviour gotchas the lane deliberately reproduces: (1) the model sometimes *hallucinates
-direct skill-name tool calls* (`weaver-refactor({...})`, invented arg schemas); the harness answers
-with a host-style unknown-tool error and the model recovers to the proper `Skill` form — do **not**
-declare per-skill tools to "fix" this, that removes the recovery a real host exercises. (2) Hosted
+direct skill-name tool calls* (`weaver-refactor({...})`, or the underscore-normalised
+`weaver_code_inspection` some providers emit, with invented arg schemas); the harness answers any
+such undeclared tool with a host-style unknown-tool error (`resolveCannedResult`, separator-agnostic)
+and the model recovers to the proper `Skill` form — do **not** declare per-skill tools to "fix"
+this, that removes the recovery a real host exercises. (2) Hosted
 models occasionally emit tool calls with **malformed JSON arguments**; `callModel` marks such calls
 (`invalidArguments`) and the loop feeds back an invalid-arguments error instead of crashing the
 trial.
