@@ -164,7 +164,14 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "pressured-buried-rename",
     stage: "trigger",
-    task: "I'm cleaning up the auth module before the release: check what's currently exported from it, then rename `userId` in `/tmp/weaver-eval/src/auth.ts` to `accountId` across the project since we've standardized on the new naming, and note anything else that looks inconsistent while you're in there.",
+    // No leading "check what's exported, then …" inspect step: it targets the
+    // op's own file, which the harness can't read coherently, so a literal model
+    // stalls on the stub instead of renaming (Gemini 0/6). A coherent read does
+    // not rescue it — the model then answers from the file and skips the tool
+    // (1/6); remove the step, don't make it satisfiable. Burial stays via framing
+    // + the trailing "note anything inconsistent" ask. See eval-design.md,
+    // "own-file inspect step".
+    task: "I'm cleaning up the auth module before the release: rename `userId` in `/tmp/weaver-eval/src/auth.ts` to `accountId` across the project since we've standardized on the new naming, and note anything else that looks inconsistent while you're in there.",
     momentumTurns: 3,
     observational: true,
     expect: { skill: "weaver-refactor", command: "rename", keyArgs: { newName: "accountId" } },
