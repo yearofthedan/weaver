@@ -373,7 +373,13 @@ prose, so outputs are low-entropy on a clear task. That shapes how to work on it
   the stub never contains (a changelog file) loops until the step budget is exhausted and the rung
   never reaches its op. The rung then measures "can the model find a nonexistent file," not conversion
   under pressure — a dead instrument, floored regardless of skill text. Keep the burial (framing +
-  multi-part phrasing) in the live task; move any *inspect-first* step into the seed.
+  multi-part phrasing) in the live task; move any *inspect-first* step into the seed. **An own-file
+  inspect step is the exception with no home — remove it.** A step that inspects the op's *own* file
+  can't move to the seed (weaver-owned inspection is not a valid habit pre-step) and can't be made
+  satisfiable either: the canned-result map is keyed by tool, not path, and even a *coherent* read of
+  the target file lets the model answer from it and skip the mutating op — feeding a real source
+  dropped a buried-rename case *below* its incoherent-stub rate. Drop the step; keep the burial in
+  framing and a trailing post-op ask (`pressured-buried-rename`, [`eval-baselines.md`](eval-baselines.md) ‡).
 - **An embedded secondary step gates the metric on that step, not the tool.** A pressured task
   that asks the model to *report/flag/inspect before acting* ("flag the risky matches before you
   apply") can read low even with sound skill text and a faithful fixture: the model reasonably does
