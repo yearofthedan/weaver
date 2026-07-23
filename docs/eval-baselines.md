@@ -16,6 +16,8 @@ pass-cli run --env-file .env -- env WEAVER_EVAL_MODEL=<slug> pnpm eval --disable
 
 Add a column to the table below with the per-case trial rate (`matched/total`, or `clean/total` for boundary rows). Per-case rates are the ground truth — any aggregate score derives from them, so record these even if a summary metric changes. Note the run's headline failure modes under the table.
 
+Each skill-trigger case now also prints a four-tier outcome composition (`clean-pass` / `warned-pass` / `content-fail` / `never-reached` — see [`eval-design.md`](eval-design.md) *Content vs. exposure*). For a **cross-model** run, record the composition of any non-3/3 case, not just the rate: it separates a body weaver can fix (`content-fail`) from host-exposure noise it can't (`warned-pass`), which is the whole point of running a non-Claude model. A `warned-pass` or `content-fail` seen only on non-Claude models is a host/model signal, not a regression in the skills.
+
 All runs below: **n=3 trials**, temperature 0.7 (agentic) / 0 (command + two-step), fixture-backed, via OpenRouter.
 
 ---

@@ -192,4 +192,35 @@ before drafting.)
       - `docs/handoff.md` current-state harness bullet mentions the classification.
 - [ ] Tech debt discovered during implementation added to handoff.md as `[needs design]`.
 - [ ] Non-obvious gotchas added to `docs/eval-design.md` (or `CLAUDE.md` if cross-cutting).
-- [ ] Spec moved to `docs/specs/archive/` with Outcome section appended.
+- [x] Spec moved to `docs/specs/archive/` with Outcome section appended.
+
+---
+
+## Outcome
+
+**Shipped.** All six ACs implemented across four code commits (`e2ec9d5`, `b0e57f5`, `98c4212`, `7dbd746`, `c410b70`). 25 tests added (12 for `classifySkillReach`, 8 for the outcome functions, 5 loop-behaviour tests). Done-when checklist complete.
+
+### Verification
+
+Real path exercised: `pnpm eval trigger-agentic --disable-console-intercept` (n=3) against two models via OpenRouter — the only lane this change touches. Both runs hit one 540s-per-test **provider-latency timeout** (the whole Haiku lane took ~64 min; Gemini's timeout landed on `trigger-refactor-move-file`, a case that passes in 2 steps — proof it's latency, not logic). Every completed case shows the designed behaviour:
+
+- **Haiku 4.5** (`anthropic/claude-haiku-4.5`) — gate check. All 9 gating trigger cases 3/3 `clean-pass`; both boundary cases 3/3 clean (the tool-style-as-load rewire did **not** regress the boundary guard); observational rungs at baseline (`pressured-buried-rename` 2/3 with two completed clean-passes before the timeout). **Zero `warned-pass`** — Haiku never reached a skill as a tool, exactly as predicted. Selection rate matches the 2026-07-23 baseline.
+- **Gemini 2.5 Flash** (`google/gemini-2.5-flash`) — exercises the new path. Both new tiers observed with confirming trail evidence:
+  - **`warned-pass`** (`pressured-buried-find-references` trial 3): reached the skill as a tool (`skill loaded@4`, `skillCalledAsTool` set), got the body fed, converged on `weaver find-references`.
+  - **`content-fail`** (`pressured-buried-rename` ×2): the model's own abandoned text — *"The error message from the previous `weaver_refactor` call indicates that I need to `search-text` first"* — proves the tool-style call was fed the **SKILL.md body** (where it learned the search-text-first rule), then failed to converge for an unrelated reason. Before this change these were bare, unattributed misses.
+
+The tool-style reach that used to dead-end (`weaver_code_inspection` → unknown-tool error → miss) now reaches content and produces a real, attributable signal.
+
+### Mutation
+
+`pnpm test:mutate:eval:file`: `outcome.ts` 100%, `agentic-loop.ts` 100%, `classifySkillReach` 0 survivors (`context.ts` 93.65% — the 4 survivors are pre-existing in `parseSkillFrontmatter`, unrelated).
+
+### Architectural note
+
+The loop computes navigation as `isSkillMdRead(call) || isSkillCalledAsTool(call)` rather than threading `classifySkillReach` into the loop. This keeps `runAgenticLoop` detection-agnostic (the caller supplies both predicates) and makes the `skillCalledAsTool ⟹ skillMdRead` invariant *structural* — a tool-style reach is a navigation call, so it sets `skillMdRead` regardless of what `isSkillMdRead` alone recognises. A loop test deliberately blinds `isSkillMdRead` to prove the loop, not the caller, upholds the invariant.
+
+### Reflection
+
+- **What went well:** The design conversation front-loaded the hard call (feed-the-body-and-label vs. classify-and-dead-end), so implementation was mechanical. Gemini was the ideal verification target *and* the cheapest — the model that reproduces the tool-style call is also ~10× under Haiku, and its abandoned-text trail gave textbook evidence that the body was fed.
+- **What didn't:** The 540s per-test timeout is a real fragility — under slow provider conditions a deep (`momentumTurns:3`) observational case can time out and fail the *whole lane* on exit code, even though its completed trials are clean. The lane's exit status conflates "a skill regressed" with "the provider was slow tonight." Worth a follow-up: raise the deep-case timeout, or make the observational lane resilient to a per-trial timeout (record what completed, don't fail the run).
+- **For the next agent:** `eval/cases/trigger-agentic.llm.test.ts` is *not* type-checked or run by `pnpm check` (excluded from the eval vitest lane; stryker only mutates `eval/harness/**`). Verify wiring in that file with `pnpm exec tsc --noEmit -p .` (which *does* include it) before a paid run, and treat the paid run as the only behavioural proof. `agentic-loop.test.ts` is now 706 lines — a candidate for the P3 eval-harness-bloat sweep, though it is cohesive (one subject).

@@ -206,10 +206,14 @@ multi-hop case must own a coherent result for every on-path hop it might take (e
 that searches before replacing owns `search-text`), or the neutral stub reads as "nothing to do"
 and strands the model. The inert default is deliberate — an *unanticipated* hop (a stray
 `find-references` in a rename scenario) gets nothing to act on rather than another scenario's data
-that would derail it. A tool the lane never declared — a hallucinated tool name, in any separator
-style — gets a host-style unknown-tool error via `resolveCannedResult` (graded as the miss it is),
-not a crash. The tool-set-drift guard is narrower now: only a *declared* tool with no canned result
-throws — that is the real drift, the map falling behind the tool set.
+that would derail it. A tool the lane never declared splits two ways (`cannedResultForCall` →
+`classifySkillReach`): if its name, normalised (lowercased, `_`→`-`), *matches a shipped skill*
+(`weaver_code_inspection`, `weaver-refactor`), it is a skill reached as a tool — the harness feeds
+back that skill's real SKILL.md body, exactly as for a `Skill`/`Read` load, so the trial reaches
+content regardless of how the model phrased the call. A name that matches *no* skill (`frobnicate`)
+is a genuine hallucination and still gets the host-style unknown-tool error, graded as the miss it
+is. The tool-set-drift guard is unchanged: only a *declared* tool with no canned result throws —
+that is the real drift, the map falling behind the tool set.
 
 **Reading a rate.** n=3 is coarse — re-run a surprising flip at `WEAVER_EVAL_TRIALS=6` before
 acting on it. Classify the trail mechanism, not just the rate: *never-touch* → the frontmatter
@@ -221,6 +225,28 @@ sounds like an endpoint. Before attributing a red to a text edit, A/B against th
 (`git stash`). **YAML trap:** a `description:` value starting with `"` is truncated by real hosts'
 frontmatter parsers — the harness's regex parser masks this; start descriptions with a plain word.
 
+**Content vs. exposure.** Alongside the gating selection rate, each skill-trigger case prints a
+four-tier outcome composition (`classifyTrialOutcome` / `computeOutcomes` in
+`eval/harness/outcome.ts`), so a cross-model run separates the skill signal weaver owns from host
+noise it does not:
+
+- **`clean-pass`** — matched with no tool-style reach: description and body both did their job.
+- **`warned-pass`** — matched, but the model reached the skill *as a tool* at some point (see the
+  gotcha above): the body still guided it; the host's skill exposure is what was noisy.
+- **`content-fail`** — the body was in front of the model (loaded via `Skill`/`Read` *or* a
+  tool-style call) but did not guide it to the op. **This is the miss weaver owns** — a body to fix.
+- **`never-reached`** — the model never read the skill at all: a frontmatter-description or
+  shell-habit problem, not a body problem.
+
+The gate is unchanged — `computeRate` still fires on the *selection* rate, and
+`clean-pass + warned-pass = matched`, so a warned pass still counts toward the gate. The composition
+is reporting-only: it lets a red on a non-Claude model be attributed (`content-fail` = fix the body;
+`never-reached` = fix the description; `warned-pass` = host-exposure noise to discount for a
+real-host read, count for a pure-content read). Read the tiers as counts and trail evidence, not as
+gated conditional rates — `warned-pass`/`content-fail` denominators are too small to gate at n=3.
+Do **not** tune the harness's exposure per model family to move these — past a point that measures
+the scaffolding, not the skills.
+
 **Don't tier what n=3 can't resolve.** At n=3 a case has four possible rates — 0, 1/3, 2/3, 3/3 —
 and the alarm fires below 2/3, so the only passing non-ceiling value is exactly 2/3: one flip from
 failing, one from the ceiling. A "discriminating band" between floor and ceiling is a single
@@ -230,15 +256,17 @@ band by raising the default n — a band that only exists at n=6 doubles the tri
 run, buying resolution the regression signal (a visible multi-step flip, 3/3 → 1/3 or 0/3) does not need. Escalate trials only
 to confirm a surprising flip, never as the standing configuration.
 
-Two host-behaviour gotchas the lane deliberately reproduces: (1) the model sometimes *hallucinates
-direct skill-name tool calls* (`weaver-refactor({...})`, or the underscore-normalised
-`weaver_code_inspection` some providers emit, with invented arg schemas); the harness answers any
-such undeclared tool with a host-style unknown-tool error (`resolveCannedResult`, separator-agnostic)
-and the model recovers to the proper `Skill` form — do **not** declare per-skill tools to "fix"
-this, that removes the recovery a real host exercises. (2) Hosted
-models occasionally emit tool calls with **malformed JSON arguments**; `callModel` marks such calls
-(`invalidArguments`) and the loop feeds back an invalid-arguments error instead of crashing the
-trial.
+Two host-behaviour gotchas the lane handles: (1) the model sometimes *reaches a skill as a direct
+tool call* (`weaver-refactor({...})`, or the underscore-normalised `weaver_code_inspection` some
+providers emit, with invented arg schemas). *How a host exposes a skill is host integration, not
+skill content weaver owns* — so the lane does not let that phrasing decide the trial. It feeds back
+the skill's real body (treating the call as a load) and flags the trial as reached-via-tool, so the
+body is measured regardless. The tool set is **not** widened to declare per-skill tools; the harness
+recognises the skill-name call and feeds the body. A trial that then converges is a `warned-pass`
+(content worked, exposure was noisy); one that does not is a `content-fail` like any other loaded
+miss — see *Content vs. exposure* below. (2) Hosted models occasionally emit tool calls with
+**malformed JSON arguments**; `callModel` marks such calls (`invalidArguments`) and the loop feeds
+back an invalid-arguments error instead of crashing the trial.
 
 Run: `pnpm eval trigger-agentic --disable-console-intercept` — the flag is required or vitest
 swallows the per-case rate/trail `console.log` lines on passing tests, so the observational rungs
@@ -247,6 +275,19 @@ print nothing. Filter to a case subset with `-t <case-name-regex>`;
 (initial prompt, each model turn, each fed-back result) for diagnosing non-convergence. Test titles
 carry full case names (`chaiConfig.truncateThreshold: 0` in `vitest.llm.config.ts` — the default
 40-char truncation made long case names collide and silently broke `-t` filtering).
+
+**A lane failure is not automatically a regression — read its cause.** Each case has a 540s
+per-test budget (`LANE_TIMEOUT_MS` = trials × steps × per-call budget). Under a slow provider a deep
+(`momentumTurns:3`) case can exceed it and fail the *whole lane* on exit code even though its
+completed trials are clean — the exit status conflates "a skill regressed" with "the provider was
+slow tonight." Before treating a red run as a regression, check whether the failure is `Test timed
+out in …` (latency — re-run) or an actual rate/assertion failure (signal). This is logged as a
+follow-up in `docs/handoff.md` (make the observational lane timeout-resilient).
+
+**`eval/cases/*.llm.test.ts` is not covered by `pnpm check`** — it is excluded from the `test:eval`
+vitest lane, and stryker only mutates `eval/harness/**`. A type error or logic bug in the lane
+wiring surfaces only under a paid `pnpm eval` run. After editing a `*.llm.test.ts`, type-check it
+with `pnpm exec tsc --noEmit -p .` (which *does* include it) before spending on a run.
 
 ## The command and two-step lanes (deterministic)
 
