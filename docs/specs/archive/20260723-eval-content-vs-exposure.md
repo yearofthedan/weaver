@@ -211,6 +211,10 @@ Real path exercised: `pnpm eval trigger-agentic --disable-console-intercept` (n=
 
 The tool-style reach that used to dead-end (`weaver_code_inspection` → unknown-tool error → miss) now reaches content and produces a real, attributable signal.
 
+### Boundary risk — checked, not materialised
+
+The Edges section flagged that treating a tool-style reach as a load could flip a boundary case. A later clean Gemini run put `boundary-bash-search-non-ts-project` at 2/3, so it was checked directly at n=6 with `WEAVER_EVAL_DEBUG=1`: **5/6 clean** (a real ~1/6 over-trigger rate on this decision-boundary case; n=3 reads it as 2/3 or 3/3 by chance). The one over-trigger loaded the skill via a **proper `Skill()` call**, then ran `weaver search-text` — there was no tool-style call in the run. That over-trigger path is identical under the old and new code, so the tool-style-feeds-body change is not implicated. The flagged risk did not materialise; the boundary flakiness is Gemini's, on a task sitting on the `search-text` decision boundary. Haiku (the gate) stayed 3/3 clean throughout.
+
 ### Mutation
 
 `pnpm test:mutate:eval:file`: `outcome.ts` 100%, `agentic-loop.ts` 100%, `classifySkillReach` 0 survivors (`context.ts` 93.65% — the 4 survivors are pre-existing in `parseSkillFrontmatter`, unrelated).
