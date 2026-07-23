@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type ModelStep, runAgenticLoop } from "./agentic-loop.js";
+import { boundaryTrialClean, type ModelStep, runAgenticLoop } from "./agentic-loop.js";
 import type { ChatMessage, ModelResponse, ToolCall } from "./call-model.js";
 
 const tc = (name: string): ToolCall => ({ name, arguments: {} });
@@ -490,6 +490,105 @@ describe("runAgenticLoop", () => {
       expect(result.readTurn).toBe(1);
       expect(result.matched).toBe(true);
       expect(result.trail.map((t) => t.name)).not.toContain("Read");
+    });
+
+    it("detects a skill-load bundled as a non-first call and keeps it out of the trail", async () => {
+      const shellCall = tc("Grep");
+      const skillReadCall = tc("Read");
+
+      const { step } = scriptedModel([
+        // The model bundles a shell call and the skill-load in one turn, with the
+        // load second — the position Haiku 4.5 emits it in.
+        { toolCalls: [shellCall, skillReadCall], text: "" },
+        { toolCalls: [bashCall], text: "" },
+      ]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "bash",
+        isSkillMdRead: (call) => call === skillReadCall,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.skillMdRead).toBe(true);
+      expect(result.readTurn).toBe(1);
+      expect(result.matched).toBe(true);
+      expect(result.matchedAtStep).toBe(2);
+      expect(result.trail.map((t) => t.name)).not.toContain("Read");
+      expect(result.trail.map((t) => t.name)).toEqual(["Grep", "bash"]);
+    });
+
+    it("records both the read and the match when a turn bundles a skill-load with the matching call", async () => {
+      const skillReadCall = tc("Read");
+
+      const { step } = scriptedModel([{ toolCalls: [skillReadCall, bashCall], text: "" }]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "bash",
+        isSkillMdRead: (call) => call === skillReadCall,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.skillMdRead).toBe(true);
+      expect(result.readTurn).toBe(1);
+      expect(result.matched).toBe(true);
+      expect(result.matchedAtStep).toBe(1);
+      expect(result.trail.map((t) => t.name)).toEqual(["bash"]);
+    });
+
+    it("hard-fails on a competitor bundled with a skill-load, still recording the read", async () => {
+      const skillReadCall = tc("Read");
+      const competitorCall = tc("Edit");
+
+      const { step } = scriptedModel([{ toolCalls: [skillReadCall, competitorCall], text: "" }]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "bash",
+        hardFails: (call) => call.name === "Edit",
+        isSkillMdRead: (call) => call === skillReadCall,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.matched).toBe(false);
+      expect(result.failedAtStep).toBe(1);
+      expect(result.skillMdRead).toBe(true);
+      expect(result.readTurn).toBe(1);
+      expect(result.trail.map((t) => t.name)).toEqual(["Edit"]);
+    });
+
+    it("marks a boundary trial that bundles a non-first skill-load as over-triggered", async () => {
+      const shellCall = tc("bash");
+      const skillReadCall = tc("Read");
+
+      const { step } = scriptedModel([
+        { toolCalls: [shellCall, skillReadCall], text: "" },
+        { toolCalls: [], text: "Done." },
+      ]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        // A boundary trial has no target command to converge on.
+        matches: () => false,
+        isSkillMdRead: (call) => call === skillReadCall,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.skillMdRead).toBe(true);
+      expect(boundaryTrialClean(result)).toBe(false);
     });
   });
 });

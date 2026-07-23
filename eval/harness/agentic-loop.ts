@@ -122,10 +122,12 @@ export interface AgenticResult {
  * sensible precursor (e.g. find-references before a rename) that the single-shot
  * first-call metric scores as a loss.
  *
- * When `isSkillMdRead` returns true for a call, the loop records the read
- * (setting `skillMdRead` and `readTurn` on first occurrence) but does not add
- * it to `trail` and does not treat it as a match — it is a navigation step
- * toward the operation, not the operation itself.
+ * When `isSkillMdRead` returns true for a call — at any position in the turn,
+ * not only the first call — the loop records the read (setting `skillMdRead`
+ * and `readTurn` on first occurrence) but keeps it out of `trail` and the match
+ * check: it is a navigation step toward the operation, not the operation
+ * itself. A turn that bundles a skill-load with an operation call records both
+ * facts; the load never suppresses a match or hard-fail on its sibling calls.
  *
  * Each completed turn is replayed as a standard tool-use exchange: the model's
  * own assistant message (its text and real `tool_calls`) followed by a
@@ -216,29 +218,35 @@ export async function runAgenticLoop(params: {
       };
     }
 
-    const call = calls[0];
-
     if (debug) {
+      const first = calls[0];
       const arg =
-        call.name === "bash"
-          ? String(call.arguments.command ?? "")
-          : JSON.stringify(call.arguments);
+        first.name === "bash"
+          ? String(first.arguments.command ?? "")
+          : JSON.stringify(first.arguments);
       console.error(`\n─ step ${stepIndex} ─ model said: ${JSON.stringify(response.text)}`);
-      console.error(`  → ${call.name}(${arg})`);
+      console.error(`  → ${first.name}(${arg})`);
     }
 
-    if (isSkillMdRead(call)) {
-      if (!skillMdRead) {
-        skillMdRead = true;
-        readTurn = stepIndex;
-      }
-      echoTurn(response.text, calls, stepIndex);
-      continue;
+    // A skill-load can appear anywhere in a turn, not just first — a model may
+    // bundle it with a shell call fired in the same turn. Detect it across all
+    // of the turn's calls (recording the read once, on the first turn it
+    // appears) and keep every skill-load out of the trail and the match /
+    // hard-fail checks: a load is navigation toward the operation, not the
+    // operation. The remaining calls are the ones that count.
+    if (!skillMdRead && calls.some((c) => isSkillMdRead(c))) {
+      skillMdRead = true;
+      readTurn = stepIndex;
     }
 
-    trail.push(...calls);
+    // The non-skill-load calls are the ones that count. A pure navigation turn
+    // (only skill-loads) leaves this empty, so nothing is trailed or matched and
+    // the turn falls through to the echo below — the same as a spent turn.
+    const operationCalls = calls.filter((c) => !isSkillMdRead(c));
 
-    if (calls.some((c) => matches(c))) {
+    trail.push(...operationCalls);
+
+    if (operationCalls.some((c) => matches(c))) {
       return {
         matched: true,
         matchedAtStep: stepIndex,
@@ -249,7 +257,7 @@ export async function runAgenticLoop(params: {
       };
     }
 
-    if (hardFails !== undefined && calls.some((c) => hardFails(c))) {
+    if (hardFails !== undefined && operationCalls.some((c) => hardFails(c))) {
       return {
         matched: false,
         failedAtStep: stepIndex,
