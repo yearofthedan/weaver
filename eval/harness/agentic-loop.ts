@@ -107,6 +107,13 @@ export interface AgenticResult {
   /** 1-based step of the first SKILL.md read; absent if none occurred. */
   readTurn?: number;
   /**
+   * True if a tool-style skill reach (a model calling a skill directly as a
+   * tool, rather than loading it via `Skill`/`Read`) was observed at any point
+   * during the run. Always `false` when `isSkillCalledAsTool` is not supplied.
+   * Implies `skillMdRead`, since a tool-style reach is treated as a load.
+   */
+  skillCalledAsTool: boolean;
+  /**
    * The model's text reply on the turn it stopped emitting tool calls; absent
    * if the run matched or exhausted the step budget. This is the evidence for
    * diagnosing *why* a trial abandoned — e.g. answering from priors after a
@@ -140,6 +147,15 @@ export interface AgenticResult {
  * immediately — it does not echo the turn or continue toward the step budget.
  * `matches` is checked first, so a call satisfying both is a match, not a
  * hard fail. Omitting `hardFails` reproduces today's run-to-budget behaviour.
+ *
+ * `isSkillCalledAsTool` is an optional second navigation predicate, checked
+ * alongside `isSkillMdRead`: a call it recognizes is treated identically to a
+ * SKILL.md read (kept out of `trail`, exempt from `matches`/`hardFails`), and
+ * additionally sets `skillCalledAsTool` on the result. Recognizing it via
+ * either predicate sets `skillMdRead`, so `skillCalledAsTool` implies
+ * `skillMdRead` regardless of whether `isSkillMdRead` itself accounts for
+ * tool-style reaches. Omitting `isSkillCalledAsTool` reproduces today's
+ * behaviour, with `skillCalledAsTool` staying `false` throughout.
  */
 export async function runAgenticLoop(params: {
   messages: ChatMessage[];
@@ -147,15 +163,30 @@ export async function runAgenticLoop(params: {
   matches: (call: ToolCall) => boolean;
   hardFails?: (call: ToolCall) => boolean;
   isSkillMdRead: (call: ToolCall) => boolean;
+  isSkillCalledAsTool?: (call: ToolCall) => boolean;
   maxSteps: number;
   step: ModelStep;
   cannedResultFor: (call: ToolCall) => string;
 }): Promise<AgenticResult> {
-  const { tools, matches, hardFails, isSkillMdRead, maxSteps, step, cannedResultFor } = params;
+  const {
+    tools,
+    matches,
+    hardFails,
+    isSkillMdRead,
+    isSkillCalledAsTool,
+    maxSteps,
+    step,
+    cannedResultFor,
+  } = params;
   const messages = [...params.messages];
   const trail: ToolCall[] = [];
   let skillMdRead = false;
   let readTurn: number | undefined;
+  let skillCalledAsTool = false;
+
+  const isToolStyleReach = (call: ToolCall): boolean => isSkillCalledAsTool?.(call) ?? false;
+  const isNavigationCall = (call: ToolCall): boolean =>
+    isSkillMdRead(call) || isToolStyleReach(call);
 
   // Opt-in tracing of the full turn-by-turn exchange (model text, the tool call,
   // and the exact result fed back) for diagnosing why a trial does not converge.
@@ -214,6 +245,7 @@ export async function runAgenticLoop(params: {
         steps: stepIndex,
         skillMdRead,
         readTurn,
+        skillCalledAsTool,
         abandonedText: response.text,
       };
     }
@@ -228,21 +260,23 @@ export async function runAgenticLoop(params: {
       console.error(`  → ${first.name}(${arg})`);
     }
 
-    // A skill-load can appear anywhere in a turn, not just first — a model may
-    // bundle it with a shell call fired in the same turn. Detect it across all
-    // of the turn's calls (recording the read once, on the first turn it
-    // appears) and keep every skill-load out of the trail and the match /
-    // hard-fail checks: a load is navigation toward the operation, not the
-    // operation. The remaining calls are the ones that count.
-    if (!skillMdRead && calls.some((c) => isSkillMdRead(c))) {
+    // A skill reach — a load or a tool-style call — can appear anywhere in a
+    // turn, not just first: a model may bundle it with a shell call fired in
+    // the same turn. Detect it across all of the turn's calls (recording the
+    // read once, on the first turn it appears) and keep every reach out of the
+    // trail and the match / hard-fail checks: it is navigation toward the
+    // operation, not the operation. The remaining calls are the ones that
+    // count. A tool-style reach additionally credits skillCalledAsTool, which
+    // by construction can never be set without skillMdRead also being set.
+    if (!skillMdRead && calls.some((c) => isNavigationCall(c))) {
       skillMdRead = true;
       readTurn = stepIndex;
     }
+    if (!skillCalledAsTool && calls.some((c) => isToolStyleReach(c))) {
+      skillCalledAsTool = true;
+    }
 
-    // The non-skill-load calls are the ones that count. A pure navigation turn
-    // (only skill-loads) leaves this empty, so nothing is trailed or matched and
-    // the turn falls through to the echo below — the same as a spent turn.
-    const operationCalls = calls.filter((c) => !isSkillMdRead(c));
+    const operationCalls = calls.filter((c) => !isNavigationCall(c));
 
     trail.push(...operationCalls);
 
@@ -254,6 +288,7 @@ export async function runAgenticLoop(params: {
         steps: stepIndex,
         skillMdRead,
         readTurn,
+        skillCalledAsTool,
       };
     }
 
@@ -265,13 +300,14 @@ export async function runAgenticLoop(params: {
         steps: stepIndex,
         skillMdRead,
         readTurn,
+        skillCalledAsTool,
       };
     }
 
     echoTurn(response.text, calls, stepIndex);
   }
 
-  return { matched: false, trail, steps: maxSteps, skillMdRead, readTurn };
+  return { matched: false, trail, steps: maxSteps, skillMdRead, readTurn, skillCalledAsTool };
 }
 
 const truncate = (text: string, max: number): string =>

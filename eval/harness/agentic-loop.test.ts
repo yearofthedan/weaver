@@ -567,6 +567,118 @@ describe("runAgenticLoop", () => {
       expect(result.trail.map((t) => t.name)).toEqual(["Edit"]);
     });
 
+    it("defaults skillCalledAsTool to false when the predicate is omitted", async () => {
+      const { step } = scriptedModel([{ toolCalls: [bashCall], text: "" }]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "bash",
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.skillCalledAsTool).toBe(false);
+    });
+
+    it("leaves skillCalledAsTool false for a via-load reach", async () => {
+      const skillReadCall = tc("Read");
+      const { step } = scriptedModel([
+        { toolCalls: [skillReadCall], text: "" },
+        { toolCalls: [bashCall], text: "" },
+      ]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "bash",
+        isSkillMdRead: (call) => call === skillReadCall,
+        isSkillCalledAsTool: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.skillMdRead).toBe(true);
+      expect(result.skillCalledAsTool).toBe(false);
+    });
+
+    it("credits a tool-style reach as both skillMdRead and skillCalledAsTool, keeping it out of the trail and match", async () => {
+      const toolStyleCall = tc("weaver-refactor");
+
+      const { step } = scriptedModel([
+        { toolCalls: [toolStyleCall], text: "" },
+        { toolCalls: [bashCall], text: "" },
+      ]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "bash",
+        isSkillMdRead: () => false,
+        isSkillCalledAsTool: (call) => call === toolStyleCall,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.skillMdRead).toBe(true);
+      expect(result.skillCalledAsTool).toBe(true);
+      expect(result.matched).toBe(true);
+      expect(result.matchedAtStep).toBe(2);
+      expect(result.trail.map((t) => t.name)).toEqual(["bash"]);
+    });
+
+    it("upholds the invariant that skillCalledAsTool implies skillMdRead even when isSkillMdRead alone would miss the call", async () => {
+      const toolStyleCall = tc("weaver-code-inspection");
+      const { step } = scriptedModel([{ toolCalls: [toolStyleCall], text: "" }]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: () => false,
+        // Deliberately does not recognize the tool-style call as a load, to
+        // prove the loop itself upholds the invariant rather than depending
+        // on the caller's isSkillMdRead already covering tool-style reaches.
+        isSkillMdRead: () => false,
+        isSkillCalledAsTool: (call) => call === toolStyleCall,
+        maxSteps: 1,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.skillCalledAsTool).toBe(true);
+      expect(result.skillMdRead).toBe(true);
+      expect(result.trail).toEqual([]);
+    });
+
+    it("hard-fails on a non-first competitor bundled with a tool-style reach, still crediting both flags", async () => {
+      const toolStyleCall = tc("weaver-refactor");
+      const competitorCall = tc("Edit");
+
+      const { step } = scriptedModel([{ toolCalls: [toolStyleCall, competitorCall], text: "" }]);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: (call) => call.name === "bash",
+        hardFails: (call) => call.name === "Edit",
+        isSkillMdRead: () => false,
+        isSkillCalledAsTool: (call) => call === toolStyleCall,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.matched).toBe(false);
+      expect(result.failedAtStep).toBe(1);
+      expect(result.skillMdRead).toBe(true);
+      expect(result.skillCalledAsTool).toBe(true);
+      expect(result.trail.map((t) => t.name)).toEqual(["Edit"]);
+    });
+
     it("marks a boundary trial that bundles a non-first skill-load as over-triggered", async () => {
       const shellCall = tc("bash");
       const skillReadCall = tc("Read");
