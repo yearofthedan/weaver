@@ -291,6 +291,12 @@ prose, so outputs are low-entropy on a clear task. That shapes how to work on it
   "should" emit and shape the assertion to match — reading engine source to *fix an expected model
   output* is the anti-pattern tell. (This is distinct from verifying the *world* the model acts in,
   below, which does require reading source.)
+- **A change to harness code is verified by a real eval run, not green harness unit tests.** The
+  `test:eval` lane (and mutation on the harness) proves the *logic* in isolation; it cannot prove a
+  grading change behaves correctly against a real model — that only shows in `pnpm eval`. A fix to
+  how tool calls are graded, mocked, or looped must be driven on a real model before it is done. A
+  cheap way to also *exercise* a fix in situ: re-run the model whose behaviour surfaced the bug (a
+  hallucination or malformed-args path), since it is the one likely to reproduce it.
 - **A dropped or loosened assertion costs an observation, not a thought bubble.** "This might be
   fragile" is a hypothesis you test by running, not a licence to delete. You cannot keep slicing
   assertions out until it's green — and because selection/args are low-entropy here, an exact-value
