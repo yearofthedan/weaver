@@ -58,8 +58,14 @@ Tests are colocated with the code they exercise (`*.test.ts` beside each source 
 pnpm test        # unit + integration
 pnpm test:eval   # eval-harness invariants (no model server)
 pnpm eval        # full LLM skill eval (needs a local model server — see docs/eval-design.md)
-pnpm check       # biome + build + coverage + test:eval (the pre-commit gate)
+pnpm check       # biome + build + coverage + test:eval (full check; also what CI runs)
 ```
+
+The pre-commit hook (`scripts/pre-commit.sh`) picks a tier from what the commit
+touches: a change confined to `eval/` and `docs/` runs only biome + `test:eval`,
+while anything touching `src/`, skills, or a root config runs the full
+`biome + build + test:all` gate. Coverage is omitted from the hook because it has
+no threshold — it's a report, not a gate, and CI still produces it.
 
 ## Project structure
 

@@ -1,1 +1,1 @@
-pnpm check
+bash scripts/pre-commit.sh
