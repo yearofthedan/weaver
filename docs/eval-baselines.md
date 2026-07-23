@@ -24,33 +24,33 @@ All runs below: **n=3 trials**, temperature 0.7 (agentic) / 0 (command + two-ste
 
 | Case | Lane | Haiku 4.5 | DeepSeek V3 | Gemini 2.5 Flash |
 |---|---|---|---|---|
-| _date_ | | 2026-07-23 | 2026-07-23 | 2026-07-23 |
-| _slug_ | | `anthropic/claude-haiku-4.5` | `deepseek/deepseek-chat` | `google/gemini-2.5-flash` |
-| Command lane (11 single-shot) | command | 11/11 | 10/11 | 11/11 |
-| trigger-refactor-rename | agentic (gating) | 3/3 | 1/3 | 3/3 |
-| trigger-refactor-rename-no-coords-sed-tempting | agentic (gating) | 3/3 | 3/3 | 3/3 |
-| trigger-refactor-move-file | agentic (gating) | 3/3 | 3/3 | 3/3 |
-| trigger-search-and-replace-pattern | agentic (gating) | 3/3 | 1/3 | 3/3 |
-| trigger-search-and-replace-todos-grep-tempting | agentic (gating) | 3/3 | 1/3 | 3/3 |
-| trigger-search-and-replace-sed-tempting | agentic (gating) | 3/3 | 3/3 | 3/3 |
-| trigger-code-inspection-find-references | agentic (gating) | 3/3 | 2/3 | 3/3 |
-| trigger-code-inspection-find-references-delete-intent | agentic (gating) | 3/3 | 3/3 | 3/3 |
-| trigger-code-inspection-get-type-errors | agentic (gating) | 3/3 | 1/3 | 3/3 |
-| pressured-buried-rename | agentic (observational) | 3/3 | 0/3 | harness err† |
-| pressured-buried-replace-text-active | agentic (observational) | 3/3 | 2/3 | 3/3 |
-| pressured-buried-replace-text-passive | agentic (observational) | 3/3 | 0/3 | harness err† |
-| pressured-buried-search-text | agentic (observational) | 2/3 | 2/3 | 2/3 |
-| pressured-buried-find-references | agentic (observational) | 3/3 | 1/3 | 3/3 |
-| boundary-bash-search-non-ts-project | boundary (clean) | 3/3 | 3/3 | 3/3 |
-| boundary-bash-remove-console-log | boundary (clean) | 3/3 | 2/3 | 3/3 |
-| two-step-search-then-rename | two-step | pass | fail | pass |
-| two-step-cat-then-extract | two-step | fail | fail | pass |
-| **Cases passed** (of 29) | | **28** | **21** | **27** (2 crashed†) |
-| **Run cost (USD)** | | **$0.962** | **$0.247** | TBD (check OpenRouter) |
+| _date_ | | 2026-07-23 | 2026-07-23 | 2026-07-23 | 2026-07-23 |
+| _slug_ | | `anthropic/claude-haiku-4.5` | `deepseek/deepseek-chat` | `google/gemini-2.5-flash` | `google/gemini-3.5-flash-lite` |
+| Command lane (11 single-shot) | command | 11/11 | 10/11 | 11/11 | 11/11 |
+| trigger-refactor-rename | agentic (gating) | 3/3 | 1/3 | 3/3 | 3/3 |
+| trigger-refactor-rename-no-coords-sed-tempting | agentic (gating) | 3/3 | 3/3 | 3/3 | 1/3 |
+| trigger-refactor-move-file | agentic (gating) | 3/3 | 3/3 | 3/3 | 3/3 |
+| trigger-search-and-replace-pattern | agentic (gating) | 3/3 | 1/3 | 3/3 | 3/3 |
+| trigger-search-and-replace-todos-grep-tempting | agentic (gating) | 3/3 | 1/3 | 3/3 | 3/3 |
+| trigger-search-and-replace-sed-tempting | agentic (gating) | 3/3 | 3/3 | 3/3 | 3/3 |
+| trigger-code-inspection-find-references | agentic (gating) | 3/3 | 2/3 | 3/3 | 3/3 |
+| trigger-code-inspection-find-references-delete-intent | agentic (gating) | 3/3 | 3/3 | 3/3 | 3/3 |
+| trigger-code-inspection-get-type-errors | agentic (gating) | 3/3 | 1/3 | 3/3 | 3/3 |
+| pressured-buried-rename | agentic (observational) | 3/3 | 0/3 | harness err† | 0/3 |
+| pressured-buried-replace-text-active | agentic (observational) | 3/3 | 2/3 | 3/3 | 2/3 |
+| pressured-buried-replace-text-passive | agentic (observational) | 3/3 | 0/3 | harness err† | 3/3 |
+| pressured-buried-search-text | agentic (observational) | 2/3 | 2/3 | 2/3 | 0/3 |
+| pressured-buried-find-references | agentic (observational) | 3/3 | 1/3 | 3/3 | 0/3 |
+| boundary-bash-search-non-ts-project | boundary (clean) | 3/3 | 3/3 | 3/3 | 2/3 (over-trig) |
+| boundary-bash-remove-console-log | boundary (clean) | 3/3 | 2/3 | 3/3 | 3/3 |
+| two-step-search-then-rename | two-step | pass | fail | pass | pass |
+| two-step-cat-then-extract | two-step | fail | fail | pass | pass |
+| **Cases passed** (of 29) | | **28** | **21** | **27** (2 crashed†) | **27** (2 gated fails) |
+| **Run cost (USD)** | | **$0.962** | **$0.247** | **$0.0986** | **$0.252** |
 
-Cost is the full-lane, n=3 run price via OpenRouter. DeepSeek ran ~2.5× slower in wall time than Haiku yet cost ~4× less — its per-token price is low enough that the extra exploration steps still come out cheaper. The tradeoff axis is cost vs quality: DeepSeek is cheap but confabulates edits (see below); Gemini roughly matches Haiku on quality (on completed cases) at a cost still to be recorded.
+Cost is the full-lane, n=3 run price via OpenRouter, and tracks tokens, not wall time. DeepSeek ran ~2.5× slower than Haiku yet cost ~4× less (low per-token price). Gemini 3.5 Flash Lite is the surprise: **same nominal $/token as 2.5-flash but ~2.5× the run cost** ($0.252 vs $0.0986) despite a *faster* run with shorter/empty visible outputs — it burned ~2.5× more tokens, most likely hidden reasoning tokens billed at the output rate (3.5 being a thinking model; not confirmed against a token breakdown). Net verdict: **Gemini 2.5 Flash dominates** — cheapest (~10× under Haiku) and, on completed cases, highest quality of the non-Claude runs (matched Haiku on every gating case, passed both two-step). 3.5 Flash Lite is dominated: ~2.5× the cost *and* lower quality (collapses under momentum pressure — 0/3 on three buried cases), marking the lite-tier boundary. DeepSeek is cheap-ish but confabulates edits (see below).
 
-† **Gemini's two failures are harness crashes, not model misses.** Gemini hallucinated a skill as a directly-callable tool using an **underscore** name (`weaver_code_inspection`, `weaver_search_and_replace`); the hallucination guard in `cannedResultForCall` matches only the hyphenated `SKILL_NAMES`, so the underscore variant falls through to `cannedToolResult` and *throws*, crashing the test mid-trial. True rates on those two pressured cases are indeterminate until the harness is fixed and the run repeated. On the 27 cases that completed, Gemini matched Haiku on all gating cases and was the **only** model of the three to pass both two-step cases. See the handoff `[needs design]` entry.
+† **Gemini 2.5 Flash's two failures are harness crashes, not model misses.** It hallucinated a skill as a directly-callable tool using an **underscore** name (`weaver_code_inspection`, `weaver_search_and_replace`); the hallucination guard in `cannedResultForCall` matches only the hyphenated `SKILL_NAMES`, so the underscore variant falls through to `cannedToolResult` and *throws*, crashing the test mid-trial. **The crash is non-deterministic: it did NOT reproduce on the 3.5-flash-lite run** (42 agentic trials, no crash), so the underscore hallucination is occasional model behaviour, not a reliably-triggered path. The bug is real by code inspection (separator-sensitive guard) but latent. See the handoff `[needs design]` entry — a deterministic unit repro (synthetic underscore `ToolCall`) is the evidence to gather before fixing, not a re-run hoping to catch a model.
 
 ### Headline findings per run
 
