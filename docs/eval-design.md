@@ -277,12 +277,13 @@ carry full case names (`chaiConfig.truncateThreshold: 0` in `vitest.llm.config.t
 40-char truncation made long case names collide and silently broke `-t` filtering).
 
 **A lane failure is not automatically a regression — read its cause.** Each case has a 540s
-per-test budget (`LANE_TIMEOUT_MS` = trials × steps × per-call budget). Under a slow provider a deep
-(`momentumTurns:3`) case can exceed it and fail the *whole lane* on exit code even though its
-completed trials are clean — the exit status conflates "a skill regressed" with "the provider was
-slow tonight." Before treating a red run as a regression, check whether the failure is `Test timed
-out in …` (latency — re-run) or an actual rate/assertion failure (signal). This is logged as a
-follow-up in `docs/handoff.md` (make the observational lane timeout-resilient).
+per-test budget (`LANE_TIMEOUT_MS` = trials × steps × per-call budget). When a run stalls — a slow
+provider, or the host sleeping mid-run — a deep (`momentumTurns:3`) case can exceed it and fail the
+*whole lane* on exit code even though its completed trials are clean; the exit status conflates "a
+skill regressed" with "the run stalled." Before treating a red run as a regression, check whether
+the failure is `Test timed out in …` (an environmental stall — re-run) or an actual rate/assertion
+failure (signal). This is logged as a follow-up in `docs/handoff.md` (make the observational lane
+timeout-resilient).
 
 **`eval/cases/*.llm.test.ts` is not covered by `pnpm check`** — it is excluded from the `test:eval`
 vitest lane, and stryker only mutates `eval/harness/**`. A type error or logic bug in the lane
