@@ -1,13 +1,20 @@
 import * as fs from "node:fs";
 import { describe, expect, it, vi } from "vitest";
+import type { ToolCall } from "./call-model.js";
 import {
   buildAvailableSkillsPrompt,
+  classifySkillReach,
   readSkillFile,
   SKILL_NAMES,
   skillContext,
   skillFrontmatters,
   skillLocation,
 } from "./context.js";
+
+const tc = (name: string, args: Record<string, unknown> = {}): ToolCall => ({
+  name,
+  arguments: args,
+});
 
 // Wraps the real readFileSync so most calls behave normally; individual
 // tests override a single call with mockReturnValueOnce/mockImplementationOnce
@@ -137,6 +144,72 @@ describe("buildAvailableSkillsPrompt", () => {
     const prompt = buildAvailableSkillsPrompt();
     expect(prompt.toLowerCase()).toContain("loaded into the conversation");
     expect(prompt.toLowerCase()).toContain("bash");
+  });
+});
+
+describe("classifySkillReach", () => {
+  it("recognizes a Skill() load of a valid skill name", () => {
+    expect(classifySkillReach(tc("Skill", { skill: "weaver-refactor" }))).toEqual({
+      skill: "weaver-refactor",
+      via: "load",
+    });
+  });
+
+  it("returns undefined for a Skill() call naming an unknown skill", () => {
+    expect(classifySkillReach(tc("Skill", { skill: "nonsense" }))).toBeUndefined();
+  });
+
+  it("recognizes a Read of a skill's SKILL.md by absolute path suffix", () => {
+    expect(
+      classifySkillReach(tc("Read", { file: "/abs/.claude/skills/weaver-refactor/SKILL.md" })),
+    ).toEqual({ skill: "weaver-refactor", via: "load" });
+  });
+
+  it("recognizes a Read of a skill's SKILL.md via a ./-prefixed path", () => {
+    expect(
+      classifySkillReach(tc("Read", { file: "./.claude/skills/weaver-refactor/SKILL.md" })),
+    ).toEqual({ skill: "weaver-refactor", via: "load" });
+  });
+
+  it("returns undefined for a Read of a file that is not a skill's SKILL.md", () => {
+    expect(classifySkillReach(tc("Read", { file: "src/auth.ts" }))).toBeUndefined();
+  });
+
+  it("recognizes a hyphenated tool-style call naming a skill directly", () => {
+    expect(classifySkillReach(tc("weaver-refactor"))).toEqual({
+      skill: "weaver-refactor",
+      via: "tool",
+    });
+  });
+
+  it("recognizes an underscore tool-style call, normalized to the hyphenated skill name", () => {
+    expect(classifySkillReach(tc("weaver_code_inspection"))).toEqual({
+      skill: "weaver-code-inspection",
+      via: "tool",
+    });
+  });
+
+  it("normalizes mixed case before matching a tool-style call", () => {
+    expect(classifySkillReach(tc("Weaver_Code_Inspection"))).toEqual({
+      skill: "weaver-code-inspection",
+      via: "tool",
+    });
+  });
+
+  it("returns undefined for a plain bash call", () => {
+    expect(classifySkillReach(tc("bash", { command: "ls" }))).toBeUndefined();
+  });
+
+  it("returns undefined for a declared competing tool like Grep", () => {
+    expect(classifySkillReach(tc("Grep"))).toBeUndefined();
+  });
+
+  it("returns undefined for a hallucinated tool name that is not a skill", () => {
+    expect(classifySkillReach(tc("frobnicate"))).toBeUndefined();
+  });
+
+  it("does not match a tool name that is a superstring of a skill name", () => {
+    expect(classifySkillReach(tc("weaver-refactor-x"))).toBeUndefined();
   });
 });
 

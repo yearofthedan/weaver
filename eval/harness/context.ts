@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import type { ToolCall } from "./call-model.js";
 import { readFileOrThrow } from "./read-file.js";
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
@@ -56,6 +57,42 @@ export function skillFrontmatters(): SkillFrontmatter[] {
  */
 export function skillLocation(name: string): string {
   return `.claude/skills/${name}/SKILL.md`;
+}
+
+/**
+ * Classifies a tool call as a reach for one of the shipped skills, distinguishing
+ * a host-sanctioned load from a tool-style hallucination:
+ *
+ * - `Skill({ skill: <name> })` or a `Read` of a skill's `SKILL.md` (matched by
+ *   suffix, tolerating an absolute or `./`-prefixed path) → `via: "load"`.
+ * - Any other call whose name, normalized (lowercased, `_` → `-`), exactly
+ *   equals a shipped skill name → `via: "tool"`. No host declares a tool named
+ *   after a skill, so this is a model inventing one directly rather than
+ *   loading it the sanctioned way.
+ *
+ * The load check takes precedence: a `Skill`/`Read` call is resolved (or ruled
+ * out) without falling through to the tool-style check. Normalization uses
+ * exact equality, so a superstring of a skill name (`weaver-refactor-x`) does
+ * not match. Returns `undefined` for any call that reaches no skill at all.
+ */
+export function classifySkillReach(
+  call: ToolCall,
+): { skill: SkillName; via: "load" | "tool" } | undefined {
+  if (call.name === "Skill") {
+    const requested = String(call.arguments.skill ?? "");
+    const skill = SKILL_NAMES.find((name) => name === requested);
+    return skill ? { skill, via: "load" } : undefined;
+  }
+
+  if (call.name === "Read") {
+    const filePath = String(call.arguments.file ?? call.arguments.file_path ?? "");
+    const skill = SKILL_NAMES.find((name) => filePath.endsWith(skillLocation(name)));
+    return skill ? { skill, via: "load" } : undefined;
+  }
+
+  const normalized = call.name.toLowerCase().replace(/_/g, "-");
+  const skill = SKILL_NAMES.find((name) => name === normalized);
+  return skill ? { skill, via: "tool" } : undefined;
 }
 
 /**
