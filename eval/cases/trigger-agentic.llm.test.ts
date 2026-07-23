@@ -28,6 +28,17 @@ const MAX_STEPS = 6;
 const raw = process.env.WEAVER_EVAL_TRIALS;
 const TRIALS = raw === undefined || raw === "" ? 3 : Number.parseInt(raw, 10);
 
+// Generous per-call ceiling, not a measured latency — a backstop against a
+// wedged run, sized so ordinary slowness never trips it.
+const PER_CALL_BUDGET_MS = 30_000;
+
+// Trials run sequentially and each burns up to MAX_STEPS model calls, so this
+// lane's wall time scales with WEAVER_EVAL_TRIALS while the other lanes stay
+// single-shot. Scaling here rather than in vitest.llm.config.ts keeps the
+// config's short timeout as a fast-fail floor for those lanes, and avoids
+// duplicating both the env parsing above and MAX_STEPS into the config.
+const LANE_TIMEOUT_MS = TRIALS * MAX_STEPS * PER_CALL_BUDGET_MS;
+
 // Same skill-trigger subset as the adversarial lane; the two lanes share it so
 // the gap is interpretable: red in adversarial but green here means a
 // precursor case.
@@ -97,147 +108,153 @@ function cannedResultForCall(call: ToolCall, caseResults?: Record<string, string
 }
 
 describe("agentic rate lane", () => {
-  it.each(
-    skillTriggerCases,
-  )("$name — weaver is invoked within the step budget across trials", async (c) => {
-    const expectedCommand = c.expect.command;
-    expect(expectedCommand, "trigger case must declare expect.command").toBeDefined();
-    if (!expectedCommand) return;
+  it.each(skillTriggerCases)(
+    "$name — weaver is invoked within the step budget across trials",
+    async (c) => {
+      const expectedCommand = c.expect.command;
+      expect(expectedCommand, "trigger case must declare expect.command").toBeDefined();
+      if (!expectedCommand) return;
 
-    interface TrialRecord {
-      matched: boolean;
-      matchedAtStep?: number;
-      failedAtStep?: number;
-      trail: ToolCall[];
-      skillMdRead: boolean;
-      readTurn?: number;
-      abandonedText?: string;
-    }
+      interface TrialRecord {
+        matched: boolean;
+        matchedAtStep?: number;
+        failedAtStep?: number;
+        trail: ToolCall[];
+        skillMdRead: boolean;
+        readTurn?: number;
+        abandonedText?: string;
+      }
 
-    const trialRecords: TrialRecord[] = [];
+      const trialRecords: TrialRecord[] = [];
 
-    for (let trial = 0; trial < TRIALS; trial++) {
-      const messages: ChatMessage[] = [
-        { role: "system", content: systemContent },
-        ...seedForCase(c),
-      ];
+      for (let trial = 0; trial < TRIALS; trial++) {
+        const messages: ChatMessage[] = [
+          { role: "system", content: systemContent },
+          ...seedForCase(c),
+        ];
 
-      const result = await runAgenticLoop({
-        messages,
-        tools,
-        // Pass = the model actually runs the CLI: a bash `weaver <command>` call.
-        matches: (call) =>
-          call.name === "bash" &&
-          extractBashCommands([call]).some((cmd) => isWeaverInvocation(cmd, expectedCommand)),
-        // Fail = the model reaches for a different destructive weaver op
-        // instead — a wrong-op detour, not a recoverable precursor.
-        hardFails: (call) => isMutatingCompetitor(call, expectedCommand),
-        isSkillMdRead: (call) => skillNameFromLoad(call) !== undefined,
-        maxSteps: MAX_STEPS,
-        step: callModel,
-        cannedResultFor: (call) => cannedResultForCall(call, c.cannedResults),
-      });
+        const result = await runAgenticLoop({
+          messages,
+          tools,
+          // Pass = the model actually runs the CLI: a bash `weaver <command>` call.
+          matches: (call) =>
+            call.name === "bash" &&
+            extractBashCommands([call]).some((cmd) => isWeaverInvocation(cmd, expectedCommand)),
+          // Fail = the model reaches for a different destructive weaver op
+          // instead — a wrong-op detour, not a recoverable precursor.
+          hardFails: (call) => isMutatingCompetitor(call, expectedCommand),
+          isSkillMdRead: (call) => skillNameFromLoad(call) !== undefined,
+          maxSteps: MAX_STEPS,
+          step: callModel,
+          cannedResultFor: (call) => cannedResultForCall(call, c.cannedResults),
+        });
 
-      trialRecords.push({
-        matched: result.matched,
-        matchedAtStep: result.matchedAtStep,
-        failedAtStep: result.failedAtStep,
-        trail: result.trail,
-        skillMdRead: result.skillMdRead,
-        readTurn: result.readTurn,
-        abandonedText: result.abandonedText,
-      });
-    }
+        trialRecords.push({
+          matched: result.matched,
+          matchedAtStep: result.matchedAtStep,
+          failedAtStep: result.failedAtStep,
+          trail: result.trail,
+          skillMdRead: result.skillMdRead,
+          readTurn: result.readTurn,
+          abandonedText: result.abandonedText,
+        });
+      }
 
-    const rate = computeRate(trialRecords.map((r) => r.matched));
+      const rate = computeRate(trialRecords.map((r) => r.matched));
 
-    // matchedAtStep distinguishes a first-call win (1 — no precursor needed)
-    // from a precursor-then-win (matched later); failedAtStep marks a trial
-    // that hard-failed on a mutating competitor rather than merely running
-    // out of budget; both are absent when the trial never matched or failed.
-    const trailSummary = trialRecords
-      .map((r, i) => {
-        let outcome: string;
-        if (r.matched) {
-          const segment = extractBashCommands(r.trail).find((cmd) =>
-            isWeaverInvocation(cmd, expectedCommand),
-          );
-          const argsVerdict = segment
-            ? matchWeaverCommand(segment, expectedCommand, c.expect.keyArgs).outcome
-            : undefined;
-          outcome = `matched@${r.matchedAtStep}${argsVerdict !== undefined ? ` args:${argsVerdict}` : ""}`;
-        } else {
-          outcome = r.failedAtStep !== undefined ? `competitor@${r.failedAtStep}` : "no match";
-        }
-        return `  trial ${i + 1} [${outcome}, ${r.skillMdRead ? `skill loaded@${r.readTurn}` : "no skill load"}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}${r.abandonedText !== undefined ? `\n    abandoned with text: ${JSON.stringify(r.abandonedText.slice(0, 500))}` : ""}`;
-      })
-      .join("\n");
+      // matchedAtStep distinguishes a first-call win (1 — no precursor needed)
+      // from a precursor-then-win (matched later); failedAtStep marks a trial
+      // that hard-failed on a mutating competitor rather than merely running
+      // out of budget; both are absent when the trial never matched or failed.
+      const trailSummary = trialRecords
+        .map((r, i) => {
+          let outcome: string;
+          if (r.matched) {
+            const segment = extractBashCommands(r.trail).find((cmd) =>
+              isWeaverInvocation(cmd, expectedCommand),
+            );
+            const argsVerdict = segment
+              ? matchWeaverCommand(segment, expectedCommand, c.expect.keyArgs).outcome
+              : undefined;
+            outcome = `matched@${r.matchedAtStep}${argsVerdict !== undefined ? ` args:${argsVerdict}` : ""}`;
+          } else {
+            outcome = r.failedAtStep !== undefined ? `competitor@${r.failedAtStep}` : "no match";
+          }
+          return `  trial ${i + 1} [${outcome}, ${r.skillMdRead ? `skill loaded@${r.readTurn}` : "no skill load"}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}${r.abandonedText !== undefined ? `\n    abandoned with text: ${JSON.stringify(r.abandonedText.slice(0, 500))}` : ""}`;
+        })
+        .join("\n");
 
-    // Printed for passing cases too: the rate alone hides how the model got
-    // there — the trail shows precursor steps and any loaded-but-didn't-convert
-    // trials (right skill loaded, CLI never run) a bare pass/fail would mask.
-    console.log(`${c.name} — rate ${rate.passed}/${rate.total}\n${trailSummary}`);
+      // Printed for passing cases too: the rate alone hides how the model got
+      // there — the trail shows precursor steps and any loaded-but-didn't-convert
+      // trials (right skill loaded, CLI never run) a bare pass/fail would mask.
+      console.log(`${c.name} — rate ${rate.passed}/${rate.total}\n${trailSummary}`);
 
-    // Observational cases (buried phrasing under a deep pressure seed) report
-    // the rate above but carry no pass/fail assertion — see caseIsGating.
-    if (caseIsGating(c)) {
-      expect(
-        rate.belowAlarm,
-        `"${c.name}" trigger rate ${rate.passed}/${rate.total} is below the 2/3 floor for command "${expectedCommand}". Trails:\n${trailSummary}`,
-      ).toBe(false);
-    }
-  });
+      // Observational cases (buried phrasing under a deep pressure seed) report
+      // the rate above but carry no pass/fail assertion — see caseIsGating.
+      if (caseIsGating(c)) {
+        expect(
+          rate.belowAlarm,
+          `"${c.name}" trigger rate ${rate.passed}/${rate.total} is below the 2/3 floor for command "${expectedCommand}". Trails:\n${trailSummary}`,
+        ).toBe(false);
+      }
+    },
+    LANE_TIMEOUT_MS,
+  );
 });
 
 describe("agentic rate lane — boundary", () => {
-  it.each(boundaryCases)("$name — the model stays in bash across trials", async (c) => {
-    interface TrialRecord {
-      clean: boolean;
-      trail: ToolCall[];
-      skillMdRead: boolean;
-    }
+  it.each(boundaryCases)(
+    "$name — the model stays in bash across trials",
+    async (c) => {
+      interface TrialRecord {
+        clean: boolean;
+        trail: ToolCall[];
+        skillMdRead: boolean;
+      }
 
-    const trialRecords: TrialRecord[] = [];
+      const trialRecords: TrialRecord[] = [];
 
-    for (let trial = 0; trial < TRIALS; trial++) {
-      const messages: ChatMessage[] = [
-        { role: "system", content: systemContent },
-        ...seedForCase(c),
-      ];
+      for (let trial = 0; trial < TRIALS; trial++) {
+        const messages: ChatMessage[] = [
+          { role: "system", content: systemContent },
+          ...seedForCase(c),
+        ];
 
-      // Never satisfied: a boundary trial has no target command to converge
-      // on, so the loop runs to the step budget (or the model abandons with
-      // text after its bash result) and boundaryTrialClean judges the trail.
-      const result = await runAgenticLoop({
-        messages,
-        tools,
-        matches: () => false,
-        isSkillMdRead: (call) => skillNameFromLoad(call) !== undefined,
-        maxSteps: MAX_STEPS,
-        step: callModel,
-        cannedResultFor: (call) => cannedResultForCall(call, c.cannedResults),
-      });
+        // Never satisfied: a boundary trial has no target command to converge
+        // on, so the loop runs to the step budget (or the model abandons with
+        // text after its bash result) and boundaryTrialClean judges the trail.
+        const result = await runAgenticLoop({
+          messages,
+          tools,
+          matches: () => false,
+          isSkillMdRead: (call) => skillNameFromLoad(call) !== undefined,
+          maxSteps: MAX_STEPS,
+          step: callModel,
+          cannedResultFor: (call) => cannedResultForCall(call, c.cannedResults),
+        });
 
-      trialRecords.push({
-        clean: boundaryTrialClean(result),
-        trail: result.trail,
-        skillMdRead: result.skillMdRead,
-      });
-    }
+        trialRecords.push({
+          clean: boundaryTrialClean(result),
+          trail: result.trail,
+          skillMdRead: result.skillMdRead,
+        });
+      }
 
-    const trailSummary = trialRecords
-      .map(
-        (r, i) =>
-          `  trial ${i + 1} [${r.clean ? "clean" : "OVER-TRIGGERED"}${r.skillMdRead ? ", skill loaded" : ""}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}`,
-      )
-      .join("\n");
+      const trailSummary = trialRecords
+        .map(
+          (r, i) =>
+            `  trial ${i + 1} [${r.clean ? "clean" : "OVER-TRIGGERED"}${r.skillMdRead ? ", skill loaded" : ""}]: ${r.trail.map(formatCall).join(" → ") || "(no tool calls)"}`,
+        )
+        .join("\n");
 
-    const cleanCount = trialRecords.filter((r) => r.clean).length;
-    console.log(`${c.name} — ${cleanCount}/${trialRecords.length} clean\n${trailSummary}`);
+      const cleanCount = trialRecords.filter((r) => r.clean).length;
+      console.log(`${c.name} — ${cleanCount}/${trialRecords.length} clean\n${trailSummary}`);
 
-    expect(
-      trialRecords.every((r) => r.clean),
-      `"${c.name}" over-triggered in at least one trial — a boundary case must stay clean (no skill load, no weaver call) across all trials. Trails:\n${trailSummary}`,
-    ).toBe(true);
-  });
+      expect(
+        trialRecords.every((r) => r.clean),
+        `"${c.name}" over-triggered in at least one trial — a boundary case must stay clean (no skill load, no weaver call) across all trials. Trails:\n${trailSummary}`,
+      ).toBe(true);
+    },
+    LANE_TIMEOUT_MS,
+  );
 });
