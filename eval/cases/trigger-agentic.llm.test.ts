@@ -15,9 +15,8 @@ import { caseIsGating, seedForCase } from "../harness/case-lane.js";
 import { buildClutterSystemPrompt } from "../harness/clutter.js";
 import {
   buildAvailableSkillsPrompt,
+  classifySkillReach,
   readSkillFile,
-  SKILL_NAMES,
-  skillLocation,
 } from "../harness/context.js";
 import { isMutatingCompetitor } from "../harness/grade.js";
 import { computeRate } from "../harness/rate.js";
@@ -71,30 +70,9 @@ function formatCall(call: ToolCall): string {
   return `${call.name}(${args})`;
 }
 
-/** Returns the skill name if this call is a Read of a skill's SKILL.md, else undefined. */
-function skillNameFromRead(call: ToolCall): string | undefined {
-  if (call.name !== "Read") return undefined;
-  const filePath = String(call.arguments.file ?? call.arguments.file_path ?? "");
-  // suffix, not exact: tolerate an absolute or ./-prefixed read path
-  return SKILL_NAMES.find((name) => filePath.endsWith(skillLocation(name)));
-}
-
 /**
- * Returns the skill name when this call loads a skill the way a host allows:
- * a `Skill(skill: <name>)` invocation, or a Read of the skill's SKILL.md.
- * A direct call named after a skill is NOT a load — no host declares such a
- * tool; it gets an unknown-tool error like any other hallucination.
- */
-function skillNameFromLoad(call: ToolCall): string | undefined {
-  if (call.name === "Skill") {
-    const requested = String(call.arguments.skill ?? "");
-    return SKILL_NAMES.find((name) => name === requested);
-  }
-  return skillNameFromRead(call);
-}
-
-/**
- * Feeds a skill's real SKILL.md body back for a load and a host-style
+ * Feeds a skill's real SKILL.md body back for any reach `classifySkillReach`
+ * recognizes — a sanctioned load or a tool-style call — and a host-style
  * unknown-skill error for a bad `Skill()` name; anything else is resolved by
  * `resolveCannedResult` against the lane's declared tools (a hallucinated tool
  * name gets a host "no such tool" error, a declared tool its canned result).
@@ -102,9 +80,9 @@ function skillNameFromLoad(call: ToolCall): string | undefined {
  * differ in `matches`.
  */
 function cannedResultForCall(call: ToolCall, caseResults?: Record<string, string>): string {
-  const skillName = skillNameFromLoad(call);
-  if (skillName !== undefined) {
-    return readSkillFile(skillName);
+  const reach = classifySkillReach(call);
+  if (reach !== undefined) {
+    return readSkillFile(reach.skill);
   }
   if (call.name === "Skill") {
     return `Error: unknown skill "${String(call.arguments.skill ?? "")}".`;
@@ -148,7 +126,8 @@ describe("agentic rate lane", () => {
           // Fail = the model reaches for a different destructive weaver op
           // instead — a wrong-op detour, not a recoverable precursor.
           hardFails: (call) => isMutatingCompetitor(call, expectedCommand),
-          isSkillMdRead: (call) => skillNameFromLoad(call) !== undefined,
+          isSkillMdRead: (call) => classifySkillReach(call)?.via === "load",
+          isSkillCalledAsTool: (call) => classifySkillReach(call)?.via === "tool",
           maxSteps: MAX_STEPS,
           step: callModel,
           cannedResultFor: (call) => cannedResultForCall(call, c.cannedResults),
@@ -232,7 +211,8 @@ describe("agentic rate lane — boundary", () => {
           messages,
           tools,
           matches: () => false,
-          isSkillMdRead: (call) => skillNameFromLoad(call) !== undefined,
+          isSkillMdRead: (call) => classifySkillReach(call)?.via === "load",
+          isSkillCalledAsTool: (call) => classifySkillReach(call)?.via === "tool",
           maxSteps: MAX_STEPS,
           step: callModel,
           cannedResultFor: (call) => cannedResultForCall(call, c.cannedResults),
