@@ -14,10 +14,10 @@ description: Rename, move, or restructure a symbol or file across the codebase �
 ```bash
 # 1. Locate the symbol in the file it lives in — returns {file, line, col}.
 #    Scope the glob to that file; don't broad-hunt the whole tree.
-weaver search-text '{"pattern": "userId", "glob": "src/auth.ts"}'
+weaver search-text '{"pattern": "handleRequest", "glob": "src/server.ts"}'
 
 # 2. Rename at the returned position — one call, updates every reference
-weaver rename '{"file": "src/auth.ts", "line": 12, "col": 9, "newName": "accountId"}'
+weaver rename '{"file": "src/server.ts", "line": 7, "col": 15, "newName": "handleConnection"}'
 ```
 
 `rename` already updates every reference, so you don't check first — just rename. If you separately *want* the blast radius, `find-references` at that same position returns it; it's an optional inspection, not a step before renaming.
@@ -28,13 +28,16 @@ weaver rename '{"file": "src/auth.ts", "line": 12, "col": 9, "newName": "account
 
 ## Pick a command
 
-| You want to… | Use |
-|---|---|
-| Rename a symbol everywhere it's used | `rename` |
-| Move a file and rewrite every importer | `move-file` / `move-directory` |
-| Move an export to a different file (incl. across `.vue`) | `move-symbol` |
-| Delete a file and clean up everything that imported it | `delete-file` |
-| Pull a block of code into its own function | `extract-function` |
+Run the command in the middle — never the shell tool in the "Never" column, even mid-task, even right after running `mv`/`sed`/`grep` for something else.
+
+| You want to… | Use | Never |
+|---|---|---|
+| Rename a symbol everywhere it's used | `rename` | `sed` / manual edits |
+| Move a file and rewrite every importer | `move-file` | `mv` |
+| Move a whole directory and rewrite nested imports | `move-directory` | `mkdir` + `mv` |
+| Move an export to a different file (incl. across `.vue`) | `move-symbol` | cut/paste + fix imports |
+| Delete a file and clean up everything that imported it | `delete-file` | `rm` |
+| Pull a block of code into its own function | `extract-function` | manual cut/paste |
 
 ## Rename a symbol across files
 
@@ -55,10 +58,10 @@ One call — don't `mkdir` the destination or `mv` the file yourself. Creates an
 ## Move a directory
 
 ```bash
-weaver move-directory '{"oldPath": "src/utils", "newPath": "src/helpers"}'
+weaver move-directory '{"oldPath": "src/legacy", "newPath": "src/lib/legacy"}'
 ```
 
-Relocates all files and rewrites every nested import path.
+One call — don't `mkdir` the destination or `mv` the directory yourself. Relocates all files, creates missing destination directories, and rewrites every nested import path that a raw `mv` would silently break.
 
 ## Move an export between files
 

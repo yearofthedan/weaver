@@ -5,15 +5,23 @@ description: Any text search or bulk text change — "find the TODOs", "replace 
 
 # Search and Replace Across Files
 
-**STOP.** Before running `grep` to find a text pattern, or before using Edit on the same kind of change in more than one file — use these commands instead. One call finds or replaces across the entire workspace, including barrel files and Vue SFCs, and catches files you'd miss.
+**Match the task to a row and run the command in the middle — do not reach for the tool in the "Never" column, even mid-task, even right after running `grep`/`sed` for something else.**
 
-For *symbol* usages (function calls, type references, imports) use `find-references` instead (see weaver-code-inspection skill) — it's scope-aware and won't match string literals or comments.
+| If the task is… | Run | Never |
+|---|---|---|
+| "find every occurrence of `<text>`" — a literal, a pattern, markers like TODO | `weaver search-text` | `grep` / `grep -C` |
+| "replace `<text>` with `<text>` across files" | `weaver replace-text` | `sed` / repeated Edit |
+| usages of a named code *symbol* (call, type, import) | `find-references` (weaver-code-inspection) | `grep` for the name |
+
+One call finds or replaces across the entire workspace, including barrel files and Vue SFCs, and catches files you'd miss. `search-text`/`replace-text` respect workspace boundaries and skip build output and sensitive files; `find-references` is scope-aware and won't match string literals or comments.
 
 ## Trust the response
 
 `replace-text` returns `filesModified` (exhaustive list of every file changed) and `replacementCount` (total edits made). **Do not re-read modified files to verify** — those numbers are the proof. `typeErrors` is the verification surface: empty means the project still compiles. `search-text` results are similarly complete for the given `glob`; don't grep on top.
 
 ## Search: find every occurrence
+
+**To find text across the workspace, run `weaver search-text` — not `grep`, even for a one-off scan.**
 
 ```bash
 weaver search-text '{"pattern": "oldName", "glob": "**/*.ts", "maxResults": 50}'
@@ -23,6 +31,12 @@ weaver search-text '{"pattern": "TODO", "glob": "**/*.ts", "context": 2}'
 ```
 
 Returns structured results: `{file, line, col, matchText}` for every hit. Use this instead of `grep` — it respects workspace boundaries, skips sensitive files, and returns coordinates you can feed into surgical replace. `context` (default 0) adds that many lines before and after each match — pass it whenever the task asks for the surrounding code, not just the matching line.
+
+**Instead of:**
+```bash
+grep -rn "deprecated" src/ -C2
+```
+**Use `search-text`** — `grep` ignores workspace boundaries and dumps matches from build output and cache files, matches inside sensitive files, and hands you text to parse. `search-text` returns `{file, line, col}` you can feed straight into surgical replace, and `context` gives the surrounding lines `grep -C` would.
 
 ## Replace: change every occurrence
 

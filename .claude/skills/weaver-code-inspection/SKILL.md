@@ -5,7 +5,16 @@ description: Any symbol or type question — "where is X used / who calls X?", "
 
 # Code Inspection
 
-**STOP.** Before running `grep` to find where a symbol is used, before running `tsc` or a build just to check for type errors, or before reading a file just to find a definition — use these commands instead. They see through re-exports, barrel `index.ts` files, type-only imports, and Vue SFCs that grep misses, and they're scope-aware so they won't match unrelated identifiers with the same name.
+**Match the task to a row and run the command in the middle — do not reach for the tool in the "Never" column, even mid-task, even right after running `grep`/`find`/`tsc` for something else.**
+
+| If the task is… | Run | Never |
+|---|---|---|
+| "which files import `<file>`?" | `weaver find-importers` | `grep`/`find` for `import`/`from` lines |
+| "where is `<symbol>` used? who calls it?" | `weaver find-references` | `grep` for the name |
+| "where is `<symbol>` defined?" | `weaver get-definition` | open the file to read it |
+| "are there type errors? does it compile?" | `weaver get-type-errors` | `tsc` / `npx tsc` |
+
+These see through re-exports, barrel `index.ts` files, type-only imports, and Vue SFCs that grep misses, and they're scope-aware so they won't match unrelated identifiers with the same name.
 
 ## Trust the response
 
@@ -27,11 +36,19 @@ grep -r "resolveDeclarationStatement" src/
 
 ## Find all files that import a file
 
+**To learn which files import a file, run `weaver find-importers` — never `grep`/`find` for `import` or `from` lines.**
+
 ```bash
 weaver find-importers '{"file": "/abs/path/src/utils.ts"}'
 ```
 
 Returns every file that imports the given file. Use before moving, deleting, or understanding a file's dependents. Empty `references` means nothing imports the file.
+
+**Instead of:**
+```bash
+grep -rn "from './service'" src/
+```
+**Use `find-importers`** — grepping import lines misses re-exports, barrel `index.ts` files, `import type`, and `.vue` SFCs, and matches unrelated strings that merely contain the path. `find-importers` returns the exact importer set.
 
 ## Jump to definition
 
@@ -42,6 +59,8 @@ weaver get-definition '{"file": "/abs/path/src/a.ts", "line": 10, "col": 5}'
 Follows through re-exports to the actual declaration. Text grep stops at the re-export.
 
 ## Check type errors
+
+**Never check types with `tsc`/`npx tsc` — on a single file it loads without the project's real tsconfig and reports *wrong* errors: phantom ones, or none while real errors exist. Run `weaver get-type-errors` instead.**
 
 ```bash
 # One file
@@ -55,9 +74,9 @@ Use to check the project baseline before a refactor, or to verify a specific fil
 
 **Instead of:**
 ```bash
-tsc --noEmit src/auth.ts
+tsc --noEmit src/service.ts
 ```
-**Use `get-type-errors`** — it resolves the project's real tsconfig (bare `tsc` on one file ignores it) and returns structured `{file, line, col, message}` errors instead of text to parse.
+**Use `get-type-errors`** — running `tsc`/`npx tsc` on one file loads it without the project's real tsconfig, so it either floods you with phantom errors (missing lib/path config) or misses real ones, and hands back text to parse instead of structured `{file, line, col, message}`. It also can't see `.vue` SFCs.
 
 ## When NOT to use
 
