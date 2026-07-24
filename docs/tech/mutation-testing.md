@@ -145,6 +145,9 @@ Fixed gaps are removed. Remaining survivors by category:
 
 A mutation threshold is an alarm, not a target — the CI floor of 75 is not something to "hit". When a mutant survives, classify it: (a) **real gap** — the suite can't catch this logic inversion, write the missing assertion; (b) **noise** — structurally unreachable or equivalent, document exactly why (the catalog below is that record); (c) **dead code** — the branch can't be reached, remove it (see [code-standards § Defensive code vs. dead branches](../code-standards.md)). "We hit 75%" is not a classification. Optional chaining, default values, and defensive guards that silently swallow impossible states are the most dangerous survivors — they turn future bugs into silent wrong answers instead of loud crashes. If the code is supposed to always find what it looks for, make it throw when it doesn't. `/mutate-triage` carries this discipline.
 
+**The incremental report cannot tell you a test is redundant.**
+Each mutant's `killedBy` records only the *first* test that killed it (always length 1), so a test that isn't a recorded killer of anything may still independently kill mutants an earlier test reached first. Using "kills no mutant" from `stryker-*-incremental.json` to hunt redundant tests over-flags massively (one trim pass measured 321 of 417 tests as non-killers). It is a *candidate* signal at best. The only sound check that a test is redundant is to remove it and re-run `pnpm test:mutate:eval:file <source>` (or `test:mutate:file`): if the survivor set is unchanged, the test carried no unique coverage. Verify one candidate at a time before/after — never cut on the report alone.
+
 Patterns that recur across mutation rounds — read before writing tests intended to kill surviving mutants.
 
 **`strict: true` does not kill mutants — TypeScript provides no mutation coverage.**
