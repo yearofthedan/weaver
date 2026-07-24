@@ -71,10 +71,30 @@ N/A — test and doc edits only; no filesystem, boundary, input, or response sur
 
 ## Done-when
 
-- [ ] Cut set applied to `context.test.ts`; criteria added to `docs/code-standards.md`.
-- [ ] `pnpm test:mutate:eval:file eval/harness/context.ts` survivor set unchanged (still the four regex-anchor mutants, no new survivor).
-- [ ] `pnpm check` passes.
-- [ ] No touched file exceeds the code-standards hard flag.
-- [ ] Stale `docs/eval-readiness.md` status note (2026-07-07 `<available_skills>` blocker, contradicted by the 2026-07-23 baselines) retired — separate `[chore]` commit.
-- [ ] handoff.md entry removed.
-- [ ] Spec moved to `docs/specs/archive/` with Outcome section appended.
+- [x] Cut set applied to `context.test.ts`; criteria added to `docs/code-standards.md`.
+- [x] `pnpm test:mutate:eval:file eval/harness/context.ts` survivor set unchanged (still the four regex-anchor mutants, no new survivor).
+- [x] `pnpm check` passes.
+- [x] No touched file exceeds the code-standards hard flag.
+- [x] Stale `docs/eval-readiness.md` status note (2026-07-07 `<available_skills>` blocker, contradicted by the 2026-07-23 baselines) retired — separate `[chore]` commit.
+- [x] handoff.md entry removed.
+- [x] Spec moved to `docs/specs/archive/` with Outcome section appended.
+
+## Outcome
+
+**Verification:** Ran `pnpm test:mutate:eval:file eval/harness/context.ts` before and after the cuts. `context.ts` scored **59 killed / 4 survived** both times — the four survivors are the identical pre-existing regex-anchor mutants on lines 35–36 (`^name:`/`^description:` `$`-anchor removal and `\s+`→`\s`), confirmed by inspecting the mutation log. No new survivor was exposed, so the 12 removed tests carried zero unique mutation coverage. Full `pnpm check` green (1100 main + 410 eval tests). `context.test.ts` went from ~40 tests to 28.
+
+**What shipped:**
+- `context.test.ts`: removed the named non-bug (`skillContext` "does NOT include content for unrequested skills"), the `skillFrontmatters` "no body text in descriptions" non-bug, the `skillLocation` "distinct paths" non-bug, and the two `buildAvailableSkillsPrompt` prose-wording tests (replaced by one structural "appends usage guidance" assertion). Collapsed the `skillContext` block 6→2, using `readSkillFile(...)` as the structural sentinel instead of hardcoded skill copy.
+- `docs/code-standards.md`: added a **Defect reachability** dimension to the Tests › Quality model list — the durable "what earns a test" criterion (cut tests of impossible states, content/wording coupling, and constant-echoing).
+- `docs/eval-readiness.md`: retired the stale 2026-07-07 framing-blocker note (`[chore]`); logged the lane-table "7B canary" reconciliation as a new `[needs design]` handoff entry.
+
+**Architecture gate:** An Opus read-only review (7 criteria, ordered by external-validity risk) preceded the trim and returned *sound with caveats — proceed*. The harness reads the shipped SKILL.md prose live and moves its metric when the prose changes, so the trim is genuine hygiene, not deck-chairs. The review's real findings (unvalidated canary→audience chain; inert-mock trajectory-coupling; execution-free construct) are documented/bounded and already tracked; none is touched or worsened by this change.
+
+**Test count:** −12 tests (net). No new tests added (this is a subtractive change); the one reworked `buildAvailableSkillsPrompt` test replaced two.
+
+**Mutation score:** `context.ts` 93.65% (59/63 non-ignored killed), unchanged by the trim.
+
+**Reflection:**
+- *Went well:* The spike-first approach paid off — reading the whole surface plus the mutation cross-reference located the bloat precisely (concentrated in one file) and stopped the sweep from manufacturing cuts in the lean files to hit a quota. The architecture review was the right gate: it converted "trim tests" from a possible waste into a confirmed-worthwhile change, and surfaced the one thing that actually outranks it (build the real-host validation gate).
+- *Watch-out for the next agent:* the eval incremental report (`stryker-eval-incremental.json`) records only the *first* killer per mutant, so "test kills no mutant" over-flags redundancy badly (321/417 here) — it is a candidate signal, never proof. The only sound verification is per-file `test:mutate:eval:file` before/after with an unchanged survivor set. Do not cut on the incremental report alone.
+- *Recommendation:* the same lens applies to `agentic-loop.test.ts` (706 lines) and `call-model.test.ts` (490) — the Opus review flagged them as candidates to *look at*, not confirmed bloat. Both read as largely load-bearing; any cut there needs the same mutation-verified before/after, one candidate at a time.
