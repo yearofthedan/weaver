@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { copyFixture, FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
@@ -180,28 +180,26 @@ describe("tsRemoveImportersOf", () => {
   });
 
   describe("scope boundary enforcement during save", () => {
-    it("does not save files outside the workspace scope boundary", async () => {
-      const root = copyFixture(FIXTURES.crossBoundary.name);
-      try {
-        const workspace = path.join(root, "workspace");
-        const targetFile = path.join(workspace, "src", "utils.ts");
-        const consumerFile = path.join(root, "consumer", "main.ts");
+    test("does not save files outside the workspace scope boundary", async ({
+      seedNamedFixture,
+    }) => {
+      const root = await seedNamedFixture(FIXTURES.crossBoundary.name);
+      const workspace = path.join(root, "workspace");
+      const targetFile = path.join(workspace, "src", "utils.ts");
+      const consumerFile = path.join(root, "consumer", "main.ts");
 
-        // Record the consumer file content before the operation.
-        const consumerBefore = fs.readFileSync(consumerFile, "utf8");
+      // Record the consumer file content before the operation.
+      const consumerBefore = fs.readFileSync(consumerFile, "utf8");
 
-        // Use a scope limited to workspace/ — consumer/ is outside it.
-        const scope = makeScope(workspace);
-        await tsRemoveImportersOf(new TsMorphEngine(), targetFile, scope);
+      // Use a scope limited to workspace/ — consumer/ is outside it.
+      const scope = makeScope(workspace);
+      await tsRemoveImportersOf(new TsMorphEngine(), targetFile, scope);
 
-        // Consumer file must not have been written — it is outside the scope boundary.
-        expect(fs.readFileSync(consumerFile, "utf8")).toBe(consumerBefore);
-        // Consumer is recorded as skipped, not modified.
-        expect(scope.skipped).toContain(consumerFile);
-        expect(scope.modified).not.toContain(consumerFile);
-      } finally {
-        fs.rmSync(root, { recursive: true, force: true });
-      }
+      // Consumer file must not have been written — it is outside the scope boundary.
+      expect(fs.readFileSync(consumerFile, "utf8")).toBe(consumerBefore);
+      // Consumer is recorded as skipped, not modified.
+      expect(scope.skipped).toContain(consumerFile);
+      expect(scope.modified).not.toContain(consumerFile);
     });
     test("saves only in-scope dirty files, not out-of-scope ones", async ({ seedNamedFixture }) => {
       const dir = await seedNamedFixture(FIXTURES.deleteFileTs.name);

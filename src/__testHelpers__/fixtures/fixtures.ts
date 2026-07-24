@@ -61,13 +61,6 @@ export const FIXTURES = {
 
 export type FixtureName = (typeof FIXTURES)[keyof typeof FIXTURES]["name"];
 
-export function copyFixture(name: FixtureName): string {
-  const src = path.join(__dirname, name);
-  const dest = fs.mkdtempSync(path.join(os.tmpdir(), `ns-${name}-`));
-  fs.cpSync(src, dest, { recursive: true });
-  return dest;
-}
-
 /**
  * Vitest `test` with two body-level helpers that seed a fresh per-test temp
  * dir and return its absolute path:

@@ -1,8 +1,7 @@
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup } from "../../__testHelpers__/helpers.js";
+import { describe, expect, it } from "vitest";
+import { fixtureTest as test } from "../../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { NodeFileSystem } from "../../ports/node-filesystem.js";
 import { TsMorphEngine } from "../../ts-engine/engine.js";
@@ -186,12 +185,7 @@ describe("scanVueNameMatches", () => {
 });
 
 describe("VolarEngine.rename nameMatches — integration", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
-
-  async function setupVueProject(extraFiles: Record<string, string> = {}) {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vue-namematches-"));
-    dirs.push(dir);
+  async function setupVueProject(dir: string, extraFiles: Record<string, string> = {}) {
     fs.mkdirSync(path.join(dir, "src/composables"), { recursive: true });
 
     fs.writeFileSync(
@@ -228,8 +222,10 @@ describe("VolarEngine.rename nameMatches — integration", () => {
     return dir;
   }
 
-  it("returns nameMatches for renamed .ts files, excluding renamed sites even when newName contains oldName", async () => {
-    const dir = await setupVueProject();
+  test("returns nameMatches for renamed .ts files, excluding renamed sites even when newName contains oldName", async ({
+    dir,
+  }) => {
+    await setupVueProject(dir);
     const engine = new VolarEngine(new TsMorphEngine(dir), dir);
     const scope = new WorkspaceScope(dir, new NodeFileSystem());
 
@@ -249,7 +245,7 @@ describe("VolarEngine.rename nameMatches — integration", () => {
     expect(result.nameMatches.every((m) => m.name !== "useCounter")).toBe(true);
   }, 30_000);
 
-  it("returns nameMatches for renamed .vue files with real file coordinates", async () => {
+  test("returns nameMatches for renamed .vue files with real file coordinates", async ({ dir }) => {
     // <template> first — so the script block starts at line 2+, proving
     // that returned coordinates are real file positions, not block-relative
     const appVue = [
@@ -260,7 +256,7 @@ describe("VolarEngine.rename nameMatches — integration", () => {
       "</script>",
     ].join("\n");
 
-    const dir = await setupVueProject({ "src/App.vue": appVue });
+    await setupVueProject(dir, { "src/App.vue": appVue });
     const engine = new VolarEngine(new TsMorphEngine(dir), dir);
     const scope = new WorkspaceScope(dir, new NodeFileSystem());
 

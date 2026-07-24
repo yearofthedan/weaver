@@ -2,14 +2,8 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, it as baseIt, describe, expect } from "vitest";
-import {
-  cleanup,
-  FIXTURES,
-  fileExists,
-  readFile,
-  fixtureTest as test,
-} from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, fileExists, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
@@ -19,9 +13,7 @@ function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
 }
 
-function makeGitRepo(): { dir: string } {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lb-git-move-"));
-
+function makeGitRepo(dir: string): void {
   fs.mkdirSync(path.join(dir, "src"));
   fs.mkdirSync(path.join(dir, "tests", "helpers"), { recursive: true });
   fs.writeFileSync(
@@ -44,8 +36,6 @@ function makeGitRepo(): { dir: string } {
   execSync("git config user.name Test", { cwd: dir, env: gitEnv, stdio: "pipe" });
   execSync("git add .", { cwd: dir, env: gitEnv, stdio: "pipe" });
   execSync("git commit -m init", { cwd: dir, env: gitEnv, stdio: "pipe" });
-
-  return { dir };
 }
 
 describe("tsMoveFile - TsMorphEngine integration", () => {
@@ -452,39 +442,34 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
   });
 
   describe("sequential moves in git-tracked directories", () => {
-    const dirs: string[] = [];
-    afterEach(() => dirs.splice(0).forEach(cleanup));
+    test("does not throw ENOENT when git ls-files returns a file deleted by a prior move", async ({
+      dir,
+    }) => {
+      makeGitRepo(dir);
+      const gitEngine = new TsMorphEngine();
 
-    baseIt(
-      "does not throw ENOENT when git ls-files returns a file deleted by a prior move",
-      async () => {
-        const { dir } = makeGitRepo();
-        dirs.push(dir);
-        const gitEngine = new TsMorphEngine();
+      const scope1 = makeScope(dir);
+      await tsMoveFile(
+        gitEngine,
+        path.join(dir, "tests", "helpers", "mock.ts"),
+        path.join(dir, "src", "helpers", "mock.ts"),
+        scope1,
+      );
+      expect(scope1.modified).toContain(path.join(dir, "src", "helpers", "mock.ts"));
 
-        const scope1 = makeScope(dir);
-        await tsMoveFile(
-          gitEngine,
-          path.join(dir, "tests", "helpers", "mock.ts"),
-          path.join(dir, "src", "helpers", "mock.ts"),
-          scope1,
-        );
-        expect(scope1.modified).toContain(path.join(dir, "src", "helpers", "mock.ts"));
+      const scope2 = makeScope(dir);
+      await tsMoveFile(
+        gitEngine,
+        path.join(dir, "tests", "consumer.test.ts"),
+        path.join(dir, "src", "consumer.test.ts"),
+        scope2,
+      );
+      expect(scope2.modified).toContain(path.join(dir, "src", "consumer.test.ts"));
 
-        const scope2 = makeScope(dir);
-        await tsMoveFile(
-          gitEngine,
-          path.join(dir, "tests", "consumer.test.ts"),
-          path.join(dir, "src", "consumer.test.ts"),
-          scope2,
-        );
-        expect(scope2.modified).toContain(path.join(dir, "src", "consumer.test.ts"));
-
-        const content = fs.readFileSync(path.join(dir, "src", "consumer.test.ts"), "utf8");
-        expect(content).toContain("./helpers/mock");
-        expect(content).not.toContain('"../tests/helpers/mock"');
-      },
-    );
+      const content = fs.readFileSync(path.join(dir, "src", "consumer.test.ts"), "utf8");
+      expect(content).toContain("./helpers/mock");
+      expect(content).not.toContain('"../tests/helpers/mock"');
+    });
   });
 
   describe("filesModified completeness", () => {

@@ -141,11 +141,11 @@ src/
     *.test.ts          ← colocated unit tests
   *.integration.test.ts ← cross-cutting integration tests (cli-workspace-default, eval, agent-conventions, skill-file)
   __testHelpers__/
-    helpers.ts        ← shared test utilities (cleanup, readFile, fileExists, PROJECT_ROOT); re-exports copyFixture
+    helpers.ts        ← shared test utilities (readFile, fileExists, PROJECT_ROOT); re-exports fixtureTest
     process-helpers.ts ← subprocess spawning utilities
     fake-daemon.ts    ← fake daemon script for protocol tests
     fixtures/
-      fixtures.ts  ← copyFixture() — copies a named fixture to a temp dir
+      fixtures.ts  ← fixtureTest (dir + seedNamedFixture + seedInlineFixture) — no standalone copyFixture export
       simple-ts/   ← minimal TS project scaffold (and 9 others: vue-project, cross-boundary, etc.)
 ```
 
@@ -187,8 +187,6 @@ _(none queued)_
 - **Discriminate `CaseEntry` by stage** `[needs design]` — `eval/cases/cases.ts` `CaseEntry` is a shared bag of stage-specific optionals: `seed` (two-step only), `cannedResults` + `expect.skill` + `momentumTurns` + `observational` (agentic trigger only), `expect.command`/`keyArgs` (command/trigger). The type permits nonsense (a `command`-stage row can set `momentumTurns` and it is silently ignored); the "only X reads this" field comments compensate for a type too loose to make illegal states unrepresentable. Convert to a `stage`-discriminated union so each lane's fields live only on its variant. Design nuance: the split is not single-axis — two-step cases are `stage: "command"` *plus* a `seed`, so that variant is a sub-shape, not a third `stage`. Cover all four lane-specific fields in one pass, not piecemeal.
 
 - **`VolarLanguageService` hand-typed interface** `[chore]` — `src/plugins/vue/compiler.ts` manually narrows the TS LanguageService surface used by the Vue compiler; an upstream signature change can compile but fail at runtime. Replace with `Pick<ts.LanguageService, 'findRenameLocations' | 'getReferencesAtPosition' | 'getEditsForFileRename'>` for compile-time safety. May fall out naturally during further Volar refactoring.
-
-- **Migrate remaining standalone-`copyFixture` callers** `[chore]` — after the fixture-seed-helpers slice ships, ~8 files still call the standalone `copyFixture(name): string`. (a) Seven integration tests in `src/{cli-workspace-default,daemon/*}.integration.test.ts` pair it with subprocess lifecycle tracking — migrate `dir` to `fixtureTest` + `seedNamedFixture`; keep custom `afterEach` for procs. (b) `src/operations/searchText.test.ts` uses `beforeAll` to share one dir across many tests — convert to per-test `seedNamedFixture` (small perf cost, ~10 tests × one fixture copy each). Once both done, delete the standalone `copyFixture` and `cleanup` exports as dead code.
 
 - **Consolidate `WEAVER_VERBOSE` env var into flag-only** `[needs design]` — the daemon has both a `--verbose` CLI flag and a `WEAVER_VERBOSE` env var that do the same thing. The env var exists because auto-spawn can't pass CLI flags, but `ensureDaemon` could forward `--verbose` to `spawnDaemon` directly. Consolidate to flag-only and remove the env var.
 

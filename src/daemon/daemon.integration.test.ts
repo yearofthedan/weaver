@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
-import { afterEach, describe, expect, it, test } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { afterEach, describe, expect } from "vitest";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import {
   callDaemonSocket,
   killDaemon,
@@ -47,26 +47,27 @@ describe("daemon command", () => {
     for (const dir of dirs.splice(0)) {
       killDaemon(dir);
       removeDaemonFiles(dir);
-      cleanup(dir);
     }
   });
 
-  async function setup() {
-    const dir = copyFixture(WORKSPACE_FIXTURE);
+  async function setup(seedNamedFixture: (name: string) => Promise<string>) {
+    const dir = await seedNamedFixture(WORKSPACE_FIXTURE);
     dirs.push(dir);
     return dir;
   }
 
-  it("writes a socket file after becoming ready", async () => {
-    const dir = await setup();
+  test("writes a socket file after becoming ready", async ({ seedNamedFixture }) => {
+    const dir = await setup(seedNamedFixture);
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
 
     expect(fs.existsSync(socketPath(dir))).toBe(true);
   });
 
-  it("writes a lockfile containing a live PID and a startedAt timestamp", async () => {
-    const dir = await setup();
+  test("writes a lockfile containing a live PID and a startedAt timestamp", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await setup(seedNamedFixture);
     const before = Date.now();
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
@@ -82,8 +83,10 @@ describe("daemon command", () => {
     expect(lock.startedAt).toBeLessThanOrEqual(after);
   });
 
-  it("isDaemonAlive returns false when socket file is missing even if lockfile exists", async () => {
-    const dir = await setup();
+  test("isDaemonAlive returns false when socket file is missing even if lockfile exists", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await setup(seedNamedFixture);
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
 
@@ -95,8 +98,10 @@ describe("daemon command", () => {
     expect(isDaemonAlive(dir)).toBe(false);
   });
 
-  it("picks up a new source file added out-of-band via the watcher", async () => {
-    const dir = await setup();
+  test("picks up a new source file added out-of-band via the watcher", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await setup(seedNamedFixture);
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
 
@@ -122,8 +127,8 @@ describe("daemon command", () => {
     expect(refs.some((r) => r.file === newFile)).toBe(true);
   });
 
-  it("killDaemon terminates the inner node process", async () => {
-    const dir = await setup();
+  test("killDaemon terminates the inner node process", async ({ seedNamedFixture }) => {
+    const dir = await setup(seedNamedFixture);
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
 
@@ -138,8 +143,8 @@ describe("daemon command", () => {
     expect(() => process.kill(pid, 0)).toThrow(); // inner node process is gone
   });
 
-  it("removes socket and lockfile on SIGTERM", async () => {
-    const dir = await setup();
+  test("removes socket and lockfile on SIGTERM", async ({ seedNamedFixture }) => {
+    const dir = await setup(seedNamedFixture);
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
 
@@ -158,11 +163,11 @@ describe("daemon command", () => {
   });
 
   describe("PARSE_ERROR for valid JSON that fails envelope validation", () => {
-    test.each([
+    test.for([
       ["empty method string", { method: "", params: {} }],
       ["params is not an object", { method: "rename", params: "not-an-object" }],
-    ] as const)("%s returns PARSE_ERROR", async (_label, req) => {
-      const dir = await setup();
+    ] as const)("%s returns PARSE_ERROR", async ([, req], { seedNamedFixture }) => {
+      const dir = await setup(seedNamedFixture);
       const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
       procs.push(proc);
 
@@ -174,8 +179,10 @@ describe("daemon command", () => {
     });
   });
 
-  it("returns PARSE_ERROR for invalid JSON (SyntaxError) and INTERNAL_ERROR for other unexpected errors", async () => {
-    const dir = await setup();
+  test("returns PARSE_ERROR for invalid JSON (SyntaxError) and INTERNAL_ERROR for other unexpected errors", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await setup(seedNamedFixture);
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
 

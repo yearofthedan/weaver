@@ -1,8 +1,7 @@
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES, fixtureTest } from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, fixtureTest } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { makeThrowingScope } from "../ports/__testHelpers__/throwing-filesystem.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
@@ -13,42 +12,33 @@ function makeScope(dir: string): WorkspaceScope {
 }
 
 describe("searchText operation", () => {
-  let sharedDir: string;
-  beforeAll(() => {
-    sharedDir = copyFixture(FIXTURES.simpleTs.name);
-  });
-  afterAll(() => cleanup(sharedDir));
+  fixtureTest(
+    "finds all occurrences of a pattern across workspace files",
+    async ({ seedNamedFixture }) => {
+      const sharedDir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      const result = await searchText("greetUser", makeScope(sharedDir));
 
-  // Tests that write extra files into the shared dir clean up after themselves
-  afterEach(() => {
-    const envFile = path.join(sharedDir, ".env");
-    if (fs.existsSync(envFile)) fs.rmSync(envFile);
-    const binaryFile = path.join(sharedDir, "src/binary.bin");
-    if (fs.existsSync(binaryFile)) fs.rmSync(binaryFile);
-  });
+      expect(result.truncated).toBe(false);
+      expect(result.matches.length).toBeGreaterThanOrEqual(2);
 
-  it("finds all occurrences of a pattern across workspace files", async () => {
-    const result = await searchText("greetUser", makeScope(sharedDir));
+      const files = result.matches.map((m) => m.file);
+      expect(files.some((f) => f.endsWith("utils.ts"))).toBe(true);
+      expect(files.some((f) => f.endsWith("main.ts"))).toBe(true);
 
-    expect(result.truncated).toBe(false);
-    expect(result.matches.length).toBeGreaterThanOrEqual(2);
+      for (const match of result.matches) {
+        expect(match.line).toBeGreaterThan(0);
+        expect(match.col).toBeGreaterThan(0);
+        expect(match.matchText).toBe("greetUser");
+        // Default response must have exactly 4 keys — no context or surroundingText
+        expect(Object.keys(match)).toEqual(["file", "line", "col", "matchText"]);
+        expect("context" in match).toBe(false);
+        expect("surroundingText" in match).toBe(false);
+      }
+    },
+  );
 
-    const files = result.matches.map((m) => m.file);
-    expect(files.some((f) => f.endsWith("utils.ts"))).toBe(true);
-    expect(files.some((f) => f.endsWith("main.ts"))).toBe(true);
-
-    for (const match of result.matches) {
-      expect(match.line).toBeGreaterThan(0);
-      expect(match.col).toBeGreaterThan(0);
-      expect(match.matchText).toBe("greetUser");
-      // Default response must have exactly 4 keys — no context or surroundingText
-      expect(Object.keys(match)).toEqual(["file", "line", "col", "matchText"]);
-      expect("context" in match).toBe(false);
-      expect("surroundingText" in match).toBe(false);
-    }
-  });
-
-  it("returns context lines when requested", async () => {
+  fixtureTest("returns context lines when requested", async ({ seedNamedFixture }) => {
+    const sharedDir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const result = await searchText("greetUser", makeScope(sharedDir), { context: 1 });
 
     expect(result.matches.length).toBeGreaterThan(0);
@@ -69,7 +59,8 @@ describe("searchText operation", () => {
     expect("context" in match).toBe(false);
   });
 
-  it("filters files by glob pattern", async () => {
+  fixtureTest("filters files by glob pattern", async ({ seedNamedFixture }) => {
+    const sharedDir = await seedNamedFixture(FIXTURES.simpleTs.name);
     // Only search main.ts
     const result = await searchText("greetUser", makeScope(sharedDir), { glob: "**/main.ts" });
 
@@ -77,20 +68,23 @@ describe("searchText operation", () => {
     expect(result.matches.some((m) => m.file.endsWith("utils.ts"))).toBe(false);
   });
 
-  it("returns empty matches when pattern is not found", async () => {
+  fixtureTest("returns empty matches when pattern is not found", async ({ seedNamedFixture }) => {
+    const sharedDir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const result = await searchText("zzz_does_not_exist_zzz", makeScope(sharedDir));
 
     expect(result.matches).toHaveLength(0);
     expect(result.truncated).toBe(false);
   });
 
-  it("throws PARSE_ERROR for invalid regex", async () => {
+  fixtureTest("throws PARSE_ERROR for invalid regex", async ({ seedNamedFixture }) => {
+    const sharedDir = await seedNamedFixture(FIXTURES.simpleTs.name);
     await expect(searchText("[invalid", makeScope(sharedDir))).rejects.toMatchObject({
       code: "PARSE_ERROR",
     });
   });
 
-  it("reports 1-based line and col", async () => {
+  fixtureTest("reports 1-based line and col", async ({ seedNamedFixture }) => {
+    const sharedDir = await seedNamedFixture(FIXTURES.simpleTs.name);
     // utils.ts line 1: "export function greetUser(name: string): string {"
     // "greetUser" starts at col 17
     const result = await searchText("greetUser", makeScope(sharedDir), { glob: "**/utils.ts" });
@@ -100,7 +94,8 @@ describe("searchText operation", () => {
     expect(result.matches[0].col).toBe(17);
   });
 
-  it("skips sensitive files", async () => {
+  fixtureTest("skips sensitive files", async ({ seedNamedFixture }) => {
+    const sharedDir = await seedNamedFixture(FIXTURES.simpleTs.name);
     // Create a .env file in the fixture that contains the search term
     fs.writeFileSync(path.join(sharedDir, ".env"), "greetUser=secret\n");
 
@@ -110,7 +105,8 @@ describe("searchText operation", () => {
     expect(result.matches.every((m) => !m.file.endsWith(".env"))).toBe(true);
   });
 
-  it("respects maxResults cap and sets truncated=true", async () => {
+  fixtureTest("respects maxResults cap and sets truncated=true", async ({ seedNamedFixture }) => {
+    const sharedDir = await seedNamedFixture(FIXTURES.simpleTs.name);
     // "e" appears many times; cap at 2
     const result = await searchText("e", makeScope(sharedDir), { maxResults: 2 });
 
@@ -118,13 +114,18 @@ describe("searchText operation", () => {
     expect(result.truncated).toBe(true);
   });
 
-  it("throws REDOS for a catastrophic backtracking pattern", async () => {
-    await expect(searchText("(a+)+$", makeScope(sharedDir))).rejects.toMatchObject({
-      code: "REDOS",
-    });
-  });
+  fixtureTest(
+    "throws REDOS for a catastrophic backtracking pattern",
+    async ({ seedNamedFixture }) => {
+      const sharedDir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      await expect(searchText("(a+)+$", makeScope(sharedDir))).rejects.toMatchObject({
+        code: "REDOS",
+      });
+    },
+  );
 
-  it("skips binary files (files containing a null byte)", async () => {
+  fixtureTest("skips binary files (files containing a null byte)", async ({ seedNamedFixture }) => {
+    const sharedDir = await seedNamedFixture(FIXTURES.simpleTs.name);
     // Exercises the isBinaryContent path: charCodeAt === 0 must return true.
     const binaryContent = Buffer.concat([
       Buffer.from("greetUser"),
@@ -137,7 +138,8 @@ describe("searchText operation", () => {
     expect(result.matches.every((m) => !m.file.endsWith("binary.bin"))).toBe(true);
   });
 
-  it("context lines do not extend before line 1", async () => {
+  fixtureTest("context lines do not extend before line 1", async ({ seedNamedFixture }) => {
+    const sharedDir = await seedNamedFixture(FIXTURES.simpleTs.name);
     // Exercises Math.max(0, lineIdx - context): start must be >= 1 even on first line.
     const result = await searchText("greetUser", makeScope(sharedDir), {
       glob: "**/utils.ts",
@@ -156,63 +158,61 @@ describe("searchText operation", () => {
     expect(surroundingLines.length).toBeLessThanOrEqual(Math.min(11, totalLines));
   });
 
-  it("context lines do not extend past the last line of the file", async () => {
-    // Exercises Math.min(lines.length - 1, lineIdx + context): end must not exceed EOF.
-    const content = fs.readFileSync(path.join(sharedDir, "src/utils.ts"), "utf8");
-    const totalLines = content.split("\n").length;
+  fixtureTest(
+    "context lines do not extend past the last line of the file",
+    async ({ seedNamedFixture }) => {
+      const sharedDir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      // Exercises Math.min(lines.length - 1, lineIdx + context): end must not exceed EOF.
+      const content = fs.readFileSync(path.join(sharedDir, "src/utils.ts"), "utf8");
+      const totalLines = content.split("\n").length;
 
-    const result = await searchText("greetUser", makeScope(sharedDir), {
-      glob: "**/utils.ts",
-      context: 100,
-    });
+      const result = await searchText("greetUser", makeScope(sharedDir), {
+        glob: "**/utils.ts",
+        context: 100,
+      });
 
-    expect(result.matches.length).toBeGreaterThan(0);
-    for (const match of result.matches) {
-      const surroundingText = match.surroundingText as string;
-      expect(typeof surroundingText).toBe("string");
-      const surroundingLines = surroundingText.split("\n");
-      // clamped to file size — cannot exceed totalLines
-      expect(surroundingLines.length).toBeLessThanOrEqual(totalLines);
-      expect(surroundingLines.length).toBeGreaterThanOrEqual(1);
-    }
-  });
+      expect(result.matches.length).toBeGreaterThan(0);
+      for (const match of result.matches) {
+        const surroundingText = match.surroundingText as string;
+        expect(typeof surroundingText).toBe("string");
+        const surroundingLines = surroundingText.split("\n");
+        // clamped to file size — cannot exceed totalLines
+        expect(surroundingLines.length).toBeLessThanOrEqual(totalLines);
+        expect(surroundingLines.length).toBeGreaterThanOrEqual(1);
+      }
+    },
+  );
 
-  it("searches in a non-git workspace (exercises the walkRecursive fallback)", async () => {
-    // Create a bare temp dir with no .git so the git path fails and falls back to walkRecursive.
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-nogit-"));
-    try {
-      fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
-      fs.writeFileSync(path.join(tmpDir, "src/hello.ts"), "export const greeting = 'hello';\n");
+  fixtureTest(
+    "searches in a non-git workspace (exercises the walkRecursive fallback)",
+    async ({ dir }) => {
+      // A bare temp dir with no .git so the git path fails and falls back to walkRecursive.
+      fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(dir, "src/hello.ts"), "export const greeting = 'hello';\n");
 
-      const result = await searchText("greeting", makeScope(tmpDir));
+      const result = await searchText("greeting", makeScope(dir));
 
       expect(result.matches.length).toBeGreaterThan(0);
       expect(result.matches.some((m) => m.file.endsWith("hello.ts"))).toBe(true);
-    } finally {
-      cleanup(tmpDir);
-    }
+    },
+  );
+
+  fixtureTest("records unreadable files as skipped", async ({ dir }) => {
+    fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "src/ok.ts"), "export const greeting = 'hello';\n");
+    const unreadable = path.join(dir, "src/secret.ts");
+    fs.writeFileSync(unreadable, "export const greeting = 'secret';\n");
+
+    const scope = makeThrowingScope(dir, unreadable);
+    const result = await searchText("greeting", scope);
+
+    expect(result.matches.some((m) => m.file.endsWith("ok.ts"))).toBe(true);
+    expect(result.matches.every((m) => !m.file.endsWith("secret.ts"))).toBe(true);
+    expect(scope.skipped).toContain(unreadable);
   });
 
-  it("records unreadable files as skipped", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-skip-"));
-    try {
-      fs.mkdirSync(path.join(dir, "src"), { recursive: true });
-      fs.writeFileSync(path.join(dir, "src/ok.ts"), "export const greeting = 'hello';\n");
-      const unreadable = path.join(dir, "src/secret.ts");
-      fs.writeFileSync(unreadable, "export const greeting = 'secret';\n");
-
-      const scope = makeThrowingScope(dir, unreadable);
-      const result = await searchText("greeting", scope);
-
-      expect(result.matches.some((m) => m.file.endsWith("ok.ts"))).toBe(true);
-      expect(result.matches.every((m) => !m.file.endsWith("secret.ts"))).toBe(true);
-      expect(scope.skipped).toContain(unreadable);
-    } finally {
-      cleanup(dir);
-    }
-  });
-
-  it("each match reports the correct matchText", async () => {
+  fixtureTest("each match reports the correct matchText", async ({ seedNamedFixture }) => {
+    const sharedDir = await seedNamedFixture(FIXTURES.simpleTs.name);
     // Verifies that m[0] (the actual match) is stored, not a mutated value.
     const result = await searchText("Hello", makeScope(sharedDir), { glob: "**/utils.ts" });
 
@@ -222,9 +222,9 @@ describe("searchText operation", () => {
     }
   });
 
-  it("trailing newline stripping: identical results for files with and without trailing newline", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-trailing-"));
-    try {
+  fixtureTest(
+    "trailing newline stripping: identical results for files with and without trailing newline",
+    async ({ dir }) => {
       fs.mkdirSync(path.join(dir, "src"), { recursive: true });
       fs.writeFileSync(path.join(dir, "src/with.ts"), "aaa\nbbb\nccc\n");
       fs.writeFileSync(path.join(dir, "src/without.ts"), "aaa\nbbb\nccc");
@@ -239,39 +239,32 @@ describe("searchText operation", () => {
       expect(withoutNl.matches[0].surroundingText).toBe("aaa\nbbb\nccc");
       expect(withNl.matches[0].surroundingText?.split("\n")).toHaveLength(3);
       expect(withoutNl.matches[0].surroundingText?.split("\n")).toHaveLength(3);
-    } finally {
-      cleanup(dir);
-    }
-  });
+    },
+  );
 
-  it("surroundingText contains exactly the right window of lines", async () => {
+  fixtureTest("surroundingText contains exactly the right window of lines", async ({ dir }) => {
     // Verifies that lines.slice(start, end + 1) correctly limits the window:
     // a 5-line file with a match on line 3 and context 1 should give exactly 3 lines.
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-window-"));
-    try {
-      fs.mkdirSync(path.join(dir, "src"), { recursive: true });
-      fs.writeFileSync(path.join(dir, "src/five.ts"), "line1\nline2\nMATCH\nline4\nline5\n");
+    fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "src/five.ts"), "line1\nline2\nMATCH\nline4\nline5\n");
 
-      const result = await searchText("MATCH", makeScope(dir), { context: 1 });
+    const result = await searchText("MATCH", makeScope(dir), { context: 1 });
 
-      expect(result.matches).toHaveLength(1);
-      const surrounding = result.matches[0].surroundingText as string;
-      const surroundingLines = surrounding.split("\n");
-      // context 1 around line 3 in a 5-line file → lines 2, 3, 4 = exactly 3
-      expect(surroundingLines).toHaveLength(3);
-      expect(surroundingLines[0]).toBe("line2");
-      expect(surroundingLines[1]).toBe("MATCH");
-      expect(surroundingLines[2]).toBe("line4");
-    } finally {
-      cleanup(dir);
-    }
+    expect(result.matches).toHaveLength(1);
+    const surrounding = result.matches[0].surroundingText as string;
+    const surroundingLines = surrounding.split("\n");
+    // context 1 around line 3 in a 5-line file → lines 2, 3, 4 = exactly 3
+    expect(surroundingLines).toHaveLength(3);
+    expect(surroundingLines[0]).toBe("line2");
+    expect(surroundingLines[1]).toBe("MATCH");
+    expect(surroundingLines[2]).toBe("line4");
   });
 
-  it("surroundingText is clamped to exact file boundaries (not beyond)", async () => {
-    // Exercises Math.min(lines.length - 1, lineIdx + context): with match on last line
-    // and context 5, the window must be exactly the available lines, not beyond.
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-clamp-"));
-    try {
+  fixtureTest(
+    "surroundingText is clamped to exact file boundaries (not beyond)",
+    async ({ dir }) => {
+      // Exercises Math.min(lines.length - 1, lineIdx + context): with match on last line
+      // and context 5, the window must be exactly the available lines, not beyond.
       fs.mkdirSync(path.join(dir, "src"), { recursive: true });
       // 3-line file; match on line 3 (last line) with context 5
       fs.writeFileSync(path.join(dir, "src/three.ts"), "line1\nline2\nMATCH\n");
@@ -284,14 +277,12 @@ describe("searchText operation", () => {
       // Only 3 lines exist; clamped to [0..2] so all 3 lines appear
       expect(surroundingLines).toHaveLength(3);
       expect(surroundingLines[2]).toBe("MATCH");
-    } finally {
-      cleanup(dir);
-    }
-  });
+    },
+  );
 
-  it("zero-length match advances through all positions without skipping", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ns-search-zeroLen-"));
-    try {
+  fixtureTest(
+    "zero-length match advances through all positions without skipping",
+    async ({ dir }) => {
       fs.mkdirSync(path.join(dir, "src"), { recursive: true });
       fs.writeFileSync(path.join(dir, "src/short.ts"), "ab");
 
@@ -301,10 +292,8 @@ describe("searchText operation", () => {
       expect(result.matches).toHaveLength(3);
       expect(result.matches.map((m) => m.col)).toEqual([1, 2, 3]);
       expect(result.matches.every((m) => m.matchText === "")).toBe(true);
-    } finally {
-      cleanup(dir);
-    }
-  });
+    },
+  );
 });
 
 describe("searchText — brace glob wiring", () => {

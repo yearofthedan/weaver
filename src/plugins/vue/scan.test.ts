@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../../__testHelpers__/helpers.js";
+import { FIXTURES, fixtureTest as test } from "../../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { makeThrowingScope } from "../../ports/__testHelpers__/throwing-filesystem.js";
 import { NodeFileSystem } from "../../ports/node-filesystem.js";
@@ -182,9 +182,6 @@ describe("updateVueImportsAfterMove", () => {
 });
 
 describe("updateVueImportsAfterSymbolMove", () => {
-  const dirs: string[] = [];
-  afterEach(() => dirs.splice(0).forEach(cleanup));
-
   function makeScope(dir: string): WorkspaceScope {
     return new WorkspaceScope(dir, new NodeFileSystem());
   }
@@ -209,9 +206,8 @@ describe("updateVueImportsAfterSymbolMove", () => {
     }
   });
 
-  it("records nothing when no .vue files exist in the project", () => {
-    const tsDir = copyFixture(FIXTURES.simpleTs.name);
-    dirs.push(tsDir);
+  test("records nothing when no .vue files exist in the project", async ({ seedNamedFixture }) => {
+    const tsDir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const scope = makeScope(tsDir);
     updateVueImportsAfterSymbolMove(
       "greetUser",
@@ -224,9 +220,8 @@ describe("updateVueImportsAfterSymbolMove", () => {
     expect(scope.skipped).toEqual([]);
   });
 
-  it("rewrites a matching named import in a .vue file", () => {
-    const dir = copyFixture(FIXTURES.vueProject.name);
-    dirs.push(dir);
+  test("rewrites a matching named import in a .vue file", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
     const scope = makeScope(dir);
     const sourceFile = path.join(dir, "src/composables/useCounter.ts");
     const destFile = path.join(dir, "src/composables/useTimer.ts");
@@ -240,9 +235,8 @@ describe("updateVueImportsAfterSymbolMove", () => {
     expect(content).not.toContain('from "./composables/useCounter"');
   });
 
-  it("skips .vue files already in scope.modified", () => {
-    const dir = copyFixture(FIXTURES.vueProject.name);
-    dirs.push(dir);
+  test("skips .vue files already in scope.modified", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
     const scope = makeScope(dir);
     const appVue = path.join(dir, "src/App.vue");
     // Pre-mark App.vue as already modified
@@ -258,9 +252,8 @@ describe("updateVueImportsAfterSymbolMove", () => {
     expect(contentAfter).toBe(contentBefore);
   });
 
-  it("does not modify .vue files that do not import the symbol", () => {
-    const dir = copyFixture(FIXTURES.vueProject.name);
-    dirs.push(dir);
+  test("does not modify .vue files that do not import the symbol", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
     const scope = makeScope(dir);
     const sourceFile = path.join(dir, "src/composables/useCounter.ts");
     const destFile = path.join(dir, "src/composables/useTimer.ts");
