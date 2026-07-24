@@ -74,16 +74,21 @@ Gate confirmation (n=3, default lane, gating assertion active): rename 3/3, repl
 
 `pressured-emission.llm.test.ts` — the command cases wrapped in a clutter system prompt + a 3-turn habit-momentum seed, bash-only, **temp 0 (deterministic, n=1)**. Grades single-shot emission (command + `keyArgs`) under host pressure. Baseline **2026-07-24** (after decision-path skill hardening):
 
-| Case | Haiku 4.5 (gate) |
-|---|---|
-| every single-step command case (rename, move-file, move-directory, move-symbol, find-importers, find-references, get-definition, delete-file, search-text, replace-text) | held — gates |
-| **command-get-type-errors** | **fell back → `npx tsc`** (4/4) — runs as `it.fails`, not gated |
+**Read this lane's verdicts as a fingerprint, not a rate.** Temperature 0 is greedy decoding: one fixed path, chosen token-by-token, which is not the same as the model's most likely *response*. A case can fail at temp 0 while succeeding most of the time under sampling, and vice versa. The lane reports both false alarms and false clears, and a single run cannot tell a 10/10 case from a 6/10 one. Use it to detect that something changed; sample at n≥5 before concluding anything about a case.
 
-Every single-step command case holds single-shot emission under pressure except `get-type-errors`, which falls back to `npx tsc`. `tsc` is the most-habituated check-for-errors reflex; even a decision-path router row with an explicit "Never: tsc/npx tsc" does not hold it, though the structurally-identical `search-text` row (Never: grep) does — an asymmetry under investigation (handoff `[needs investigation]`). That case is an `it.fails` self-clearing marker (green while it falls back, red the day it holds — the promotion signal); the rest gate.
+| Case | Haiku, temp 0, n=1 (what the lane gates on) | Haiku, temp 0.7, n=5 |
+|---|---|---|
+| rename, move-symbol, find-importers, find-references, get-definition, search-text, delete-file | held | 5/5 |
+| move-file | held | 4/5 (`mkdir` + `mv`) |
+| move-directory | held | 4/5 (`mv`) |
+| **replace-text** | held — gates | **2/5** (`find … -exec sed -i`) |
+| **get-type-errors** | **fell back → `npx tsc`** (4/4) — runs as `it.fails`, not gated | **3/5** |
 
-**Cross-model (Gemini 2.5 Flash, post-hardening).** Inverted profile: Gemini *holds* `get-type-errors` under pressure — so the `it.fails` marker flips red with its "promote it" signal — but falls back on `command-rename` and `command-move-symbol`, both rock-solid on Haiku. The gating partition is gate-model-specific (CI runs Haiku); a skill body is hardened *for the gate model*, not in the abstract. (Gemini's trigger lane also over-triggered `boundary-bash-remove-console-log`.)
+The two bolded rows are where the temp-0 verdict inverts the rate: `get-type-errors` is gated as a known failure yet passes more often than not, while `replace-text` gates green yet rewrites the project with `sed` in three runs of five. Handoff carries both — the `replace-text` hole as `[needs investigation]`, the lane design as a proposal to explore.
 
-**Pre-hardening (reference).** Before the skills carried decision-path routers, Haiku fell back on `find-importers` → `grep`, `search-text` → `grep`, and `get-type-errors` → `npx tsc`. `move-directory` *appeared* to hold, but only because the skill example encoded the case's own `src/utils` path — removing that echo exposed a genuine `mkdir`+`mv` fallback (since fixed by the router's `Never: mkdir + mv` row). The cross-model spike showed Gemini 2.5 Flash instead dropped `move-file` → `mv`: the fallback tracks the shell verb the seed primes, per model. All fallbacks are habit transfer, not copied precedents — the momentum seed is weaver-orthogonal.
+**Cross-model (Gemini 2.5 Flash, n=10, temp 0.7).** `get-type-errors`, `replace-text`, `move-file`, `move-directory`, `find-importers`, `search-text`, `delete-file` all 10/10; `get-definition` 8/10; `rename` and `move-symbol` **0/10**; `find-references` **1/10**. Gemini's distribution is bimodal where Haiku's is marginal, which is why n=1 happens to read Gemini correctly and misreads Haiku. The fallbacks are model reflexes, not skill defects — the same text is bulletproof on one model and weak on the other — so a skill body is hardened *for the gate model*, not in the abstract. Gemini is not a cheap sampling proxy for Haiku: it is clean on both cases Haiku struggles with and dead on two Haiku sails through. (Gemini's trigger lane also over-triggered `boundary-bash-remove-console-log`.) The three zero-rate cases recorded no bash command; whether the model emitted a non-bash call or no call at all was not captured.
+
+**Pre-hardening (reference).** Before the skills carried decision-path routers, Haiku fell back on `find-importers` → `grep`, `search-text` → `grep`, and `get-type-errors` → `npx tsc`. `move-directory` *appeared* to hold, but only because the skill example encoded the case's own `src/utils` path — removing that echo exposed a genuine `mkdir`+`mv` fallback (since fixed by the router's `Never: mkdir + mv` row). The cross-model spike showed Gemini 2.5 Flash instead dropped `move-file` → `mv`: the fallback tracks the shell verb the seed primes, per model. All fallbacks are habit transfer, not copied precedents — the momentum seed is weaver-orthogonal. Every one of these was found and fixed at temp 0 and none was measured at rate before or after, so how much of that hardening addressed a real failure rather than a greedy-path artifact is unknown.
 
 ### Headline findings per run
 
