@@ -14,6 +14,7 @@
 
 - [Why weaver](why.md) — what it is, the problem it solves, design bar, ecosystem fit
 - [Agent users](agent-users.md) — design philosophy for tools that target AI agents
+- [Skill design](skill-design.md) — designing weaver's skill files: descriptions and body structure
 
 ## User-facing reference
 

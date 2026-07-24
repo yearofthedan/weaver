@@ -1,7 +1,7 @@
 **Purpose:** Characteristics of AI coding agents that should inform every design decision in weaver.
 **Audience:** Anyone designing or speccing a feature. Read this before writing a spec.
 **Status:** Current
-**Related docs:** [Why](why.md) (product rationale), [Commands](commands/) (CLI interface)
+**Related docs:** [Skill design](skill-design.md) (designing skill descriptions and bodies), [Why](why.md) (product rationale), [Commands](commands/) (CLI interface)
 
 ---
 
@@ -80,22 +80,7 @@ Tool descriptions are the only interface between agents and weaver. Every descri
 
 An agent deciding which tool to call needs to match its intent to a tool. "Rename a symbol at a given position" describes the mechanic — "When renaming an identifier, use this to update every reference project-wide" tells the agent when to reach for it. Start with the situation, then the mechanic.
 
-### A skill's description decides which problems reach it — so own the whole problem
-
-An agent picks a skill by matching its intent to the description, then works mostly from that skill's body. Observed on the pressured trigger lane: rather than load a *second* skill mid-task to compose a step, it tends to fall back to host tools — a `grep` to locate — a specific case of "they won't plan the optimal sequence." Two design consequences (this scenario moved 0/6 → 6/6 once addressed):
-
-- **Advertise the whole problem in the description, including precursor steps** — not just the terminal mechanic. A refactor skill that says "rename a symbol" but not "locates it for you if you don't have the line/col" loses the agent that wants a rename but has no position: it greps to locate and never converts, because nothing told it the skill handles finding the symbol. Putting the locate step only in the *body* does nothing until the *description* advertises it.
-- **A tool can appear in more than one skill as a precursor.** `search-text` is the primary tool of the search-and-replace skill *and* a locate precursor in the refactor skill. Organize skills by the *problem* being solved, not by a one-tool-one-skill partition; the partition can strand a workflow that spans skills (locate → rename), because the agent may not assemble it across skill boundaries. Merging everything into one skill fixes composition but dilutes each per-problem trigger — keep sharp per-problem descriptions and let precursor tools overlap.
-
-### Don't gate the act behind a check — a single-shot model stalls on the precursor
-
-A "check first, *then* act" recipe in a skill body (`# 1. find-references  # 2. delete-file`, or "run the impact check first, then rename") makes a one-shot agent do step 1 and stop — it treats the precursor as *the* task and never converts to the mutating op. Observed: a delete section written as check-then-delete made the model emit `find-importers` and halt; a rename section that said "get the blast radius first, then act" made it emit `find-references` and halt. Write the mutating op as the one call to make; offer any impact check as an explicitly *optional* inspection ("want the importers first anyway? — optional, not a prerequisite"), never as step 1 of a sequence. The op already does the safe thing (delete-file removes importers; rename updates every reference), so the check is never required.
-
-### Preempt the shell reflex — name what the op does that the shell can't
-
-When a task maps to a familiar shell command, the agent reaches for the shell unless the body preempts it. `move-file` emitted `mkdir -p && mv` because the section never said weaver creates the destination directory — the model assumed it had to make the dir itself, and once it's in "shell mode" it does the whole thing in shell. Fix: state the shell steps the op subsumes ("don't `mkdir` the destination or `mv` the file yourself — creates missing destination directories and rewrites every importer"). A terse section that only lists the op's *benefits* loses to muscle memory; naming the exact shell steps it replaces wins.
-
-Corollary: an operation's optional impact check must be the *right-granularity* tool. Deleting a **file** → `find-importers` (file-level, "who imports this file?"). A symbol-level `find-references` at a made-up `1:1` position is wrong for a file op — it resolves references to whatever token sits at the top of the file.
+How a skill's structure gets the agent to actually reach for weaver — owning the whole problem, not gating the act, preempting the shell reflex — is **skill-body design**: see [Skill design](skill-design.md).
 
 ### Say what the compiler gives you that alternatives don't
 
