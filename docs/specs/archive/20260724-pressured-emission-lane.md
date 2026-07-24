@@ -74,7 +74,7 @@ tests in `pnpm check` are required (the helpers it composes are already covered)
 
 ## Behaviour
 
-- [ ] **AC1 — currently-robust cases gate.** Given a single-step command case
+- [x] **AC1 — currently-robust cases gate.** Given a single-step command case
   (`stage: "command"`, no `seed`) whose `name` is *not* in the known-red baseline set, run
   under the pressured setup — `system = buildClutterSystemPrompt()`, then a **3-turn**
   habit-momentum seed wrapping the command prompt (full skill content + task + "make a single
@@ -93,7 +93,7 @@ tests in `pnpm check` are required (the helpers it composes are already covered)
     is the established momentum-seed principle (`docs/eval-design.md`); the lane reuses the
     compliant pool unchanged and must not extend it with a substituting step.
 
-- [ ] **AC2 — known-red baseline cases report but do not gate.** Given a case whose `name`
+- [x] **AC2 — known-red baseline cases report but do not gate.** Given a case whose `name`
   is in the known-red set — `command-find-importers`, `command-get-type-errors`,
   `command-search-text` (measured red under pressure on Haiku, 2026-07-24) — the lane runs
   the identical pressured setup and logs the case's pass/fail plus the emitted fallback
@@ -156,14 +156,14 @@ them to gating. What to watch: the partition is calibrated to the gate model; se
 
 ## Done-when
 
-- [ ] AC1 gates the robust single-step command cases; AC2 reports (no assertion) the three
+- [x] AC1 gates the robust single-step command cases; AC2 reports (no assertion) the three
       known-red cases — verified by a `pnpm eval` run on Haiku showing 8 gated cases green and
       the three red cases logged with their fallback commands.
-- [ ] Mutation score ≥ threshold for touched source files — N/A, no source touched (verify no
+- [x] Mutation score ≥ threshold for touched source files — N/A, no source touched (verify no
       harness source changed).
-- [ ] `pnpm check` passes (the new lane is eval-only; check must stay green).
-- [ ] No touched file exceeds the code-standards hard flag.
-- [ ] Docs updated:
+- [x] `pnpm check` passes (the new lane is eval-only; check must stay green).
+- [x] No touched file exceeds the code-standards hard flag.
+- [x] Docs updated:
       - `docs/eval-readiness.md` — fill the now-covered "NONE × pressured" cell in the lane
         matrix (§1) and the Findings note that flagged it as an empty gap.
       - `docs/eval-baselines.md` — add the pressured-emission baseline (which cases held,
@@ -171,7 +171,49 @@ them to gating. What to watch: the partition is calibrated to the gate model; se
       - `docs/eval-design.md` — a mechanics note if the lane's setup isn't obvious from the
         existing lane descriptions.
       - handoff.md current-state `eval/cases` line (new lane) and remove the P3 task entry.
-- [ ] Deferred tech debt added to handoff.md as `[needs design]`: harden the three red skill
+- [x] Deferred tech debt added to handoff.md as `[needs design]`: harden the three red skill
       bodies to hold single-shot emission under shell-habit pressure, then remove them from the
       known-red set to flip the lane fully gating.
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended.
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended.
+
+## Outcome
+
+**Verification.** Real path: `pass-cli run --env-file .env -- pnpm eval pressured-emission
+--disable-console-intercept` on the gate model (Haiku 4.5). 11 tests pass; the 8 gating cases
+held emission under pressure (green), the 3 known-red cases logged `FELL BACK … (observational)`
+with their fallbacks — `find-importers` → `grep` for imports, `get-type-errors` → `cd … && npx
+tsc --noEmit`, `search-text` → `grep "TODO"`. Deterministic (temp 0), reproducing the pre-build
+spike exactly. Cross-model spike (Gemini 2.5 Flash) diverged as expected: 1/11, `move-file` →
+`mv`, the others held — confirming the fallback tracks the shell verb the momentum seed primes,
+per model. `pnpm check` green throughout (1100 tests).
+
+**Test count.** No new deterministic (`pnpm check`) tests — the lane is eval-only and reuses the
+existing 11 single-step command cases. Added: 1 lane file (`pressured-emission.llm.test.ts`) and,
+from the review pass, 1 shared helper (`command-prompt.ts`) that de-duplicates the command-stage
+prompt across the clean and pressured lanes.
+
+**Mutation.** N/A — mutation scope is `eval/harness/**` (`stryker.eval.config.mjs`); nothing in
+that scope was touched. `command-prompt.ts` lives in `eval/cases/`, out of scope like `cases.ts`.
+
+**Decisions preserved.** Gate-green / observe-red via a **local `KNOWN_RED` set** in the lane
+file, not a `CaseEntry` field (that type is already an overloaded bag — P4). `momentumTurns` fixed
+at 3 (pool max). The legitimate-pressure constraint (seed stays weaver-orthogonal, never a shell
+stand-in for a graded op) is documented in the lane, `eval-design.md`, and this spec — load-bearing
+because a substituting seed would manufacture the fallback instead of measuring it.
+
+**Reflection.**
+- *What went well:* the spike answered change-vs-drop cheaply (Gemini first at ~10× under Haiku)
+  and doubled as the implementation — the lane is the spike minus the clean baseline. Reusing
+  already-tested harness helpers meant no new `pnpm check` coverage or mutation surface, keeping
+  the slice small.
+- *What did not:* I wrote a changelog-style "Gap (filled)" line into `eval-readiness.md`, against
+  the living-docs rule I already hold; corrected by deleting the stale finding and extending
+  `CLAUDE.md` so the rule fires on *editing a completed to-do*, not just on composing prose. I also
+  enlarged the already-bloated handoff `cases/` line before trimming it back to a pointer. Both
+  were caught by the user, not by me — the lesson is to ask "should this entry still exist?" before
+  editing any living-doc entry.
+- *For the next agent:* the real cost/diminishing-returns question in the eval suite is the
+  **observational buried rung** inside `trigger-agentic` — it pays the highest per-case cost (n=3 ×
+  multi-step) and gates nothing. And `command` + `pressured-emission` are a control/treatment pair
+  over the same cases; they could merge into one clean-vs-pressured lane (same cost, less code) if
+  consolidation is wanted. Neither is filed yet — pending the user's call.
