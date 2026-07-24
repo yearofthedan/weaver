@@ -37,12 +37,6 @@ export interface CaseEntry {
    * the agentic trigger lane reads this field.
    */
   momentumTurns?: number;
-  /**
-   * When true, the agentic trigger lane reports this case's rate + trail
-   * but does not gate on the `belowAlarm` floor. Absent defaults to
-   * `false` (gating). Only meaningful on `stage: "trigger"` skill cases.
-   */
-  observational?: boolean;
 }
 
 /** Eagerly validates all seed operations at module load. */
@@ -150,16 +144,16 @@ export const CASES: CaseEntry[] = validateCases([
     expect: { skill: "weaver-code-inspection", command: "get-type-errors" },
   },
 
-  // ── Pressured buried cases (observational discrimination rung) ─────────────
+  // ── Pressured buried cases (deep-pressure gating rung) ─────────────────────
   // The op request is embedded inside a broader, multi-part task rather than
   // stated directly, and the case seeds a three-turn true-shell momentum trail
-  // before the task. These report rate + trail but do not gate (observational:
-  // true) — see docs/eval-design.md, "Don't tier what n=3 can't resolve".
-  // Coords co-vary with the mechanism: the mutating targets (rename,
-  // replace-text) withhold coordinates and own a search precursor fixture to
-  // reproduce the precursor-stall path; the read-only targets (search-text,
-  // find-references) get coordinates where the op needs them and manufacture
-  // no precursor.
+  // before the task. These gate on the `belowAlarm` floor like any trigger case
+  // — a spike (n≥6) confirmed each converges under this deeper pressure, so the
+  // rung discriminates rather than sampling noise (see docs/eval-baselines.md).
+  // Coords co-vary with the mechanism: the mutating target (rename) withholds
+  // coordinates and owns a search precursor fixture to reproduce the
+  // precursor-stall path; the read-only target (find-references) gets
+  // coordinates where the op needs them and manufactures no precursor.
 
   {
     name: "pressured-buried-rename",
@@ -173,60 +167,30 @@ export const CASES: CaseEntry[] = validateCases([
     // "own-file inspect step".
     task: "I'm cleaning up the auth module before the release: rename `userId` in `/tmp/weaver-eval/src/auth.ts` to `accountId` across the project since we've standardized on the new naming, and note anything else that looks inconsistent while you're in there.",
     momentumTurns: 3,
-    observational: true,
     expect: { skill: "weaver-refactor", command: "rename", keyArgs: { newName: "accountId" } },
     cannedResults: { "search-text": loadFixture("searchText-userId.json") },
   },
-  // Two realistic phrasings of the same repo-wide bump, sharing one fixture. The
-  // active form ends with an explicit imperative ("go ahead and apply it"); the
-  // passive form states the change as intent with no action push. The passive
-  // form is the harder discriminator — whether the model still converts to the
-  // mutating op from a declarative ask is a real signal about phrasing, lifted
-  // (if at all) by honest skill-body guidance, never by tuning the wording.
-  {
-    name: "pressured-buried-replace-text-active",
-    stage: "trigger",
-    task: "We're doing a version bump across the repo: replace every `v1` with `v2`, comments included — just not the ones that are part of something like `v10` or `v1.2`. Go ahead and apply it across the project.",
-    momentumTurns: 3,
-    observational: true,
-    expect: {
-      skill: "weaver-search-and-replace",
-      command: "replace-text",
-      keyArgs: { replacement: "v2" },
-    },
-    cannedResults: { "search-text": loadFixture("searchText-v1-repo.json") },
-  },
+  // A repo-wide bump stated as intent with no action push (the declarative form
+  // is the harder discriminator — whether the model still converts to the
+  // mutating op without an imperative). Owns a search precursor fixture so a
+  // search-then-replace trajectory has real hits to act on.
   {
     name: "pressured-buried-replace-text-passive",
     stage: "trigger",
     task: "We're doing a version bump across the repo: replace every `v1` with `v2`, comments included.",
     momentumTurns: 3,
-    observational: true,
     expect: {
       skill: "weaver-search-and-replace",
       command: "replace-text",
       keyArgs: { replacement: "v2" },
     },
     cannedResults: { "search-text": loadFixture("searchText-v1-repo.json") },
-  },
-  {
-    name: "pressured-buried-search-text",
-    stage: "trigger",
-    task: "I'm auditing secret usage: check the recent commits for context, then find every reference to `apiKey` across the whole project — source, config, and env files — with the exact file, line, and column for each. I'm feeding the list into a remediation script, so it has to be exhaustive and scoped to our own code, not dependencies.",
-    momentumTurns: 3,
-    observational: true,
-    expect: {
-      skill: "weaver-search-and-replace",
-      command: "search-text",
-      keyArgs: { pattern: "apiKey" },
-    },
   },
   {
     name: "pressured-buried-find-references",
     stage: "trigger",
     task: "I'm prepping the auth module for release: skim the recent commits, then find everything using `authenticate` at line 5, column 17 of /tmp/weaver-eval/src/auth.ts, and note anything odd in the changelog.",
     momentumTurns: 3,
-    observational: true,
     expect: {
       skill: "weaver-code-inspection",
       command: "find-references",

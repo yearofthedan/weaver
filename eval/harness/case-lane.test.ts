@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CaseEntry } from "../cases/cases.js";
-import { caseIsGating, seedForCase } from "./case-lane.js";
+import { seedForCase } from "./case-lane.js";
 
 function baseCase(overrides: Partial<CaseEntry> = {}): CaseEntry {
   return {
@@ -35,26 +35,6 @@ describe("seedForCase", () => {
         role: "user",
         content: "a distinct task string",
       });
-    });
-  });
-});
-
-describe("caseIsGating", () => {
-  describe("observational absent", () => {
-    it("returns true (gates on the floor)", () => {
-      expect(caseIsGating(baseCase())).toBe(true);
-    });
-  });
-
-  describe("observational: true", () => {
-    it("returns false (reports without gating)", () => {
-      expect(caseIsGating(baseCase({ observational: true }))).toBe(false);
-    });
-  });
-
-  describe("observational: false explicitly", () => {
-    it("returns true", () => {
-      expect(caseIsGating(baseCase({ observational: false }))).toBe(true);
     });
   });
 });

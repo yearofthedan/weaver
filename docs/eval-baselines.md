@@ -56,6 +56,20 @@ Cost is the full-lane, n=3 run price via OpenRouter, and tracks tokens, not wall
 
 ‡ This row's non-Claude `0/3` was a dead instrument, not a skill signal — the task's leading inspect step targeted the op's own file, which the harness cannot read coherently, so literal models stalled (general rule: [`eval-design.md`](eval-design.md) Working discipline, "own-file inspect step"). Clause removed 2026-07-24; post-fix single-case runs: Gemini 2.5 Flash 6/6 (n=6), Haiku 11/12 (n=12).
 
+### Buried-case routing spike (2026-07-24)
+
+The five `pressured-buried-*` cases ran as `observational` (reported a rate, gated nothing). A spike at **n=6 on Haiku** (the canary/gate model — rename already had n=12) resolved each to gate-or-delete, and the `observational` flag + `caseIsGating` machinery were removed. Rule: a case gates only if it converges comfortably above the 2/3 floor (≥5/6) *and* the trail shows it converging; a case at the knife-edge or exploring the shell instead of converging is measuring temp-0.7 task ambiguity, not skill text, and is deleted.
+
+| Case | Haiku spike | Trail | Routing |
+|---|---|---|---|
+| `pressured-buried-rename` | 11/12 (n=12) | converges | **gate** |
+| `pressured-buried-replace-text-passive` | 6/6 | single-shot `replace-text`, args correct | **gate** |
+| `pressured-buried-find-references` | 6/6 | converges, args correct | **gate** |
+| `pressured-buried-replace-text-active` | 6/6 | converges but **args wrong** (surgical-edits path); same op/fixture as passive | **delete** (kept passive — cleaner args, harder discriminator) |
+| `pressured-buried-search-text` | 4/6 | 2 fails **explore with grep/find/awk**, never reach weaver | **delete** (knife-edge; the grep-fallback is already reported by pressured-emission `command-search-text` KNOWN_RED) |
+
+Gate confirmation (n=3, default lane, gating assertion active): rename 3/3, replace-text-passive 3/3, find-references 3/3 — all clean-pass.
+
 ### Pressured emission lane (single-shot × pressured)
 
 `pressured-emission.llm.test.ts` — the command cases wrapped in a clutter system prompt + a 3-turn habit-momentum seed, bash-only, **temp 0 (deterministic, n=1)**. Grades single-shot emission (command + `keyArgs`) under host pressure. Baseline **2026-07-24**:

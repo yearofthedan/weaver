@@ -71,7 +71,7 @@ describe("pressured single-shot emission", () => {
     // a red build. Reported for the hardening follow-up to act on.
     if (KNOWN_RED.has(c.name)) {
       console.log(
-        `${c.name} — ${passed ? "held" : "FELL BACK"} under pressure (observational)\n${detail}`,
+        `${c.name} — ${passed ? "held" : "FELL BACK"} under pressure (known-red, not gated)\n${detail}`,
       );
       return;
     }

@@ -10,11 +10,3 @@ import { buildHabitMomentumSeed } from "./seed.js";
 export function seedForCase(c: CaseEntry): ChatMessage[] {
   return buildHabitMomentumSeed(c.task, c.momentumTurns ?? 1);
 }
-
-/**
- * Returns whether the agentic trigger lane should gate on this case's
- * `belowAlarm` floor. Absent `observational` defaults to gating (`true`).
- */
-export function caseIsGating(c: CaseEntry): boolean {
-  return !(c.observational ?? false);
-}

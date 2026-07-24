@@ -115,13 +115,11 @@ describe("case table", () => {
     it.each([
       "rename",
       "replace-text",
-      "search-text",
       "find-references",
-    ])("has a deep, observational trigger case for %s", (command) => {
+    ])("has a deep, gating trigger case for %s", (command) => {
       const pressuredCases = CASES.filter(
         (c) =>
           c.stage === "trigger" &&
-          c.observational === true &&
           c.momentumTurns !== undefined &&
           c.momentumTurns >= 3 &&
           c.expect.command === command,

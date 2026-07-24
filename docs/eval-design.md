@@ -60,7 +60,7 @@ eval/harness/call-model.ts    ← one fetch per turn; per-lane temperature; 60s 
 eval/harness/context.ts       ← system prompts built from .claude/skills/ at run time
 eval/harness/assertions.ts    ← extractBashCommands + matchWeaverCommand (→ matched + outcome); pure, unit-tested
 eval/harness/seed.ts          ← pre-seeded tool-exchange conversations (two-step, true-shell momentum)
-eval/harness/case-lane.ts     ← seedForCase + caseIsGating (per-case seed depth and gating; pure, unit-tested)
+eval/harness/case-lane.ts     ← seedForCase (per-case seed depth; pure, unit-tested)
 eval/harness/agentic-loop.ts  ← runAgenticLoop + cannedToolResult
 eval/harness/grade.ts         ← SUBCOMMAND_MUTABILITY + isMutatingCompetitor (the loop's hard-fail verdict)
 eval/fixtures/                ← canned tool stdout, embedded as tool results
@@ -151,17 +151,17 @@ verdict (`args:correct` / `args:wrong-args` from `matchWeaverCommand.outcome`): 
 right-selection/wrong-args trial is surfaced in the trail but still counts as a selection match,
 so args noise never smears into the selection rate.
 
-**Observational pressured cases** (`CaseEntry.observational: true`, read via `caseIsGating` in
-`eval/harness/case-lane.ts`) report the same rate + trail as any skill-trigger case but carry no
-`belowAlarm` assertion — the lane never fails on them. Gating stays on the existing ceiling
-trigger cases (the catastrophic floor) and the boundary cases (the over-trigger guard). Seed
-depth co-varies with the rung: the light rungs (existing direct/indirect trigger cases) keep
-`momentumTurns` at its default of `1` as ceiling canaries — depth-1 pressure should not move
-them; the pressured buried rung sets `momentumTurns: 3` as the discriminator, pairing a deeper
-seed with phrasing that embeds the op inside a broader task. This is deliberately observational,
-not gated, per "Don't tier what n=3 can't resolve" below — at n=3 a 2/3 gate on a case that the
-spike put at ~1/6 would fail every run and force a paid tuning loop; reading the rate on demand
-gets the regression signal (a visible drop) without a standing false alarm.
+**Pressured buried cases** set `momentumTurns: 3` (via `seedForCase` in `eval/harness/case-lane.ts`)
+and embed the op inside a broader, multi-part task rather than stating it directly — a deeper seed
+paired with buried phrasing. They gate on the `belowAlarm` floor like any skill-trigger case. Seed
+depth co-varies with the rung: the light rungs (direct/indirect trigger cases) keep `momentumTurns`
+at its default of `1` as ceiling canaries — depth-1 pressure should not move them; the buried rung
+raises it to `3`. A buried case gates only once a spike (n≥6) has shown it converges comfortably
+above the floor under that pressure — the survivors (rename, replace-text, find-references) each did;
+cases that sat at the knife-edge or explored the shell instead of converging were deleted, not gated,
+per "Don't tier what n=3 can't resolve" below (see [`eval-baselines.md`](eval-baselines.md) for the
+routing). Gating a case a spike puts at ~1/6 would fail every run and force a paid tuning loop; a
+case that only holds under trivial rephrasing measures temp-0.7 task ambiguity, not skill text.
 
 The verdict per call is three-way (`isMutatingCompetitor` in `eval/harness/grade.ts`, wired as
 the loop's `hardFails`): the expected op is a **pass**; a *different mutating* weaver op — a
@@ -269,8 +269,8 @@ miss — see *Content vs. exposure* below. (2) Hosted models occasionally emit t
 back an invalid-arguments error instead of crashing the trial.
 
 Run: `pnpm eval trigger-agentic --disable-console-intercept` — the flag is required or vitest
-swallows the per-case rate/trail `console.log` lines on passing tests, so the observational rungs
-print nothing. Filter to a case subset with `-t <case-name-regex>`;
+swallows the per-case rate/trail `console.log` lines on passing tests, so a green run prints
+nothing. Filter to a case subset with `-t <case-name-regex>`;
 `WEAVER_EVAL_TRIALS=1` for spot checks; `WEAVER_EVAL_DEBUG=1` dumps the full turn-by-turn exchange
 (initial prompt, each model turn, each fed-back result) for diagnosing non-convergence. Test titles
 carry full case names (`chaiConfig.truncateThreshold: 0` in `vitest.llm.config.ts` — the default
@@ -282,8 +282,8 @@ provider, or the host sleeping mid-run — a deep (`momentumTurns:3`) case can e
 *whole lane* on exit code even though its completed trials are clean; the exit status conflates "a
 skill regressed" with "the run stalled." Before treating a red run as a regression, check whether
 the failure is `Test timed out in …` (an environmental stall — re-run) or an actual rate/assertion
-failure (signal). This is logged as a follow-up in `docs/handoff.md` (make the observational lane
-timeout-resilient).
+failure (signal). This is logged as a follow-up in `docs/handoff.md` (make the deep
+(`momentumTurns:3`) cases timeout-resilient).
 
 **`eval/cases/*.llm.test.ts` is not covered by `pnpm check`** — it is excluded from the `test:eval`
 vitest lane, and stryker only mutates `eval/harness/**`. A type error or logic bug in the lane
@@ -411,8 +411,8 @@ prose, so outputs are low-entropy on a clear task. That shapes how to work on it
   pass — the tell is a rate that moves only under a multi-change rewrite, not a single isolated
   removal.
 - **A paid run must never be wasted — capture output to a file, not `console.log`.** Vitest's
-  reporter swallows `console.log` from *passing* tests, so an observational lane (a spike that
-  asserts nothing gating) prints nothing and the run's data — which cost real money — is lost. Write
+  reporter swallows `console.log` from *passing* tests, so a spike run (which asserts nothing
+  gating) prints nothing and the run's data — which cost real money — is lost. Write
   results with `fs.appendFileSync` to a known path as the trials run, so the output survives the
   reporter regardless of pass/fail. Same reason to scope a spike tightly before running: at ~US$0.75
   a run, a second run to recover lost output is a real cost, not a free retry.

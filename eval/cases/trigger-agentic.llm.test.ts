@@ -11,7 +11,7 @@ import {
 } from "../harness/assertions.js";
 import type { ToolCall } from "../harness/call-model.js";
 import { type ChatMessage, callModel } from "../harness/call-model.js";
-import { caseIsGating, seedForCase } from "../harness/case-lane.js";
+import { seedForCase } from "../harness/case-lane.js";
 import { buildClutterSystemPrompt } from "../harness/clutter.js";
 import {
   buildAvailableSkillsPrompt,
@@ -193,14 +193,10 @@ describe("agentic rate lane", () => {
         `${c.name} — rate ${rate.passed}/${rate.total} (clean-pass ${outcomeTally.cleanPass}, warned-pass ${outcomeTally.warnedPass}, content-fail ${outcomeTally.contentFail}, never-reached ${outcomeTally.neverReached})\n${trailSummary}`,
       );
 
-      // Observational cases (buried phrasing under a deep pressure seed) report
-      // the rate above but carry no pass/fail assertion — see caseIsGating.
-      if (caseIsGating(c)) {
-        expect(
-          rate.belowAlarm,
-          `"${c.name}" trigger rate ${rate.passed}/${rate.total} is below the 2/3 floor for command "${expectedCommand}". Trails:\n${trailSummary}`,
-        ).toBe(false);
-      }
+      expect(
+        rate.belowAlarm,
+        `"${c.name}" trigger rate ${rate.passed}/${rate.total} is below the 2/3 floor for command "${expectedCommand}". Trails:\n${trailSummary}`,
+      ).toBe(false);
     },
     LANE_TIMEOUT_MS,
   );
