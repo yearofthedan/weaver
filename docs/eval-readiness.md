@@ -18,15 +18,15 @@ Each lane is a standing hypothesis: **given** the setup, **when** a targeted pro
 
 | Lane | Setup (Tools · Context · Turns) | Claim — holds when green | Speed | False-failure risk | Precision | Model |
 |---|---|---|---|---|---|---|
-| **Clean trigger** | WEAVER · clean · single | the description alone wins selection (vs bash + sibling skills) | 1 call | low — deterministic (temp 0) | medium — mis-credits precursors | 7B canary (weak = stress floor) |
-| **Command** | NONE · clean · single | the body produces the right `weaver` command + args | 1 call | medium — JSON-emission parse noise | high — classified failure reasons | 7B canary |
-| **Two-step** | NONE · clean · multi | the body chains one command's output into the next | 1 call (+seed) | low–medium — emission parse on seeded turn | high — exact follow-up cmd | 7B canary |
-| **Pressured single-shot** | COMPETING · pressured · single | the description wins the opening move under host pressure | 1 call | high — silent CTX truncation; precursor mis-credit | low — first-call mis-attributes | 7B canary (hosted 32B+ for calibration) |
-| **Pressured multi-step (canary)** | COMPETING · pressured · multi | the skill is reached under host pressure, precursors tolerated | ≤3 calls | high — CTX truncation + multi-turn drift | high — trail names the culprit | 7B canary (robustness floor) |
+| **Clean trigger** | WEAVER · clean · single | the description alone wins selection (vs bash + sibling skills) | 1 call | low — deterministic (temp 0) | medium — mis-credits precursors | Haiku 4.5 canary |
+| **Command** | NONE · clean · single | the body produces the right `weaver` command + args | 1 call | medium — JSON-emission parse noise | high — classified failure reasons | Haiku 4.5 canary |
+| **Two-step** | NONE · clean · multi | the body chains one command's output into the next | 1 call (+seed) | low–medium — emission parse on seeded turn | high — exact follow-up cmd | Haiku 4.5 canary |
+| **Pressured single-shot** | COMPETING · pressured · single | the description wins the opening move under host pressure | 1 call | high — silent CTX truncation; precursor mis-credit | low — first-call mis-attributes | Haiku 4.5 canary |
+| **Pressured multi-step (canary)** | COMPETING · pressured · multi | the skill is reached under host pressure, precursors tolerated | ≤3 calls | high — CTX truncation + multi-turn drift | high — trail names the culprit | Haiku 4.5 canary |
 | **Pressured multi-step (frontier)** — cold-context | COMPETING · pressured · multi | the *real audience* reaches the skill under pressure, cold | ≤3 API calls (costly) | medium — frontier steadier; new transport surface | high — trail names the culprit | frontier via API transport *(gated: key + adapter)* |
 | **Harnessed** | real host · real context · real exec | the skill works end-to-end in a real agent host | slow / costly | high — real-model + real-exec nondeterminism | highest on outcome; lower on text-vs-host attribution | **frontier (real Claude / Cursor / opencode)** *(gated, not built)* |
 
-**Two tiers.** The canary lanes are the **fast-feedback loop** — cheap, near-deterministic, run in the edit→eval cycle; a *proxy* regression signal. The frontier and Harnessed rows are the **confidence ceiling** — the real audience, gated, not built. The loop is unvalidated against the audience until cold-context runs: canary movement is *assumed* to predict frontier behaviour, never checked.
+**Two tiers.** The canary lanes run **Haiku 4.5** — the cheapest Claude model, in the same family as the real Opus/Sonnet audience and cheap enough for the edit→eval cycle. This is the **fast-feedback loop**: a near-deterministic *proxy* regression signal. Non-Claude models (Gemini, DeepSeek) are run occasionally as a cross-family robustness check, not as the primary lane (see [`eval-baselines.md`](eval-baselines.md)). The frontier and Harnessed rows are the **confidence ceiling** — the real audience, gated, not built. The loop is unvalidated against the audience until cold-context runs: canary movement is *assumed* to predict frontier behaviour, never checked.
 
 ### Findings
 
