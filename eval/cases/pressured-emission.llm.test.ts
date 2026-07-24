@@ -3,15 +3,13 @@ import { extractBashCommands, matchWeaverCommand } from "../harness/assertions.j
 import { type ChatMessage, callModel } from "../harness/call-model.js";
 import { buildClutterSystemPrompt } from "../harness/clutter.js";
 import { modelConfig } from "../harness/config.js";
-import { SKILL_NAMES, skillContext } from "../harness/context.js";
 import { buildHabitMomentumSeed } from "../harness/seed.js";
 import { BASH_TOOL } from "../harness/tools.js";
 import { CASES } from "./cases.js";
+import { commandPrompt } from "./command-prompt.js";
 
 /** Single-step command cases (no seed) — the same set the clean command lane grades. */
 const singleStepCases = CASES.filter((c) => c.stage === "command" && !c.seed);
-
-const skillContent = skillContext([...SKILL_NAMES]);
 
 /**
  * Command cases whose single-shot emission falls back to the shell under
@@ -31,10 +29,6 @@ const KNOWN_RED = new Set<string>([
 
 // The pool maximum — the strongest legitimate pressure buildHabitMomentumSeed offers.
 const MOMENTUM_TURNS = 3;
-
-function commandPrompt(task: string): string {
-  return `${skillContent}\n\n---\n\nTask: ${task}\n\nUse the bash tool to make a single call that accomplishes this task.`;
-}
 
 /**
  * The command prompt wrapped in host pressure: a cluttered system prompt plus a

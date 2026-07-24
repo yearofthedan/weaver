@@ -2,21 +2,12 @@ import { describe, expect, it } from "vitest";
 import { extractBashCommands, matchWeaverCommand } from "../harness/assertions.js";
 import { callModel } from "../harness/call-model.js";
 import { modelConfig } from "../harness/config.js";
-import { SKILL_NAMES, skillContext } from "../harness/context.js";
 import { BASH_TOOL } from "../harness/tools.js";
 import { CASES } from "./cases.js";
+import { commandPrompt } from "./command-prompt.js";
 
 /** Single-step command cases (no seed). */
 const singleStepCases = CASES.filter((c) => c.stage === "command" && !c.seed);
-
-const skillContent = skillContext([...SKILL_NAMES]);
-
-function commandPrompt(task: string): string {
-  // Constrain to a single call so the lane measures the one command the model
-  // commits to, not a precursor it would take first. Deliberately does not name
-  // weaver — the model must still select it from the skill content above.
-  return `${skillContent}\n\n---\n\nTask: ${task}\n\nUse the bash tool to make a single call that accomplishes this task.`;
-}
 
 describe("command-stage cases", () => {
   it.each(singleStepCases)("$name — model emits correct weaver command", async (c) => {
