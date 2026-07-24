@@ -58,7 +58,7 @@ Cost is the full-lane, n=3 run price via OpenRouter, and tracks tokens, not wall
 
 ### Buried-case routing spike (2026-07-24)
 
-The five `pressured-buried-*` cases ran as `observational` (reported a rate, gated nothing). A spike at **n=6 on Haiku** (the canary/gate model — rename already had n=12) resolved each to gate-or-delete, and the `observational` flag + `caseIsGating` machinery were removed. Rule: a case gates only if it converges comfortably above the 2/3 floor (≥5/6) *and* the trail shows it converging; a case at the knife-edge or exploring the shell instead of converging is measuring temp-0.7 task ambiguity, not skill text, and is deleted.
+Spike at **n=6 on Haiku** (the canary/gate model; rename already had n=12) to route each `pressured-buried-*` case gate-or-delete. Rule: a case gates only if it converges comfortably above the 2/3 floor (≥5/6) *and* the trail shows it converging; a case at the knife-edge or exploring the shell instead of converging is measuring temp-0.7 task ambiguity, not skill text, and is deleted.
 
 | Case | Haiku spike | Trail | Routing |
 |---|---|---|---|
