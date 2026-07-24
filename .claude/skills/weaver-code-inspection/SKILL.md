@@ -60,7 +60,7 @@ Follows through re-exports to the actual declaration. Text grep stops at the re-
 
 ## Check type errors
 
-**Never check types with `tsc`/`npx tsc` — on a single file it loads without the project's real tsconfig and reports *wrong* errors: phantom ones, or none while real errors exist. Run `weaver get-type-errors` instead.**
+**Never check types with `tsc`/`npx tsc` — naming a file on the command line turns `tsconfig.json` off, and running from the project root does not change that. Run `weaver get-type-errors` instead.**
 
 ```bash
 # One file
@@ -76,7 +76,7 @@ Use to check the project baseline before a refactor, or to verify a specific fil
 ```bash
 tsc --noEmit src/service.ts
 ```
-**Use `get-type-errors`** — running `tsc`/`npx tsc` on one file loads it without the project's real tsconfig, so it either floods you with phantom errors (missing lib/path config) or misses real ones, and hands back text to parse instead of structured `{file, line, col, message}`. It also can't see `.vue` SFCs.
+**Use `get-type-errors`** — the filename on that command line is what drops `tsconfig.json` (so no `paths`, no `lib`, no `strict`). Depending on the TypeScript version you either get results computed without the project's config, or an outright refusal (TypeScript 6: `error TS5112: tsconfig.json is present but will not be loaded if files are specified on commandline`). Dropping the filename restores the config but compiles the whole project. `get-type-errors` is scoped and configured in one call, returns structured `{file, line, col, message}` instead of text to parse, and sees `.vue` SFCs.
 
 ## When NOT to use
 
