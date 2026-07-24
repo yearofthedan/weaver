@@ -6,8 +6,6 @@
 
 ---
 
-> **Status note (2026-07-07).** The pressured multi-step lane has been rebuilt as a **hosted-model trigger-*rate* lane** (OpenRouter, temp 0.7, N trials) per archived spec `20260707-hosted-model-trigger-rate`. This partly actions the fast-tier verdict below (the repeat-N / hosted-calibration items) but the lane table's "7B canary" rows no longer describe the rate lane. The first baseline surfaced a **framing** failure (the hosted model doesn't invoke the CLI under the `<available_skills>` framing); a `[needs investigation]` in `docs/handoff.md` gates further eval work. Full reconciliation of this table waits on that.
-
 ## What this measures
 
 The object under test is the **skill files** (`description` + body). The suite asks: given these files, does an agent select weaver and emit the right command? It does **not** test engine correctness (unit/integration tests do) or the eval machinery itself (the structural invariants, below).
