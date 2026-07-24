@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { describe, expect, it } from "vitest";
-import { copyFixture, FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
@@ -88,55 +88,51 @@ describe("tsMoveSymbol — error cases and conflict detection", () => {
       ).rejects.toMatchObject({ code: "SYMBOL_EXISTS", message: expect.stringMatching(/FOO/) });
     });
 
-    it.each([
+    test.for([
       ["a function", "export function FOO(): void {}"],
       ["a class", "export class FOO {}"],
-    ])("throws SYMBOL_EXISTS when dest exports %s with the same name", async (_label, decl) => {
-      // Re-create the context for this test since it's parameterized
-      const dir = copyFixture(FIXTURES.simpleTs.name);
-      try {
-        const tsCompiler = new TsMorphEngine();
-        const scope = makeScope(dir);
-        fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
-        fs.writeFileSync(path.join(dir, "src/b.ts"), `${decl}\n`);
-        await expect(
-          tsMoveSymbol(
-            tsCompiler,
-            path.join(dir, "src/a.ts"),
-            "FOO",
-            path.join(dir, "src/b.ts"),
-            scope,
-          ),
-        ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
-      } finally {
-        fs.rmSync(dir, { recursive: true, force: true });
-      }
+    ])("throws SYMBOL_EXISTS when dest exports %s with the same name", async ([, decl], {
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      const tsCompiler = new TsMorphEngine();
+      const scope = makeScope(dir);
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
+      fs.writeFileSync(path.join(dir, "src/b.ts"), `${decl}\n`);
+      await expect(
+        tsMoveSymbol(
+          tsCompiler,
+          path.join(dir, "src/a.ts"),
+          "FOO",
+          path.join(dir, "src/b.ts"),
+          scope,
+        ),
+      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
     });
 
-    it.each([
+    test.for([
       ["source", path.join("src", "a.ts"), "export const FOO = 1;\n"],
       ["destination", path.join("src", "b.ts"), "export const FOO = 42;\n"],
-    ] as const)("leaves the %s file unmodified when SYMBOL_EXISTS is thrown", async (_label, relPath, expectedContent) => {
-      // Re-create the context for this test since it's parameterized
-      const dir = copyFixture(FIXTURES.simpleTs.name);
-      try {
-        const tsCompiler = new TsMorphEngine();
-        const scope = makeScope(dir);
-        fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
-        fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
-        await expect(
-          tsMoveSymbol(
-            tsCompiler,
-            path.join(dir, "src/a.ts"),
-            "FOO",
-            path.join(dir, "src/b.ts"),
-            scope,
-          ),
-        ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
-        expect(fs.readFileSync(path.join(dir, relPath), "utf8")).toBe(expectedContent);
-      } finally {
-        fs.rmSync(dir, { recursive: true, force: true });
-      }
+    ] as const)("leaves the %s file unmodified when SYMBOL_EXISTS is thrown", async ([
+      ,
+      relPath,
+      expectedContent,
+    ], { seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      const tsCompiler = new TsMorphEngine();
+      const scope = makeScope(dir);
+      fs.writeFileSync(path.join(dir, "src/a.ts"), "export const FOO = 1;\n");
+      fs.writeFileSync(path.join(dir, "src/b.ts"), "export const FOO = 42;\n");
+      await expect(
+        tsMoveSymbol(
+          tsCompiler,
+          path.join(dir, "src/a.ts"),
+          "FOO",
+          path.join(dir, "src/b.ts"),
+          scope,
+        ),
+      ).rejects.toMatchObject({ code: "SYMBOL_EXISTS" });
+      expect(fs.readFileSync(path.join(dir, relPath), "utf8")).toBe(expectedContent);
     });
 
     test("does not rewrite importers when SYMBOL_EXISTS is thrown", async ({

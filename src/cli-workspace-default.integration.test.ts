@@ -2,9 +2,8 @@
  * Tests that --workspace defaults to process.cwd() for daemon and stop
  * when the flag is omitted.
  */
-import * as fs from "node:fs";
-import { afterEach, describe, expect, it } from "vitest";
-import { copyFixture, FIXTURES } from "./__testHelpers__/helpers.js";
+import { afterEach, describe, expect } from "vitest";
+import { FIXTURES, fixtureTest as test } from "./__testHelpers__/helpers.js";
 import {
   killDaemon,
   runCliCommand,
@@ -23,13 +22,12 @@ describe("--workspace default (process.cwd())", () => {
     for (const dir of dirs.splice(0)) {
       killDaemon(dir);
       removeDaemonFiles(dir);
-      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 
   describe("stop", () => {
-    it("accepts no --workspace flag and uses cwd as workspace", async () => {
-      const dir = copyFixture(FIXTURES.simpleTs.name);
+    test("accepts no --workspace flag and uses cwd as workspace", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
 
       const { exitCode, stdout } = await runCliCommand(["stop"], 10_000, { cwd: dir });
@@ -40,8 +38,8 @@ describe("--workspace default (process.cwd())", () => {
       expect(stdout).toContain('"stopped":false');
     });
 
-    it("uses cwd workspace to stop a running daemon", async () => {
-      const dir = copyFixture(FIXTURES.simpleTs.name);
+    test("uses cwd workspace to stop a running daemon", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
       const daemon = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
       procs.push(daemon);
@@ -53,8 +51,10 @@ describe("--workspace default (process.cwd())", () => {
   });
 
   describe("daemon", () => {
-    it("accepts no --workspace flag and becomes ready using cwd", async () => {
-      const dir = copyFixture(FIXTURES.simpleTs.name);
+    test("accepts no --workspace flag and becomes ready using cwd", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
 
       const proc = await spawnAndWaitForReady(["daemon"], { cwd: dir });
@@ -65,8 +65,8 @@ describe("--workspace default (process.cwd())", () => {
   });
 
   describe("explicit --workspace still takes precedence over cwd", () => {
-    it("stop uses explicit path when provided", async () => {
-      const dir = copyFixture(FIXTURES.simpleTs.name);
+    test("stop uses explicit path when provided", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       dirs.push(dir);
 
       const { exitCode, stdout } = await runCliCommand(["stop", "--workspace", dir]);

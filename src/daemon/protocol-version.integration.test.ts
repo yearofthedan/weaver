@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import {
   callDaemonSocket,
   killDaemon,
@@ -66,18 +66,14 @@ describe("protocol version", () => {
     for (const dir of dirs.splice(0)) {
       killDaemon(dir);
       removeDaemonFiles(dir);
-      cleanup(dir);
     }
   });
 
-  async function setup() {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
+  test("ping returns { status: 'success', version: PROTOCOL_VERSION }", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
-    return dir;
-  }
-
-  it("ping returns { status: 'success', version: PROTOCOL_VERSION }", async () => {
-    const dir = await setup();
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
 
@@ -93,8 +89,11 @@ describe("protocol version", () => {
     expect(PROTOCOL_VERSION).toBeGreaterThan(0);
   });
 
-  it("kills and respawns a stale daemon whose ping returns a mismatched version", async () => {
-    const dir = await setup();
+  test("kills and respawns a stale daemon whose ping returns a mismatched version", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+    dirs.push(dir);
 
     // Start a fake daemon that always responds with version -1 (wrong)
     const fakeDaemon = await spawnFakeDaemon(dir, -1);

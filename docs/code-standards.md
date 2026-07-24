@@ -114,7 +114,39 @@ test("composes both", async ({ seedNamedFixture, seedInlineFixture }) => {
 });
 ```
 
-Each test declares its own setup in the body — no describe-level override, no manual `dirs` array, no `afterEach(cleanup)`. For the rare test that wants a fresh empty temp dir without seeding, the bare `dir` fixture (`async ({ dir }) => ...`) remains exposed. The standalone `copyFixture(name): string` export remains for cases where a single dir is shared across tests via `beforeAll` (e.g. some integration tests with subprocess lifecycle).
+Each test declares its own setup in the body — no describe-level override, no manual `dirs` array, no standalone `copyFixture`/`cleanup` helper. For the rare test that wants a fresh empty temp dir without seeding, the bare `dir` fixture (`async ({ dir }) => ...`) remains exposed. Every caller — including subprocess-lifecycle integration tests and `it.each`-style parameterized cases — goes through `fixtureTest`.
+
+For a parameterized test that needs fixture access, use `test.for` (not `test.each`) — only `.for` injects the fixture context as the callback's last argument:
+
+```ts
+test.for([
+  ["a function", "export function FOO(): void {}"],
+] as const)("throws when dest exports %s", async ([, decl], { seedNamedFixture }) => {
+  const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+  // ...
+});
+```
+
+For a test that also tracks a spawned process (daemon integration tests), keep a describe-level `dirs`/`procs` array and populate `dirs` from the fixture's `dir` inside the test body; `afterEach` still kills processes and daemon files, but must not also remove `dir` — `fixtureTest`'s own teardown runs after `afterEach` and would throw ENOENT on an already-deleted path (this ordering — `afterEach` before fixture teardown — is stable current vitest behaviour, not documented API; if this doesn't hold in the future, `pnpm test:mutate:file src/__testHelpers__/fixtures/fixtures.ts` and this describe block's own tests will fail loudly on cleanup):
+
+```ts
+const dirs: string[] = [];
+const procs: ChildProcess[] = [];
+
+afterEach(() => {
+  for (const proc of procs.splice(0)) if (!proc.killed) proc.kill();
+  for (const dir of dirs.splice(0)) {
+    killDaemon(dir);
+    removeDaemonFiles(dir); // no cleanup(dir) — fixtureTest's dir fixture removes it after
+  }
+});
+
+test("...", async ({ seedNamedFixture }) => {
+  const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+  dirs.push(dir);
+  // ...
+});
+```
 
 Dynamic `await import()` calls inside test bodies break V8 coverage tracking — Stryker cannot associate those tests with the imported module's lines. Use static imports at the top of the file.
 

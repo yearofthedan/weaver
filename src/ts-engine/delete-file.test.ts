@@ -1,13 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { describe, expect, it } from "vitest";
-import {
-  copyFixture,
-  FIXTURES,
-  fileExists,
-  readFile,
-  fixtureTest as test,
-} from "../__testHelpers__/helpers.js";
+import { describe, expect } from "vitest";
+import { FIXTURES, fileExists, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { tsDeleteFile } from "./delete-file.js";
@@ -139,23 +133,19 @@ describe("tsDeleteFile", () => {
   });
 
   describe("workspace boundary", () => {
-    it("skips out-of-workspace importers without writing them", async () => {
-      const root = copyFixture(FIXTURES.crossBoundary.name);
-      try {
-        const workspace = path.join(root, "workspace");
-        const targetFile = path.join(workspace, "src", "utils.ts");
-        const consumerFile = path.join(root, "consumer", "main.ts");
-        const consumerBefore = fs.readFileSync(consumerFile, "utf8");
+    test("skips out-of-workspace importers without writing them", async ({ seedNamedFixture }) => {
+      const root = await seedNamedFixture(FIXTURES.crossBoundary.name);
+      const workspace = path.join(root, "workspace");
+      const targetFile = path.join(workspace, "src", "utils.ts");
+      const consumerFile = path.join(root, "consumer", "main.ts");
+      const consumerBefore = fs.readFileSync(consumerFile, "utf8");
 
-        const scope = makeScope(workspace);
-        await tsDeleteFile(new TsMorphEngine(), targetFile, scope);
+      const scope = makeScope(workspace);
+      await tsDeleteFile(new TsMorphEngine(), targetFile, scope);
 
-        expect(fs.readFileSync(consumerFile, "utf8")).toBe(consumerBefore);
-        expect(scope.skipped).toContain(consumerFile);
-        expect(fs.existsSync(targetFile)).toBe(false);
-      } finally {
-        fs.rmSync(root, { recursive: true, force: true });
-      }
+      expect(fs.readFileSync(consumerFile, "utf8")).toBe(consumerBefore);
+      expect(scope.skipped).toContain(consumerFile);
+      expect(fs.existsSync(targetFile)).toBe(false);
     });
     test("only records files within the workspace in scope.modified", async ({
       seedNamedFixture,

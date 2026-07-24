@@ -8,7 +8,7 @@
  * for them.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { killDaemon, spawnAndWaitForReady } from "../__testHelpers__/process-helpers.js";
 import { isDaemonAlive, removeDaemonFiles, runDaemon, runStop } from "./daemon.js";
 
@@ -31,7 +31,6 @@ describe("runStop", () => {
     for (const dir of dirs.splice(0)) {
       killDaemon(dir);
       removeDaemonFiles(dir);
-      cleanup(dir);
     }
   });
 
@@ -47,8 +46,10 @@ describe("runStop", () => {
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
-  it("writes stopped:false and returns when no daemon is running", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
+  test("writes stopped:false and returns when no daemon is running", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
 
     await runStop({ workspace: dir });
@@ -57,8 +58,10 @@ describe("runStop", () => {
     expect(output).toContain('"stopped":false');
   });
 
-  it("sends SIGTERM, waits, and writes stopped:true when daemon is running", async () => {
-    const dir = copyFixture(FIXTURES.simpleTs.name);
+  test("sends SIGTERM, waits, and writes stopped:true when daemon is running", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     dirs.push(dir);
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);

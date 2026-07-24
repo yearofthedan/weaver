@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, copyFixture, FIXTURES } from "../__testHelpers__/helpers.js";
+import { afterEach, describe, expect } from "vitest";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import {
   killDaemon,
   runCliCommand,
@@ -22,18 +22,19 @@ describe("stop command", () => {
     for (const dir of dirs.splice(0)) {
       killDaemon(dir);
       removeDaemonFiles(dir);
-      cleanup(dir);
     }
   });
 
-  async function setup() {
-    const dir = copyFixture(WORKSPACE_FIXTURE);
+  async function setup(seedNamedFixture: (name: string) => Promise<string>) {
+    const dir = await seedNamedFixture(WORKSPACE_FIXTURE);
     dirs.push(dir);
     return dir;
   }
 
-  it("stops a running daemon, exits 0, and removes socket + lockfile", async () => {
-    const dir = await setup();
+  test("stops a running daemon, exits 0, and removes socket + lockfile", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await setup(seedNamedFixture);
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
 
@@ -47,8 +48,8 @@ describe("stop command", () => {
     expect(fs.existsSync(lockfilePath(dir))).toBe(false);
   });
 
-  it("exits 0 with stopped:false when no daemon is running", async () => {
-    const dir = await setup();
+  test("exits 0 with stopped:false when no daemon is running", async ({ seedNamedFixture }) => {
+    const dir = await setup(seedNamedFixture);
 
     const result = await runCliCommand(["stop", "--workspace", dir]);
 

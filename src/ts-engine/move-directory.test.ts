@@ -1,13 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  copyFixture,
-  FIXTURES,
-  fileExists,
-  readFile,
-  fixtureTest as test,
-} from "../__testHelpers__/helpers.js";
+import { FIXTURES, fileExists, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
@@ -18,7 +12,7 @@ function makeScope(dir: string): WorkspaceScope {
 }
 
 describe("tsMoveDirectory", () => {
-  // mkdtempSync and manual copyFixture dirs need cleanup
+  // mkdtempSync dirs need cleanup
   const dirs: string[] = [];
   afterEach(() => {
     for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
@@ -86,9 +80,10 @@ describe("tsMoveDirectory", () => {
   });
 
   describe("non-source file handling", () => {
-    it("includes non-source files in filesMoved via atomic OS rename", async () => {
-      const dir = copyFixture(FIXTURES.moveDirTs.name);
-      dirs.push(dir);
+    test("includes non-source files in filesMoved via atomic OS rename", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.moveDirTs.name);
 
       fs.writeFileSync(path.join(dir, "src/utils/config.json"), '{"key": "value"}');
       fs.writeFileSync(path.join(dir, "src/utils/styles.css"), ".foo { color: red; }");

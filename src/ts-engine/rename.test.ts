@@ -2,12 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  copyFixture,
-  FIXTURES,
-  readFile,
-  fixtureTest as test,
-} from "../__testHelpers__/helpers.js";
+import { FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
@@ -71,24 +66,20 @@ describe("tsRename", () => {
       expect(readFile(dir, "src/main.ts")).toContain("sayHello");
     });
 
-    it("renames across three files (multi-importer)", async () => {
-      const dir = copyFixture(FIXTURES.multiImporter.name);
-      try {
-        const engine = new TsMorphEngine();
+    test("renames across three files (multi-importer)", async ({ seedNamedFixture }) => {
+      const dir = await seedNamedFixture(FIXTURES.multiImporter.name);
+      const engine = new TsMorphEngine();
 
-        const result = await tsRename(engine, `${dir}/src/utils.ts`, 1, 17, "sum", makeScope(dir));
+      const result = await tsRename(engine, `${dir}/src/utils.ts`, 1, 17, "sum", makeScope(dir));
 
-        expect(result.symbolName).toBe("add");
-        expect(result.newName).toBe("sum");
-        expect(result.filesModified).toHaveLength(3);
-        expect(result.locationCount).toBeGreaterThanOrEqual(3);
+      expect(result.symbolName).toBe("add");
+      expect(result.newName).toBe("sum");
+      expect(result.filesModified).toHaveLength(3);
+      expect(result.locationCount).toBeGreaterThanOrEqual(3);
 
-        expect(readFile(dir, "src/utils.ts")).toContain("sum");
-        expect(readFile(dir, "src/featureA.ts")).toContain("sum");
-        expect(readFile(dir, "src/featureB.ts")).toContain("sum");
-      } finally {
-        fs.rmSync(dir, { recursive: true, force: true });
-      }
+      expect(readFile(dir, "src/utils.ts")).toContain("sum");
+      expect(readFile(dir, "src/featureA.ts")).toContain("sum");
+      expect(readFile(dir, "src/featureB.ts")).toContain("sum");
     });
   });
 
