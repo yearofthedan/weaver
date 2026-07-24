@@ -327,17 +327,45 @@ whether that fidelity survives when the context is crowded and primed toward the
 the body resists the shell-fallback pull that constraining to one call otherwise hides (the `mv` /
 `grep` / `npx tsc` reflex above).
 
-It grades each case with `matchWeaverCommand` like the command lane, but partitions the cases: a
-case not in the lane's local `KNOWN_RED` set **gates** (a shell fallback fails the run); a case in it
-is **reported, not gated**, because the skill body does not yet hold that emission under pressure and
-gating it would ship a red build. A body-hardening pass removes each entry once it holds, flipping it
-to gating. The set is calibrated to the gate model — another model falls on different cases.
+It grades each case with `matchWeaverCommand` like the command lane. Cases that hold emission under
+pressure **gate** (a shell fallback fails the run) via `it.each`; a case the skill body does not yet
+hold runs as an `it.fails` (named by `EXPECTED_FALLBACK`) instead — it passes while the case keeps
+falling back and turns **red the moment the case starts holding**, the signal to move it into the
+gating set. That inversion is why it beats a silently-green "reported, not gated" list: the lane can
+never quietly hold a stale expected-failure. A load-time guard throws if `EXPECTED_FALLBACK` names no
+real case. Only `get-type-errors` sits there today (Haiku won't drop `tsc` even for an explicit
+router `Never` row); the partition is calibrated to the gate model — another model falls on different
+cases. Hardening a case to hold flips it from `it.fails` into the gating `it.each`.
+
+**Gating cases are marginal and context-coupled — re-run the whole lane after any skill edit.** The
+lane concatenates all three skill bodies into one prompt, so a case's hold depends on the *total*
+context, not just its own skill's section: removing one reinforcement line from `weaver-code-inspection`
+tipped `search-text` (in `weaver-search-and-replace`) from held back to `grep`, its own skill
+untouched. Some holds are robust (`find-importers`, `move-directory` survive unrelated edits); others
+sit on a knife-edge (`search-text`). Treat a green gate as calibrated to the *exact current wording*,
+not as proof the guidance is robust — after editing any `SKILL.md`, re-run the full lane, never just
+the case you aimed at. Which cases hold is also **gate-model-specific**: Haiku holds
+`find-importers`/`search-text` and falls on `get-type-errors`; Gemini 2.5 Flash inverts — holds
+`get-type-errors` (the `it.fails` marker duly flips red, its promote signal) and falls on
+`rename`/`move-symbol`, both rock-solid on Haiku. CI runs Haiku; the partition is tuned to it, and
+"a hardened skill body" means hardened *for the gate model*, not in the abstract.
 
 **The pressure must be legitimate.** The momentum seed carries only weaver-orthogonal shell work
 (log grep, `git log`, filename `find`); it must never demonstrate a shell stand-in for a graded op
 (`grep` of source → `search-text`, `mv` → `move-file`, `sed` → `replace-text`). A seed that models
 the substitution manufactures the fallback instead of measuring the body's weakness — the same
 momentum-seed principle the trigger lane relies on.
+
+**Hardening a skill body must generalize, not encode the case.** When a body edit flips an
+expected-fallback case to gating, the new wording — directives and *especially* examples — must stay
+generic: it may never echo the failing case's own target (its filename, its pattern, its symbol).
+An `**Instead of:** grep … auth …` example that mirrors the `command-find-importers` task teaches the
+model to pattern-match that one task, not to prefer the weaver op for any input; a green run then
+proves nothing about the guidance's strength — it is the body-side twin of a seed that demonstrates
+the substitution. Harden with true reasoning (why the weaver command beats the shell tool for *any*
+input) and neutral placeholder names, then re-run to confirm it generalizes. If generic strengthening
+does not move the gate model, the honest conclusion may be that wording alone cannot hold that case —
+not a licence to encode it.
 
 ## Working discipline
 
