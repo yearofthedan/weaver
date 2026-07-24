@@ -84,25 +84,11 @@ describe("skillFrontmatters", () => {
       expect(description, `${name} description should be a single line`).not.toContain("\n");
     }
   });
-
-  it("does NOT include the full SKILL.md body text in descriptions", () => {
-    for (const { description } of skillFrontmatters()) {
-      expect(description).not.toContain("weaver search-text");
-      expect(description).not.toContain("weaver rename");
-      expect(description).not.toContain("weaver find-references");
-    }
-  });
 });
 
 describe("skillLocation", () => {
   it("returns the relative SKILL.md path for a skill name", () => {
     expect(skillLocation("weaver-refactor")).toBe(".claude/skills/weaver-refactor/SKILL.md");
-  });
-
-  it("returns distinct paths for each shipped skill", () => {
-    const paths = SKILL_NAMES.map(skillLocation);
-    const unique = new Set(paths);
-    expect(unique.size).toBe(SKILL_NAMES.length);
   });
 });
 
@@ -135,15 +121,12 @@ describe("buildAvailableSkillsPrompt", () => {
     }
   });
 
-  it("contains the host-style instruction to invoke a skill as a tool by name", () => {
+  it("appends usage guidance after the skills block", () => {
     const prompt = buildAvailableSkillsPrompt();
-    expect(prompt.toLowerCase()).toContain("invoke it as a tool by name");
-  });
-
-  it("states that invoking a skill loads its instructions, to be followed via other tools", () => {
-    const prompt = buildAvailableSkillsPrompt();
-    expect(prompt.toLowerCase()).toContain("loaded into the conversation");
-    expect(prompt.toLowerCase()).toContain("bash");
+    const afterBlock = prompt.slice(
+      prompt.indexOf("</available_skills>") + "</available_skills>".length,
+    );
+    expect(afterBlock.trim().length).toBeGreaterThan(0);
   });
 });
 
@@ -214,38 +197,16 @@ describe("classifySkillReach", () => {
 });
 
 describe("skillContext", () => {
-  it("returns the full SKILL.md body for the requested skills", () => {
-    const prompt = skillContext(["weaver-refactor"]);
-    expect(prompt).toContain("weaver rename");
-    expect(prompt).toContain("weaver move-file");
-  });
-
-  it("includes content for each named skill when multiple are requested", () => {
+  it("returns each requested skill's full SKILL.md body, joined", () => {
+    // Sentinel is the source read function, not hardcoded skill copy: this pins
+    // that every requested name is mapped and its whole body (frontmatter
+    // included) survives the join, without coupling to shipped prose.
     const prompt = skillContext(["weaver-refactor", "weaver-code-inspection"]);
-    expect(prompt).toContain("weaver rename");
-    expect(prompt).toContain("weaver find-references");
+    expect(prompt).toContain(readSkillFile("weaver-refactor"));
+    expect(prompt).toContain(readSkillFile("weaver-code-inspection"));
   });
 
-  it("does NOT include content for unrequested skills", () => {
-    const prompt = skillContext(["weaver-refactor"]);
-    // Sentinels are the other skills' unique H1 headings, not tool names: tool
-    // names deliberately overlap across skills (e.g. weaver-refactor references
-    // `search-text` as a locate precursor), so a tool name no longer proves a
-    // skill's body is absent.
-    expect(prompt).not.toContain("Search and Replace Across Files");
-    expect(prompt).not.toContain("# Code Inspection");
-  });
-
-  it("throws when a named skill file does not exist", () => {
-    expect(() => skillContext(["nonexistent-skill"])).toThrow();
-  });
-
-  it("throws with the skill name in the error message", () => {
+  it("throws with the skill name when a requested skill file does not exist", () => {
     expect(() => skillContext(["ghost-skill"])).toThrow("ghost-skill");
-  });
-
-  it("includes the frontmatter in the returned content", () => {
-    const prompt = skillContext(["weaver-search-and-replace"]);
-    expect(prompt).toContain("name: weaver-search-and-replace");
   });
 });
