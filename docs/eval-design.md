@@ -318,6 +318,27 @@ description toward "TODO comments" can make the model emit `pattern: "// TODO"`,
 as the literal marker). After any description edit, run **both** lanes, not just the one you were
 aiming at.
 
+## The pressured emission lane
+
+`pressured-emission.llm.test.ts` keeps the command lane's single call (temp 0, bash-only, skill
+body in context) but wraps it in host pressure — the `buildClutterSystemPrompt()` system prompt plus
+a 3-turn habit-momentum seed. The clean command lane isolates argument fidelity; this lane asks
+whether that fidelity survives when the context is crowded and primed toward the shell, i.e. whether
+the body resists the shell-fallback pull that constraining to one call otherwise hides (the `mv` /
+`grep` / `npx tsc` reflex above).
+
+It grades each case with `matchWeaverCommand` like the command lane, but partitions the cases: a
+case not in the lane's local `KNOWN_RED` set **gates** (a shell fallback fails the run); a case in it
+is **reported, not gated**, because the skill body does not yet hold that emission under pressure and
+gating it would ship a red build. A body-hardening pass removes each entry once it holds, flipping it
+to gating. The set is calibrated to the gate model — another model falls on different cases.
+
+**The pressure must be legitimate.** The momentum seed carries only weaver-orthogonal shell work
+(log grep, `git log`, filename `find`); it must never demonstrate a shell stand-in for a graded op
+(`grep` of source → `search-text`, `mv` → `move-file`, `sed` → `replace-text`). A seed that models
+the substitution manufactures the fallback instead of measuring the body's weakness — the same
+momentum-seed principle the trigger lane relies on.
+
 ## Working discipline
 
 The eval is a **black-box** behavioural test of a stochastic system — but a *narrowly* stochastic

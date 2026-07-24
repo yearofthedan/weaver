@@ -21,6 +21,7 @@ Each lane is a standing hypothesis: **given** the setup, **when** a targeted pro
 | **Clean trigger** | WEAVER · clean · single | the description alone wins selection (vs bash + sibling skills) | 1 call | low — deterministic (temp 0) | medium — mis-credits precursors | Haiku 4.5 canary |
 | **Command** | NONE · clean · single | the body produces the right `weaver` command + args | 1 call | medium — JSON-emission parse noise | high — classified failure reasons | Haiku 4.5 canary |
 | **Two-step** | NONE · clean · multi | the body chains one command's output into the next | 1 call (+seed) | low–medium — emission parse on seeded turn | high — exact follow-up cmd | Haiku 4.5 canary |
+| **Pressured emission** | NONE · pressured · single | the *body* emits the right `weaver` command + args under host pressure (clutter + habit-momentum seed) | 1 call | medium — emission parse; shell-fallback | high — matched command + keyArgs | Haiku 4.5 canary |
 | **Pressured single-shot** | COMPETING · pressured · single | the description wins the opening move under host pressure | 1 call | high — silent CTX truncation; precursor mis-credit | low — first-call mis-attributes | Haiku 4.5 canary |
 | **Pressured multi-step (canary)** | COMPETING · pressured · multi | the skill is reached under host pressure, precursors tolerated | ≤3 calls | high — CTX truncation + multi-turn drift | high — trail names the culprit | Haiku 4.5 canary |
 | **Pressured multi-step (frontier)** — cold-context | COMPETING · pressured · multi | the *real audience* reaches the skill under pressure, cold | ≤3 API calls (costly) | medium — frontier steadier; new transport surface | high — trail names the culprit | frontier via API transport *(gated: key + adapter)* |
@@ -31,7 +32,6 @@ Each lane is a standing hypothesis: **given** the setup, **when** a targeted pro
 ### Findings
 
 - **Merge — drop pressured single-shot.** Same Tools (COMPETING) and Context (pressured) as multi-step; differs only in Turns. Single-shot is multi-step at budget 1, and the multi-step loop already records the first call (`matchedAtStep === 1`). Single-shot's precision is lower (first-call mis-attributes a precursor). Retire `trigger-adversarial.llm.test.ts`; read first-call wins off the multi-step lane.
-- **Gap — the body is never tested under pressure.** No lane pairs **NONE** (body) with **pressured** context. We claim the *description* survives a cluttered, habit-primed context; we make no claim the *body* (emission, sequencing) does. The empty cell is a missing lane, not a covered one.
 - **Naming.** "Adversarial" is wrong on two counts: the pressure is realistic host conditions, not a crafted attack; and "adversarial" vs "agentic" name different axes (pressure vs turn-structure) while the lanes differ only in turns. This doc uses **pressure** + **single-shot / multi-step**. Test filenames stay until the merge lands.
 
 ## 2. Overfit vs generality

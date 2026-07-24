@@ -56,6 +56,20 @@ Cost is the full-lane, n=3 run price via OpenRouter, and tracks tokens, not wall
 
 ‡ This row's non-Claude `0/3` was a dead instrument, not a skill signal — the task's leading inspect step targeted the op's own file, which the harness cannot read coherently, so literal models stalled (general rule: [`eval-design.md`](eval-design.md) Working discipline, "own-file inspect step"). Clause removed 2026-07-24; post-fix single-case runs: Gemini 2.5 Flash 6/6 (n=6), Haiku 11/12 (n=12).
 
+### Pressured emission lane (single-shot × pressured)
+
+`pressured-emission.llm.test.ts` — the command cases wrapped in a clutter system prompt + a 3-turn habit-momentum seed, bash-only, **temp 0 (deterministic, n=1)**. Grades single-shot emission (command + `keyArgs`) under host pressure. Baseline **2026-07-24**:
+
+| Case | Haiku 4.5 (gate) | Gemini 2.5 Flash |
+|---|---|---|
+| command-rename, command-move-directory, command-move-symbol, command-find-references, command-get-definition, command-delete-file, command-replace-text | held | held |
+| **command-move-file** | held | **fell back → `mv`** |
+| **command-find-importers** | **fell back → `grep` (imports)** | held |
+| **command-get-type-errors** | **fell back → `npx tsc`** | held |
+| **command-search-text** | **fell back → `grep`** | held |
+
+Both models, primed by the `grep`/`git log`/`find` seed, fall back to the shell equivalent the seed primed — but on *different* ops (Haiku on the read/search-shaped ones, Gemini on `move-file`). None of these fallbacks is a copied precedent: the seed is weaver-orthogonal (log grep, git history, filename find — never a shell stand-in for a graded op), so the fallback is habit transfer, not a demonstrated substitution. The lane gates the held cases and reports the fallbacks; the three Haiku reds are its known-red set, pending skill-body hardening.
+
 ### Headline findings per run
 
 **Haiku 4.5 (canary).** Passes every gating case at the floor. Standing reds unrelated to model quality: `two-step-cat-then-extract` (model stages extract-function args to a temp file, never emits the command — [handoff `[needs investigation]`]) and `pressured-buried-search-text` at 2/3 (loads the skill under momentum but explores with grep/find instead of converging). `pressured-buried-rename` 3/3 here is not a skill read — the case was a dead instrument (‡); true Haiku rate ~11/12 (n=12).
