@@ -74,7 +74,7 @@ For Stryker config details, known surviving mutants, and hard-won lessons, see *
 Patterns established across the test suite — use these for consistency.
 
 **Test helpers are split by concern.**
-`tests/helpers.ts` — fixture I/O only (`copyFixture`, `cleanup`, `readFile`, `fileExists`, `PROJECT_ROOT`). `tests/process-helpers.ts` — CLI spawn and daemon helpers (`spawnAndWaitForReady`, `waitForDaemon`, `killDaemon`, `callDaemonSocket`, `runCliCommand`). Import from the appropriate module.
+`src/__testHelpers__/helpers.ts` — fixture I/O (`fixtureTest`, `FIXTURES`, `readFile`, `fileExists`, `PROJECT_ROOT`; see [fixtureTest with body-level seed helpers](code-standards.md#use-fixturetest-with-body-level-seed-helpers)). `src/__testHelpers__/process-helpers.ts` — CLI spawn and daemon helpers (`spawnAndWaitForReady`, `waitForDaemon`, `killDaemon`, `callDaemonSocket`, `runCliCommand`). Import from the appropriate module.
 
 **`spawnAndWaitForReady` and `runCliCommand` accept a `cwd` option.**
 Pass `{ cwd: dir }` to spawn the CLI process with a different working directory. Required when testing the `--workspace` default (which falls back to `process.cwd()`).
@@ -91,8 +91,8 @@ If the code under test calls an async operation (e.g. a socket ping) before call
 **Error assertions: always use `rejects.toMatchObject`.**
 `await expect(op(...)).rejects.toMatchObject({ code: "ERROR_CODE" })` is idiomatic vitest and safer than `try/catch + expect.fail`. The `try/catch` pattern silently passes if the wrong error type is thrown.
 
-**`setup(fixture?)` helper pattern for operation tests.**
-Each operation test file defines a local `setup(fixture = "default-fixture")` at the top of the `describe`, which calls `copyFixture` + `dirs.push`. Tests call `setup()` or `setup("other-fixture")` instead of repeating the two lines. See `rename.test.ts`, `findReferences.test.ts`, `getDefinition.test.ts` for examples.
+**`fixtureTest` body-level seeding for operation tests.**
+Each test calls `seedNamedFixture(FIXTURES.x.name)` (or `seedInlineFixture`) at the top of its own body — no shared describe-level setup. See [fixtureTest with body-level seed helpers](code-standards.md#use-fixturetest-with-body-level-seed-helpers) and `rename.test.ts`, `findReferences.test.ts`, `getDefinition.test.ts` for examples.
 
 **`it.each` for extension-mapping tables.**
 `relative-path.test.ts` uses `it.each` with named object rows (`{ src, expected, desc }`) and `$desc` as the test name template. Preferred for parametric tests where each row has a different semantic meaning.
