@@ -6,8 +6,8 @@ import {
   CASES,
   isBoundaryCase,
   isFrontLoadedCase,
+  isOpCase,
   isProgressiveOpCase,
-  type OpCase,
 } from "./cases.js";
 
 function bashCall(command: string): ToolCall {
@@ -35,9 +35,7 @@ describe("case table", () => {
     });
 
     it("marks at most a couple of cases observational — a larger list is a design smell", () => {
-      const observational = CASES.filter(
-        (c): c is OpCase => !isBoundaryCase(c) && c.observational !== undefined,
-      );
+      const observational = CASES.filter(isOpCase).filter((c) => c.observational !== undefined);
       expect(observational.length).toBeLessThanOrEqual(2);
     });
 
@@ -93,6 +91,12 @@ describe("case table", () => {
     it("has at least one boundary case that must stay in bash", () => {
       const boundaryCases = CASES.filter(isBoundaryCase);
       expect(boundaryCases.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("classifies every progressive-op and front-loaded case as an op case, and no boundary case", () => {
+      const opCases = CASES.filter(isOpCase);
+      expect(opCases.some(isBoundaryCase)).toBe(false);
+      expect(opCases.length).toBe(CASES.length - CASES.filter(isBoundaryCase).length);
     });
   });
 

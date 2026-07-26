@@ -22,9 +22,9 @@ pass-cli run --env-file .env -- pnpm eval --disable-console-intercept
 
 ```bash
 pnpm eval                        # all lanes
-pnpm eval trigger-agentic        # the agentic trigger/rate lane only
+pnpm eval gate                   # the unified sampled rate gate lane only
 pnpm eval -t <case-regex>        # filter cases
-WEAVER_EVAL_TRIALS=6 pnpm eval trigger-agentic   # re-check a surprising rate
+WEAVER_EVAL_TRIALS=6 pnpm eval gate   # re-check a surprising rate
 ```
 
 `WEAVER_EVAL_TEMPERATURE` (default 0.7) and `WEAVER_EVAL_TRIALS` (default 3) tune the agentic rate lane. Runs cost real money against the hosted model — scope the case set and trial count to the question ([Working discipline](../docs/eval-design.md#working-discipline)).

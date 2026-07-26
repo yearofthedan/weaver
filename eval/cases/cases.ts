@@ -100,6 +100,11 @@ export function isFrontLoadedCase(entry: CaseEntry): entry is FrontLoadedCase {
   return entry.exposure === "front-loaded";
 }
 
+/** Either op-case variant — the ones the gate lane runs through the escalating rate gate. */
+export function isOpCase(entry: CaseEntry): entry is OpCase {
+  return !isBoundaryCase(entry);
+}
+
 const OBSERVATIONAL_SINCE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function validateObservational(entry: OpCase): void {
