@@ -56,7 +56,8 @@
     "test:mutate:eval": "rm -rf .stryker-tmp && stryker run stryker.eval.config.mjs",
     "test:mutate:eval:file": "rm -rf .stryker-tmp && stryker run stryker.eval.config.mjs --mutate",
     "eval": "vitest run --config eval/vitest.llm.config.ts",
-    "check": "biome check . && pnpm build && pnpm coverage && pnpm test:eval",
+    "typecheck:eval": "tsc --project tsconfig.eval.json",
+    "check": "biome check . && pnpm build && pnpm coverage && pnpm test:eval && pnpm typecheck:eval",
     "setup:dev": "bash scripts/setup-dev.sh",
     "prepare": "husky",
     "prepublishOnly": "pnpm run build"
