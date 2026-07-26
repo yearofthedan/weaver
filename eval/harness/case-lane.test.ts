@@ -167,6 +167,11 @@ describe("buildTrialConfig", () => {
         content: "search for API_KEY in a python project",
       });
     });
+
+    it("declares no hard-fail predicate — reaching any weaver op is judged by the clean check, not vetoed mid-trial", () => {
+      const config = buildTrialConfig(boundaryCase());
+      expect(config.hardFails).toBeUndefined();
+    });
   });
 
   describe.each([
@@ -216,6 +221,26 @@ describe("buildTrialConfig", () => {
       const result = config.cannedResultFor(tc("Grep"));
       expect(result).not.toContain("no such tool");
     });
+
+    it("counts a sanctioned Skill() load as a skill read, and an ordinary tool call as neither", () => {
+      const config = buildTrialConfig(progressiveCase());
+      expect(config.isSkillMdRead(tc("Skill", { skill: "weaver-refactor" }))).toBe(true);
+      expect(config.isSkillCalledAsTool?.(tc("Skill", { skill: "weaver-refactor" }))).toBe(false);
+      expect(config.isSkillMdRead(tc("bash", { command: "ls" }))).toBe(false);
+      expect(config.isSkillCalledAsTool?.(tc("bash", { command: "ls" }))).toBe(false);
+    });
+
+    it("counts a skill invoked directly as a tool as both a read and a tool-style reach", () => {
+      const config = buildTrialConfig(progressiveCase());
+      expect(config.isSkillMdRead(tc("weaver_refactor"))).toBe(false);
+      expect(config.isSkillCalledAsTool?.(tc("weaver_refactor"))).toBe(true);
+    });
+
+    it("reads a Read of a skill's SKILL.md as a sanctioned load", () => {
+      const config = buildTrialConfig(progressiveCase());
+      const call = tc("Read", { file: ".claude/skills/weaver-refactor/SKILL.md" });
+      expect(config.isSkillMdRead(call)).toBe(true);
+    });
   });
 
   describe("front-loaded case, single-step", () => {
@@ -241,6 +266,23 @@ describe("buildTrialConfig", () => {
       const result = config.cannedResultFor(tc("Skill", { skill: "weaver-refactor" }));
       expect(result).toContain('no such tool "Skill"');
       expect(result).not.toBe(readSkillFile("weaver-refactor"));
+    });
+
+    it("names the declared tools in the no-such-tool error, so the model can correct itself", () => {
+      const config = buildTrialConfig(frontLoadedCase());
+      expect(config.cannedResultFor(tc("Skill"))).toContain("Available tools: bash.");
+    });
+
+    it("resolves a bash call to its canned result — bash is declared here, not hallucinated", () => {
+      const config = buildTrialConfig(frontLoadedCase());
+      const result = config.cannedResultFor(tc("bash", { command: "ls src/" }));
+      expect(result).not.toContain("no such tool");
+    });
+
+    it("recognises no call as a skill read — the bodies are already in context", () => {
+      const config = buildTrialConfig(frontLoadedCase());
+      expect(config.isSkillMdRead(tc("Skill", { skill: "weaver-refactor" }))).toBe(false);
+      expect(config.isSkillMdRead(tc("bash", { command: "ls" }))).toBe(false);
     });
 
     it("seeds the default one momentum turn before the task when momentumTurns is absent", () => {
