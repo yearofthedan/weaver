@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { modelConfig } from "./config.js";
+import { isCleanMode, modelConfig } from "./config.js";
 
 afterEach(() => {
   delete process.env.WEAVER_EVAL_BASE_URL;
   delete process.env.WEAVER_EVAL_MODEL;
   delete process.env.WEAVER_EVAL_API_KEY;
   delete process.env.WEAVER_EVAL_TEMPERATURE;
+  delete process.env.WEAVER_EVAL_CLEAN;
 });
 
 describe("modelConfig", () => {
@@ -49,5 +50,27 @@ describe("modelConfig", () => {
       expect(config.model).toBe("anthropic/claude-haiku-4.5");
       expect(config.apiKey).toBe("sk-or-test");
     });
+  });
+});
+
+describe("isCleanMode", () => {
+  it("returns false when WEAVER_EVAL_CLEAN is not set", () => {
+    expect(isCleanMode()).toBe(false);
+  });
+
+  it("returns true when WEAVER_EVAL_CLEAN is exactly '1'", () => {
+    process.env.WEAVER_EVAL_CLEAN = "1";
+    expect(isCleanMode()).toBe(true);
+  });
+
+  it("returns false for any other value, staying pressured on a malformed setting", () => {
+    process.env.WEAVER_EVAL_CLEAN = "0";
+    expect(isCleanMode()).toBe(false);
+
+    process.env.WEAVER_EVAL_CLEAN = "true";
+    expect(isCleanMode()).toBe(false);
+
+    process.env.WEAVER_EVAL_CLEAN = "";
+    expect(isCleanMode()).toBe(false);
   });
 });
