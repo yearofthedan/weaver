@@ -111,17 +111,3 @@ export function buildSeedFollowup(step1Command: string, fixtureContent: string):
     },
   ];
 }
-
-/**
- * Builds the pre-seeded message array for a two-step eval case: the task as
- * the first user turn, followed by {@link buildSeedFollowup}'s scripted
- * step-1 exchange. The follow-up call is left for the model to make in
- * response — this only builds the seed, not the request.
- */
-export function buildSeedMessages(
-  task: string,
-  step1Command: string,
-  fixtureContent: string,
-): ChatMessage[] {
-  return [{ role: "user", content: task }, ...buildSeedFollowup(step1Command, fixtureContent)];
-}

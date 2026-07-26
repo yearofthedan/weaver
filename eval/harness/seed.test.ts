@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { weaverSubcommand } from "./assertions.js";
-import {
-  buildHabitMomentumSeed,
-  buildMomentumPreSteps,
-  buildSeedFollowup,
-  buildSeedMessages,
-} from "./seed.js";
+import { buildHabitMomentumSeed, buildMomentumPreSteps, buildSeedFollowup } from "./seed.js";
 
 const FIXTURE_CONTENT = JSON.stringify({ status: "success", matches: [] });
 const STEP1_COMMAND = `weaver search-text '{"pattern":"userId"}'`;
@@ -76,51 +71,6 @@ describe("composing momentum with a seeded followup", () => {
       "assistant",
       "tool",
     ]);
-  });
-});
-
-describe("buildSeedMessages", () => {
-  describe("message shape", () => {
-    it("produces exactly three messages", () => {
-      const messages = buildSeedMessages("task text", STEP1_COMMAND, FIXTURE_CONTENT);
-      expect(messages).toHaveLength(3);
-    });
-
-    it("first message is the user task", () => {
-      const messages = buildSeedMessages(
-        "rename userId to accountId",
-        STEP1_COMMAND,
-        FIXTURE_CONTENT,
-      );
-      expect(messages[0].role).toBe("user");
-      expect(messages[0].content).toBe("rename userId to accountId");
-    });
-
-    it("second message is the assistant turn with a single bash tool call for the step-1 command", () => {
-      const messages = buildSeedMessages("task", STEP1_COMMAND, FIXTURE_CONTENT);
-      expect(messages[1].role).toBe("assistant");
-      expect(messages[1].tool_calls).toHaveLength(1);
-      const call = messages[1].tool_calls?.[0];
-      expect(call?.name).toBe("bash");
-      expect(call?.arguments.command).toBe(STEP1_COMMAND);
-      expect(call?.id).toBeDefined();
-    });
-
-    it("third message is a tool turn matching the step-1 call id and carrying the fixture", () => {
-      const messages = buildSeedMessages("task", STEP1_COMMAND, FIXTURE_CONTENT);
-      const call = messages[1].tool_calls?.[0];
-      expect(messages[2].role).toBe("tool");
-      expect(messages[2].tool_call_id).toBe(call?.id);
-      expect(messages[2].content).toBe(FIXTURE_CONTENT);
-    });
-  });
-
-  describe("fixture embedding", () => {
-    it("embeds the fixture content verbatim", () => {
-      const fixture = '{"status":"success","matches":[{"file":"src/a.ts","line":5}]}';
-      const messages = buildSeedMessages("task", STEP1_COMMAND, fixture);
-      expect(messages[2].content).toContain(fixture);
-    });
   });
 });
 

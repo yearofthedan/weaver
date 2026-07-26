@@ -7,11 +7,11 @@ import {
   isFrontLoadedCase,
   type ProgressiveOpCase,
 } from "../cases/cases.js";
-import { commandPrompt } from "../cases/command-prompt.js";
 import { type AgenticLoopParams, resolveCannedResult } from "./agentic-loop.js";
 import { matchesExpectedCommand } from "./assertions.js";
 import type { ChatMessage, ToolCall } from "./call-model.js";
 import { buildClutterSystemPrompt } from "./clutter.js";
+import { commandPrompt } from "./command-prompt.js";
 import { isCleanMode } from "./config.js";
 import { buildAvailableSkillsPrompt, classifySkillReach, readSkillFile } from "./context.js";
 import { loadFixture } from "./fixtures.js";

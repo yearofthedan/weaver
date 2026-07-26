@@ -1,4 +1,4 @@
-import { SKILL_NAMES, skillContext } from "../harness/context.js";
+import { SKILL_NAMES, skillContext } from "./context.js";
 
 /** Full skill content (every SKILL.md body) — the command-stage lanes put this in context. */
 export const skillContent = skillContext([...SKILL_NAMES]);
