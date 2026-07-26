@@ -303,6 +303,7 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "command-rename",
     exposure: "front-loaded",
+    momentumTurns: 3,
     task: "`userId` is at line 12, column 8 of /tmp/weaver-eval/src/auth.ts — rename it to `accountId` everywhere in the project.",
     expect: {
       command: "rename",
@@ -312,6 +313,7 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "command-move-file",
     exposure: "front-loaded",
+    momentumTurns: 3,
     task: "Move /tmp/weaver-eval/src/auth.ts to /tmp/weaver-eval/src/authentication/auth.ts.",
     expect: {
       command: "move-file",
@@ -321,6 +323,7 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "command-move-directory",
     exposure: "front-loaded",
+    momentumTurns: 3,
     task: "Move the /tmp/weaver-eval/src/utils directory to /tmp/weaver-eval/src/lib/helpers.",
     expect: {
       command: "move-directory",
@@ -330,6 +333,7 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "command-move-symbol",
     exposure: "front-loaded",
+    momentumTurns: 3,
     task: "Move the exported function `parseToken` from /tmp/weaver-eval/src/auth.ts to /tmp/weaver-eval/src/utils/token.ts.",
     expect: {
       command: "move-symbol",
@@ -339,6 +343,7 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "command-find-importers",
     exposure: "front-loaded",
+    momentumTurns: 3,
     task: "Which files import /tmp/weaver-eval/src/auth.ts?",
     expect: {
       command: "find-importers",
@@ -348,6 +353,7 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "command-find-references",
     exposure: "front-loaded",
+    momentumTurns: 3,
     task: "Find all references to the symbol `authenticate` at line 5, column 17 of /tmp/weaver-eval/src/auth.ts.",
     expect: {
       command: "find-references",
@@ -357,6 +363,7 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "command-get-definition",
     exposure: "front-loaded",
+    momentumTurns: 3,
     task: "Where is `User` actually defined? I'm looking at line 8, column 12 of /tmp/weaver-eval/src/api.ts.",
     expect: {
       command: "get-definition",
@@ -371,6 +378,7 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "command-get-type-errors",
     exposure: "front-loaded",
+    momentumTurns: 3,
     task: "Are there any TypeScript errors in /tmp/weaver-eval/src/auth.ts?",
     expect: {
       command: "get-type-errors",
@@ -383,6 +391,7 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "command-search-text",
     exposure: "front-loaded",
+    momentumTurns: 3,
     task: "Find all TODO comments in /tmp/weaver-eval/src — file, line, and surrounding context.",
     expect: {
       command: "search-text",
@@ -392,6 +401,7 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "command-delete-file",
     exposure: "front-loaded",
+    momentumTurns: 3,
     task: "Delete /tmp/weaver-eval/src/old-helper.ts and clean up all its imports.",
     expect: {
       command: "delete-file",
@@ -401,6 +411,7 @@ export const CASES: CaseEntry[] = validateCases([
   {
     name: "command-replace-text",
     exposure: "front-loaded",
+    momentumTurns: 3,
     task: 'Replace every occurrence of "v1" with "v2" across all TypeScript files in the project.',
     expect: {
       command: "replace-text",

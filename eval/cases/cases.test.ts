@@ -40,6 +40,25 @@ describe("case table", () => {
       );
       expect(observational.length).toBeLessThanOrEqual(2);
     });
+
+    it("seeds every single-step front-loaded case with the 3-turn pressure the folded lane measured", () => {
+      const singleStep = CASES.filter(isFrontLoadedCase).filter((c) => !c.seed);
+      expect(singleStep.length).toBeGreaterThan(0);
+      for (const c of singleStep) {
+        expect(c.momentumTurns, `"${c.name}" should carry momentumTurns: 3`).toBe(3);
+      }
+    });
+
+    it("leaves two-step front-loaded cases at the default momentum, not stacked on their scripted step-1 turn", () => {
+      const twoStep = CASES.filter(isFrontLoadedCase).filter((c) => c.seed);
+      expect(twoStep.length).toBeGreaterThan(0);
+      for (const c of twoStep) {
+        expect(
+          c.momentumTurns,
+          `"${c.name}" should not declare its own momentumTurns`,
+        ).toBeUndefined();
+      }
+    });
   });
 
   describe("trigger coverage", () => {
