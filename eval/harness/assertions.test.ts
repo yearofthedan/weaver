@@ -424,6 +424,13 @@ describe("matchWeaverCommand", () => {
       expect(result.matched).toBe(false);
     });
 
+    it("matches when a non-string expected and actual value are exactly equal", () => {
+      const result = matchWeaverCommand("weaver delete-file '{\"file\":42}'", "delete-file", {
+        file: 42,
+      });
+      expect(result.matched).toBe(true);
+    });
+
     it("keeps a slash-containing non-path key exact — a trailing segment does not match", () => {
       // `replacement` can legitimately contain `/`, so it must not be suffix-matched:
       // emitting "bar" for an expected "foo/bar" is a different replacement.

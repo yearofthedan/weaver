@@ -116,6 +116,23 @@ describe("runCaseTrials", () => {
     expect(run.trials).toHaveLength(6);
   });
 
+  it("reports hardFailed true when only one of several trials hard-fails", async () => {
+    let calls = 0;
+    const step: ModelStep = async () => {
+      calls += 1;
+      const command =
+        calls === 1
+          ? `weaver move-file '{"oldPath":"a.ts"}'`
+          : `weaver rename '{"newName":"accountId"}'`;
+      return { toolCalls: [tc("bash", { command })], text: "" };
+    };
+
+    const run = await runCaseTrials(CASE, step, 3);
+    expect(run.trials.filter((t) => t.failedAtStep !== undefined)).toHaveLength(1);
+    expect(run.trials.filter((t) => t.matched)).toHaveLength(2);
+    expect(run.hardFailed).toBe(true);
+  });
+
   it("reports hardFailed false when no trial hard-fails", async () => {
     const { step } = countingStep({
       toolCalls: [tc("bash", { command: `weaver rename '{"newName":"accountId"}'` })],

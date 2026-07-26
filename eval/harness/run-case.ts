@@ -31,11 +31,12 @@ export async function runCaseTrials(
   }
 
   const passed = trials.filter((t) => t.matched).length;
-  const { escalate, additionalTrials } = decideEscalation(passed, trials.length);
-  if (escalate) {
-    for (let i = 0; i < additionalTrials; i++) {
-      trials.push(await runTrial(c, step));
-    }
+  // decideEscalation guarantees additionalTrials is 0 whenever escalate is
+  // false, so the loop is already a no-op in that case — no separate branch
+  // needed on `escalate` itself.
+  const { additionalTrials } = decideEscalation(passed, trials.length);
+  for (let i = 0; i < additionalTrials; i++) {
+    trials.push(await runTrial(c, step));
   }
 
   return { trials, hardFailed: trials.some((t) => t.failedAtStep !== undefined) };

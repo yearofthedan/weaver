@@ -123,7 +123,9 @@ export function matchesExpectedCommand(
   expectedCommand: string,
   keyArgs?: Record<string, unknown>,
 ): boolean {
-  if (call.name !== "bash") return false;
+  // extractBashCommands already filters to bash calls, so a non-bash call
+  // yields no candidates here and falls through to `false` on its own — no
+  // separate early-return guard needed.
   return extractBashCommands([call]).some(
     (cmd) => matchWeaverCommand(cmd, expectedCommand, keyArgs).matched,
   );
