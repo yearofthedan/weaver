@@ -1,9 +1,83 @@
 import { describe, expect, it } from "vitest";
 import { weaverSubcommand } from "./assertions.js";
-import { buildHabitMomentumSeed, buildSeedMessages } from "./seed.js";
+import {
+  buildHabitMomentumSeed,
+  buildMomentumPreSteps,
+  buildSeedFollowup,
+  buildSeedMessages,
+} from "./seed.js";
 
 const FIXTURE_CONTENT = JSON.stringify({ status: "success", matches: [] });
 const STEP1_COMMAND = `weaver search-text '{"pattern":"userId"}'`;
+
+describe("buildMomentumPreSteps", () => {
+  it("returns no messages for zero turns", () => {
+    expect(buildMomentumPreSteps(0)).toEqual([]);
+  });
+
+  it("returns four messages per requested turn", () => {
+    expect(buildMomentumPreSteps(2)).toHaveLength(8);
+  });
+
+  it("ends with the assistant summary, not a task turn — the caller supplies the task", () => {
+    const messages = buildMomentumPreSteps(1);
+    expect(messages).toHaveLength(4);
+    expect(messages.at(-1)?.role).toBe("assistant");
+  });
+
+  it("throws instead of cycling or under-seeding when turns exceeds the pool", () => {
+    expect(() => buildMomentumPreSteps(4)).toThrow(/4/);
+  });
+});
+
+describe("buildSeedFollowup", () => {
+  it("produces exactly two messages — no user task turn", () => {
+    const messages = buildSeedFollowup(STEP1_COMMAND, FIXTURE_CONTENT);
+    expect(messages).toHaveLength(2);
+    expect(messages.map((m) => m.role)).toEqual(["assistant", "tool"]);
+  });
+
+  it("the assistant turn carries a single bash call for the step-1 command", () => {
+    const [assistant] = buildSeedFollowup(STEP1_COMMAND, FIXTURE_CONTENT);
+    expect(assistant.tool_calls).toHaveLength(1);
+    expect(assistant.tool_calls?.[0].name).toBe("bash");
+    expect(assistant.tool_calls?.[0].arguments.command).toBe(STEP1_COMMAND);
+  });
+
+  it("the tool turn's id matches the assistant call and carries the fixture verbatim", () => {
+    const [assistant, tool] = buildSeedFollowup(STEP1_COMMAND, FIXTURE_CONTENT);
+    expect(tool.tool_call_id).toBe(assistant.tool_calls?.[0].id);
+    expect(tool.content).toBe(FIXTURE_CONTENT);
+  });
+});
+
+describe("composing momentum with a seeded followup", () => {
+  it("places the task exactly once between the momentum pre-steps and the seeded exchange", () => {
+    const task = "extract lines 10-20 into hashPassword";
+    const messages = [
+      ...buildMomentumPreSteps(2),
+      { role: "user" as const, content: task },
+      ...buildSeedFollowup(STEP1_COMMAND, FIXTURE_CONTENT),
+    ];
+
+    const taskTurns = messages.filter((m) => m.role === "user" && m.content === task);
+    expect(taskTurns).toHaveLength(1);
+    expect(messages).toHaveLength(11);
+    expect(messages.map((m) => m.role)).toEqual([
+      "user",
+      "assistant",
+      "tool",
+      "assistant",
+      "user",
+      "assistant",
+      "tool",
+      "assistant",
+      "user",
+      "assistant",
+      "tool",
+    ]);
+  });
+});
 
 describe("buildSeedMessages", () => {
   describe("message shape", () => {

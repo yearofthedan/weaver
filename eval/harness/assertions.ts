@@ -109,6 +109,26 @@ export function matchWeaverCommand(
   return reason === undefined ? { matched, outcome } : { matched, outcome, reason };
 }
 
+/**
+ * The gate lane's pass predicate for both exposures: true only when `call` is
+ * a bash invocation of `expectedCommand` with every `keyArgs` entry present
+ * and matching — {@link matchWeaverCommand}'s `"correct"` outcome, not merely
+ * reaching the right subcommand. A non-bash call is never a match, regardless
+ * of its own arguments. `&&`-chained commands are split the same way
+ * {@link extractBashCommands} splits them, so a setup-then-command chain is
+ * inspected on its weaver segment.
+ */
+export function matchesExpectedCommand(
+  call: ToolCall,
+  expectedCommand: string,
+  keyArgs?: Record<string, unknown>,
+): boolean {
+  if (call.name !== "bash") return false;
+  return extractBashCommands([call]).some(
+    (cmd) => matchWeaverCommand(cmd, expectedCommand, keyArgs).matched,
+  );
+}
+
 function classifyCommand(
   command: string,
   subcommand: string,

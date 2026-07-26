@@ -3,6 +3,7 @@ import {
   extractBashCommands,
   isAnyWeaverInvocation,
   isWeaverInvocation,
+  matchesExpectedCommand,
   matchWeaverCommand,
   weaverSubcommand,
 } from "./assertions.js";
@@ -555,5 +556,54 @@ describe("matchWeaverCommand", () => {
       });
       expect(result.outcome === "correct").toBe(result.matched);
     });
+  });
+});
+
+describe("matchesExpectedCommand", () => {
+  it.each([
+    {
+      name: "is true for the right subcommand with matching key args",
+      call: bashCall('weaver rename \'{"newName":"accountId"}\''),
+      expectedCommand: "rename",
+      keyArgs: { newName: "accountId" },
+      expected: true,
+    },
+    {
+      name: "is false when the subcommand is right but a key arg is wrong",
+      call: bashCall('weaver rename \'{"newName":"wrong"}\''),
+      expectedCommand: "rename",
+      keyArgs: { newName: "accountId" },
+      expected: false,
+    },
+    {
+      name: "is false for a different subcommand",
+      call: bashCall('weaver move-file \'{"oldPath":"a.ts"}\''),
+      expectedCommand: "rename",
+      keyArgs: undefined,
+      expected: false,
+    },
+    {
+      name: "is false for a non-bash call regardless of its arguments",
+      call: otherCall("weaver-refactor"),
+      expectedCommand: "rename",
+      keyArgs: undefined,
+      expected: false,
+    },
+    {
+      name: "finds a match inside a &&-chained command",
+      call: bashCall(`cd /tmp/weaver-eval && weaver rename '{"newName":"accountId"}'`),
+      expectedCommand: "rename",
+      keyArgs: { newName: "accountId" },
+      expected: true,
+    },
+    {
+      name: "is false when the call's JSON argument does not parse",
+      call: bashCall("weaver rename 'not-json'"),
+      expectedCommand: "rename",
+      keyArgs: undefined,
+      expected: false,
+    },
+  ])("$name", ({ call, expectedCommand, keyArgs, expected }) => {
+    expect(matchesExpectedCommand(call, expectedCommand, keyArgs)).toBe(expected);
   });
 });

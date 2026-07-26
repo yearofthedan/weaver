@@ -37,6 +37,79 @@ function recordingModel(responses: ModelResponse[]): {
 }
 
 describe("runAgenticLoop", () => {
+  describe("finishReason", () => {
+    it.each([
+      {
+        name: "on a match",
+        responses: [{ toolCalls: [tc("weaver-refactor")], text: "", finishReason: "tool_calls" }],
+        matches: (call: ToolCall) => call.name === "weaver-refactor",
+        hardFails: undefined,
+        expected: "tool_calls",
+      },
+      {
+        name: "on a hard fail",
+        responses: [{ toolCalls: [tc("Edit")], text: "", finishReason: "tool_calls" }],
+        matches: (call: ToolCall) => call.name === "weaver-refactor",
+        hardFails: (call: ToolCall) => call.name === "Edit",
+        expected: "tool_calls",
+      },
+      {
+        name: "when the model abandons with text",
+        responses: [{ toolCalls: [], text: "giving up", finishReason: "stop" }],
+        matches: () => false,
+        hardFails: undefined,
+        expected: "stop",
+      },
+      {
+        name: "and leaves it undefined when the provider never reports one",
+        responses: [resp("weaver-refactor")],
+        matches: (call: ToolCall) => call.name === "weaver-refactor",
+        hardFails: undefined,
+        expected: undefined,
+      },
+    ])("carries the final step's finish_reason $name", async ({
+      responses,
+      matches,
+      hardFails,
+      expected,
+    }) => {
+      const { step } = scriptedModel(responses);
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches,
+        hardFails,
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.finishReason).toBe(expected);
+    });
+
+    it("carries the last step's finish_reason when the budget is exhausted, not an earlier turn's", async () => {
+      let calls = 0;
+      const step: ModelStep = async () => {
+        calls += 1;
+        return { toolCalls: [tc("Grep")], text: "", finishReason: `turn-${calls}` };
+      };
+
+      const result = await runAgenticLoop({
+        messages: [],
+        tools: [],
+        matches: () => false,
+        isSkillMdRead: () => false,
+        maxSteps: 3,
+        step,
+        cannedResultFor: () => "result",
+      });
+
+      expect(result.finishReason).toBe("turn-3");
+    });
+  });
+
   describe("match predicate", () => {
     it.each([
       {

@@ -43,9 +43,8 @@ const TRUE_SHELL_POOL: TrueShellStep[] = [
 ];
 
 /**
- * Builds a habit-momentum seed conversation for the trigger lane. The seed
- * prepends `turns` distinct true-shell pre-step exchanges before the real
- * task, so the model has momentum toward shell tools rather than skills.
+ * Builds `turns` distinct true-shell pre-step exchanges, so the model has
+ * momentum toward shell tools rather than skills before the real task turn.
  * Each pre-step is a standard tool-use exchange (matching how the agentic
  * loop replays live turns):
  *   1. User: an unrelated shell-appropriate request
@@ -53,20 +52,19 @@ const TRUE_SHELL_POOL: TrueShellStep[] = [
  *   3. Tool: the canned output
  *   4. Assistant: a short summary of the result
  *
- * followed by the real trigger task as the final user turn. `turns` selects
- * the first `turns` entries of {@link TRUE_SHELL_POOL} in order; `turns = 0`
- * seeds nothing. A request beyond the pool size throws rather than cycling
- * or silently under-seeding — a typo in a case's `momentumTurns` must fail
- * loud, not quietly weaken the pressure ladder.
+ * `turns` selects the first `turns` entries of {@link TRUE_SHELL_POOL} in
+ * order; `turns = 0` returns no messages. A request beyond the pool size
+ * throws rather than cycling or silently under-seeding — a typo in a case's
+ * `momentumTurns` must fail loud, not quietly weaken the pressure ladder.
  */
-export function buildHabitMomentumSeed(task: string, turns = 1): ChatMessage[] {
+export function buildMomentumPreSteps(turns = 1): ChatMessage[] {
   if (turns > TRUE_SHELL_POOL.length) {
     throw new Error(
-      `buildHabitMomentumSeed: requested ${turns} turns but the true-shell pool only has ${TRUE_SHELL_POOL.length}`,
+      `buildMomentumPreSteps: requested ${turns} turns but the true-shell pool only has ${TRUE_SHELL_POOL.length}`,
     );
   }
 
-  const preSteps = TRUE_SHELL_POOL.slice(0, turns).flatMap((step, index) => {
+  return TRUE_SHELL_POOL.slice(0, turns).flatMap((step, index) => {
     const callId = `seed-shell-${index}`;
     return [
       { role: "user", content: step.userRequest },
@@ -79,32 +77,28 @@ export function buildHabitMomentumSeed(task: string, turns = 1): ChatMessage[] {
       { role: "assistant", content: step.assistantSummary },
     ] as ChatMessage[];
   });
-
-  return [...preSteps, { role: "user", content: task }];
 }
 
 /**
- * Builds the pre-seeded message array for a two-step eval case, as a real
- * tool exchange (mirroring {@link buildHabitMomentumSeed}):
- *
- *   1. User: the original task
- *   2. Assistant: a `bash` tool call running the step-1 weaver command
- *   3. Tool: the command's output (the canned fixture JSON, embedded verbatim)
- *
- * The follow-up call is left for the model to make in response — this only
- * builds the seed, not the request.
+ * Builds a habit-momentum seed conversation for the trigger lane:
+ * {@link buildMomentumPreSteps}'s pre-step exchanges followed by the real
+ * trigger task as the final user turn.
  */
-export function buildSeedMessages(
-  task: string,
-  step1Command: string,
-  fixtureContent: string,
-): ChatMessage[] {
+export function buildHabitMomentumSeed(task: string, turns = 1): ChatMessage[] {
+  return [...buildMomentumPreSteps(turns), { role: "user", content: task }];
+}
+
+/**
+ * Builds the assistant tool-call + tool-result pair for a two-step eval
+ * case's scripted step 1: a `bash` call running `step1Command`, answered with
+ * `fixtureContent` (the canned fixture JSON, embedded verbatim). Does not
+ * include the task's own user turn — a caller composing this after its own
+ * pre-steps (e.g. habit momentum) supplies that turn itself, so the task
+ * appears exactly once in the resulting conversation.
+ */
+export function buildSeedFollowup(step1Command: string, fixtureContent: string): ChatMessage[] {
   const step1CallId = "seed-step1";
   return [
-    {
-      role: "user",
-      content: task,
-    },
     {
       role: "assistant",
       content: null,
@@ -116,4 +110,18 @@ export function buildSeedMessages(
       content: fixtureContent,
     },
   ];
+}
+
+/**
+ * Builds the pre-seeded message array for a two-step eval case: the task as
+ * the first user turn, followed by {@link buildSeedFollowup}'s scripted
+ * step-1 exchange. The follow-up call is left for the model to make in
+ * response — this only builds the seed, not the request.
+ */
+export function buildSeedMessages(
+  task: string,
+  step1Command: string,
+  fixtureContent: string,
+): ChatMessage[] {
+  return [{ role: "user", content: task }, ...buildSeedFollowup(step1Command, fixtureContent)];
 }

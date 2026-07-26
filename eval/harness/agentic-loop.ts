@@ -120,6 +120,12 @@ export interface AgenticResult {
    * skill load instead of acting on it.
    */
   abandonedText?: string;
+  /**
+   * The `finish_reason` of the trial's final step — whichever turn matched,
+   * hard-failed, abandoned, or exhausted the budget. Absent when the provider
+   * didn't report one on that turn.
+   */
+  finishReason?: string;
 }
 
 /**
@@ -157,7 +163,8 @@ export interface AgenticResult {
  * tool-style reaches. Omitting `isSkillCalledAsTool` reproduces today's
  * behaviour, with `skillCalledAsTool` staying `false` throughout.
  */
-export async function runAgenticLoop(params: {
+/** The full parameter set {@link runAgenticLoop} takes to drive one trial. */
+export interface AgenticLoopParams {
   messages: ChatMessage[];
   tools: ToolDefinition[];
   matches: (call: ToolCall) => boolean;
@@ -167,7 +174,9 @@ export async function runAgenticLoop(params: {
   maxSteps: number;
   step: ModelStep;
   cannedResultFor: (call: ToolCall) => string;
-}): Promise<AgenticResult> {
+}
+
+export async function runAgenticLoop(params: AgenticLoopParams): Promise<AgenticResult> {
   const {
     tools,
     matches,
@@ -232,9 +241,12 @@ export async function runAgenticLoop(params: {
     }
   }
 
+  let finishReason: string | undefined;
+
   for (let stepIndex = 1; stepIndex <= maxSteps; stepIndex++) {
     const response = await step(messages, tools);
     const calls = response.toolCalls;
+    finishReason = response.finishReason;
 
     if (calls.length === 0) {
       // Model answered with text instead of a tool call — it has abandoned the
@@ -247,6 +259,7 @@ export async function runAgenticLoop(params: {
         readTurn,
         skillCalledAsTool,
         abandonedText: response.text,
+        finishReason,
       };
     }
 
@@ -289,6 +302,7 @@ export async function runAgenticLoop(params: {
         skillMdRead,
         readTurn,
         skillCalledAsTool,
+        finishReason,
       };
     }
 
@@ -301,13 +315,22 @@ export async function runAgenticLoop(params: {
         skillMdRead,
         readTurn,
         skillCalledAsTool,
+        finishReason,
       };
     }
 
     echoTurn(response.text, calls, stepIndex);
   }
 
-  return { matched: false, trail, steps: maxSteps, skillMdRead, readTurn, skillCalledAsTool };
+  return {
+    matched: false,
+    trail,
+    steps: maxSteps,
+    skillMdRead,
+    readTurn,
+    skillCalledAsTool,
+    finishReason,
+  };
 }
 
 const truncate = (text: string, max: number): string =>
