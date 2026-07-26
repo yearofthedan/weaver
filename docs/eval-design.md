@@ -1,484 +1,239 @@
 # CLI Eval Design
 
-**Purpose:** What the CLI eval measures and why it's shaped this way — one Haiku lane, fixture-backed. To run it, see [`eval/README.md`](../eval/README.md).
+**Purpose:** What the skill-file eval measures, the principles that make a run readable, and the mechanics underneath. To run it, see [`eval/README.md`](../eval/README.md); for recorded rates, [`eval-baselines.md`](eval-baselines.md).
 **Audience:** Anyone who edits the skills the eval guards, changes the harness, or interprets a run.
 **Status:** Current
 
 ---
 
-## Goal
+## What this measures
 
-Verify that the shipped skill files cause an AI agent to (a) reach for weaver at all and
-(b) invoke the correct `weaver` command with the right arguments — instead of defaulting to
-grep, sed, or manual edits.
+The object under test is the **shipped skill files** (`.claude/skills/*/SKILL.md` — frontmatter description plus body). The question is: given these files, does a coding agent reach weaver at all, and does it emit the correct `weaver` command with the right arguments — instead of grep, sed, `npx tsc`, or a hand-rolled edit?
 
-Agents interact with weaver exclusively through bash (`weaver <command> '<json>'`), discovered
-via the skill files in `.claude/skills/`. Those files are the product surface under test, at
-two decision points:
+Agents reach weaver exclusively through bash (`weaver <command> '<json>'`), discovered via the skill files. Skill content is read from `.claude/skills/` at run time, so the eval can never drift from what ships.
 
-1. **Trigger stage** — in a real agent host, only the skill's one-line frontmatter
-   *description* is in context when the agent decides whether to load the skill. If the
-   description doesn't win against the agent's shell habits, the rest of the skill file may as
-   well not exist.
-2. **Command stage** — once the skill is loaded, the full SKILL.md must instruct the model well
-   enough to emit a correct `weaver` invocation with the right arguments — including arguments it
-   must carry from a prior tool result.
+One lane gates: `eval/cases/gate.llm.test.ts`, run by `pnpm eval`. Every case runs through the same sampled agentic loop and differs only by **condition** — the per-case fields in `eval/cases/cases.ts`.
 
-## Non-goals
+---
 
-- **Engine correctness regression** — unit tests cover this.
-- **Real command execution** — emitted commands are asserted on, never run; no daemon involved.
-  The fixtures stand in for real CLI output (see Working discipline).
-- **CI gating** — the eval runs on the maintainer's machine on demand (`pnpm eval`), against a
-  hosted model. Runs cost real money, not pennies: a 4-case spike at n=6 is ~US$0.75 (clutter
-  prompt + skill bodies × trials × steps add up). Budget paid runs deliberately — scope the case
-  set and trial count to the question, and never waste a run (see Working discipline).
-- **Absolute scores** — see "Interpreting results".
+# Measurement principles
 
-## The model: one Haiku lane
+Read this section before interpreting any run. The mechanics below are subordinate to it.
 
-The eval runs against **`anthropic/claude-haiku-4.5`** over an OpenAI-compatible hosted endpoint
-(OpenRouter). Haiku is the audience-representative model: weaver's skills are `.claude/skills` in
-Claude Code's format, so a Claude-family model is the realistic consumer. It is the sole lane and
-the release gate — skill-text changes should be green here before shipping.
+## Rates, not single runs
 
-The lane needs a hosted OpenAI-compatible endpoint (base URL, model, API key); `global-setup.llm.ts`
-fails fast if any is unset. To run it, see [`eval/README.md`](../eval/README.md).
+A single trial is a coin flip you watched once. The gate samples every case (default n=3) and judges the **rate**, because every question worth asking — did this skill edit help? is this case fragile? — is a question about a distribution, not about one path.
 
-`callModel` accepts an explicit config parameter, so an alternate transport (e.g. the Anthropic
-API directly) plugs in without touching cases or assertions.
+This replaced an earlier temperature-0 design, and the reason is worth keeping: greedy decoding measures one fixed path chosen token-by-token, which is not the model's most likely *response*. It produced false clears and false alarms in the same lane — one case gated green at a true 2/5 while another gated red at 3/5. **A temp-0 verdict is a fingerprint, not a rate.**
+
+## What the gate actually measures
+
+The pass condition is deliberately **lenient on selection** and **strict on destruction**:
+
+- **Selection** is judged pass@k-style: the case clears if the model reaches the right command with correct args in *enough* trials (the 2/3 floor). It is explicitly **not** pass^k — the gate does not claim the skill works every time.
+- **Destruction** is judged absolutely: a single trial that reaches a *different mutating* weaver op fails the case regardless of its rate.
+
+So **green means "the skill steers well enough, often enough" — not "reliable every run."** Do not quote a green gate as a reliability claim. The asymmetry is deliberate: a soft miss (used grep instead of search-text) costs the user a worse answer, while a destructive miss costs them their working tree, and those must never average together on a majority vote.
+
+Scope note on the destructive rule: it fires on a wrong *weaver* mutating op, not on raw destructive shell (`sed -i`, `rm`, a truncating heredoc). That is a considered limit, not an oversight. An on-task-but-unsafe shell edit is a *steering* failure, which is exactly what the sampled rate already measures; and gratuitous destruction is a model-safety property no skill edit can move, so gating on it would make the lane permanently red for reasons weaver cannot fix. The trail prints every bash command in full, so such behaviour stays visible without being gated. (Borne out on 2026-07-26: `two-step-cat-then-extract` rewrote a source file with a heredoc in 2 of 6 trials and the rate gate caught it at 3/6 anyway.)
+
+## Gate on pressure, and only on pressure
+
+Every gated run is **pressured**: a cluttered host system prompt plus a habit-momentum seed of true-shell work. An unpressured "clean" condition is available as a diagnostic but never gates.
+
+The reason is empirical: clean lanes never fired. The retired clean command lane passed 11/11 on four different models across its whole life. A condition that has never once changed a decision does not earn standing cost on a paid run.
+
+## Instrument vs audience
+
+**Haiku is the instrument, not the audience.** The audience is coding agents generally. Haiku earns the gate slot for one reason: it actually exhibits the shell reflexes the skills exist to displace (`tsc` for type errors, `sed` for bulk replace, `mv` for moves). An instrument that never shows the defect cannot measure whether you fixed it.
+
+This inverts the intuition that a stronger model is a better gate. Gemini 2.5 Flash is *too strong* on the emission set to show Haiku's shell-fallback gradients — it saturates, so it cannot discriminate a skill edit. It remains valuable as the cheap cross-family sweep (~10× cheaper than Haiku).
+
+| Model | Role | When |
+|---|---|---|
+| Haiku 4.5 | **Gate** — has the reflexes the skills displace | Every skill edit |
+| Gemini 2.5 Flash | Cross-family sweep — cheap breadth | Periodically, and on a suspicious red |
+| Sonnet | Audience-confidence run (env swap, ~$5–8) | Occasionally, before a release |
+
+Pointing the harness at any of them is an env swap; nothing in the cases or assertions is model-specific.
+
+## Cross-model confidence rubric
+
+When a case disagrees across models, the *pattern* of disagreement says what to do:
+
+| Pattern | Reading | Action |
+|---|---|---|
+| Haiku ✓ + Sonnet ✓ + Gemini ✓ | Strongest confidence available | Ship |
+| Haiku ✗ + Sonnet ✓ | Canary-specific weakness — the audience is fine | Observational candidate; low urgency |
+| **Haiku ✓ + Sonnet ✗** | **Inverted canary — the gate is blind to a real audience failure** | **Most alarming; investigate immediately** |
+| Gemini ✗ only | Usually host-exposure or family quirk | Attribute via outcome tiers before touching skill text |
+
+The inverted case is the dangerous one precisely because the gate is green: the instrument says fine while the audience fails.
+
+## Reading a red
+
+A red is a *finding*, not automatically a regression. Work this order and stop when it explains the failure:
+
+1. **Timeout or stall?** Check for `Test timed out in …` rather than a rate failure. A slow provider or a sleeping host fails the lane on exit code with clean completed trials. Re-run; not signal.
+2. **Escalate, then widen.** The gate escalates a below-floor case from 3 to 6 trials automatically. If the result is still ambiguous — 3/6 tells you almost nothing, the true rate could be 0.2 or 0.8 — re-run *that case alone* at `WEAVER_EVAL_TRIALS=10` or more. Do this before theorising about causes; a real rate estimate is cheap and most theories die on contact with it. Widen the borderline *passes* too: 2/3 cleared the floor but is equally uninformative.
+3. **Replay one path.** `WEAVER_EVAL_TEMPERATURE=0` pins greedy decoding so a single trajectory is reproducible while you read it.
+4. **Isolate pressure from content.** `WEAVER_EVAL_CLEAN=1` drops clutter and momentum. Red under pressure but green clean = the body loses under pressure. Red in both = the body itself is broken.
+5. **Classify the mechanism via the outcome tiers** (below) — `never-reached` is a description problem, `content-fail` is a body problem. Read the trail, not just the rate.
+6. **Cross-model** if still ambiguous, then apply the rubric above.
+
+Mechanism-specific tells: *never-reached* → the frontmatter description lost the trigger (quote the losing task phrasing into it); *loaded-but-didn't-convert* → the body lacks an "Instead of: `<shell command>`" contrast for the habit it displaces; *prose-stall* (`abandonedText` shows the giving-up turn) → body length or framing; *oracle-loop* (repeated calls to the skill itself with query args) → the skill name reads like an endpoint.
+
+**YAML trap:** a `description:` starting with `"` is truncated by real hosts' frontmatter parsers. The harness's regex parser masks this — start descriptions with a plain word.
+
+## Paired A/B reading
+
+When comparing skill-text variants, read **per-case paired deltas on the same cases**, never two absolute rates side by side. A whole-lane score moving from 25/27 to 26/27 is noise at n=3; the same cases flipping in a consistent direction is signal. Before attributing a red to a text edit, A/B against the unedited text (`git stash`) rather than reasoning about it.
+
+## Case realism, not instrument tuning
+
+**Every case must be a task a real user would plausibly ask.** Before adding, removing, or rewording one, ask: *is this reasonable to ask?* That is the line between a legitimate clarity fix and tuning the instrument to pass — a phrasing kept or cut for any reason other than realism is gaming, however much the rate moves.
+
+The same rule binds skill edits. **Hardening a body must generalize, not encode the case:** new wording, and especially examples, may never echo a failing case's own target (its filename, its pattern, its symbol). An example mirroring the case teaches pattern-matching on that one task; a green run then proves nothing. If generic strengthening does not move the gate model, the honest conclusion may be that wording alone cannot hold that case — not a licence to encode it.
+
+## Paid-run discipline
+
+Runs cost real money. A full 27-case Haiku gate at n=3 is roughly $1–2; escalation bounds the worst case per case rather than per run.
+
+- **Scope the run to the question.** `-t <regex>` for a case subset, `WEAVER_EVAL_TRIALS` for depth.
+- **Never waste a run.** Always pass `--disable-console-intercept`, or vitest swallows the per-case rate and trail output on *passing* tests and a green run prints nothing.
+- **A harness change is proven on a real model.** The `test:eval` lane and eval mutation prove the logic in isolation; they cannot prove a grading change behaves correctly against a live model. Drive it on `pnpm eval` before calling it done.
+- **A dropped assertion costs an observation, not a thought bubble.** "This might be fragile" is a hypothesis you test by running, not a licence to delete.
+
+---
+
+# Mechanics
 
 ## Architecture
 
-Plain vitest + `fetch` against the hosted endpoint. No eval framework.
+Plain vitest + `fetch` against an OpenAI-compatible hosted endpoint. No eval framework.
 
 ```
-eval/cases/cases.ts           ← typed case table (trigger + command stages; two-step seed)
-eval/cases/*.llm.test.ts      ← LLM cases; run ONLY via `pnpm eval` (vitest.llm.config.ts)
-eval/cases/coverage.test.ts   ← invariant: every operation has a case (runs in pnpm check)
-eval/harness/call-model.ts    ← one fetch per turn; per-lane temperature; 60s abort, one timeout retry
-eval/harness/context.ts       ← system prompts built from .claude/skills/ at run time
-eval/harness/assertions.ts    ← extractBashCommands + matchWeaverCommand (→ matched + outcome); pure, unit-tested
-eval/harness/seed.ts          ← pre-seeded tool-exchange conversations (two-step, true-shell momentum)
-eval/harness/case-lane.ts     ← seedForCase (per-case seed depth; pure, unit-tested)
-eval/harness/agentic-loop.ts  ← runAgenticLoop + cannedToolResult
-eval/harness/grade.ts         ← SUBCOMMAND_MUTABILITY + isMutatingCompetitor (the loop's hard-fail verdict)
-eval/fixtures/                ← canned tool stdout, embedded as tool results
-eval/global-setup.llm.ts      ← fails fast unless the three hosted-endpoint env vars are set
+eval/cases/cases.ts            ← the conditioned case table (discriminated union; see Exposures)
+eval/cases/gate.llm.test.ts    ← the one gate lane; `pnpm eval` only (vitest.llm.config.ts)
+eval/cases/coverage.test.ts    ← invariant: every operation has a case + fixture (runs in pnpm check)
+eval/harness/case-lane.ts      ← buildTrialConfig: per-exposure messages, tools, predicates, budget
+eval/harness/run-case.ts       ← runTrial + runCaseTrials (sampling and escalation)
+eval/harness/verdict.ts        ← the 2/3 floor, escalation, alarm, observational ceiling
+eval/harness/agentic-loop.ts   ← runAgenticLoop + canned-result resolution
+eval/harness/assertions.ts     ← matchWeaverCommand + matchesExpectedCommand (the args gate)
+eval/harness/grade.ts          ← SUBCOMMAND_MUTABILITY + isMutatingCompetitor (hard-fail verdict)
+eval/harness/outcome.ts        ← four-tier trial classification (reporting)
+eval/harness/seed.ts           ← momentum pre-steps + two-step scripted exchange
+eval/harness/command-prompt.ts ← the front-loaded prompt (skill bodies in the user turn)
+eval/fixtures/                 ← canned tool stdout, embedded as tool results
 ```
 
-Skill content is read from `.claude/skills/` at run time — the eval can never drift from what
-ships. Lane separation is a hard constraint: `pnpm check` runs the harness unit tests and the
-coverage invariant but never needs a model server; the live lanes run only under `pnpm eval`.
+**Lane separation is a hard constraint.** `pnpm check` runs the harness unit tests, the case invariants, and `typecheck:eval` — and never needs a model server. The live lane runs only under `pnpm eval`.
 
-### Case stages
+`eval/` *is* typechecked by `pnpm check` via `tsconfig.eval.json` (`pnpm typecheck:eval`), including the `.llm.test.ts` lane file, so a type error in lane wiring surfaces before you spend on a run. It is not *executed* there.
 
-- **Trigger cases:** run exclusively on the agentic trigger lane (see below) — a generic
-  `Skill` tool loads a skill's real SKILL.md body, and a case passes when the model reaches
-  a `weaver <expected-command>` bash call within the step budget. **Boundary cases**
-  (`boundary-*`, `expect.skill: "bash"`) invert this: legitimate shell work (list files, run
-  tests, tail a log) that must *not* pull a skill in; they pass when every trial neither loads
-  a skill nor reaches any `weaver` invocation. Each matched trial also prints a non-gating
-  args verdict (`matchWeaverCommand.outcome`) so a right-selection/wrong-args trial is
-  visible in the trail without affecting the selection rate.
-- **Command cases:** the full SKILL.md bodies plus the task go in the user turn, a `bash`
-  tool is declared, and the prompt asks for a single call. Pass = the model's **bash tool
-  call** parses as `weaver <expected-subcommand> '<json>'` with the case's key arguments;
-  a response with no bash tool call fails as "did not call the bash tool". The prompt does
-  not name weaver — the model must still select it from the skill content. `&&`-chained
-  commands are split into candidates: a safety check before a destructive command is correct
-  behaviour. `matchWeaverCommand` classifies the result as `correct` / `wrong-tool` /
-  `wrong-args`, separating the right op reached with bad args from the wrong op entirely.
-- **Two-step cases:** the conversation is pre-seeded as a real tool exchange — user task,
-  assistant `bash` tool call running the step-1 command, `tool`-role result carrying a canned
-  fixture from `eval/fixtures/`; the assertion checks the follow-up `bash` tool call. Seeding
-  the precursor is how a command-stage case handles a task the model won't do in one shot,
-  while keeping the single asserted follow-up call that makes the command lane deterministic.
-  Two shapes:
-  - **Result-derived carry-through** (search→rename): the task withholds the line number, so
-    the `line`/`col` the follow-up `rename` carries exist only in the seeded `search-text`
-    result (`searchText-userId.json`: line 12, col 9).
-  - **Read-then-act** (cat→extract): the model reads the file before extracting, so the seed
-    carries that `cat` and the asserted follow-up is the `extract-function` itself, not the
-    look. The precursor here is a plain shell read, so its fixture is the file's source in a
-    real `.ts` file (`sources/auth.ts`) — `loadFixture` reads a fixture by filename, so a
-    non-weaver result need not be JSON.
+## Exposures
 
-## Interpreting results
+Every case declares an `exposure`, which selects its whole condition. The case table is a discriminated union, so a field a variant never reads is a compile error.
 
-Haiku is a realistic consumer of the shipped skills, so the lane is **audience-representative** —
-but read it as *relative movement*, not absolute truth:
+| | progressive | front-loaded | boundary |
+|---|---|---|---|
+| Skill delivery | `<available_skills>` block; body loaded on demand | full bodies already in the user turn | as progressive |
+| Tools | `Skill` + bash + Grep/Glob/Read | bash only | as progressive |
+| Step budget | 6 | 3 | 6 |
+| Passes when | reaches the right command with right args | same | never reaches a skill *or* any weaver op |
 
-- **Relative signal is the point** — a description edit that drops the trigger rate or flips a
-  command case is a regression worth investigating.
-- **Not absolute truth** — the simulated system prompt is far less crowded than a real host's, so
-  rates read optimistic; and Haiku is the *cheapest* Claude-family model, so the frontier models
-  most users run (Opus, Sonnet) are an easier audience. A green Haiku lane is a floor, not a
-  ceiling.
-- **Movement is the workflow** — edit a skill file → `pnpm eval` → read what flipped. Skill files
-  are read from disk at run time, so there is no build step between editing and re-running.
+- **Progressive** models the real discovery path: only the one-line description is in context when the model decides whether to load the skill. If the description loses against shell habit, the body may as well not exist. A skill load feeds back the real SKILL.md and is tracked without entering the trail — it is navigation toward the operation, not the operation.
+- **Front-loaded** assumes discovery succeeded and isolates emission: can the body produce a correct invocation, including arguments carried from a prior tool result? Budget 3 rather than 1 because a single call cannot distinguish a *convention stumble* (a hallucinated tool call, which any real host corrects with one error turn) from a genuine miss. An undeclared tool call gets the host-style "no such tool" error fed back and the trial continues — a stumble costs a turn, not the trial.
+- **Boundary** cases invert the pass condition, guarding against an over-broad description stealing legitimate shell work. Clean = neither a skill load nor *any* weaver invocation across every trial. They are epistemically weak ("never triggers weaver" has unbounded scope) and cost paid trials, so keep them minimal: one earns a place only if a plausible description error would flip it — the task must sit on a description's decision boundary. A task no description could claim (list files, tail a log) can only fail by hallucination, buying no signal.
 
-## The agentic trigger/rate lane
+**Two-step** is a condition, not an exposure: a front-loaded case with a `seed` (a scripted step-1 assistant call plus its fixture result). Seeding the precursor is how a case handles a task the model won't do in one shot while keeping a single asserted follow-up. Two shapes exist — *result-derived carry-through* (search→rename, where the `line`/`col` exist only in the seeded result) and *read-then-act* (cat→extract, where the seed carries the read so the asserted call is the extract itself).
 
-`eval/cases/trigger-agentic.llm.test.ts` runs the skill-trigger cases plus the `boundary-*`
-cases under host-like pressure — a competing toolset (`Skill`, `bash`, `Grep`, `Glob`, `Read`),
-a cluttered system prompt (`buildClutterSystemPrompt()`), and a true-shell multi-turn momentum
-seed (`buildHabitMomentumSeed(task, turns)` prepends `turns` distinct true-shell pre-steps —
-log grep, `git log --grep`, `find` by name — before the task; each pre-step is work weaver does
-not own, so seeding it primes a general shell habit rather than a substitution precedent).
-Depth is a first-class lever, per-case via `CaseEntry.momentumTurns` (`seedForCase` in
-`eval/harness/case-lane.ts` reads it, defaulting to `1`); requesting more turns than the pool
-holds throws rather than cycling or silently under-seeding. `runAgenticLoop`
-(`eval/harness/agentic-loop.ts`) drives the model forward up to a step budget (6 — room for
-the skill-load hop, a precursor, and the operation), feeding a canned result back after each
-turn. A skill load (`Skill` tool call or SKILL.md Read) feeds back the real SKILL.md body and
-is tracked as `skillMdRead`/`readTurn` without entering the trail. Per-trial trails print with
-raw bash command strings — a name-only trail cannot distinguish "never ran weaver" from a
-matcher false-negative.
+## The gate
 
-Why the eventual-operation metric exists: a single-shot first-call metric cannot tell a
-*substitution* (grep instead of search-text) from a reasonable *precursor* (find-references
-before a rename). It scores `rename-at-position → find-references-first` as a loss even though
-the model would rename next. The agentic lane credits the precursor and checks where the model
-actually lands.
+Per case: run `BASE_TRIALS` (3). If below the 2/3 floor, escalate to `ESCALATED_TRIALS` (6) and judge there. The floor is **inclusive** — exactly 2/3 clears — and compared as integers (`passed * 3 < total * 2`) so it is exact at any n. 4/6 is the same fraction as 2/3: **escalation buys resolution, not a higher bar.** It gives a case whose two bad draws at n=3 may be noise three more trials to prove itself. Zero trials counts as below the floor, so a harness fault that runs nothing alarms rather than passing silently.
 
-**Skill-trigger cases** (`expect.skill` names a skill) pass when a bash
-`weaver <expected-command>` invocation is reached within the budget. `matchedAtStep` — the
-1-based step of that invocation, absent if the trial never matched — is recorded per trial and
-printed in the trail summary, so a first-call win (`matched@1`) is distinguishable from a
-precursor-then-win (`matched@3`). Each matched trial additionally prints a **non-gating** args
-verdict (`args:correct` / `args:wrong-args` from `matchWeaverCommand.outcome`): a
-right-selection/wrong-args trial is surfaced in the trail but still counts as a selection match,
-so args noise never smears into the selection rate.
+A trial passes only on `matchWeaverCommand` outcome `correct` — the right subcommand *and* every declared key arg. Reaching the right op with wrong args is not a pass.
 
-**Pressured buried cases** set `momentumTurns: 3` (via `seedForCase` in `eval/harness/case-lane.ts`)
-and embed the op inside a broader, multi-part task rather than stating it directly — a deeper seed
-paired with buried phrasing. They gate on the `belowAlarm` floor like any skill-trigger case. Seed
-depth co-varies with the rung: the light rungs (direct/indirect trigger cases) keep `momentumTurns`
-at its default of `1` as ceiling canaries — depth-1 pressure should not move them; the buried rung
-raises it to `3`. A buried case gates only once a spike (n≥6) has shown it converges comfortably
-above the floor under that pressure — the survivors (rename, replace-text, find-references) each did;
-cases that sat at the knife-edge or explored the shell instead of converging were deleted, not gated,
-per "Don't tier what n=3 can't resolve" below (see [`eval-baselines.md`](eval-baselines.md) for the
-routing). Gating a case a spike puts at ~1/6 would fail every run and force a paid tuning loop; a
-case that only holds under trivial rephrasing measures temp-0.7 task ambiguity, not skill text.
+**Path key args match by trailing segment, not exact string.** A model legitimately `cd`s into the workspace and passes a relative path; `cd /ws && weaver move-directory '{"oldPath":"src/utils"}'` targets the same directory as the absolute form. Path-typed keys (`oldPath`, `newPath`, `file`, `sourceFile`, `destFile`) accept a trailing-segment suffix; a different directory still fails. Non-path keys stay exact — `replacement` can contain `/`, so suffix-matching it would be wrong.
 
-The verdict per call is three-way (`isMutatingCompetitor` in `eval/harness/grade.ts`, wired as
-the loop's `hardFails`): the expected op is a **pass**; a *different mutating* weaver op — a
-wrong destructive action the model cannot walk back — is a **hard fail** that stops the trial
-(`failedAtStep`, printed as `competitor@<step>`); a read-only weaver op or a non-weaver call is
-a **precursor** that is credited toward a later match. So a trajectory that runs the wrong
-destructive op and then the right one fails rather than passing on the later call, and a
-read-only op is allowed as an intermediate step but never as the terminal action for a
-mutating-target case. Subcommands are classified mutating vs read-only by `SUBCOMMAND_MUTABILITY`,
-completeness-guarded against `OPERATION_NAMES`. `&&`-chains are split before inspection, so a
-`cd <dir> && weaver <sub>` chain is judged on its weaver segment.
+**Hard fail.** A *different mutating* weaver op stops the trial immediately (`failedAtStep`, printed `competitor@<step>`) and alarms the case regardless of rate — including on observational cases, so the marker can never launder a destructive act. A read-only op or non-weaver call is a **precursor**, credited toward a later match. `&&`-chains are split before inspection.
 
-**Boundary cases** (`expect.skill: "bash"` — legitimate shell work) invert the pass condition:
-they guard against an aggressive description over-triggering and stealing a task no skill
-should claim. A trial is clean when it neither loads a skill nor reaches a `weaver` invocation
-for *any* subcommand within the budget (`boundaryTrialClean` in `eval/harness/agentic-loop.ts`);
-the case passes only when every trial is clean. This is at least as strong as a first-call-only
-guard — it catches an over-trigger anywhere in the trajectory, not only the first call.
+**Observational cases.** A case may carry `observational: { since, reason }` to be measured and printed but not gated on rate. This exists for a case that tracks a real product gap we want visibility on rather than a bug to fix now. It replaced an `it.fails` inversion, which cannot survive sampling — a case with a true rate near 0.6 would flap red on most runs. Staleness is instead resisted by the dated `since`, a load-time validation of the marker's shape, and an "at ceiling — consider promoting" line printed when an observational case passes every trial. **More than a couple of these is a design smell** — fix the skills or the case set, not the markers; an invariant test caps the count.
 
-Boundary cases are epistemically weak — "never triggers weaver" has unbounded scope — and each
-costs paid trials, so the pressure is to keep them minimal, not to add them. One earns a place
-only when a plausible description error would flip it: the task must sit on a skill description's
-decision boundary. A task no description could plausibly claim — list files, run tests, tail a
-log — can only fail by hallucinating a nonexistent op, not by over-trigger, so it costs trials
-without buying signal. And it must be shell work *by intent*: a task that should route to weaver,
-asserted as a negative, tests against intent, not behaviour.
+## Outcome tiers: content vs exposure
 
-**Standard tool exchange.** Completed turns are replayed as a standard tool-use conversation:
-the model's own assistant message (its text and real `tool_calls`) followed by a `tool`-role
-result for every call. The model is stateless, so this faithful history is what lets it advance
-across hops — a lossy placeholder echo strands any multi-hop trajectory (search for a position,
-then act) on its first call, re-planning the same step forever. `buildHabitMomentumSeed` and the
-two-step seed use the same format.
+Alongside the gating rate, each op case prints a four-tier composition, separating the signal weaver owns from host noise it does not:
 
-**Scenario-owned results, inert unowned hops.** The result fed back for a call is resolved by
-`cannedToolResult` (`eval/harness/agentic-loop.ts`): a case owns the result for a specific weaver
-subcommand or tool via `CaseEntry.cannedResults`. A `weaver <sub>` bash call the case does *not*
-own resolves to a single inert stub (`NEUTRAL_WEAVER_RESULT`, "No results for this call.") — never
-another operation's fixture content, and never the generic `bash` file list (reserved for
-non-weaver shell commands). `cannedResults` is therefore the *only* source of scenario content: a
-multi-hop case must own a coherent result for every on-path hop it might take (e.g. a replace case
-that searches before replacing owns `search-text`), or the neutral stub reads as "nothing to do"
-and strands the model. The inert default is deliberate — an *unanticipated* hop (a stray
-`find-references` in a rename scenario) gets nothing to act on rather than another scenario's data
-that would derail it. A tool the lane never declared splits two ways (`cannedResultForCall` →
-`classifySkillReach`): if its name, normalised (lowercased, `_`→`-`), *matches a shipped skill*
-(`weaver_code_inspection`, `weaver-refactor`), it is a skill reached as a tool — the harness feeds
-back that skill's real SKILL.md body, exactly as for a `Skill`/`Read` load, so the trial reaches
-content regardless of how the model phrased the call. A name that matches *no* skill (`frobnicate`)
-is a genuine hallucination and still gets the host-style unknown-tool error, graded as the miss it
-is. The tool-set-drift guard is unchanged: only a *declared* tool with no canned result throws —
-that is the real drift, the map falling behind the tool set.
+- **`clean-pass`** — matched with no tool-style reach. Description and body both worked.
+- **`warned-pass`** — matched, but the model called a skill *directly as a tool* rather than loading it. The body guided it; the host's exposure was noisy.
+- **`content-fail`** — the body was in front of the model and did not guide it to the op. **This is the miss weaver owns.**
+- **`never-reached`** — the model never read the skill. A description or shell-habit problem, not a body problem.
 
-**Reading a rate.** n=3 is coarse — re-run a surprising flip at `WEAVER_EVAL_TRIALS=6` before
-acting on it. Classify the trail mechanism, not just the rate: *never-touch* → the frontmatter
-description lost the trigger (quote the losing task phrasing in it); *loaded-but-didn't-convert* →
-the body lacks an "Instead of: `<shell command>`" contrast block for the habit it displaces;
-*prose-stall* (`abandonedText` in the trail output shows the giving-up turn) → body length or
-framing; *oracle-loop* (repeated calls to the skill itself with query args) → the skill name
-sounds like an endpoint. Before attributing a red to a text edit, A/B against the unedited text
-(`git stash`). **YAML trap:** a `description:` value starting with `"` is truncated by real hosts'
-frontmatter parsers — the harness's regex parser masks this; start descriptions with a plain word.
+`clean-pass + warned-pass = matched`, so a warned pass still counts toward the gate; the composition is reporting-only. Read the tiers as counts plus trail evidence, not as gated conditional rates — the denominators are far too small at n=3. **Do not tune the harness's exposure per model family to move these** — past a point that measures scaffolding, not skills.
 
-**Content vs. exposure.** Alongside the gating selection rate, each skill-trigger case prints a
-four-tier outcome composition (`classifyTrialOutcome` / `computeOutcomes` in
-`eval/harness/outcome.ts`), so a cross-model run separates the skill signal weaver owns from host
-noise it does not:
+Two host-behaviour gotchas the lane absorbs: (1) models sometimes reach a skill as a direct tool call (`weaver-refactor({...})`, or the underscore-normalised `weaver_code_inspection` some providers emit). How a host exposes a skill is host integration, not skill content — so the harness feeds back the real body and flags the trial, measuring content regardless of phrasing. (2) Hosted models occasionally emit tool calls with malformed JSON arguments; the loop feeds back an invalid-arguments error rather than crashing.
 
-- **`clean-pass`** — matched with no tool-style reach: description and body both did their job.
-- **`warned-pass`** — matched, but the model reached the skill *as a tool* at some point (see the
-  gotcha above): the body still guided it; the host's skill exposure is what was noisy.
-- **`content-fail`** — the body was in front of the model (loaded via `Skill`/`Read` *or* a
-  tool-style call) but did not guide it to the op. **This is the miss weaver owns** — a body to fix.
-- **`never-reached`** — the model never read the skill at all: a frontmatter-description or
-  shell-habit problem, not a body problem.
+## Scenario-owned results
 
-The gate is unchanged — `computeRate` still fires on the *selection* rate, and
-`clean-pass + warned-pass = matched`, so a warned pass still counts toward the gate. The composition
-is reporting-only: it lets a red on a non-Claude model be attributed (`content-fail` = fix the body;
-`never-reached` = fix the description; `warned-pass` = host-exposure noise to discount for a
-real-host read, count for a pure-content read). Read the tiers as counts and trail evidence, not as
-gated conditional rates — `warned-pass`/`content-fail` denominators are too small to gate at n=3.
-Do **not** tune the harness's exposure per model family to move these — past a point that measures
-the scaffolding, not the skills.
+The result fed back for a call is resolved per case. A case owns results for specific subcommands or tools via `cannedResults`. A `weaver <sub>` call the case does *not* own resolves to an inert stub ("No results for this call.") — never another operation's fixture, and never the generic bash file list.
 
-**Don't tier what n=3 can't resolve.** At n=3 a case has four possible rates — 0, 1/3, 2/3, 3/3 —
-and the alarm fires below 2/3, so the only passing non-ceiling value is exactly 2/3: one flip from
-failing, one from the ceiling. A "discriminating band" between floor and ceiling is a single
-knife-edge point at n=3, indistinguishable from noise. Do not design rung classes, bands, or gating
-tiers for a case before a spike has shown the lane discriminates at all; and do not chase a stable
-band by raising the default n — a band that only exists at n=6 doubles the trial count — and the paid cost — of every
-run, buying resolution the regression signal (a visible multi-step flip, 3/3 → 1/3 or 0/3) does not need. Escalate trials only
-to confirm a surprising flip, never as the standing configuration.
+`cannedResults` is therefore the *only* source of scenario content: a multi-hop case must own a coherent result for every on-path hop (a replace case that searches first owns `search-text`), or the neutral stub reads as "nothing to do" and strands the model. The inert default is deliberate — an unanticipated hop gets nothing to act on rather than another scenario's data that would derail it. A *declared* tool with no canned result throws, since that is real drift: the map falling behind the tool set.
 
-Two host-behaviour gotchas the lane handles: (1) the model sometimes *reaches a skill as a direct
-tool call* (`weaver-refactor({...})`, or the underscore-normalised `weaver_code_inspection` some
-providers emit, with invented arg schemas). *How a host exposes a skill is host integration, not
-skill content weaver owns* — so the lane does not let that phrasing decide the trial. It feeds back
-the skill's real body (treating the call as a load) and flags the trial as reached-via-tool, so the
-body is measured regardless. The tool set is **not** widened to declare per-skill tools; the harness
-recognises the skill-name call and feeds the body. A trial that then converges is a `warned-pass`
-(content worked, exposure was noisy); one that does not is a `content-fail` like any other loaded
-miss — see *Content vs. exposure* below. (2) Hosted models occasionally emit tool calls with
-**malformed JSON arguments**; `callModel` marks such calls (`invalidArguments`) and the loop feeds
-back an invalid-arguments error instead of crashing the trial.
+**Standard tool exchange.** Completed turns are replayed as a real tool-use conversation — the model's own assistant message with its `tool_calls`, then a `tool`-role result for every call. The model is stateless, so this faithful history is what lets it advance across hops; a lossy echo strands multi-hop trajectories on their first call forever.
 
-Run: `pnpm eval trigger-agentic --disable-console-intercept` — the flag is required or vitest
-swallows the per-case rate/trail `console.log` lines on passing tests, so a green run prints
-nothing. Filter to a case subset with `-t <case-name-regex>`;
-`WEAVER_EVAL_TRIALS=1` for spot checks; `WEAVER_EVAL_DEBUG=1` dumps the full turn-by-turn exchange
-(initial prompt, each model turn, each fed-back result) for diagnosing non-convergence. Test titles
-carry full case names (`chaiConfig.truncateThreshold: 0` in `vitest.llm.config.ts` — the default
-40-char truncation made long case names collide and silently broke `-t` filtering).
+## Running and diagnosing
 
-**A lane failure is not automatically a regression — read its cause.** Each case has a 540s
-per-test budget (`LANE_TIMEOUT_MS` = trials × steps × per-call budget). When a run stalls — a slow
-provider, or the host sleeping mid-run — a deep (`momentumTurns:3`) case can exceed it and fail the
-*whole lane* on exit code even though its completed trials are clean; the exit status conflates "a
-skill regressed" with "the run stalled." Before treating a red run as a regression, check whether
-the failure is `Test timed out in …` (an environmental stall — re-run) or an actual rate/assertion
-failure (signal). This is logged as a follow-up in `docs/handoff.md` (make the deep
-(`momentumTurns:3`) cases timeout-resilient).
+```bash
+pass-cli run --env-file .env -- pnpm eval --disable-console-intercept
+```
 
-**`eval/cases/*.llm.test.ts` is not covered by `pnpm check`** — it is excluded from the `test:eval`
-vitest lane, and stryker only mutates `eval/harness/**`. A type error or logic bug in the lane
-wiring surfaces only under a paid `pnpm eval` run. After editing a `*.llm.test.ts`, type-check it
-with `pnpm exec tsc --noEmit -p .` (which *does* include it) before spending on a run.
+| Knob | Effect |
+|---|---|
+| `-t <regex>` | filter to a case subset (full case names in titles via `truncateThreshold: 0`) |
+| `WEAVER_EVAL_TRIALS` | base trial count (default 3); escalation still targets 6 |
+| `WEAVER_EVAL_TEMPERATURE` | **glass** — force a temperature; unset omits the field entirely |
+| `WEAVER_EVAL_CLEAN=1` | **glass** — drop clutter and momentum |
+| `WEAVER_EVAL_DEBUG=1` | dump the full turn-by-turn exchange |
+| `WEAVER_EVAL_MODEL` | swap the model (cross-family sweep) |
 
-## The command and two-step lanes (deterministic)
+Neither glass changes gating semantics; both are debugging modes.
 
-Both run at temperature 0, single-shot per case, so a regression reproduces every run and a one-off
-is noise. The single call is deliberate — it isolates argument fidelity from selection. A task the
-model won't do in one shot (it reads a file first) becomes a two-step case with the precursor
-seeded, not a case with a wider step budget: given room to act, the model finishes shell-doable
-tasks in shell (`mv`, `grep`, `npx tsc`) and never reaches weaver. When a command case fails, the
-message classifies via `matchWeaverCommand`:
+**Temperature is omitted by default.** With `WEAVER_EVAL_TEMPERATURE` unset the request carries no `temperature` field at all, so the model samples at its own default — what a real caller gets. This also decouples the harness from temperature-accepting models: frontier Claude models reject the field, so a pinned temperature would 400 and made the harness unable to point at its own audience.
 
-- `wrong-tool` — never reached the expected subcommand (no weaver at all, or a different op).
-- `wrong-args` — the right op was reached but a key arg is malformed, missing, or the wrong value.
-
-**Path key args are matched by trailing segment, not exact string.** A model legitimately `cd`s
-into the workspace and passes a workspace-relative path — `cd /ws && weaver move-directory
-'{"oldPath":"src/utils"}'` targets the same directory as the absolute `/ws/src/utils`. So path-typed
-keys (`oldPath`, `newPath`, `file`, `sourceFile`, `destFile`) match when the emitted value equals the
-expected absolute path *or* is a trailing path-segment suffix of it. A different directory
-(`src/wrong`) still fails. Non-path keys (`newName`, `pattern`, `replacement`, …) stay exact —
-`replacement` can contain `/`, so suffix-matching it would be wrong. Author the expected value in the
-case table as the absolute path; the suffix tolerance is the harness's, not the case's.
-
-**Frontmatter feeds the command prompt too.** `skillContext()` returns the **whole** SKILL.md
-including frontmatter, so a description edit aimed at the *trigger* stage also lands in every
-*command*-stage prompt — a trigger-routing fix can silently regress command args (e.g. rewording a
-description toward "TODO comments" can make the model emit `pattern: "// TODO"`, reading "comments"
-as the literal marker). After any description edit, run **both** lanes, not just the one you were
-aiming at.
-
-## The pressured emission lane
-
-`pressured-emission.llm.test.ts` keeps the command lane's single call (temp 0, bash-only, skill
-body in context) but wraps it in host pressure — the `buildClutterSystemPrompt()` system prompt plus
-a 3-turn habit-momentum seed. The clean command lane isolates argument fidelity; this lane asks
-whether that fidelity survives when the context is crowded and primed toward the shell, i.e. whether
-the body resists the shell-fallback pull that constraining to one call otherwise hides (the `mv` /
-`grep` / `npx tsc` reflex above).
-
-It grades each case with `matchWeaverCommand` like the command lane. Cases that hold emission under
-pressure **gate** (a shell fallback fails the run) via `it.each`; a case the skill body does not yet
-hold runs as an `it.fails` (named by `EXPECTED_FALLBACK`) instead — it passes while the case keeps
-falling back and turns **red the moment the case starts holding**, the signal to move it into the
-gating set. That inversion is why it beats a silently-green "reported, not gated" list: the lane can
-never quietly hold a stale expected-failure. A load-time guard throws if `EXPECTED_FALLBACK` names no
-real case. Only `get-type-errors` sits there today (Haiku won't drop `tsc` even for an explicit
-router `Never` row); the partition is calibrated to the gate model — another model falls on different
-cases. Hardening a case to hold flips it from `it.fails` into the gating `it.each`.
-
-**Gating cases are marginal and context-coupled — re-run the whole lane after any skill edit.** The
-lane concatenates all three skill bodies into one prompt, so a case's hold depends on the *total*
-context, not just its own skill's section: removing one reinforcement line from `weaver-code-inspection`
-tipped `search-text` (in `weaver-search-and-replace`) from held back to `grep`, its own skill
-untouched. Some holds are robust (`find-importers`, `move-directory` survive unrelated edits); others
-sit on a knife-edge (`search-text`). Treat a green gate as calibrated to the *exact current wording*,
-not as proof the guidance is robust — after editing any `SKILL.md`, re-run the full lane, never just
-the case you aimed at. Which cases hold is also **gate-model-specific**: Haiku holds
-`find-importers`/`search-text` and falls on `get-type-errors`; Gemini 2.5 Flash inverts — holds
-`get-type-errors` (the `it.fails` marker duly flips red, its promote signal) and falls on
-`rename`/`move-symbol`, both rock-solid on Haiku. CI runs Haiku; the partition is tuned to it, and
-"a hardened skill body" means hardened *for the gate model*, not in the abstract.
-
-**The pressure must be legitimate.** The momentum seed carries only weaver-orthogonal shell work
-(log grep, `git log`, filename `find`); it must never demonstrate a shell stand-in for a graded op
-(`grep` of source → `search-text`, `mv` → `move-file`, `sed` → `replace-text`). A seed that models
-the substitution manufactures the fallback instead of measuring the body's weakness — the same
-momentum-seed principle the trigger lane relies on.
-
-**Hardening a skill body must generalize, not encode the case.** When a body edit flips an
-expected-fallback case to gating, the new wording — directives and *especially* examples — must stay
-generic: it may never echo the failing case's own target (its filename, its pattern, its symbol).
-An `**Instead of:** grep … auth …` example that mirrors the `command-find-importers` task teaches the
-model to pattern-match that one task, not to prefer the weaver op for any input; a green run then
-proves nothing about the guidance's strength — it is the body-side twin of a seed that demonstrates
-the substitution. Harden with true reasoning (why the weaver command beats the shell tool for *any*
-input) and neutral placeholder names, then re-run to confirm it generalizes. If generic strengthening
-does not move the gate model, the honest conclusion may be that wording alone cannot hold that case —
-not a licence to encode it.
+The trail prints every tool call with raw arguments and the response's `finish_reason`. Both matter: a name-only trail cannot distinguish "never ran weaver" from a matcher false-negative, and a missing `finish_reason` once hid a whole behaviour class — a model emitting the correct op as a hallucinated *native* tool call was reported as "(no bash call)".
 
 ## Working discipline
 
-The eval is a **black-box** behavioural test of a stochastic system — but a *narrowly* stochastic
-one: it exercises skill/tool **selection** and structured tool-call **arguments**, not free-form
-prose, so outputs are low-entropy on a clear task. That shapes how to work on it:
+- **Run → observe → debug. Never predict-then-carve.** Write the assertion for the real flow, run it, watch what the model emits, debug from the result. Reading engine source to *fix an expected model output* is the anti-pattern tell. (Distinct from verifying the world the model acts in, below, which does require reading source.)
+- **Fixtures are the scenario.** The eval never runs real commands, so a fixture that diverges from real CLI stdout tests a fiction — silently. Fidelity is to the *scenario*, not just the format: a result contradicting the task's stated scope (too few hits for a "whole project" ask) reads as incomplete and drives the model to re-verify in shell, confounding the trail. Worked example: the search→rename carry-through asserts `line: 12, col: 9`, correct only because `search-text` emits 1-based `col = m.index + 1` and `rename` consumes 1-based col. Had they disagreed, the red would have been a *product* bug, not fragility to design around.
+- **A momentum seed primes a habit, not a substitution precedent.** Every seeded pre-step must be work weaver does **not** own — grep a log, `git log --grep`, `find` by name. It must never be a task a skill claims (`grep` of source → `search-text`, `mv` → `move-file`). A weaver-shaped pre-step manufactures the fallback instead of measuring the body's weakness. (Specific to momentum seeds; a two-step case's precursor deliberately *is* a weaver op — that is the point there.)
+- **A pressured task carries no pre-step the harness cannot satisfy.** Context a task wants gathered first belongs in the momentum seed, where the harness authors a satisfying result — not in the live task string, where it runs against canned stubs and loops until the budget is gone. The rung then measures "can the model find a nonexistent file," not conversion under pressure. **An own-file inspect step is the exception with no home — remove it:** it cannot move to the seed (weaver-owned inspection is not a valid habit pre-step) and cannot be made satisfiable, since even a *coherent* read lets the model answer from the file and skip the mutating op. Keep the burial in framing and a trailing post-op ask.
+- **An embedded secondary step gates the metric on that step, not the tool.** A task asking the model to report or inspect *before* acting can read low with sound skill text: the model does the sub-step, then stops or over-verifies until the budget is gone. Diagnose by removing *only* the suspected step and re-measuring. Removing a confounding step is a fair clarity fix; lifting a rate by rewording until the model complies is instrument tuning — the tell is a rate that moves only under a multi-change rewrite, not a single isolated removal.
+- **Skill bodies share one context.** A front-loaded prompt concatenates all three bodies, so a case's hold depends on the *total* context, not just its own skill's section: removing one reinforcement line from `weaver-code-inspection` once tipped `search-text` (in a different skill) from held back to `grep`. After editing any `SKILL.md`, re-run the full lane, never just the case you aimed at.
+- **Frontmatter feeds the front-loaded prompt too.** The whole SKILL.md including frontmatter goes into the prompt, so a description edit aimed at *discovery* also lands in every emission prompt — a trigger-routing fix can silently regress command args.
 
-- **Every case must be a task a real user would plausibly ask.** Before adding, removing, or
-  rewording a case, stop and ask: *is this a reasonable thing for someone to ask?* That is the test
-  that separates a legitimate clarity fix from tuning the instrument to pass — a phrasing kept or
-  cut for any reason other than realism is gaming, however much the rate moves.
-- **Run → observe → debug. Never predict-then-carve.** Write the assertion for the real flow, run
-  it, watch what the model actually emits, debug from the result. Do not reason to what the model
-  "should" emit and shape the assertion to match — reading engine source to *fix an expected model
-  output* is the anti-pattern tell. (This is distinct from verifying the *world* the model acts in,
-  below, which does require reading source.)
-- **A change to harness code is verified by a real eval run, not green harness unit tests.** The
-  `test:eval` lane (and mutation on the harness) proves the *logic* in isolation; it cannot prove a
-  grading change behaves correctly against a real model — that only shows in `pnpm eval`. A fix to
-  how tool calls are graded, mocked, or looped must be driven on a real model before it is done. A
-  cheap way to also *exercise* a fix in situ: re-run the model whose behaviour surfaced the bug (a
-  hallucination or malformed-args path), since it is the one likely to reproduce it.
-- **A dropped or loosened assertion costs an observation, not a thought bubble.** "This might be
-  fragile" is a hypothesis you test by running, not a licence to delete. You cannot keep slicing
-  assertions out until it's green — and because selection/args are low-entropy here, an exact-value
-  assertion (e.g. a carried `line`/`col`) is legitimate and a red is far more likely real signal
-  than sampling noise.
-- **Fixtures are the scenario.** The eval never runs real commands, so a fixture that diverges from
-  real CLI stdout tests a fiction — silently. Fidelity is to the *scenario*, not just the format: a
-  result that contradicts the task's stated scope — too few hits for a "whole project" ask, missing
-  the substrings the task names — reads as incomplete and drives the model to re-verify in shell,
-  confounding the trail. Verify a fixture against real output, and make sure
-  any downstream argument the eval asserts a model *carried* is exactly what the real upstream op
-  *emits*. Worked example: the two-step search→rename carry-through asserts `line: 12, col: 9`.
-  That is correct only because `search-text` emits 1-based `col = m.index + 1` (col 9 for `userId`
-  in `  const userId =`) and `rename` consumes 1-based col via
-  `getPositionOfLineAndCharacter(line - 1, col - 1)` — the two ops agree, so col 9 targets the same
-  character. Had they disagreed, the red would have been the *product*: a real search→rename
-  carry-through bug, not fragility to design around.
-- **A momentum seed primes a habit, not a substitution precedent.** The habit-momentum seed
-  (`buildHabitMomentumSeed`) exists to carry *legitimate shell fluency* into the target task. Every
-  seeded pre-step must be work weaver does **not** own — grep a log, `git log --grep`, `find` by
-  name. It must never be a task a skill claims (find-importers, find-references, replace-text). A
-  weaver-shaped pre-step stops being habit and becomes an in-session precedent that weaver-work is
-  done in the shell — an unrealistic pressure that contaminates the signal, so a red then reflects
-  the seed teaching substitution rather than genuine habit. (This is specific to *momentum/pressure*
-  seeds; the two-step carry-through seed deliberately seeds a real weaver op as its precursor — that
-  is the point there, not a violation.)
-- **A pressured case's live task carries no pre-step the harness cannot satisfy.** Scenario context
-  a pressured task wants the model to gather first — skim a changelog, check the build state — belongs
-  in the *momentum seed*, where the harness authors a satisfying result, not in the live task string.
-  A leading context step in the live task is executed against the loop's canned stubs: a non-weaver
-  bash call resolves to `CANNED_RESULTS.bash` (the generic file list), so a step that hunts an artifact
-  the stub never contains (a changelog file) loops until the step budget is exhausted and the rung
-  never reaches its op. The rung then measures "can the model find a nonexistent file," not conversion
-  under pressure — a dead instrument, floored regardless of skill text. Keep the burial (framing +
-  multi-part phrasing) in the live task; move any *inspect-first* step into the seed. **An own-file
-  inspect step is the exception with no home — remove it.** A step that inspects the op's *own* file
-  can't move to the seed (weaver-owned inspection is not a valid habit pre-step) and can't be made
-  satisfiable either: the canned-result map is keyed by tool, not path, and even a *coherent* read of
-  the target file lets the model answer from it and skip the mutating op — feeding a real source
-  dropped a buried-rename case *below* its incoherent-stub rate. Drop the step; keep the burial in
-  framing and a trailing post-op ask (`pressured-buried-rename`, [`eval-baselines.md`](eval-baselines.md) ‡).
-- **An embedded secondary step gates the metric on that step, not the tool.** A pressured task
-  that asks the model to *report/flag/inspect before acting* ("flag the risky matches before you
-  apply") can read low even with sound skill text and a faithful fixture: the model reasonably does
-  the sub-step first, then stops at it or over-verifies (re-grep, re-read) until the budget is gone,
-  while a plain declarative ask for the same change converts freely. Diagnose by removing *only* the
-  suspected step and re-measuring. Integrity guard: removing a confounding step is a fair clarity
-  fix, but lifting a rate by rewording the ask until the model complies is tuning the instrument to
-  pass — the tell is a rate that moves only under a multi-change rewrite, not a single isolated
-  removal.
-- **A paid run must never be wasted — capture output to a file, not `console.log`.** Vitest's
-  reporter swallows `console.log` from *passing* tests, so a spike run (which asserts nothing
-  gating) prints nothing and the run's data — which cost real money — is lost. Write
-  results with `fs.appendFileSync` to a known path as the trials run, so the output survives the
-  reporter regardless of pass/fail. Same reason to scope a spike tightly before running: at ~US$0.75
-  a run, a second run to recover lost output is a real cost, not a free retry.
-- **Selection is a rate; correctness is deterministic.** The agentic lane runs at temperature > 0
-  over N trials and reports a *rate* — selection under pressure is genuinely variable. The command
-  and two-step lanes run at temperature 0, single-shot — argument correctness on a clear task is
-  not, and a rate there would only add flakiness. Keep the boundary: a new check belongs in the
-  lane whose determinism matches what it measures.
+## What this predicts, and what it does not
 
-### Known limitation: Haiku is a proxy on the sampling axis
+**Predicts:**
+- Relative movement — an edit that drops a case's rate is a regression; one that flips a red green confirms a fix.
+- A robustness floor — text that steers the model that *has* the shell reflex is robust text.
+- Body → command correctness, argument fidelity, over-triggering, and convergence under pressure.
 
-Haiku 4.5 still accepts `temperature`, so the lane's 0 / 0.7 knobs are meaningful *for Haiku*. But
-the real audience — Claude Code on Opus/Sonnet — has no `temperature` parameter at all (it is
-removed on those models; sampling is governed by effort + adaptive thinking). So the eval's
-temperature settings are proxy-instrument properties, not audience-fidelity dials, and there is no
-host temperature to align them to. Consequence: `callModel` always sends a `temperature` field, so
-pointing the eval at a frontier Claude (Opus/Sonnet) would 400 — the harness is coupled to
-temperature-accepting models (Haiku).
+**Does not predict:**
+- Absolute trigger rates in **Claude Code, Cursor, or opencode**. The harness is one generic tool-calling host with synthetic clutter, not any real host's prompt or selection policy.
+- Whether a specific host's selection policy picks weaver — vendor policies differ.
+- Integration or file-state correctness — commands are asserted as strings, never executed. No daemon is involved.
+
+**The gap that would close it** is a harnessed end-to-end lane: a real agent host running real commands against a live daemon with file-state assertions. Queued in [`handoff.md`](handoff.md); evaluate Anthropic's [`skill-creator`](https://github.com/anthropics/skills) first, which productizes much of this shape (with/without runs, output grading, description optimization) — and consider **opencode** as the host, since being open-source it can likely expose the tool-call trail directly, closing the observability gap Claude Code's headless mode has (file-state inference only).
+
+**Harness reusability.** Weaver coupling is isolated to three points — `matchWeaverCommand` parses `weaver <sub>`, the competing tool set and canned results name the skills, and `context.ts` reads `.claude/skills/`. Re-targeting the harness at another tool is a swap of those, not a rebuild. The clutter prompt is deliberately weaver-free.
 
 ## Adding a new operation
 
 The coverage invariant (`eval/cases/coverage.test.ts`, runs in `pnpm check`) fails until:
 
-1. A command-stage case for the operation exists in `eval/cases/cases.ts` (kebab-case
-   subcommand, a task whose text determines the key arguments).
-2. `eval/fixtures/<operationName>.json` exists (camelCase, matching `OPERATION_NAMES`) —
-   model it on an existing fixture; it must look like real CLI stdout (see Working discipline —
-   fixtures are the scenario).
+1. A front-loaded case for the operation exists in `eval/cases/cases.ts` (kebab-case subcommand, a task whose text determines the key arguments).
+2. `eval/fixtures/<operationName>.json` exists (camelCase, matching `OPERATION_NAMES`) — model it on an existing fixture; it must look like real CLI stdout.
 
-Trigger cases are not per-operation — add one only when a new *skill* (or a materially new task
-category) ships.
-
-## Iteration path
-
-1. **Agentic trigger/rate lane** (above) — the current trigger-stage lane: eventual-operation
-   metric under host-like pressure, crediting sensible precursors a single-shot first-call metric
-   would score as losses; owns the boundary over-trigger guard, the first-call (`matchedAtStep`)
-   signal, and the non-gating args verdict.
-2. **Later candidates, queued in `docs/handoff.md`:** Agent SDK end-to-end runs (real bash, live
-   daemon, file-state assertions) — highest fidelity, but subsystem-sized and requires Anthropic
-   API access.
+Progressive cases are not per-operation — add one only when a new *skill*, or a materially new task category, ships.

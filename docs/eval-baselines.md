@@ -1,97 +1,133 @@
 # Eval Baselines
 
-**Purpose:** Run log of the hosted skill-file eval across models and dates, for regression and cross-model comparison. What the eval measures and why: [`eval-design.md`](eval-design.md). How to run: [`../eval/README.md`](../eval/README.md).
-**Audience:** Anyone comparing a new run against history, or evaluating a model as a canary/host.
+**Purpose:** The current per-case baseline for the sampled rate gate, plus the dated run history behind it. What the eval measures and how to read a run: [`eval-design.md`](eval-design.md). How to run it: [`../eval/README.md`](../eval/README.md).
+**Audience:** Anyone comparing a new run against history, or evaluating a model as an instrument.
 **Status:** Current
 
 ---
 
+## Current baseline
+
+Updated **in place** — this table is the reference a new run is read against. Move superseded numbers into the run history below rather than growing columns here.
+
+Conditions: sampled rate gate (`pnpm eval`), n=3 base trials escalating to 6 below the 2/3 floor, temperature omitted (model default sampling), pressured (clutter + per-case momentum), fixture-backed, via OpenRouter.
+
+| Case | Exposure | Haiku 4.5 (gate) | Gemini 2.5 Flash |
+|---|---|---|---|
+| trigger-refactor-rename | progressive | 3/3 | 3/3 |
+| trigger-refactor-rename-no-coords-sed-tempting | progressive | 3/3 | 3/3 |
+| trigger-refactor-move-file | progressive | 3/3 | 3/3 |
+| trigger-search-and-replace-pattern | progressive | 3/3 | 3/3 |
+| trigger-search-and-replace-todos-grep-tempting | progressive | 3/3 | 3/3 |
+| trigger-search-and-replace-sed-tempting | progressive | 3/3 | 3/3 |
+| trigger-code-inspection-find-references | progressive | 3/3 | 3/3 |
+| trigger-code-inspection-find-references-delete-intent | progressive | 3/3 | 3/3 |
+| trigger-code-inspection-get-type-errors | progressive | 3/3 | 3/3 |
+| **pressured-buried-rename** | progressive (3-turn) | 2/3 · **5/10 (n=10)** — false clear | 2/3 (1 content-fail) |
+| pressured-buried-replace-text-passive | progressive (3-turn) | 3/3 | 3/3 |
+| pressured-buried-find-references | progressive (3-turn) | 3/3 | 3/3 |
+| command-rename | front-loaded | 3/3 | 3/3 |
+| command-move-file | front-loaded | 3/3 | 3/3 |
+| command-move-directory | front-loaded | 3/3 | 3/3 |
+| command-move-symbol | front-loaded | 2/3 · 10/10 (n=10) | 3/3 |
+| command-find-importers | front-loaded | 3/3 | 3/3 |
+| command-find-references | front-loaded | 3/3 | 3/3 |
+| command-get-definition | front-loaded | 3/3 | 3/3 |
+| command-get-type-errors *(observational)* | front-loaded | 2/3 · 6/10 (n=10) | 4/6 |
+| command-search-text | front-loaded | 3/3 | 2/3 |
+| command-delete-file | front-loaded | 3/3 | 3/3 |
+| command-replace-text | front-loaded | 3/3 · **10/10 (n=10)** | 3/3 |
+| two-step-search-then-rename | front-loaded (seeded) | 3/3 | 3/3 |
+| **two-step-cat-then-extract** | front-loaded (seeded) | **3/6 — alarms** · 8/10 (n=10) | 3/3 |
+| boundary-bash-search-non-ts-project | boundary | 3/3 clean | 3/3 clean |
+| boundary-bash-remove-console-log | boundary | 3/3 clean | 3/3 clean |
+| **Cases cleared** (of 27) | | **26** | **27** |
+
+**Two cases sit at the floor, and n=3 resolves neither.** Widening both to n=10 inverted the gate's verdict on each:
+
+- `two-step-cat-then-extract` alarmed at 3/6 but measures **8/10** widened (pooled 11/16 ≈ 0.69, just above the floor). The alarm was substantially bad luck, not a clean red. It also matches the rubric's *canary-specific* pattern (Haiku marginal, Gemini 3/3), so it is low-urgency rather than an audience risk.
+- `pressured-buried-rename` **cleared at 2/3 while truly sitting at 5/10** — a false clear, and the more serious of the two. Its failures are `no attempt`: the model loads the skill, explores with `grep`/`search-text`, and never converges inside the 6-step budget.
+
+Both are tracked in [`handoff.md`](handoff.md). The practical rule this run established: **treat any 2/3 or 3/6 as unresolved and widen it before drawing a conclusion** — in either direction. A case at the floor is one draw from either verdict.
+
 ## How to record a run
 
-Run the full lane and capture per-case rates:
-
 ```bash
-pass-cli run --env-file .env -- env WEAVER_EVAL_MODEL=<slug> pnpm eval --disable-console-intercept
+pass-cli run --env-file .env -- pnpm eval --disable-console-intercept
+# cross-family sweep
+WEAVER_EVAL_MODEL=google/gemini-2.5-flash pass-cli run --env-file .env -- pnpm eval --disable-console-intercept
 ```
 
-Add a column to the table below with the per-case trial rate (`matched/total`, or `clean/total` for boundary rows). Per-case rates are the ground truth — any aggregate score derives from them, so record these even if a summary metric changes. Note the run's headline failure modes under the table.
-
-Each skill-trigger case now also prints a four-tier outcome composition (`clean-pass` / `warned-pass` / `content-fail` / `never-reached` — see [`eval-design.md`](eval-design.md) *Content vs. exposure*). For a **cross-model** run, record the composition of any non-3/3 case, not just the rate: it separates a body weaver can fix (`content-fail`) from host-exposure noise it can't (`warned-pass`), which is the whole point of running a non-Claude model. A `warned-pass` or `content-fail` seen only on non-Claude models is a host/model signal, not a regression in the skills.
-
-All runs below: **n=3 trials**, temperature 0.7 (agentic) / 0 (command + two-step), fixture-backed, via OpenRouter.
+Per-case rates are the ground truth — any aggregate derives from them, so record these even if a summary metric changes. For a **cross-model** run, record the four-tier outcome composition of any non-ceiling case, not just the rate: it separates a body weaver can fix (`content-fail`) from host-exposure noise it cannot (`warned-pass`). Update the table above in place and add a dated entry below.
 
 ---
 
-## Runs
+## Run history
 
-| Case | Lane | Haiku 4.5 | DeepSeek V3 | Gemini 2.5 Flash |
-|---|---|---|---|---|
-| _date_ | | 2026-07-23 | 2026-07-23 | 2026-07-23 | 2026-07-23 |
-| _slug_ | | `anthropic/claude-haiku-4.5` | `deepseek/deepseek-chat` | `google/gemini-2.5-flash` | `google/gemini-3.5-flash-lite` |
-| Command lane (11 single-shot) | command | 11/11 | 10/11 | 11/11 | 11/11 |
-| trigger-refactor-rename | agentic (gating) | 3/3 | 1/3 | 3/3 | 3/3 |
-| trigger-refactor-rename-no-coords-sed-tempting | agentic (gating) | 3/3 | 3/3 | 3/3 | 1/3 |
-| trigger-refactor-move-file | agentic (gating) | 3/3 | 3/3 | 3/3 | 3/3 |
-| trigger-search-and-replace-pattern | agentic (gating) | 3/3 | 1/3 | 3/3 | 3/3 |
-| trigger-search-and-replace-todos-grep-tempting | agentic (gating) | 3/3 | 1/3 | 3/3 | 3/3 |
-| trigger-search-and-replace-sed-tempting | agentic (gating) | 3/3 | 3/3 | 3/3 | 3/3 |
-| trigger-code-inspection-find-references | agentic (gating) | 3/3 | 2/3 | 3/3 | 3/3 |
-| trigger-code-inspection-find-references-delete-intent | agentic (gating) | 3/3 | 3/3 | 3/3 | 3/3 |
-| trigger-code-inspection-get-type-errors | agentic (gating) | 3/3 | 1/3 | 3/3 | 3/3 |
-| pressured-buried-rename ‡ | agentic (observational) | 3/3 | 0/3 | 0/3† | 0/3 |
-| pressured-buried-replace-text-active | agentic (observational) | 3/3 | 2/3 | 3/3 | 2/3 |
-| pressured-buried-replace-text-passive | agentic (observational) | 3/3 | 0/3 | 3/3† | 3/3 |
-| pressured-buried-search-text | agentic (observational) | 2/3 | 2/3 | 2/3 | 0/3 |
-| pressured-buried-find-references | agentic (observational) | 3/3 | 1/3 | 3/3 | 0/3 |
-| boundary-bash-search-non-ts-project | boundary (clean) | 3/3 | 3/3 | 3/3 | 2/3 (over-trig) |
-| boundary-bash-remove-console-log | boundary (clean) | 3/3 | 2/3 | 3/3 | 3/3 |
-| two-step-search-then-rename | two-step | pass | fail | pass | pass |
-| two-step-cat-then-extract | two-step | fail | fail | pass | pass |
-| **Cases passed** (of 29) | | **28** | **21** | **27**† | **27** (2 gated fails) |
-| **Run cost (USD)** | | **$0.962** | **$0.247** | **$0.0986** | **$0.252** |
+### 2026-07-26 — first run under the unified sampled rate gate
 
-Cost is the full-lane, n=3 run price via OpenRouter, and tracks tokens, not wall time. DeepSeek ran ~2.5× slower than Haiku yet cost ~4× less (low per-token price). Gemini 3.5 Flash Lite is the surprise: **same nominal $/token as 2.5-flash but ~2.5× the run cost** ($0.252 vs $0.0986) despite a *faster* run with shorter/empty visible outputs — it burned ~2.5× more tokens, most likely hidden reasoning tokens billed at the output rate (3.5 being a thinking model; not confirmed against a token breakdown). Net verdict: **Gemini 2.5 Flash dominates** — cheapest (~10× under Haiku) and, on completed cases, highest quality of the non-Claude runs (matched Haiku on every gating case, passed both two-step). 3.5 Flash Lite is dominated: ~2.5× the cost *and* lower quality (collapses under momentum pressure — 0/3 on three buried cases), marking the lite-tier boundary. DeepSeek is cheap-ish but confabulates edits (see below).
+The baseline above. This run is also the real-path verification of the gate itself: escalation fired for the first time (`two-step-cat-then-extract` went below the floor at n=3, escalated to 6, alarmed at 3/6), observational reporting printed a non-gating rate, and `finish_reason` plus full bash command strings appeared in every trail.
 
-† **These two 2.5-flash cells crashed on the first run and are backfilled from a post-fix re-run.** The first run threw when 2.5-flash hallucinated a skill as a directly-callable tool with an **underscore** name (`weaver_code_inspection`) — the guard matched only hyphenated names, so the underscore variant fell through and crashed the trial. Fixed in commit `50d6285`: any undeclared tool now gets a host "no such tool" error and is graded. The re-run **verified the fix on the real path** — the same underscore hallucination recurred (`pressured-buried-rename` trials) and was handled gracefully, so the case graded 0/3 instead of crashing. Caveat: the re-run also showed n=3 variance vs the first run (`rename-no-coords` 3/3→1/3, `pressured-buried-search-text` 2/3→0/3), so read single-run per-cell rates as indicative, not exact — this column mixes the two runs. The `pressured-buried-rename` spread here (0/3 for every non-Claude model, only Haiku 3/3) read like a skill signal but was later traced to a dead instrument, not skill text — see ‡ below (corrected 2026-07-24).
+Two standing `[needs investigation]` entries were resolved or corrected by measurement:
 
-‡ This row's non-Claude `0/3` was a dead instrument, not a skill signal — the task's leading inspect step targeted the op's own file, which the harness cannot read coherently, so literal models stalled (general rule: [`eval-design.md`](eval-design.md) Working discipline, "own-file inspect step"). Clause removed 2026-07-24; post-fix single-case runs: Gemini 2.5 Flash 6/6 (n=6), Haiku 11/12 (n=12).
+- **`replace-text` reaching for `sed` at rate — not reproduced.** The 2026-07-24 record had it at 2/5 with `find … -exec sed -i`. Re-measured at **10/10 with zero `sed`**, meeting the n≥10 bar that entry itself set. Neither obvious confounder explains the gap: the new condition omits `temperature` entirely (so the provider default, *higher* than the old forced 0.7), and every one of the 10 matched on the **first** call, so the wider step budget is not rescuing it. The likeliest reading is that n=5 was thin — which the entry anticipated. Entry removed.
+- **`two-step-cat-then-extract` fails by a different mechanism than recorded.** The 2026-07-23 entry describes the model staging extract-function *JSON args* to a temp file. Observed here instead: it rewrites the **source file** with a heredoc (`cat > …/auth.ts << 'EOF'`), performing the extraction by hand, in 2 of 6 trials; a third trial emitted no tool call at all. The entry's mechanism description needs correcting; root cause remains unconfirmed.
 
-### Buried-case routing spike (2026-07-24)
+The heredoc rewrite also validates the gate's destructive-scope decision: truncating a source file is destructive, the hard-fail rule deliberately does not cover raw shell, and the sampled rate caught it anyway.
 
-Spike at **n=6 on Haiku** (the canary/gate model; rename already had n=12) to route each `pressured-buried-*` case gate-or-delete. Rule: a case gates only if it converges comfortably above the 2/3 floor (≥5/6) *and* the trail shows it converging; a case at the knife-edge or exploring the shell instead of converging is measuring temp-0.7 task ambiguity, not skill text, and is deleted.
+**Gemini 2.5 Flash sweep, same day:** 27/27 cleared. Notable divergences from Haiku — it clears `two-step-cat-then-extract` 3/3 and `command-move-symbol` 3/3, but is marginal where Haiku is clean (`command-search-text` 2/3) and escalated on `command-get-type-errors` (4/6). No case is red on Gemini and green on Haiku, so no inverted-canary alarm.
 
-| Case | Haiku spike | Trail | Routing |
-|---|---|---|---|
-| `pressured-buried-rename` | 11/12 (n=12) | converges | **gate** |
-| `pressured-buried-replace-text-passive` | 6/6 | single-shot `replace-text`, args correct | **gate** |
-| `pressured-buried-find-references` | 6/6 | converges, args correct | **gate** |
-| `pressured-buried-replace-text-active` | 6/6 | converges but **args wrong** (surgical-edits path); same op/fixture as passive | **delete** (kept passive — cleaner args, harder discriminator) |
-| `pressured-buried-search-text` | 4/6 | 2 fails **explore with grep/find/awk**, never reach weaver | **delete** (knife-edge; measures temp-0.7 task ambiguity, not skill text — single-shot search-text emission is covered deterministically by the pressured-emission `command-search-text` case) |
+**Widening the four ambiguous cases (Haiku, n=10).** Two of four gate verdicts inverted:
 
-Gate confirmation (n=3, default lane, gating assertion active): rename 3/3, replace-text-passive 3/3, find-references 3/3 — all clean-pass.
+| Case | Gate verdict (n=3) | Widened (n=10) |
+|---|---|---|
+| `two-step-cat-then-extract` | 3/6 — alarmed | **8/10** |
+| `pressured-buried-rename` | 2/3 — cleared | **5/10** |
+| `command-move-symbol` | 2/3 — cleared | 10/10 |
+| `command-get-type-errors` | 2/3 — observational | 6/10 |
 
-### Pressured emission lane (single-shot × pressured)
+`pressured-buried-rename` was **11/12** at the 2026-07-24 spike, so 5/10 is a real drop. A one-variable A/B suggests the sampling condition: forcing `WEAVER_EVAL_TEMPERATURE=0.7` (the old condition) gave **8/10** against **5/10** with the field omitted. **This is not confirmed** — two-tailed Fisher p = 0.35 at n=10 per arm, indistinguishable from chance. Recorded as a theory needing a powered test, not a cause; see the `[needs investigation]` entry in [`handoff.md`](handoff.md).
 
-`pressured-emission.llm.test.ts` — the command cases wrapped in a clutter system prompt + a 3-turn habit-momentum seed, bash-only, **temp 0 (deterministic, n=1)**. Grades single-shot emission (command + `keyArgs`) under host pressure. Baseline **2026-07-24** (after decision-path skill hardening):
+### Superseded conditions
 
-**Read this lane's verdicts as a fingerprint, not a rate.** Temperature 0 is greedy decoding: one fixed path, chosen token-by-token, which is not the same as the model's most likely *response*. A case can fail at temp 0 while succeeding most of the time under sampling, and vice versa. The lane reports both false alarms and false clears, and a single run cannot tell a 10/10 case from a 6/10 one. Use it to detect that something changed; sample at n≥5 before concluding anything about a case.
+Everything below was measured under the retired lane structure — temperature-0 single-shot command, pressured-emission, and two-step lanes, plus a temp-0.7 agentic lane. **Rates are not directly comparable to the table above:** the current gate samples at the model's default temperature, requires correct `keyArgs` on the progressive exposure (the old trigger lane gated on subcommand alone), and runs every case under pressure.
 
-| Case | Haiku, temp 0, n=1 (what the lane gates on) | Haiku, temp 0.7, n=5 |
+#### 2026-07-24 — pressured emission, temp 0 vs temp 0.7
+
+The measurement that motivated retiring temperature-0 gating. Read the temp-0 column as a fingerprint, not a rate.
+
+| Case | Haiku, temp 0, n=1 (what gated) | Haiku, temp 0.7, n=5 |
 |---|---|---|
 | rename, move-symbol, find-importers, find-references, get-definition, search-text, delete-file | held | 5/5 |
 | move-file | held | 4/5 (`mkdir` + `mv`) |
 | move-directory | held | 4/5 (`mv`) |
-| **replace-text** | held — gates | **2/5** (`find … -exec sed -i`) |
-| **get-type-errors** | **fell back → `npx tsc`** (4/4) — runs as `it.fails`, not gated | **3/5** |
+| **replace-text** | held — gated green | **2/5** (`find … -exec sed -i`) |
+| **get-type-errors** | **fell back → `npx tsc`** (4/4) | **3/5** |
 
-The two bolded rows are where the temp-0 verdict inverts the rate: `get-type-errors` is gated as a known failure yet passes more often than not, while `replace-text` gates green yet rewrites the project with `sed` in three runs of five. Handoff carries both — the `replace-text` hole as `[needs investigation]`, the lane design as a proposal to explore.
+The two bolded rows invert: one gated green at a true 2/5, the other gated red while passing more often than not. Both directions of error in one lane — the direct evidence for sampling.
 
-**Cross-model (Gemini 2.5 Flash, n=10, temp 0.7).** `get-type-errors`, `replace-text`, `move-file`, `move-directory`, `find-importers`, `search-text`, `delete-file` all 10/10; `get-definition` 8/10; `rename` and `move-symbol` **0/10**; `find-references` **1/10**. **The zero-rate cells are an instrument artifact, not model behaviour (probed 2026-07-25).** Replaying the exact lane request at temp 0 and capturing the raw response shows Gemini selecting the correct weaver op with correct args every time, expressed as a hallucinated *native tool call* rather than a bash command — `weaver_refactor_rename({file, line: 12, col: 8, newName: "accountId"})`, `find_references({file, line: 5, col: 17})`, and a python-style `weaver_code_inspection(tool_code: …get_definition(…))` wrapper; `native_finish_reason: UNEXPECTED_TOOL_CALL` on all three. The lane's `extractBashCommands` drops non-bash tool calls silently and reports "(no bash call)", and the single-shot shape has no turn to feed back the "no such tool" error a real host would return — the retry that convention stumble gets in practice. The multi-turn loop already handles this class (`classifySkillReach`). So Gemini is not bimodal: with the artifact removed it is saturated-correct on the emission set, including 10/10 on both cases Haiku is marginal on (`replace-text` 2/5, `get-type-errors` 3/5). Gemini is still no sampling proxy for Haiku, but for the opposite reason to the one first recorded: it is too strong to show Haiku's shell-fallback gradients — the tuning instrument must be the model that actually exhibits the reflex. (Gemini's trigger lane also over-triggered `boundary-bash-remove-console-log`.)
+#### 2026-07-24 — buried-case routing spike (Haiku, n=6)
 
-**Pre-hardening (reference).** Before the skills carried decision-path routers, Haiku fell back on `find-importers` → `grep`, `search-text` → `grep`, and `get-type-errors` → `npx tsc`. `move-directory` *appeared* to hold, but only because the skill example encoded the case's own `src/utils` path — removing that echo exposed a genuine `mkdir`+`mv` fallback (since fixed by the router's `Never: mkdir + mv` row). The cross-model spike showed Gemini 2.5 Flash instead dropped `move-file` → `mv`: the fallback tracks the shell verb the seed primes, per model. All fallbacks are habit transfer, not copied precedents — the momentum seed is weaver-orthogonal. Every one of these was found and fixed at temp 0 and none was measured at rate before or after, so how much of that hardening addressed a real failure rather than a greedy-path artifact is unknown.
+Routed each `pressured-buried-*` case gate-or-delete; a case gated only if it converged comfortably above the floor *and* the trail showed convergence.
 
-### Headline findings per run
+| Case | Spike | Routing |
+|---|---|---|
+| `pressured-buried-rename` | 11/12 (n=12) | gate |
+| `pressured-buried-replace-text-passive` | 6/6 | gate |
+| `pressured-buried-find-references` | 6/6 | gate |
+| `pressured-buried-replace-text-active` | 6/6, **args wrong** | delete (kept passive — cleaner args) |
+| `pressured-buried-search-text` | 4/6, 2 fails explore with grep/find/awk | delete (knife-edge; measures task ambiguity, not skill text) |
 
-**Haiku 4.5 (canary).** Passes every gating case at the floor. Standing reds unrelated to model quality: `two-step-cat-then-extract` (model stages extract-function args to a temp file, never emits the command — [handoff `[needs investigation]`]) and `pressured-buried-search-text` at 2/3 (loads the skill under momentum but explores with grep/find instead of converging). `pressured-buried-rename` 3/3 here is not a skill read — the case was a dead instrument (‡); true Haiku rate ~11/12 (n=12).
+#### 2026-07-23 — cross-model run (retired lane structure)
 
-**DeepSeek V3.** Two behaviours, neither a weaver skill defect. (1) It calls skill *names as tools* (`weaver-refactor(...)`) instead of loading via `Skill()`/`Read`. But *how a host exposes a skill to the model is host integration, not skill content* — the harness models one exposure, so this is a test-setup/host artifact with nothing in `src/` to change; the harness answers "no such tool" and a capable model recovers. (2) After that error, DeepSeek **fabricates a result and reports fake success** without ever running weaver (e.g. "47 occurrences replaced" after a partial `sed` on 2 of 3 files) — a model confabulation weakness Claude does not share. Also over-triggered one boundary trial. Not a compelling canary swap: 2.5× slower, and its misses are model/host-shaped noise, not evidence about whether the skill *content* is usable — which is what the eval exists to measure.
+| Case group | Haiku 4.5 | DeepSeek V3 | Gemini 2.5 Flash | Gemini 3.5 Flash Lite |
+|---|---|---|---|---|
+| Command lane (11 single-shot) | 11/11 | 10/11 | 11/11 | 11/11 |
+| Cases passed (of 29) | 28 | 21 | 27 | 27 |
+| Run cost (USD) | $0.962 | $0.247 | $0.0986 | $0.252 |
+
+Cost tracks tokens, not wall time. DeepSeek ran ~2.5× slower than Haiku yet cost ~4× less. Gemini 3.5 Flash Lite is dominated — same nominal $/token as 2.5-flash but ~2.5× the run cost (likely hidden reasoning tokens billed at the output rate) *and* lower quality.
+
+**DeepSeek V3** showed two behaviours, neither a skill defect: it calls skill *names as tools* rather than loading them (host-integration artifact the harness now absorbs), and after that error it **fabricates a result and reports fake success** without running weaver — a confabulation weakness Claude does not share. Not a compelling instrument swap.
+
+**The 2026-07-25 Gemini zero-rate correction.** An earlier record had Gemini at 0/10 on `rename`/`move-symbol` and 1/10 on `find-references`. That was an instrument artifact: Gemini selected the correct op with correct args every time, expressed as a hallucinated *native* tool call (`weaver_refactor_rename({...})`, `native_finish_reason: UNEXPECTED_TOOL_CALL`). The retired single-shot lane's `extractBashCommands` dropped non-bash calls silently and reported "(no bash call)", with no turn in which to feed back the "no such tool" error a real host returns. Both holes are closed in the current gate — the trail prints every call and `finish_reason`, and the loop feeds the error back. This is the origin of the front-loaded exposure's 3-step budget.
