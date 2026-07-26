@@ -2,10 +2,10 @@ import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { OPERATION_NAMES } from "../../src/daemon/dispatcher.js";
 import { FIXTURES_DIR, operationToSubcommand } from "../harness/fixtures.js";
-import { CASES } from "./cases.js";
+import { CASES, isFrontLoadedCase } from "./cases.js";
 
-const commandCases = CASES.filter((c) => c.stage === "command");
-const commandSubcommands = new Set(commandCases.map((c) => c.expect.command).filter(Boolean));
+const commandCases = CASES.filter(isFrontLoadedCase);
+const commandSubcommands = new Set(commandCases.map((c) => c.expect.command));
 
 describe("eval case coverage", () => {
   describe("operation coverage", () => {

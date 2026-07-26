@@ -6,10 +6,10 @@ afterEach(() => {
   delete process.env.WEAVER_EVAL_CLEAN;
 });
 
-function baseCase(overrides: Partial<CaseEntry> = {}): CaseEntry {
+function baseCase(overrides: Partial<Pick<CaseEntry, "task" | "momentumTurns">> = {}): CaseEntry {
   return {
     name: "test-case",
-    stage: "trigger",
+    exposure: "progressive",
     task: "rename the function processUser to handleAccount in src/",
     expect: { skill: "weaver-refactor", command: "rename" },
     ...overrides,

@@ -1,69 +1,148 @@
 import type { SkillName } from "../harness/context.js";
 import { loadFixture } from "../harness/fixtures.js";
 
-export interface CaseEntry {
+/** Which turn of the run a case's op is expected to surface at. */
+export type Exposure = "progressive" | "front-loaded";
+
+/**
+ * Marks a case as tracking a known-weak model reflex rather than gating the
+ * run: its rate is still measured and printed, but never fails the case.
+ * `since` (`YYYY-MM-DD`) and `reason` (`"<reflex> — <rate> at demotion"`) keep
+ * the marking dated and re-checkable at a later full run, rather than a
+ * standing excuse nobody revisits.
+ */
+export interface ObservationalMarker {
+  since: string;
+  reason: string;
+}
+
+interface CaseBase {
   name: string;
-  stage: "trigger" | "command";
   task: string;
   /**
-   * A two-step case's seeded step-1 result. `step1Command` is the realistic
-   * command the assistant "ran" (a `weaver` op, or a plain shell read like
-   * `cat`); `fixture` is the fixture filename (extension included) whose content
-   * is fed back as the step-1 tool result.
+   * Turns of true-shell momentum the harness prepends before the task (see
+   * `buildHabitMomentumSeed`). Absent defaults to `1`; `WEAVER_EVAL_CLEAN`
+   * drops it to `0` regardless of this value.
    */
-  seed?: { step1Command: string; fixture: string };
+  momentumTurns?: number;
+  /**
+   * Overrides the canned result fed back for specific tool calls this case's
+   * run makes, keyed by weaver subcommand (e.g. "search-text") or tool name
+   * (e.g. "bash"). Absent keys fall through to the harness's global
+   * defaults — see `cannedToolResult` in `eval/harness/agentic-loop.ts`.
+   */
+  cannedResults?: Record<string, string>;
+}
+
+/**
+ * The model must reach for the named skill (rather than the shell directly)
+ * and land on the right weaver command with the right args.
+ */
+export interface ProgressiveOpCase extends CaseBase {
+  exposure: "progressive";
   expect: {
-    /**
-     * The expected first tool selection at the trigger stage: a skill name, or
-     * "bash" for boundary cases that must stay in the shell (guards against a
-     * description over-triggering and stealing legitimate shell work).
-     */
-    skill?: SkillName | "bash";
-    command?: string;
+    skill: SkillName;
+    command: string;
+    keyArgs?: Record<string, unknown>;
+  };
+  observational?: ObservationalMarker;
+}
+
+/**
+ * Legitimate shell/Edit work that must stay in `bash` — guards against a
+ * skill description over-triggering and stealing a task no skill should
+ * claim. No command to converge on, so no rate to demote: an observational
+ * marker is meaningless here.
+ */
+export interface BoundaryCase extends CaseBase {
+  exposure: "progressive";
+  expect: {
+    skill: "bash";
+  };
+}
+
+/**
+ * The full skill body is already in context; the model only has to emit the
+ * right weaver command with the right args.
+ */
+export interface FrontLoadedCase extends CaseBase {
+  exposure: "front-loaded";
+  expect: {
+    command: string;
     keyArgs?: Record<string, unknown>;
   };
   /**
-   * Overrides the canned result fed back for specific tool calls the agentic
-   * lane makes during this case, keyed by weaver subcommand (e.g.
-   * "search-text") or tool name (e.g. "bash"). Absent keys fall through to
-   * the harness's global defaults — see `cannedToolResult` in
-   * `eval/harness/agentic-loop.ts`. Empty/absent is the common case; only a
-   * multi-hop scenario that needs a realistic intermediate result sets this.
+   * A pre-seeded step-1 tool result — this case's own prior turn (e.g. a
+   * `search-text` or `cat` the model already "ran"). Distinct from the
+   * harness's habit-momentum seed built by `seedForCase`/`buildHabitMomentumSeed`,
+   * which is weaver-orthogonal shell noise, not part of the task itself.
+   * `step1Command` is the realistic command the assistant "ran" (a `weaver`
+   * op, or a plain shell read like `cat`); `fixture` is the fixture filename
+   * (extension included) whose content is fed back as the step-1 tool result.
    */
-  cannedResults?: Record<string, string>;
-  /**
-   * Turns of true-shell momentum the agentic trigger lane prepends before
-   * the task (see `buildHabitMomentumSeed`). Absent defaults to `1`. Only
-   * the agentic trigger lane reads this field.
-   */
-  momentumTurns?: number;
+  seed?: { step1Command: string; fixture: string };
+  observational?: ObservationalMarker;
 }
 
-/** Eagerly validates all seed operations at module load. */
+export type CaseEntry = ProgressiveOpCase | BoundaryCase | FrontLoadedCase;
+/** Either op-case variant — the ones an observational marker can apply to. */
+export type OpCase = ProgressiveOpCase | FrontLoadedCase;
+
+export function isProgressiveOpCase(entry: CaseEntry): entry is ProgressiveOpCase {
+  return entry.exposure === "progressive" && entry.expect.skill !== "bash";
+}
+
+export function isBoundaryCase(entry: CaseEntry): entry is BoundaryCase {
+  return entry.exposure === "progressive" && entry.expect.skill === "bash";
+}
+
+export function isFrontLoadedCase(entry: CaseEntry): entry is FrontLoadedCase {
+  return entry.exposure === "front-loaded";
+}
+
+const OBSERVATIONAL_SINCE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function validateObservational(entry: OpCase): void {
+  const marker = entry.observational;
+  if (!marker) return;
+  if (!OBSERVATIONAL_SINCE_PATTERN.test(marker.since)) {
+    throw new Error(
+      `Case "${entry.name}" observational.since must be "YYYY-MM-DD", got "${marker.since}"`,
+    );
+  }
+  if (marker.reason.trim() === "") {
+    throw new Error(`Case "${entry.name}" observational.reason must not be empty`);
+  }
+}
+
+/** Eagerly validates all seed fixtures and observational markings at module load. */
 function validateCases(entries: CaseEntry[]): CaseEntry[] {
   for (const entry of entries) {
-    if (entry.seed) {
+    if (isFrontLoadedCase(entry) && entry.seed) {
       loadFixture(entry.seed.fixture);
+    }
+    if (!isBoundaryCase(entry)) {
+      validateObservational(entry);
     }
   }
   return entries;
 }
 
 export const CASES: CaseEntry[] = validateCases([
-  // ── Trigger-stage cases ───────────────────────────────────────────────────
+  // ── Progressive cases ────────────────────────────────────────────────────
   // Each case tests that the model reaches for a skill rather than calling
   // bash directly. At least one case per skill; sed/grep-tempting cases
   // provide signal on whether trigger descriptions are strong enough.
 
   {
     name: "trigger-refactor-rename",
-    stage: "trigger",
+    exposure: "progressive",
     task: "`userId` is at line 12, column 8 of /tmp/weaver-eval/src/auth.ts — rename it to `accountId` everywhere in the project.",
     expect: { skill: "weaver-refactor", command: "rename", keyArgs: { newName: "accountId" } },
   },
   {
     name: "trigger-refactor-rename-no-coords-sed-tempting",
-    stage: "trigger",
+    exposure: "progressive",
     task: "Rename the variable `userId` to `accountId` across all TypeScript files in /tmp/weaver-eval/src. I don't have the line numbers.",
     expect: { skill: "weaver-refactor", command: "rename", keyArgs: { newName: "accountId" } },
     // A rename without coordinates needs a search precursor to locate `userId`
@@ -74,7 +153,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "trigger-refactor-move-file",
-    stage: "trigger",
+    exposure: "progressive",
     task: "Move /tmp/weaver-eval/src/auth.ts to /tmp/weaver-eval/src/authentication/auth.ts and update all imports.",
     expect: {
       skill: "weaver-refactor",
@@ -84,7 +163,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "trigger-search-and-replace-pattern",
-    stage: "trigger",
+    exposure: "progressive",
     task: 'Replace all occurrences of "v1" with "v2" across the project, including in comments.',
     expect: {
       skill: "weaver-search-and-replace",
@@ -98,7 +177,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "trigger-search-and-replace-todos-grep-tempting",
-    stage: "trigger",
+    exposure: "progressive",
     task: "Find all the TODO comments in /tmp/weaver-eval/src — I need the file, line number, and context around each one.",
     expect: {
       skill: "weaver-search-and-replace",
@@ -108,7 +187,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "trigger-search-and-replace-sed-tempting",
-    stage: "trigger",
+    exposure: "progressive",
     task: 'Replace every occurrence of the string "v1" with "v2" in all TypeScript source files under /tmp/weaver-eval/src. Make sure to get comments too.',
     expect: {
       skill: "weaver-search-and-replace",
@@ -119,7 +198,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "trigger-code-inspection-find-references",
-    stage: "trigger",
+    exposure: "progressive",
     task: "Where is `authenticate` used? It's at line 5, column 17 of /tmp/weaver-eval/src/auth.ts.",
     expect: {
       skill: "weaver-code-inspection",
@@ -129,7 +208,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "trigger-code-inspection-find-references-delete-intent",
-    stage: "trigger",
+    exposure: "progressive",
     task: "I want to delete `parseToken` — it's at line 10, column 17 of /tmp/weaver-eval/src/auth.ts. What's using it before I remove it?",
     expect: {
       skill: "weaver-code-inspection",
@@ -139,7 +218,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "trigger-code-inspection-get-type-errors",
-    stage: "trigger",
+    exposure: "progressive",
     task: "Are there any TypeScript errors in /tmp/weaver-eval/src/auth.ts? I want to check before I start refactoring.",
     expect: { skill: "weaver-code-inspection", command: "get-type-errors" },
   },
@@ -157,7 +236,7 @@ export const CASES: CaseEntry[] = validateCases([
 
   {
     name: "pressured-buried-rename",
-    stage: "trigger",
+    exposure: "progressive",
     // No leading "check what's exported, then …" inspect step: it targets the
     // op's own file, which the harness can't read coherently, so a literal model
     // stalls on the stub instead of renaming (Gemini 0/6). A coherent read does
@@ -176,7 +255,7 @@ export const CASES: CaseEntry[] = validateCases([
   // search-then-replace trajectory has real hits to act on.
   {
     name: "pressured-buried-replace-text-passive",
-    stage: "trigger",
+    exposure: "progressive",
     task: "We're doing a version bump across the repo: replace every `v1` with `v2`, comments included.",
     momentumTurns: 3,
     expect: {
@@ -188,7 +267,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "pressured-buried-find-references",
-    stage: "trigger",
+    exposure: "progressive",
     task: "I'm prepping the auth module for release: skim the recent commits, then find everything using `authenticate` at line 5, column 17 of /tmp/weaver-eval/src/auth.ts, and note anything odd in the changelog.",
     momentumTurns: 3,
     expect: {
@@ -206,24 +285,24 @@ export const CASES: CaseEntry[] = validateCases([
 
   {
     name: "boundary-bash-search-non-ts-project",
-    stage: "trigger",
+    exposure: "progressive",
     task: "Search for `API_KEY` across the Python files in /tmp/weaver-eval-py.",
     expect: { skill: "bash" },
   },
   {
     name: "boundary-bash-remove-console-log",
-    stage: "trigger",
+    exposure: "progressive",
     task: "Remove the leftover `console.log('debug')` on line 15 of /tmp/weaver-eval/src/app.ts.",
     expect: { skill: "bash" },
   },
 
-  // ── Command-stage cases ───────────────────────────────────────────────────
+  // ── Front-loaded cases ───────────────────────────────────────────────────
   // Each case tests that the model emits the correct `weaver <subcommand>` call
   // with the right key arguments. The full skill content is in context.
 
   {
     name: "command-rename",
-    stage: "command",
+    exposure: "front-loaded",
     task: "`userId` is at line 12, column 8 of /tmp/weaver-eval/src/auth.ts — rename it to `accountId` everywhere in the project.",
     expect: {
       command: "rename",
@@ -232,7 +311,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "command-move-file",
-    stage: "command",
+    exposure: "front-loaded",
     task: "Move /tmp/weaver-eval/src/auth.ts to /tmp/weaver-eval/src/authentication/auth.ts.",
     expect: {
       command: "move-file",
@@ -241,7 +320,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "command-move-directory",
-    stage: "command",
+    exposure: "front-loaded",
     task: "Move the /tmp/weaver-eval/src/utils directory to /tmp/weaver-eval/src/lib/helpers.",
     expect: {
       command: "move-directory",
@@ -250,7 +329,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "command-move-symbol",
-    stage: "command",
+    exposure: "front-loaded",
     task: "Move the exported function `parseToken` from /tmp/weaver-eval/src/auth.ts to /tmp/weaver-eval/src/utils/token.ts.",
     expect: {
       command: "move-symbol",
@@ -259,7 +338,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "command-find-importers",
-    stage: "command",
+    exposure: "front-loaded",
     task: "Which files import /tmp/weaver-eval/src/auth.ts?",
     expect: {
       command: "find-importers",
@@ -268,7 +347,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "command-find-references",
-    stage: "command",
+    exposure: "front-loaded",
     task: "Find all references to the symbol `authenticate` at line 5, column 17 of /tmp/weaver-eval/src/auth.ts.",
     expect: {
       command: "find-references",
@@ -277,24 +356,33 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "command-get-definition",
-    stage: "command",
+    exposure: "front-loaded",
     task: "Where is `User` actually defined? I'm looking at line 8, column 12 of /tmp/weaver-eval/src/api.ts.",
     expect: {
       command: "get-definition",
       keyArgs: { file: "/tmp/weaver-eval/src/api.ts" },
     },
   },
+  // Haiku's single most-habituated check-for-errors reflex is `npx tsc`, not
+  // `weaver get-type-errors` — a decision-path router with an explicit
+  // "Never: tsc/npx tsc" row still doesn't hold it under momentum, unlike the
+  // sibling reflexes (search-text, find-importers, move-directory) the same
+  // router style did hold. See docs/eval-baselines.md for the measured rate.
   {
     name: "command-get-type-errors",
-    stage: "command",
+    exposure: "front-loaded",
     task: "Are there any TypeScript errors in /tmp/weaver-eval/src/auth.ts?",
     expect: {
       command: "get-type-errors",
     },
+    observational: {
+      since: "2026-07-24",
+      reason: "tsc reflex — 3/5 at demotion",
+    },
   },
   {
     name: "command-search-text",
-    stage: "command",
+    exposure: "front-loaded",
     task: "Find all TODO comments in /tmp/weaver-eval/src — file, line, and surrounding context.",
     expect: {
       command: "search-text",
@@ -303,7 +391,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "command-delete-file",
-    stage: "command",
+    exposure: "front-loaded",
     task: "Delete /tmp/weaver-eval/src/old-helper.ts and clean up all its imports.",
     expect: {
       command: "delete-file",
@@ -312,7 +400,7 @@ export const CASES: CaseEntry[] = validateCases([
   },
   {
     name: "command-replace-text",
-    stage: "command",
+    exposure: "front-loaded",
     task: 'Replace every occurrence of "v1" with "v2" across all TypeScript files in the project.',
     expect: {
       command: "replace-text",
@@ -326,7 +414,7 @@ export const CASES: CaseEntry[] = validateCases([
 
   {
     name: "two-step-search-then-rename",
-    stage: "command",
+    exposure: "front-loaded",
     task: "Rename `userId` to `accountId` everywhere in the project. It's in /tmp/weaver-eval/src/auth.ts but I don't have the line number.",
     seed: {
       step1Command: `weaver search-text '{"pattern":"userId"}'`,
@@ -341,7 +429,7 @@ export const CASES: CaseEntry[] = validateCases([
     // The task gives the line range, but the model reads the file first; the
     // seed carries that `cat` so the asserted follow-up is the extract itself.
     name: "two-step-cat-then-extract",
-    stage: "command",
+    exposure: "front-loaded",
     task: "Extract lines 10–20 of /tmp/weaver-eval/src/auth.ts into a new function called `hashPassword`.",
     seed: {
       step1Command: "cat /tmp/weaver-eval/src/auth.ts",

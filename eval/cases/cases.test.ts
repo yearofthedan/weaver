@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { cannedToolResult } from "../harness/agentic-loop.js";
 import type { ToolCall } from "../harness/call-model.js";
 import { loadFixture } from "../harness/fixtures.js";
-import { CASES } from "./cases.js";
+import {
+  CASES,
+  isBoundaryCase,
+  isFrontLoadedCase,
+  isProgressiveOpCase,
+  type OpCase,
+} from "./cases.js";
 
 function bashCall(command: string): ToolCall {
   return { name: "bash", arguments: { command } };
@@ -10,89 +16,63 @@ function bashCall(command: string): ToolCall {
 
 describe("case table", () => {
   describe("structure invariants", () => {
-    it("every case declares at least one of tool or subcommand", () => {
-      for (const c of CASES) {
-        expect(
-          c.expect.skill !== undefined || c.expect.command !== undefined,
-          `Case "${c.name}" declares neither expect.tool nor expect.subcommand`,
-        ).toBe(true);
-      }
-    });
-
-    it("every trigger case declares expect.tool", () => {
-      const triggerCases = CASES.filter((c) => c.stage === "trigger");
-      for (const c of triggerCases) {
-        expect(c.expect.skill, `Trigger case "${c.name}" is missing expect.tool`).toBeDefined();
-      }
-    });
-
-    it("every skill-trigger case declares expect.subcommand", () => {
-      const skillTriggerCases = CASES.filter(
-        (c) => c.stage === "trigger" && c.expect.skill !== "bash",
-      );
-      for (const c of skillTriggerCases) {
-        expect(
-          c.expect.command,
-          `Skill-trigger case "${c.name}" is missing expect.subcommand`,
-        ).toBeDefined();
-      }
-    });
-
-    it("every command case declares expect.subcommand", () => {
-      const commandCases = CASES.filter((c) => c.stage === "command");
-      for (const c of commandCases) {
-        expect(
-          c.expect.command,
-          `Command case "${c.name}" is missing expect.subcommand`,
-        ).toBeDefined();
-      }
-    });
-
     it("no two cases share the same name", () => {
       const names = CASES.map((c) => c.name);
       const unique = new Set(names);
       expect(unique.size).toBe(names.length);
     });
 
-    it("every two-step case has a seed", () => {
+    it("every two-step-named case is front-loaded with a seed", () => {
       const twoStepCases = CASES.filter((c) => c.name.startsWith("two-step"));
+      expect(twoStepCases.length).toBeGreaterThan(0);
       for (const c of twoStepCases) {
-        expect(c.seed, `Two-step case "${c.name}" is missing seed`).toBeDefined();
+        expect(isFrontLoadedCase(c), `Two-step case "${c.name}" must be front-loaded`).toBe(true);
+        expect(
+          isFrontLoadedCase(c) && c.seed,
+          `Two-step case "${c.name}" is missing seed`,
+        ).toBeDefined();
       }
+    });
+
+    it("marks at most a couple of cases observational — a larger list is a design smell", () => {
+      const observational = CASES.filter(
+        (c): c is OpCase => !isBoundaryCase(c) && c.observational !== undefined,
+      );
+      expect(observational.length).toBeLessThanOrEqual(2);
     });
   });
 
   describe("trigger coverage", () => {
     it("has at least one trigger case for the refactor skill", () => {
-      const refactorTriggers = CASES.filter(
-        (c) => c.stage === "trigger" && c.expect.skill === "weaver-refactor",
+      const refactorTriggers = CASES.filter(isProgressiveOpCase).filter(
+        (c) => c.expect.skill === "weaver-refactor",
       );
       expect(refactorTriggers.length).toBeGreaterThanOrEqual(1);
     });
 
     it("has at least one trigger case for the search-and-replace skill", () => {
-      const searchTriggers = CASES.filter(
-        (c) => c.stage === "trigger" && c.expect.skill === "weaver-search-and-replace",
+      const searchTriggers = CASES.filter(isProgressiveOpCase).filter(
+        (c) => c.expect.skill === "weaver-search-and-replace",
       );
       expect(searchTriggers.length).toBeGreaterThanOrEqual(1);
     });
 
     it("has at least one trigger case for the code-inspection skill", () => {
-      const inspectionTriggers = CASES.filter(
-        (c) => c.stage === "trigger" && c.expect.skill === "weaver-code-inspection",
+      const inspectionTriggers = CASES.filter(isProgressiveOpCase).filter(
+        (c) => c.expect.skill === "weaver-code-inspection",
       );
       expect(inspectionTriggers.length).toBeGreaterThanOrEqual(1);
     });
 
     it("has at least one trigger case that tempts the model to use sed or grep instead", () => {
       const temptingCases = CASES.filter(
-        (c) => c.stage === "trigger" && (c.name.includes("sed") || c.name.includes("grep")),
+        (c) => c.exposure === "progressive" && (c.name.includes("sed") || c.name.includes("grep")),
       );
       expect(temptingCases.length).toBeGreaterThanOrEqual(1);
     });
 
     it("has at least one boundary case that must stay in bash", () => {
-      const boundaryCases = CASES.filter((c) => c.stage === "trigger" && c.expect.skill === "bash");
+      const boundaryCases = CASES.filter(isBoundaryCase);
       expect(boundaryCases.length).toBeGreaterThanOrEqual(1);
     });
   });
@@ -103,7 +83,7 @@ describe("case table", () => {
       const found = names.map((name) => CASES.find((c) => c.name === name));
       for (const [i, c] of found.entries()) {
         expect(c, `Expected boundary case "${names[i]}" to exist`).toBeDefined();
-        expect(c?.expect.skill).toBe("bash");
+        expect(c !== undefined && isBoundaryCase(c)).toBe(true);
       }
 
       const tasks = found.map((c) => c?.task);
@@ -117,12 +97,9 @@ describe("case table", () => {
       "replace-text",
       "find-references",
     ])("has a deep, gating trigger case for %s", (command) => {
-      const pressuredCases = CASES.filter(
+      const pressuredCases = CASES.filter(isProgressiveOpCase).filter(
         (c) =>
-          c.stage === "trigger" &&
-          c.momentumTurns !== undefined &&
-          c.momentumTurns >= 3 &&
-          c.expect.command === command,
+          c.momentumTurns !== undefined && c.momentumTurns >= 3 && c.expect.command === command,
       );
       expect(
         pressuredCases.length,

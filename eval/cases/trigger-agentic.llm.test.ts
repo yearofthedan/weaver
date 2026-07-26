@@ -22,7 +22,7 @@ import { isMutatingCompetitor } from "../harness/grade.js";
 import { classifyTrialOutcome, computeOutcomes } from "../harness/outcome.js";
 import { computeRate } from "../harness/rate.js";
 import { rateLaneTools, SKILL_TOOL } from "../harness/tools.js";
-import { CASES } from "./cases.js";
+import { CASES, isBoundaryCase, isProgressiveOpCase } from "./cases.js";
 
 // Two-hop trajectory: Read SKILL.md → optional precursor → weaver bash call.
 // Room for Read + 2 further steps (precursor + operation).
@@ -46,12 +46,12 @@ const LANE_TIMEOUT_MS = TRIALS * MAX_STEPS * PER_CALL_BUDGET_MS;
 // Same skill-trigger subset as the adversarial lane; the two lanes share it so
 // the gap is interpretable: red in adversarial but green here means a
 // precursor case.
-const skillTriggerCases = CASES.filter((c) => c.stage === "trigger" && c.expect.skill !== "bash");
+const skillTriggerCases = CASES.filter(isProgressiveOpCase);
 
 // Legitimate shell work a description must not steal. Distinct from
 // skillTriggerCases: there is no expected weaver command to converge on —
 // the pass condition is that the model never converges on one.
-const boundaryCases = CASES.filter((c) => c.stage === "trigger" && c.expect.skill === "bash");
+const boundaryCases = CASES.filter(isBoundaryCase);
 
 const tools = [SKILL_TOOL, ...rateLaneTools()];
 // The names the lane actually declares. A call to anything else is a
