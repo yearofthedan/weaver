@@ -112,3 +112,61 @@ All resolved in the 2026-07-25 design conversation; recorded here for the archiv
 - [ ] Tech debt discovered during implementation added to handoff.md as `[needs design]`
 - [ ] Non-obvious gotchas added to the owning doc
 - [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+---
+
+## Outcome
+
+**Shipped:** 2026-07-26, in 16 commits on `main`.
+
+### Verification
+
+The real path exercised was a full paid Haiku gate run (`pass-cli run --env-file .env -- pnpm eval --disable-console-intercept`), plus a Gemini 2.5 Flash sweep and three targeted widening runs.
+
+**Haiku, n=3 base: 26 of 27 cases cleared.** The gate's own mechanics were observed working end to end:
+
+- **Escalation fired** — `two-step-cat-then-extract` fell below the floor at n=3, escalated to 6, alarmed at 3/6.
+- **Observational reporting** printed a non-gating rate for `command-get-type-errors` (2/3) with the `(observational)` marker.
+- **AC3's reporting fix** — every trail printed full bash command strings *and* `finish_reason`, the two gaps that produced the false "(no bash call)" reads.
+- **Temperature omitted** — requests carried no `temperature` field and the hosted endpoint sampled at its default.
+
+**Gemini 2.5 Flash sweep: 27/27 cleared.** No case red on Gemini and green on Haiku, so no inverted-canary alarm.
+
+**Widening the ambiguous cases at n=10 inverted two of four gate verdicts** — the single most valuable result of the session:
+
+| Case | Gate verdict (n=3) | Widened (n=10) |
+|---|---|---|
+| `two-step-cat-then-extract` | 3/6 — alarmed | 8/10 |
+| `pressured-buried-rename` | 2/3 — cleared | 5/10 (false clear) |
+| `command-move-symbol` | 2/3 — cleared | 10/10 (noise) |
+| `command-get-type-errors` | 2/3 — observational | 6/10 |
+
+Two standing handoff entries were resolved by measurement: `replace-text`'s `sed` reflex did not reproduce (**10/10, zero `sed`**, at the n≥10 bar that entry itself set), and `two-step-cat-then-extract`'s recorded mechanism was wrong — it rewrites the *source file* with a heredoc rather than staging JSON args to a temp file.
+
+### Tests and mutation
+
+474 tests in the `test:eval` lane (up from 430). Mutation on touched harness files: `verdict.ts`, `run-case.ts`, `case-lane.ts`, `seed.ts`, `agentic-loop.ts`, `config.ts`, `call-model.ts`, `command-prompt.ts` all **100%**; `assertions.ts` 98.7% (2 pre-existing documented survivors). Full eval lane 98.9%.
+
+### Reflection
+
+**What went well.** Splitting into three batches by neighbourhood held up — each batch's review caught something before the next built on it. The per-batch review discipline earned its cost concretely: deduping the 2/3 floor exposed that integer arithmetic reads `0/0` as *clearing*, so a harness fault running zero trials would have gated green. Confirming that red before fixing it (temporarily removing the guard, watching three tests fail) is what distinguished a real bug from a plausible story.
+
+**What did not go well.** The first batch-1 dispatch burned ~15 minutes and produced ~20 lines: the agent got caught in an interactive loop over comment verbosity and then wrote a self-analysis instead of implementing. Resuming it with an explicit "stop analysing, write code" instruction recovered it cheaply — cheaper than a cold restart, since its context was warm.
+
+**What took longer than it should have.** Two verification gaps were discovered late that should have been found before dispatching:
+1. **Nothing typechecked `eval/`.** `tsc` covers only `src/**` and vitest transpiles without checking, so AC2's entire "illegal states don't compile" premise had nothing enforcing it. Found only when I went looking for how AC2 would be verified. Fixed by adding `tsconfig.eval.json` + `pnpm typecheck:eval` to `pnpm check`.
+2. **`case-lane.ts` sat at 75% mutation**, masked because per-file scoped Stryker runs used the incremental cache. The tests asserted on the *shape* of the config `buildTrialConfig` returns but never invoked the predicates it builds — the parts that decide pass/fail. A full `pnpm test:mutate:eval` run exposed it; scoped runs did not.
+
+**Recommendations for the next agent.**
+
+- **Run the full mutation lane, not just scoped per-file runs, before declaring a batch done.** The incremental cache makes a scoped run report 100% on a file the full run scores at 75%.
+- **Widen any case sitting at 2/3 or 3/6 before concluding anything** — in *either* direction. This session's n=3 gate produced one false alarm and one false clear out of four floor-adjacent cases. The user proposed this mid-session and it was worth more than the full run that preceded it; it is now the documented "Reading a red" step 2.
+- **A cheap A/B can still be underpowered.** The 5/10-vs-8/10 temperature comparison looked conclusive and was p=0.35. Compute the statistic before recording a cause.
+- **Interrogate whether an entry deserves to exist, not just how to word it.** The temperature-confound entry survived a full write-up before the question "do we care?" revealed that no outcome would change what we do — the useful question underneath it was about the *case*, not the harness.
+
+### Decisions worth preserving
+
+- **The destructive rule is scoped to a wrong *weaver* mutating op, not raw destructive shell.** Extending it would gate the lane on model-safety behaviour no skill edit can move. Validated in the run: `two-step-cat-then-extract` truncated a source file with a heredoc and the sampled rate caught it at 3/6 anyway, without a shell taxonomy.
+- **The spec contradicted itself on the observational guard** — AC5 described a load-time guard against a marking "naming no real case," which only applies to a separate name-keyed list, while the Interface section made it an inline case field. Implemented as the inline field (an orphan is then impossible by construction) with the load-time validation redirected to the `since`/`reason` formats, which is what can actually be malformed.
+- **`WEAVER_EVAL_TEMP` in the spec was a var that already existed** as `WEAVER_EVAL_TEMPERATURE`; only its semantics changed.
+- **Folded front-loaded cases needed `momentumTurns: 3` restored explicitly.** A literal "fold is a move" reading dropped them to the default of 1, silently weakening the gate below the pressured lane it replaced.

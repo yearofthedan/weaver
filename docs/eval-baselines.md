@@ -86,7 +86,7 @@ The heredoc rewrite also validates the gate's destructive-scope decision: trunca
 | `command-move-symbol` | 2/3 — cleared | 10/10 |
 | `command-get-type-errors` | 2/3 — observational | 6/10 |
 
-`pressured-buried-rename` was **11/12** at the 2026-07-24 spike, so 5/10 is a real drop. A one-variable A/B suggests the sampling condition: forcing `WEAVER_EVAL_TEMPERATURE=0.7` (the old condition) gave **8/10** against **5/10** with the field omitted. **This is not confirmed** — two-tailed Fisher p = 0.35 at n=10 per arm, indistinguishable from chance. Recorded as a theory needing a powered test, not a cause; see the `[needs investigation]` entry in [`handoff.md`](handoff.md).
+`pressured-buried-rename` was **11/12** at the 2026-07-24 spike, so 5/10 is a real drop. The sampling condition does not account for it: forcing the old `WEAVER_EVAL_TEMPERATURE=0.7` gives **8/10** against **5/10** omitted — directionally consistent but underpowered (two-tailed Fisher p = 0.35 at n=10 per arm), and still short of 11/12 either way. Tracked as `[needs investigation]` in [`handoff.md`](handoff.md), framed as a gate-or-delete question about the case rather than a harness one.
 
 ### Superseded conditions
 

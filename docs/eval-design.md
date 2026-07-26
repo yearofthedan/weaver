@@ -89,6 +89,10 @@ Mechanism-specific tells: *never-reached* → the frontmatter description lost t
 
 When comparing skill-text variants, read **per-case paired deltas on the same cases**, never two absolute rates side by side. A whole-lane score moving from 25/27 to 26/27 is noise at n=3; the same cases flipping in a consistent direction is signal. Before attributing a red to a text edit, A/B against the unedited text (`git stash`) rather than reasoning about it.
 
+**Compute the statistic before recording a cause.** A/B rates at these sample sizes are far weaker than they look: 5/10 against 8/10 — a difference that reads as obvious — is two-tailed Fisher p = 0.35, indistinguishable from chance. Separating a true 0.5 from a true 0.8 at p<0.05 needs roughly n=40 per arm. An underpowered A/B is evidence for a *theory*, never a confirmed driver, and must be written down as one.
+
+**Before spending on a powered run, ask whether any outcome changes what you do.** An investigation whose every result leads to the same action is curiosity, not signal — and each one costs a real run.
+
 ## Case realism, not instrument tuning
 
 **Every case must be a task a real user would plausibly ask.** Before adding, removing, or rewording one, ask: *is this reasonable to ask?* That is the line between a legitimate clarity fix and tuning the instrument to pass — a phrasing kept or cut for any reason other than realism is gaming, however much the rate moves.

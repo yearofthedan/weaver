@@ -27,6 +27,8 @@ This overrides the `mutate` array from the config. Useful when checking mutation
 
 **Re-run with `--force` after adding tests — but always scope it.** `--force` ignores the incremental cache and re-runs *every mutant in scope* — it forces a full rebuild of the incremental file, not a targeted re-check. After adding tests, the cache may still report a now-killable mutant as `survived` because it reuses the prior result; `--force` rebuilds it. Always combine with `--mutate` so you rebuild only the touched file — `pnpm test:mutate:file src/foo.ts --force`. Never `--force` a bare `pnpm test:mutate`: that re-runs the entire hours-long suite, defeating the cache.
 
+**A scoped run's score is not trustworthy as a file's final verdict — confirm with one full-lane run.** Observed 2026-07-26: consecutive scoped runs reported `eval/harness/case-lane.ts` at **100%**, while a full `pnpm test:mutate:eval` scored the same file at **75%** — 6 survivors and 8 `NoCoverage` mutants, on the same 56-mutant total. The discrepancy was not traced to a specific cause (cache reuse is the obvious suspect, but it was not isolated), so treat it as a standing caution rather than a known mechanism: scoped runs are the fast feedback loop, and the full lane is what decides a file is done. The eval lane takes ~20s, so there is no excuse for skipping it there.
+
 **Commit `reports/stryker-incremental.json` after a run.** It is git-tracked so every developer and agent starts from the last known baseline. Targeted runs accumulate — run a few files at a time and the cache builds up. (The execution agent commits it as part of its post-implementation mutation step.)
 
 **`vitest.related: true` doesn't meaningfully speed up an integration-heavy run.**
