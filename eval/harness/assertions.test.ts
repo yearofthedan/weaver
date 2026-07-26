@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   extractBashCommands,
   isAnyWeaverInvocation,
-  isWeaverInvocation,
   matchesExpectedCommand,
   matchWeaverCommand,
   weaverSubcommand,
@@ -91,44 +90,6 @@ describe("extractBashCommands", () => {
     it("returns empty string for a bash call whose command argument is not a string", () => {
       const bashWithNonStringCommand: ToolCall = { name: "bash", arguments: { command: 123 } };
       expect(extractBashCommands([bashWithNonStringCommand])).toEqual([]);
-    });
-  });
-});
-
-describe("isWeaverInvocation", () => {
-  describe("matching forms", () => {
-    it("matches a bare weaver subcommand with flag-style args", () => {
-      expect(isWeaverInvocation("weaver rename --file x", "rename")).toBe(true);
-    });
-
-    it("matches npx weaver prefix with a quoted JSON argument", () => {
-      expect(isWeaverInvocation('npx weaver rename \'{"file":"x"}\'', "rename")).toBe(true);
-    });
-
-    it("matches pnpm exec weaver prefix", () => {
-      expect(isWeaverInvocation("pnpm exec weaver rename --newName bar", "rename")).toBe(true);
-    });
-
-    it("matches a hyphenated subcommand", () => {
-      expect(isWeaverInvocation("weaver search-text --pattern foo", "search-text")).toBe(true);
-    });
-  });
-
-  describe("non-matching cases", () => {
-    it("does not match a different subcommand", () => {
-      expect(isWeaverInvocation("weaver search-text --pattern foo", "rename")).toBe(false);
-    });
-
-    it("does not match a subcommand that is only a prefix of the actual name (word boundary)", () => {
-      expect(isWeaverInvocation("weaver renamed --newName bar", "rename")).toBe(false);
-    });
-
-    it("does not match a non-weaver command", () => {
-      expect(isWeaverInvocation("grep -r userId src/", "rename")).toBe(false);
-    });
-
-    it("does not match an empty command string", () => {
-      expect(isWeaverInvocation("", "rename")).toBe(false);
     });
   });
 });

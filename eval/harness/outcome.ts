@@ -48,7 +48,7 @@ export interface OutcomeTally {
 
 /**
  * Aggregates N trial outcomes into per-tier counts plus a total. Reporting
- * only — carries no pass/fail assertion; `computeRate` remains the gate.
+ * only — carries no pass/fail assertion; `caseAlarms` remains the gate.
  */
 export function computeOutcomes(outcomes: TrialOutcome[]): OutcomeTally {
   const tally: OutcomeTally = {

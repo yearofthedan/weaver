@@ -22,27 +22,11 @@ export interface WeaverCommandMatch {
 }
 
 /**
- * Returns true when the given bash command is a weaver invocation for the
- * given subcommand, tolerating any argument format (flags, quoted JSON, bare
- * strings). Accepts the `weaver`, `npx weaver`, and `pnpm exec weaver` prefix
- * forms. The word boundary prevents a prefix-matched subcommand (e.g. "renamed")
- * from satisfying the predicate for a shorter name (e.g. "rename").
- *
- * This is the trigger-lane pass rule. For the command lane, use
- * `matchWeaverCommand` instead — it additionally requires a parseable
- * quoted-JSON argument.
- */
-export function isWeaverInvocation(command: string, subcommand: string): boolean {
-  const escapedSub = subcommand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^(?:npx\\s+|pnpm\\s+exec\\s+)?weaver\\s+${escapedSub}\\b`).test(command);
-}
-
-/**
  * Returns true when the given bash command invokes `weaver` with any
- * subcommand, tolerating the same `npx`/`pnpm exec` prefix forms as
- * {@link isWeaverInvocation}. Used where the subcommand under test is
- * unknown up front — e.g. a boundary case that must not reach `weaver` at
- * all, regardless of which operation it would have been.
+ * subcommand, tolerating the `weaver`, `npx weaver`, and `pnpm exec weaver`
+ * prefix forms. Used where the subcommand under test is unknown up front —
+ * e.g. a boundary case that must not reach `weaver` at all, regardless of
+ * which operation it would have been.
  */
 export function isAnyWeaverInvocation(command: string): boolean {
   return /^(?:npx\s+|pnpm\s+exec\s+)?weaver\s+\S+/.test(command);
@@ -64,7 +48,7 @@ export function weaverSubcommand(command: string): string | undefined {
  * Filters tool calls to those with name "bash", returning their command
  * arguments. `&&`-chained commands are split into separate candidates — models
  * legitimately chain a setup step before the command under test (e.g.
- * `cd /workspace && weaver replace-text …`), and `isWeaverInvocation` anchors
+ * `cd /workspace && weaver replace-text …`), and the weaver matchers anchor
  * at the start of the string, so an unsplit chain could never match. Splitting
  * stops at `&&` (not `;`) because semicolons appear inside legitimate JSON
  * pattern arguments. Returns an empty array when no bash calls exist.
