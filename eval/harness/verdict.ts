@@ -6,8 +6,12 @@ export const ESCALATED_TRIALS = 6;
 /**
  * `passed / total < 2 / 3`, compared as integers so the boundary is exact at
  * any trial count. The floor is inclusive: exactly 2/3 clears.
+ *
+ * No trials at all is below the floor. Integer comparison would otherwise read
+ * 0/0 as clearing, so a harness fault that ran nothing would gate green.
  */
-function belowFloor(passed: number, total: number): boolean {
+export function belowFloor(passed: number, total: number): boolean {
+  if (total === 0) return true;
   return passed * 3 < total * 2;
 }
 

@@ -23,6 +23,10 @@ describe("decideEscalation", () => {
       expect(decideEscalation(3, 3)).toEqual({ escalate: false, additionalTrials: 0 });
     });
   });
+
+  it("escalates when no trials ran at all", () => {
+    expect(decideEscalation(0, 0)).toEqual({ escalate: true, additionalTrials: 6 });
+  });
 });
 
 describe("caseAlarms", () => {
@@ -61,6 +65,14 @@ describe("caseAlarms", () => {
 
     it("alarms an observational case too — the override beats the observational marking", () => {
       expect(caseAlarms({ passed: 3, total: 3, hardFailed: true, observational: true })).toBe(true);
+    });
+  });
+
+  describe("no trials at all", () => {
+    it("alarms rather than clearing — zero trials is a harness fault, not a pass", () => {
+      expect(caseAlarms({ passed: 0, total: 0, hardFailed: false, observational: false })).toBe(
+        true,
+      );
     });
   });
 

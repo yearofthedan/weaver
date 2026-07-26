@@ -1,3 +1,5 @@
+import { belowFloor } from "./verdict.js";
+
 export interface RateResult {
   passed: number;
   total: number;
@@ -25,6 +27,6 @@ export function computeRate(results: boolean[]): RateResult {
     passed,
     total,
     rate,
-    belowAlarm: rate < 2 / 3,
+    belowAlarm: belowFloor(passed, total),
   };
 }
