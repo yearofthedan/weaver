@@ -40,6 +40,8 @@ export interface ToolCall {
 export interface ModelResponse {
   toolCalls: ToolCall[];
   text: string;
+  /** The provider's per-choice completion reason (e.g. "stop", "tool_calls", "length"); absent if the provider didn't report one. */
+  finishReason?: string;
 }
 
 // The wire format wants tool calls as {id, type, function: {name, arguments}}
@@ -111,10 +113,12 @@ async function sendOnce(
           function: { name: string; arguments: string };
         }> | null;
       };
+      finish_reason?: string | null;
     }>;
   };
 
-  const message = data.choices[0]?.message;
+  const choice = data.choices[0];
+  const message = choice?.message;
   if (!message) {
     throw new Error(`Model server returned no choices: ${JSON.stringify(data)}`);
   }
@@ -139,6 +143,7 @@ async function sendOnce(
   return {
     toolCalls,
     text: message.content ?? "",
+    finishReason: choice.finish_reason ?? undefined,
   };
 }
 

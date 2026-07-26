@@ -1,30 +1,29 @@
-const DEFAULT_TEMPERATURE = 0.7;
-
 export interface ModelConfig {
   baseUrl: string;
   model: string;
   /** Bearer token for the hosted model endpoint. */
   apiKey?: string;
-  /**
-   * Sampling temperature sent to the model. Defaults to 0.7 (WEAVER_EVAL_TEMPERATURE).
-   * Command and two-step lanes pass 0 explicitly to stay deterministic.
-   */
-  temperature: number;
+  /** Sampling temperature sent to the model (WEAVER_EVAL_TEMPERATURE). Absent by default, so the request omits the field and the model samples at its own default; set it (e.g. to 0) to pin a deterministic run. */
+  temperature?: number;
 }
 
-// An unset or blank env var falls back to the default; a set-but-non-numeric
-// value throws rather than silently sending NaN — or, for an empty string,
-// Number("") === 0, which would quietly flip the rate lane to deterministic.
-function parseTemperature(): number {
+// A set-but-non-numeric value throws rather than silently sending NaN — or,
+// for an empty string, Number("") === 0, which would quietly pin the rate
+// lane to deterministic sampling.
+function parseTemperature(): number | undefined {
   const raw = process.env.WEAVER_EVAL_TEMPERATURE;
   if (raw === undefined || raw === "") {
-    return DEFAULT_TEMPERATURE;
+    return undefined;
   }
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) {
     throw new Error(`WEAVER_EVAL_TEMPERATURE must be a finite number, got "${raw}"`);
   }
   return parsed;
+}
+
+export function isCleanMode(): boolean {
+  return process.env.WEAVER_EVAL_CLEAN === "1";
 }
 
 export function modelConfig(): ModelConfig {

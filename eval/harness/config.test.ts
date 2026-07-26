@@ -10,9 +10,9 @@ afterEach(() => {
 
 describe("modelConfig", () => {
   describe("temperature", () => {
-    it("returns 0.7 when WEAVER_EVAL_TEMPERATURE is not set", () => {
+    it("leaves temperature undefined when WEAVER_EVAL_TEMPERATURE is not set", () => {
       const config = modelConfig();
-      expect(config.temperature).toBe(0.7);
+      expect(config.temperature).toBeUndefined();
     });
 
     it("parses WEAVER_EVAL_TEMPERATURE as a number when set", () => {
@@ -21,23 +21,16 @@ describe("modelConfig", () => {
       expect(config.temperature).toBe(0.3);
     });
 
-    it("returns the exact env value — not the hardcoded default — when WEAVER_EVAL_TEMPERATURE is set", () => {
-      process.env.WEAVER_EVAL_TEMPERATURE = "1.0";
-      const config = modelConfig();
-      expect(config.temperature).toBe(1.0);
-      expect(config.temperature).not.toBe(0.7);
-    });
-
-    it("returns 0 when WEAVER_EVAL_TEMPERATURE is set to 0", () => {
+    it("returns 0 when WEAVER_EVAL_TEMPERATURE is set to 0 — not falling back to undefined", () => {
       process.env.WEAVER_EVAL_TEMPERATURE = "0";
       const config = modelConfig();
       expect(config.temperature).toBe(0);
     });
 
-    it("falls back to the default when WEAVER_EVAL_TEMPERATURE is blank — not Number('') === 0", () => {
+    it("leaves temperature undefined when WEAVER_EVAL_TEMPERATURE is blank — not Number('') === 0", () => {
       process.env.WEAVER_EVAL_TEMPERATURE = "";
       const config = modelConfig();
-      expect(config.temperature).toBe(0.7);
+      expect(config.temperature).toBeUndefined();
     });
 
     it("throws when WEAVER_EVAL_TEMPERATURE is set to a non-numeric value", () => {

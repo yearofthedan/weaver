@@ -120,6 +120,19 @@ describe("callModel", () => {
       expect(body.temperature).toBe(0);
     });
 
+    it("omits the temperature key entirely when the config leaves it undefined", async () => {
+      mockTextReply();
+
+      await callModel([{ role: "user", content: "hi" }], [], {
+        baseUrl: TEST_BASE_URL,
+        model: TEST_MODEL,
+      });
+
+      const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(init.body as string);
+      expect("temperature" in body).toBe(false);
+    });
+
     it("serializes assistant tool_calls to the wire format with stringified arguments", async () => {
       mockTextReply("ok");
 
@@ -363,6 +376,32 @@ describe("callModel", () => {
       const result = await callModel([{ role: "user", content: "go" }], [], explicitConfig());
 
       expect(result.text).toBe("");
+    });
+
+    it("captures the choice's finish_reason", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: { role: "assistant", content: "done", tool_calls: null },
+              finish_reason: "stop",
+            },
+          ],
+        }),
+      });
+
+      const result = await callModel([{ role: "user", content: "go" }], [], explicitConfig());
+
+      expect(result.finishReason).toBe("stop");
+    });
+
+    it("leaves finishReason undefined when the provider doesn't report one", async () => {
+      mockTextReply("no finish reason here");
+
+      const result = await callModel([{ role: "user", content: "go" }], [], explicitConfig());
+
+      expect(result.finishReason).toBeUndefined();
     });
   });
 
