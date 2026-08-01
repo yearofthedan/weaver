@@ -17,14 +17,18 @@ A skill must be accurate interface documentation — what the op does, its field
 
 **What's observed — and how narrow it is.** The pressured-emission lane ([`eval-design.md`](eval-design.md)) precedes the task with a *3-turn shell-momentum seed* — three back-to-back shell calls (`grep` a log, `git log`, `find`), the pool maximum — inside a generic crowded prompt: deliberately heavy priming. Under it, at temp 0, the gate model fell back to the shell only on the most shell-shaped *subset* of ops (text/importer search → `grep`, type-check → `tsc`); most held even then. The effect is reproducible for *fixed* skill content but **conditional on that strong priming** — untested under lighter priming, none, or a real host prompt (which primes differently and carries its own pro-tool nudge). So the established fact is narrow: strong priming can pull a *subset* of ops shell-ward. It does not show the model fails at weaver in normal use. Prove any skill change on the lane, never by reasoning.
 
-**Not settled: how best to beat it.** The current skills lead with a decision-path router (an intent → command → **Never** table) plus an anti-momentum clause, and on the gate model that coincided with several cases moving from shell-fallback to holding. Treat it as a working hypothesis, not a proven pattern — the evidence does not yet support prescribing it:
+**How best to beat it: one tactic measured, and it is narrower than it looks.** The current skills lead with a decision-path router (an intent → command → **Never** table) plus an anti-momentum clause. Removing the table while holding every fact, command, and displaced shell tool constant ([table-removal spike](specs/archive/20260801-skill-router-table-removal.md)) moved a single case on the gate model: `command-get-type-errors`, **16/22 with the table against 10/21 without**, across 43 trials, direction never reversing on pooled data. Keep the router — nothing measured suggests it harms, and every pooled comparison leaned its way. Do not promote it to a proven pattern:
 
-- It was **not ablated** — gaming-removal, callout blocks, and the router landed together, so which element did the work is unattributed.
-- It **did not generalize across models** — Gemini 2.5 Flash holds and falls on a different set, so any "hold" is gate-model-specific.
+- The one case it moved is one **Gemini 2.5 Flash and GPT-5.6-Luna both clear 3/3 at ceiling**. The table carries the weakest model on its weakest case; the other two never needed it. A tactic that only shows up on the instrument is not yet a tactic for the audience.
+- Across the other five cases tested, the result was mixed — one worse, one better, three unchanged. No generalisation is established.
 - The holds are **brittle** — all skill bodies share one context, so an edit anywhere can tip a knife-edge case; reinforcement that looks redundant has proven load-bearing, so never trim it without re-running the full lane.
 - Some reflexes **resist even an explicit `Never` row** (`tsc` on the gate model), and "wording can't hold this" is a legitimate recorded verdict.
 
-What structure *actually*, reliably overcomes host inertia — and whether it transfers across hosts and models — is an open question (see handoff), not a law to apply. Design against the principle; prove any specific tactic on the lane before trusting it.
+Keep the router for its maintenance properties too — it states the intent → command → never mapping explicitly where prose has to be parsed for it. Not for terseness: as written, the three table openers run ~150 characters *longer* than the prose rewrite, a rounding error against the prompt but the opposite of the usual assumption. Measure the actual texts before claiming either form is cheaper.
+
+One failure shape dominates and no wording tested changes it — only how often it fires: the model runs the shell command, then writes the correct `weaver` invocation *into a prose message* instead of emitting it as a tool call. It is not failing to know; it is failing to convert. Aim new tactics at conversion.
+
+Whether any structure reliably transfers across hosts and models remains open (see handoff). Design against the principle; prove any specific tactic on the lane before trusting it.
 
 ## Own the whole problem a skill claims
 
