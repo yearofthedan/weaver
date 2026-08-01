@@ -35,3 +35,13 @@ export function modelConfig(): ModelConfig {
     temperature: parseTemperature(),
   };
 }
+
+// Printed once at the top of a run so a mislabelled model or knob is visible
+// in the output itself rather than silently determining what the rates mean.
+export function formatRunHeader(baseTrialCount: number): string {
+  const { model, temperature } = modelConfig();
+  return (
+    `eval run — model ${model} | trials ${baseTrialCount} | ` +
+    `temperature ${temperature ?? "default"} | clean-mode ${isCleanMode() ? "on" : "off"}`
+  );
+}

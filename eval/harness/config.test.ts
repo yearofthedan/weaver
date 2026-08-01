@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { isCleanMode, modelConfig } from "./config.js";
+import { formatRunHeader, isCleanMode, modelConfig } from "./config.js";
 
 afterEach(() => {
   delete process.env.WEAVER_EVAL_BASE_URL;
@@ -72,5 +72,23 @@ describe("isCleanMode", () => {
 
     process.env.WEAVER_EVAL_CLEAN = "";
     expect(isCleanMode()).toBe(false);
+  });
+});
+
+describe("formatRunHeader", () => {
+  it("includes the model, trial count, and default temperature and clean-mode", () => {
+    process.env.WEAVER_EVAL_MODEL = "anthropic/claude-haiku-4.5";
+    expect(formatRunHeader(3)).toBe(
+      "eval run — model anthropic/claude-haiku-4.5 | trials 3 | temperature default | clean-mode off",
+    );
+  });
+
+  it("reports a set temperature and clean-mode", () => {
+    process.env.WEAVER_EVAL_MODEL = "google/gemini-2.5-flash";
+    process.env.WEAVER_EVAL_TEMPERATURE = "0";
+    process.env.WEAVER_EVAL_CLEAN = "1";
+    expect(formatRunHeader(10)).toBe(
+      "eval run — model google/gemini-2.5-flash | trials 10 | temperature 0 | clean-mode on",
+    );
   });
 });
