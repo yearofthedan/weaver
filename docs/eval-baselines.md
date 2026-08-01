@@ -53,7 +53,7 @@ Both are tracked in [`handoff.md`](handoff.md). The practical rule this run esta
 ## How to record a run
 
 ```bash
-pass-cli run --env-file .env -- pnpm eval --disable-console-intercept
+WEAVER_EVAL_MODEL=anthropic/claude-haiku-4.5 pass-cli run --env-file .env -- pnpm eval --disable-console-intercept
 # cross-family sweep
 WEAVER_EVAL_MODEL=google/gemini-2.5-flash pass-cli run --env-file .env -- pnpm eval --disable-console-intercept
 ```

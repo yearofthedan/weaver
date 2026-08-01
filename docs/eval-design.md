@@ -189,8 +189,10 @@ The result fed back for a call is resolved per case. A case owns results for spe
 ## Running and diagnosing
 
 ```bash
-pass-cli run --env-file .env -- pnpm eval --disable-console-intercept
+WEAVER_EVAL_MODEL=anthropic/claude-haiku-4.5 pass-cli run --env-file .env -- pnpm eval --disable-console-intercept
 ```
+
+`WEAVER_EVAL_MODEL` must be set on the command line, never in `.env` — see [`eval/README.md`](../eval/README.md#setup) for why.
 
 | Knob | Effect |
 |---|---|
