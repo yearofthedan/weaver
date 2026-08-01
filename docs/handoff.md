@@ -161,6 +161,27 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ---
 
+### P1 — Measurement tooling is silently wrong
+
+- **`WEAVER_EVAL_MODEL` on the command line is ignored — model swaps silently run the `.env` model** `[needs design]` — **root cause confirmed** 2026-08-01: `pass-cli run --env-file <file>` gives the env-file precedence over the inherited shell environment, and `.env` sets `WEAVER_EVAL_MODEL`. The form documented at [`eval-baselines.md`](eval-baselines.md) — `WEAVER_EVAL_MODEL=google/gemini-2.5-flash pass-cli run --env-file .env -- pnpm eval` — runs whatever `.env` names. Reproduce: `WEAVER_EVAL_MODEL=SENTINEL pass-cli run --env-file .env -- printenv WEAVER_EVAL_MODEL` prints the `.env` value. Working form (verified): put the override *inside* the command — `pass-cli run --env-file .env -- env WEAVER_EVAL_MODEL=<model> pnpm eval …`. `pass-cli run` has no precedence flag.
+
+  Four parts, three of them design calls:
+  1. **Correct the guidance** — `eval-baselines.md:58`, `eval-design.md:202`, `eval/README.md:36` (and `:13`, which points at `.env.example` for model defaults). Mechanical.
+  2. **Print run metadata** — the eval never reports which model answered, which is why this ran undetected for six runs on 2026-08-01 and corrupted a record five days earlier: the output is identical whatever model responds. A header naming model, trial count, temperature, and clean-mode makes a mislabelled run impossible rather than merely discouraged. Decide what it carries and where it prints.
+  3. **Move the model out of the secrets file** — `WEAVER_EVAL_MODEL` is a run knob, not a secret, and its presence in `.env` is what creates the collision. Removing it makes the documented command work as written. Decide whether the harness then defaults the model or requires it (`global-setup.llm.ts` currently requires it).
+  4. **Report cost** — OpenRouter returns usage on every response and the harness discards it (nothing in `eval/harness/` reads it). The run costs in `eval-baselines.md` were read off the OpenRouter dashboard by hand. Decide whether to capture usage per run and print a cost line.
+
+- **The recorded Gemini baseline is Haiku data — audit every cross-model row** `[chore]` — **confirmed** 2026-08-01 against the OpenRouter dashboard: all activity on 2026-07-26 (15:23) was `anthropic/claude-haiku-4.5`, so the "**Gemini 2.5 Flash sweep, same day:** 27/27 cleared" recorded in [`eval-baselines.md`](eval-baselines.md) never touched Gemini. Its per-case numbers populate the **Gemini 2.5 Flash column of the current baseline table**, which is therefore Haiku throughout. Caused by the entry above.
+
+  What follows from it, all of which is currently stated as fact:
+  - The apparent cross-model divergence that made the column look genuine — Gemini clearing `two-step-cat-then-extract` 3/3 where Haiku got 3/6, and being marginal on `command-search-text` where Haiku was clean — is two Haiku runs disagreeing, not a model difference. Consistent with the run-to-run spread measured 2026-08-01 (same case, same condition, same model: 1/6 then 4/5).
+  - "No case is red on Gemini and green on Haiku, so no inverted-canary alarm" is unsupported — there is no Gemini data in that run to compare.
+  - The `two-step-cat-then-extract` entry below is filed low-urgency as a *canary-specific* weakness on the strength of "Gemini 2.5 Flash clears it 3/3". That justification is void; the routing needs revisiting.
+
+  Scope: mark the affected rows unverified and strike the downstream claims. Dashboard shows genuine Gemini traffic on 2026-07-25, so the 23–25 July cross-model entries may be sound — check each against dashboard dates rather than assuming either way. **Do not re-run to restore real Gemini numbers until the entry above lands**, or the replacement data will be mislabelled the same way.
+
+---
+
 ### P2 — High-value features / bugs / tech debt
 
 _(none queued)_
