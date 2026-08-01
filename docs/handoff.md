@@ -161,16 +161,9 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ---
 
-### P1 — Measurement tooling is silently wrong
+### P1
 
-- **The recorded Gemini baseline is Haiku data — audit every cross-model row** `[chore]` — **confirmed** 2026-08-01 against the OpenRouter dashboard: all activity on 2026-07-26 (15:23) was `anthropic/claude-haiku-4.5`, so the "**Gemini 2.5 Flash sweep, same day:** 27/27 cleared" recorded in [`eval-baselines.md`](eval-baselines.md) never touched Gemini. Its per-case numbers populate the **Gemini 2.5 Flash column of the current baseline table**, which is therefore Haiku throughout. Caused by the entry above.
-
-  What follows from it, all of which is currently stated as fact:
-  - The apparent cross-model divergence that made the column look genuine — Gemini clearing `two-step-cat-then-extract` 3/3 where Haiku got 3/6, and being marginal on `command-search-text` where Haiku was clean — is two Haiku runs disagreeing, not a model difference. Consistent with the run-to-run spread measured 2026-08-01 (same case, same condition, same model: 1/6 then 4/5).
-  - "No case is red on Gemini and green on Haiku, so no inverted-canary alarm" is unsupported — there is no Gemini data in that run to compare.
-  - The `two-step-cat-then-extract` entry below is filed low-urgency as a *canary-specific* weakness on the strength of "Gemini 2.5 Flash clears it 3/3". That justification is void; the routing needs revisiting.
-
-  Scope: mark the affected rows unverified and strike the downstream claims. Dashboard shows genuine Gemini traffic on 2026-07-25, so the 23–25 July cross-model entries may be sound — check each against dashboard dates rather than assuming either way. **Do not re-run to restore real Gemini numbers until the entry above lands**, or the replacement data will be mislabelled the same way.
+_(none queued)_
 
 ---
 

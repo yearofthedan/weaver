@@ -19,11 +19,11 @@ Conditions: sampled rate gate (`pnpm eval`), n=3 base trials escalating to 6 bel
 | trigger-refactor-move-file | progressive | 3/3 | 3/3 |
 | trigger-search-and-replace-pattern | progressive | 3/3 | 3/3 |
 | trigger-search-and-replace-todos-grep-tempting | progressive | 3/3 | 3/3 |
-| trigger-search-and-replace-sed-tempting | progressive | 3/3 | 3/3 |
+| trigger-search-and-replace-sed-tempting | progressive | 3/3 | 2/3 (1 no-attempt, raw `sed`) |
 | trigger-code-inspection-find-references | progressive | 3/3 | 3/3 |
 | trigger-code-inspection-find-references-delete-intent | progressive | 3/3 | 3/3 |
 | trigger-code-inspection-get-type-errors | progressive | 3/3 | 3/3 |
-| **pressured-buried-rename** | progressive (3-turn) | 2/3 · **5/10 (n=10)** — false clear | 2/3 (1 content-fail) |
+| **pressured-buried-rename** | progressive (3-turn) | 2/3 · **5/10 (n=10)** — false clear | 3/3 |
 | pressured-buried-replace-text-passive | progressive (3-turn) | 3/3 | 3/3 |
 | pressured-buried-find-references | progressive (3-turn) | 3/3 | 3/3 |
 | command-rename | front-loaded | 3/3 | 3/3 |
@@ -31,10 +31,10 @@ Conditions: sampled rate gate (`pnpm eval`), n=3 base trials escalating to 6 bel
 | command-move-directory | front-loaded | 3/3 | 3/3 |
 | command-move-symbol | front-loaded | 2/3 · 10/10 (n=10) | 3/3 |
 | command-find-importers | front-loaded | 3/3 | 3/3 |
-| command-find-references | front-loaded | 3/3 | 3/3 |
+| command-find-references | front-loaded | 3/3 | 2/3 (1 no-attempt, hallucinated native tool call) |
 | command-get-definition | front-loaded | 3/3 | 3/3 |
-| command-get-type-errors *(observational)* | front-loaded | 2/3 · 6/10 (n=10) | 4/6 |
-| command-search-text | front-loaded | 3/3 | 2/3 |
+| command-get-type-errors *(observational)* | front-loaded | 2/3 · 6/10 (n=10) | 3/3 — at ceiling |
+| command-search-text | front-loaded | 3/3 | 3/3 |
 | command-delete-file | front-loaded | 3/3 | 3/3 |
 | command-replace-text | front-loaded | 3/3 · **10/10 (n=10)** | 3/3 |
 | two-step-search-then-rename | front-loaded (seeded) | 3/3 | 3/3 |
@@ -64,6 +64,10 @@ Per-case rates are the ground truth — any aggregate derives from them, so reco
 
 ## Run history
 
+### 2026-08-01 — Gemini 2.5 Flash sweep
+
+27/27 cleared, $0.1653. Notable divergences from Haiku — clears `two-step-cat-then-extract` 3/3 and `pressured-buried-rename` 3/3 (Haiku's two floor cases), but marginal on `trigger-search-and-replace-sed-tempting` (2/3, one no-attempt with raw `sed`) and `command-find-references` (2/3, one no-attempt after hallucinating a native tool call). No case is red on Gemini and green on Haiku, so no inverted-canary alarm.
+
 ### 2026-07-26 — first run under the unified sampled rate gate
 
 The baseline above. This run is also the real-path verification of the gate itself: escalation fired for the first time (`two-step-cat-then-extract` went below the floor at n=3, escalated to 6, alarmed at 3/6), observational reporting printed a non-gating rate, and `finish_reason` plus full bash command strings appeared in every trail.
@@ -74,8 +78,6 @@ Two standing `[needs investigation]` entries were resolved or corrected by measu
 - **`two-step-cat-then-extract` fails by a different mechanism than recorded.** The 2026-07-23 entry describes the model staging extract-function *JSON args* to a temp file. Observed here instead: it rewrites the **source file** with a heredoc (`cat > …/auth.ts << 'EOF'`), performing the extraction by hand, in 2 of 6 trials; a third trial emitted no tool call at all. The entry's mechanism description needs correcting; root cause remains unconfirmed.
 
 The heredoc rewrite also validates the gate's destructive-scope decision: truncating a source file is destructive, the hard-fail rule deliberately does not cover raw shell, and the sampled rate caught it anyway.
-
-**Gemini 2.5 Flash sweep, same day:** 27/27 cleared. Notable divergences from Haiku — it clears `two-step-cat-then-extract` 3/3 and `command-move-symbol` 3/3, but is marginal where Haiku is clean (`command-search-text` 2/3) and escalated on `command-get-type-errors` (4/6). No case is red on Gemini and green on Haiku, so no inverted-canary alarm.
 
 **Widening the four ambiguous cases (Haiku, n=10).** Two of four gate verdicts inverted:
 
