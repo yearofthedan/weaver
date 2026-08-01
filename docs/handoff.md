@@ -163,8 +163,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ### P1 — Measurement tooling is silently wrong
 
-- **Eval runs discard OpenRouter cost data** `[needs design]` — OpenRouter returns usage on every response; nothing in `eval/harness/` reads it. The run costs in `eval-baselines.md` were read off the OpenRouter dashboard by hand. Decide whether to capture usage per run and print a cost line.
-
 - **The recorded Gemini baseline is Haiku data — audit every cross-model row** `[chore]` — **confirmed** 2026-08-01 against the OpenRouter dashboard: all activity on 2026-07-26 (15:23) was `anthropic/claude-haiku-4.5`, so the "**Gemini 2.5 Flash sweep, same day:** 27/27 cleared" recorded in [`eval-baselines.md`](eval-baselines.md) never touched Gemini. Its per-case numbers populate the **Gemini 2.5 Flash column of the current baseline table**, which is therefore Haiku throughout. Caused by the entry above.
 
   What follows from it, all of which is currently stated as fact:

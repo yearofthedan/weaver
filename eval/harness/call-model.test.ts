@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { callModel } from "./call-model.js";
+import { callModel, getTotalCost, resetCostTracking } from "./call-model.js";
 
 const TEST_BASE_URL = "http://test-server/v1";
 const TEST_MODEL = "test-model";
@@ -9,6 +9,7 @@ let mockFetch: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   mockFetch = vi.fn();
   vi.stubGlobal("fetch", mockFetch);
+  resetCostTracking();
 });
 
 afterEach(() => {
@@ -402,6 +403,76 @@ describe("callModel", () => {
       const result = await callModel([{ role: "user", content: "go" }], [], explicitConfig());
 
       expect(result.finishReason).toBeUndefined();
+    });
+
+    it("returns the cost from usage.cost", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { role: "assistant", content: "done", tool_calls: null } }],
+          usage: { cost: 0.000059 },
+        }),
+      });
+
+      const result = await callModel([{ role: "user", content: "go" }], [], explicitConfig());
+
+      expect(result.cost).toBe(0.000059);
+    });
+
+    it("leaves cost undefined when the provider doesn't report usage", async () => {
+      mockTextReply("no usage here");
+
+      const result = await callModel([{ role: "user", content: "go" }], [], explicitConfig());
+
+      expect(result.cost).toBeUndefined();
+    });
+  });
+
+  describe("cost tracking", () => {
+    it("accumulates cost across successive calls", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { role: "assistant", content: "a", tool_calls: null } }],
+          usage: { cost: 0.001 },
+        }),
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { role: "assistant", content: "b", tool_calls: null } }],
+          usage: { cost: 0.002 },
+        }),
+      });
+
+      await callModel([{ role: "user", content: "go" }], [], explicitConfig());
+      await callModel([{ role: "user", content: "go" }], [], explicitConfig());
+
+      expect(getTotalCost()).toBeCloseTo(0.003);
+    });
+
+    it("does not add to the total when a call reports no cost", async () => {
+      mockTextReply("no usage here");
+
+      await callModel([{ role: "user", content: "go" }], [], explicitConfig());
+
+      expect(getTotalCost()).toBe(0);
+    });
+
+    it("resets to zero on resetCostTracking", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { role: "assistant", content: "a", tool_calls: null } }],
+          usage: { cost: 0.005 },
+        }),
+      });
+      await callModel([{ role: "user", content: "go" }], [], explicitConfig());
+      expect(getTotalCost()).toBe(0.005);
+
+      resetCostTracking();
+
+      expect(getTotalCost()).toBe(0);
     });
   });
 

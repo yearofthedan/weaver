@@ -1,11 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { type AgenticResult, boundaryTrialClean } from "../harness/agentic-loop.js";
 import {
   extractBashCommands,
   matchWeaverCommand,
   weaverSubcommand,
 } from "../harness/assertions.js";
-import { callModel, type ToolCall } from "../harness/call-model.js";
+import { callModel, getTotalCost, type ToolCall } from "../harness/call-model.js";
 import { FRONT_LOADED_MAX_STEPS, PROGRESSIVE_MAX_STEPS } from "../harness/case-lane.js";
 import { formatRunHeader } from "../harness/config.js";
 import { classifyTrialOutcome, computeOutcomes } from "../harness/outcome.js";
@@ -25,6 +25,10 @@ const raw = process.env.WEAVER_EVAL_TRIALS;
 const BASE_TRIAL_COUNT = raw === undefined || raw === "" ? BASE_TRIALS : Number.parseInt(raw, 10);
 
 console.log(formatRunHeader(BASE_TRIAL_COUNT));
+
+afterAll(() => {
+  console.log(`eval run cost — $${getTotalCost().toFixed(4)}`);
+});
 
 // Generous per-call ceiling, not a measured latency — a backstop against a
 // wedged run, sized so ordinary slowness never trips it.

@@ -42,6 +42,17 @@ export interface ModelResponse {
   text: string;
   /** The provider's per-choice completion reason (e.g. "stop", "tool_calls", "length"); absent if the provider didn't report one. */
   finishReason?: string;
+  cost?: number;
+}
+
+let totalCost = 0;
+
+export function getTotalCost(): number {
+  return totalCost;
+}
+
+export function resetCostTracking(): void {
+  totalCost = 0;
 }
 
 // The wire format wants tool calls as {id, type, function: {name, arguments}}
@@ -115,6 +126,7 @@ async function sendOnce(
       };
       finish_reason?: string | null;
     }>;
+    usage?: { cost?: number };
   };
 
   const choice = data.choices[0];
@@ -144,6 +156,7 @@ async function sendOnce(
     toolCalls,
     text: message.content ?? "",
     finishReason: choice.finish_reason ?? undefined,
+    cost: data.usage?.cost,
   };
 }
 
@@ -165,7 +178,11 @@ export async function callModel(
 ): Promise<ModelResponse> {
   for (let attempt = 1; ; attempt++) {
     try {
-      return await sendOnce(messages, tools, config);
+      const result = await sendOnce(messages, tools, config);
+      if (result.cost !== undefined) {
+        totalCost += result.cost;
+      }
+      return result;
     } catch (err) {
       if (isTransientTimeout(err) && attempt < MAX_TIMEOUT_ATTEMPTS) continue;
       throw err;
