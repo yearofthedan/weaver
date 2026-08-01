@@ -12,36 +12,36 @@ Updated **in place** — this table is the reference a new run is read against. 
 
 Conditions: sampled rate gate (`pnpm eval`), n=3 base trials escalating to 6 below the 2/3 floor, temperature omitted (model default sampling), pressured (clutter + per-case momentum), fixture-backed, via OpenRouter.
 
-| Case | Exposure | Haiku 4.5 (gate) | Gemini 2.5 Flash |
-|---|---|---|---|
-| trigger-refactor-rename | progressive | 3/3 | 3/3 |
-| trigger-refactor-rename-no-coords-sed-tempting | progressive | 3/3 | 3/3 |
-| trigger-refactor-move-file | progressive | 3/3 | 3/3 |
-| trigger-search-and-replace-pattern | progressive | 3/3 | 3/3 |
-| trigger-search-and-replace-todos-grep-tempting | progressive | 3/3 | 3/3 |
-| trigger-search-and-replace-sed-tempting | progressive | 3/3 | 2/3 (1 no-attempt, raw `sed`) |
-| trigger-code-inspection-find-references | progressive | 3/3 | 3/3 |
-| trigger-code-inspection-find-references-delete-intent | progressive | 3/3 | 3/3 |
-| trigger-code-inspection-get-type-errors | progressive | 3/3 | 3/3 |
-| **pressured-buried-rename** | progressive (3-turn) | 2/3 · **5/10 (n=10)** — false clear | 3/3 |
-| pressured-buried-replace-text-passive | progressive (3-turn) | 3/3 | 3/3 |
-| pressured-buried-find-references | progressive (3-turn) | 3/3 | 3/3 |
-| command-rename | front-loaded | 3/3 | 3/3 |
-| command-move-file | front-loaded | 3/3 | 3/3 |
-| command-move-directory | front-loaded | 3/3 | 3/3 |
-| command-move-symbol | front-loaded | 2/3 · 10/10 (n=10) | 3/3 |
-| command-find-importers | front-loaded | 3/3 | 3/3 |
-| command-find-references | front-loaded | 3/3 | 2/3 (1 no-attempt, hallucinated native tool call) |
-| command-get-definition | front-loaded | 3/3 | 3/3 |
-| command-get-type-errors *(observational)* | front-loaded | 2/3 · 6/10 (n=10) | 3/3 — at ceiling |
-| command-search-text | front-loaded | 3/3 | 3/3 |
-| command-delete-file | front-loaded | 3/3 | 3/3 |
-| command-replace-text | front-loaded | 3/3 · **10/10 (n=10)** | 3/3 |
-| two-step-search-then-rename | front-loaded (seeded) | 3/3 | 3/3 |
-| **two-step-cat-then-extract** | front-loaded (seeded) | **3/6 — alarms** · 8/10 (n=10) | 3/3 |
-| boundary-bash-search-non-ts-project | boundary | 3/3 clean | 3/3 clean |
-| boundary-bash-remove-console-log | boundary | 3/3 clean | 3/3 clean |
-| **Cases cleared** (of 27) | | **26** | **27** |
+| Case | Exposure | Haiku 4.5 (gate) | Gemini 2.5 Flash | GPT-5.6-Luna |
+|---|---|---|---|---|
+| trigger-refactor-rename | progressive | 3/3 | 3/3 | 3/3 |
+| trigger-refactor-rename-no-coords-sed-tempting | progressive | 3/3 | 3/3 | 3/3 |
+| trigger-refactor-move-file | progressive | 3/3 | 3/3 | 3/3 |
+| trigger-search-and-replace-pattern | progressive | 3/3 | 3/3 | 3/3 |
+| trigger-search-and-replace-todos-grep-tempting | progressive | 3/3 | 3/3 | 3/3 |
+| trigger-search-and-replace-sed-tempting | progressive | 3/3 | 2/3 (1 no-attempt, raw `sed`) | 3/3 |
+| trigger-code-inspection-find-references | progressive | 3/3 | 3/3 | 3/3 |
+| trigger-code-inspection-find-references-delete-intent | progressive | 3/3 | 3/3 | 3/3 |
+| trigger-code-inspection-get-type-errors | progressive | 3/3 | 3/3 | 3/3 |
+| **pressured-buried-rename** | progressive (3-turn) | 2/3 · **5/10 (n=10)** — false clear | 3/3 | 3/3 |
+| pressured-buried-replace-text-passive | progressive (3-turn) | 3/3 | 3/3 | 3/3 |
+| pressured-buried-find-references | progressive (3-turn) | 3/3 | 3/3 | 3/3 |
+| command-rename | front-loaded | 3/3 | 3/3 | 3/3 |
+| command-move-file | front-loaded | 3/3 | 3/3 | 3/3 |
+| command-move-directory | front-loaded | 3/3 | 3/3 | 3/3 |
+| command-move-symbol | front-loaded | 2/3 · 10/10 (n=10) | 3/3 | 3/3 |
+| command-find-importers | front-loaded | 3/3 | 3/3 | 3/3 |
+| command-find-references | front-loaded | 3/3 | 2/3 (1 no-attempt, hallucinated native tool call) | 3/3 |
+| command-get-definition | front-loaded | 3/3 | 3/3 | 3/3 |
+| command-get-type-errors *(observational)* | front-loaded | 2/3 · 6/10 (n=10) | 3/3 — at ceiling | 3/3 — at ceiling |
+| command-search-text | front-loaded | 3/3 | 3/3 | 3/3 |
+| command-delete-file | front-loaded | 3/3 | 3/3 | 3/3 |
+| command-replace-text | front-loaded | 3/3 · **10/10 (n=10)** | 3/3 | 3/3 |
+| two-step-search-then-rename | front-loaded (seeded) | 3/3 | 3/3 | 3/3 |
+| **two-step-cat-then-extract** | front-loaded (seeded) | **3/6 — alarms** · 8/10 (n=10) | 3/3 | 3/3 |
+| boundary-bash-search-non-ts-project | boundary | 3/3 clean | 3/3 clean | **0/3 — over-triggered** |
+| boundary-bash-remove-console-log | boundary | 3/3 clean | 3/3 clean | **0/3 — over-triggered** |
+| **Cases cleared** (of 27) | | **26** | **27** | **25** |
 
 **Two cases sit at the floor, and n=3 resolves neither.** Widening both to n=10 inverted the gate's verdict on each:
 
@@ -63,6 +63,10 @@ Per-case rates are the ground truth — any aggregate derives from them, so reco
 ---
 
 ## Run history
+
+### 2026-08-01 — GPT-5.6-Luna sweep
+
+25/27 cleared, $0.0317. Clears every op case 3/3, including both cases Haiku sits at the floor on (`pressured-buried-rename`, `two-step-cat-then-extract`). Fails both boundary cases 0/3: on a task with no refactoring or search intent, it calls `weaver search-text` anyway (skill loaded, tool invoked) where the correct behaviour is to stay in plain bash/grep — the only model of the three tested so far that over-triggers rather than under-triggers.
 
 ### 2026-08-01 — Gemini 2.5 Flash sweep
 
