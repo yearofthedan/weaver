@@ -125,3 +125,31 @@ arm returned 4/5. One below-floor draw is not a finding, however good the trail 
 the opposite" against a pooled result picks the favourable slice after the fact. The pooled figure
 is the estimate; run-to-run spread is already reflected in how uncertain it is, and showing it
 separately double-counts it.
+
+## Addendum (2026-08-03) — does removing the table clean up Luna's boundary over-triggering?
+
+GPT-5.6-Luna is the only model of the three tested that fails the two boundary cases
+(`boundary-bash-search-non-ts-project`, `boundary-bash-remove-console-log`), both 0/3, both by
+calling `weaver search-text` on a task with no refactor/search intent. Hypothesis: the router
+table's `Never` column (`grep` / `grep -C`) is what's driving it to fire weaver on work that
+belongs in the shell — table arm vs. arm B (this spike's existing no-table prose stash), same
+tables-only prose rewrite, no other change.
+
+Pooled n=13 per arm (3 + widened 10), `openai/gpt-5.6-luna`:
+
+| Case | Tables | Prose |
+|---|---|---|
+| `boundary-bash-search-non-ts-project` | 0/13 | 0/13 |
+| `boundary-bash-remove-console-log` | 1/13 | 3/13 |
+
+`search-non-ts-project` is byte-identical across every trial in both arms — same tool name, same
+args, same workspace/glob — so the table has no measurable role in this case at all. `remove-
+console-log` moved in the hypothesised direction but not distinguishably from noise: Fisher's exact
+on 1/13 vs 3/13 gives p = 0.59.
+
+**Not supported.** Dropping the table does not clean up Luna's boundary cases. The over-triggering
+persists almost identically without it, so it isn't the `Never` column doing this — more likely the
+shared frontmatter `description` (present in both arms), which pattern-matches "find every
+occurrence of X" against tasks that are actually out of scope (a non-TS project, a single-line
+edit). Still open: whether removing the table damages a case Gemini/Luna currently *clear* — this
+addendum only tested their already-failing boundary cases, not their ceiling ones.
