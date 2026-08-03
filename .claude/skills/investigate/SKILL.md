@@ -15,10 +15,15 @@ design).
 
 ## The discipline
 
-1. **Reproduce the red state before claiming a cause.** Get a command or test you
-   run and *watch fail* — no diagnosis begins until red is on the screen. For a
-   flake or race, one green run proves nothing; loop the real trigger until you
-   have seen red.
+1. **Reproduce the EXACT bug before claiming a cause.** "Red" means the same
+   failure *mechanism* the report describes — not merely the same test or case
+   going red for some reason. If the target fails a different way (a different
+   trail, a different symptom) than described, that is **not a reproduction**.
+   It is a new, separate observation — do not write it into this bug's Root
+   cause, do not treat the rate/pass-fail number alone as confirmation. No
+   diagnosis begins until the *described* failure is on the screen. For a flake
+   or race, one green run proves nothing; loop the real trigger until you have
+   seen the exact failure.
 2. **Verify the cause; instrument when it's hidden.** Once red is reproduced,
    confirm *why* it fails. When the reproduction pins it, reading the source to
    find the line is enough — don't manufacture ceremony. When the mechanism is
@@ -41,9 +46,11 @@ design).
    (or the bug the user named). Create a bug spec from
    `docs/specs/templates/bug.md` at `docs/specs/YYYYMMDD-short-slug.md`; fill
    **Symptom**, leave Root cause and Fix blank.
-2. **Reproduce.** Smallest command/test that fails; record it and its output in
-   the spec's `input/actual/expected` block. **Do NOT claim a cause until you
-   have seen red.** If you cannot reproduce it, say so in the spec and stop.
+2. **Reproduce** (principle 1). Smallest command/test that fails; record it and
+   its output in the spec's `input/actual/expected` block. If the exact bug
+   does not reproduce — including the target failing a different way than
+   described — stop the workflow, say so in the spec, and report it to the
+   user before doing anything else. Do not proceed to Step 3.
 3. **Confirm the cause** (principles 2–3). Pin it to the responsible line(s) from
    evidence, not a story that feels right.
 4. **Write the Root cause** — specific to the line(s) and grounded in what you
