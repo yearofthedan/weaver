@@ -151,5 +151,24 @@ on 1/13 vs 3/13 gives p = 0.59.
 persists almost identically without it, so it isn't the `Never` column doing this — more likely the
 shared frontmatter `description` (present in both arms), which pattern-matches "find every
 occurrence of X" against tasks that are actually out of scope (a non-TS project, a single-line
-edit). Still open: whether removing the table damages a case Gemini/Luna currently *clear* — this
-addendum only tested their already-failing boundary cases, not their ceiling ones.
+edit).
+
+## Addendum 2 (2026-08-03) — does removing the table damage a case Gemini/Luna currently clear?
+
+`command-get-type-errors` is the one case the table measurably helped Haiku on (16/22 vs 10/21,
+the main spike above), and both Gemini 2.5 Flash and GPT-5.6-Luna clear it 3/3 *with* the table in
+place. Untested until now: whether removing it knocks either model off ceiling — the only way to
+tell whether the table protects something invisible to an instrument that's already at ceiling.
+
+Prose arm (`stash@{0}`) applied, table removed from all three skill bodies, same case, n=3 each:
+
+| Model | Table (baseline) | Prose (table removed) |
+|---|---|---|
+| Gemini 2.5 Flash | 3/3 | 3/3 |
+| GPT-5.6-Luna | 3/3 | 3/3 |
+
+**Not supported.** Both hold ceiling with the table removed. Combined with Addendum 1 (removing
+the table doesn't fix Luna's failing boundary cases either), the table now has zero measured effect
+on either non-gate model, in either direction, on every case tested. The original spike's read
+stands: the table carries Haiku on its one weakest case and nothing measured suggests it does
+anything for the other two.
