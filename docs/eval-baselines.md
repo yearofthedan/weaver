@@ -28,7 +28,7 @@ Conditions: sampled rate gate (`pnpm eval`), n=3 base trials escalating to 6 bel
 | pressured-buried-find-references | progressive (3-turn) | 3/3 | 3/3 | 3/3 |
 | command-rename | front-loaded | 3/3 | 3/3 | 3/3 |
 | command-move-file | front-loaded | 3/3 | 3/3 | 3/3 |
-| command-move-directory | front-loaded | 3/3 | 3/3 | 3/3 |
+| command-move-directory | front-loaded | 3/3 · **8/10 (n=10)** | 3/3 | 3/3 |
 | command-move-symbol | front-loaded | 2/3 · 10/10 (n=10) | 3/3 | 3/3 |
 | command-find-importers | front-loaded | 3/3 | 3/3 | 3/3 |
 | command-find-references | front-loaded | 3/3 | 2/3 (1 no-attempt, hallucinated native tool call) | 3/3 |
@@ -49,6 +49,8 @@ Conditions: sampled rate gate (`pnpm eval`), n=3 base trials escalating to 6 bel
 - `pressured-buried-rename` **cleared at 2/3 while truly sitting at 5/10** — a false clear, and the more serious of the two. Its failures are `no attempt`: the model loads the skill, explores with `grep`/`search-text`, and never converges inside the 6-step budget.
 
 Both are tracked in [`handoff.md`](handoff.md). The practical rule this run established: **treat any 2/3 or 3/6 as unresolved and widen it before drawing a conclusion** — in either direction. A case at the floor is one draw from either verdict.
+
+A third case joined this list on 2026-08-04: `command-move-directory` cleared **3/3 at n=3** here, but widening to n=10 (during an unrelated brittleness spike) put its true rate at **8/10** — a clean n=3 pass is not the same claim as a held case. The n=3 column above records draws for any case that hasn't been separately widened, not confirmed ceilings; treat a case's true rate as unknown until it has been.
 
 ## How to record a run
 
