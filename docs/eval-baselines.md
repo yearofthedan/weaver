@@ -10,55 +10,48 @@
 
 Updated **in place** — this table is the reference a new run is read against. Move superseded numbers into the run history below rather than growing columns here.
 
-Conditions: sampled rate gate (`pnpm eval`), 2/3 floor, temperature omitted (model default sampling), pressured (clutter + per-case momentum), fixture-backed, via OpenRouter. Gemini and Luna are fully widened to n=10; Haiku is n=10 where a cell says so and an n=3 draw otherwise.
+Conditions: sampled rate gate (`pnpm eval`), 2/3 floor, temperature omitted (model default sampling), pressured (clutter + per-case momentum), fixture-backed, via OpenRouter. Gemini and Luna are fully widened to n=10. Haiku cells marked **†** were last measured before the skill bodies gained their `## Running weaver` section and are not current — re-measure before citing one.
 
 | Case | Exposure | Haiku 4.5 (gate) | Gemini 2.5 Flash | GPT-5.6-Luna |
 |---|---|---|---|---|
-| trigger-refactor-rename | progressive | 3/3 | 10/10 | 10/10 |
-| trigger-refactor-rename-no-coords-sed-tempting | progressive | 3/3 | 10/10 | 10/10 |
-| trigger-refactor-move-file | progressive | 3/3 | 10/10 | 10/10 |
-| trigger-search-and-replace-pattern | progressive | 3/3 | 10/10 | 10/10 |
-| trigger-search-and-replace-todos-grep-tempting | progressive | 3/3 | 10/10 | 10/10 |
-| trigger-search-and-replace-sed-tempting | progressive | 3/3 | 10/10 | 10/10 |
-| trigger-code-inspection-find-references | progressive | 3/3 | 10/10 | 10/10 |
-| trigger-code-inspection-find-references-delete-intent | progressive | 3/3 | 10/10 | 10/10 |
-| trigger-code-inspection-get-type-errors | progressive | 3/3 | 10/10 | 10/10 |
-| **pressured-buried-rename** | progressive (3-turn) | **5/10 (n=10)** — false clear at 2/3 | 9/10 | 10/10 |
-| pressured-buried-replace-text-passive | progressive (3-turn) | 3/3 | 10/10 | 10/10 |
-| pressured-buried-find-references | progressive (3-turn) | 3/3 | 8/10 | 10/10 |
-| command-rename | front-loaded | 10/10 (n=10) | 7/10 | 10/10 |
-| **command-move-file** | front-loaded | **7/10 (n=10)** | 10/10 | 9/10 |
-| command-move-directory | front-loaded | 8/10 (n=10) | 9/10 | 10/10 |
-| command-move-symbol | front-loaded | 10/10 (n=10) | 10/10 | 10/10 |
-| command-find-importers | front-loaded | 10/10 (n=10) | 10/10 | 10/10 |
-| **command-find-references** | front-loaded | 10/10 (n=10) | **3/10 — alarms** | 10/10 |
-| command-get-definition | front-loaded | 10/10 (n=10) | 9/10 | 10/10 |
-| command-get-type-errors *(observational)* | front-loaded | 6/10 (n=10) | 10/10 — at ceiling | 10/10 — at ceiling |
-| command-search-text | front-loaded | 9/10 (n=10) | 10/10 | 9/10 |
-| command-delete-file | front-loaded | 10/10 (n=10) | 9/10 | 10/10 |
-| command-replace-text | front-loaded | 10/10 (n=10) | 10/10 | 10/10 |
-| two-step-search-then-rename | front-loaded (seeded) | 3/3 | 10/10 | 10/10 |
-| **two-step-cat-then-extract** | front-loaded (seeded) | **3/6 — alarms** · 8/10 (n=10) | 10/10 | 10/10 |
-| boundary-bash-search-non-ts-project | boundary | 3/3 clean | 10/10 clean | **0/10 — over-triggered** |
-| boundary-bash-remove-console-log | boundary | 3/3 clean | 10/10 clean | **0/10 — over-triggered** |
-| **Cases cleared** (of 27) | | **26** | **26** | **25** |
+| trigger-refactor-rename | progressive | 3/3 † | 10/10 | 10/10 |
+| trigger-refactor-rename-no-coords-sed-tempting | progressive | 3/3 † | 10/10 | 10/10 |
+| trigger-refactor-move-file | progressive | 3/3 † | 10/10 | 9/10 |
+| trigger-search-and-replace-pattern | progressive | 3/3 † | 10/10 | 10/10 |
+| trigger-search-and-replace-todos-grep-tempting | progressive | 3/3 † | 10/10 | 10/10 |
+| trigger-search-and-replace-sed-tempting | progressive | 3/3 † | 10/10 | 10/10 |
+| trigger-code-inspection-find-references | progressive | 3/3 † | 10/10 | 10/10 |
+| trigger-code-inspection-find-references-delete-intent | progressive | 3/3 † | 10/10 | 10/10 |
+| trigger-code-inspection-get-type-errors | progressive | 3/3 † | 10/10 | 10/10 |
+| **pressured-buried-rename** | progressive (3-turn) | **6/10 — alarms** | 8/10 | 16/20 |
+| pressured-buried-replace-text-passive | progressive (3-turn) | 3/3 † | 10/10 | 10/10 |
+| pressured-buried-find-references | progressive (3-turn) | 3/3 † | 8/10 | 10/10 |
+| command-rename | front-loaded | 10/10 | 30/30 | 10/10 |
+| command-move-file | front-loaded | 18/20 | 10/10 | 10/10 |
+| command-move-directory | front-loaded | 8/10 † | 10/10 | 10/10 |
+| command-move-symbol | front-loaded | 10/10 | 10/10 | 10/10 |
+| command-find-importers | front-loaded | 10/10 | 10/10 | 10/10 |
+| command-find-references | front-loaded | 10/10 | 30/30 | 10/10 |
+| command-get-definition | front-loaded | 10/10 | 10/10 | 10/10 |
+| command-get-type-errors *(observational)* | front-loaded | 20/20 | 10/10 | 10/10 |
+| command-search-text | front-loaded | 9/10 † | 10/10 | 10/10 |
+| command-delete-file | front-loaded | 10/10 | 10/10 | 10/10 |
+| command-replace-text | front-loaded | 10/10 | 10/10 | 10/10 |
+| two-step-search-then-rename | front-loaded (seeded) | 3/3 † | 10/10 | 10/10 |
+| two-step-cat-then-extract | front-loaded (seeded) | 8/10 † | 10/10 | 10/10 |
+| boundary-bash-search-non-ts-project | boundary | 3/3 clean † | 10/10 clean | **0/10 — over-triggered** |
+| boundary-bash-remove-console-log | boundary | 3/3 clean † | 10/10 clean | **0/10 — over-triggered** |
+| **Cases cleared** (of 27) | | **26** | **27** | **25** |
 
-Boundary cases are judged all-clean, not on the rate floor, so their n=10 column is a materially harder bar than the n=3 it replaced. Haiku's 26 is the gate verdict at n=3; counting the widened `pressured-buried-rename` it is 25.
+Boundary cases are judged all-clean, not on the rate floor, so an n=10 column is a materially harder bar than an n=3 one. Luna's boundary failures are settled at 0/10 on both, not a 0/3 draw.
 
-**Two cases sit at the floor, and n=3 resolves neither.** Widening both to n=10 inverted the gate's verdict on each:
+**`pressured-buried-rename` is the only case alarming on the gate.** At 6/10 it sits below the 2/3 floor, and its failures are unchanged in shape: the model calls `weaver search-text`, gets the answer, then re-confirms it with `grep`/`cat` and never converts inside the 6-step budget. The `weaver-refactor` body instructs against exactly that re-confirmation and is ignored. Tracked in [`handoff.md`](handoff.md); Gemini 8/10 and Luna 16/20 on the same case, so it is gate-weighted rather than absent elsewhere.
 
-- `two-step-cat-then-extract` alarmed at 3/6 but measures **8/10** widened (pooled 11/16 ≈ 0.69, just above the floor). The alarm was substantially bad luck, not a clean red. It also matches the rubric's *canary-specific* pattern (Haiku marginal, Gemini 3/3), so it is low-urgency rather than an audience risk.
-- `pressured-buried-rename` **cleared at 2/3 while truly sitting at 5/10** — a false clear, and the more serious of the two. Its failures are `no attempt`: the model loads the skill, explores with `grep`/`search-text`, and never converges inside the 6-step budget.
+**A clean n=3 pass repeatedly failed to survive widening.** On Haiku, `command-move-directory` went 3/3 → **8/10**, `command-move-file` 3/3 → **7/10**, `command-search-text` 3/3 → **9/10**. On Gemini the same thing happened harder: `command-find-references` 2/3 → **3/10** (a red the n=3 draw missed entirely), `command-rename` 3/3 → **7/10**, `pressured-buried-find-references` 3/3 → **8/10** — while `trigger-search-and-replace-sed-tempting` went the other way, 2/3 → **10/10**. Errors ran in both directions on both models. The practical rule: **treat any 2/3 or 3/6 as unresolved and widen it before drawing a conclusion**, in either direction.
 
-`pressured-buried-rename` is tracked in [`handoff.md`](handoff.md); `two-step-cat-then-extract` is not — at a pooled 0.69 with Gemini and Luna both **10/10 widened**, it needs watching on the next sweep, not a work item. The practical rule this run established: **treat any 2/3 or 3/6 as unresolved and widen it before drawing a conclusion** — in either direction. A case at the floor is one draw from either verdict.
+**A green gate does not imply a green audience, and this is measured rather than argued.** Haiku held 10/10 on `command-find-references` while Gemini failed the same case 3/10 — the best-evidenced skill defect the project has found, invisible to the gate by construction. No trial count on a model that does not exhibit a failure will surface it. Whether Haiku should gate at all is queued in [`handoff.md`](handoff.md).
 
-**A clean n=3 pass repeatedly failed to survive widening.** On Haiku, `command-move-directory` went 3/3 → **8/10**, `command-move-file` 3/3 → **7/10**, `command-search-text` 3/3 → **9/10**. On Gemini the same thing happened harder: `command-find-references` 2/3 → **3/10** (a red the n=3 draw missed entirely), `command-rename` 3/3 → **7/10**, `pressured-buried-find-references` 3/3 → **8/10** — while `trigger-search-and-replace-sed-tempting` went the other way, 2/3 → **10/10**. Errors ran in both directions on both models.
-
-**Gemini's red splits into a part weaver cannot fix and a part it can.** In `command-find-references` all ten trials open with a hallucinated *native* call — `find_references({"file":…,"line":5,"col":17})` — with correct arguments every time. The harness feeds the "no such tool" error back, and Gemini converts to `weaver find-references` in only 3 of 10; the rest abandon or fall back to `grep`, several stating outright that they cannot reach weaver while holding the bash tool that would run it. The same reflex drives `command-rename` (8 of 10 trials open natively, 5 recover) and appears in 24 of 250 op-case trials overall, almost entirely on the front-loaded exposure. It is the same behaviour as the 2026-07-25 zero-rate correction below; the trail and the error feedback now make it visible instead of silent. Emitting the native call is a model property no skill edit will move; **converting after the error comes back is not**, and that is what the case measures. Note the model never doubts PATH and never tries the shell form, so this is a distinct mechanism from the invocation-form problem — tracked together, with both mechanisms spelled out, in [`handoff.md`](handoff.md).
-
-Two consequences for how the cross-model columns get read. **Haiku is not conservative relative to the audience** — it is 10/10 on the case Gemini fails 3/10, so a green gate does not imply a green audience. And **Luna's boundary failures are settled**: 0/10 on both, not the 0/3 that could have been a draw.
-
-The remaining 14 cases carry an n=3 draw on Haiku only: the nine `trigger-*`, `pressured-buried-replace-text-passive`, `pressured-buried-find-references`, `two-step-search-then-rename`, and both boundary cases. Treat those rates as unresolved, not as ceilings.
+**Cost per trial, measured 2026-08-07:** Haiku **$0.0109**, Gemini **$0.0012**, Luna **$0.00027** — the gate model is ~9× Gemini and ~40× Luna, so a full Gemini sweep at n=10 costs less than the Haiku gate at n=3. Failing trials run ~3× the cost of passing ones, because an abandonment burns the whole step budget and a step-1 match does not.
 
 ## How to record a run
 
@@ -73,6 +66,25 @@ Per-case rates are the ground truth — any aggregate derives from them, so reco
 ---
 
 ## Run history
+
+### 2026-08-07 — `## Running weaver` section added to the skill bodies
+
+Nine paid runs, ~1,000 trials, **$2.14** total. Full method and negative results: [spike](specs/archive/20260807-weaver-is-a-shell-command-framing.md).
+
+Telling the model that weaver is an installed npm package run from the shell moved four cases and broke none:
+
+| Case | Model | Before | After |
+|---|---|---|---|
+| `command-find-references` | Gemini | 3/10 | **30/30** |
+| `command-rename` | Gemini | 7/10 | **30/30** |
+| `command-get-type-errors` | Haiku | 6/10 | **20/20** |
+| `command-move-file` | Haiku | 7/10 | **18/20** |
+
+The failure shape disappeared rather than thinning: the hallucinated native `find_references({…})` opener fired in 8 of 10 baseline trials and **0 of 30** after, with every post-change trial matching at step 1. Rewording the paragraph from a PATH conditional to a positive statement changed nothing, so the fact carries it, not the phrasing.
+
+Two things the spike ruled out. **Raw frontmatter in the front-loaded prompt is not the cause** — stripping it gave byte-identical rates on both target cases, killing the leading pre-measurement theory. And **PATH doubt was never observed**: across 40 baseline trials no model questioned whether the binary was installed, only whether the capability existed.
+
+Full sweeps under the new text: **Gemini 27/27** (a single `boundary-bash-remove-console-log` over-trigger on the first sample, 10/10 clean on recheck), **Luna 25/27** (both failures the pre-existing 0/10 boundaries). Haiku's seven ceiling `command-*` cases held 10/10; its remaining cells are unmeasured and carry **†** above.
 
 ### 2026-08-07 — front-loaded `command-*` re-baseline at n=10 (Haiku)
 

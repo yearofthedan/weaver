@@ -22,13 +22,25 @@ A skill must be accurate interface documentation — what the op does, its field
 - The one case it moved is one **Gemini 2.5 Flash and GPT-5.6-Luna both clear 3/3 at ceiling**. The table carries the weakest model on its weakest case; the other two never needed it — removing it doesn't move either off ceiling on that case, or fix Luna's two failing boundary cases, so it has no measured effect on either model in either direction. A tactic that only shows up on the instrument is not yet a tactic for the audience.
 - Across the other five cases tested, the result was mixed — one worse, one better, three unchanged. No generalisation is established.
 - The holds are **brittle on marginal cases** — all skill bodies share one context, so an edit anywhere can tip a knife-edge case; reinforcement that looks redundant has proven load-bearing, so never trim it without re-running the full lane. Whether this reaches beyond marginal cases is unresolved and unlikely to be resolvable by testing more hand-picked edits: the tipping mechanism (prose instead of a tool call) only gives a clean signal on a genuinely held case, and the two cases tried for this both turned out to be pre-existing marginals once widened past n=3 (see [`eval-baselines.md`](eval-baselines.md)).
-- Some reflexes **resist even an explicit `Never` row** (`tsc` on the gate model), and "wording can't hold this" is a legitimate recorded verdict.
+- "Wording can't hold this" is a legitimate recorded verdict, but **hold it provisionally**. The `tsc` reflex resisted an explicit `Never` row across several attempts and was written up as unfixable by phrasing; it then cleared 6/10 → 20/20 on a change that never mentions `tsc` (below). A reflex that resists the wording aimed *at* it may still fall to a different cause being removed.
 
 Keep the router for its maintenance properties too — it states the intent → command → never mapping explicitly where prose has to be parsed for it. Not for terseness: as written, the three table openers run ~150 characters *longer* than the prose rewrite, a rounding error against the prompt but the opposite of the usual assumption. Measure the actual texts before claiming either form is cheaper.
 
-One failure shape dominates and no wording tested changes it — only how often it fires: the model runs the shell command, then writes the correct `weaver` invocation *into a prose message* instead of emitting it as a tool call. It is not failing to know; it is failing to convert. Aim new tactics at conversion.
+One failure shape dominates: the model runs the shell command, then writes the correct `weaver` invocation *into a prose message* instead of emitting it as a tool call. It is not failing to know; it is failing to convert. Much of that turns out to be reachability, and the next section clears it. What remains has a different driver — a trial that completes a move with `mv`, then offers `weaver move-file` as advice for the user *one line after successfully using bash*, is treating the job as finished, not the tool as absent. Distinguish the two before aiming a tactic at either.
 
 Whether any structure reliably transfers across hosts and models remains open (see handoff). Design against the principle; prove any specific tactic on the lane before trusting it.
+
+## Say what weaver is — an installed program, not a capability the host grants
+
+A model that cannot place weaver in its tool inventory decides the task is impossible and stops, or hands the command to the user in prose. Note what it is *not* doubting: not whether `weaver` is on `PATH`, but whether the capability exists at all. Observed on Gemini 2.5 Flash — every failing `command-find-references` trial opened with a hallucinated native `find_references({…})` call carrying correct arguments, and after the "no such tool" error only 3 of 10 converted to the shell form. Several said so outright while holding the bash tool that would have run it.
+
+One paragraph per skill body clears it ([spike](specs/archive/20260807-weaver-is-a-shell-command-framing.md)): **3/10 → 30/30** on that case, the hallucinated opener gone from 30 consecutive trials rather than merely rarer, every trial matching on its first call. It generalises past the model and the cases it was aimed at — Haiku's `command-get-type-errors` went **6/10 → 20/20** and `command-move-file` **7/10 → 18/20**, neither of which ever showed the Gemini failure.
+
+The fact is what carries it, not the phrasing: a conditional version ("if a bare `weaver` is not on `PATH`…") and a positive one scored identically, so write the plain statement.
+
+> `weaver` is a JavaScript package — `@yearofthedan/weaver` on npm — installed as a project dependency or globally, and run from the shell like any other command-line program.
+
+Leave the examples as bare `weaver …`. Stating the invocation rule once carries every example below it, and rewriting each fenced block buys nothing measurable. `playwright-cli`, which these skills are modelled on, does the same: the package fact once in an Installation section, bare commands throughout.
 
 ## Own the whole problem a skill claims
 
