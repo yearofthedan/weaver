@@ -26,17 +26,17 @@ Conditions: sampled rate gate (`pnpm eval`), n=3 base trials escalating to 6 bel
 | **pressured-buried-rename** | progressive (3-turn) | 2/3 · **5/10 (n=10)** — false clear | 3/3 | 3/3 |
 | pressured-buried-replace-text-passive | progressive (3-turn) | 3/3 | 3/3 | 3/3 |
 | pressured-buried-find-references | progressive (3-turn) | 3/3 | 3/3 | 3/3 |
-| command-rename | front-loaded | 3/3 | 3/3 | 3/3 |
-| command-move-file | front-loaded | 3/3 | 3/3 | 3/3 |
-| command-move-directory | front-loaded | 3/3 · **8/10 (n=10)** | 3/3 | 3/3 |
-| command-move-symbol | front-loaded | 2/3 · 10/10 (n=10) | 3/3 | 3/3 |
-| command-find-importers | front-loaded | 3/3 | 3/3 | 3/3 |
-| command-find-references | front-loaded | 3/3 | 2/3 (1 no-attempt, hallucinated native tool call) | 3/3 |
-| command-get-definition | front-loaded | 3/3 | 3/3 | 3/3 |
-| command-get-type-errors *(observational)* | front-loaded | 2/3 · 6/10 (n=10) | 3/3 — at ceiling | 3/3 — at ceiling |
-| command-search-text | front-loaded | 3/3 | 3/3 | 3/3 |
-| command-delete-file | front-loaded | 3/3 | 3/3 | 3/3 |
-| command-replace-text | front-loaded | 3/3 · **10/10 (n=10)** | 3/3 | 3/3 |
+| command-rename | front-loaded | 10/10 (n=10) | 3/3 | 3/3 |
+| **command-move-file** | front-loaded | **7/10 (n=10)** | 3/3 | 3/3 |
+| command-move-directory | front-loaded | **8/10 (n=10)** | 3/3 | 3/3 |
+| command-move-symbol | front-loaded | 10/10 (n=10) | 3/3 | 3/3 |
+| command-find-importers | front-loaded | 10/10 (n=10) | 3/3 | 3/3 |
+| command-find-references | front-loaded | 10/10 (n=10) | 2/3 (1 no-attempt, hallucinated native tool call) | 3/3 |
+| command-get-definition | front-loaded | 10/10 (n=10) | 3/3 | 3/3 |
+| command-get-type-errors *(observational)* | front-loaded | 6/10 (n=10) | 3/3 — at ceiling | 3/3 — at ceiling |
+| command-search-text | front-loaded | 9/10 (n=10) | 3/3 | 3/3 |
+| command-delete-file | front-loaded | 10/10 (n=10) | 3/3 | 3/3 |
+| command-replace-text | front-loaded | 10/10 (n=10) | 3/3 | 3/3 |
 | two-step-search-then-rename | front-loaded (seeded) | 3/3 | 3/3 | 3/3 |
 | **two-step-cat-then-extract** | front-loaded (seeded) | **3/6 — alarms** · 8/10 (n=10) | 3/3 | 3/3 |
 | boundary-bash-search-non-ts-project | boundary | 3/3 clean | 3/3 clean | **0/3 — over-triggered** |
@@ -48,9 +48,11 @@ Conditions: sampled rate gate (`pnpm eval`), n=3 base trials escalating to 6 bel
 - `two-step-cat-then-extract` alarmed at 3/6 but measures **8/10** widened (pooled 11/16 ≈ 0.69, just above the floor). The alarm was substantially bad luck, not a clean red. It also matches the rubric's *canary-specific* pattern (Haiku marginal, Gemini 3/3), so it is low-urgency rather than an audience risk.
 - `pressured-buried-rename` **cleared at 2/3 while truly sitting at 5/10** — a false clear, and the more serious of the two. Its failures are `no attempt`: the model loads the skill, explores with `grep`/`search-text`, and never converges inside the 6-step budget.
 
-Both are tracked in [`handoff.md`](handoff.md). The practical rule this run established: **treat any 2/3 or 3/6 as unresolved and widen it before drawing a conclusion** — in either direction. A case at the floor is one draw from either verdict.
+`pressured-buried-rename` is tracked in [`handoff.md`](handoff.md); `two-step-cat-then-extract` is not — at a pooled 0.69 with Gemini and Luna both clean, it needs watching on the next sweep, not a work item. The practical rule this run established: **treat any 2/3 or 3/6 as unresolved and widen it before drawing a conclusion** — in either direction. A case at the floor is one draw from either verdict.
 
-A third case joined this list on 2026-08-04: `command-move-directory` cleared **3/3 at n=3** here, but widening to n=10 (during an unrelated brittleness spike) put its true rate at **8/10** — a clean n=3 pass is not the same claim as a held case. The n=3 column above records draws for any case that hasn't been separately widened, not confirmed ceilings; treat a case's true rate as unknown until it has been.
+**Every front-loaded `command-*` case now carries an n=10 reading**, and a clean n=3 pass repeatedly failed to survive the widening: `command-move-directory` went 3/3 → **8/10**, `command-move-file` 3/3 → **7/10**, `command-search-text` 3/3 → **9/10**. Three of eleven — a clean n=3 pass is not the same claim as a held case.
+
+The remaining 14 cases still show an n=3 draw: the nine `trigger-*`, `pressured-buried-replace-text-passive`, `pressured-buried-find-references`, `two-step-search-then-rename`, and both boundary cases. Treat those rates as unresolved, not as ceilings.
 
 ## How to record a run
 
@@ -65,6 +67,24 @@ Per-case rates are the ground truth — any aggregate derives from them, so reco
 ---
 
 ## Run history
+
+### 2026-08-07 — front-loaded `command-*` re-baseline at n=10 (Haiku)
+
+The seven `command-*` cases that had never been widened, run at `WEAVER_EVAL_TRIALS=10`. $0.8385, all seven cleared the floor.
+
+| Case | Recorded (n=3) | Widened (n=10) |
+|---|---|---|
+| `command-rename` | 3/3 | 10/10 |
+| **`command-move-file`** | 3/3 | **7/10** |
+| `command-find-importers` | 3/3 | 10/10 |
+| `command-find-references` | 3/3 | 10/10 |
+| `command-get-definition` | 3/3 | 10/10 |
+| `command-search-text` | 3/3 | 9/10 |
+| `command-delete-file` | 3/3 | 10/10 |
+
+`command-move-file` clears at 7/10 but sits one trial above the floor, and its three misses share an identical signature: `mkdir -p … && mv …`, then a closing message that *names `weaver move-file` as the tool that should have been used* and explains that `mv` leaves broken imports. The model has the content and the correct conclusion — it emits the shell call first and reasons about it afterwards. This is not a skill-body gap, so rewriting the body is the wrong lever; tracked in [`handoff.md`](handoff.md).
+
+`command-search-text`'s single miss is a grep-exploration loop that burns the 3-step budget without converging. The reflex is visible in the passes too — 5 of 9 matched at step 2, after a `grep -rn` first call. It recovers inside the budget, so the case holds.
 
 ### 2026-08-01 — GPT-5.6-Luna sweep
 
