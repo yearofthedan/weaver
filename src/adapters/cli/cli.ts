@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
 import * as nodePath from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command, type CommanderError } from "commander";
@@ -20,12 +21,22 @@ function commanderExitOverride(err: CommanderError): never {
   throw err; // unreachable; jsonError calls process.exit(1)
 }
 
+// cli.js sits at dist/adapters/cli/, so the package root is three levels up.
+const pkgRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), "../../..");
+
+function readPackageVersion(root: string): string {
+  const pkg = JSON.parse(readFileSync(nodePath.join(root, "package.json"), "utf-8")) as {
+    version: string;
+  };
+  return pkg.version;
+}
+
 const program = new Command();
 
 program
   .name("weaver")
   .description("Headless CLI refactoring engine for AI agents")
-  .version("0.1.0")
+  .version(readPackageVersion(pkgRoot))
   .configureOutput({ writeErr: () => {} }) // suppress Commander's own stderr text
   .exitOverride(commanderExitOverride);
 
@@ -61,7 +72,6 @@ skills
   .option("--force", "Overwrite destination skills that have diverged from the shipped version")
   .exitOverride(commanderExitOverride)
   .action((opts: { dir: string; force?: boolean }) => {
-    const pkgRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), "../../..");
     runInstallSkills(opts, {
       fs: new NodeFileSystem(),
       pkgRoot,

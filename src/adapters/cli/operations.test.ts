@@ -1,7 +1,8 @@
+import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import { Command } from "commander";
 import { describe, expect, it } from "vitest";
-import { FIXTURES, fixtureTest as test } from "../../__testHelpers__/helpers.js";
+import { FIXTURES, PROJECT_ROOT, fixtureTest as test } from "../../__testHelpers__/helpers.js";
 import {
   killDaemon,
   runCliCommand,
@@ -207,10 +208,13 @@ describe("CLI help and version", () => {
     expect(stdout).not.toContain("VALIDATION_ERROR");
   });
 
-  it("--version exits 0", async () => {
+  it("--version exits 0 and reports the package.json version", async () => {
     const { exitCode, stdout } = await runCliCommand(["--version"]);
+    const { version } = JSON.parse(
+      readFileSync(path.join(PROJECT_ROOT, "package.json"), "utf-8"),
+    ) as { version: string };
     expect(exitCode).toBe(0);
-    expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(stdout.trim()).toBe(version);
   });
 
   it("rename --help renders the JSON parameter block through the real CLI and exits 0", async () => {

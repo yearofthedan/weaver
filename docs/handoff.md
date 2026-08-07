@@ -161,14 +161,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ---
 
-### P1
-
-- **`weaver --version` reports a hardcoded `0.1.0`** `[chore]` — `src/adapters/cli/cli.ts:28` calls `.version("0.1.0")` while `package.json` is at `0.1.8`, so every published release has misreported its own version. Fix: read the version from `package.json` (`createRequire(import.meta.url)` — `cli.js` sits at `dist/adapters/cli/`, so the package root is three levels up) rather than duplicating the literal, and add a test asserting the two agree so it cannot drift again.
-
-  Small by effort, real by consequence. `--version` is the canonical "what have I got installed" probe, and it does not fail — it returns a plausible wrong answer, so nothing looks broken while bug reports arrive against code eight releases old. Not a behaviour risk: the daemon's staleness check uses a separate `PROTOCOL_VERSION` constant (`src/daemon/daemon.ts:23`), so mismatched daemons are still detected. Worth doing before any skill or doc tells an agent to run `weaver --version` as an install check — the Playwright skills this project models use exactly that probe.
-
----
-
 ### P2 — High-value features / bugs / tech debt
 
 - **The gate cannot see failures the audience hits — reconsider which model gates, and at what n** `[needs design]` — the gate's premise is weakest-model-as-canary: if Haiku manages, the audience will. That premise is now falsified by measurement, not argument. Haiku held **10/10** on `command-find-references` while Gemini 2.5 Flash failed the same case **3/10**, and the defect behind it turned out to be worth four cases across two models once fixed ([spike](specs/archive/20260807-weaver-is-a-shell-command-framing.md)). No trial count on a model that does not exhibit a failure will surface it.
