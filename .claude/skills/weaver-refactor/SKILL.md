@@ -7,6 +7,10 @@ description: Rename, move, or restructure a symbol or file across the codebase �
 
 **STOP.** If you're about to `mv` a file, `rm` a file that has importers, rename a symbol used in other files, or extract a function by hand — use these commands instead. They rewrite every import, re-export, and barrel-file reference — including across Vue SFCs — that grep, sed, and Edit miss.
 
+## Running weaver
+
+`weaver` is a JavaScript package — `@yearofthedan/weaver` on npm — installed as a project dependency or globally, and run from the shell like any other command-line program. Invoke it however your project exposes it: `weaver …`, `pnpm exec weaver …`, `npx @yearofthedan/weaver …`, or `yarn weaver …`.
+
 ## No `line`/`col`? Locate with `search-text` first — don't grep.
 
 `rename` (and the `find-references` impact check) take a symbol's `file`/`line`/`col`. If you don't have them, **`search-text` returns exactly that shape** — locate first, then act at the returned position. **The returned `{file, line, col}` is the proof: pass it straight to the next command. Do not `grep`, `cat`, or re-open the file to re-confirm the match — that just burns your budget before you act.**

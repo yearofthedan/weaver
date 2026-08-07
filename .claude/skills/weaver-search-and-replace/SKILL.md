@@ -15,6 +15,10 @@ description: Any text search or bulk text change — "find the TODOs", "replace 
 
 One call finds or replaces across the entire workspace, including barrel files and Vue SFCs, and catches files you'd miss. `search-text`/`replace-text` respect workspace boundaries and skip build output and sensitive files; `find-references` is scope-aware and won't match string literals or comments.
 
+## Running weaver
+
+`weaver` is a JavaScript package — `@yearofthedan/weaver` on npm — installed as a project dependency or globally, and run from the shell like any other command-line program. Invoke it however your project exposes it: `weaver …`, `pnpm exec weaver …`, `npx @yearofthedan/weaver …`, or `yarn weaver …`.
+
 ## Trust the response
 
 `replace-text` returns `filesModified` (exhaustive list of every file changed) and `replacementCount` (total edits made). **Do not re-read modified files to verify** — those numbers are the proof. `typeErrors` is the verification surface: empty means the project still compiles. `search-text` results are similarly complete for the given `glob`; don't grep on top.

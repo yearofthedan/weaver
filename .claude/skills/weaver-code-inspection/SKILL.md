@@ -16,6 +16,10 @@ description: Any symbol or type question — "where is X used / who calls X?", "
 
 These see through re-exports, barrel `index.ts` files, type-only imports, and Vue SFCs that grep misses, and they're scope-aware so they won't match unrelated identifiers with the same name.
 
+## Running weaver
+
+`weaver` is a JavaScript package — `@yearofthedan/weaver` on npm — installed as a project dependency or globally, and run from the shell like any other command-line program. Invoke it however your project exposes it: `weaver …`, `pnpm exec weaver …`, `npx @yearofthedan/weaver …`, or `yarn weaver …`.
+
 ## Trust the response
 
 `find-references` and `find-importers` return the **exhaustive** set of matches across re-exports, barrels, and SFCs. **Do not grep afterward to "double-check"** — the response is the proof. If grep would have caught something the tool missed, that's a bug to file, not a workflow.
