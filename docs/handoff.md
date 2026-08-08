@@ -81,7 +81,8 @@ src/
   daemon/
     daemon.ts                    ← thin runDaemon adapter (wires real process/net/fs, delegates to runLifecycle); promise-chain mutex; isDaemonAlive/removeDaemonFiles/stopDaemon/runStop; --verbose per-request logging
     lifecycle.ts                 ← runLifecycle: ordered startup behind FileSystem port + DaemonHost (onSignal/exit) seam — signal handlers installed before the daemon is discoverable; shutdown safe at any stage
-    ensure-daemon.ts             ← ensureDaemon (version check + auto-spawn); callDaemon (socket client); spawnDaemon; forwards --verbose
+    ensure-daemon.ts             ← ensureDaemon (build check + auto-spawn); callDaemon (socket client); spawnDaemon; forwards --verbose
+    build-id.ts                  ← CLI_ENTRY + readBuildId (mtime of the built entry) + isSameBuild; daemons are reused only when running the build on disk
     logger.ts                    ← DaemonLogger: structured JSON log file, 10 MB cap, workspace-prefix stripping
     paths.ts                     ← socketPath, lockfilePath, logfilePath, ensureCacheDir
     validate-workspace.ts        ← validateWorkspace(path, fs) — boundary workspace existence/dir/restricted-root check
@@ -162,8 +163,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 ---
 
 ### P2 — High-value features / bugs / tech debt
-
-- **`pnpm exec weaver` runs a stale copy, not the local build** — [spec](specs/20260808-pnpm-exec-weaver-stale-copy.md)
 
 - **The gate cannot see failures the audience hits — reconsider which model gates, and at what n** `[needs design]` — the gate's premise is weakest-model-as-canary: if Haiku manages, the audience will. That premise is now falsified by measurement, not argument. Haiku held **10/10** on `command-find-references` while Gemini 2.5 Flash failed the same case **3/10**, and the defect behind it turned out to be worth four cases across two models once fixed ([spike](specs/archive/20260807-weaver-is-a-shell-command-framing.md)). No trial count on a model that does not exhibit a failure will surface it.
 

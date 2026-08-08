@@ -162,8 +162,10 @@ byte-identical when only `globs.ts` changes. The comparison is for equality,
 never for "newer", so clock skew and timezone are irrelevant.
 
 The failure modes are asymmetric in the same direction: a false positive costs
-one daemon restart, a false negative is this bug. If either stat fails, treat
-it as a mismatch and respawn.
+one daemon restart, a false negative is this bug.
+
+A stat failure on one side only is a mismatch. Both sides failing is a match —
+corrected during implementation, see Outcome.
 
 This also covers the published-package case that `PROTOCOL_VERSION` was meant
 to handle. A reinstall or upgrade rewrites `dist/`, which moves the mtime,
@@ -211,18 +213,103 @@ same shape as the packed-copy case once packaging is fixed.
 
 ## Done-when
 
-- [ ] Reproduction case now produces expected output
-- [ ] Regression test covers the exact failing case, and drives the built
+- [x] Reproduction case now produces expected output
+- [x] Regression test covers the exact failing case, and drives the built
       `dist/` rather than `src/` via tsx — the built artifact is what goes
       stale, and no current test executes it
       (`src/__testHelpers__/process-helpers.ts:8-9`)
-- [ ] End-to-end case: start a daemon, rebuild, assert the next call is served
+- [x] End-to-end case: start a daemon, rebuild, assert the next call is served
       by a new daemon. Replaces `protocol-version.integration.test.ts`, whose
       only assertion is that `PROTOCOL_VERSION` is a positive integer
-- [ ] Mutation score ≥ threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated if public surface changed (`docs/commands/<name>.md` for user-facing, `docs/internals/<name>.md` for implementation)
-- [ ] `CLAUDE.md`'s *Dogfood the CLI* rule updated to match whatever the fix decides
-- [ ] Tech debt discovered during investigation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Mutation score ≥ threshold for touched files
+- [x] `pnpm check` passes (lint + build + test)
+- [x] Docs updated if public surface changed (`docs/commands/<name>.md` for user-facing, `docs/internals/<name>.md` for implementation)
+- [x] `CLAUDE.md`'s *Dogfood the CLI* rule updated to match whatever the fix decides
+- [x] Tech debt discovered during investigation added to handoff.md as [needs design]
+- [x] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+---
+
+## Outcome
+
+**Shipped:** `link:.` replaces `file:.`; `ping` returns `buildId` (entry mtime)
+and `ensureDaemon` respawns on mismatch; `PROTOCOL_VERSION` deleted.
+
+### Verification
+
+Driven on the real path — `pnpm exec weaver`, both mechanisms, no `pnpm install`
+between steps:
+
+| Step | Action | `pnpm exec weaver` returned |
+|---|---|---|
+| 1 | baseline, spawns daemon | `Unsupported glob syntax: "[abc]**"` |
+| 2 | edit source, `pnpm build`, daemon left running | `ZZQX_VERIFY_ONE glob syntax: ...` |
+| 3 | edit again, `pnpm build`, daemon from step 2 still up | `ZZQX_VERIFY_TWO glob syntax: ...` |
+
+Before the fix, step 2 returned the step-1 message (stale packed copy) and step
+3 returned the step-2 message (stale daemon). Each step picking up its own build
+is the fix working end to end.
+
+The regression tests were also confirmed to fail against the old behaviour:
+with `isSameBuild` forced to return `true` — simulating `PROTOCOL_VERSION`
+always matching — both respawn tests failed on identical PIDs while the two
+control tests still passed.
+
+### Corrections to the spec
+
+**Both stats failing is a match, not a mismatch.** The spec said "if either
+stat fails, treat it as a mismatch". That broke `operations.test.ts` under
+Stryker, whose sandbox ignores `dist`: both sides read null, the mismatch
+forced a respawn, and the respawn ran an entry that does not exist there.
+
+The corrected rule is plain equality. Two nulls mean neither side is running a
+build, so there is nothing to be stale against. This cannot weaken the shipped
+path: `CLI_ENTRY` resolves to exactly the `bin` field, so in an install that
+file *is* the running process and null is unreachable.
+
+**`isSameBuild` reduced to `daemonBuildId === localBuildId`.** Mutation testing
+flagged both branches of the original `typeof` guard as surviving. They were
+redundant — `===` is already type-strict, so the guard could never change an
+answer.
+
+### Known limitation
+
+A source-driven daemon is not fingerprinted. Start a daemon from `src` via tsx,
+edit source, run the CLI from `src` again: both sides read null, the daemon is
+reused, and it serves the older code. This predates the change —
+`PROTOCOL_VERSION` matched unconditionally — and is out of scope here, which
+concerns the built artifact. Closing it needs a different fingerprint, the
+daemon's own loaded modules rather than the dist entry.
+
+### Numbers
+
+- **Tests added:** 12 net (1109 → 1121). New: `build-id.test.ts` (10, one
+  parameterised block), `build-id.integration.test.ts` (4), one caching test in
+  `ensure-daemon.test.ts`. Removed: `protocol-version.integration.test.ts`.
+- **Mutation:** `build-id.ts` 100% (7 killed, 0 survived). `ensure-daemon.ts`
+  73.7% before triage; the two survivors in changed code were fixed — one dead
+  assignment removed, one caching gap covered by a test verified to fail
+  without it. Remaining survivors are in `spawnDaemon`'s subprocess plumbing,
+  untouched here.
+
+### Reflection
+
+**What went well.** Reproducing before designing paid for itself. The
+investigation turned up a second mechanism the original report missed, and the
+report's stated workaround — run `dist/` directly — was falsified by a
+three-step experiment. Had the fix gone straight at packaging, the daemon half
+would have shipped broken.
+
+**What did not.** The `dist`-deleted case was reasoned about rather than tested,
+and the reasoning was wrong; the test suite caught it, which is the cheap place
+to be caught but is still a design error that a five-minute experiment would
+have prevented. Mutation testing then found redundant branches in the same
+function, so that function was over-thought twice.
+
+**For the next agent.** Do not trust `pnpm check` as evidence that a CLI change
+works — every integration test drives `src/` through tsx, so a green suite says
+nothing about the built artifact. `runBuiltCliCommand` in `process-helpers.ts`
+now exists for that; use it when the behaviour under test depends on `dist`.
+Stryker's sandbox ignores `dist` entirely (`stryker.config.mjs` `ignorePatterns`),
+so any code that stats the built entry must tolerate its absence.

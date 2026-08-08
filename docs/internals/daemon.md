@@ -91,10 +91,18 @@ If the socket connection fails (daemon not yet ready), return `{ ok: false, erro
 Exported from `daemon.ts`. Reads the lockfile PID, sends SIGTERM, polls until `isDaemonAlive` returns false (up to 5s), then calls `removeDaemonFiles`. Avoids duplicating the kill-and-wait logic from `runStop`.
 
 **`ping` is a meta-operation handled before `dispatchRequest`.**
-`handleSocketRequest` in `daemon.ts` intercepts `method === "ping"` before calling `dispatchRequest`, returning `{ ok: true, version: PROTOCOL_VERSION }` directly. This avoids adding `ping` to the `OPERATIONS` table and keeps the dispatcher clean of protocol-level concerns.
+`handleSocketRequest` in `daemon.ts` intercepts `method === "ping"` before calling `dispatchRequest`, returning `{ status: "success", buildId }` directly. This avoids adding `ping` to the `OPERATIONS` table and keeps the dispatcher clean of protocol-level concerns.
 
-**`PROTOCOL_VERSION` lives in `daemon.ts`; increment it whenever the operation set changes.**
-Both the daemon (ping handler) and `ensure-daemon.ts` (`ensureDaemon`) import it from there. `ensureDaemon` uses a `versionVerified` module-level flag so the ping check runs only once per daemon process lifetime. Reset the flag whenever the daemon is detected as dead so the next spawn is re-verified.
+**A daemon is reused only if it is running the build on disk.**
+`build-id.ts` defines the build as the mtime of `dist/adapters/cli/cli.js` — the entry both the CLI and the daemon it spawns run from. The daemon captures it at module load into `RUNNING_BUILD_ID` and reports it from `ping`; `ensureDaemon` compares against a fresh read and, on mismatch, calls `stopDaemon` and respawns.
+
+Capture at load, never per request. A rebuild replaces the entry on disk while the daemon keeps serving the code it already loaded, so reading the mtime per ping would report the daemon as current at exactly the moment it went stale.
+
+Use mtime rather than a content hash. `pnpm build` is `rm -rf dist && tsc`, so every build recreates every file and moves every mtime — including when the only change was in a module the entry does not contain, where `cli.js` comes out byte-identical. The comparison is equality only, never ordering, so clock changes cannot make a stale daemon look current. An unreadable entry counts as a mismatch.
+
+`ensureDaemon` uses a `buildVerified` module-level flag so the check runs once per CLI process. Reset it whenever the daemon is detected as dead so the next spawn is re-verified.
+
+**The self-dependency must stay `link:.`.** `package.json` depends on the package itself so `pnpm exec weaver` resolves in-repo. `link:` symlinks the repo root, so the bin runs the current `dist/`. `file:` instead installs a packed copy that refreshes only on `pnpm install`, which leaves `pnpm exec weaver` serving whatever was built the last time someone installed.
 
 ## Verbose logging
 
