@@ -50,16 +50,20 @@ export function walkFiles(dir: string, extensions: string[], fs: FileSystem = de
 }
 
 /**
- * Enumerate all text files in the workspace, optionally filtered by a glob.
- * Uses `git ls-files` when available (respects .gitignore); falls back to a
- * recursive readdir that skips SKIP_DIRS.
+ * Enumerate all text files in the workspace, optionally filtered by a glob
+ * and/or an exclude glob. Uses `git ls-files` when available (respects
+ * .gitignore); falls back to a recursive readdir that skips SKIP_DIRS.
+ *
+ * `excludeGlob` is applied after `glob` — a file must match `glob` (if given)
+ * and must not match `excludeGlob` (if given) to be returned.
  */
 export function walkWorkspaceFiles(
   workspace: string,
-  glob?: string,
-  fs: FileSystem = defaultFs,
+  opts: { glob?: string; excludeGlob?: string; fs?: FileSystem } = {},
 ): string[] {
+  const { glob, excludeGlob, fs = defaultFs } = opts;
   const globPred = glob ? compileGlob(glob) : null;
+  const excludePred = excludeGlob ? compileGlob(excludeGlob) : null;
 
   const result = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], {
     cwd: workspace,
@@ -76,10 +80,12 @@ export function walkWorkspaceFiles(
     files = walkRecursive(workspace, fs);
   }
 
-  if (globPred) {
+  if (globPred || excludePred) {
     files = files.filter((f) => {
       const rel = path.relative(workspace, f).split(path.sep).join("/");
-      return globPred(rel);
+      if (globPred && !globPred(rel)) return false;
+      if (excludePred?.(rel)) return false;
+      return true;
     });
   }
 

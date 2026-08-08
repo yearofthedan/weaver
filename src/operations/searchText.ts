@@ -22,15 +22,16 @@ function isBinaryContent(content: string): boolean {
  * @param pattern - ECMAScript regex pattern string
  * @param scope - workspace scope used to resolve the root and read file content
  * @param opts.glob - optional glob to restrict which files are searched
+ * @param opts.excludeGlob - optional glob of files to exclude, applied after `glob`
  * @param opts.context - lines of context before and after each match (like grep -C)
  * @param opts.maxResults - cap on total matches returned (default 500)
  */
 export async function searchText(
   pattern: string,
   scope: WorkspaceScope,
-  opts: { glob?: string; context?: number; maxResults?: number } = {},
+  opts: { glob?: string; excludeGlob?: string; context?: number; maxResults?: number } = {},
 ): Promise<SearchTextResult> {
-  const { glob, context = 0, maxResults = DEFAULT_MAX_RESULTS } = opts;
+  const { glob, excludeGlob, context = 0, maxResults = DEFAULT_MAX_RESULTS } = opts;
 
   let re: RegExp;
   try {
@@ -45,7 +46,7 @@ export async function searchText(
     );
   }
 
-  const files = walkWorkspaceFiles(scope.root, glob, scope.fs);
+  const files = walkWorkspaceFiles(scope.root, { glob, excludeGlob, fs: scope.fs });
   const matches: SearchMatch[] = [];
   let truncated = false;
 

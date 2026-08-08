@@ -256,7 +256,7 @@ describe("walkWorkspaceFiles", () => {
       write("src/b.js");
       write("src/c.vue");
 
-      const result = walkWorkspaceFiles(tmpDir, "**/*.ts");
+      const result = walkWorkspaceFiles(tmpDir, { glob: "**/*.ts" });
       const names = result.map((f) => path.basename(f));
       expect(names).toContain("a.ts");
       expect(names).not.toContain("b.js");
@@ -287,7 +287,7 @@ describe("walkWorkspaceFiles", () => {
       write("lib/main.ts");
       write("src/utils.ts");
 
-      const result = walkWorkspaceFiles(tmpDir, "main.ts");
+      const result = walkWorkspaceFiles(tmpDir, { glob: "main.ts" });
       const names = result.map((f) => path.basename(f));
       expect(names.every((n) => n === "main.ts")).toBe(true);
       expect(result).toHaveLength(2);
@@ -337,7 +337,7 @@ describe("walkWorkspaceFiles", () => {
       write("src/b.js");
       execSync("git add .", { cwd: tmpDir, env: gitEnv, stdio: "pipe" });
 
-      const result = walkWorkspaceFiles(tmpDir, "**/*.ts");
+      const result = walkWorkspaceFiles(tmpDir, { glob: "**/*.ts" });
       const names = result.map((f) => path.basename(f));
       expect(names).toContain("a.ts");
       expect(names).not.toContain("b.js");
@@ -423,13 +423,38 @@ describe("walkWorkspaceFiles", () => {
     }
 
     it("walks the in-memory tree when no glob is given", () => {
-      const result = walkWorkspaceFiles("/ws", undefined, seed());
+      const result = walkWorkspaceFiles("/ws", { fs: seed() });
       expect(result.map((f) => path.basename(f)).sort()).toEqual(["README.md", "a.ts", "b.js"]);
     });
 
     it("applies the glob filter against the in-memory tree", () => {
-      const result = walkWorkspaceFiles("/ws", "**/*.ts", seed());
+      const result = walkWorkspaceFiles("/ws", { glob: "**/*.ts", fs: seed() });
       expect(result.map((f) => path.basename(f))).toEqual(["a.ts"]);
+    });
+
+    it("excludes matches from the excludeGlob after the glob filter is applied", () => {
+      const vfs = new InMemoryFileSystem();
+      vfs.writeFile("/ws/docs/archive/old.md", "");
+      vfs.writeFile("/ws/docs/guide.md", "");
+      vfs.writeFile("/ws/src/a.ts", "");
+
+      const result = walkWorkspaceFiles("/ws", { excludeGlob: "docs/archive/**", fs: vfs });
+      const names = result.map((f) => path.basename(f)).sort();
+      expect(names).toEqual(["a.ts", "guide.md"]);
+    });
+
+    it("applies excludeGlob after glob, not instead of it", () => {
+      const vfs = new InMemoryFileSystem();
+      vfs.writeFile("/ws/docs/archive/old.md", "");
+      vfs.writeFile("/ws/docs/guide.md", "");
+      vfs.writeFile("/ws/src/a.ts", "");
+
+      const result = walkWorkspaceFiles("/ws", {
+        glob: "**/*.md",
+        excludeGlob: "docs/archive/**",
+        fs: vfs,
+      });
+      expect(result.map((f) => path.basename(f))).toEqual(["guide.md"]);
     });
   });
 });

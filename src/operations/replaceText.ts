@@ -10,8 +10,9 @@ import type { ReplaceTextResult, TextEdit } from "./types.js";
  * Replace text across workspace files. Two modes:
  *
  * **Pattern mode** (`pattern` + `replacement`): applies a regex replace-all
- * across all files in the workspace, optionally filtered by `glob`.
- * `replacement` may use `$1`, `$2`, etc. for capture group backreferences.
+ * across all files in the workspace, optionally filtered by `glob` and
+ * `excludeGlob`. `replacement` may use `$1`, `$2`, etc. for capture group
+ * backreferences.
  *
  * **Surgical mode** (`edits` array): applies each `{file, line, col, oldText,
  * newText}` edit atomically. `oldText` is verified at the given position before
@@ -25,17 +26,18 @@ export async function replaceText(
     pattern?: string;
     replacement?: string;
     glob?: string;
+    excludeGlob?: string;
     edits?: TextEdit[];
   },
 ): Promise<ReplaceTextResult> {
-  const { pattern, replacement, glob, edits } = opts;
+  const { pattern, replacement, glob, excludeGlob, edits } = opts;
 
   if (edits !== undefined) {
     return applySurgicalEdits(scope, edits);
   }
 
   if (pattern !== undefined && replacement !== undefined) {
-    return applyPatternReplace(scope, pattern, replacement, glob);
+    return applyPatternReplace(scope, pattern, replacement, glob, excludeGlob);
   }
 
   // Zod's refine() in ReplaceTextArgsSchema catches this at the protocol boundary;
@@ -53,6 +55,7 @@ function applyPatternReplace(
   pattern: string,
   replacement: string,
   glob?: string,
+  excludeGlob?: string,
 ): ReplaceTextResult {
   let re: RegExp;
   try {
@@ -67,7 +70,7 @@ function applyPatternReplace(
     );
   }
 
-  const files = walkWorkspaceFiles(scope.root, glob, scope.fs);
+  const files = walkWorkspaceFiles(scope.root, { glob, excludeGlob, fs: scope.fs });
   let replacementCount = 0;
 
   for (const filePath of files) {
