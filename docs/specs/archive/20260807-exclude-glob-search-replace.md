@@ -121,3 +121,48 @@ Consequences: ~15 mechanical test call-site updates in `file-walk.test.ts`; a fi
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+---
+
+## Outcome
+
+**Shipped:** 2026-08-07, five commits (`8023e36`..`f30c29c`) plus docs.
+
+### Verification
+
+Exercised on the deployment path — compiled CLI, real daemon over a real socket, against this repository — using a sentinel (`ZQXVW-sentinel-9182`) seeded into `docs/specs/archive/` and `src/` so no result could pass by coincidence.
+
+| Call | Observed |
+|---|---|
+| no `excludeGlob` | 2 matches (archive + src) — reproduces the original dogfooding pain |
+| `excludeGlob: "docs/specs/archive/**"` | 1 match (src only) |
+| `glob: "**/*.md"` + `excludeGlob` | 1 match — exclusion wins over inclusion |
+| `excludeGlob: "docs/[ab]/**"` | `INVALID_GLOB` with the syntax hint |
+| `excludeGlob: "{docs/specs/archive/**,src/**}"` | 0 matches — brace group excludes both trees |
+| `replace-text` + `excludeGlob` | `filesModified: [src/…]`, `replacementCount: 1`; archive file byte-identical, src file replaced |
+
+**The first verification attempt was a false red, and the reason matters more than the feature.** `pnpm exec weaver` reported `excludeGlob` as having no effect at all — including returning success for a deliberately invalid glob. The cause was not the code: `package.json` declares `"@yearofthedan/weaver": "file:."`, and pnpm resolves that to a *hard copy* under `node_modules/.pnpm/@yearofthedan+weaver@file+/`, dated 20 Jul 2026, which does not refresh on `pnpm build`. Invoking `node dist/adapters/cli/cli.js` gave correct results on every case. Logged as a P2 `[needs investigation]`, because `CLAUDE.md` tells every agent to dogfood via `pnpm exec weaver` — so any change "verified" that way since 20 July was verified against a July build.
+
+### Tests and mutation
+
+9 tests added: 4 in `file-walk.test.ts` (exclusion, ordering vs `glob`, `INVALID_GLOB`, brace group), 2 in `searchText.test.ts`, 1 in `replaceText.test.ts`, 2 schema-description round-trips.
+
+| File | Score | Notes |
+|---|---|---|
+| `file-walk.ts` | 96.08% | 2 survivors, both equivalent mutants |
+| `searchText.ts` | 91.78% | 6 survivors, all pre-existing |
+| `replaceText.ts` | 78.13% | 17 survivors + 4 no-coverage, all pre-existing (surgical mode) |
+
+No survivor falls on a line this change touched. The one new equivalent mutant is `file-walk.ts:83` — `if (globPred || excludePred)` → `if (true)`. With both predicates null the filter body returns `true` for every file, so the mutant is behaviourally identical; the guard exists to skip a `path.relative` per file on the common unfiltered search. Unkillable by construction, and worth keeping.
+
+The `replaceText` no-coverage cluster revealed a pre-existing gap: the offset `reduce` (line 157) only fires when `lineIdx > 0` and the out-of-range `throw` (line 153) never runs, so every surgical test edits line 1 of its file. Filed as a `[chore]`.
+
+### Reflection
+
+**What went well.** Resolving the `walkWorkspaceFiles` signature fork *before* dispatch meant the executor had no design judgment to make; the implementation landed in one batch with no interface drift. Reusing `compileGlob` wholesale meant `INVALID_GLOB`, brace expansion, and the 256-pattern cap all came free and needed assertions rather than code.
+
+**What did not go well.** The AC tests passed on first write with no red state, because step 1's signature change had already threaded `excludeGlob` through both operations. That is a real weakness in how the batch was ordered — the seam and its consumers landed together, so nothing ever failed. Mutation testing was the only thing that could confirm the tests discriminate, and it did, but the ordering should have put the operation tests before the seam wiring.
+
+**What took longer than it should have.** The false-red verification cost the most time, and the instinct it produced was wrong twice over: first trusting `pnpm exec weaver`, then — after being wrong once — over-hedging the *correct* second result into a request for user sign-off it did not need. Stale-artifact failures look exactly like feature failures. Check what the binary resolves to before theorising about the code.
+
+**For the next agent.** Do not verify a CLI change in this repo with `pnpm exec weaver` until the stale-copy item is resolved; use `node dist/adapters/cli/cli.js` and stop the daemon first (`ensureDaemon` only respawns on a version mismatch, and the version does not change between builds). When adding a filter option to `walkWorkspaceFiles`, it now takes an options object — extend that, do not add positionals.
