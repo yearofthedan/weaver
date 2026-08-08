@@ -327,3 +327,39 @@ describe("searchText — brace glob wiring", () => {
     },
   );
 });
+
+describe("searchText — excludeGlob", () => {
+  fixtureTest(
+    "excludes files matching excludeGlob from an unfiltered search",
+    async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({
+        "docs/archive/old.md": "foo\n",
+        "src/a.ts": "foo\n",
+      });
+
+      const result = await searchText("foo", makeScope(dir), { excludeGlob: "docs/archive/**" });
+
+      expect(result.matches).toHaveLength(1);
+      expect(result.matches[0].file.endsWith(path.join("src", "a.ts"))).toBe(true);
+    },
+  );
+
+  fixtureTest(
+    "applies excludeGlob after glob, not instead of it",
+    async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({
+        "docs/archive/old.md": "foo\n",
+        "docs/guide.md": "foo\n",
+        "src/a.ts": "foo\n",
+      });
+
+      const result = await searchText("foo", makeScope(dir), {
+        glob: "**/*.md",
+        excludeGlob: "docs/archive/**",
+      });
+
+      expect(result.matches).toHaveLength(1);
+      expect(result.matches[0].file.endsWith(path.join("docs", "guide.md"))).toBe(true);
+    },
+  );
+});
