@@ -82,7 +82,7 @@
     "@types/tmp": "0.2.6",
     "@vitest/coverage-v8": "4.1.10",
     "@volar/language-core": "2.4.28",
-    "@yearofthedan/weaver": "file:.",
+    "@yearofthedan/weaver": "link:.",
     "husky": "9.1.7",
     "tmp": "0.2.7",
     "tsx": "4.23.7",
