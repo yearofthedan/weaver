@@ -1,3 +1,4 @@
+import { GATING_MODELS } from "../harness/config.js";
 import type { SkillName } from "../harness/context.js";
 import { loadFixture } from "../harness/fixtures.js";
 
@@ -6,14 +7,17 @@ export type Exposure = "progressive" | "front-loaded";
 
 /**
  * Marks a case as tracking a known-weak model reflex rather than gating the
- * run: its rate is still measured and printed, but never fails the case.
- * `since` (`YYYY-MM-DD`) and `reason` (`"<reflex> — <rate> at demotion"`) keep
- * the marking dated and re-checkable at a later full run, rather than a
- * standing excuse nobody revisits.
+ * run on the models it names: its rate is still measured and printed, but
+ * never fails the case there. On every other roster model the case gates
+ * normally. `since` (`YYYY-MM-DD`) and `reason` (`"<reflex> — <rate> at
+ * demotion"`) keep the marking dated and re-checkable at a later full run,
+ * rather than a standing excuse nobody revisits.
  */
 export interface ObservationalMarker {
   since: string;
   reason: string;
+  /** Roster model ids (see {@link GATING_MODELS}) this demotion applies to. */
+  models: readonly string[];
 }
 
 interface CaseBase {
@@ -32,6 +36,7 @@ interface CaseBase {
    * defaults — see `cannedToolResult` in `eval/harness/agentic-loop.ts`.
    */
   cannedResults?: Record<string, string>;
+  observational?: ObservationalMarker;
 }
 
 /**
@@ -45,14 +50,14 @@ export interface ProgressiveOpCase extends CaseBase {
     command: string;
     keyArgs?: Record<string, unknown>;
   };
-  observational?: ObservationalMarker;
 }
 
 /**
  * Legitimate shell/Edit work that must stay in `bash` — guards against a
  * skill description over-triggering and stealing a task no skill should
- * claim. No command to converge on, so no rate to demote: an observational
- * marker is meaningless here.
+ * claim. Judged all-clean by default; an observational marker demotes that
+ * judgement on the models it names, so a known over-trigger is still
+ * measured and printed but does not fail the case there.
  */
 export interface BoundaryCase extends CaseBase {
   exposure: "progressive";
@@ -81,7 +86,6 @@ export interface FrontLoadedCase extends CaseBase {
    * (extension included) whose content is fed back as the step-1 tool result.
    */
   seed?: { step1Command: string; fixture: string };
-  observational?: ObservationalMarker;
 }
 
 export type CaseEntry = ProgressiveOpCase | BoundaryCase | FrontLoadedCase;
@@ -106,8 +110,9 @@ export function isOpCase(entry: CaseEntry): entry is OpCase {
 }
 
 const OBSERVATIONAL_SINCE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const GATING_MODEL_IDS = new Set(GATING_MODELS.map((model) => model.id));
 
-function validateObservational(entry: OpCase): void {
+export function validateObservational(entry: CaseEntry): void {
   const marker = entry.observational;
   if (!marker) return;
   if (!OBSERVATIONAL_SINCE_PATTERN.test(marker.since)) {
@@ -118,6 +123,15 @@ function validateObservational(entry: OpCase): void {
   if (marker.reason.trim() === "") {
     throw new Error(`Case "${entry.name}" observational.reason must not be empty`);
   }
+  if (marker.models.length === 0) {
+    throw new Error(`Case "${entry.name}" observational.models must not be empty`);
+  }
+  const unknownIds = marker.models.filter((id) => !GATING_MODEL_IDS.has(id));
+  if (unknownIds.length > 0) {
+    throw new Error(
+      `Case "${entry.name}" observational.models names unknown model id(s): ${unknownIds.join(", ")}`,
+    );
+  }
 }
 
 /** Eagerly validates all seed fixtures and observational markings at module load. */
@@ -126,9 +140,7 @@ function validateCases(entries: CaseEntry[]): CaseEntry[] {
     if (isFrontLoadedCase(entry) && entry.seed) {
       loadFixture(entry.seed.fixture);
     }
-    if (!isBoundaryCase(entry)) {
-      validateObservational(entry);
-    }
+    validateObservational(entry);
   }
   return entries;
 }
@@ -391,6 +403,7 @@ export const CASES: CaseEntry[] = validateCases([
     observational: {
       since: "2026-07-24",
       reason: "tsc reflex — 3/5 at demotion",
+      models: ["anthropic/claude-haiku-4.5"],
     },
   },
   {

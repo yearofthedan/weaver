@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { caseAlarms, decideEscalation, isAtCeiling } from "./verdict.js";
+import { caseAlarms, decideEscalation, isAtCeiling, isDemotedForModel } from "./verdict.js";
 
 describe("decideEscalation", () => {
   describe("at the 2/3 floor (inclusive) but not a clean sweep", () => {
@@ -98,6 +98,37 @@ describe("caseAlarms", () => {
         false,
       );
     });
+  });
+});
+
+describe("isDemotedForModel", () => {
+  it("is false when the case carries no marker at all", () => {
+    expect(isDemotedForModel(undefined, "anthropic/claude-haiku-4.5")).toBe(false);
+  });
+
+  it("is true when the marker names the active model", () => {
+    expect(isDemotedForModel(["anthropic/claude-haiku-4.5"], "anthropic/claude-haiku-4.5")).toBe(
+      true,
+    );
+  });
+
+  it("is false when the marker names a different model than the active one", () => {
+    expect(isDemotedForModel(["google/gemini-2.5-flash"], "anthropic/claude-haiku-4.5")).toBe(
+      false,
+    );
+  });
+
+  it("is true when the active model is one of several named models", () => {
+    expect(
+      isDemotedForModel(
+        ["google/gemini-2.5-flash", "anthropic/claude-haiku-4.5"],
+        "anthropic/claude-haiku-4.5",
+      ),
+    ).toBe(true);
+  });
+
+  it("is false for an empty model list", () => {
+    expect(isDemotedForModel([], "anthropic/claude-haiku-4.5")).toBe(false);
   });
 });
 

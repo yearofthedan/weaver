@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { cannedToolResult } from "../harness/agentic-loop.js";
 import type { ToolCall } from "../harness/call-model.js";
+import { GATING_MODELS } from "../harness/config.js";
 import { loadFixture } from "../harness/fixtures.js";
 import {
   CASES,
+  type FrontLoadedCase,
   isBoundaryCase,
   isFrontLoadedCase,
   isOpCase,
   isProgressiveOpCase,
+  validateObservational,
 } from "./cases.js";
 
 function bashCall(command: string): ToolCall {
@@ -147,6 +150,71 @@ describe("case table", () => {
       expect(parsed.matches).toHaveLength(1);
       expect(parsed.matches[0]).toMatchObject({ line: 12, col: 9 });
       expect(result).not.toBe("src/auth.ts\nsrc/api.ts\nsrc/utils.ts");
+    });
+  });
+
+  describe("observational marker validation", () => {
+    const knownModelId = GATING_MODELS[0]?.id;
+    if (knownModelId === undefined) {
+      throw new Error("GATING_MODELS must not be empty for this test to run");
+    }
+
+    function caseWithMarker(observational: FrontLoadedCase["observational"]): FrontLoadedCase {
+      return {
+        name: "test-case",
+        exposure: "front-loaded",
+        task: "irrelevant",
+        expect: { command: "search-text" },
+        observational,
+      };
+    }
+
+    it("accepts a marker naming a known roster model", () => {
+      expect(() =>
+        validateObservational(
+          caseWithMarker({ since: "2026-08-08", reason: "measured rate", models: [knownModelId] }),
+        ),
+      ).not.toThrow();
+    });
+
+    it("does nothing for a case without a marker", () => {
+      expect(() => validateObservational(caseWithMarker(undefined))).not.toThrow();
+    });
+
+    it("rejects an empty models list, naming the case", () => {
+      expect(() =>
+        validateObservational(
+          caseWithMarker({ since: "2026-08-08", reason: "measured rate", models: [] }),
+        ),
+      ).toThrow('"test-case"');
+    });
+
+    it("rejects a model id absent from the roster, naming the case and the offending id", () => {
+      expect(() =>
+        validateObservational(
+          caseWithMarker({
+            since: "2026-08-08",
+            reason: "measured rate",
+            models: ["not-a-real-model"],
+          }),
+        ),
+      ).toThrow(/"test-case".*not-a-real-model/s);
+    });
+
+    it("rejects a since value that isn't YYYY-MM-DD", () => {
+      expect(() =>
+        validateObservational(
+          caseWithMarker({ since: "08-08-2026", reason: "measured rate", models: [knownModelId] }),
+        ),
+      ).toThrow('"test-case"');
+    });
+
+    it("rejects a blank reason", () => {
+      expect(() =>
+        validateObservational(
+          caseWithMarker({ since: "2026-08-08", reason: "   ", models: [knownModelId] }),
+        ),
+      ).toThrow('"test-case"');
     });
   });
 

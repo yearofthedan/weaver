@@ -40,6 +40,18 @@ export function decideEscalation(passed: number, total: number): EscalationDecis
 }
 
 /**
+ * Whether an observational marker's model list demotes a case's result on
+ * the given active model. `undefined` means the case carries no marker at
+ * all, which never demotes — the case gates normally on every model.
+ */
+export function isDemotedForModel(
+  models: readonly string[] | undefined,
+  activeModel: string,
+): boolean {
+  return (models ?? []).includes(activeModel);
+}
+
+/**
  * Whether a case's final result should alarm. A hard-failed trial
  * (`isMutatingCompetitor`) alarms the case regardless of rate or
  * observational marking — a destructive act is never merely observational.
