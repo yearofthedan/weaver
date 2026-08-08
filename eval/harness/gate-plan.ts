@@ -17,11 +17,18 @@ export interface GatePlanOptions {
   extraArgv?: readonly string[];
 }
 
+// A set-but-non-numeric override throws rather than reaching the child as
+// "NaN", where every case would run zero trials and alarm — a wasted run that
+// reads as a suite-wide regression instead of a typo.
 function resolveTrials(model: GatingModel, trialsOverride: string | undefined): number {
   if (trialsOverride === undefined || trialsOverride === "") {
     return model.baseTrials;
   }
-  return Number.parseInt(trialsOverride, 10);
+  const parsed = Number(trialsOverride);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error(`WEAVER_EVAL_TRIALS must be a positive integer, got "${trialsOverride}"`);
+  }
+  return parsed;
 }
 
 /**
