@@ -34,6 +34,8 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
 
    **Changes: group ACs by neighbourhood.** Look at which files each AC touches. ACs that modify the same area of the codebase (same directory, same source+test pair) go in one dispatch. ACs that jump to a different area start a new dispatch.
 
+   **Split seam from adoption.** When ACs need a new shared helper or a changed contract, that step builds the seam with its own tests and migrates callers to the new call shape only — it does not pass the new capability through. Consumers adopt it in their own steps, so each AC's test fails before its wiring exists.
+
    For each batch, dispatch one `execution-agent` call with:
    - The spec file path
    - Which ACs to implement (quote the AC text for each)
