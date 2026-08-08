@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { formatRunHeader, isCleanMode, modelConfig } from "./config.js";
+import { formatRunHeader, GATING_MODELS, isCleanMode, modelConfig } from "./config.js";
 
 afterEach(() => {
   delete process.env.WEAVER_EVAL_BASE_URL;
@@ -50,6 +50,27 @@ describe("modelConfig", () => {
       expect(config.model).toBe("anthropic/claude-haiku-4.5");
       expect(config.apiKey).toBe("sk-or-test");
     });
+  });
+});
+
+describe("GATING_MODELS", () => {
+  it("names the three gating models with their base trial counts", () => {
+    expect(GATING_MODELS).toEqual([
+      { id: "anthropic/claude-haiku-4.5", baseTrials: 3 },
+      { id: "google/gemini-2.5-flash", baseTrials: 10 },
+      { id: "openai/gpt-5.6-luna", baseTrials: 10 },
+    ]);
+  });
+
+  it("is non-empty, has no duplicate ids, and every base trial count is positive", () => {
+    expect(GATING_MODELS.length).toBeGreaterThan(0);
+
+    const ids = GATING_MODELS.map((m) => m.id);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    for (const model of GATING_MODELS) {
+      expect(model.baseTrials).toBeGreaterThan(0);
+    }
   });
 });
 

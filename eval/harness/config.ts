@@ -1,3 +1,23 @@
+/** One model the gate runs the suite against, and the trial count it runs at before escalation. */
+export interface GatingModel {
+  /** OpenRouter model id, sent as WEAVER_EVAL_MODEL. */
+  id: string;
+  baseTrials: number;
+}
+
+/**
+ * The models the gate requires a clean run from, and the only place that
+ * list is written — the runner and marker validation both read this rather
+ * than each keeping their own copy. Unlike {@link modelConfig}, which reads
+ * the model for *this* run from the environment, this is a fixed roster of
+ * every model a run can target.
+ */
+export const GATING_MODELS: readonly GatingModel[] = [
+  { id: "anthropic/claude-haiku-4.5", baseTrials: 3 },
+  { id: "google/gemini-2.5-flash", baseTrials: 10 },
+  { id: "openai/gpt-5.6-luna", baseTrials: 10 },
+];
+
 export interface ModelConfig {
   baseUrl: string;
   model: string;
