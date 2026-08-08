@@ -26,16 +26,21 @@ WEAVER_EVAL_MODEL=anthropic/claude-haiku-4.5 pass-cli run --env-file .env -- pnp
 pnpm eval                              # the whole gate
 pnpm eval -t <case-regex>              # filter to a case subset
 WEAVER_EVAL_TRIALS=10 pnpm eval -t <case-regex>   # widen an ambiguous case
+
+pnpm eval:gate                         # every roster model in sequence — what a skill edit must clear
+pnpm eval:gate -t <case-regex>         # the same, scoped to a case subset
 ```
 
-Always pass `--disable-console-intercept` — without it vitest swallows the per-case rate and trail output on *passing* tests, so a green run prints nothing and a paid run is wasted.
+`pnpm eval:gate` is the command a skill-file change has to pass. It runs the lane once per roster model at that model's base trial count (Haiku 3, Gemini 10, Luna 10), keeps going after a model fails so you get all three results, prints a per-model pass/fail and cost summary, and exits non-zero if any model failed. Roughly $1.30 for a full run. The roster is `GATING_MODELS` in `eval/harness/config.ts`.
+
+Always pass `--disable-console-intercept` — without it vitest swallows the per-case rate and trail output on *passing* tests, so a green run prints nothing and a paid run is wasted. `pnpm eval:gate` passes it for you.
 
 ## Knobs
 
 | Variable | Effect |
 |---|---|
-| `WEAVER_EVAL_TRIALS` | Base trials per case (default 3). A case below the 2/3 floor escalates to 6 on its own. |
-| `WEAVER_EVAL_MODEL` | Swap the model — e.g. `google/gemini-2.5-flash` for the cross-family sweep. |
+| `WEAVER_EVAL_TRIALS` | Base trials per case (default 3; `eval:gate` supplies the roster's per-model count instead). Anything short of a clean sweep escalates to 6 on its own. Set here it wins over the roster, for a spot-check. |
+| `WEAVER_EVAL_MODEL` | Swap the model for a single-model run — e.g. `google/gemini-2.5-flash`. Set per model by `eval:gate`. |
 | `WEAVER_EVAL_TEMPERATURE` | **Diagnostic.** Unset (the default) omits the field entirely, so the model samples at its own default. Set `0` to replay one deterministic path. |
 | `WEAVER_EVAL_CLEAN=1` | **Diagnostic.** Drops clutter and momentum, separating "the body broke" from "it loses under pressure". |
 | `WEAVER_EVAL_DEBUG=1` | Dump the full turn-by-turn exchange. |

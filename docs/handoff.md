@@ -40,7 +40,7 @@ Directory layout matches domain boundaries:
 
 ```
 eval/
-  harness/             ← eval harness: model client (callModel), context/skill/prompt builders, assertions + grading, the agentic loop, per-exposure trial assembly (case-lane.ts), sampling + escalation (run-case.ts), and the gate verdict (verdict.ts); unit-tested in the test:eval lane. Gate model: Haiku (`anthropic/claude-haiku-4.5`) via OpenRouter. Mechanics: [`eval-design.md`](eval-design.md)
+  harness/             ← eval harness: model client (callModel), context/skill/prompt builders, assertions + grading, the agentic loop, per-exposure trial assembly (case-lane.ts), sampling + escalation (run-case.ts), the gate verdict + per-model demotion (verdict.ts), and the multi-model run planner (gate-plan.ts); unit-tested in the test:eval lane. Gating roster (`GATING_MODELS` in config.ts): Haiku n=3, Gemini 2.5 Flash n=10, GPT-5.6-Luna n=10, all via OpenRouter — `pnpm eval:gate` runs all three and is what a skill edit must clear. Mechanics: [`eval-design.md`](eval-design.md)
   cases/               ← cases.ts conditioned case table (discriminated union on `exposure`: progressive | front-loaded | boundary; optional seed/cannedResults/momentumTurns/observational); one gate.llm.test.ts lane, `pnpm eval`-only; coverage.test.ts + cases.test.ts invariants run in pnpm check
   fixtures/            ← canned CLI stdout JSON keyed by operation name; embedded as tool results in seeded cases
   vitest.config.ts     ← test:eval lane (helpers + invariants, runs in pnpm check)
@@ -49,6 +49,8 @@ eval/
   global-setup.llm.ts  ← fails fast requiring a hosted endpoint (WEAVER_EVAL_BASE_URL/MODEL/API_KEY) when unset
   README.md            ← operational runbook: setup, secret injection, run commands, diagnostic knobs
 tsconfig.eval.json     ← typechecks eval/ (incl. the .llm.test.ts lane) via `pnpm typecheck:eval`, wired into pnpm check
+scripts/
+  eval-gate.ts         ← `pnpm eval:gate` — spawns one `pnpm eval` per roster model, collects exit codes and costs; thin adapter over gate-plan.ts
 .github/workflows/
   ci.yml               ← lint + build + test on push/PR
   quality-feedback.yml ← mutation testing (weekly + on push to main); Claude Code triage step on score < 75
@@ -193,6 +195,8 @@ Priorities run top to bottom. Complete a tier before starting the next.
 - **Surgical-mode edits are only tested at line 1** `[chore]` — mutation on `src/operations/replaceText.ts` (2026-08-07, 78.13%) reports no coverage for the offset `reduce` at line 157 and the out-of-range `throw` at line 153. Both are reachable: the `reduce` callback only fires when `lineIdx > 0`, and the throw only on an out-of-range line. Every surgical test therefore edits line 1 of its file and none passes a bad line number. Add two cases — an edit on a later line (proving the offset accumulation) and an out-of-range line asserting `TEXT_MISMATCH`. The multi-edit comparator at line 146 is covered but its ordering mutant survives, so that assertion needs to discriminate order too.
 
 - **Promote `command-get-type-errors` off observational** `[needs design]` — it was demoted on a Haiku "tsc reflex" at 3/5 and now sits at **20/20** on Haiku, 10/10 on Gemini and Luna, so the lane prints "at ceiling — consider promoting" on every run. Once [the multi-model gate](specs/20260808-multi-model-eval-gate.md) scopes its marker to Haiku, Haiku sits at the per-model cap of 2 demotions and any new one fails the invariant — so this slot is worth reclaiming. Design call: promote outright, or re-measure first given the demotion reason (a `tsc` fallback) is the reflex the package-framing change most plausibly fixed.
+
+- **`isProgressiveOpCase`/`isBoundaryCase` mutants survive the case-table tests** `[chore]` — a scoped mutation run on `eval/cases/cases.ts` leaves both predicates killable-in-principle but unkilled: `isProgressiveOpCase` always returning `true` still passes the trigger-coverage tests, because those tests filter again by `c.expect.skill === "..."` and the extra cases get filtered back out. Pre-existing, unrelated to the multi-model gate work that surfaced it. Fix by asserting the predicate's own partition (every case classifies as exactly one of progressive-op / boundary / front-loaded) rather than only using it as a filter.
 
 - **`VolarLanguageService` hand-typed interface** `[chore]` — `src/plugins/vue/compiler.ts` manually narrows the TS LanguageService surface used by the Vue compiler; an upstream signature change can compile but fail at runtime. Replace with `Pick<ts.LanguageService, 'findRenameLocations' | 'getReferencesAtPosition' | 'getEditsForFileRename'>` for compile-time safety. May fall out naturally during further Volar refactoring.
 

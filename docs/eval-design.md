@@ -45,17 +45,20 @@ The reason is empirical: clean lanes never fired. The retired clean command lane
 
 ## Instrument vs audience
 
-**Haiku is the instrument, not the audience.** The audience is coding agents generally. Haiku earns the gate slot for one reason: it actually exhibits the shell reflexes the skills exist to displace (`tsc` for type errors, `sed` for bulk replace, `mv` for moves). An instrument that never shows the defect cannot measure whether you fixed it.
+**No single model is the audience.** Haiku earns a gate slot because it exhibits the shell reflexes the skills exist to displace (`tsc` for type errors, `sed` for bulk replace, `mv` for moves), and an instrument that never shows the defect cannot measure whether you fixed it. But a weakest-model canary only works if models are ordered by weakness, and they are not. Haiku held 10/10 on `command-find-references` while Gemini failed the same case 3/10 — the best-evidenced skill defect the project has found, invisible to the gate by construction. No trial count on a model that does not exhibit a failure will surface it.
 
-This inverts the intuition that a stronger model is a better gate. Gemini 2.5 Flash is *too strong* on the emission set to show Haiku's shell-fallback gradients — it saturates, so it cannot discriminate a skill edit. It remains valuable as the cheap cross-family sweep (~10× cheaper than Haiku).
+**Saturation is a property of a model × defect-class × text-version, not of a model.** Gemini reads as "too strong to discriminate" today because it sits at ceiling on the current skill text — but it was 3/10 on that same text's predecessor, and went to 30/30 once the defect was fixed. A model at ceiling becomes discriminating the moment a defect lands in its family, and you cannot know in advance which family a future edit's defect will land in. That is what the roster buys: not three complementary detectors today, but coverage of a failure class you cannot predict, at a price where breadth is cheaper than depth.
 
-| Model | Role | When |
+| Model | Base trials | Role |
 |---|---|---|
-| Haiku 4.5 | **Gate** — has the reflexes the skills displace | Every skill edit |
-| Gemini 2.5 Flash | Cross-family sweep — cheap breadth | Periodically, and on a suspicious red |
-| Sonnet | Audience-confidence run (env swap, ~$5–8) | Occasionally, before a release |
+| Haiku 4.5 | 3 | Shell-reflex canary — the only model still showing gradients on the current text |
+| Gemini 2.5 Flash | 10 | Cross-family breadth; has shown the native-tool-call reflex Haiku never exhibits |
+| GPT-5.6-Luna | 10 | Cross-family breadth; the only model that *over*-triggers rather than under-triggers |
+| Sonnet | — | Audience-confidence run (env swap, ~$5–8), occasionally before a release |
 
-Pointing the harness at any of them is an env swap; nothing in the cases or assertions is model-specific.
+All three roster models must clear before a skill edit ships — `pnpm eval:gate` runs them in sequence. Depth is set per model by cost: a full Gemini sweep at n=10 costs $0.32 and Luna $0.07 against $0.88 for Haiku at n=3, so the cheap models run at a depth the gate model cannot afford. The roster lives in `eval/harness/config.ts` and is the only place the model list is written.
+
+**A case that is a known red on one model is demoted for that model, not for all.** An `observational` marker names the models it applies to, so a case can gate on Gemini while being measured-but-not-gated on Haiku. Without this a permanently-red case on any one model makes the whole gate unusable. Pointing the harness at a single model is still an env swap; nothing in the cases or assertions is model-specific.
 
 ## Cross-model confidence rubric
 
@@ -75,7 +78,7 @@ The inverted case is the dangerous one precisely because the gate is green: the 
 A red is a *finding*, not automatically a regression. Work this order and stop when it explains the failure:
 
 1. **Timeout or stall?** Check for `Test timed out in …` rather than a rate failure. A slow provider or a sleeping host fails the lane on exit code with clean completed trials. Re-run; not signal.
-2. **Escalate, then widen.** The gate escalates a below-floor case from 3 to 6 trials automatically. If the result is still ambiguous — 3/6 tells you almost nothing, the true rate could be 0.2 or 0.8 — re-run *that case alone* at `WEAVER_EVAL_TRIALS=10` or more. Do this before theorising about causes; a real rate estimate is cheap and most theories die on contact with it. Widen the borderline *passes* too: 2/3 cleared the floor but is equally uninformative.
+2. **Escalate, then widen.** The gate escalates any case short of a clean sweep from 3 to 6 trials automatically, so a borderline *pass* is widened for you. If the result is still ambiguous — 3/6 tells you almost nothing, the true rate could be 0.2 or 0.8 — re-run *that case alone* at `WEAVER_EVAL_TRIALS=10` or more. Do this before theorising about causes; a real rate estimate is cheap and most theories die on contact with it.
 
    **A clean 3/3 is a draw, not a ceiling.** At n=3, a case whose true rate is 0.7 passes cleanly about a third of the time, so a perfect score carries far less information than it reads as. Measured, not theorised: of the eleven front-loaded `command-*` cases, three recorded a clean 3/3 that did not survive widening to n=10 (8/10, 7/10, 9/10). Quote a rate as established only at the n it was measured at, and do not treat an un-widened case as a held one — including when comparing before/after a skill edit, where a 3/3-to-3/3 pair says almost nothing.
 3. **Replay one path.** `WEAVER_EVAL_TEMPERATURE=0` pins greedy decoding so a single trajectory is reproducible while you read it.
@@ -103,7 +106,7 @@ The same rule binds skill edits. **Hardening a body must generalize, not encode 
 
 ## Paid-run discipline
 
-Runs cost real money. A full 27-case Haiku gate at n=3 is roughly $1–2; escalation bounds the worst case per case rather than per run.
+Runs cost real money. A full `pnpm eval:gate` across the roster is roughly $1.30 — Haiku n=3 at ~$0.88 plus Gemini n=10 at ~$0.32 and Luna n=10 at ~$0.07; escalation bounds the worst case per case rather than per run. Failing trials run ~3× the cost of passing ones, so a red suite is dearer than a green one.
 
 - **Scope the run to the question.** `-t <regex>` for a case subset, `WEAVER_EVAL_TRIALS` for depth.
 - **Never waste a run.** Always pass `--disable-console-intercept`, or vitest swallows the per-case rate and trail output on *passing* tests and a green run prints nothing.
@@ -157,7 +160,9 @@ Every case declares an `exposure`, which selects its whole condition. The case t
 
 ## The gate
 
-Per case: run `BASE_TRIALS` (3). If below the 2/3 floor, escalate to `ESCALATED_TRIALS` (6) and judge there. The floor is **inclusive** — exactly 2/3 clears — and compared as integers (`passed * 3 < total * 2`) so it is exact at any n. 4/6 is the same fraction as 2/3: **escalation buys resolution, not a higher bar.** It gives a case whose two bad draws at n=3 may be noise three more trials to prove itself. Zero trials counts as below the floor, so a harness fault that runs nothing alarms rather than passing silently.
+Per case: run the model's base trial count (3 on Haiku, 10 on the cross-family models). **Anything short of a clean sweep escalates** to `ESCALATED_TRIALS` (6), whether or not it cleared the floor — a 2/3 escalates just as a 1/3 does. The floor itself is **inclusive** — exactly 2/3 clears — and compared as integers (`passed * 3 < total * 2`) so it is exact at any n. 4/6 is the same fraction as 2/3: **escalation buys resolution, not a higher bar.**
+
+Escalating an unresolved pass is what the record demands, not caution: Gemini's `command-find-references` cleared as a recorded 2/3 and was truly 3/10 when widened. A case already at or past 6 trials has no headroom and does not escalate, so the cross-family models at n=10 are unaffected. Zero trials counts as below the floor, so a harness fault that runs nothing alarms rather than passing silently.
 
 A trial passes only on `matchWeaverCommand` outcome `correct` — the right subcommand *and* every declared key arg. Reaching the right op with wrong args is not a pass.
 
@@ -165,7 +170,9 @@ A trial passes only on `matchWeaverCommand` outcome `correct` — the right subc
 
 **Hard fail.** A *different mutating* weaver op stops the trial immediately (`failedAtStep`, printed `competitor@<step>`) and alarms the case regardless of rate — including on observational cases, so the marker can never launder a destructive act. A read-only op or non-weaver call is a **precursor**, credited toward a later match. `&&`-chains are split before inspection.
 
-**Observational cases.** A case may carry `observational: { since, reason }` to be measured and printed but not gated on rate. This exists for a case that tracks a real product gap we want visibility on rather than a bug to fix now. It replaced an `it.fails` inversion, which cannot survive sampling — a case with a true rate near 0.6 would flap red on most runs. Staleness is instead resisted by the dated `since`, a load-time validation of the marker's shape, and an "at ceiling — consider promoting" line printed when an observational case passes every trial. **More than a couple of these is a design smell** — fix the skills or the case set, not the markers; an invariant test caps the count.
+**Observational cases.** A case may carry `observational: { since, reason, models }` to be measured and printed but not gated — on the models `models` names, and only those. An op case is exempted from the rate floor; a boundary case is exempted from the all-clean judgement. This exists for a case that tracks a real product gap we want visibility on rather than a bug to fix now, and it is what keeps one model's permanent red from making the whole roster unusable. It replaced an `it.fails` inversion, which cannot survive sampling — a case with a true rate near 0.6 would flap red on most runs.
+
+Staleness is resisted by the dated `since`, load-time validation of the marker's shape, and an "at ceiling — consider promoting" line printed when a demoted case passes every trial. `models` is required and every id must be in the roster, so a typo fails the run at load rather than silently demoting nothing. **More than a couple of these on any one model is a design smell** — fix the skills or the case set, not the markers; an invariant test caps each model at 2.
 
 ## Outcome tiers: content vs exposure
 
