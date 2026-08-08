@@ -128,28 +128,61 @@ never silently reused", which is exactly what happens here.
 
 ## Fix
 
-*Left blank deliberately — the fix has architectural forks and is routed to
-`/spec`. See the handoff entry, re-tagged `[needs design]`.*
+Two changes. Both are required — the mechanisms were shown to bite
+independently, so either alone leaves a stale-artifact path open.
 
-The forks the design pass must settle:
+### 1. Packaging: `file:.` → `link:.`
 
-1. **Packaging (mechanism A).** `link:.` instead of `file:.` (symlink, always
-   current — but diverges from how the published package installs, so it stops
-   exercising the real `files` allowlist); a `postbuild` hook that reinstalls
-   the copy (keeps pack fidelity, slows every build, risks install recursion);
-   or leave packaging alone and change `CLAUDE.md`'s *Dogfood the CLI* rule to
-   invoke `dist/` directly (cheapest, but relies on every agent remembering).
-2. **Daemon identity (mechanism B).** Whether daemon reuse should be keyed on
-   something that actually varies per build — build hash, `dist/` mtime, or the
-   daemon's own resolved entry path — rather than a hand-bumped
-   `PROTOCOL_VERSION`. Note that whichever option (1) takes, a fix that leaves
-   the daemon gate untouched still allows a stale daemon from a previous
-   session to serve current requests.
+Change the self-dependency in `package.json` devDependencies. pnpm resolves
+`link:` to a symlink at the repo root, so `node_modules/.bin/weaver` runs the
+live `dist/`.
 
-Adjacent inputs the fix should be checked against: a stale daemon left running
-from an *earlier commit of the repo itself* (not the packed copy) — same
-`PROTOCOL_VERSION`, same staleness; and a workspace where `dist/` has been
-removed but the copy still exists.
+Verified in the working tree: after a rebuild with no `pnpm install`,
+`pnpm exec weaver` served the new code, the daemon spawned from
+`/Users/dan/Projects/weaver/dist/adapters/cli/cli.js` rather than the packed
+copy, and `pnpm install --frozen-lockfile` succeeded.
+
+The packed copy was the only thing exercising the `files` allowlist. Nothing
+consumed it, so no working check is lost, but a wrong `files` entry would still
+reach a publish undetected. That gap predates this change.
+
+### 2. Daemon reuse: build fingerprint replaces `PROTOCOL_VERSION`
+
+In `daemon.ts`, stat the daemon's own entry at startup and record `mtimeMs`.
+Return it from `ping` as `buildId`. Delete the `PROTOCOL_VERSION` constant.
+
+In `ensure-daemon.ts`, stat the CLI's own entry and compare against the
+daemon's `buildId`, reusing the existing stop-and-respawn branch at lines
+43–47 on mismatch. Rename `versionVerified` for what it now caches.
+
+Use mtime, not a content hash. `pnpm build` is `rm -rf dist && tsc`, so every
+build recreates every file and moves every mtime. Hashing the entry file would
+miss a change confined to a non-entry module, because `cli.js` stays
+byte-identical when only `globs.ts` changes. The comparison is for equality,
+never for "newer", so clock skew and timezone are irrelevant.
+
+The failure modes are asymmetric in the same direction: a false positive costs
+one daemon restart, a false negative is this bug. If either stat fails, treat
+it as a mismatch and respawn.
+
+This also covers the published-package case that `PROTOCOL_VERSION` was meant
+to handle. A reinstall or upgrade rewrites `dist/`, which moves the mtime,
+which forces the respawn — with no constant to remember to bump.
+
+Known and accepted: two separate weaver installs pointed at one workspace have
+different mtimes for identical code, so they would restart each other's daemon
+on alternating calls.
+
+### 3. Documentation
+
+Update `CLAUDE.md`'s *Dogfood the CLI* rule, since `pnpm exec weaver` becomes
+correct again, and record the stale-daemon symptom. Update
+`docs/internals/daemon.md` for the changed `ping` contract.
+
+### Adjacent inputs
+
+A daemon left running from an earlier commit of the repo itself, which has the
+same shape as the packed-copy case once packaging is fixed.
 
 ## Security
 
@@ -159,10 +192,10 @@ removed but the copy still exists.
   involved.
 - **Input injection:** N/A — no change to how user-supplied strings are
   handled.
-- **Response leakage:** N/A for the bug itself. Flag for the design pass: if
-  the fix surfaces a build hash or resolved binary path in a daemon-mismatch
-  error, that message is agent-visible and should carry a path relative to the
-  workspace, consistent with the logger's workspace-prefix stripping.
+- **Response leakage:** No. `ping` gains a `buildId` field carrying an mtime in
+  milliseconds — a number, not a path. Keep it that way: do not put the
+  resolved entry path in the ping response or in a mismatch error, since both
+  are agent-visible and the path is absolute.
 
 ## Edges
 
@@ -179,7 +212,13 @@ removed but the copy still exists.
 ## Done-when
 
 - [ ] Reproduction case now produces expected output
-- [ ] Regression test covers the exact failing case
+- [ ] Regression test covers the exact failing case, and drives the built
+      `dist/` rather than `src/` via tsx — the built artifact is what goes
+      stale, and no current test executes it
+      (`src/__testHelpers__/process-helpers.ts:8-9`)
+- [ ] End-to-end case: start a daemon, rebuild, assert the next call is served
+      by a new daemon. Replaces `protocol-version.integration.test.ts`, whose
+      only assertion is that `PROTOCOL_VERSION` is a positive integer
 - [ ] Mutation score ≥ threshold for touched files
 - [ ] `pnpm check` passes (lint + build + test)
 - [ ] Docs updated if public surface changed (`docs/commands/<name>.md` for user-facing, `docs/internals/<name>.md` for implementation)
