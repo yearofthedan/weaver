@@ -86,11 +86,11 @@ describe("runCaseTrials", () => {
     expect(run.trials.every((t) => !t.matched)).toBe(true);
   });
 
-  it("does not escalate when the base result already clears the 2/3 floor", async () => {
+  it("still escalates when the base result clears the 2/3 floor but is not a clean sweep", async () => {
     let calls = 0;
     const step: ModelStep = async () => {
       calls += 1;
-      // 2 of 3 base trials match — exactly at the floor.
+      // 2 of 3 base trials match — clears the floor, but one trial still failed.
       const matched = calls <= 2;
       return {
         toolCalls: [
@@ -105,7 +105,7 @@ describe("runCaseTrials", () => {
     };
 
     const run = await runCaseTrials(CASE, step, 3);
-    expect(run.trials).toHaveLength(3);
+    expect(run.trials).toHaveLength(6); // ESCALATED_TRIALS
   });
 
   it("reports hardFailed true when any trial hard-fails on a mutating competitor", async () => {
@@ -127,9 +127,12 @@ describe("runCaseTrials", () => {
       return { toolCalls: [tc("bash", { command })], text: "" };
     };
 
+    // The base 3 trials are 1 hard fail + 2 matches — clears the floor but
+    // isn't a clean sweep, so the case escalates to the full 6.
     const run = await runCaseTrials(CASE, step, 3);
+    expect(run.trials).toHaveLength(6);
     expect(run.trials.filter((t) => t.failedAtStep !== undefined)).toHaveLength(1);
-    expect(run.trials.filter((t) => t.matched)).toHaveLength(2);
+    expect(run.trials.filter((t) => t.matched)).toHaveLength(5);
     expect(run.hardFailed).toBe(true);
   });
 

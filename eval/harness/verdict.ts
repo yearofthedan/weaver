@@ -21,9 +21,21 @@ export interface EscalationDecision {
   additionalTrials: number;
 }
 
-/** Whether a case's result at {@link BASE_TRIALS} needs a second round, and how many more trials that takes. */
+/**
+ * Whether a case's result at {@link BASE_TRIALS} needs a second round, and how
+ * many more trials that takes.
+ *
+ * A case that cleared the floor but did not sweep clean (e.g. 2/3) still
+ * escalates: the record has a 2/3 that was truly 3/10 once run at higher
+ * resolution, so an unresolved partial failure is read the same as a
+ * below-floor one, not as a pass. Escalation is also bounded by
+ * {@link ESCALATED_TRIALS} — a case already at or past that total has no
+ * headroom left to escalate into, regardless of its rate.
+ */
 export function decideEscalation(passed: number, total: number): EscalationDecision {
-  const escalate = belowFloor(passed, total);
+  const hasHeadroom = total < ESCALATED_TRIALS;
+  const sweptClean = passed === total;
+  const escalate = hasHeadroom && (belowFloor(passed, total) || !sweptClean);
   return { escalate, additionalTrials: escalate ? ESCALATED_TRIALS - total : 0 };
 }
 

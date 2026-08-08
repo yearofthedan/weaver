@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { caseAlarms, decideEscalation, isAtCeiling } from "./verdict.js";
 
 describe("decideEscalation", () => {
-  describe("at the 2/3 floor (inclusive)", () => {
-    it("does not escalate at 2/3", () => {
-      expect(decideEscalation(2, 3)).toEqual({ escalate: false, additionalTrials: 0 });
+  describe("at the 2/3 floor (inclusive) but not a clean sweep", () => {
+    it("still escalates at 2/3 — cleared the floor but unresolved", () => {
+      expect(decideEscalation(2, 3)).toEqual({ escalate: true, additionalTrials: 3 });
     });
   });
 
@@ -18,9 +18,19 @@ describe("decideEscalation", () => {
     });
   });
 
-  describe("above the floor", () => {
+  describe("a clean sweep", () => {
     it("does not escalate when every trial passes", () => {
       expect(decideEscalation(3, 3)).toEqual({ escalate: false, additionalTrials: 0 });
+    });
+  });
+
+  describe("already at or past the escalated total", () => {
+    it("does not escalate at 9/10 — past the escalated total despite being unresolved", () => {
+      expect(decideEscalation(9, 10)).toEqual({ escalate: false, additionalTrials: 0 });
+    });
+
+    it("does not escalate at 5/10 — below the floor, but no headroom left", () => {
+      expect(decideEscalation(5, 10)).toEqual({ escalate: false, additionalTrials: 0 });
     });
   });
 
