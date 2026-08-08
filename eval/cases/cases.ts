@@ -89,7 +89,7 @@ export interface FrontLoadedCase extends CaseBase {
 }
 
 export type CaseEntry = ProgressiveOpCase | BoundaryCase | FrontLoadedCase;
-/** Either op-case variant — the ones an observational marker can apply to. */
+/** Either op-case variant — the ones judged on a rate rather than all-clean. */
 export type OpCase = ProgressiveOpCase | FrontLoadedCase;
 
 export function isProgressiveOpCase(entry: CaseEntry): entry is ProgressiveOpCase {
