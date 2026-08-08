@@ -112,7 +112,7 @@ export function isOpCase(entry: CaseEntry): entry is OpCase {
 const OBSERVATIONAL_SINCE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const GATING_MODEL_IDS = new Set(GATING_MODELS.map((model) => model.id));
 
-export function validateObservational(entry: CaseEntry): void {
+function validateObservational(entry: CaseEntry): void {
   const marker = entry.observational;
   if (!marker) return;
   if (!OBSERVATIONAL_SINCE_PATTERN.test(marker.since)) {
@@ -135,7 +135,7 @@ export function validateObservational(entry: CaseEntry): void {
 }
 
 /** Eagerly validates all seed fixtures and observational markings at module load. */
-function validateCases(entries: CaseEntry[]): CaseEntry[] {
+export function validateCases(entries: CaseEntry[]): CaseEntry[] {
   for (const entry of entries) {
     if (isFrontLoadedCase(entry) && entry.seed) {
       loadFixture(entry.seed.fixture);
