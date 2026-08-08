@@ -176,8 +176,8 @@ describe("gate — boundary", () => {
         trials.push(await runTrial(c, callModel));
       }
 
-      const allClean = trials.every((t) => boundaryTrialClean(t));
       const cleanCount = trials.filter((t) => boundaryTrialClean(t)).length;
+      const allClean = cleanCount === trials.length;
       const activeModel = modelConfig().model;
       const demoted = isDemotedForModel(c.observational?.models, activeModel);
       const trailSummary = trials
