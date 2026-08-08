@@ -265,6 +265,11 @@ export const CASES: CaseEntry[] = validateCases([
     momentumTurns: 3,
     expect: { skill: "weaver-refactor", command: "rename", keyArgs: { newName: "accountId" } },
     cannedResults: { "search-text": loadFixture("searchText-userId.json") },
+    observational: {
+      since: "2026-08-08",
+      reason: "re-confirms with grep/cat instead of converting — 6/10 at demotion",
+      models: ["anthropic/claude-haiku-4.5"],
+    },
   },
   // A repo-wide bump stated as intent with no action push (the declarative form
   // is the harder discriminator — whether the model still converts to the
@@ -305,12 +310,22 @@ export const CASES: CaseEntry[] = validateCases([
     exposure: "progressive",
     task: "Search for `API_KEY` across the Python files in /tmp/weaver-eval-py.",
     expect: { skill: "bash" },
+    observational: {
+      since: "2026-08-08",
+      reason: "over-triggers into weaver search-text on a non-TS project — 0/10 at demotion",
+      models: ["openai/gpt-5.6-luna"],
+    },
   },
   {
     name: "boundary-bash-remove-console-log",
     exposure: "progressive",
     task: "Remove the leftover `console.log('debug')` on line 15 of /tmp/weaver-eval/src/app.ts.",
     expect: { skill: "bash" },
+    observational: {
+      since: "2026-08-08",
+      reason: "over-triggers into a weaver call for a plain single-line edit — 0/10 at demotion",
+      models: ["openai/gpt-5.6-luna"],
+    },
   },
 
   // ── Front-loaded cases ───────────────────────────────────────────────────

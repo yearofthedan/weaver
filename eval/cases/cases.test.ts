@@ -3,6 +3,7 @@ import { cannedToolResult } from "../harness/agentic-loop.js";
 import type { ToolCall } from "../harness/call-model.js";
 import { GATING_MODELS } from "../harness/config.js";
 import { loadFixture } from "../harness/fixtures.js";
+import { isDemotedForModel } from "../harness/verdict.js";
 import {
   type BoundaryCase,
   CASES,
@@ -39,9 +40,16 @@ describe("case table", () => {
       }
     });
 
-    it("marks at most a couple of cases observational — a larger list is a design smell", () => {
-      const observational = CASES.filter(isOpCase).filter((c) => c.observational !== undefined);
-      expect(observational.length).toBeLessThanOrEqual(2);
+    it("caps each roster model at 2 cases demoted for it — a larger count is a design smell", () => {
+      for (const model of GATING_MODELS) {
+        const demotedCount = CASES.filter((c) =>
+          isDemotedForModel(c.observational?.models, model.id),
+        ).length;
+        expect(
+          demotedCount,
+          `"${model.id}" has ${demotedCount} cases demoted for it, more than the cap of 2`,
+        ).toBeLessThanOrEqual(2);
+      }
     });
 
     it("seeds every single-step front-loaded case with the 3-turn pressure the folded lane measured", () => {
