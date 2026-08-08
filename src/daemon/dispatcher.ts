@@ -188,14 +188,15 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     pathParams: [],
     schema: SearchTextArgsSchema,
     async invoke(_registry, params, workspace) {
-      const { pattern, glob, context, maxResults } = params as {
+      const { pattern, glob, excludeGlob, context, maxResults } = params as {
         pattern: string;
         glob?: string;
+        excludeGlob?: string;
         context?: number;
         maxResults?: number;
       };
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
-      return searchText(pattern, scope, { glob, context, maxResults });
+      return searchText(pattern, scope, { glob, excludeGlob, context, maxResults });
     },
   },
 
@@ -215,10 +216,11 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     pathParams: [],
     schema: ReplaceTextArgsSchema,
     async invoke(_registry, params, workspace) {
-      const { pattern, replacement, glob, edits } = params as {
+      const { pattern, replacement, glob, excludeGlob, edits } = params as {
         pattern?: string;
         replacement?: string;
         glob?: string;
+        excludeGlob?: string;
         edits?: Array<{
           file: string;
           line: number;
@@ -228,7 +230,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         }>;
       };
       const scope = new WorkspaceScope(workspace, new NodeFileSystem());
-      return replaceText(scope, { pattern, replacement, glob, edits });
+      return replaceText(scope, { pattern, replacement, glob, excludeGlob, edits });
     },
   },
 };

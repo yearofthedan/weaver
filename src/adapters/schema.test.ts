@@ -186,6 +186,12 @@ describe("schema parameter descriptions", () => {
       );
     });
 
+    it("excludeGlob optional field carries its description", () => {
+      expect(SearchTextArgsSchema.shape.excludeGlob.description).toContain(
+        "Optional glob of files to exclude, applied after `glob`",
+      );
+    });
+
     it("context optional field carries its description", () => {
       expect(SearchTextArgsSchema.shape.context.description).toContain("grep -C");
     });
@@ -209,6 +215,12 @@ describe("schema parameter descriptions", () => {
     it("glob optional field carries its description", () => {
       expect(ReplaceTextBaseSchema.shape.glob.description).toContain(
         "Optional glob to restrict which files are modified",
+      );
+    });
+
+    it("excludeGlob optional field carries its description", () => {
+      expect(ReplaceTextBaseSchema.shape.excludeGlob.description).toContain(
+        "Optional glob of files to exclude, applied after `glob`",
       );
     });
 

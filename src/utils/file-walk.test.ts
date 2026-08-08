@@ -456,5 +456,24 @@ describe("walkWorkspaceFiles", () => {
       });
       expect(result.map((f) => path.basename(f))).toEqual(["guide.md"]);
     });
+
+    it("throws INVALID_GLOB for unsupported excludeGlob syntax", () => {
+      expect(() => walkWorkspaceFiles("/ws", { excludeGlob: "docs/[ab]/**", fs: seed() })).toThrow(
+        expect.objectContaining({ code: "INVALID_GLOB" }),
+      );
+    });
+
+    it("excludeGlob brace group excludes every expanded tree", () => {
+      const vfs = new InMemoryFileSystem();
+      vfs.writeFile("/ws/docs/archive/old.md", "");
+      vfs.writeFile("/ws/dist/bundle.js", "");
+      vfs.writeFile("/ws/src/a.ts", "");
+
+      const result = walkWorkspaceFiles("/ws", {
+        excludeGlob: "{docs/archive/**,dist/**}",
+        fs: vfs,
+      });
+      expect(result.map((f) => path.basename(f))).toEqual(["a.ts"]);
+    });
   });
 });

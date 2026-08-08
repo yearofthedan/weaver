@@ -101,6 +101,12 @@ export const SearchTextArgsSchema = z.object({
     .describe(
       "Optional glob to restrict which files are searched (e.g. '**/*.ts', '**/*.{ts,vue}'). Brace groups like {ts,vue} are expanded. Character classes [...] and nested braces are not supported and throw INVALID_GLOB.",
     ),
+  excludeGlob: z
+    .string()
+    .optional()
+    .describe(
+      "Optional glob of files to exclude, applied after `glob` (e.g. 'docs/archive/**'). Exclude multiple trees with a brace group: '{docs/archive/**,dist/**}'. Same syntax and limits as `glob`.",
+    ),
   context: z.coerce
     .number()
     .int()
@@ -134,6 +140,12 @@ export const ReplaceTextBaseSchema = z.object({
     .optional()
     .describe(
       "Optional glob to restrict which files are modified (pattern mode). Brace groups like {ts,js} are expanded. Character classes [...] and nested braces throw INVALID_GLOB.",
+    ),
+  excludeGlob: z
+    .string()
+    .optional()
+    .describe(
+      "Optional glob of files to exclude, applied after `glob` (e.g. 'docs/archive/**'). Exclude multiple trees with a brace group: '{docs/archive/**,dist/**}'. Same syntax and limits as `glob`.",
     ),
   edits: z.array(TextEditSchema).optional().describe("Surgical edits array (surgical mode)"),
   checkTypeErrors: z
