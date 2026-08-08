@@ -48,7 +48,6 @@
     "test:watch": "vitest",
     "lint": "biome lint .",
     "format": "biome format . --write",
-    "smoke-test": "bash scripts/smoke-test.sh",
     "coverage": "vitest run --coverage",
     "clean": "rm -rf dist .stryker-tmp",
     "test:mutate": "rm -rf .stryker-tmp && stryker run",
