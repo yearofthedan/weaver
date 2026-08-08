@@ -73,6 +73,16 @@ export function caseAlarms(input: {
   return belowFloor(input.passed, input.total);
 }
 
+/**
+ * Whether a boundary case's result should fail the gate. A boundary case is
+ * judged all-clean rather than on a rate: any dirty trial fails it, unless
+ * the case is demoted on the active model, in which case the over-trigger is
+ * still measured and printed but never fails the case there.
+ */
+export function boundaryCaseAlarms(input: { allClean: boolean; demoted: boolean }): boolean {
+  return !input.allClean && !input.demoted;
+}
+
 /** True when an observational case passed every trial — reportable as "at ceiling — consider promoting". */
 export function isAtCeiling(input: {
   passed: number;

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { caseAlarms, decideEscalation, isAtCeiling, isDemotedForModel } from "./verdict.js";
+import {
+  boundaryCaseAlarms,
+  caseAlarms,
+  decideEscalation,
+  isAtCeiling,
+  isDemotedForModel,
+} from "./verdict.js";
 
 describe("decideEscalation", () => {
   describe("at the 2/3 floor (inclusive) but not a clean sweep", () => {
@@ -133,6 +139,24 @@ describe("isDemotedForModel", () => {
 
   it("is false for an empty model list", () => {
     expect(isDemotedForModel([], "anthropic/claude-haiku-4.5")).toBe(false);
+  });
+});
+
+describe("boundaryCaseAlarms", () => {
+  it("does not alarm when every trial stayed clean", () => {
+    expect(boundaryCaseAlarms({ allClean: true, demoted: false })).toBe(false);
+  });
+
+  it("alarms on a dirty trial when not demoted", () => {
+    expect(boundaryCaseAlarms({ allClean: false, demoted: false })).toBe(true);
+  });
+
+  it("does not alarm on a dirty trial when demoted", () => {
+    expect(boundaryCaseAlarms({ allClean: false, demoted: true })).toBe(false);
+  });
+
+  it("does not alarm when clean and demoted — demotion alone is not what clears it", () => {
+    expect(boundaryCaseAlarms({ allClean: true, demoted: true })).toBe(false);
   });
 });
 

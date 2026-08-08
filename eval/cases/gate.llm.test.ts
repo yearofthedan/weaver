@@ -7,10 +7,17 @@ import {
 } from "../harness/assertions.js";
 import { callModel, getTotalCost, type ToolCall } from "../harness/call-model.js";
 import { FRONT_LOADED_MAX_STEPS, PROGRESSIVE_MAX_STEPS } from "../harness/case-lane.js";
-import { formatRunHeader } from "../harness/config.js";
+import { formatRunHeader, modelConfig } from "../harness/config.js";
 import { classifyTrialOutcome, computeOutcomes } from "../harness/outcome.js";
 import { type CaseRun, runCaseTrials, runTrial } from "../harness/run-case.js";
-import { BASE_TRIALS, caseAlarms, ESCALATED_TRIALS, isAtCeiling } from "../harness/verdict.js";
+import {
+  BASE_TRIALS,
+  boundaryCaseAlarms,
+  caseAlarms,
+  ESCALATED_TRIALS,
+  isAtCeiling,
+  isDemotedForModel,
+} from "../harness/verdict.js";
 import {
   CASES,
   isBoundaryCase,
@@ -105,9 +112,10 @@ function gateOpCase(c: OpCase, run: CaseRun): void {
   const { trials } = run;
   const passed = trials.filter((t) => t.matched).length;
   const total = trials.length;
-  const observational = c.observational !== undefined;
-  const alarms = caseAlarms({ passed, total, hardFailed: run.hardFailed, observational });
-  const atCeiling = isAtCeiling({ passed, total, observational });
+  const activeModel = modelConfig().model;
+  const demoted = isDemotedForModel(c.observational?.models, activeModel);
+  const alarms = caseAlarms({ passed, total, hardFailed: run.hardFailed, observational: demoted });
+  const atCeiling = isAtCeiling({ passed, total, observational: demoted });
 
   const outcomeTally = computeOutcomes(
     trials.map((t) =>
@@ -123,7 +131,7 @@ function gateOpCase(c: OpCase, run: CaseRun): void {
     .join("\n");
 
   console.log(
-    `${c.name} — rate ${passed}/${total}${observational ? " (observational)" : ""} ` +
+    `${c.name} — rate ${passed}/${total}${demoted ? ` (demoted for ${activeModel})` : ""} ` +
       `(clean-pass ${outcomeTally.cleanPass}, warned-pass ${outcomeTally.warnedPass}, ` +
       `content-fail ${outcomeTally.contentFail}, never-reached ${outcomeTally.neverReached})\n${trailSummary}`,
   );
@@ -168,7 +176,10 @@ describe("gate — boundary", () => {
         trials.push(await runTrial(c, callModel));
       }
 
+      const allClean = trials.every((t) => boundaryTrialClean(t));
       const cleanCount = trials.filter((t) => boundaryTrialClean(t)).length;
+      const activeModel = modelConfig().model;
+      const demoted = isDemotedForModel(c.observational?.models, activeModel);
       const trailSummary = trials
         .map((t, i) => {
           const status = boundaryTrialClean(t) ? "clean" : "OVER-TRIGGERED";
@@ -178,12 +189,14 @@ describe("gate — boundary", () => {
         })
         .join("\n");
 
-      console.log(`${c.name} — ${cleanCount}/${trials.length} clean\n${trailSummary}`);
+      console.log(
+        `${c.name} — ${cleanCount}/${trials.length} clean${demoted ? ` (demoted for ${activeModel})` : ""}\n${trailSummary}`,
+      );
 
       expect(
-        trials.every((t) => boundaryTrialClean(t)),
+        boundaryCaseAlarms({ allClean, demoted }),
         `"${c.name}" over-triggered in at least one trial — a boundary case must stay clean (no skill load, no weaver call) across all trials. Trails:\n${trailSummary}`,
-      ).toBe(true);
+      ).toBe(false);
     },
     BOUNDARY_TIMEOUT_MS,
   );
