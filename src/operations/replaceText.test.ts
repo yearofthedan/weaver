@@ -257,4 +257,28 @@ describe("replaceText operation", () => {
       ).rejects.toMatchObject({ code: "INVALID_GLOB" });
     });
   });
+
+  // ─── excludeGlob ──────────────────────────────────────────────────────────
+
+  describe("excludeGlob", () => {
+    test("leaves excluded files untouched while replacing everywhere else", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "docs/archive/old.md": "v1\n",
+        "src/a.ts": "v1\n",
+      });
+      const before = readFile(dir, "docs/archive/old.md");
+
+      const result = await replaceText(makeScope(dir), {
+        pattern: "v1",
+        replacement: "v2",
+        excludeGlob: "docs/archive/**",
+      });
+
+      expect(readFile(dir, "docs/archive/old.md")).toBe(before);
+      expect(result.filesModified).toEqual([path.join(dir, "src/a.ts")]);
+      expect(result.replacementCount).toBe(1);
+    });
+  });
 });
