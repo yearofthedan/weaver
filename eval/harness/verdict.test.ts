@@ -32,6 +32,10 @@ describe("decideEscalation", () => {
     it("does not escalate at 5/10 — below the floor, but no headroom left", () => {
       expect(decideEscalation(5, 10)).toEqual({ escalate: false, additionalTrials: 0 });
     });
+
+    it("does not escalate at 4/6 — exactly at the escalated total, unresolved but out of headroom", () => {
+      expect(decideEscalation(4, 6)).toEqual({ escalate: false, additionalTrials: 0 });
+    });
   });
 
   it("escalates when no trials ran at all", () => {

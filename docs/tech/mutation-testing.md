@@ -65,6 +65,15 @@ Stryker's sandbox directories (`.stryker-tmp/sandbox-*`) can't be removed by `rm
 
 **Current score:** Run `pnpm test:mutate:eval` — scores are not tracked in docs to avoid stale data.
 
+### `eval/cases/cases.ts` is outside the lane's `mutate` array
+
+The `mutate` array is `eval/harness/**/*.ts` only — `eval/cases/cases.ts` is never mutated by a bare `pnpm test:mutate:eval`. Scope a run to it explicitly (`pnpm test:mutate:eval:file eval/cases/cases.ts`) when its own logic (`validateObservational`, the `is*Case` predicates) changes.
+
+A scoped run scores this file low (~50%) for two structural reasons, neither of which is a real assertion gap:
+
+- **The `CASES` array is data, not logic.** Its `ObjectLiteral` survivors (`expect: {...} → expect: {}`, `seed: {...} → seed: {}`) are the same class already excluded for `clutter.ts`/`tools.ts` — no test is meant to pin the case table's own content.
+- **A mutation that makes `validateObservational` throw for real (valid) entries in the `CASES` table crashes the module at import time, and that crash is not reliably reported as a killed mutant.** `validateCases(CASES)` runs eagerly at module scope, before any `it()` body executes. Confirmed by hand: reverting `if (!marker) return;` to `if (false) return;` (mutant survived in Stryker's report) makes a plain `pnpm test:eval eval/cases/cases.test.ts` fail outright (`TypeError: Cannot read properties of undefined (reading 'since')`, whole file fails to collect) — a real, observable difference from the unmutated baseline. Stryker's vitest-runner does not convert that collection failure into a "killed" status; a direct unit test of `validateObservational` (exported for this reason) still correctly kills any mutation that doesn't also crash the eager pass over `CASES` (e.g. `if (!marker) return;` → `if (true) return;` is killed — it silently no-ops rather than throwing at import). Do not chase this category by restructuring the eager validation; verify by hand (mutate the line, run the plain test file, confirm it goes red) instead of trusting the scoped report for these specific lines.
+
 ### Eval harness — known surviving mutants
 
 | Area | Survivor | Why accepted |
