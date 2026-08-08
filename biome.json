@@ -11,6 +11,7 @@
       "!src/__testHelpers__/fixtures",
       "tests/**",
       "eval/**",
+      "scripts/**",
       "*.ts",
       "*.tsx",
       "*.js",

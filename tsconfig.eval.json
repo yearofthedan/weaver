@@ -1,7 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": { "noEmit": true, "rootDir": "." },
-  "include": ["eval/**/*.ts", "src/**/*.ts"],
+  "include": ["eval/**/*.ts", "src/**/*.ts", "scripts/**/*.ts"],
   "exclude": [
     "node_modules",
     "dist",
