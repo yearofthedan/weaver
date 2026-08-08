@@ -13,8 +13,8 @@ tool call
   │   ├─ file discovery
   │   │     git ls-files --cached --others --exclude-standard (respects .gitignore)
   │   │     fallback: recursive readdir skipping SKIP_DIRS (non-git workspaces)
-  │   │     apply glob filter; skip binary files (null-byte check on first 512 bytes)
-  │   │     skip sensitive files via isSensitiveFile()
+  │   │     apply glob filter, then excludeGlob filter
+  │   │     skip sensitive files via isSensitiveFile(), then skip binary files (null-byte check on first 512 bytes)
   │   └─ per-file: split into lines, apply regex per line, collect matches + optional surroundingText
   ▼ result { ok, matches[], truncated }
 ```

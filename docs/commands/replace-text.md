@@ -39,6 +39,7 @@ Exactly one mode must be provided — `pattern` + `replacement` *or* `edits`, no
 | `pattern` | string | yes | ECMAScript regex. Same constraints as [`search-text`](./search-text.md). |
 | `replacement` | string | yes | Replacement string. `$1`, `$2`, … reference capture groups. |
 | `glob` | string | no | Same as `search-text` — supports brace groups like `{ts,js}`. |
+| `excludeGlob` | string | no | Path glob to exclude, applied after `glob`. Same syntax and limits as `glob`. Pattern mode only — surgical mode does not enumerate files, so this has no effect there. |
 | `checkTypeErrors` | boolean | no | Default `true`. |
 
 ### Surgical mode

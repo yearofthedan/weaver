@@ -25,6 +25,7 @@ MCP tool name: `searchText`.
 | --- | --- | --- | --- |
 | `pattern` | string | yes | ECMAScript regex. Rejected if `safe-regex2` flags catastrophic backtracking. |
 | `glob` | string | no | Path glob filter. Supports `*`, `**`, `?`, and brace groups like `{ts,vue}` (e.g. `**/*.{ts,vue}`). Brace groups are a cartesian expansion — `{src,lib}/*.{ts,js}` expands to four patterns. Character classes `[abc]`, nested braces, and expansions over 256 patterns throw `INVALID_GLOB`. |
+| `excludeGlob` | string | no | Path glob to exclude, applied after `glob`. Same syntax and limits as `glob`. Exclude multiple trees with a brace group: `{docs/archive/**,dist/**}`. |
 | `context` | integer | no | Lines of context above and below each match. Omit or `0` for matches only. |
 | `maxResults` | integer | no | Default `500`. |
 
@@ -63,6 +64,12 @@ See [response format](../reference/response-format.md).
 
 ```bash
 weaver search-text '{"pattern":"TODO\\(.*\\)","glob":"src/**/*.{ts,vue}","maxResults":50}'
+```
+
+Search everywhere except an archived directory:
+
+```bash
+weaver search-text '{"pattern":"oldName","excludeGlob":"docs/archive/**"}'
 ```
 
 ## Limitations

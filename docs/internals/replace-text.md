@@ -12,8 +12,8 @@ tool call
   │
   ├─ Pattern mode
   │     validate pattern with safe-regex2 (same ReDoS protection as searchText)
-  │     discover files: walkWorkspaceFiles() → skip binary, skip sensitive
-  │     per file: apply regex replace-all; skip if isWithinWorkspace fails or isSensitiveFile
+  │     discover files: walkWorkspaceFiles() → glob filter, then excludeGlob filter
+  │     per file: skip if isWithinWorkspace fails or isSensitiveFile; apply regex replace-all
   │     write changed files
   │
   └─ Surgical mode

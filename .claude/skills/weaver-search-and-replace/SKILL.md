@@ -93,6 +93,8 @@ weaver replace-text '{"pattern": "foo", "replacement": "bar", "glob": "src/targe
 
 If you omit `glob`, every file under `workspace` (or the daemon's workspace) is searched — including generated files like build output and cache JSON.
 
+To search or replace everywhere except a subtree (e.g. an archive directory), keep `glob` unset and add `excludeGlob` instead of narrowing `glob` — narrowing loses the find-everywhere guarantee that makes these tools worth using over `sed`.
+
 ## When NOT to use
 
 - **Renaming a TypeScript symbol** (variable, function, type, class) — use `weaver rename` instead (see weaver-refactor skill). It's scope-aware; text replacement is not.
