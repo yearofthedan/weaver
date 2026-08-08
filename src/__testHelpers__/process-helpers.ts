@@ -139,6 +139,30 @@ export function callDaemonSocket(
   });
 }
 
+/** The built CLI entry — the artifact that ships, and the one that goes stale. */
+export const BUILT_CLI_ENTRY = path.join(PROJECT_ROOT, "dist", "adapters", "cli", "cli.js");
+
+/**
+ * Run the built CLI as a one-shot command, rather than driving `src/` through
+ * tsx as {@link runCliCommand} does.
+ *
+ * Build-identity behaviour can only be observed here: the daemon fingerprints
+ * `dist/adapters/cli/cli.js`, so a test running from source proves nothing
+ * about whether a rebuilt artifact is picked up.
+ *
+ * Requires `pnpm build` to have run. `pnpm check` builds before testing.
+ */
+export function runBuiltCliCommand(
+  args: string[],
+  timeoutMs = 30_000,
+  opts: { cwd?: string } = {},
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  if (!fs.existsSync(BUILT_CLI_ENTRY)) {
+    return Promise.reject(new Error(`Built CLI not found at ${BUILT_CLI_ENTRY}. Run: pnpm build`));
+  }
+  return runOneShot(process.execPath, [BUILT_CLI_ENTRY, ...args], timeoutMs, opts);
+}
+
 /**
  * Spawn the CLI as a one-shot command and return its captured output.
  * Use this for commands that exit on their own (e.g. `stop`).
@@ -148,8 +172,17 @@ export function runCliCommand(
   timeoutMs = 10_000,
   opts: { cwd?: string } = {},
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  return runOneShot(TSX_BIN, [CLI_ENTRY, ...args], timeoutMs, opts);
+}
+
+function runOneShot(
+  bin: string,
+  argv: string[],
+  timeoutMs: number,
+  opts: { cwd?: string },
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(TSX_BIN, [CLI_ENTRY, ...args], {
+    const child = spawn(bin, argv, {
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" },
       ...(opts.cwd ? { cwd: opts.cwd } : {}),

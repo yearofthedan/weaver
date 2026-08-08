@@ -1,29 +1,28 @@
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as net from "node:net";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { isDaemonAlive, PROTOCOL_VERSION, removeDaemonFiles, stopDaemon } from "./daemon.js";
+import { CLI_ENTRY, isSameBuild, readBuildId } from "./build-id.js";
+import { isDaemonAlive, removeDaemonFiles, stopDaemon } from "./daemon.js";
 import { socketPath } from "./paths.js";
 
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const CLI_ENTRY = path.resolve(__dirname, "../..", "dist", "adapters", "cli", "cli.js");
-
 /**
- * Tracks whether the running daemon's protocol version has already been
- * verified against PROTOCOL_VERSION. Reset whenever the daemon is known to
- * have stopped so the next ensureDaemon call re-verifies the new process.
+ * Tracks whether the running daemon has already been confirmed to be running
+ * the build on disk. Reset whenever the daemon is known to have stopped so the
+ * next ensureDaemon call re-checks the new process.
+ *
+ * One check per CLI process is enough: a process is short-lived and the build
+ * cannot meaningfully change underneath it mid-invocation.
  */
-let versionVerified = false;
+let buildVerified = false;
 
 /**
  * Ensure a daemon is running for the workspace. If the socket exists but the
  * process is gone (stale), clean it up first. Then auto-spawn if needed and
  * wait for the ready signal.
  *
- * On first contact with a live daemon the protocol version is checked via
- * `ping`. A version mismatch means the daemon is from a prior session and
- * may be missing operations — it is killed and a fresh one is spawned.
+ * On first contact with a live daemon its build is checked via `ping`. A
+ * daemon running a different build than the one on disk is serving code that
+ * has since been replaced — it is killed and a fresh one is spawned.
  */
 export async function ensureDaemon(absWorkspace: string): Promise<void> {
   const sockPath = socketPath(absWorkspace);
@@ -31,27 +30,26 @@ export async function ensureDaemon(absWorkspace: string): Promise<void> {
   // If socket file exists but process is dead, remove stale files
   if (fs.existsSync(sockPath) && !isDaemonAlive(absWorkspace)) {
     removeDaemonFiles(absWorkspace);
-    versionVerified = false;
+    buildVerified = false;
   }
 
   if (isDaemonAlive(absWorkspace)) {
-    if (versionVerified) return;
+    if (buildVerified) return;
 
-    // First contact with this daemon process — verify protocol version.
+    // First contact with this daemon process — check it is running our build.
     try {
       const ping = await callDaemon(sockPath, { method: "ping", params: {} }, 10_000);
-      if (ping.version !== PROTOCOL_VERSION) {
-        // Stale daemon from a previous session — kill it and fall through to respawn.
-        await stopDaemon(absWorkspace);
-        versionVerified = false;
-      } else {
-        versionVerified = true;
+      if (isSameBuild(ping.buildId, readBuildId())) {
+        buildVerified = true;
         return;
       }
+      // Daemon is running a build that is no longer on disk — kill it and
+      // fall through to respawn, which sets the flag for the new process.
+      await stopDaemon(absWorkspace);
     } catch {
       // Ping failed unexpectedly; proceed without respawning to preserve
       // existing behaviour for callers that were already mid-flight.
-      versionVerified = true;
+      buildVerified = true;
       return;
     }
   }
@@ -59,7 +57,7 @@ export async function ensureDaemon(absWorkspace: string): Promise<void> {
   // Auto-spawn the daemon as a detached child so it outlives this process.
   const verbose = process.env.WEAVER_VERBOSE === "1";
   await spawnDaemon(absWorkspace, { verbose });
-  versionVerified = true;
+  buildVerified = true;
 }
 
 export function callDaemon(

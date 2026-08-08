@@ -1,8 +1,9 @@
 /**
  * Unit tests for ensureDaemon — daemon lifecycle management.
  *
- * Uses vi.resetModules() per test to reset the module-level versionVerified
- * flag. External calls are mocked at the module boundary (daemon.ts, paths.ts,
+ * Uses vi.resetModules() per test to reset the module-level buildVerified
+ * flag. External calls are mocked at the module boundary (daemon.ts, build-id.ts,
+ * paths.ts,
  * child_process). The callDaemon ping uses a real in-process Unix socket
  * server so the socket protocol is exercised without network I/O.
  */
@@ -27,8 +28,15 @@ vi.mock("../../src/daemon/daemon.js", () => ({
   isDaemonAlive: (w: string) => mockIsDaemonAlive(w),
   removeDaemonFiles: (w: string) => mockRemoveDaemonFiles(w),
   stopDaemon: (w: string) => mockStopDaemon(w),
-  PROTOCOL_VERSION: 1,
 }));
+
+/** Build id the CLI side reads from disk. Servers below echo their own. */
+const LOCAL_BUILD_ID = 1000;
+
+vi.mock("../../src/daemon/build-id.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./build-id.js")>();
+  return { ...actual, CLI_ENTRY: "/fake/cli.js", readBuildId: () => LOCAL_BUILD_ID };
+});
 
 vi.mock("../../src/daemon/paths.js", () => ({
   socketPath: (_w: string) => currentSockPath,
@@ -43,15 +51,15 @@ vi.mock("node:child_process", async (importOriginal) => {
 
 const WORKSPACE = "/test/workspace";
 
-/** Unix socket server that responds to any request with { status: "success", version }. */
-function createPingServer(sockPath: string, version: number): Promise<net.Server> {
+/** Unix socket server that responds to any request with { status: "success", buildId }. */
+function createPingServer(sockPath: string, buildId: number): Promise<net.Server> {
   return new Promise((resolve) => {
     const server = net.createServer((conn) => {
       let buf = "";
       conn.on("data", (chunk: Buffer) => {
         buf += chunk.toString();
         if (buf.includes("\n")) {
-          conn.write(`${JSON.stringify({ status: "success", version })}\n`);
+          conn.write(`${JSON.stringify({ status: "success", buildId })}\n`);
           conn.end();
         }
       });
@@ -107,7 +115,7 @@ beforeEach(async () => {
   mockStopDaemon.mockReset().mockResolvedValue(undefined);
   mockSpawn.mockReset();
 
-  // Fresh module instance resets the module-level versionVerified to false.
+  // Fresh module instance resets the module-level buildVerified to false.
   vi.resetModules();
   const mod = await import("./ensure-daemon.js");
   ensureDaemon = mod.ensureDaemon;
@@ -146,13 +154,13 @@ describe("ensureDaemon", () => {
   });
 
   describe("live daemon", () => {
-    describe("already version-verified this session", () => {
+    describe("already build-verified this session", () => {
       it("returns immediately without pinging", async () => {
-        // First call: no server → connection error → catch sets versionVerified = true
+        // First call: no server → connection error → catch sets buildVerified = true
         mockIsDaemonAlive.mockReturnValue(true);
         await ensureDaemon(WORKSPACE);
 
-        // Tripwire: if a second ping were attempted against this wrong-version server,
+        // Tripwire: if a second ping were attempted against this wrong-build server,
         // stopDaemon would be called and reveal it.
         const tripwire = await createPingServer(currentSockPath, 99);
         activeServers.push(tripwire);
@@ -164,9 +172,9 @@ describe("ensureDaemon", () => {
       });
     });
 
-    describe("version matches", () => {
+    describe("build matches", () => {
       it("returns without stopping or spawning", async () => {
-        const server = await createPingServer(currentSockPath, 1); // PROTOCOL_VERSION = 1
+        const server = await createPingServer(currentSockPath, LOCAL_BUILD_ID);
         activeServers.push(server);
         mockIsDaemonAlive.mockReturnValue(true);
 
@@ -176,11 +184,30 @@ describe("ensureDaemon", () => {
         expect(mockStopDaemon).not.toHaveBeenCalled();
         expect(mockRemoveDaemonFiles).not.toHaveBeenCalled();
       });
+
+      it("caches the result so a later call in the same process does not re-ping", async () => {
+        const matching = await createPingServer(currentSockPath, LOCAL_BUILD_ID);
+        activeServers.push(matching);
+        mockIsDaemonAlive.mockReturnValue(true);
+
+        await ensureDaemon(WORKSPACE);
+        await closeServer(activeServers.pop() as net.Server);
+
+        // Tripwire: a second ping would now reach a mismatching daemon and
+        // trigger stopDaemon. Silence means the cached result was used.
+        const mismatching = await createPingServer(currentSockPath, LOCAL_BUILD_ID + 1);
+        activeServers.push(mismatching);
+
+        await ensureDaemon(WORKSPACE);
+
+        expect(mockStopDaemon).not.toHaveBeenCalled();
+        expect(mockSpawn).not.toHaveBeenCalled();
+      });
     });
 
-    describe("version mismatch", () => {
+    describe("build mismatch", () => {
       it("stops the old daemon and spawns a fresh one", async () => {
-        const server = await createPingServer(currentSockPath, 0); // version 0 ≠ 1
+        const server = await createPingServer(currentSockPath, LOCAL_BUILD_ID + 1);
         activeServers.push(server);
         mockIsDaemonAlive.mockReturnValue(true);
         // mockImplementation so the fake child and its setTimeout(0) are created
@@ -267,7 +294,7 @@ describe("ensureDaemon", () => {
       mockSpawn.mockImplementation(() => makeFakeChild({ ready: true }));
       await ensureDaemon(WORKSPACE);
 
-      // Tripwire: if a ping were attempted, the wrong version would trigger stopDaemon.
+      // Tripwire: if a ping were attempted, the wrong build would trigger stopDaemon.
       mockIsDaemonAlive.mockReturnValue(true);
       const tripwire = await createPingServer(currentSockPath, 99);
       activeServers.push(tripwire);

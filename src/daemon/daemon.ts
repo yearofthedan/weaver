@@ -6,6 +6,7 @@ import { EngineError } from "../domain/errors.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../utils/extensions.js";
 import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
+import { readBuildId } from "./build-id.js";
 import { dispatchRequest, invalidateAll, invalidateFile } from "./dispatcher.js";
 import type { DaemonHost } from "./lifecycle.js";
 import { runLifecycle } from "./lifecycle.js";
@@ -16,11 +17,14 @@ import { validateWorkspace } from "./validate-workspace.js";
 import { startWatcher } from "./watcher.js";
 
 /**
- * Increment whenever a new operation is added or an existing one changes its
- * wire format. `ensureDaemon` checks this against a live daemon's `ping`
- * response and respawns on mismatch so stale daemons are never silently reused.
+ * Identity of the build this process is running, captured at module load
+ * rather than read per request.
+ *
+ * A rebuild replaces the entry file on disk while this process keeps serving
+ * the code it already loaded, so reading the mtime per ping would report the
+ * daemon as current at exactly the moment it went stale.
  */
-export const PROTOCOL_VERSION = 1;
+const RUNNING_BUILD_ID = readBuildId();
 
 function readLockfile(workspaceRoot: string): { pid: number; startedAt: number } | null {
   try {
@@ -254,7 +258,7 @@ async function handleSocketRequest(
     } else {
       method = envelope.data.method;
       if (method === "ping") {
-        response = { status: "success" as const, version: PROTOCOL_VERSION };
+        response = { status: "success" as const, buildId: RUNNING_BUILD_ID };
       } else {
         response = await dispatchRequest(envelope.data, workspace);
       }

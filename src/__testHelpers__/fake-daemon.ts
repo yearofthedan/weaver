@@ -1,10 +1,10 @@
 /**
- * Minimal fake daemon for protocol version tests.
+ * Minimal fake daemon for build-identity tests.
  * Listens on the real socket path and responds to every request with
- * { status: "success", version: <N> } where N comes from --version <N>.
+ * { status: "success", buildId: <N> } where N comes from --build-id <N>.
  * Emits { status: "ready" } on stderr once the socket is open.
  *
- * Usage: tsx tests/fake-daemon.ts --workspace <dir> --version <N>
+ * Usage: tsx fake-daemon.ts --workspace <dir> --build-id <N>
  */
 import * as fs from "node:fs";
 import * as net from "node:net";
@@ -12,10 +12,10 @@ import { ensureCacheDir, lockfilePath, socketPath } from "../daemon/paths.js";
 
 const args = process.argv.slice(2);
 const workspace = args[args.indexOf("--workspace") + 1];
-const version = Number(args[args.indexOf("--version") + 1]);
+const buildId = Number(args[args.indexOf("--build-id") + 1]);
 
-if (!workspace || Number.isNaN(version)) {
-  process.stderr.write("Usage: fake-daemon.ts --workspace <dir> --version <N>\n");
+if (!workspace || Number.isNaN(buildId)) {
+  process.stderr.write("Usage: fake-daemon.ts --workspace <dir> --build-id <N>\n");
   process.exit(1);
 }
 
@@ -34,7 +34,7 @@ const server = net.createServer((socket) => {
     buf = lines.pop() ?? "";
     for (const line of lines) {
       if (line.trim()) {
-        socket.write(`${JSON.stringify({ status: "success", version })}\n`);
+        socket.write(`${JSON.stringify({ status: "success", buildId })}\n`);
       }
     }
   });
