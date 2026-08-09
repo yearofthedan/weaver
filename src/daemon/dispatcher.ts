@@ -45,6 +45,12 @@ export {
 interface OperationDescriptor {
   /** Param keys that hold file paths requiring workspace validation. */
   pathParams: string[];
+  /**
+   * When `pathParams` is empty, use `params.file` (if present) to select the compiler
+   * engine/project instead of the workspace root. Only operations with an optional `file`
+   * param that isn't itself a path param need this.
+   */
+  usesFileForRegistry?: boolean;
   /** Zod schema used to validate incoming params at the socket boundary. */
   schema: {
     safeParse(
@@ -176,6 +182,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
 
   getTypeErrors: {
     pathParams: [],
+    usesFileForRegistry: true,
     schema: GetTypeErrorsArgsSchema,
     async invoke(registry, params, workspace) {
       const { file } = params as { file?: string };
@@ -286,12 +293,15 @@ export async function dispatchRequest(
     }
   }
 
-  const fallbackFile =
-    typeof req.params.file === "string" ? (req.params.file as string) : undefined;
   const registry =
     descriptor.pathParams.length > 0
       ? makeRegistry(req.params[descriptor.pathParams[0]] as string, workspace)
-      : makeRegistry(fallbackFile, workspace);
+      : makeRegistry(
+          descriptor.usesFileForRegistry && typeof req.params.file === "string"
+            ? req.params.file
+            : undefined,
+          workspace,
+        );
 
   const result = (await descriptor.invoke(registry, parsed.data, workspace)) as Record<
     string,

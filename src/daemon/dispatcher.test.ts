@@ -72,6 +72,14 @@ describe("dispatchRequest param validation", () => {
     expect(result).toMatchObject({ status: "error", error: "VALIDATION_ERROR" });
   });
 
+  it("VALIDATION_ERROR message reports the real Zod issues, not a blank list", async () => {
+    const result = (await dispatchRequest(
+      { method: "rename", params: { file: "/tmp/test-workspace/a.ts" } },
+      workspace,
+    )) as Record<string, unknown>;
+    expect(result.message).toContain("expected number, received NaN");
+  });
+
   it("returns UNKNOWN_METHOD for an unrecognised method", async () => {
     const result = await dispatchRequest({ method: "doSomethingFake", params: {} }, workspace);
     expect(result).toMatchObject({ status: "error", error: "UNKNOWN_METHOD" });
