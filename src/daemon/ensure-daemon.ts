@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
-import * as fs from "node:fs";
 import * as net from "node:net";
+import type { FileSystem } from "../ports/filesystem.js";
+import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { CLI_ENTRY, isSameBuild, readBuildId } from "./build-id.js";
 import { isDaemonAlive, removeDaemonFiles, stopDaemon } from "./daemon.js";
 import { socketPath } from "./paths.js";
@@ -16,6 +17,13 @@ import { socketPath } from "./paths.js";
 let buildVerified = false;
 
 /**
+ * Filesystem reads go through the injected `FileSystem` port so this module
+ * is testable in memory. Callers that legitimately touch real disk rely on
+ * this production default.
+ */
+const defaultFs = new NodeFileSystem();
+
+/**
  * Ensure a daemon is running for the workspace. If the socket exists but the
  * process is gone (stale), clean it up first. Then auto-spawn if needed and
  * wait for the ready signal.
@@ -24,16 +32,19 @@ let buildVerified = false;
  * daemon running a different build than the one on disk is serving code that
  * has since been replaced — it is killed and a fresh one is spawned.
  */
-export async function ensureDaemon(absWorkspace: string): Promise<void> {
+export async function ensureDaemon(
+  absWorkspace: string,
+  fs: FileSystem = defaultFs,
+): Promise<void> {
   const sockPath = socketPath(absWorkspace);
 
   // If socket file exists but process is dead, remove stale files
-  if (fs.existsSync(sockPath) && !isDaemonAlive(absWorkspace)) {
-    removeDaemonFiles(absWorkspace);
+  if (fs.exists(sockPath) && !isDaemonAlive(absWorkspace, fs)) {
+    removeDaemonFiles(absWorkspace, fs);
     buildVerified = false;
   }
 
-  if (isDaemonAlive(absWorkspace)) {
+  if (isDaemonAlive(absWorkspace, fs)) {
     if (buildVerified) return;
 
     // First contact with this daemon process — check it is running our build.
@@ -45,7 +56,7 @@ export async function ensureDaemon(absWorkspace: string): Promise<void> {
       }
       // Daemon is running a build that is no longer on disk — kill it and
       // fall through to respawn, which sets the flag for the new process.
-      await stopDaemon(absWorkspace);
+      await stopDaemon(absWorkspace, undefined, fs);
     } catch {
       // Ping failed unexpectedly; proceed without respawning to preserve
       // existing behaviour for callers that were already mid-flight.
