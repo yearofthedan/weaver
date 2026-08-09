@@ -193,4 +193,99 @@ describe("daemon command", () => {
     expect(typeof response.message).toBe("string");
     expect((response.message as string).length).toBeGreaterThan(0);
   });
+
+  describe("project structure changing mid-session", () => {
+    test("a tsconfig added after the first request governs the next request's diagnostics", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "src/greet.ts": "export function greet(name) {\n  return 'hi ' + name;\n}\n",
+      });
+      dirs.push(dir);
+      const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
+      procs.push(proc);
+
+      const file = path.join(dir, "src", "greet.ts");
+
+      // With no tsconfig.json, the ts-morph fallback project has no `strict` setting
+      // at all — TypeScript treats an absent `strict` as on for individual flags like
+      // `noImplicitAny`, so the implicit-any parameter is already flagged here. Adding
+      // a tsconfig that explicitly turns `strict` off is what makes the diagnostic
+      // disappear, proving the *compiler options* were re-read, not just the file set.
+      const before = await callDaemonSocket(dir, { method: "getTypeErrors", params: { file } });
+      expect(before.status).toBe("success");
+      expect((before.diagnostics as Array<{ code: number }>).map((d) => d.code)).toContain(7006);
+
+      fs.writeFileSync(
+        path.join(dir, "tsconfig.json"),
+        JSON.stringify({ compilerOptions: { strict: false }, include: ["src/**/*.ts"] }),
+      );
+
+      const after = await callDaemonSocket(dir, { method: "getTypeErrors", params: { file } });
+      expect(after.status).toBe("success");
+      expect((after.diagnostics as Array<{ code: number }>).map((d) => d.code)).not.toContain(7006);
+    });
+
+    test("a tsconfig deleted after the first request does not fail the next request", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({ compilerOptions: { strict: false } }),
+        "src/greet.ts": "export function greet(name) {\n  return 'hi ' + name;\n}\n",
+      });
+      dirs.push(dir);
+      const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
+      procs.push(proc);
+
+      const file = path.join(dir, "src", "greet.ts");
+
+      const before = await callDaemonSocket(dir, { method: "getTypeErrors", params: { file } });
+      expect(before.status).toBe("success");
+      expect((before.diagnostics as Array<{ code: number }>).map((d) => d.code)).not.toContain(
+        7006,
+      );
+
+      fs.unlinkSync(path.join(dir, "tsconfig.json"));
+
+      // No config on disk falls back to ts-morph's no-tsconfig project, whose absent
+      // `strict` setting TypeScript treats as on — the missing file must not cause an
+      // error response, even though the diagnostic result now differs from `before`.
+      const after = await callDaemonSocket(dir, { method: "getTypeErrors", params: { file } });
+      expect(after.status).toBe("success");
+      expect(after.error).toBeUndefined();
+      expect((after.diagnostics as Array<{ code: number }>).map((d) => d.code)).toContain(7006);
+    });
+
+    test("a tsconfig added nearer a file than the previously resolved one takes over", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: false },
+          include: ["packages/**/*.ts"],
+        }),
+        "packages/app/src/greet.ts": "export function greet(name) {\n  return 'hi ' + name;\n}\n",
+      });
+      dirs.push(dir);
+      const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
+      procs.push(proc);
+
+      const file = path.join(dir, "packages", "app", "src", "greet.ts");
+
+      const before = await callDaemonSocket(dir, { method: "getTypeErrors", params: { file } });
+      expect(before.status).toBe("success");
+      expect((before.diagnostics as Array<{ code: number }>).map((d) => d.code)).not.toContain(
+        7006,
+      );
+
+      fs.writeFileSync(
+        path.join(dir, "packages", "app", "tsconfig.json"),
+        JSON.stringify({ compilerOptions: { strict: true }, include: ["src/**/*.ts"] }),
+      );
+
+      const after = await callDaemonSocket(dir, { method: "getTypeErrors", params: { file } });
+      expect(after.status).toBe("success");
+      expect((after.diagnostics as Array<{ code: number }>).map((d) => d.code)).toContain(7006);
+    });
+  });
 });

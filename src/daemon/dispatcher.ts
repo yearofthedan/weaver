@@ -26,6 +26,7 @@ import { replaceText } from "../operations/replaceText.js";
 import { searchText } from "../operations/searchText.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import type { EngineRegistry } from "../ts-engine/types.js";
+import { resetDiscoveryCaches } from "../utils/ts-project.js";
 import { makeRegistry } from "./language-plugin-registry.js";
 import { getTypeErrorsForFiles } from "./post-write-diagnostics.js";
 
@@ -244,6 +245,10 @@ export async function dispatchRequest(
   req: { method: string; params: Record<string, unknown> },
   workspace: string,
 ): Promise<object> {
+  // Fresh per dispatch so a tsconfig.json or the workspace's first .vue file added
+  // since the last request is picked up before engine selection or project discovery.
+  resetDiscoveryCaches();
+
   const descriptor = OPERATIONS[req.method];
   if (!descriptor) {
     return {
