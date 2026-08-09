@@ -95,6 +95,13 @@ Acceptance criteria as concrete **input → output** statements.
 > would still satisfy this line?" If you can think of one, the criterion is too vague.
 > Tighten it or add another.
 >
+> **Falsifiability test.** Could a faithful implementation of your own plan still fail
+> this line? If not, it is a plan step, not an acceptance criterion — it belongs in the
+> dispatch instruction. Criteria here must be falsifiable by *running the system*:
+> exact inputs, exact outputs, observed at the highest layer where the behaviour is
+> genuinely visible. Reach for an internal seam only when no observable layer exists —
+> and when that is true of every criterion, they belong under Structural criteria instead.
+>
 > **After writing all ACs, re-read the entire spec for contradictions.** An
 > implementer following the spec faithfully must not be able to produce
 > conflicting behaviour.
@@ -122,6 +129,19 @@ Acceptance criteria as concrete **input → output** statements.
 > over-build: for whether the shape itself is gold-plated, check the minimal-shape
 > principle in [`docs/design-principles.md`](../../design-principles.md). The Edges
 > section handles constraints that aren't ACs.
+
+## Structural criteria
+
+> For changes whose deliverable is code shape rather than behaviour — extractions,
+> moves, layer boundaries. Each entry must be falsifiable by *inspecting the tree*:
+> a path exists, an export is named, a file is under threshold, a dependency points
+> one way. "Create X that does A → B → C" is a recipe, not a criterion.
+>
+> Most specs leave this "(none)". If this section is full and Behaviour is empty,
+> check the work is not really a `[chore]`. If a criterion here restates a Behaviour
+> AC's mechanism, delete it — the behaviour already covers it.
+
+- (none, or list structural criteria)
 
 ## Interface
 
