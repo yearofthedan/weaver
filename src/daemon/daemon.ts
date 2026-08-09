@@ -1,11 +1,9 @@
 import * as fs from "node:fs";
 import * as net from "node:net";
-import * as path from "node:path";
 import { z } from "zod";
 import { EngineError } from "../domain/errors.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
-import { TS_EXTENSIONS, VUE_EXTENSIONS } from "../utils/extensions.js";
-import { findTsConfigForFile, isVueProject } from "../utils/ts-project.js";
+import { VUE_EXTENSIONS } from "../utils/extensions.js";
 import { readBuildId } from "./build-id.js";
 import { dispatchRequest, invalidateAll, invalidateFile } from "./dispatcher.js";
 import type { DaemonHost } from "./lifecycle.js";
@@ -205,11 +203,12 @@ export async function runDaemon(opts: { workspace: string; verbose?: boolean }):
       return server;
     },
     startWatcher: () => {
-      const sentinelPath = path.join(absWorkspace, "__sentinel__");
-      const tsConfigPath = findTsConfigForFile(sentinelPath);
-      const watchExtensions =
-        tsConfigPath && isVueProject(tsConfigPath) ? VUE_EXTENSIONS : TS_EXTENSIONS;
-      return startWatcher(absWorkspace, watchExtensions, {
+      // Watch VUE_EXTENSIONS unconditionally rather than choosing based on the
+      // project's structure at startup: a TS-only project that gains its first
+      // .vue file mid-session needs edits to that file observed too, and engine
+      // selection (see resetDiscoveryCaches) is already re-evaluated per dispatch
+      // regardless of what the watcher reports.
+      return startWatcher(absWorkspace, VUE_EXTENSIONS, {
         onFileChanged: invalidateFile,
         onFileAdded: invalidateAll,
         onFileRemoved: invalidateAll,

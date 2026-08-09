@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
 import { afterEach, describe, expect } from "vitest";
-import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import {
   callDaemonSocket,
   killDaemon,
@@ -286,6 +286,111 @@ describe("daemon command", () => {
       const after = await callDaemonSocket(dir, { method: "getTypeErrors", params: { file } });
       expect(after.status).toBe("success");
       expect((after.diagnostics as Array<{ code: number }>).map((d) => d.code)).toContain(7006);
+    });
+
+    test("a project that gains its first .vue file gets Vue-aware renames", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true, moduleResolution: "bundler" },
+          include: ["src/**/*.ts", "src/**/*.vue"],
+        }),
+        "src/utils.ts":
+          // biome-ignore lint/suspicious/noTemplateCurlyInString: file content intentionally contains a template literal
+          "export function greetUser(name: string): string {\n  return `Hello, ${name}`;\n}\n",
+      });
+      dirs.push(dir);
+      const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
+      procs.push(proc);
+
+      const utilsFile = path.join(dir, "src", "utils.ts");
+
+      // Serve one request while the project has no .vue files, so engine selection
+      // has already run at least once against a TS-only structure.
+      const before = await callDaemonSocket(dir, {
+        method: "getTypeErrors",
+        params: { file: utilsFile },
+      });
+      expect(before.status).toBe("success");
+
+      const vueFile = path.join(dir, "src", "App.vue");
+      fs.writeFileSync(
+        vueFile,
+        '<script setup lang="ts">\nimport { greetUser } from "./utils";\n\nconst message = greetUser("world");\n</script>\n\n<template>\n  <div>{{ message }}</div>\n</template>\n',
+      );
+
+      // Wait for watcher debounce (200ms) + rebuild margin
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
+      const result = await callDaemonSocket(dir, {
+        method: "rename",
+        params: { file: utilsFile, line: 1, col: 17, newName: "welcomeUser" },
+      });
+
+      expect(result.status).toBe("success");
+      expect(result.filesModified).toContain(vueFile);
+      const vueContent = readFile(dir, "src/App.vue");
+      expect(vueContent).toContain("welcomeUser");
+      expect(vueContent).not.toContain("greetUser");
+    });
+
+    test("edits to a .vue file added after startup are observed", async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true, moduleResolution: "bundler" },
+          include: ["src/**/*.ts", "src/**/*.vue"],
+        }),
+        "src/utils.ts":
+          // biome-ignore lint/suspicious/noTemplateCurlyInString: file content intentionally contains a template literal
+          "export function greetUser(name: string): string {\n  return `Hello, ${name}`;\n}\n",
+      });
+      dirs.push(dir);
+      const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
+      procs.push(proc);
+
+      const utilsFile = path.join(dir, "src", "utils.ts");
+
+      // Serve one request while the project has no .vue files.
+      const before = await callDaemonSocket(dir, {
+        method: "findReferences",
+        params: { file: utilsFile, line: 1, col: 17 },
+      });
+      expect(before.status).toBe("success");
+
+      const vueFile = path.join(dir, "src", "App.vue");
+      fs.writeFileSync(
+        vueFile,
+        '<script setup lang="ts">\nimport { greetUser } from "./utils";\n\nconst message = greetUser("world");\n</script>\n\n<template>\n  <div>{{ message }}</div>\n</template>\n',
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
+      const afterAdd = await callDaemonSocket(dir, {
+        method: "findReferences",
+        params: { file: utilsFile, line: 1, col: 17 },
+      });
+      expect(afterAdd.status).toBe("success");
+      const refsAfterAdd = (afterAdd as { references: Array<{ file: string }> }).references;
+      expect(refsAfterAdd.some((r) => r.file === vueFile)).toBe(true);
+
+      // Edit the .vue file's content on disk after the daemon has already
+      // read it once — the removed usage must be observed on the next
+      // request rather than served from the content read at add time.
+      fs.writeFileSync(
+        vueFile,
+        '<script setup lang="ts">\nconst message = "static";\n</script>\n\n<template>\n  <div>{{ message }}</div>\n</template>\n',
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
+      const afterEdit = await callDaemonSocket(dir, {
+        method: "findReferences",
+        params: { file: utilsFile, line: 1, col: 17 },
+      });
+      expect(afterEdit.status).toBe("success");
+      const refsAfterEdit = (afterEdit as { references: Array<{ file: string }> }).references;
+      expect(refsAfterEdit.some((r) => r.file === vueFile)).toBe(false);
     });
   });
 });
