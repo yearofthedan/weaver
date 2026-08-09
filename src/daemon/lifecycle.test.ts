@@ -40,7 +40,12 @@ function makeFakeWatcher(): DaemonWatcher & { stop: ReturnType<typeof vi.fn> } {
 const SOCK_PATH = "/workspace/.cache/daemon.sock";
 const LOCK_PATH = "/workspace/.cache/daemon.pid";
 
-function makeOpts(overrides: Partial<Parameters<typeof runLifecycle>[0]> = {}) {
+type LifecycleOpts = Parameters<typeof runLifecycle>[0];
+
+function makeOpts(
+  overrides: Partial<LifecycleOpts> &
+    Pick<LifecycleOpts, "fs" | "host" | "startServer" | "startWatcher" | "signalReady">,
+): LifecycleOpts {
   return {
     sockPath: SOCK_PATH,
     pidPath: LOCK_PATH,

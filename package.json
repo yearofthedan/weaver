@@ -57,7 +57,8 @@
     "eval": "vitest run --config eval/vitest.llm.config.ts",
     "eval:gate": "tsx scripts/eval-gate.ts",
     "typecheck:eval": "tsc --project tsconfig.eval.json",
-    "check": "biome check . && pnpm build && pnpm coverage && pnpm test:eval && pnpm typecheck:eval",
+    "typecheck:test": "tsc --project tsconfig.test.json",
+    "check": "biome check . && pnpm build && pnpm coverage && pnpm test:eval && pnpm typecheck:eval && pnpm typecheck:test",
     "setup:dev": "bash scripts/setup-dev.sh",
     "prepare": "husky",
     "prepublishOnly": "pnpm run build"

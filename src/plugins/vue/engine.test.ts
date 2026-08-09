@@ -382,7 +382,7 @@ describe("VolarEngine", () => {
 
       expect(locs).not.toBeNull();
       const testFile = path.join(dir, "tests/unit/counter.test.ts");
-      const locsInTest = locs?.filter((l) => l.fileName === testFile);
+      const locsInTest = locs?.filter((l) => l.fileName === testFile) ?? [];
       expect(locsInTest.length).toBeGreaterThan(0);
     }, 30_000);
 

@@ -6,14 +6,14 @@ import { dispatchRequest, makeRegistry } from "./dispatcher.js";
 
 describe("makeRegistry", () => {
   it("returns an object with projectEngine and tsEngine functions", () => {
-    const registry = makeRegistry("/any/file.ts");
+    const registry = makeRegistry("/any/file.ts", "/any");
     expect(typeof registry.projectEngine).toBe("function");
     expect(typeof registry.tsEngine).toBe("function");
   });
 
   test("tsEngine resolves to a TsMorphEngine with Engine methods", async ({ seedNamedFixture }) => {
     const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
-    const registry = makeRegistry(path.join(dir, "src/utils.ts"));
+    const registry = makeRegistry(path.join(dir, "src/utils.ts"), dir);
     const engine = await registry.tsEngine();
     expect(engine).toBeInstanceOf(TsMorphEngine);
     expect(typeof engine.resolveOffset).toBe("function");
@@ -24,7 +24,7 @@ describe("makeRegistry", () => {
     seedNamedFixture,
   }) => {
     const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
-    const registry = makeRegistry(path.join(dir, "src/utils.ts"));
+    const registry = makeRegistry(path.join(dir, "src/utils.ts"), dir);
     const engine = await registry.projectEngine();
     expect(engine).toBeInstanceOf(TsMorphEngine);
   }, 10_000);

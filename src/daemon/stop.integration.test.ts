@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import { afterEach, describe, expect } from "vitest";
-import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { FIXTURES, type FixtureName, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import {
   killDaemon,
   runCliCommand,
@@ -25,7 +25,7 @@ describe("stop command", () => {
     }
   });
 
-  async function setup(seedNamedFixture: (name: string) => Promise<string>) {
+  async function setup(seedNamedFixture: (name: FixtureName) => Promise<string>) {
     const dir = await seedNamedFixture(WORKSPACE_FIXTURE);
     dirs.push(dir);
     return dir;

@@ -16,9 +16,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ─── Mutable stubs referenced by vi.mock factories ──────────────────────────
 
-const mockIsDaemonAlive = vi.fn<() => boolean>();
-const mockRemoveDaemonFiles = vi.fn<() => void>();
-const mockStopDaemon = vi.fn<() => Promise<void>>();
+const mockIsDaemonAlive = vi.fn<(workspaceRoot: string) => boolean>();
+const mockRemoveDaemonFiles = vi.fn<(workspaceRoot: string) => void>();
+const mockStopDaemon = vi.fn<(workspaceRoot: string) => Promise<void>>();
 const mockSpawn = vi.fn();
 
 // socketPath is controlled per-test so servers and the code under test agree.

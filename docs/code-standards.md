@@ -117,6 +117,8 @@ test("composes both", async ({ seedNamedFixture, seedInlineFixture }) => {
 
 Each test declares its own setup in the body — no describe-level override, no manual `dirs` array, no standalone `copyFixture`/`cleanup` helper. For the rare test that wants a fresh empty temp dir without seeding, the bare `dir` fixture (`async ({ dir }) => ...`) remains exposed. Every caller — including subprocess-lifecycle integration tests and `it.each`-style parameterized cases — goes through `fixtureTest`.
 
+Fixture project scaffolds under `src/__testHelpers__/fixtures/<name>/**` are copied into temp dirs at test time, not statically imported — some (`ts-errors`, `ts-100-errors`) contain deliberately broken TypeScript as `getTypeErrors` test input. `tsconfig.test.json` excludes `src/__testHelpers__/fixtures/*/**` for this reason; a new tsconfig covering `src/` must exclude the same glob or it will report the fixtures' intentional errors as real ones.
+
 For a parameterized test that needs fixture access, use `test.for` (not `test.each`) — only `.for` injects the fixture context as the callback's last argument:
 
 ```ts

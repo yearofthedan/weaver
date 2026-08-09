@@ -41,7 +41,7 @@ describe("runStop", () => {
 
     await expect(runStop({ workspace: "/nonexistent/path/xyz_test_abc" })).rejects.toThrow("EXIT");
 
-    const output = writeSpy.mock.calls.map((c) => String(c[0])).join("");
+    const output = writeSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("");
     expect(output).toContain('"VALIDATION_ERROR"');
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
@@ -54,7 +54,7 @@ describe("runStop", () => {
 
     await runStop({ workspace: dir });
 
-    const output = writeSpy.mock.calls.map((c) => String(c[0])).join("");
+    const output = writeSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("");
     expect(output).toContain('"stopped":false');
   });
 
@@ -69,7 +69,7 @@ describe("runStop", () => {
     expect(isDaemonAlive(dir)).toBe(true);
     await runStop({ workspace: dir });
 
-    const output = writeSpy.mock.calls.map((c) => String(c[0])).join("");
+    const output = writeSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("");
     expect(output).toContain('"stopped":true');
     expect(isDaemonAlive(dir)).toBe(false);
   }, 15_000);
@@ -97,7 +97,7 @@ describe("runDaemon validation", () => {
       "EXIT",
     );
 
-    const output = writeSpy.mock.calls.map((c) => String(c[0])).join("");
+    const output = writeSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("");
     expect(output).toContain('"VALIDATION_ERROR"');
     expect(exitSpy).toHaveBeenCalledWith(1);
   });

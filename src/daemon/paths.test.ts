@@ -3,8 +3,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
-import { isDaemonAlive, removeDaemonFiles } from "./daemon";
-import { ensureCacheDir, lockfilePath, socketPath } from "./paths";
+import { isDaemonAlive, removeDaemonFiles } from "./daemon.js";
+import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
 
 const WORKSPACE_A = "/tmp/test-workspace-alpha";
 const WORKSPACE_B = "/tmp/test-workspace-beta";

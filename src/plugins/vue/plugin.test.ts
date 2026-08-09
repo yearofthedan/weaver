@@ -21,7 +21,7 @@ describe("Vue LanguagePlugin integration", () => {
   describe("Vue project detection", () => {
     test("projectEngine returns VolarEngine for a Vue project", async ({ seedNamedFixture }) => {
       const dir = await seedNamedFixture(FIXTURES.vueProject.name);
-      const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
+      const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"), dir);
       const compiler = await registry.projectEngine();
       expect(compiler).toBeInstanceOf(VolarEngine);
     }, 10_000);
@@ -30,7 +30,7 @@ describe("Vue LanguagePlugin integration", () => {
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.vueProject.name);
-      const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"));
+      const registry = makeRegistry(path.join(dir, "src/composables/useCounter.ts"), dir);
       const first = await registry.projectEngine();
       invalidateAll();
       const second = await registry.projectEngine();
@@ -46,7 +46,7 @@ describe("Vue LanguagePlugin integration", () => {
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
-      const registry = makeRegistry(path.join(dir, "src/utils.ts"));
+      const registry = makeRegistry(path.join(dir, "src/utils.ts"), dir);
       const compiler = await registry.projectEngine();
       expect(compiler).toBeInstanceOf(TsMorphEngine);
     }, 10_000);

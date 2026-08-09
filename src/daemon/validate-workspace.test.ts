@@ -85,7 +85,7 @@ describe("validateWorkspace", () => {
           if (prop === "realpath") {
             return (p: string) => (p === innocuousDir ? "/etc" : p);
           }
-          return (target as Record<string | symbol, unknown>)[prop];
+          return (target as unknown as Record<string | symbol, unknown>)[prop];
         },
       }) as FileSystem;
 
@@ -112,7 +112,7 @@ describe("validateWorkspace", () => {
               return p;
             };
           }
-          return (target as Record<string | symbol, unknown>)[prop];
+          return (target as unknown as Record<string | symbol, unknown>)[prop];
         },
       }) as FileSystem;
 
@@ -141,7 +141,7 @@ describe("validateWorkspace", () => {
               throw new Error("ENOENT");
             };
           }
-          return (target as Record<string | symbol, unknown>)[prop];
+          return (target as unknown as Record<string | symbol, unknown>)[prop];
         },
       }) as FileSystem;
 

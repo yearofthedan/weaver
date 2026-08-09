@@ -2,7 +2,12 @@ import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
 import { afterEach, describe, expect } from "vitest";
-import { FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import {
+  FIXTURES,
+  type FixtureName,
+  readFile,
+  fixtureTest as test,
+} from "../__testHelpers__/helpers.js";
 import {
   callDaemonSocket,
   killDaemon,
@@ -50,7 +55,7 @@ describe("daemon command", () => {
     }
   });
 
-  async function setup(seedNamedFixture: (name: string) => Promise<string>) {
+  async function setup(seedNamedFixture: (name: FixtureName) => Promise<string>) {
     const dir = await seedNamedFixture(WORKSPACE_FIXTURE);
     dirs.push(dir);
     return dir;

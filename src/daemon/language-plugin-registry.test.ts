@@ -11,12 +11,14 @@ import {
 } from "./language-plugin-registry.js";
 
 const PROJECT_FILE = path.resolve("src/types.ts");
+const WORKSPACE_ROOT = path.resolve(".");
 
 function stubCompiler(tag = "stub"): Engine {
   return {
     resolveOffset: () => 0,
     getReferencesAtPosition: async () => null,
     getDefinitionAtPosition: async () => null,
+    getFileReferences: async () => null,
     readFile: () => "",
     rename: async () => ({
       filesModified: [],
@@ -24,11 +26,23 @@ function stubCompiler(tag = "stub"): Engine {
       symbolName: "",
       newName: "",
       locationCount: 0,
+      nameMatches: [],
     }),
     moveFile: async () => ({ oldPath: "", newPath: "" }),
     moveSymbol: async () => undefined,
     moveDirectory: async () => ({ filesMoved: [] }),
     deleteFile: async () => ({ importRefsRemoved: 0 }),
+    getTypeErrors: async () => ({
+      diagnostics: [],
+      errorCount: 0,
+      truncated: false,
+    }),
+    extractFunction: async () => ({
+      filesModified: [],
+      filesSkipped: [],
+      functionName: "",
+      parameterCount: 0,
+    }),
     _tag: tag,
   } as Engine & { _tag: string };
 }
@@ -40,7 +54,7 @@ describe("LanguagePluginRegistry", () => {
 
   describe("plugin resolution via makeRegistry", () => {
     it("falls back to TsMorphEngine when no plugins are registered", async () => {
-      const registry = makeRegistry(PROJECT_FILE);
+      const registry = makeRegistry(PROJECT_FILE, WORKSPACE_ROOT);
       const compiler = await registry.projectEngine();
       expect(compiler).toBeInstanceOf(TsMorphEngine);
     });
@@ -52,7 +66,7 @@ describe("LanguagePluginRegistry", () => {
         createEngine: async (_tsEngine) => stubCompiler("should-not-appear"),
       });
       // Path with no tsconfig — plugins are never consulted
-      const registry = makeRegistry("/tmp/no-tsconfig/file.ts");
+      const registry = makeRegistry("/tmp/no-tsconfig/file.ts", "/tmp/no-tsconfig");
       const compiler = await registry.projectEngine();
       expect(compiler).toBeInstanceOf(TsMorphEngine);
     });
@@ -76,7 +90,7 @@ describe("LanguagePluginRegistry", () => {
         createEngine: async (_tsEngine) => stubCompiler("never"),
       });
 
-      const registry = makeRegistry(PROJECT_FILE);
+      const registry = makeRegistry(PROJECT_FILE, WORKSPACE_ROOT);
       const compiler = await registry.projectEngine();
       expect(compiler).toBeInstanceOf(TsMorphEngine);
     });
@@ -95,7 +109,7 @@ describe("LanguagePluginRegistry", () => {
       registerLanguagePlugin(pluginA);
       registerLanguagePlugin(pluginB);
 
-      const registry = makeRegistry(PROJECT_FILE);
+      const registry = makeRegistry(PROJECT_FILE, WORKSPACE_ROOT);
       const compiler = (await registry.projectEngine()) as Engine & { _tag: string };
       expect(compiler._tag).toBe("a");
     });
@@ -114,7 +128,7 @@ describe("LanguagePluginRegistry", () => {
       registerLanguagePlugin(noMatch);
       registerLanguagePlugin(match);
 
-      const registry = makeRegistry(PROJECT_FILE);
+      const registry = makeRegistry(PROJECT_FILE, WORKSPACE_ROOT);
       const compiler = (await registry.projectEngine()) as Engine & { _tag: string };
       expect(compiler._tag).toBe("yes");
     });
@@ -126,7 +140,7 @@ describe("LanguagePluginRegistry", () => {
         createEngine: async (_tsEngine) => stubCompiler("not-ts"),
       });
 
-      const registry = makeRegistry(PROJECT_FILE);
+      const registry = makeRegistry(PROJECT_FILE, WORKSPACE_ROOT);
       const tsCompiler = await registry.tsEngine();
       expect(tsCompiler).toBeInstanceOf(TsMorphEngine);
     });
@@ -139,9 +153,9 @@ describe("LanguagePluginRegistry", () => {
         createEngine: factory,
       });
 
-      const r1 = makeRegistry(PROJECT_FILE);
+      const r1 = makeRegistry(PROJECT_FILE, WORKSPACE_ROOT);
       await r1.projectEngine();
-      const r2 = makeRegistry(PROJECT_FILE);
+      const r2 = makeRegistry(PROJECT_FILE, WORKSPACE_ROOT);
       await r2.projectEngine();
 
       expect(factory).toHaveBeenCalledTimes(1);
@@ -158,7 +172,7 @@ describe("LanguagePluginRegistry", () => {
         },
       });
 
-      const registry = makeRegistry(PROJECT_FILE);
+      const registry = makeRegistry(PROJECT_FILE, WORKSPACE_ROOT);
       await registry.projectEngine();
 
       expect(receivedEngine).toBeInstanceOf(TsMorphEngine);

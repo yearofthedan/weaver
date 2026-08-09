@@ -46,7 +46,7 @@ describe("WorkspaceScope", () => {
               throw new Error("ELOOP");
             };
           }
-          return (target as Record<string | symbol, unknown>)[prop];
+          return (target as unknown as Record<string | symbol, unknown>)[prop];
         },
       }) as FileSystem;
       const scope = new WorkspaceScope(ROOT, throwingRealpath);
