@@ -128,6 +128,12 @@ Fixed gaps are removed. Remaining survivors by category:
 |------|----------|-------------|
 | `install-skills.ts` | `mkdir(dir, { recursive: true })` → `{}` / `{ recursive: false }` | `InMemoryFileSystem.mkdir` ignores its options and `writeFile` doesn't require a parent, so the option has no observable effect in-process — unkillable at the unit layer without rewriting the shared test double. Guarded instead by the integration smoke, which installs into a nested non-existent path (`<temp>/.claude/skills`): dropping `recursive` makes the spawned CLI fail with ENOENT and the test goes red. Loud-crash failure mode, not a silent wrong answer. The smoke runs the built `dist` in a separate process, so it cannot kill the mutant in Stryker — it is a real-execution guard only. |
 
+**`schema.ts` (excluded from the full run's `mutate` array as declarative/no-logic-to-mutate; `ReplaceTextArgsSchema`'s `.refine()` chain is the one exception — scoped run confirms 100% kill rate on both refine predicates and both `.refine()` message objects except the one noted below):**
+
+| Area | Survivor | Why accepted |
+|------|----------|-------------|
+| `schema.ts` | Mode-XOR `.refine()`'s `{ message: "..." }` → `{}` (line 220, pre-existing) | No test asserts the mode-XOR failure's exact message text, only `success: false`. Same class as every other declarative-field survivor in this file (`.min(1)` → `.max(1)`, `.regex()` character-class narrowing) — the rest of the file is intentionally excluded from mutation scope for this reason. The glob-with-edits `.refine()` added alongside it *is* message-tested (`.error.issues[0].message` asserted per field), which is why its own `{ message: ... }` mutant is killed. |
+
 **`dispatcher.ts` (not in the full run's `mutate` array — `src/daemon/**` Tier 3 is commented out in `stryker.config.mjs`; scoped run score 81.18%):**
 
 | Area | Survivor | Why accepted |
