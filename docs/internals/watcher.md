@@ -62,12 +62,11 @@ Lazy rebuild: the engine is not rebuilt immediately on invalidation. The cost is
 
 ## Extension selection
 
-Extensions to watch are determined at daemon startup from the project type:
+The watcher always watches `VUE_EXTENSIONS` — `.ts` `.tsx` `.js` `.jsx` `.vue` — regardless of project type.
 
-| Project type | Watched extensions |
-|--------------|--------------------|
-| TypeScript / React | `.ts` `.tsx` `.js` `.jsx` |
-| Vue | `.ts` `.tsx` `.js` `.jsx` `.vue` |
+Choosing the set at startup from the project type is self-defeating: in a workspace with no `.vue` files, the watcher would filter out `.vue` events, so the daemon never observes edits to a `.vue` file added after it started. Engine *selection* is unaffected either way, since `dispatchRequest` re-runs discovery every dispatch (see `resetDiscoveryCaches` in [`daemon.md`](daemon.md)) — this is only about observing later edits to files the daemon did not know about at startup.
+
+Watching `.vue` in a TypeScript-only project costs nothing: `refreshFile` returns early when the project holds no such source file, so the extra events are no-ops.
 
 Extension constants are shared with the file-walk module, which also owns `SKIP_DIRS`. The watcher reuses both — all "what files matter" knowledge lives in one place.
 

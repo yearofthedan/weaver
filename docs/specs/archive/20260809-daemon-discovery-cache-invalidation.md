@@ -39,10 +39,10 @@
 
 - [x] **A tsconfig created mid-session governs the next request.** Given a daemon that has served a request against a workspace with no `tsconfig.json`, when a `tsconfig.json` setting `strict: false` is added at the root, the next `get-type-errors` for a file with an implicitly-`any` parameter no longer reports `TS7006`. Rules out an implementation that refreshes the file set but keeps the old compiler options. *(integration)* — direction inverted from the original draft: TypeScript 6 treats an **absent** `strict` as on for `noImplicitAny`, so the no-tsconfig fallback already flags the parameter and it is the added config that must silence it (see Edges).
 - [x] **A deleted tsconfig does not break the next request.** Given a daemon serving a workspace with a root `tsconfig.json` setting `strict: false`, when that file is deleted, the next operation returns a success response rather than failing to read the missing config — and reports `TS7006`, since the fallback's absent `strict` re-enables `noImplicitAny`. *(integration)*
-- [ ] **A nearer tsconfig wins once it exists.** Given operations on `packages/app/src` resolving against a root `tsconfig.json` with `strict` off, when a `tsconfig.json` with `strict` on is added at `packages/app`, the next `get-type-errors` for a file in `packages/app/src` reports the strict-only diagnostic. *(integration)*
-- [ ] **A project that gains its first `.vue` file gets Vue-aware renames.** Given a daemon that has served a request against a workspace with no `.vue` files, when a `.vue` file that imports and uses a symbol from a `.ts` file is added inside the tsconfig's `include`, the next `rename` of that symbol rewrites the occurrence inside the `.vue` file and lists that file in `filesModified`. Asserting both rules out the Vue engine being selected while the file goes unwritten. *(integration)*
-- [ ] **Edits to a `.vue` file added after startup are observed.** Given a daemon started against a workspace with no `.vue` files, when a `.vue` file is added and its content then edited on disk, the next operation reflects the edited content rather than the content at add time. *(integration)*
-- [ ] **Discovery is stable within one dispatch.** Given one dispatched operation, `tsconfig.json` is read from disk at most once per distinct directory queried, and parsed for `.vue` membership at most once per project root. White-box guard against the memo being reduced to per-call reads — not user-facing behaviour. *(unit)*
+- [x] **A nearer tsconfig wins once it exists.** Given operations on `packages/app/src` resolving against a root `tsconfig.json` with `strict` off, when a `tsconfig.json` with `strict` on is added at `packages/app`, the next `get-type-errors` for a file in `packages/app/src` reports the strict-only diagnostic. *(integration)*
+- [x] **A project that gains its first `.vue` file gets Vue-aware renames.** Given a daemon that has served a request against a workspace with no `.vue` files, when a `.vue` file that imports and uses a symbol from a `.ts` file is added inside the tsconfig's `include`, the next `rename` of that symbol rewrites the occurrence inside the `.vue` file and lists that file in `filesModified`. Asserting both rules out the Vue engine being selected while the file goes unwritten. *(integration)*
+- [x] **Edits to a `.vue` file added after startup are observed.** Given a daemon started against a workspace with no `.vue` files, when a `.vue` file is added and its content then edited on disk, the next operation reflects the edited content rather than the content at add time. *(integration)*
+- [x] **Discovery is stable within one dispatch.** Given one dispatched operation, `tsconfig.json` is read from disk at most once per distinct directory queried, and parsed for `.vue` membership at most once per project root. Guard against the memo being reduced to per-call reads — not user-facing behaviour. *(unit)* — met by the existing black-box caching tests in `ts-project.test.ts` ("caches a found tsconfig — second call returns same path even after file is deleted" and its three siblings), which observe the memo through a stale answer rather than a read counter. Confirmed load-bearing by neutering the memo and watching them go red. An added spy-based read-counting file was deleted: it required `vi.mock` + `vi.resetModules` + a dynamic import (disallowed by `docs/code-standards.md`) and killed no mutants the static tests did not.
 
 ## Structural criteria
 
@@ -116,14 +116,61 @@ The reset alone fixes engine *selection* when a project becomes a Vue project, b
 
 ## Done-when
 
-- [ ] All ACs verified by tests
-- [ ] Mutation score ≥ threshold for `src/utils/ts-project.ts`
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`
-- [ ] Docs updated:
-      - `docs/internals/daemon.md` — the `VolarCompiler` routing note states that `isVueProject` is cached for the daemon's lifetime; update it to describe the per-dispatch scope, and record why invalidation is not watcher-driven
+- [x] All ACs verified by tests
+- [x] Mutation score ≥ threshold for `src/utils/ts-project.ts` — 96.00%, sole survivor classified as equivalent
+- [x] `pnpm check` passes (lint + build + test) — 1129 unit/integration + 519 eval
+- [x] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md` — largest is `daemon.integration.test.ts` at 396 lines; `daemon.ts` shrank
+- [x] Docs updated:
+      - `docs/internals/daemon.md` — per-dispatch discovery scope, the "cleared per dispatch, not empty when idle" distinction, and why invalidation is not watcher-driven. (The routing note did not in fact claim a daemon-lifetime cache; it simply never said when discovery is re-evaluated.)
+      - `docs/internals/watcher.md` — "Extension selection" rewritten: `VUE_EXTENSIONS` is watched unconditionally, and why the startup-time choice was self-defeating
       - handoff.md current-state section — `ts-project.ts` line gains `resetDiscoveryCaches`
       - No command page or error-code change (no public surface change)
-- [ ] Follow-up added to handoff.md: reduce `isVueProject`'s cost so it does not enumerate every file in the program
-- [ ] Non-obvious gotchas added to `docs/internals/daemon.md`
-- [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+- [x] Follow-up added to handoff.md: reduce `isVueProject`'s cost so it does not enumerate every file in the program
+- [x] Non-obvious gotchas added to `docs/internals/daemon.md`
+- [x] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+---
+
+## Outcome
+
+**Shipped:** `resetDiscoveryCaches()` in `src/utils/ts-project.ts`, called as the first statement of `dispatchRequest`; `startWatcher` now receives `VUE_EXTENSIONS` unconditionally, deleting the startup-time `isVueProject` call and the `__sentinel__` path it existed to feed.
+
+### Verification
+
+Driven on the real CLI path against a scratch workspace, not only through tests — auto-spawned daemon, real `pnpm exec weaver` calls.
+
+*A workspace gaining its first `.vue` file mid-session* — daemon served a `find-references` while the project was TS-only, then `App.vue` was added and `rename` run through the same daemon:
+
+```
+filesModified: [".../src/App.vue", ".../src/utils.ts"], locationCount: 3
+```
+
+and `App.vue` on disk had both the import and the call site rewritten to `welcomeUser`. This is the silent-incomplete-refactor failure the spec exists to prevent.
+
+*Edits to a `.vue` file added after startup* — `find-references` across three requests on one daemon: TS-only (1 ref), after adding `App.vue` (3 refs, two inside the `.vue`), after editing the usage out (**1 ref — `App.vue` gone**).
+
+*A tsconfig created mid-session* — `get-type-errors` reported `TS7006 Parameter 'name' implicitly has an 'any' type` with no tsconfig, then `errorCount: 0` after a `tsconfig.json` with `strict: false` was added, proving compiler options were re-read rather than just the file set.
+
+Red states were confirmed per batch by removing the fix and re-running, not inferred. Batch 2: all three tsconfig tests failed on the *second* request returning the stale answer (`expected [ 7006 ] to not include 7006`) while the `status: "success"` assertions passed first. Batch 3: the `.vue`-edit test failed with the reference still present after the usage was deleted.
+
+**Tests:** 8 added (3 unit on `ts-project.ts`, 5 integration in `daemon.integration.test.ts`), net +6 after removing 2 redundant ones. Suite 1129 unit/integration + 519 eval, `pnpm check` green.
+
+**Mutation:** `src/utils/ts-project.ts` 96.00% (21 killed, 3 timeout, 1 survived). The survivor — `isMixedContent: true → false` — was classified rather than waved through: flipping it leaves the suite green because `isVueProject` reads only `parsed.fileNames`, and the flag governs how a matched file is parsed, not whether it joins the file set. It is a required field of `FileExtensionInfo`, so it cannot be deleted. Recorded in `docs/tech/mutation-testing.md`. `dispatcher.ts` and `daemon.ts` are outside the Stryker `mutate` array (`src/daemon/**` is commented out at `stryker.config.mjs:28`); a forced scoped run reports 0% purely from sandbox composition, so the guard for those one-line changes is the removed-fix red state above.
+
+### Discoveries
+
+**The spec's `strict` assumption was backwards.** The draft assumed ts-morph's no-tsconfig fallback leaves `strict` off, so an added tsconfig turning it *on* would surface `TS7006`. TypeScript 6 reads an absent `strict` as **on** for the individual flags, so the fallback already reports it and the added config has to silence it. The spec's own Edges section required confirming this before relying on it, which is the only reason it was caught before the fixtures were built on sand.
+
+**One AC needed no code from its own batch.** "A project that gains its first `.vue` file gets Vue-aware renames" was already green on batch 2's reset alone: `rename` carries `pathParams: ["file"]`, so `makeRegistry` gets the real path and re-evaluates `isVueProject` fresh each dispatch, and the Volar engine is created lazily so its first read of the new file is always current. Kept as a regression guard. The unconditional watch is load-bearing only for *later edits* to such a file.
+
+**A pre-existing routing bug surfaced and was logged, not fixed.** `dispatchRequest` builds the plugin-selection registry from the workspace root for any operation with empty `pathParams` (`getTypeErrors`, `searchText`, `replaceText`), and `findTsConfigForFile` then treats that root as a *file* and walks from its parent — one level too high to find a tsconfig at the workspace root. In a Vue project `getTypeErrors` on a `.vue` file therefore routes to `TsMorphEngine` and throws. Reproduces with the reset fully wired in, so it is independent of this change. Logged to handoff as `[needs design]`.
+
+### Reflection
+
+**What went well.** Splitting the seam from adoption paid for itself: every batch had a genuine failing state, and re-verifying each one by hand (pull the fix, rebuild, re-run) turned "the agent says it was red" into observed output. The execution agents were candid — one reported an AC was already green rather than manufacturing a failure, and one flagged its own standards violation and a tool-discipline slip unprompted. That honesty is worth more than a clean-looking report.
+
+**What did not.** Batch 1 spent most of its run building ~90 lines of `vi.mock` + `vi.resetModules` + dynamic-import machinery to count filesystem reads, for a guard four pre-existing black-box tests already provided. It was deleted after neutering the memo showed those tests go red on their own. The lesson generalises: before building white-box instrumentation, check whether the property is already observable through behaviour — a memo that never expires is visible as a stale answer, no spy required.
+
+**What took longer than it should.** Real-path verification produced a convincing false red — `.vue` edits appeared unobserved on the CLI — because `dist/` had been rebuilt from the *reverted* source during the red-state check and never rebuilt after restoring. Confirming the artifact (`grep __sentinel__ dist/daemon/daemon.js`) before theorising resolved it in one step. On any change involving the daemon, the CLI runs `dist`, and `pnpm build` is part of the experiment, not a preamble to it.
+
+**For the next agent.** The `getTypeErrors` routing bug above is the most valuable thing found here and is genuinely user-facing in Vue projects — worth picking up ahead of the cost follow-up. Do not re-widen these memos to a lifetime cache to reclaim the 0.2–1.3 ms; make `isVueProject` cheaper instead, which is the logged follow-up.
