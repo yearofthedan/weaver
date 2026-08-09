@@ -15,8 +15,6 @@ Pick [`move-file`](./move-file.md) for individual files. Pick a plain `mv` only 
 weaver move-directory '{"oldPath": "src/utils", "newPath": "src/helpers"}'
 ```
 
-MCP tool name: `moveDirectory`.
-
 ## Inputs
 
 | Field | Type | Required | Description |

@@ -17,8 +17,6 @@ CLI:
 weaver rename '{"file": "src/utils.ts", "line": 5, "col": 10, "newName": "calculateTotal"}'
 ```
 
-MCP tool name: `rename`.
-
 ## Inputs
 
 | Field | Type | Required | Description |
@@ -26,7 +24,7 @@ MCP tool name: `rename`.
 | `file` | string | yes | Path to the file containing the symbol. Resolved against `--workspace` if relative. |
 | `line` | integer | yes | 1-based line of the symbol (LSP convention). |
 | `col` | integer | yes | 1-based column of the symbol. |
-| `newName` | string | yes | Valid JS/TS identifier. Validated against `/^[A-Za-z_$][\w$]*$/` at the MCP boundary. |
+| `newName` | string | yes | Valid JS/TS identifier. Validated against `/^[A-Za-z_$][\w$]*$/`. |
 | `checkTypeErrors` | boolean | no | Default `true`. Run post-write type diagnostics on `filesModified`. |
 
 ## Output

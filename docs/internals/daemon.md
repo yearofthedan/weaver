@@ -72,9 +72,6 @@ The watcher keeps provider state fresh when files are edited outside weaver (edi
 **The daemon routes through `VolarCompiler` only when the tsconfig includes `.vue` files.**
 `isVueProject` (`src/utils/ts-project.ts`) calls `ts.parseJsonConfigFileContent` with a `.vue` extra extension to check whether any `.vue` file sits in the project graph, respecting the tsconfig's `include`/`exclude`. Only `.vue` files matched by the tsconfig trigger `VolarCompiler` routing. When debugging a daemon-only bug, confirm which compiler is handling the request before investigating compiler internals — the real project (with `node_modules`, `.vue` fixtures, cached compiler state) may route differently than a simplified copy.
 
-**MCP server must start before the daemon auto-spawns.**
-In `serve`, bring the MCP server up before triggering daemon auto-spawn. If the daemon starts first and the socket connect happens before the MCP server is listening, the call times out.
-
 **Signal handlers are registered before the daemon becomes discoverable.**
 `runLifecycle` (`src/daemon/lifecycle.ts`) installs the SIGTERM/SIGINT handlers before writing the lockfile or opening the socket — a daemon is stoppable by PID the instant those exist, and a signal landing before the handler is installed would kill it on the default disposition, leaving a stale socket/lockfile. `shutdown()` is safe at any startup stage, so the server and watcher are optional when it fires. The sequencing sits behind the `FileSystem` port and a `DaemonHost` (`onSignal`/`exit`) seam, so lifecycle changes are unit-tested in `lifecycle.test.ts` rather than by spawning a process.
 

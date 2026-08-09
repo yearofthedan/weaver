@@ -17,8 +17,6 @@ Pick [`search-text`](./search-text.md) only when path-aware resolution doesn't m
 weaver get-definition '{"file": "src/App.vue", "line": 12, "col": 8}'
 ```
 
-MCP tool name: `getDefinition`.
-
 ## Inputs
 
 | Field | Type | Required | Description |

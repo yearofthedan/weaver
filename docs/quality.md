@@ -130,7 +130,7 @@ All mutating operations (rename, move) are atomic. Either all file changes are a
 
 ### Logging
 
-- Logs are emitted to **stderr** to avoid polluting the MCP stdio channel
+- Logs are emitted to **stderr** to keep stdout reserved for the JSON response
 - Log operations and outcomes (what was requested, what files were affected, whether it succeeded)
 - **Never log code content, file contents, or symbol values** — these may contain sensitive information
 - Log errors with enough context to diagnose without exposing internals (no raw stack traces in production output)

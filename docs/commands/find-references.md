@@ -17,8 +17,6 @@ Pick [`search-text`](./search-text.md) only when you need text-level matches (st
 weaver find-references '{"file": "src/utils.ts", "line": 5, "col": 10}'
 ```
 
-MCP tool name: `findReferences`.
-
 ## Inputs
 
 | Field | Type | Required | Description |

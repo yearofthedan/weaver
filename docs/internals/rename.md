@@ -29,8 +29,3 @@ The symbol under the cursor at (line, col) is renamed. If no renameable symbol i
 
 **Why does the Vue engine need virtual `.vue.ts` translation?**
 TypeScript's program builder ignores non-`.ts`/`.tsx` filenames. Volar works around this by exposing `.vue` files as `.vue.ts` virtual files in the host. `findRenameLocations` returns positions in the virtual coordinate space; `VolarCompiler.translateLocations` maps them back to real `.vue` line/col using Volar's source-map. See [volar-v3](../tech/volar-v3.md).
-
-## Implementation notes
-
-**`newName` regex must be enforced at the MCP layer too.**
-`schema.ts` has the identifier regex but `mcp.ts` previously only had `z.string()`. MCP input validation and `schema.ts` must stay consistent — check both when changing validation rules.

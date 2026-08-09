@@ -26,8 +26,6 @@ Surgical mode:
 weaver replace-text '{"edits":[{"file":"src/utils.ts","line":5,"col":10,"oldText":"calculateTotal","newText":"computeTotal"}]}'
 ```
 
-MCP tool name: `replaceText`.
-
 Exactly one mode must be provided — `pattern` + `replacement` *or* `edits`, not both.
 
 ## Inputs

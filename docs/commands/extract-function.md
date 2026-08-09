@@ -15,8 +15,6 @@ The extracted function is placed at module scope and is not exported. Use [`move
 weaver extract-function '{"file":"src/handler.ts","startLine":12,"startCol":3,"endLine":18,"endCol":42,"functionName":"buildResponse"}'
 ```
 
-MCP tool name: `extractFunction`.
-
 ## Inputs
 
 | Field | Type | Required | Description |

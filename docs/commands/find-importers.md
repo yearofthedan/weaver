@@ -17,8 +17,6 @@ Pick [`find-references`](./find-references.md) when you want references to a *sy
 weaver find-importers '{"file": "src/utils.ts"}'
 ```
 
-MCP tool name: `findImporters`.
-
 ## Inputs
 
 | Field | Type | Required | Description |

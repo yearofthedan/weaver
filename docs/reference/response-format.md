@@ -1,6 +1,6 @@
 # Response format
 
-Every weaver tool call (CLI or MCP) returns a JSON object on stdout. This page documents the fields that every command shares; per-command extras (e.g. `replacementCount`, `nameMatches`) are in the matching [command page](../commands/).
+Every weaver command returns a JSON object on stdout. This page documents the fields that every command shares; per-command extras (e.g. `replacementCount`, `nameMatches`) are in the matching [command page](../commands/).
 
 ## status field
 

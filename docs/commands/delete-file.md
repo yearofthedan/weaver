@@ -15,8 +15,6 @@ Pick a plain `rm` only when nothing imports the file (verify with [`find-importe
 weaver delete-file '{"file": "src/old-helper.ts"}'
 ```
 
-MCP tool name: `deleteFile`.
-
 ## Inputs
 
 | Field | Type | Required | Description |

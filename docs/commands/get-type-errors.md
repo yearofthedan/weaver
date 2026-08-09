@@ -23,8 +23,6 @@ Whole project:
 weaver get-type-errors '{}'
 ```
 
-MCP tool name: `getTypeErrors`.
-
 ## Inputs
 
 | Field | Type | Required | Description |

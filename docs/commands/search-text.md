@@ -17,8 +17,6 @@ Pick [`find-references`](./find-references.md) for symbol-level lookups (it's sc
 weaver search-text '{"pattern": "calculateTotal", "glob": "**/*.ts", "context": 2}'
 ```
 
-MCP tool name: `searchText`.
-
 ## Inputs
 
 | Field | Type | Required | Description |

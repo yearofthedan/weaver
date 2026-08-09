@@ -15,8 +15,6 @@ Pick [`move-directory`](./move-directory.md) for a whole directory. Pick a plain
 weaver move-file '{"oldPath": "src/utils/helpers.ts", "newPath": "src/lib/helpers.ts"}'
 ```
 
-MCP tool name: `moveFile`.
-
 ## Inputs
 
 | Field | Type | Required | Description |

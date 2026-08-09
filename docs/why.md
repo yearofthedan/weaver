@@ -46,7 +46,7 @@ Most existing refactoring engines are license-tied or require a running GUI appl
 Weaver is agent infrastructure.
 
 - Harness Empowerment: Weaver brings compiler intelligence to any environment. If the agent has a shell, it has Weaver.
-- CLI-First: While it supports MCP (Model Context Protocol) for easy integration with tools like Claude Code or Cursor, it is a CLI tool at its core. It treats the command line as the primary interface for agentic automation.
+- CLI-Only: the command line is the single interface for agentic automation. Any host that can run a shell command gets the full operation set, with no per-host integration to maintain and no tool-schema payload spending the agent's context.
 
 ## What's worth building
 

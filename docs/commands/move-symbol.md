@@ -15,8 +15,6 @@ Pick [`move-file`](./move-file.md) when the whole file should move. Pick a manua
 weaver move-symbol '{"sourceFile": "src/utils.ts", "symbolName": "calculateTotal", "destFile": "src/math/totals.ts"}'
 ```
 
-MCP tool name: `moveSymbol`.
-
 ## Inputs
 
 | Field | Type | Required | Description |
