@@ -164,12 +164,6 @@ Priorities run top to bottom. Complete a tier before starting the next.
 
 ---
 
-### P2 — High-value features / bugs / tech debt
-
-- **Multi-model eval gate — Haiku + Gemini + Luna, and an escalation trigger that catches an unresolved 2/3** — [spec](specs/20260808-multi-model-eval-gate.md)
-
----
-
 ### P3 — Medium-value features / bugs / tech debt
 
 - **Model real host-prompt inertia in the gate's clutter** `[needs design]` — the gate wraps every task in `buildClutterSystemPrompt()` (a generic weaver-free crowded prompt) plus a shell-momentum seed. But the inertia a skill must actually beat is set by the *real* host system prompt — e.g. Claude Code's "prefer the dedicated file/search tools over shell commands." A generic clutter tests skills against invented pressure, not what they face in deployment. Design: fold representative real-host system-prompt patterns into the clutter (or behind a flag) so the gate measures whether skills overcome the true inertia. Caveat: "prefer dedicated tools" is ambiguous in the front-loaded exposure (bash is the only tool) — validate it changes behaviour before adopting, don't assume it helps. Connects to the skill-design principle in `docs/skill-design.md`. The [package-framing spike](specs/archive/20260807-weaver-is-a-shell-command-framing.md) is the closest prior work — it showed one real deployment fact the gate did not model was worth four cases, which is the argument for modelling the host prompt too.
