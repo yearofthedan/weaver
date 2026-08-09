@@ -87,27 +87,14 @@ describe("isDaemonAlive", () => {
     expect(isDaemonAlive(testWorkspace)).toBe(false);
   });
 
-  it("returns false when lockfile content parses to a non-object JSON value", () => {
+  it.each([
+    ["a non-object JSON value", "42"],
+    ["a JSON object missing pid", JSON.stringify({ startedAt: 1234 })],
+    ["a JSON object with a non-numeric pid", JSON.stringify({ pid: "123", startedAt: 1234 })],
+    ["a JSON object missing startedAt", JSON.stringify({ pid: 123 })],
+  ])("returns false when lockfile content is %s", (_label, lockfileContent) => {
     const memFs = new InMemoryFileSystem();
-    memFs.writeFile(lockfilePath(testWorkspace), "42");
-    expect(isDaemonAlive(testWorkspace, memFs)).toBe(false);
-  });
-
-  it("returns false when lockfile JSON object is missing pid", () => {
-    const memFs = new InMemoryFileSystem();
-    memFs.writeFile(lockfilePath(testWorkspace), JSON.stringify({ startedAt: 1234 }));
-    expect(isDaemonAlive(testWorkspace, memFs)).toBe(false);
-  });
-
-  it("returns false when lockfile JSON object has a non-numeric pid", () => {
-    const memFs = new InMemoryFileSystem();
-    memFs.writeFile(lockfilePath(testWorkspace), JSON.stringify({ pid: "123", startedAt: 1234 }));
-    expect(isDaemonAlive(testWorkspace, memFs)).toBe(false);
-  });
-
-  it("returns false when lockfile JSON object is missing startedAt", () => {
-    const memFs = new InMemoryFileSystem();
-    memFs.writeFile(lockfilePath(testWorkspace), JSON.stringify({ pid: 123 }));
+    memFs.writeFile(lockfilePath(testWorkspace), lockfileContent);
     expect(isDaemonAlive(testWorkspace, memFs)).toBe(false);
   });
 });

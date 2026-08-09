@@ -82,9 +82,9 @@ export function removeDaemonFiles(workspaceRoot: string, fs: FileSystem = defaul
  */
 export async function stopDaemon(
   workspaceRoot: string,
-  timeoutMs = 5_000,
-  fs: FileSystem = defaultFs,
+  opts: { timeoutMs?: number; fs?: FileSystem } = {},
 ): Promise<void> {
+  const { timeoutMs = 5_000, fs = defaultFs } = opts;
   const lock = readLockfile(workspaceRoot, fs);
   if (lock === null) return;
   try {

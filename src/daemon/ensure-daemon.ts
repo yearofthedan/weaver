@@ -56,7 +56,7 @@ export async function ensureDaemon(
       }
       // Daemon is running a build that is no longer on disk — kill it and
       // fall through to respawn, which sets the flag for the new process.
-      await stopDaemon(absWorkspace, undefined, fs);
+      await stopDaemon(absWorkspace, { fs });
     } catch {
       // Ping failed unexpectedly; proceed without respawning to preserve
       // existing behaviour for callers that were already mid-flight.
