@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
 import { isDaemonAlive, removeDaemonFiles } from "./daemon";
 import { lockfilePath, socketPath } from "./paths";
 
@@ -84,6 +85,30 @@ describe("isDaemonAlive", () => {
       JSON.stringify({ pid: process.pid, startedAt: Date.now() }),
     );
     expect(isDaemonAlive(testWorkspace)).toBe(false);
+  });
+
+  it("returns false when lockfile content parses to a non-object JSON value", () => {
+    const memFs = new InMemoryFileSystem();
+    memFs.writeFile(lockfilePath(testWorkspace), "42");
+    expect(isDaemonAlive(testWorkspace, memFs)).toBe(false);
+  });
+
+  it("returns false when lockfile JSON object is missing pid", () => {
+    const memFs = new InMemoryFileSystem();
+    memFs.writeFile(lockfilePath(testWorkspace), JSON.stringify({ startedAt: 1234 }));
+    expect(isDaemonAlive(testWorkspace, memFs)).toBe(false);
+  });
+
+  it("returns false when lockfile JSON object has a non-numeric pid", () => {
+    const memFs = new InMemoryFileSystem();
+    memFs.writeFile(lockfilePath(testWorkspace), JSON.stringify({ pid: "123", startedAt: 1234 }));
+    expect(isDaemonAlive(testWorkspace, memFs)).toBe(false);
+  });
+
+  it("returns false when lockfile JSON object is missing startedAt", () => {
+    const memFs = new InMemoryFileSystem();
+    memFs.writeFile(lockfilePath(testWorkspace), JSON.stringify({ pid: 123 }));
+    expect(isDaemonAlive(testWorkspace, memFs)).toBe(false);
   });
 });
 
