@@ -143,7 +143,7 @@ src/
     globs.ts           ← compileGlob() — validate + brace-expand a glob into a path predicate; globToRegex() per-pattern translation
     ts-project.ts      ← findTsConfig, findTsConfigForFile, isVueProject
     *.test.ts          ← colocated unit tests
-  *.integration.test.ts ← cross-cutting integration tests (cli-workspace-default, eval, agent-conventions, skill-file)
+  cli-workspace-default.integration.test.ts ← asserts --workspace defaults to process.cwd() for daemon and stop
   __testHelpers__/
     helpers.ts        ← shared test utilities (readFile, fileExists, PROJECT_ROOT); re-exports fixtureTest
     process-helpers.ts ← subprocess spawning utilities
