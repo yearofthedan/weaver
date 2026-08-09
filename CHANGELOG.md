@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.1.9](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.8...weaver-v0.1.9) (2026-08-09)
+
+
+### Features
+
+* **eval:** add classifySkillReach to distinguish load from tool-style skill reach ([9b5acda](https://github.com/yearofthedan/weaver/commit/9b5acda6c39156ccbefd33b8cfa35d3ed9f1d309))
+* **eval:** add pnpm eval:gate to run the gate across every roster model ([5b63f1d](https://github.com/yearofthedan/weaver/commit/5b63f1d3c90f7d53aba1433f6fa5664695f018c8))
+* **eval:** add rate-gate escalation and verdict arithmetic ([9450c8a](https://github.com/yearofthedan/weaver/commit/9450c8a905b94a73be1f7a83d4dcbad58ad96b4e))
+* **eval:** add the gating model roster ([90959e4](https://github.com/yearofthedan/weaver/commit/90959e40a187487a39ba303f9acdfbd281f0942f))
+* **eval:** add TrialOutcome classification and OutcomeTally aggregation ([6ebe3b8](https://github.com/yearofthedan/weaver/commit/6ebe3b86bb2863b167382610bfd5d61c9ce2e1a9))
+* **eval:** add WEAVER_EVAL_CLEAN to drop momentum turns ([6900633](https://github.com/yearofthedan/weaver/commit/69006339e1cb272bc35498d77679b9a9b28ad85b))
+* **eval:** cap demotions per model and record today's accepted reds ([2cfd175](https://github.com/yearofthedan/weaver/commit/2cfd175d128d188e7db9ed084e0b53aa62bb4561))
+* **eval:** extract the boundary gating decision into verdict.ts ([322f21a](https://github.com/yearofthedan/weaver/commit/322f21a6a2b2bdff52bf955b8aa0c7d685d0e647))
+* **eval:** fold case table into a discriminated exposure union ([8d53992](https://github.com/yearofthedan/weaver/commit/8d539927328f394521c63772405ac2ed6a31df34))
+* **eval:** omit temperature from the request body by default ([abf75fb](https://github.com/yearofthedan/weaver/commit/abf75fb80c831ff12f98f3825bb0058896bfece6))
+* **eval:** print a run header naming model, trials, temperature, clean-mode ([3a3fcaf](https://github.com/yearofthedan/weaver/commit/3a3fcaf23c295438d0fbb3ec9c505f80b7ce9b29))
+* **eval:** recognize tool-style skill reaches in the trigger lane ([0ae6746](https://github.com/yearofthedan/weaver/commit/0ae6746ae8b69bb3d8804975c424baee3dfd0cfc))
+* **eval:** record a tool-style skill reach as a loaded, navigation-only call ([b24ace1](https://github.com/yearofthedan/weaver/commit/b24ace11f7b95f991d8457b461f28fdd7ffb55b9))
+* **eval:** report the outcome composition in the trigger lane ([2e5ac66](https://github.com/yearofthedan/weaver/commit/2e5ac66c7aa4e06ea4952cf15507efdf65a504ab))
+* **eval:** restore 3-turn pressure to the folded front-loaded cases ([da79762](https://github.com/yearofthedan/weaver/commit/da797620a2b62256e6c262d114e509abd5a350cf))
+* **eval:** scope observational markers to the models they name ([b9c07c6](https://github.com/yearofthedan/weaver/commit/b9c07c60625ac947fca0ca044e8527fbed9087a2))
+* **eval:** track and print OpenRouter cost per run ([449d61a](https://github.com/yearofthedan/weaver/commit/449d61ac9a47084e1cc93ce661233ba43710334e))
+* **eval:** unify trial assembly and tighten the args gate across exposures ([ef7c816](https://github.com/yearofthedan/weaver/commit/ef7c81661a6d26a75027c2c0af65a61d8170b753))
+* **eval:** wire the sampled rate gate into one lane and retire the split name ([3063feb](https://github.com/yearofthedan/weaver/commit/3063feb593972ee03ee130edd7dc546625f6e4c0))
+* **file-walk:** support excludeGlob in walkWorkspaceFiles ([8d60016](https://github.com/yearofthedan/weaver/commit/8d6001633cb40a3a1a9c711a8dade7ae1fea476f))
+* **protocol:** wire excludeGlob through schema and dispatcher ([d99ae2a](https://github.com/yearofthedan/weaver/commit/d99ae2ae117f00a89d9fe5473e6941cf8b3ef8be))
+* **skills:** state that weaver is an installed package run from the shell ([28edd3e](https://github.com/yearofthedan/weaver/commit/28edd3ebb32675d8eea678b6f2eab2fbe155fb51))
+* **utils:** add resetDiscoveryCaches for per-dispatch cache reset ([4d68a84](https://github.com/yearofthedan/weaver/commit/4d68a8438cf4ce04b0d2f7e2789709ad5b9b5821))
+
+
+### Bug Fixes
+
+* **build:** link the weaver self-dependency instead of copying it ([2eea3bb](https://github.com/yearofthedan/weaver/commit/2eea3bb7bc11999c9b89cb749126963e4bcac89e))
+* **cli:** read --version from package.json instead of a hardcoded literal ([392a81e](https://github.com/yearofthedan/weaver/commit/392a81e2d90d26fea5e5ebe6660c8866b91a8ba0))
+* **daemon:** reset discovery caches at the start of each dispatch ([2e65916](https://github.com/yearofthedan/weaver/commit/2e6591680c6dd432166c42c1a3c1a9a8a4d19533))
+* **daemon:** reuse a daemon only when it runs the build on disk ([bb1647c](https://github.com/yearofthedan/weaver/commit/bb1647c4dc610e02fc152b093b678e6749e7c115))
+* **daemon:** watch .vue files unconditionally so late-adopted Vue projects stay fresh ([a245423](https://github.com/yearofthedan/weaver/commit/a24542358ff183b7edc8cbae7e34e329dafc04e6))
+* **deps:** update dependency @vue/language-core to v3.3.9 ([4dc21ce](https://github.com/yearofthedan/weaver/commit/4dc21ce7c76f831a751e58d4ff5fb34ba722347e))
+* **eval:** alarm when a case ran no trials at all ([e677d35](https://github.com/yearofthedan/weaver/commit/e677d352ff1762ac1884caf589701df8e75186e2))
+* **eval:** drop own-file inspect step from pressured-buried-rename ([1ff4073](https://github.com/yearofthedan/weaver/commit/1ff40733f4e830634bef8ae990a6376413e09c5a))
+* **eval:** escalate a case that clears the floor but isn't a clean sweep ([03928f2](https://github.com/yearofthedan/weaver/commit/03928f265f600a7c45cb529c0e21ab0d0af1d57c))
+* **eval:** reject a non-numeric trial-count override before it reaches the child ([590345a](https://github.com/yearofthedan/weaver/commit/590345a7cec9a775e96faf6f4161727a0587e71f))
+* **eval:** stop sourcing WEAVER_EVAL_MODEL from .env ([19665cf](https://github.com/yearofthedan/weaver/commit/19665cf45903e8bde4b72a1d03e9d9e7c203ce86))
+* **investigate:** require reproducing the exact bug mechanism, not just red ([b79e80b](https://github.com/yearofthedan/weaver/commit/b79e80bdfc73e4c77f27889140ee53d6f24f7d2e))
+
 ## [0.1.8](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.7...weaver-v0.1.8) (2026-07-23)
 
 
