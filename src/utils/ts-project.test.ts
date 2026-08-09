@@ -2,7 +2,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { findTsConfig, findTsConfigForFile, isVueProject } from "./ts-project.js";
+import {
+  findTsConfig,
+  findTsConfigForFile,
+  isVueProject,
+  resetDiscoveryCaches,
+} from "./ts-project.js";
 
 // The module-level caches in ts-project.ts persist for the process lifetime.
 // Each test uses a unique mkdtempSync directory to guarantee no cache collision
@@ -81,6 +86,19 @@ describe("findTsConfig", () => {
     // Create a tsconfig; cache must still return null
     fs.writeFileSync(path.join(subDir, "tsconfig.json"), "{}");
     const second = findTsConfig(subDir);
+    expect(second).toBeNull();
+  });
+
+  it("reads the filesystem again after resetDiscoveryCaches, reflecting a deletion made since the cached call", () => {
+    const tsconfig = write("tsconfig.json", "{}");
+
+    const first = findTsConfig(tmpDir);
+    expect(first).toBe(tsconfig);
+
+    fs.rmSync(tsconfig);
+    resetDiscoveryCaches();
+    const second = findTsConfig(tmpDir);
+
     expect(second).toBeNull();
   });
 });
@@ -211,5 +229,26 @@ describe("isVueProject", () => {
     write("vendor/legacy/App.vue", "<template/>");
 
     expect(isVueProject(tsconfig)).toBe(false);
+  });
+
+  it("reparses after resetDiscoveryCaches, reflecting a .vue file added since the cached call", () => {
+    const tsconfig = write("tsconfig.json", "{}");
+    write("src/index.ts", "");
+
+    const first = isVueProject(tsconfig);
+    expect(first).toBe(false);
+
+    write("src/App.vue", "<template/>");
+    resetDiscoveryCaches();
+    const second = isVueProject(tsconfig);
+
+    expect(second).toBe(true);
+  });
+});
+
+describe("resetDiscoveryCaches", () => {
+  it("is safe to call repeatedly, including when both caches are already empty", () => {
+    resetDiscoveryCaches();
+    expect(() => resetDiscoveryCaches()).not.toThrow();
   });
 });

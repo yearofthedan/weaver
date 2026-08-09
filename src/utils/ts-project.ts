@@ -7,7 +7,9 @@ const cache = new Map<string, string | null>();
 /**
  * Walk up from `startDir` looking for tsconfig.json.
  * Returns the absolute path if found, or null if not found before filesystem root.
- * Results are cached for the process lifetime.
+ * Results are memoised; the memo is cleared at the start of each dispatched request via
+ * resetDiscoveryCaches, so it is fresh within a dispatch but not guaranteed empty between
+ * dispatches — watcher callbacks and refreshFile's own lookups can repopulate it while idle.
  */
 export function findTsConfig(startDir: string): string | null {
   const normalised = path.resolve(startDir);
@@ -45,7 +47,9 @@ export function findTsConfigForFile(filePath: string): string | null {
  * Returns true if the project directory (rooted at the tsconfig location)
  * contains any .vue files. This is the signal that VueEngine should be used
  * for all operations, regardless of starting file extension.
- * Cached per project root for the process lifetime.
+ * Memoised per project root; the memo is cleared at the start of each dispatched request via
+ * resetDiscoveryCaches, so it is fresh within a dispatch but not guaranteed empty between
+ * dispatches — watcher callbacks and refreshFile's own lookups can repopulate it while idle.
  */
 const vueProjectCache = new Map<string, boolean>();
 
@@ -68,4 +72,14 @@ export function isVueProject(tsConfigPath: string): boolean {
   const hasVue = parsed.fileNames.some((f) => f.endsWith(".vue"));
   vueProjectCache.set(projectRoot, hasVue);
   return hasVue;
+}
+
+/**
+ * Clears both discovery memos so the next lookup reads the filesystem again. Called once at the
+ * start of each dispatched request — see the memo doc comments above for the freshness guarantee
+ * this provides.
+ */
+export function resetDiscoveryCaches(): void {
+  cache.clear();
+  vueProjectCache.clear();
 }
