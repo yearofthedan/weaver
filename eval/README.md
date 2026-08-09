@@ -31,7 +31,7 @@ pnpm eval:gate                         # every roster model in sequence — what
 pnpm eval:gate -t <case-regex>         # the same, scoped to a case subset
 ```
 
-`pnpm eval:gate` is the command a skill-file change has to pass. It runs the lane once per roster model at that model's base trial count (Haiku 3, Gemini 10, Luna 10), keeps going after a model fails so you get all three results, prints a per-model pass/fail and cost summary, and exits non-zero if any model failed. Roughly $1.30 for a full run. The roster is `GATING_MODELS` in `eval/harness/config.ts`.
+`pnpm eval:gate` is the command a skill-file change has to pass. It runs the lane once per roster model at that model's base trial count (Haiku 3, Gemini 10, Luna 10), keeps going after a model fails so you get all three results, prints a per-model pass/fail and cost summary, and exits non-zero if any model failed. A full run measured **$2.03** on 2026-08-08. The roster is `GATING_MODELS` in `eval/harness/config.ts`.
 
 Always pass `--disable-console-intercept` — without it vitest swallows the per-case rate and trail output on *passing* tests, so a green run prints nothing and a paid run is wasted. `pnpm eval:gate` passes it for you.
 

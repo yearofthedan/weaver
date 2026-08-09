@@ -106,7 +106,9 @@ The same rule binds skill edits. **Hardening a body must generalize, not encode 
 
 ## Paid-run discipline
 
-Runs cost real money. A full `pnpm eval:gate` across the roster is roughly $1.30 — Haiku n=3 at ~$0.88 plus Gemini n=10 at ~$0.32 and Luna n=10 at ~$0.07; escalation bounds the worst case per case rather than per run. Failing trials run ~3× the cost of passing ones, so a red suite is dearer than a green one.
+Runs cost real money. A full `pnpm eval:gate` across the roster measured **$2.03** on 2026-08-08 — Haiku $1.44 (90 trials), Gemini $0.54 (270), Luna $0.06 (220). Escalation bounds the worst case per case rather than per run. Failing trials run ~3× the cost of passing ones, so a red suite is dearer than a green one.
+
+That total ran ~60% above a projection built from the 2026-08-07 per-trial figures, because per-trial cost on Haiku ($0.0160 vs $0.0109) and Gemini ($0.0020 vs $0.0012) had both drifted up while Luna's held exactly. The cause is not isolated — the escalation rule biases toward failing trials, which cost more, but that alone does not account for the gap. **Price a run from the most recent measured total, not from a per-trial figure carried forward.**
 
 - **Scope the run to the question.** `-t <regex>` for a case subset, `WEAVER_EVAL_TRIALS` for depth.
 - **Never waste a run.** Always pass `--disable-console-intercept`, or vitest swallows the per-case rate and trail output on *passing* tests and a green run prints nothing.
