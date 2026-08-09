@@ -124,3 +124,7 @@ Use conventional commits, imperative style — `type(scope): short description`:
 ### Communication style
 
 **State the point directly — no narrative, no hype, no build-up.** Applies to everything you write: docs, commit messages, and replies to the user. Cut the walk-up paragraph, the "not just A, but B" construction, dramatic framing ("the interesting bit is…"), and hype ("this is the real deal"). Prefer a table, list, or bare fact over a paragraph that leads up to one. In living docs specifically: describe what *is*, not what changed — no changelog narration ("moved from P2", "former X", "now reframed"). When you *complete* something a living doc lists as a gap, recommendation, or to-do, **delete that entry** — do not annotate it "(done)" / "(filled)" / "(fixed)"; a struck-through or checkmarked recommendation is changelog narration too. Before editing any entry, ask whether it should still *exist* now, not just how to reword it.
+
+**A date stamps a value that decays, never an event.** A cost, rate, or version needs one — undated, the reader can't judge staleness. When something broke or when you learned it does not; that date is narration.
+
+**Evidence goes in the dated record, the rule in its owning doc.** The run or incident behind a rule belongs in a baselines entry or an archived spec's Outcome. Two checks: would this still be true and useful if the incident never happened? And does the rule already exist — if so, link it, don't copy it.
