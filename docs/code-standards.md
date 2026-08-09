@@ -151,6 +151,8 @@ test("...", async ({ seedNamedFixture }) => {
 
 Dynamic `await import()` calls inside test bodies break V8 coverage tracking — Stryker cannot associate those tests with the imported module's lines. Use static imports at the top of the file.
 
+Prefer observing a property through behaviour over instrumenting the code to count what it did. A memo that never expires is visible as a stale answer; one that is cleared is visible as a fresh one — both testable against a real filesystem with no mocking, and both still meaningful after a refactor that a call-counter would not survive. Reserve `vi.mock` for side effects with no observable consequence. If a mock appears not to intercept anything, that is a signal to re-ask whether the property is observable, not to reach for `vi.resetModules()` and a dynamic re-import to force it.
+
 ## Type casts
 
 Casts (`as X`) throw away what the type system knows. Reach for them only at true system boundaries (JSON parse, user input, `!` on API returns you've just guarded). Inside the codebase:
@@ -181,10 +183,6 @@ Default to static imports at the top of the file. Use `await import()` only when
 - **Not legitimate:** "the package is heavy," "we only sometimes call this."
 
 Dynamic imports break Stryker's coverage attribution — the lines of the imported module are invisible to the mutation runner when the import is dynamic (this applies to test bodies too: `await import()` inside a test stops Stryker associating that test with the imported module's lines). Static imports are also the standard here — `await import()` without a comment is a bug.
-
-**`vi.mock` cannot intercept a module the global test setup already imported.** `src/__testHelpers__/test-cleanup.ts` statically imports `language-plugin-registry.js`, which pulls in `ts-project.js` and its dependencies before any test file's hoisted `vi.mock` registers. ES bindings lock in at first evaluation, so those modules keep their real `node:fs` / `typescript` references no matter what a later test mocks — the spy simply observes zero calls. Escaping it needs `vi.resetModules()` plus a dynamic re-import, which the rule above rules out.
-
-Before reaching for that, check whether the property is observable through behaviour instead. A memo that never expires shows up as a stale answer; a cache that is cleared shows up as a fresh one. Both are testable with a real filesystem and no mocking, and they survive refactors that a read-counter does not. Reserve module mocking for genuinely unobservable side effects.
 
 ## Dependencies
 
