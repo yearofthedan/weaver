@@ -57,6 +57,18 @@ describe("LanguagePluginRegistry", () => {
       expect(compiler).toBeInstanceOf(TsMorphEngine);
     });
 
+    it("falls back to TsMorphEngine when filePath is undefined and workspaceRoot has no tsconfig", async () => {
+      registerLanguagePlugin({
+        id: "never-consulted-no-file",
+        supportsProject: () => true,
+        createEngine: async (_tsEngine) => stubCompiler("should-not-appear"),
+      });
+      // No file at all — resolution falls back to workspaceRoot, which has no tsconfig either
+      const registry = makeRegistry(undefined, "/tmp/no-tsconfig-workspace");
+      const compiler = await registry.projectEngine();
+      expect(compiler).toBeInstanceOf(TsMorphEngine);
+    });
+
     it("falls back to TsMorphEngine when no plugin matches the project", async () => {
       registerLanguagePlugin({
         id: "never-matches",

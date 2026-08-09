@@ -1,6 +1,6 @@
 import { createVueLanguagePlugin } from "../plugins/vue/plugin.js";
 import type { Engine, EngineRegistry, LanguagePlugin } from "../ts-engine/types.js";
-import { findTsConfigForFile } from "../utils/ts-project.js";
+import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 
 const languagePlugins: LanguagePlugin[] = [];
 const pluginCompilers = new Map<string, Engine>();
@@ -42,11 +42,17 @@ export function clearLanguagePlugins(): void {
  * `projectEngine` iterates registered language plugins; first match wins,
  * with TsMorphEngine as the default fallback.
  * `tsEngine` always returns TsMorphEngine for AST-level operations (e.g. moveSymbol).
+ *
+ * `filePath` may be `undefined` for operations with no specific target file (e.g. a
+ * project-wide `getTypeErrors`). In that case the tsconfig lookup starts from
+ * `workspaceRoot` itself via `findTsConfig` — `findTsConfigForFile` assumes its argument
+ * is a file and strips a directory level, so passing it a directory (or the workspace root
+ * standing in for "no file") searches one level too high and can miss the tsconfig.
  */
-export function makeRegistry(filePath: string, workspaceRoot: string): EngineRegistry {
+export function makeRegistry(filePath: string | undefined, workspaceRoot: string): EngineRegistry {
   return {
     async projectEngine(): Promise<Engine> {
-      const tsConfigPath = findTsConfigForFile(filePath);
+      const tsConfigPath = filePath ? findTsConfigForFile(filePath) : findTsConfig(workspaceRoot);
       if (tsConfigPath) {
         for (const plugin of languagePlugins) {
           if (plugin.supportsProject(tsConfigPath)) {

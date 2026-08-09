@@ -286,10 +286,12 @@ export async function dispatchRequest(
     }
   }
 
+  const fallbackFile =
+    typeof req.params.file === "string" ? (req.params.file as string) : undefined;
   const registry =
     descriptor.pathParams.length > 0
       ? makeRegistry(req.params[descriptor.pathParams[0]] as string, workspace)
-      : makeRegistry(workspace, workspace);
+      : makeRegistry(fallbackFile, workspace);
 
   const result = (await descriptor.invoke(registry, parsed.data, workspace)) as Record<
     string,

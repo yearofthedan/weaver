@@ -337,7 +337,7 @@ The watcher (`src/daemon/watcher.ts`) calls into the language plugin registry:
 |------|---------|
 | `src/utils/text-utils.ts` | `applyTextEdits()`, `offsetToLineCol()`, `lineColToOffset()` — text manipulation used by operations |
 | `src/utils/file-walk.ts` | `walkFiles(dir, extensions)`, `SKIP_DIRS` — in git workspaces shells out to `git ls-files` (respects gitignore); falls back to recursive readdir + `SKIP_DIRS` elsewhere |
-| `src/utils/ts-project.ts` | `findTsConfig`, `findTsConfigForFile`, `isVueProject` — project discovery |
+| `src/utils/ts-project.ts` | `findTsConfig`, `findTsConfigForFile`, `isVueProject` — project discovery. `findTsConfig(dir)` walks up from a directory; `findTsConfigForFile(filePath)` walks up from `path.dirname(filePath)` — it assumes its argument is a file and always strips one directory level, so passing it a directory (e.g. a workspace root standing in for "no specific file") searches one level too high and can miss the tsconfig. Use `findTsConfig` directly when there is no file, only a directory. |
 | `src/utils/extensions.ts` | `TS_EXTENSIONS`, `JS_EXTENSIONS`, `VUE_EXTENSIONS`, `JS_TS_PAIRS` — file extension constants |
 | `src/utils/relative-path.ts` | `computeRelativeImportPath()`, `toRelBase()` — import specifier path calculation |
 | `src/utils/assert-file.ts` | `assertFileExists()` — resolves and validates file path, throws `FILE_NOT_FOUND` |
