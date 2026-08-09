@@ -367,5 +367,33 @@ describe("schema validation", () => {
     it("accepts surgical edits mode alone", () => {
       expect(ReplaceTextArgsSchema.safeParse({ edits: [edit] }).success).toBe(true);
     });
+
+    it("rejects edits combined with glob, naming glob in the issue", () => {
+      const result = ReplaceTextArgsSchema.safeParse({ edits: [edit], glob: "**/*.ts" });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toContain("glob");
+      }
+    });
+
+    it("rejects edits combined with excludeGlob, naming excludeGlob in the issue", () => {
+      const result = ReplaceTextArgsSchema.safeParse({
+        edits: [edit],
+        excludeGlob: "docs/**",
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toContain("excludeGlob");
+      }
+    });
+
+    it("rejects edits combined with both glob and excludeGlob", () => {
+      const result = ReplaceTextArgsSchema.safeParse({
+        edits: [edit],
+        glob: "**/*.ts",
+        excludeGlob: "docs/**",
+      });
+      expect(result.success).toBe(false);
+    });
   });
 });

@@ -218,6 +218,13 @@ export const ReplaceTextArgsSchema = ReplaceTextBaseSchema.refine(
     return hasPattern !== hasEdits; // XOR — exactly one mode must be provided
   },
   { message: "Provide either 'pattern'+'replacement' or 'edits', not both" },
+).refine(
+  (d) => {
+    const hasEdits = d.edits !== undefined;
+    const hasGlob = d.glob !== undefined || d.excludeGlob !== undefined;
+    return !(hasEdits && hasGlob);
+  },
+  { message: "glob/excludeGlob only apply in pattern mode; do not combine with edits" },
 );
 
 export const MoveDirectoryArgsSchema = z.object({

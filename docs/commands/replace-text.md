@@ -37,7 +37,7 @@ Exactly one mode must be provided — `pattern` + `replacement` *or* `edits`, no
 | `pattern` | string | yes | ECMAScript regex. Same constraints as [`search-text`](./search-text.md). |
 | `replacement` | string | yes | Replacement string. `$1`, `$2`, … reference capture groups. |
 | `glob` | string | no | Same as `search-text` — supports brace groups like `{ts,js}`. |
-| `excludeGlob` | string | no | Path glob to exclude, applied after `glob`. Same syntax and limits as `glob`. Pattern mode only — surgical mode does not enumerate files, so this has no effect there. |
+| `excludeGlob` | string | no | Path glob to exclude, applied after `glob`. Same syntax and limits as `glob`. Pattern mode only — combining `glob`/`excludeGlob` with `edits` (surgical mode) is rejected with `VALIDATION_ERROR`. |
 | `checkTypeErrors` | boolean | no | Default `true`. |
 
 ### Surgical mode
@@ -85,6 +85,7 @@ weaver replace-text '{"edits":[{"file":"/repo/src/api.ts","line":42,"col":1,"old
 - Pattern mode replaces all matches with no per-file or per-match confirmation. Use `search-text` first to preview.
 - Pattern mode silently skips files outside the workspace boundary or flagged sensitive.
 - Surgical mode validates every edit up front — any failure means no file is modified.
+- `edits` combined with `glob`/`excludeGlob` is rejected with `VALIDATION_ERROR` — surgical edits already name their target files, so there is nothing for a glob to filter.
 - Surgical edits within the same file must not overlap.
 - Post-write type checking covers `.ts`/`.tsx` only — `.vue` and other types in `filesModified` are silently skipped for type checking.
 
