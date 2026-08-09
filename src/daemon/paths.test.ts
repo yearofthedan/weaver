@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
 import { isDaemonAlive, removeDaemonFiles } from "./daemon";
-import { lockfilePath, socketPath } from "./paths";
+import { ensureCacheDir, lockfilePath, socketPath } from "./paths";
 
 const WORKSPACE_A = "/tmp/test-workspace-alpha";
 const WORKSPACE_B = "/tmp/test-workspace-beta";
@@ -90,12 +90,43 @@ describe("isDaemonAlive", () => {
   it.each([
     ["a non-object JSON value", "42"],
     ["a JSON object missing pid", JSON.stringify({ startedAt: 1234 })],
-    ["a JSON object with a non-numeric pid", JSON.stringify({ pid: "123", startedAt: 1234 })],
     ["a JSON object missing startedAt", JSON.stringify({ pid: 123 })],
   ])("returns false when lockfile content is %s", (_label, lockfileContent) => {
     const memFs = new InMemoryFileSystem();
     memFs.writeFile(lockfilePath(testWorkspace), lockfileContent);
     expect(isDaemonAlive(testWorkspace, memFs)).toBe(false);
+  });
+
+  it("returns false when lockfile pid is a numeric string, even if it names a live PID and a socket file exists", () => {
+    // process.kill() coerces a string pid to a number, so a lockfile with
+    // pid as a string matching a real process would look "alive" if
+    // readLockfile's typeof check were skipped — this pins that the
+    // shape check itself (not process.kill) rejects it.
+    const memFs = new InMemoryFileSystem();
+    memFs.writeFile(socketPath(testWorkspace), "");
+    memFs.writeFile(
+      lockfilePath(testWorkspace),
+      JSON.stringify({ pid: String(process.pid), startedAt: Date.now() }),
+    );
+    expect(isDaemonAlive(testWorkspace, memFs)).toBe(false);
+  });
+
+  it("returns false when lockfile has a non-existent PID even if a stale socket file exists", () => {
+    const memFs = new InMemoryFileSystem();
+    memFs.writeFile(socketPath(testWorkspace), "");
+    memFs.writeFile(
+      lockfilePath(testWorkspace),
+      JSON.stringify({ pid: 999999999, startedAt: Date.now() }),
+    );
+    expect(isDaemonAlive(testWorkspace, memFs)).toBe(false);
+  });
+});
+
+describe("ensureCacheDir", () => {
+  it("creates the cache directory", () => {
+    const memFs = new InMemoryFileSystem();
+    ensureCacheDir(memFs);
+    expect(memFs.exists(CACHE_DIR)).toBe(true);
   });
 });
 
