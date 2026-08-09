@@ -1,7 +1,7 @@
-import * as fs from "node:fs";
 import * as net from "node:net";
 import { z } from "zod";
 import { EngineError } from "../domain/errors.js";
+import type { FileSystem } from "../ports/filesystem.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { VUE_EXTENSIONS } from "../utils/extensions.js";
 import { readBuildId } from "./build-id.js";
@@ -24,9 +24,19 @@ import { startWatcher } from "./watcher.js";
  */
 const RUNNING_BUILD_ID = readBuildId();
 
-function readLockfile(workspaceRoot: string): { pid: number; startedAt: number } | null {
+/**
+ * Filesystem reads go through the injected `FileSystem` port so the daemon
+ * control-plane is testable in memory. Callers that legitimately touch real
+ * disk rely on this production default.
+ */
+const defaultFs = new NodeFileSystem();
+
+function readLockfile(
+  workspaceRoot: string,
+  fs: FileSystem = defaultFs,
+): { pid: number; startedAt: number } | null {
   try {
-    const raw = fs.readFileSync(lockfilePath(workspaceRoot), "utf8");
+    const raw = fs.readFile(lockfilePath(workspaceRoot));
     const parsed = JSON.parse(raw) as unknown;
     if (
       typeof parsed === "object" &&
@@ -42,8 +52,8 @@ function readLockfile(workspaceRoot: string): { pid: number; startedAt: number }
   }
 }
 
-export function isDaemonAlive(workspaceRoot: string): boolean {
-  const lock = readLockfile(workspaceRoot);
+export function isDaemonAlive(workspaceRoot: string, fs: FileSystem = defaultFs): boolean {
+  const lock = readLockfile(workspaceRoot, fs);
   if (lock === null) return false;
   try {
     process.kill(lock.pid, 0); // throws if process doesn't exist
@@ -52,13 +62,13 @@ export function isDaemonAlive(workspaceRoot: string): boolean {
   }
   // A running daemon always has a socket file. If the socket is gone but the
   // PID is alive, it's likely a recycled PID from a crashed daemon.
-  return fs.existsSync(socketPath(workspaceRoot));
+  return fs.exists(socketPath(workspaceRoot));
 }
 
-export function removeDaemonFiles(workspaceRoot: string): void {
+export function removeDaemonFiles(workspaceRoot: string, fs: FileSystem = defaultFs): void {
   for (const p of [socketPath(workspaceRoot), lockfilePath(workspaceRoot)]) {
     try {
-      fs.unlinkSync(p);
+      fs.unlink(p);
     } catch {
       // already gone
     }
@@ -70,8 +80,12 @@ export function removeDaemonFiles(workspaceRoot: string): void {
  * it to stop, then remove any leftover socket/lockfile. Safe to call when no
  * daemon is running — it's a no-op in that case.
  */
-export async function stopDaemon(workspaceRoot: string, timeoutMs = 5_000): Promise<void> {
-  const lock = readLockfile(workspaceRoot);
+export async function stopDaemon(
+  workspaceRoot: string,
+  timeoutMs = 5_000,
+  fs: FileSystem = defaultFs,
+): Promise<void> {
+  const lock = readLockfile(workspaceRoot, fs);
   if (lock === null) return;
   try {
     process.kill(lock.pid, "SIGTERM");
@@ -80,10 +94,10 @@ export async function stopDaemon(workspaceRoot: string, timeoutMs = 5_000): Prom
   }
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (!isDaemonAlive(workspaceRoot)) break;
+    if (!isDaemonAlive(workspaceRoot, fs)) break;
     await new Promise((r) => setTimeout(r, 50));
   }
-  removeDaemonFiles(workspaceRoot);
+  removeDaemonFiles(workspaceRoot, fs);
 }
 
 export async function runStop(opts: { workspace: string }): Promise<void> {
