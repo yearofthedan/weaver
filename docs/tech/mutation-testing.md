@@ -92,17 +92,35 @@ A scoped run scores this file low (~50%) for two structural reasons, neither of 
 
 Fixed gaps are removed. Remaining survivors by category:
 
-**`ensure-daemon.ts` (scoped run, 81.36%):**
+**`ensure-daemon.ts` (scoped run, 73.02%):**
 
 | Area | Survivor | Why accepted |
 |------|----------|-------------|
-| `ensure-daemon.ts` | `versionVerified = false → true` in stale-socket cleanup | Intermediate state. After cleanup, the `if (isDaemonAlive)` block is skipped and `spawnDaemon` runs unconditionally; whether `versionVerified` is true or false at that point doesn't change observable behavior for the current call. |
-| `ensure-daemon.ts` | `versionVerified = false → true` / `true → false` assignments inside version-mismatch and version-match branches | Same class — intermediate assignments between two unconditional fall-throughs. Not observable without exporting `versionVerified`. |
+| `ensure-daemon.ts` | `buildVerified = false → true` in stale-socket cleanup | Intermediate state. After cleanup, the `if (isDaemonAlive)` block is skipped and `spawnDaemon` runs unconditionally; whether `buildVerified` is true or false at that point doesn't change observable behavior for the current call. |
+| `ensure-daemon.ts` | `buildVerified = false → true` / `true → false` assignments inside version-mismatch and version-match branches | Same class — intermediate assignments between two unconditional fall-throughs. Not observable without exporting `buildVerified`. |
 | `ensure-daemon.ts` | `callDaemon(sockPath, {} , ...)` — ping request body emptied | Test servers respond based on version number, not request format. Not observable within the unit-test boundary; the daemon validates the method field in integration. |
+| `ensure-daemon.ts` | `stopDaemon(absWorkspace, { fs })` — options object emptied to `{}` | The unit tests mock `stopDaemon` at the module boundary (`vi.mock("./daemon.js")`) with a stub that only forwards its first argument (`(w) => mockStopDaemon(w)`), so whatever `ensureDaemon` passes as the second argument is never inspected. Not observable without changing the mock to also capture and assert on `opts`. |
 | `ensure-daemon.ts` | `if (nl !== -1) → if (true)` and `if (nl !== +1)` | Equivalent mutants for all test responses (response length >> 1, so `nl > 1` always). |
 | `ensure-daemon.ts` | `resolve(JSON.parse(buf))` instead of `resolve(JSON.parse(buf.slice(0, nl)))` | `JSON.parse` tolerates trailing whitespace; functionally identical for single-response test cases. |
 | `ensure-daemon.ts` | `.trim()` variants of the `stderrBuf.slice(consumed, newline).trim()` line | Only observable with multi-line or whitespace-padded stderr output from the spawned process. Single-line ready signal in tests makes both variants equivalent. |
 | `ensure-daemon.ts` | `NoCoverage` — timer callback and JSON-parse catch in `spawnDaemon` | Timer fires after 30s (no fake-timer tests for the timeout path); JSON-parse catch only fires on truly malformed stderr (never in production). |
+
+**`daemon.ts` (scoped run, 13.29% — see the bulk-noise note below before reading this as a quality signal):**
+
+| Area | Survivor | Why accepted |
+|------|----------|-------------|
+| `daemon.ts` | `readLockfile`'s `typeof parsed === "object" && parsed !== null` clauses forced to `true` | Verified by hand: every JSON shape that could slip through (primitive, array, `null`) ends up either producing a `.pid` that's `undefined` — which `process.kill(undefined, 0)` throws on — or, for `null` specifically, throwing on the `.pid` property access itself. Both are caught by an enclosing `catch` (readLockfile's own for the latter, the caller's for the former) and the function still returns `false`. Not equivalent by luck of a specific test — no input reaches a different observable outcome. |
+| `daemon.ts` | `readLockfile`'s `typeof (parsed as Record<string, unknown>).startedAt === "number"` forced to `true` | `startedAt` is written to the lockfile but never read back by any current caller (`isDaemonAlive`, `stopDaemon`, `runStop` only ever use `pid`). Its shape check is unobservable dead validation weight until something consumes the field. |
+| `daemon.ts` | `readLockfile`'s outer `catch { return null; }` emptied (falls through to implicit `undefined`) | `isDaemonAlive`'s `if (lock === null) return false;` doesn't match `undefined` (strict equality), so it falls through to `process.kill(lock.pid, 0)` — `undefined.pid` throws, caught by `isDaemonAlive`'s own `catch`, still returns `false`. Same absorption mechanism as the row above. |
+| `daemon.ts` | `isDaemonAlive`'s `if (lock === null) return false;` forced to `if (false) return false;` | Same mechanism again: skipping the early return sends a `null` `lock` into `process.kill(lock.pid, 0)`, `.pid` on `null` throws, caught by the same function's `catch`, same `false` result. |
+| `daemon.ts` | `RequestEnvelopeSchema` Zod declaration — `ObjectLiteral`/`MethodExpression` mutations on the schema fields | Same class as `schema.ts`'s known noise (see `install-skills.ts`/dispatcher notes below and the general note on declarative Zod schemas) — no logic to mutate, only field declarations. |
+| `daemon.ts` | `NoCoverage` — the bulk of `runDaemon`/`handleSocketRequest`'s bodies (~139 mutants) | Process-entry-point code that only runs inside a spawned daemon subprocess; see "Process-entry-point code has an inherent in-process coverage gap" below. This is why the file's scoped score reads far below threshold despite the logic it can reach being fully covered — the low headline number is expected, not a quality signal, and should not be chased as one. |
+
+**`paths.ts` (scoped run, `ensureCacheDir` only — `workspaceHash`/`socketPath`/`lockfilePath`/`logfilePath` are untested by design, see the port-migration spec in the archive for why):**
+
+| Area | Survivor | Why accepted |
+|------|----------|-------------|
+| `paths.ts` | `ensureCacheDir`'s `fs.mkdir(CACHE_DIR, { recursive: true })` → `{}` / `{ recursive: false }` | Same class as `install-skills.ts`'s `mkdir` entry directly below — `InMemoryFileSystem.mkdir` ignores its options, so the option has no observable effect at the unit layer. `ensureCacheDir`'s single caller (`runDaemon`) only ever runs against the real, deeply-nested `~/.cache/weaver` path, where `recursive` is load-bearing; that path is exercised only via the subprocess-spawning daemon integration tests, which Stryker's sandbox can't run. |
 
 **`install-skills.ts` (scoped run, 94.6%):**
 
@@ -226,6 +244,9 @@ The threshold catches regressions but does not certify correctness. After each m
 - A mutant that survives because the API contract makes a branch structurally unreachable (e.g. `Map.get()` never returns an empty array, only `undefined` or a non-empty array) means the condition should be simplified to remove the dead branch — not accepted as-is. Example: `if (decls && decls.length > 0)` → simplify to `if (decls)`.
 - A mutant that survives because a fallback path is never exercised in tests means a test is missing. Example: `getSourceFile(path) ?? addSourceFileAtPath(path)` survives the `??` → `&&` mutation if no test uses a fresh provider that hasn't seen the dest file.
 Both cases require action. Accepted survivors belong in the "Known surviving mutants" table with an explicit rationale — an unexplained survivor in new code is not acceptable.
+
+**Downstream type-checking can absorb an upstream shape-validation mutant — verify each clause by hand, don't classify a whole cluster from one example.**
+A guard that looks redundant with a later runtime check often isn't uniformly redundant. `daemon.ts`'s `readLockfile` validates a lockfile's `pid` is a `number` before any caller uses it; mutating that check away still returns `false` from `isDaemonAlive` for most malformed shapes, because `process.kill(badPid, 0)` throws on `undefined` and on most non-numeric input — but `process.kill` *coerces a numeric string to a number first*, so a `pid` of `"1234"` naming a real live process slips through where `pid: undefined` does not. Same clause, same-looking mutant, different verdict depending on the exact value. Confirm the claim experimentally (e.g. `process.kill(String(process.pid), 0)` in a scratch `node -e`) rather than reasoning it through once and generalizing to every row in a cluster.
 
 **`specifiers.length > 0` needs an importer with non-matching symbols.**
 Mutation `> 0 → >= 0` includes importers with 0 matching specifiers. These "false positives" then gain a wrong import from the dest file. To kill this, add a file that imports OTHER symbols from the source (but not the moved symbol) and assert it does not gain an import from the dest.
