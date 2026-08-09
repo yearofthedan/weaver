@@ -64,8 +64,6 @@ WEAVER_EVAL_MODEL=google/gemini-2.5-flash WEAVER_EVAL_TRIALS=10 \
   pass-cli run --env-file .env -- pnpm eval --disable-console-intercept -t <case-regex>
 ```
 
-**Read a red for timeouts first.** The 2026-08-08 run had six Luna cases fail on `Test timed out in 900000ms` that all came back 10/10 on a re-run — a provider stall costs a paid lane its exit code without producing a single rate.
-
 Per-case rates are the ground truth — any aggregate derives from them, so record these even if a summary metric changes. For a **cross-model** run, record the four-tier outcome composition of any non-ceiling case, not just the rate: it separates a body weaver can fix (`content-fail`) from host-exposure noise it cannot (`warned-pass`). Update the table above in place and add a dated entry below.
 
 ---
