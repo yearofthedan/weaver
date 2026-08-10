@@ -81,17 +81,48 @@ Consequences: an agent that was (incorrectly) relying on `glob` to scope surgica
 
 ## Done-when
 
-- [ ] All ACs verified by tests
-- [ ] Mutation score ≥ threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`. If implementation pushes a file past threshold, extract per the test refactoring hierarchy (push down to units → decompose source) before marking this item done.
-- [ ] Docs updated:
-      - `docs/commands/replace-text.md` — note in the surgical-mode section (or the `Limitations` list) that combining `edits` with `glob`/`excludeGlob` is rejected with `VALIDATION_ERROR`, replacing the current "has no effect there" framing for `excludeGlob`
-      - `docs/reference/error-codes.md` — no new code; `VALIDATION_ERROR` row already covers this, no edit needed unless the row's description should mention the new case
-      - `docs/internals/replace-text.md` — if it documents the refine's XOR check, extend that description with the new condition
-      - README.md — no change (no new command, no new top-level surface)
-      - `.claude/skills/weaver-search-and-replace/SKILL.md` — no change unless the skill currently suggests combining `edits` with `glob` (verify during implementation; if it doesn't, no edit needed)
-      - handoff.md current-state section — no change (no new file, no layout change)
-- [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] All ACs verified by tests
+- [x] Mutation score ≥ threshold for touched files (scoped run — see Outcome)
+- [x] `pnpm check` passes (lint + build + test)
+- [x] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md` (`schema.test.ts` 399 lines, cohesive, no split)
+- [x] Docs updated:
+      - `docs/commands/replace-text.md` — `excludeGlob` row and a new Limitations bullet updated to state the combination is rejected with `VALIDATION_ERROR`
+      - `docs/reference/error-codes.md` — no edit needed, existing `VALIDATION_ERROR` row already covers it
+      - `docs/internals/replace-text.md` — no edit needed, it didn't document the refine
+      - README.md — no change
+      - `.claude/skills/weaver-search-and-replace/SKILL.md` — no change, no example combined `edits` with `glob`
+      - handoff.md current-state section — no change
+- [x] Tech debt discovered during implementation added to handoff.md as [needs design] (`schema.ts`'s refine logic invisible to the default mutation run)
+- [x] Non-obvious gotchas — none warranted a doc update beyond the mutation-testing survivor table entry (see Outcome)
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Shipped:** 2026-08-09/10, two commits (`b971821`, `d36081e`).
+
+### Verification
+
+Exercised on the real path — built CLI (`pnpm build`), real daemon, real workspace — using sentinel content (`zqxvwSentinel`) so no result could pass by coincidence:
+
+| Call | Observed |
+|---|---|
+| `edits` + `glob` | `{"status":"error","error":"VALIDATION_ERROR","message":"glob/excludeGlob only apply in pattern mode; do not combine with edits"}` |
+| `edits` + `excludeGlob` | same `VALIDATION_ERROR` |
+| `edits` alone | `{"status":"success","filesModified":[...],"replacementCount":1,...}` — file correctly edited, unaffected |
+| `pattern`+`replacement`+`glob` | `{"status":"success","filesModified":[...],"replacementCount":1,...}` — pattern mode unaffected |
+
+### Tests and mutation
+
+4 tests added to `schema.test.ts`'s existing `describe("ReplaceTextArgsSchema (exactly-one-mode invariant)")` block: `edits`+`glob`, `edits`+`excludeGlob`, `edits`+both, plus the two pre-existing regression cases (`edits` alone, pattern+glob) verified unaffected without duplication.
+
+Scoped mutation run (`pnpm test:mutate:file src/adapters/schema.ts` — the file is excluded from the default `mutate` array, see the handoff entry this spec added): 100% kill rate on both conditions of the new `.refine()`. File-level aggregate score (58.97%) is dragged down entirely by 31 pre-existing survivors on unrelated schemas' field declarations, never previously measured because the file was wholly out of scope before this run — out of scope for this change, not a regression.
+
+### Reflection
+
+**What went well.** The prior `excludeGlob` spec had already named this exact decision and deferred it explicitly ("a separate change that should cover `glob` too") — that made the Open decision section nearly free to resolve: no valid workflow combines `edits` with a glob, so rejecting couldn't break a working caller. The fix landed as a single-batch dispatch with no interface drift, matching the spec's own Effort estimate.
+
+**What did not go well.** Running the four `/review-changes` agents in parallel hit a background-agent session limit mid-review (the architecture-review agent failed with "session limit · resets 11pm"); the other three completed fine. Recovered by doing the architecture review directly in the main conversation against `docs/design-principles.md` rather than retrying the subagent — worth remembering that a failed background review agent doesn't mean the review can't happen, just that it needs to happen inline.
+
+**Shared working-directory hazard, again.** A concurrent session was working in this same (non-worktree) directory on an unrelated fix (the `dispatcher.test.ts` tautological-assertion pattern, itself discovered during the earlier Vue `getTypeErrors` spec). Their uncommitted changes to `reports/stryker-incremental.json`, `docs/tech/mutation-testing.md`, and `src/daemon/dispatcher.test.ts` appeared staged in this session's `git status` at commit time — likely from a shared `git add -A` moment rather than any action taken here. Unstaged those three files (`git restore --staged`) before committing anything, and the other session committed its own work moments later. No data was lost, but it came within one careless `git commit` of attributing someone else's fix to this spec's commit. **Confirm `git status` shows only files this session's diff actually touched, immediately before every commit — not just before destructive commands** — whenever another agent might be sharing the working directory.
+
+**For the next agent.** `schema.ts` now holds real branching logic (two chained `.refine()`s) but stays outside `stryker.config.mjs`'s default `mutate` array; only an explicit `--mutate src/adapters/schema.ts` run measures it. Tracked in handoff.md as a `[needs design]` entry — worth resolving before a third refine is added to this file without anyone noticing coverage never ran.
