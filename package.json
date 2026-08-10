@@ -87,7 +87,7 @@
     "@yearofthedan/weaver": "link:.",
     "husky": "9.1.7",
     "tmp": "0.2.7",
-    "tsx": "4.23.9",
+    "tsx": "4.23.10",
     "vitest": "4.1.10"
   }
 }
