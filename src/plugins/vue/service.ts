@@ -132,7 +132,7 @@ function buildLanguageServiceHost(params: {
 
 export async function buildVolarService(
   tsConfigPath: string | null,
-  rootFilePath: string,
+  rootFilePath: string | undefined,
   workspaceRoot?: string,
 ): Promise<CachedService> {
   const ts = await import("typescript");
@@ -166,9 +166,17 @@ export async function buildVolarService(
     (id) => id,
   );
 
-  // Collect project files from tsconfig (or fall back to the root file alone).
-  const projectFiles: string[] = tsConfigPath ? [...tsConfigFileNames] : [rootFilePath];
-  const projectRoot = tsConfigPath ? path.dirname(tsConfigPath) : path.dirname(rootFilePath);
+  // Collect project files from tsconfig (or fall back to the root file alone, if given).
+  const projectFiles: string[] = tsConfigPath
+    ? [...tsConfigFileNames]
+    : rootFilePath
+      ? [rootFilePath]
+      : [];
+  const projectRoot = tsConfigPath
+    ? path.dirname(tsConfigPath)
+    : rootFilePath
+      ? path.dirname(rootFilePath)
+      : (workspaceRoot ?? process.cwd());
 
   // Always include .vue files from the project directory, even when the
   // tsconfig does not list them (e.g. bundler-only Vue setups).

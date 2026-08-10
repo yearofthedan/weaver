@@ -1,5 +1,5 @@
 import ts from "typescript";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { MAX_DIAGNOSTICS } from "../../operations/types.js";
 import type { TsMorphEngine } from "../../ts-engine/engine.js";
@@ -325,5 +325,15 @@ describe("vueGetTypeErrorsForProject", () => {
     expect(result.truncated).toBe(truncated);
     expect(result.diagnostics).toHaveLength(Math.min(total, MAX_DIAGNOSTICS));
     expect(result.errorCount).toBe(total);
+  });
+
+  it("requests a project-wide service without fabricating a file path", async () => {
+    const service = makeMinimalService("/project/Unused.vue.ts", "/project/Unused.vue", []);
+    const scope = { root: "/project" } as unknown as WorkspaceScope;
+    const getService = vi.fn().mockResolvedValue(service);
+
+    await vueGetTypeErrorsForProject(makeMockTsEngine(0), scope, getService);
+
+    expect(getService).toHaveBeenCalledWith(undefined);
   });
 });

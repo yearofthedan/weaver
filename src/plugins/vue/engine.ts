@@ -17,7 +17,7 @@ import type {
 } from "../../ts-engine/types.js";
 import { walkRecursive } from "../../utils/file-walk.js";
 import { applyTextEdits, lineColToOffset } from "../../utils/text-utils.js";
-import { findTsConfigForFile } from "../../utils/ts-project.js";
+import { findTsConfig, findTsConfigForFile } from "../../utils/ts-project.js";
 import { vueDeleteFile } from "./delete-file.js";
 import { vueExtractFunction } from "./extract-function.js";
 import { vueGetTypeErrorsForFile, vueGetTypeErrorsForProject } from "./get-type-errors.js";
@@ -40,17 +40,31 @@ export class VolarEngine implements Engine {
     this.workspaceRoot = workspaceRoot;
   }
 
-  private cacheKey(tsConfigPath: string | null, filePath: string): string {
-    return tsConfigPath ?? `__no_tsconfig__:${path.dirname(filePath)}`;
+  private cacheKey(
+    tsConfigPath: string | null,
+    filePath: string | undefined,
+    root: string = this.workspaceRoot,
+  ): string {
+    return tsConfigPath ?? `__no_tsconfig__:${filePath ? path.dirname(filePath) : root}`;
   }
 
-  private async getService(filePath: string): Promise<CachedService> {
-    const tsConfigPath = findTsConfigForFile(filePath);
-    const cacheKey = this.cacheKey(tsConfigPath, filePath);
+  // `filePath` is undefined for project-wide operations (e.g. a project-wide getTypeErrors)
+  // with no specific target file — see findTsConfig vs findTsConfigForFile in docs/architecture.md.
+  // `root` is the request's own workspace root (fresh per call, e.g. scope.root), not
+  // `this.workspaceRoot` — this engine instance is cached and reused for the lifetime of the
+  // daemon process, so `this.workspaceRoot` reflects whatever workspace first constructed it.
+  // In production that never differs (one daemon per workspace), but the two are not the same
+  // thing, and only `root` is guaranteed current.
+  private async getService(
+    filePath: string | undefined,
+    root: string = this.workspaceRoot,
+  ): Promise<CachedService> {
+    const tsConfigPath = filePath ? findTsConfigForFile(filePath) : findTsConfig(root);
+    const cacheKey = this.cacheKey(tsConfigPath, filePath, root);
 
     let cached = this.services.get(cacheKey);
     if (!cached) {
-      cached = await buildVolarService(tsConfigPath, filePath, this.workspaceRoot || undefined);
+      cached = await buildVolarService(tsConfigPath, filePath, root || undefined);
       this.services.set(cacheKey, cached);
     }
     return cached;
@@ -346,8 +360,9 @@ export class VolarEngine implements Engine {
       // .ts file in a Vue project — delegate to the TS engine.
       return this.tsEngine.getTypeErrors(file, scope);
     }
-    // Project-wide: merge TS and Vue errors.
-    return vueGetTypeErrorsForProject(this.tsEngine, scope, (f) => this.getService(f));
+    // Project-wide: merge TS and Vue errors. Root comes from the request's scope, not
+    // this.workspaceRoot — see getService's doc comment for why that distinction matters.
+    return vueGetTypeErrorsForProject(this.tsEngine, scope, (f) => this.getService(f, scope.root));
   }
 
   async rename(

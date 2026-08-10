@@ -1,4 +1,3 @@
-import * as path from "node:path";
 import ts from "typescript";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type { GetTypeErrorsResult, TypeDiagnostic } from "../../operations/types.js";
@@ -90,13 +89,11 @@ export async function vueGetTypeErrorsForFile(
 export async function vueGetTypeErrorsForProject(
   tsEngine: TsMorphEngine,
   scope: WorkspaceScope,
-  getService: (file: string) => Promise<CachedService>,
+  getService: (file: string | undefined) => Promise<CachedService>,
 ): Promise<GetTypeErrorsResult> {
   const tsResult = await tsEngine.getTypeErrors(undefined, scope);
 
-  // Synthetic child path to anchor findTsConfigForFile at the workspace root, not its parent.
-  const serviceKey = path.join(scope.root, "_probe.ts");
-  const service = await getService(serviceKey);
+  const service = await getService(undefined);
   const vueDiagnostics = vueGetTypeErrorsFromService(service);
 
   const allDiagnostics = [...tsResult.diagnostics, ...vueDiagnostics];

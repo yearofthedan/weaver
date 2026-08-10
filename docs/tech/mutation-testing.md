@@ -170,6 +170,7 @@ Fixed gaps are removed. Remaining survivors by category:
 | `plugins/vue/get-type-errors.ts` | `OptionalChaining` on `typescript?.getServiceScript` (line 19) | Removing `?` crashes when `languagePlugin.typescript` is null — a state `buildVolarService` never produces but `CachedService`'s type permits. Same pattern as Volar null-guard survivors in `engine.ts`. |
 | `plugins/vue/get-type-errors.ts` | `ConditionalExpression: false` on `if (!serviceScript) return null` (line 22) | Removing causes `null.code` TypeError. Requires `getServiceScript()` returning null with non-null `generated` — not produced by `buildVolarService`. |
 | `plugins/vue/get-type-errors.ts` | `ConditionalExpression: false` on `if (!realContent) return null` (line 31) | `Map<string, string>.get()` is typed as `string | undefined`, so the guard is correct. `buildVolarService` always populates `fileContents` before any diagnostic is produced, so the undefined path cannot be triggered without constructing a broken `CachedService`. |
+| `plugins/vue/service.ts` | `NoCoverage` — `workspaceRoot ?? process.cwd()` fallback in `buildVolarService`'s `projectRoot` computation (`?? → &&`) | Only reached when both `tsConfigPath` and `rootFilePath` are absent. `buildVolarService`'s only caller (`VolarEngine.getService`) always passes its own non-empty `workspaceRoot` as this argument, so the triple-absent case can't occur through the real call graph — a defensive fallback, not a tested path. |
 
 **Worth fixing (next quality pass):**
 
