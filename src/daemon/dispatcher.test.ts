@@ -269,12 +269,8 @@ describe("dispatchRequest per-operation dispatch", () => {
       { method: "findReferences", params: { file, line: 1, col: 17 } },
       dir,
     )) as Record<string, unknown>;
-    expect(typeof result.status).toBe("string");
-    if (result.status === "success") {
-      expect(result).toHaveProperty("references");
-    } else {
-      expect(result).toHaveProperty("error");
-    }
+    expect(result.status).toBe("success");
+    expect(result).toHaveProperty("references");
   }, 15_000);
 
   test("dispatches getDefinition and returns definition shape", async ({ seedNamedFixture }) => {
@@ -284,12 +280,8 @@ describe("dispatchRequest per-operation dispatch", () => {
       { method: "getDefinition", params: { file, line: 1, col: 17 } },
       dir,
     )) as Record<string, unknown>;
-    expect(typeof result.status).toBe("string");
-    if (result.status === "success") {
-      expect(result).toHaveProperty("definitions");
-    } else {
-      expect(result).toHaveProperty("error");
-    }
+    expect(result.status).toBe("success");
+    expect(result).toHaveProperty("definitions");
   }, 15_000);
 
   test("dispatches rename and returns result shape", async ({ seedNamedFixture }) => {
@@ -299,12 +291,8 @@ describe("dispatchRequest per-operation dispatch", () => {
       { method: "rename", params: { file, line: 1, col: 17, newName: "multiplied" } },
       dir,
     )) as Record<string, unknown>;
-    expect(typeof result.status).toBe("string");
-    if (result.status === "success") {
-      expect(result).toHaveProperty("filesModified");
-    } else {
-      expect(result).toHaveProperty("error");
-    }
+    expect(result.status).toBe("success");
+    expect(result).toHaveProperty("filesModified");
   }, 15_000);
 
   test("dispatches moveFile and returns result shape", async ({ seedNamedFixture }) => {
@@ -315,12 +303,8 @@ describe("dispatchRequest per-operation dispatch", () => {
       { method: "moveFile", params: { oldPath, newPath } },
       dir,
     )) as Record<string, unknown>;
-    expect(typeof result.status).toBe("string");
-    if (result.status === "success") {
-      expect(result).toHaveProperty("filesModified");
-    } else {
-      expect(result).toHaveProperty("error");
-    }
+    expect(result.status).toBe("success");
+    expect(result).toHaveProperty("filesModified");
   }, 15_000);
 
   test("dispatches moveSymbol and returns result shape", async ({ seedNamedFixture }) => {
@@ -331,12 +315,8 @@ describe("dispatchRequest per-operation dispatch", () => {
       { method: "moveSymbol", params: { sourceFile, symbolName: "multiply", destFile } },
       dir,
     )) as Record<string, unknown>;
-    expect(typeof result.status).toBe("string");
-    if (result.status === "success") {
-      expect(result).toHaveProperty("filesModified");
-    } else {
-      expect(result).toHaveProperty("error");
-    }
+    expect(result.status).toBe("success");
+    expect(result).toHaveProperty("filesModified");
   }, 15_000);
 });
 
