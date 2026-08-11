@@ -199,6 +199,82 @@ describe("replaceText operation", () => {
       expect(after).toContain("user");
     });
 
+    test("applies edits on different lines in the order that keeps earlier offsets valid", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      // Both edits shrink their line, so an offset computed against the
+      // wrong (e.g. ascending) order would land on stale text and fail.
+      // utils.ts line 1, col 17: "greetUser" (shrinks by 7 chars)
+      // utils.ts line 2, col 11: "Hello" (shrinks by 2 chars)
+      const result = await replaceText(makeScope(dir), {
+        edits: [
+          {
+            file: path.join(dir, "src/utils.ts"),
+            line: 1,
+            col: 17,
+            oldText: "greetUser",
+            newText: "hi",
+          },
+          {
+            file: path.join(dir, "src/utils.ts"),
+            line: 2,
+            col: 11,
+            oldText: "Hello",
+            newText: "Hey",
+          },
+        ],
+      });
+
+      expect(result.replacementCount).toBe(2);
+      const after = readFile(dir, "src/utils.ts");
+      expect(after).toBe(
+        "export function hi(name: string): string {\n  return `Hey, ${name}`;\n}\n",
+      );
+    });
+
+    test("applies an edit on a later line by accumulating the length of every prior line", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      // utils.ts line 2, col 11: "Hello" — offset must account for line 1's length
+      const result = await replaceText(makeScope(dir), {
+        edits: [
+          {
+            file: path.join(dir, "src/utils.ts"),
+            line: 2,
+            col: 11,
+            oldText: "Hello",
+            newText: "Howdy",
+          },
+        ],
+      });
+
+      expect(result.replacementCount).toBe(1);
+      const after = readFile(dir, "src/utils.ts");
+      expect(after).toContain("Howdy");
+      expect(after).not.toContain("Hello");
+    });
+
+    test("throws TEXT_MISMATCH when the line number is out of range", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      await expect(
+        replaceText(makeScope(dir), {
+          edits: [
+            {
+              file: path.join(dir, "src/utils.ts"),
+              line: 99,
+              col: 1,
+              oldText: "greetUser",
+              newText: "whatever",
+            },
+          ],
+        }),
+      ).rejects.toMatchObject({ code: "TEXT_MISMATCH" });
+    });
+
     test("rejects edits to sensitive files", async ({ dir }) => {
       const envPath = path.join(dir, ".env");
       fs.writeFileSync(envPath, "KEY=value\n");
