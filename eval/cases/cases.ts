@@ -97,6 +97,11 @@ export function isProgressiveOpCase(entry: CaseEntry): entry is ProgressiveOpCas
 }
 
 export function isBoundaryCase(entry: CaseEntry): entry is BoundaryCase {
+  // The exposure check is redundant with BoundaryCase's own type (exposure is
+  // always "progressive" there) — expect.skill === "bash" only exists on that
+  // variant, so no well-typed entry can hit skill === "bash" with a different
+  // exposure. Its mutant (dropping the left operand) is an accepted,
+  // behaviourally equivalent survivor.
   return entry.exposure === "progressive" && entry.expect.skill === "bash";
 }
 

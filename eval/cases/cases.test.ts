@@ -111,6 +111,17 @@ describe("case table", () => {
       expect(opCases.some(isBoundaryCase)).toBe(false);
       expect(opCases.length).toBe(CASES.length - CASES.filter(isBoundaryCase).length);
     });
+
+    it("classifies every case as exactly one of progressive-op, boundary, or front-loaded", () => {
+      for (const c of CASES) {
+        const matches = [isProgressiveOpCase(c), isBoundaryCase(c), isFrontLoadedCase(c)].filter(
+          Boolean,
+        ).length;
+        expect(matches, `Case "${c.name}" matched ${matches} of the three predicates, want 1`).toBe(
+          1,
+        );
+      }
+    });
   });
 
   describe("adjacent-negative boundary cases", () => {
