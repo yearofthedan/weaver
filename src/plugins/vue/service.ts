@@ -5,34 +5,13 @@ import type ts from "typescript";
 import { TS_EXTENSIONS } from "../../utils/extensions.js";
 import { SKIP_DIRS, walkFiles } from "../../utils/file-walk.js";
 
-interface VolarLanguageService {
-  findRenameLocations(
-    fileName: string,
-    position: number,
-    findInStrings: boolean,
-    findInComments: boolean,
-    preferences?: object,
-  ): readonly { fileName: string; textSpan: { start: number; length: number } }[] | undefined;
-  getReferencesAtPosition(
-    fileName: string,
-    position: number,
-  ): readonly { fileName: string; textSpan: { start: number; length: number } }[] | undefined;
-  getDefinitionAtPosition(
-    fileName: string,
-    position: number,
-  ):
-    | readonly { fileName: string; textSpan: { start: number; length: number }; name: string }[]
-    | undefined;
-  getEditsForFileRename(
-    oldFilePath: string,
-    newFilePath: string,
-    formatOptions: object,
-    preferences: object,
-  ): readonly {
-    fileName: string;
-    textChanges: { span: { start: number; length: number }; newText: string }[];
-  }[];
-}
+type VolarLanguageService = Pick<
+  ts.LanguageService,
+  | "findRenameLocations"
+  | "getReferencesAtPosition"
+  | "getDefinitionAtPosition"
+  | "getEditsForFileRename"
+>;
 
 export interface CachedService {
   languageService: VolarLanguageService;
