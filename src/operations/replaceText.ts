@@ -87,10 +87,11 @@ function applyPatternReplace(
       continue;
     }
 
-    // Count matches first (resets lastIndex after)
+    // Count matches first (resets lastIndex after). A global-flag match()
+    // returns either null or a non-empty array — never an empty array.
     re.lastIndex = 0;
     const hits = content.match(re);
-    if (!hits || hits.length === 0) continue;
+    if (!hits) continue;
 
     // String-form replacement preserves $1, $2, etc. backreferences
     re.lastIndex = 0;

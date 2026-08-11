@@ -103,6 +103,35 @@ describe("replaceText operation", () => {
       ).rejects.toMatchObject({ code: "REDOS" });
     });
 
+    test("throws VALIDATION_ERROR when only pattern is provided without replacement", async ({
+      dir,
+    }) => {
+      await expect(replaceText(makeScope(dir), { pattern: "foo" })).rejects.toMatchObject({
+        code: "VALIDATION_ERROR",
+      });
+    });
+
+    test("throws VALIDATION_ERROR when only replacement is provided without pattern", async ({
+      dir,
+    }) => {
+      await expect(replaceText(makeScope(dir), { replacement: "bar" })).rejects.toMatchObject({
+        code: "VALIDATION_ERROR",
+      });
+    });
+
+    test("does not write or count a replacement that leaves the content unchanged", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      const result = await replaceText(makeScope(dir), {
+        pattern: "greetUser",
+        replacement: "greetUser",
+      });
+
+      expect(result.filesModified).toHaveLength(0);
+      expect(result.replacementCount).toBe(0);
+    });
+
     test("does not modify sensitive files", async ({ seedNamedFixture }) => {
       const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
       const envPath = path.join(dir, ".env");
@@ -256,7 +285,30 @@ describe("replaceText operation", () => {
       expect(after).not.toContain("Hello");
     });
 
-    test("throws TEXT_MISMATCH when the line number is out of range", async ({
+    test("throws TEXT_MISMATCH with an out-of-range message when the line is one past the end of the file", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      const outOfRangeLine = readFile(dir, "src/utils.ts").split("\n").length + 1;
+      await expect(
+        replaceText(makeScope(dir), {
+          edits: [
+            {
+              file: path.join(dir, "src/utils.ts"),
+              line: outOfRangeLine,
+              col: 1,
+              oldText: "greetUser",
+              newText: "whatever",
+            },
+          ],
+        }),
+      ).rejects.toMatchObject({
+        code: "TEXT_MISMATCH",
+        message: expect.stringContaining("out of range"),
+      });
+    });
+
+    test("throws TEXT_MISMATCH with an out-of-range message when the line is zero or negative", async ({
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
@@ -265,14 +317,17 @@ describe("replaceText operation", () => {
           edits: [
             {
               file: path.join(dir, "src/utils.ts"),
-              line: 99,
+              line: 0,
               col: 1,
               oldText: "greetUser",
               newText: "whatever",
             },
           ],
         }),
-      ).rejects.toMatchObject({ code: "TEXT_MISMATCH" });
+      ).rejects.toMatchObject({
+        code: "TEXT_MISMATCH",
+        message: expect.stringContaining("out of range"),
+      });
     });
 
     test("rejects edits to sensitive files", async ({ dir }) => {
