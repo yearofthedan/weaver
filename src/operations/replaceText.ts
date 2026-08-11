@@ -76,6 +76,8 @@ function applyPatternReplace(
   for (const filePath of files) {
     // Symlinks in git-tracked files can resolve outside the workspace —
     // scope.contains() re-checks via realpathSync to catch this case.
+    // Untestable without a real symlink escaping the workspace root, so this
+    // branch has no unit test and its mutant is an accepted survivor.
     if (!scope.contains(filePath)) continue;
     if (isSensitiveFile(filePath)) continue;
 
@@ -89,6 +91,10 @@ function applyPatternReplace(
 
     // Count matches first (resets lastIndex after). A global-flag match()
     // returns either null or a non-empty array — never an empty array.
+    // Skipping early here is an optimisation, not a correctness guard: a
+    // null-hits file always round-trips through replace() unchanged, so the
+    // `updated !== content` check below would catch it anyway — that makes
+    // this branch's mutant an accepted, behaviourally equivalent survivor.
     re.lastIndex = 0;
     const hits = content.match(re);
     if (!hits) continue;
