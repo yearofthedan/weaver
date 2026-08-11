@@ -70,6 +70,29 @@ Per-case rates are the ground truth — any aggregate derives from them, so reco
 
 ## Run history
 
+### 2026-08-11 — spike: does the lane see a generic search win over a symbol lookup?
+
+Commissioned by the handoff entry on symbol-specific routing, after a live `/slice` session where an agent asked for a symbol's callers reached for a generic grep-based subagent instead of `find-references`. Six throwaway cases against the shipped `find-references` target, three asks × two arms — plain (today's lane) and *delegation* (the host's agent roster in the system prompt plus a callable `Task` tool returning a competent grep-shaped prose summary). **$1.4896** — Haiku $1.2219 (60 trials over three runs), Gemini $0.2493 (60), Luna $0.0184 (60).
+
+| Ask | Arm | Haiku | Gemini | Luna |
+|---|---|---|---|---|
+| plain ("Where is `authenticate` used?", coords given) | plain | 10/10 | 10/10 | 10/10 |
+| exploration-framed, coords given | plain | 10/10 | 10/10 | 10/10 |
+| **exploration-framed, no coords** | plain | 10/10 | **1/10** | 10/10 |
+| plain | delegation | 10/10 | 10/10 | 10/10 |
+| exploration-framed, coords given | delegation | 10/10 | 10/10 | 10/10 |
+| **exploration-framed, no coords** | delegation | 9/10 | **0/10** | 10/10 |
+
+**Exploration framing is a null; the missing coordinates are the driver.** Rewording a symbol question as broad codebase exploration moved nothing on any model at any arm. Removing the coordinates dropped Gemini from 10/10 to 1/10 against its own comparator, holding phrasing and model fixed.
+
+**Delegation is an amplifier that only bites once coordinates are gone, and only on Gemini.** `Task` call counts: Gemini 16, Haiku 0, Luna 0. With coordinates present the roster changed nothing (10/10 both arms, every model). Without them Gemini's failure mode switched from grep-fallback to delegate-and-stop — 8 of 10 trials called `Task` on turn one, never loaded the skill (`never-reached 8`), accepted the summary and answered. The summary omits an aliased re-export by construction, which is the real artifact's real failure mode. The 1/10 → 0/10 rate delta is not established (both arms red, tiny n on the difference); the mechanism switch from 0 to 16 delegation calls is.
+
+**Mechanism.** Missing coordinates reframe a symbol question as an exploration task, and the skill body offers no way back: it documents only the `line`/`col` form and never says how to obtain a position. Gemini's misses split between answering from `Glob`/`Read`/`grep` without reaching weaver, and inventing a symbol-name API — `weaver find-references '{"file": "…", "symbol": "authenticate"}'`, and the same shape on `get-definition`.
+
+**A `keyArgs` set that omits the args under test lets an invented API false-pass.** One Gemini trial scored `matched` on the `symbol`-argument form above, because the case asserted only `file`. Any durable version of this case must assert `line`/`col` — which first requires the lane's generic `Read` result to become a coherent multi-line file, since it returns a single line today and "line 1" is the correct read of what the model was shown. The Haiku and Luna passes on the no-coords asks are partly that artifact.
+
+**`trigger-code-inspection-find-references` widened 3/3 → 10/10 on Haiku**, one of the few clean n=3 results that has survived widening.
+
 ### 2026-08-08 — first full roster run under `pnpm eval:gate`
 
 The gate now requires Haiku (n=3), Gemini 2.5 Flash (n=10) and GPT-5.6-Luna (n=10) to clear. **$2.03** for 580 trials — Haiku $1.4380 (90), Gemini $0.5365 (270), Luna $0.0591 (220).

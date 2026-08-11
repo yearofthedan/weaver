@@ -35,6 +35,14 @@ pnpm eval:gate -t <case-regex>         # the same, scoped to a case subset
 
 Always pass `--disable-console-intercept` — without it vitest swallows the per-case rate and trail output on *passing* tests, so a green run prints nothing and a paid run is wasted. `pnpm eval:gate` passes it for you.
 
+**A `-t` pattern that matches nothing runs zero trials and still exits 0.** The lane reports `N skipped` and passes green, indistinguishable from a clean run unless you read the skip count — so a mis-anchored filter silently measures nothing. Confirm the match first, for free:
+
+```bash
+pnpm exec vitest list --config eval/vitest.llm.config.ts -t "<pattern>"
+```
+
+The pattern is matched against the *rendered* test name, where `it.each` wraps the case name in single quotes — `'command-rename' — model emits …`. Anchoring on the trailing separator therefore needs the quote: `-t "command-rename' —"`, not `-t "command-rename —"`.
+
 ## Knobs
 
 | Variable | Effect |
