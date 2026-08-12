@@ -516,6 +516,17 @@ describe("callModel", () => {
       ).rejects.toThrow("no choices");
     });
 
+    it("reports the provider's payload when a 200 carries an error instead of choices", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ error: { message: "upstream provider is overloaded", code: 502 } }),
+      });
+
+      await expect(
+        callModel([{ role: "user", content: "hi" }], [], explicitConfig()),
+      ).rejects.toThrow("upstream provider is overloaded");
+    });
+
     it("propagates network errors without retrying", async () => {
       mockFetch.mockRejectedValueOnce(new TypeError("fetch failed"));
 

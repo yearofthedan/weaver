@@ -114,8 +114,11 @@ async function sendOnce(
     throw new Error(`Model server returned ${response.status}: ${body}`);
   }
 
+  // `choices` is optional because a provider can answer 200 with an error
+  // payload instead of a completion — indexing it blind turns the provider's
+  // own diagnosis into an opaque TypeError.
   const data = (await response.json()) as {
-    choices: Array<{
+    choices?: Array<{
       message: {
         content: string | null;
         tool_calls?: Array<{
@@ -129,7 +132,7 @@ async function sendOnce(
     usage?: { cost?: number };
   };
 
-  const choice = data.choices[0];
+  const choice = data.choices?.[0];
   const message = choice?.message;
   if (!message) {
     throw new Error(`Model server returned no choices: ${JSON.stringify(data)}`);
