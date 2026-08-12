@@ -13,12 +13,17 @@ import {
   seedForCase,
   systemPromptFor,
 } from "./case-lane.js";
-import { buildClutterSystemPrompt } from "./clutter.js";
+import {
+  buildClutterSystemPrompt,
+  buildHostToolUsePolicySection,
+  buildToolUsePolicySection,
+} from "./clutter.js";
 import { buildAvailableSkillsPrompt, readSkillFile } from "./context.js";
 import { BASH_TOOL } from "./tools.js";
 
 afterEach(() => {
   delete process.env.WEAVER_EVAL_CLEAN;
+  delete process.env.WEAVER_EVAL_HOST_CLUTTER;
 });
 
 const tc = (name: string, args: Record<string, unknown> = {}): ToolCall => ({
@@ -118,7 +123,7 @@ describe("systemPromptFor", () => {
   describe("progressive", () => {
     it("wraps clutter around the available-skills block", () => {
       const prompt = systemPromptFor("progressive");
-      expect(prompt).toContain(buildClutterSystemPrompt());
+      expect(prompt).toContain(buildClutterSystemPrompt(buildToolUsePolicySection()));
       expect(prompt).toContain("<available_skills>");
     });
 
@@ -130,10 +135,23 @@ describe("systemPromptFor", () => {
     });
   });
 
+  describe("tool-use policy", () => {
+    it("pressures the model with the generic policy by default", () => {
+      expect(systemPromptFor("front-loaded")).toContain(buildToolUsePolicySection());
+    });
+
+    it("pressures the model with a real host's policy under WEAVER_EVAL_HOST_CLUTTER", () => {
+      process.env.WEAVER_EVAL_HOST_CLUTTER = "1";
+      const prompt = systemPromptFor("front-loaded");
+      expect(prompt).toContain(buildHostToolUsePolicySection());
+      expect(prompt).not.toContain(buildToolUsePolicySection());
+    });
+  });
+
   describe("front-loaded", () => {
     it("is clutter only, with no available-skills block", () => {
       const prompt = systemPromptFor("front-loaded");
-      expect(prompt).toBe(buildClutterSystemPrompt());
+      expect(prompt).toBe(buildClutterSystemPrompt(buildToolUsePolicySection()));
       expect(prompt).not.toContain("<available_skills>");
     });
 

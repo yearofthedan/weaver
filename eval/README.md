@@ -51,6 +51,7 @@ The pattern is matched against the *rendered* test name, where `it.each` wraps t
 | `WEAVER_EVAL_MODEL` | Swap the model for a single-model run — e.g. `google/gemini-2.5-flash`. Set per model by `eval:gate`. |
 | `WEAVER_EVAL_TEMPERATURE` | **Diagnostic.** Unset (the default) omits the field entirely, so the model samples at its own default. Set `0` to replay one deterministic path. |
 | `WEAVER_EVAL_CLEAN=1` | **Diagnostic.** Drops clutter and momentum, separating "the body broke" from "it loses under pressure". |
+| `WEAVER_EVAL_HOST_CLUTTER=1` | **Diagnostic.** Swaps the clutter's invented tool-use policy for one derived from a real host (Claude Code), including its preference for dedicated tools over shell commands. Measures the lane's pressure against real deployment inertia — see the [2026-08-12 spike](../docs/eval-baselines.md#2026-08-12--spike-does-real-host-prompt-inertia-beat-the-lanes-invented-clutter). Not gating; recorded rates are all generic-arm. |
 | `WEAVER_EVAL_DEBUG=1` | Dump the full turn-by-turn exchange. |
 
 Neither diagnostic changes gating semantics. Runs cost real money — scope the case set and trial count to the question, and see [Reading a red](../docs/eval-design.md#reading-a-red) for the order to work through a failure.

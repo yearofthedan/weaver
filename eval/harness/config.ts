@@ -46,6 +46,16 @@ export function isCleanMode(): boolean {
   return process.env.WEAVER_EVAL_CLEAN === "1";
 }
 
+/**
+ * Swaps the clutter's generic tool-use policy for one derived from a real
+ * agent host's system prompt (Claude Code). Diagnostic knob for measuring
+ * whether the lane's invented tool-selection pressure stands in for the
+ * pressure a skill actually faces in deployment.
+ */
+export function isHostClutterMode(): boolean {
+  return process.env.WEAVER_EVAL_HOST_CLUTTER === "1";
+}
+
 export function modelConfig(): ModelConfig {
   return {
     baseUrl: process.env.WEAVER_EVAL_BASE_URL ?? "",
@@ -62,6 +72,7 @@ export function formatRunHeader(baseTrialCount: number): string {
   const { model, temperature } = modelConfig();
   return (
     `eval run — model ${model} | trials ${baseTrialCount} | ` +
-    `temperature ${temperature ?? "default"} | clean-mode ${isCleanMode() ? "on" : "off"}`
+    `temperature ${temperature ?? "default"} | clean-mode ${isCleanMode() ? "on" : "off"} | ` +
+    `clutter ${isHostClutterMode() ? "host" : "generic"}`
   );
 }

@@ -10,9 +10,13 @@ import {
 import { type AgenticLoopParams, resolveCannedResult } from "./agentic-loop.js";
 import { matchesExpectedCommand } from "./assertions.js";
 import type { ChatMessage, ToolCall } from "./call-model.js";
-import { buildClutterSystemPrompt } from "./clutter.js";
+import {
+  buildClutterSystemPrompt,
+  buildHostToolUsePolicySection,
+  buildToolUsePolicySection,
+} from "./clutter.js";
 import { commandPrompt } from "./command-prompt.js";
-import { isCleanMode } from "./config.js";
+import { isCleanMode, isHostClutterMode } from "./config.js";
 import { buildAvailableSkillsPrompt, classifySkillReach, readSkillFile } from "./context.js";
 import { loadFixture } from "./fixtures.js";
 import { isMutatingCompetitor } from "./grade.js";
@@ -34,6 +38,16 @@ export function seedForCase(c: CaseEntry): ChatMessage[] {
 }
 
 /**
+ * The tool-use policy this run pressures the model with: a generic invented one
+ * by default, or one derived from a real agent host under
+ * `WEAVER_EVAL_HOST_CLUTTER`. The two arms are not comparable against the same
+ * baseline — docs/eval-baselines.md records which arm each rate was measured on.
+ */
+function toolUsePolicy(): string {
+  return isHostClutterMode() ? buildHostToolUsePolicySection() : buildToolUsePolicySection();
+}
+
+/**
  * The system-prompt content for an exposure: host scaffolding clutter (dropped
  * entirely under `WEAVER_EVAL_CLEAN`) plus, for the progressive exposure only,
  * the `<available_skills>` block a real host would expose — front-loaded
@@ -43,7 +57,7 @@ export function seedForCase(c: CaseEntry): ChatMessage[] {
  * message entirely rather than sending an empty one.
  */
 export function systemPromptFor(exposure: Exposure): string {
-  const clutter = isCleanMode() ? "" : buildClutterSystemPrompt();
+  const clutter = isCleanMode() ? "" : buildClutterSystemPrompt(toolUsePolicy());
   if (exposure !== "progressive") return clutter;
   return clutter ? `${clutter}\n\n${buildAvailableSkillsPrompt()}` : buildAvailableSkillsPrompt();
 }

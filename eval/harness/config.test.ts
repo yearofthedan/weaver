@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { formatRunHeader, GATING_MODELS, isCleanMode, modelConfig } from "./config.js";
+import {
+  formatRunHeader,
+  GATING_MODELS,
+  isCleanMode,
+  isHostClutterMode,
+  modelConfig,
+} from "./config.js";
 
 afterEach(() => {
   delete process.env.WEAVER_EVAL_BASE_URL;
@@ -7,6 +13,7 @@ afterEach(() => {
   delete process.env.WEAVER_EVAL_API_KEY;
   delete process.env.WEAVER_EVAL_TEMPERATURE;
   delete process.env.WEAVER_EVAL_CLEAN;
+  delete process.env.WEAVER_EVAL_HOST_CLUTTER;
 });
 
 describe("modelConfig", () => {
@@ -96,20 +103,38 @@ describe("isCleanMode", () => {
   });
 });
 
+describe("isHostClutterMode", () => {
+  it("is off when unset, so a run defaults to the generic tool-use policy", () => {
+    expect(isHostClutterMode()).toBe(false);
+  });
+
+  it("returns true only for the exact opt-in value", () => {
+    process.env.WEAVER_EVAL_HOST_CLUTTER = "1";
+    expect(isHostClutterMode()).toBe(true);
+
+    process.env.WEAVER_EVAL_HOST_CLUTTER = "true";
+    expect(isHostClutterMode()).toBe(false);
+
+    process.env.WEAVER_EVAL_HOST_CLUTTER = "";
+    expect(isHostClutterMode()).toBe(false);
+  });
+});
+
 describe("formatRunHeader", () => {
   it("includes the model, trial count, and default temperature and clean-mode", () => {
     process.env.WEAVER_EVAL_MODEL = "anthropic/claude-haiku-4.5";
     expect(formatRunHeader(3)).toBe(
-      "eval run — model anthropic/claude-haiku-4.5 | trials 3 | temperature default | clean-mode off",
+      "eval run — model anthropic/claude-haiku-4.5 | trials 3 | temperature default | clean-mode off | clutter generic",
     );
   });
 
-  it("reports a set temperature and clean-mode", () => {
+  it("reports a set temperature, clean-mode, and host clutter", () => {
     process.env.WEAVER_EVAL_MODEL = "google/gemini-2.5-flash";
     process.env.WEAVER_EVAL_TEMPERATURE = "0";
     process.env.WEAVER_EVAL_CLEAN = "1";
+    process.env.WEAVER_EVAL_HOST_CLUTTER = "1";
     expect(formatRunHeader(10)).toBe(
-      "eval run — model google/gemini-2.5-flash | trials 10 | temperature 0 | clean-mode on",
+      "eval run — model google/gemini-2.5-flash | trials 10 | temperature 0 | clean-mode on | clutter host",
     );
   });
 });
