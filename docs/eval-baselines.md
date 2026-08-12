@@ -70,6 +70,31 @@ Per-case rates are the ground truth — any aggregate derives from them, so reco
 
 ## Run history
 
+### 2026-08-12 — spike: does real host-prompt inertia beat the lane's invented clutter?
+
+Commissioned by the handoff entry on modelling real host-prompt inertia. The lane wraps every task in a generic, invented tool-use policy; the pressure a skill actually faces is a real host's system prompt. Arm B swaps `buildToolUsePolicySection()` for one derived from Claude Code's shipped prompt — including "Prefer the dedicated file/search tools over shell commands when one fits" — holding every other section, the model, and the case set fixed. Behind `WEAVER_EVAL_HOST_CLUTTER=1`; the arm is printed in the run header. Section lengths are matched to within 1% (18 630 → 18 793 chars) so a rate change cannot be a context-length artifact. **$0.8760** — Gemini $0.2130 (120 trials over two runs), Haiku $0.6630 (20).
+
+| Case | Model | Generic clutter | Host clutter |
+|---|---|---|---|
+| trigger-refactor-rename | Gemini | 10/10 | 10/10 |
+| trigger-refactor-rename-no-coords-sed-tempting | Gemini | 10/10 | 9/10 |
+| trigger-search-and-replace-todos-grep-tempting | Gemini | 10/10 | 10/10 |
+| trigger-code-inspection-find-references | Gemini | 10/10 | 10/10 |
+| trigger-code-inspection-find-references-delete-intent | Gemini | 10/10 | 10/10 |
+| pressured-buried-find-references | Gemini | 8/10 | 10/10 |
+| **totals** | Gemini | **58/60** | **59/60** |
+| **pressured-buried-rename** | Haiku | **7/10** | **9/10** |
+
+**Observed — the premise inverts on the one case with headroom.** Six Gemini cases sat at ceiling in both arms, so that set could not have shown a drop; read it as "no effect detectable here", not as evidence of no effect. On `pressured-buried-rename` — the only case in the suite known to sit below ceiling — the real host prompt scored *higher*, not lower. Shell re-confirm calls (`cat`/`grep`/`head`/`rg`/`sed` through bash) on that case fell **5 → 1**. All three generic-arm misses were the documented re-confirm reflex (`weaver search-text` → `grep -n` → `cat` → budget exhausted); the single host-arm miss was the same reflex.
+
+**Observed — the predicted anti-shell mechanism is real but rare.** Gemini's dedicated-tool calls rose 1 → 4 across ~100 operational calls. One trial shows the mechanism cleanly: the model invoked `npx @yearofthedan/weaver search-text` twice, then abandoned it for `Grep` twice and ran out of budget — the sole Gemini regression in the run.
+
+**Theory — the shell-command caveat is what moves the rate.** The host text carries "Avoid using the shell to run `cat`, `head`, `tail`, `sed`, `awk`, or `echo`", which reads as a direct suppressor of the re-confirm reflex that eats this case's step budget. The 5 → 1 reflex count is the sharper evidence; the 7/10 → 9/10 rate delta is not established at n=10. Isolating the driver needs an arm carrying *only* that line.
+
+**Two departures from a pure replica, both load-bearing.** The shell-command caveats live in the real host's bash *tool description*, not its system prompt — the arm folds them into the system prompt because the inertia under test is their presence in context, not their location. Host-specific tool names are generalised to the lane's declared tool set. A follow-up that moves them back into the `bash` tool description would test location as its own variable.
+
+**Consequence for adoption.** Adopting this wholesale makes the gate *more forgiving* on the one case that currently discriminates, and invalidates every rate recorded above. It also makes the gate Claude-shaped: a skill tuned to clear it is tuned against one host's inertia, and Cursor/Windsurf/opencode users get whatever generalises. Call that the **Claude lean** and accept it explicitly or not at all.
+
 ### 2026-08-11 — spike: does the lane see a generic search win over a symbol lookup?
 
 Commissioned by the handoff entry on symbol-specific routing, after a live `/slice` session where an agent asked for a symbol's callers reached for a generic grep-based subagent instead of `find-references`. Six throwaway cases against the shipped `find-references` target, three asks × two arms — plain (today's lane) and *delegation* (the host's agent roster in the system prompt plus a callable `Task` tool returning a competent grep-shaped prose summary). **$1.4896** — Haiku $1.2219 (60 trials over three runs), Gemini $0.2493 (60), Luna $0.0184 (60).
