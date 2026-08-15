@@ -72,7 +72,7 @@ Per-case rates are the ground truth — any aggregate derives from them, so reco
 
 ### 2026-08-12 — spike: does real host-prompt inertia beat the lane's invented clutter?
 
-Commissioned by the handoff entry on modelling real host-prompt inertia. The lane wraps every task in a generic, invented tool-use policy; the pressure a skill actually faces is a real host's system prompt. Arm B swaps `buildToolUsePolicySection()` for one derived from Claude Code's shipped prompt — including "Prefer the dedicated file/search tools over shell commands when one fits" — holding every other section, the model, and the case set fixed. Behind `WEAVER_EVAL_HOST_CLUTTER=1`; the arm is printed in the run header. Section lengths are matched to within 1% (18 630 → 18 793 chars) so a rate change cannot be a context-length artifact. **$0.8760** — Gemini $0.2130 (120 trials over two runs), Haiku $0.6630 (20).
+Commissioned by the handoff entry on modelling real host-prompt inertia. The lane wraps every task in a generic, invented tool-use policy; the pressure a skill actually faces is a real host's system prompt. Arm B swaps `buildToolUsePolicySection()` for one derived from Claude Code's shipped prompt — including "Prefer the dedicated file/search tools over shell commands when one fits" — holding every other section, the model, and the case set fixed. Behind `WEAVER_EVAL_HOST_CLUTTER=1`; the arm is printed in the run header. Section lengths are matched to within 1% (18 630 → 18 793 chars) so a rate change cannot be a context-length artifact. **$0.9294** — Gemini $0.2130 (120 trials), Haiku $0.6630 (20), Luna $0.0363 (80), plus $0.0171 on Luna attempts lost to an upstream rate limit.
 
 | Case | Model | Generic clutter | Host clutter |
 |---|---|---|---|
@@ -84,12 +84,20 @@ Commissioned by the handoff entry on modelling real host-prompt inertia. The lan
 | pressured-buried-find-references | Gemini | 8/10 | 10/10 |
 | **totals** | Gemini | **58/60** | **59/60** |
 | **pressured-buried-rename** | Haiku | **7/10** | **9/10** |
+| trigger-refactor-rename-no-coords-sed-tempting | Luna | 10/10 | 9/10 |
+| pressured-buried-rename | Luna | 10/10 | 9/10 |
+| boundary-bash-search-non-ts-project | Luna | 0/10 clean | 0/10 clean |
+| boundary-bash-remove-console-log | Luna | 1/10 clean | 1/10 clean |
 
 **Observed — the premise inverts on the one case with headroom.** Six Gemini cases sat at ceiling in both arms, so that set could not have shown a drop; read it as "no effect detectable here", not as evidence of no effect. On `pressured-buried-rename` — the only case in the suite known to sit below ceiling — the real host prompt scored *higher*, not lower. Shell re-confirm calls (`cat`/`grep`/`head`/`rg`/`sed` through bash) on that case fell **5 → 1**. All three generic-arm misses were the documented re-confirm reflex (`weaver search-text` → `grep -n` → `cat` → budget exhausted); the single host-arm miss was the same reflex.
 
 **Observed — the predicted anti-shell mechanism is real but rare.** Gemini's dedicated-tool calls rose 1 → 4 across ~100 operational calls. One trial shows the mechanism cleanly: the model invoked `npx @yearofthedan/weaver search-text` twice, then abandoned it for `Grep` twice and ran out of budget — the sole Gemini regression in the run.
 
-**Theory — the shell-command caveat is what moves the rate.** The host text carries "Avoid using the shell to run `cat`, `head`, `tail`, `sed`, `awk`, or `echo`", which reads as a direct suppressor of the re-confirm reflex that eats this case's step budget. The 5 → 1 reflex count is the sharper evidence; the 7/10 → 9/10 rate delta is not established at n=10. Isolating the driver needs an arm carrying *only* that line.
+**Observed — Luna does not move, and its trails say why.** The four Luna cases were chosen for headroom, including the two boundary cases where "more forgiving" and "more realistic" predict *opposite* movements: an anti-shell prompt should pull Luna out of its over-triggering into weaver. Neither budged (0/10 → 0/10, 1/10 → 1/10), and the boundary trails are identical across arms — Luna calls `weaver search-text` on turn one either way. Dedicated-tool calls 23 → 22. Shell `cat`/`grep`/`head`/`sed` calls: **zero in both arms**.
+
+**Theory — the effect tracks a reflex the model has to have.** The host text's "Avoid using the shell to run `cat`, `head`, `tail`, `sed`, `awk`, or `echo`" can only suppress a reflex that is present, and the movement across models orders exactly by how much of that reflex each one shows: Haiku 5 shell re-confirm calls → rate moves 7/10 → 9/10; Gemini near zero → 1 trial moves; Luna zero → nothing moves. That is a mechanism-level account rather than three separate rate deltas, but it is still one run per arm and no experiment has isolated the sentence. An arm carrying *only* that line would establish it.
+
+**Watch the generic-arm drift.** Luna scored 10/10 on both sed-tempting and `pressured-buried-rename` today, against 8/10 and 6/10–7/10 in the table above. The case selection was premised on headroom that is no longer there, so two of the four Luna cases turned out to be ceiling-bound after all. Re-measure the baseline before designing another spike around it.
 
 **Two departures from a pure replica, both load-bearing.** The shell-command caveats live in the real host's bash *tool description*, not its system prompt — the arm folds them into the system prompt because the inertia under test is their presence in context, not their location. Host-specific tool names are generalised to the lane's declared tool set. A follow-up that moves them back into the `bash` tool description would test location as its own variable.
 
