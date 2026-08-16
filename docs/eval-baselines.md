@@ -15,7 +15,7 @@ Conditions: sampled rate gate (`pnpm eval:gate`), 2/3 floor, temperature omitted
 | Case | Exposure | Haiku 4.5 (n=3) | Gemini 2.5 Flash (n=10) | GPT-5.6-Luna (n=10) |
 |---|---|---|---|---|
 | trigger-refactor-rename | progressive | 3/3 | 10/10 | 10/10 |
-| trigger-refactor-rename-no-coords-sed-tempting | progressive | 3/3 | 10/10 | 8/10 |
+| trigger-refactor-rename-no-coords-sed-tempting | progressive | 3/3 | 10/10 | 10/10 |
 | trigger-refactor-move-file | progressive | 3/3 | 10/10 | 10/10 |
 | trigger-search-and-replace-pattern | progressive | 3/3 | 10/10 | 10/10 |
 | trigger-search-and-replace-todos-grep-tempting | progressive | 3/3 | 10/10 | 10/10 |
@@ -23,7 +23,7 @@ Conditions: sampled rate gate (`pnpm eval:gate`), 2/3 floor, temperature omitted
 | trigger-code-inspection-find-references | progressive | 3/3 | 10/10 | 10/10 |
 | trigger-code-inspection-find-references-delete-intent | progressive | 3/3 | 10/10 | 10/10 |
 | trigger-code-inspection-get-type-errors | progressive | 3/3 | 10/10 | 10/10 |
-| **pressured-buried-rename** | progressive (3-turn) | **5/6 — D** | 10/10 | **6/10, 7/10 re-run** |
+| **pressured-buried-rename** | progressive (3-turn) | **5/6 — D** | 10/10 | 10/10 |
 | pressured-buried-replace-text-passive | progressive (3-turn) | 3/3 | 10/10 | 10/10 |
 | pressured-buried-find-references | progressive (3-turn) | 3/3 | 9/10 | 10/10 |
 | command-rename | front-loaded | 3/3 | 10/10 | 10/10 |
@@ -38,7 +38,7 @@ Conditions: sampled rate gate (`pnpm eval:gate`), 2/3 floor, temperature omitted
 | command-delete-file | front-loaded | 3/3 | 10/10 | 10/10 |
 | command-replace-text | front-loaded | 3/3 | 10/10 | 10/10 |
 | two-step-search-then-rename | front-loaded (seeded) | 3/3 | 10/10 | 10/10 |
-| two-step-cat-then-extract | front-loaded (seeded) | 3/3 | 10/10 | 10/10 |
+| two-step-cat-then-extract | front-loaded (seeded) | 3/3 | 10/10 | 9/10 |
 | boundary-bash-search-non-ts-project | boundary | 3/3 clean | 10/10 clean | **0/10 — D** |
 | boundary-bash-remove-console-log | boundary | 3/3 clean | 10/10 clean | **0/10 — D** |
 | **Cases cleared** (of 27) | | **27** | **27** | **27** |
@@ -46,7 +46,9 @@ Conditions: sampled rate gate (`pnpm eval:gate`), 2/3 floor, temperature omitted
 
 **D** = demoted for that model: measured and printed, never gating. Boundary cases are judged all-clean, not on the rate floor, so an n=10 column is a materially harder bar than an n=3 one. Luna's boundary failures are settled at 0/10 on both, not a 0/3 draw. Haiku's n=3 cells that read `x/6` escalated under the "escalate unless clean" rule.
 
-**`pressured-buried-rename` is the case to watch, and it is now marginal on two models.** Demoted on Haiku (5/6 here, 6/10 recorded at demotion), and on Luna it drew 6/10 then 7/10 — straddling the floor, with the pooled 13/20 below it. Its failures are unchanged in shape: the model calls `weaver search-text`, gets the answer, then re-confirms it with `grep`/`cat` and never converts inside the 6-step budget, against an explicit `weaver-refactor` instruction not to. It is deliberately **not** demoted for Luna — Luna is already at the cap of 2, and the invariant refusing a third is the signal to fix or delete the case rather than widen the exemption. Tracked in [`handoff.md`](handoff.md).
+**`pressured-buried-rename` is the case to watch, and it is now marginal on Haiku alone.** Demoted there (5/6 here, 6/10 recorded at demotion, 7/10 on 2026-08-12). Its Haiku failures are unchanged in shape: the model calls `weaver search-text`, gets the answer, then re-confirms it with `grep`/`cat` and never converts inside the 6-step budget, against an explicit `weaver-refactor` instruction not to. On Luna it drew 6/10 then 7/10 in early August and **10/10 on 2026-08-16 with no lane change** — so its Luna history measured provider drift, not the case. Tracked in [`handoff.md`](handoff.md).
+
+**The roster's discrimination is decaying, and Luna's has gone.** On 2026-08-16 Luna cleared 24 of 25 non-boundary cases at 10/10 (`two-step-cat-then-extract` 9/10) against an unchanged lane. Every *gating* Luna case is now at ceiling: its only remaining signal is the two boundary cases, both demoted and therefore non-gating. A model whose gating cells are all 10/10 cannot go red for a skill edit, so Luna currently costs money and contributes no gating discrimination. Decide whether it earns its roster slot on the boundary cases alone — which would mean promoting them — or comes out.
 
 **A clean n=3 pass repeatedly failed to survive widening.** On Haiku, `command-move-directory` went 3/3 → **8/10**, `command-move-file` 3/3 → **7/10**, `command-search-text` 3/3 → **9/10**. On Gemini the same thing happened harder: `command-find-references` 2/3 → **3/10** (a red the n=3 draw missed entirely), `command-rename` 3/3 → **7/10**, `pressured-buried-find-references` 3/3 → **8/10** — while `trigger-search-and-replace-sed-tempting` went the other way, 2/3 → **10/10**. Errors ran in both directions on both models. The practical rule: **treat any 2/3 or 3/6 as unresolved and widen it before drawing a conclusion**, in either direction.
 
@@ -69,6 +71,16 @@ Per-case rates are the ground truth — any aggregate derives from them, so reco
 ---
 
 ## Run history
+
+### 2026-08-16 — Luna re-baseline: the model moved, the lane did not
+
+Commissioned after the host-clutter spike measured Luna at 10/10 on two cases the table recorded at 8/10 and 6/10–7/10. Full sweep, n=10, generic clutter — **the same unchanged lane code that produced the recorded numbers**. $0.0705 for 270 trials ($0.00026/trial, matching the 2026-08-08 figure).
+
+Every non-boundary case 10/10 except `two-step-cat-then-extract` (9/10). Both boundary cases 0/10 clean, unchanged. Four table cells corrected: `sed-tempting` 8/10 → 10/10, `pressured-buried-rename` 6/10–7/10 → 10/10, `command-move-symbol` 9/10 → 10/10, `two-step-cat-then-extract` 10/10 → 9/10.
+
+**The baseline is not fixed, and that undermines cross-run comparison.** Nothing in the lane changed between the recorded values and this sweep, so the movement is the provider — a model update, or the earlier small-n draws being noise. Two consequences. First, **only same-session A/B is trustworthy**: the 2026-08-12 spike ran its arms back to back and is safe, but had it compared its host arm against this table's recorded 6/10 it would have read drift as a large effect. Second, a case's history across dated entries confounds skill edits with provider drift — `pressured-buried-rename` has now drawn 5/10, 11/12, 8/10, 8/10, 6/10, 7/10, 9/10 and 10/10 across models and months, and the handoff entry framing it as "weak skill text or worn-out case" is missing drift as a third explanation.
+
+**Luna's boundary failures are the exception and they are stable.** 0/10 clean on both, across every measurement since 2026-08-01 and both clutter arms. Luna calls `weaver search-text` on a Python project and on a one-line `console.log` deletion — over-triggering a refactoring tool onto work it should decline. That is the one durable, product-relevant signal the model still produces, and it is demoted.
 
 ### 2026-08-12 — spike: does real host-prompt inertia beat the lane's invented clutter?
 
