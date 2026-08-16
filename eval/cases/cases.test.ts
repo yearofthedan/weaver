@@ -3,6 +3,7 @@ import { cannedToolResult } from "../harness/agentic-loop.js";
 import type { ToolCall } from "../harness/call-model.js";
 import { GATING_MODELS } from "../harness/config.js";
 import { loadFixture } from "../harness/fixtures.js";
+import { SUBCOMMAND_MUTABILITY } from "../harness/grade.js";
 import { isDemotedForModel } from "../harness/verdict.js";
 import {
   type BoundaryCase,
@@ -139,18 +140,25 @@ describe("case table", () => {
   });
 
   describe("pressured buried rung", () => {
+    // The rung exists to show a model still converts under deep momentum. A
+    // read-only op only has to be reached; a mutating one has to be committed
+    // to, which is the harder half — so losing either kind hollows the rung out
+    // even while cases remain. Asserted by mutability rather than by naming
+    // specific commands, so retiring one case does not silently drop a whole
+    // side of the rung.
     it.each([
-      "rename",
-      "replace-text",
-      "find-references",
-    ])("has a deep, gating trigger case for %s", (command) => {
-      const pressuredCases = CASES.filter(isProgressiveOpCase).filter(
+      "mutating",
+      "read-only",
+    ] as const)("keeps a deep, gating trigger case for a %s op", (mutability) => {
+      const deepCases = CASES.filter(isProgressiveOpCase).filter(
         (c) =>
-          c.momentumTurns !== undefined && c.momentumTurns >= 3 && c.expect.command === command,
+          c.momentumTurns !== undefined &&
+          c.momentumTurns >= 3 &&
+          SUBCOMMAND_MUTABILITY[c.expect.command] === mutability,
       );
       expect(
-        pressuredCases.length,
-        `Expected a pressured buried trigger case for "${command}"`,
+        deepCases.length,
+        `Expected a pressured buried trigger case for a ${mutability} op`,
       ).toBeGreaterThanOrEqual(1);
     });
   });
