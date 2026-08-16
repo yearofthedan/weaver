@@ -23,7 +23,6 @@ Conditions: sampled rate gate (`pnpm eval:gate`), 2/3 floor, temperature omitted
 | trigger-code-inspection-find-references | progressive | 3/3 | 10/10 | 10/10 |
 | trigger-code-inspection-find-references-delete-intent | progressive | 3/3 | 10/10 | 10/10 |
 | trigger-code-inspection-get-type-errors | progressive | 3/3 | 10/10 | 10/10 |
-| **pressured-buried-rename** | progressive (3-turn) | **5/6 — D** | 10/10 | 10/10 |
 | pressured-buried-replace-text-passive | progressive (3-turn) | 3/3 | 10/10 | 10/10 |
 | pressured-buried-find-references | progressive (3-turn) | 3/3 | 9/10 | 10/10 |
 | command-rename | front-loaded | 3/3 | 10/10 | 10/10 |
@@ -41,12 +40,10 @@ Conditions: sampled rate gate (`pnpm eval:gate`), 2/3 floor, temperature omitted
 | two-step-cat-then-extract | front-loaded (seeded) | 3/3 | 10/10 | 9/10 |
 | boundary-bash-search-non-ts-project | boundary | 3/3 clean | 10/10 clean | **0/10 — D** |
 | boundary-bash-remove-console-log | boundary | 3/3 clean | 10/10 clean | **0/10 — D** |
-| **Cases cleared** (of 27) | | **27** | **27** | **27** |
-| **Demoted** (cap 2) | | 2 | 0 | 2 |
+| **Cases cleared** (of 26) | | **26** | **26** | **26** |
+| **Demoted** (cap 2) | | 1 | 0 | 2 |
 
 **D** = demoted for that model: measured and printed, never gating. Boundary cases are judged all-clean, not on the rate floor, so an n=10 column is a materially harder bar than an n=3 one. Luna's boundary failures are settled at 0/10 on both, not a 0/3 draw. Haiku's n=3 cells that read `x/6` escalated under the "escalate unless clean" rule.
-
-**`pressured-buried-rename` is the case to watch, and it is now marginal on Haiku alone.** Demoted there (5/6 here, 6/10 recorded at demotion, 7/10 on 2026-08-12). Its Haiku failures are unchanged in shape: the model calls `weaver search-text`, gets the answer, then re-confirms it with `grep`/`cat` and never converts inside the 6-step budget, against an explicit `weaver-refactor` instruction not to. On Luna it drew 6/10 then 7/10 in early August and **10/10 on 2026-08-16 with no lane change** — so its Luna history measured provider drift, not the case. Tracked in [`handoff.md`](handoff.md).
 
 **The roster's discrimination is decaying, and Luna's has gone.** On 2026-08-16 Luna cleared 24 of 25 non-boundary cases at 10/10 (`two-step-cat-then-extract` 9/10) against an unchanged lane. Every *gating* Luna case is now at ceiling: its only remaining signal is the two boundary cases, both demoted and therefore non-gating. A model whose gating cells are all 10/10 cannot go red for a skill edit, so Luna currently costs money and contributes no gating discrimination. Decide whether it earns its roster slot on the boundary cases alone — which would mean promoting them — or comes out.
 
