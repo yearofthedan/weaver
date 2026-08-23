@@ -1,0 +1,167 @@
+fixtures:
+  tsproject:
+    description: a tsconfig file including src
+    files:
+      tsconfig.json: |
+        {
+          "compilerOptions": { "strict": true },
+          "include": ["src/**/*.ts"]
+        }
+
+  greeter:
+    description: a single exported utility, with nothing importing it yet
+    extends: tsproject
+    files:
+      src/utils.ts: |
+        export function greetUser(name: string): string {
+          return `Hello, ${name}`;
+        }
+
+  greeter-with-importers:
+    description: the utility imported from both a src file and an out-of-project test
+    extends: greeter
+    files:
+      src/main.ts: |
+        import { greetUser } from "./utils";
+
+        console.log(greetUser("World"));
+      tests/utils.test.ts: |
+        import { greetUser } from "../src/utils";
+
+        console.log(greetUser("Test"));
+
+scenarios:
+  - name: moves a file and repoints every importer
+    given: greeter-with-importers
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/main.ts, tests/utils.test.ts, lib/utils.ts]
+        filesSkipped: []
+        oldPath: src/utils.ts
+        newPath: lib/utils.ts
+      files:
+        moved:
+          src/utils.ts: lib/utils.ts
+        changed:
+          src/main.ts: |
+            import { greetUser } from "../lib/utils";
+
+            console.log(greetUser("World"));
+          tests/utils.test.ts: |
+            import { greetUser } from "../lib/utils";
+
+            console.log(greetUser("Test"));
+
+  - name: creates missing destination directories on the way
+    given: greeter-with-importers
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: deep/nested/lib/utils.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/main.ts, tests/utils.test.ts, deep/nested/lib/utils.ts]
+        filesSkipped: []
+        oldPath: src/utils.ts
+        newPath: deep/nested/lib/utils.ts
+      files:
+        moved:
+          src/utils.ts: deep/nested/lib/utils.ts
+        changed:
+          src/main.ts: |
+            import { greetUser } from "../deep/nested/lib/utils";
+
+            console.log(greetUser("World"));
+          tests/utils.test.ts: |
+            import { greetUser } from "../deep/nested/lib/utils";
+
+            console.log(greetUser("Test"));
+
+  - name: leaves an importer of a similarly-named file alone
+    given:
+      description: a second utility whose name has the moved file's name as a prefix
+      extends: greeter
+      files:
+        src/my-utils.ts: |
+          export function myHelper() { return 42; }
+        src/consumer.ts: |
+          import { myHelper } from "./my-utils";
+          export { myHelper };
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [lib/utils.ts]
+        filesSkipped: []
+        oldPath: src/utils.ts
+        newPath: lib/utils.ts
+      files:
+        moved:
+          src/utils.ts: lib/utils.ts
+        unchanged:
+          - src/consumer.ts
+          - src/my-utils.ts
+
+  - name: leaves a .js specifier alone when a real .js file sits beside the moved one
+    given:
+      description: a hand-written utils.js next to utils.ts, imported with a .js specifier
+      extends: greeter
+      files:
+        src/utils.js: |
+          // this is an actual JS file
+          export function greetUser(name) { return "Hello, " + name; }
+        src/jsConsumer.ts: |
+          import { greetUser } from "./utils.js";
+          export { greetUser };
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [lib/utils.ts]
+        filesSkipped: []
+        oldPath: src/utils.ts
+        newPath: lib/utils.ts
+      files:
+        moved:
+          src/utils.ts: lib/utils.ts
+        unchanged:
+          - src/jsConsumer.ts
+          - src/utils.js
+
+  - name: rewrites the import without disturbing a comment that names both paths
+    given:
+      description: an out-of-project test whose comment names both the old and the new path
+      extends: greeter
+      files:
+        tests/import-with-comment.ts: |
+          // TODO: migrate logic from ../src/utils to ../lib/utils
+          import { greetUser } from "../src/utils";
+
+          console.log(greetUser('test'));
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [tests/import-with-comment.ts, lib/utils.ts]
+        filesSkipped: []
+        oldPath: src/utils.ts
+        newPath: lib/utils.ts
+      files:
+        moved:
+          src/utils.ts: lib/utils.ts
+        changed:
+          tests/import-with-comment.ts: |
+            // TODO: migrate logic from ../src/utils to ../lib/utils
+            import { greetUser } from "../lib/utils";
+
+            console.log(greetUser('test'));

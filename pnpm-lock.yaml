@@ -69,6 +69,9 @@ importers:
       vitest:
         specifier: 4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(vite@8.0.16(@types/node@24.13.3)(esbuild@0.28.0)(tsx@4.23.12)(yaml@2.9.0))
+      yaml:
+        specifier: 2.9.0
+        version: 2.9.0
 
 packages:
 
@@ -2984,8 +2987,7 @@ snapshots:
       siginfo: 2.0.0
       stackback: 0.0.2
 
-  yaml@2.9.0:
-    optional: true
+  yaml@2.9.0: {}
 
   yoctocolors@2.1.2: {}
 
