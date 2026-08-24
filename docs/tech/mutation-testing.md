@@ -120,7 +120,7 @@ Fixed gaps are removed. Remaining survivors by category:
 
 | Area | Survivor | Why accepted |
 |------|----------|-------------|
-| `paths.ts` | `ensureCacheDir`'s `fs.mkdir(CACHE_DIR, { recursive: true })` → `{}` / `{ recursive: false }` | Same class as `install-skills.ts`'s `mkdir` entry directly below — `InMemoryFileSystem.mkdir` ignores its options, so the option has no observable effect at the unit layer. `ensureCacheDir`'s single caller (`runDaemon`) only ever runs against the real, deeply-nested `~/.cache/weaver` path, where `recursive` is load-bearing; that path is exercised only via the subprocess-spawning daemon integration tests, which Stryker's sandbox can't run. |
+| `paths.ts` | `ensureCacheDir`'s `fs.mkdir(CACHE_DIR, { recursive: true })` → `{}` / `{ recursive: false }` | Same class as `install-skills.ts`'s `mkdir` entry directly below — `InMemoryFileSystem.mkdir` ignores its options, so the option has no observable effect at the unit layer. `ensureCacheDir`'s single caller (`runDaemon`) only ever runs against the real, deeply-nested `~/.cache/weaver` path, where `recursive` is required; that path is exercised only via the subprocess-spawning daemon integration tests, which Stryker's sandbox can't run. |
 
 **`install-skills.ts` (scoped run, 94.6%):**
 

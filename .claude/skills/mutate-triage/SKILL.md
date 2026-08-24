@@ -36,7 +36,7 @@ For each surviving mutant, assign one of four classifications:
 
 **refactor** — The mutant survives because the branch it mutates cannot be triggered by any realistic input (e.g. a null guard on a value the type system already guarantees non-null, a boundary condition at a position no real input ever reaches). The code itself is the problem, not the test gap. See `docs/code-standards.md` §"Defensive code vs. dead branches" — remove the branch and the mutant disappears. Prefer this over **noise** whenever the code can be restructured.
 
-**noise** — The mutant is NOT explicitly listed in quality.md, and the guarded branch genuinely CAN be triggered in production but not in test infrastructure (example: `NoCoverage` in a subprocess-only code path, caching guard where bypassing would still produce correct results). Distinct from **refactor**: the code is load-bearing in production; the test harness just can't reach it. Match against patterns in the "Hard-won mutation lessons" section of quality.md.
+**noise** — The mutant is NOT explicitly listed in quality.md, and the guarded branch genuinely CAN be triggered in production but not in test infrastructure (example: `NoCoverage` in a subprocess-only code path, caching guard where bypassing would still produce correct results). Distinct from **refactor**: the code runs in production; the test harness just can't reach it. Match against patterns in the "Hard-won mutation lessons" section of quality.md.
 
 **fixable** — Anything that doesn't fit the above. A new surviving mutant where the mutated code path CAN be exercised by a test.
 
