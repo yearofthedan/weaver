@@ -1,8 +1,20 @@
 import * as path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
-import { dispatchRequest, makeRegistry } from "./dispatcher.js";
+import { dispatchRequest, makeRegistry, stripWorkspacePrefix } from "./dispatcher.js";
+
+const mockMoveFile = vi.hoisted(() =>
+  vi.fn<typeof import("../operations/moveFile.js")["moveFile"]>(),
+);
+
+vi.mock("../operations/moveFile.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../operations/moveFile.js")>();
+  mockMoveFile.mockImplementation(actual.moveFile);
+  return {
+    moveFile: (...args: Parameters<typeof actual.moveFile>) => mockMoveFile(...args),
+  };
+});
 
 describe("makeRegistry", () => {
   it("returns an object with projectEngine and tsEngine functions", () => {
@@ -332,6 +344,108 @@ describe("dispatchRequest workspace boundary enforcement", () => {
     expect(result.status).toBe("error");
     expect(result.error).toBe("WORKSPACE_VIOLATION");
     expect(result).toHaveProperty("message");
+  });
+});
+
+describe("stripWorkspacePrefix", () => {
+  it("removes workspace prefix from absolute paths", () => {
+    const stack = "Error: boom\n  at /ws/project/src/foo.ts:10:5\n  at /ws/project/src/bar.ts:20:3";
+    const result = stripWorkspacePrefix(stack, "/ws/project");
+    expect(result).toBe("Error: boom\n  at src/foo.ts:10:5\n  at src/bar.ts:20:3");
+  });
+
+  it("handles workspace with trailing slash", () => {
+    const stack = "at /ws/project/src/foo.ts:1:1";
+    expect(stripWorkspacePrefix(stack, "/ws/project/")).toBe("at src/foo.ts:1:1");
+  });
+
+  it("returns unchanged string when prefix not present", () => {
+    const stack = "at /other/path/foo.ts:1:1";
+    expect(stripWorkspacePrefix(stack, "/ws/project")).toBe(stack);
+  });
+});
+
+describe("dispatchRequest error responses", () => {
+  it("resolves an EngineError thrown by an operation to a matching error response", async () => {
+    const workspace = "/tmp/test-workspace";
+    const file = `${workspace}/does-not-exist.ts`;
+
+    const result = await dispatchRequest({ method: "getTypeErrors", params: { file } }, workspace);
+
+    expect(result).toEqual({
+      status: "error",
+      error: "FILE_NOT_FOUND",
+      message: `File not found: ${file}`,
+    });
+    expect(result).not.toHaveProperty("stack");
+  });
+
+  test("resolves an unexpected throw to an INTERNAL_ERROR response with a stack", async ({
+    seedNamedFixture,
+  }) => {
+    mockMoveFile.mockImplementationOnce(() => {
+      throw new TypeError("boom");
+    });
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+    const oldPath = path.join(dir, "src/utils.ts");
+    const newPath = path.join(dir, "src/moved.ts");
+
+    const result = (await dispatchRequest(
+      { method: "moveFile", params: { oldPath, newPath } },
+      dir,
+    )) as Record<string, unknown>;
+
+    expect(result).toMatchObject({
+      status: "error",
+      error: "INTERNAL_ERROR",
+      message: "TypeError during 'moveFile': boom",
+    });
+    expect(typeof result.stack).toBe("string");
+    expect((result.stack as string).length).toBeGreaterThan(0);
+  });
+
+  test("caps the returned stack at 10 frames, drops the message line, and strips the workspace prefix", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+    const frames = Array.from({ length: 15 }, (_, i) =>
+      i < 3
+        ? `    at fn (${dir}/src/utils.ts:${i + 1}:1)`
+        : `    at fn (/other/place.js:${i + 1}:1)`,
+    );
+    const err = new TypeError("boom");
+    err.stack = ["TypeError: boom", ...frames].join("\n");
+    mockMoveFile.mockImplementationOnce(() => {
+      throw err;
+    });
+
+    const oldPath = path.join(dir, "src/utils.ts");
+    const newPath = path.join(dir, "src/moved.ts");
+    const result = (await dispatchRequest(
+      { method: "moveFile", params: { oldPath, newPath } },
+      dir,
+    )) as Record<string, unknown>;
+
+    const stack = result.stack as string;
+    expect(stack).not.toContain("TypeError: boom");
+    expect(stack.split("\n").length).toBeLessThanOrEqual(10);
+    expect(stack).not.toContain(dir);
+  });
+
+  test("resolves a thrown non-Error value to an INTERNAL_ERROR response with no stack", async ({
+    seedNamedFixture,
+  }) => {
+    mockMoveFile.mockImplementationOnce(() => {
+      throw "boom";
+    });
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+    const oldPath = path.join(dir, "src/utils.ts");
+    const newPath = path.join(dir, "src/moved.ts");
+
+    const result = await dispatchRequest({ method: "moveFile", params: { oldPath, newPath } }, dir);
+
+    expect(result).toEqual({ status: "error", error: "INTERNAL_ERROR", message: "boom" });
+    expect(result).not.toHaveProperty("stack");
   });
 });
 

@@ -197,6 +197,21 @@ describe("daemon command", () => {
     expect((response.message as string).length).toBeGreaterThan(0);
   });
 
+  test("returns FILE_NOT_FOUND over the socket for getTypeErrors on a missing file", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await setup(seedNamedFixture);
+    const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
+    procs.push(proc);
+
+    const response = await callDaemonSocket(dir, {
+      method: "getTypeErrors",
+      params: { file: path.join(dir, "does-not-exist.ts") },
+    });
+
+    expect(response).toMatchObject({ status: "error", error: "FILE_NOT_FOUND" });
+  });
+
   describe("project structure changing mid-session", () => {
     test("a tsconfig added after the first request governs the next request's diagnostics", async ({
       seedInlineFixture,

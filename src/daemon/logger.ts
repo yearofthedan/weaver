@@ -20,15 +20,6 @@ export interface DaemonLogger {
   readonly logPath: string;
 }
 
-/**
- * Strip the workspace prefix from absolute paths in stack traces so that
- * logs are portable and don't leak the full host path.
- */
-export function stripWorkspacePrefix(stack: string, workspace: string): string {
-  const prefix = workspace.endsWith("/") ? workspace : `${workspace}/`;
-  return stack.replaceAll(prefix, "");
-}
-
 export function createLogger(workspace: string): DaemonLogger {
   const logPath = logfilePath(workspace);
   const fd = fs.openSync(logPath, "w", 0o600);

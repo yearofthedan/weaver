@@ -12,6 +12,7 @@ import {
   ReplaceTextArgsSchema,
   SearchTextArgsSchema,
 } from "../adapters/schema.js";
+import { EngineError, type ErrorCode } from "../domain/errors.js";
 import { validateFilePath } from "../domain/security.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { extractFunction } from "../operations/extractFunction.js";
@@ -246,87 +247,136 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
 /** Canonical list of dispatchable operation names — the single source of truth. */
 export const OPERATION_NAMES: string[] = Object.keys(OPERATIONS);
 
+// ─── Response types ────────────────────────────────────────────────────────
+
+export type DispatchError = {
+  status: "error";
+  error: ErrorCode;
+  message: string;
+  /** Frame lines only, present exclusively on INTERNAL_ERROR. */
+  stack?: string;
+};
+
+export type DispatchResponse =
+  | ({ status: "success" | "warn" } & Record<string, unknown>)
+  | DispatchError;
+
+/**
+ * Strip the workspace prefix from absolute paths in a stack trace so that
+ * responses are portable and don't leak the full host path.
+ * Exported for testing only.
+ */
+export function stripWorkspacePrefix(stack: string, workspace: string): string {
+  const prefix = workspace.endsWith("/") ? workspace : `${workspace}/`;
+  return stack.replaceAll(prefix, "");
+}
+
+/** Frame lines only (drops the leading `Name: message` line), capped and workspace-stripped. */
+function formatStack(stack: string, workspace: string): string {
+  const frames = stack.split("\n").slice(1, 11);
+  return stripWorkspacePrefix(frames.join("\n"), workspace);
+}
+
+function toDispatchError(err: unknown, method: string, workspace: string): DispatchError {
+  if (EngineError.is(err)) {
+    return { status: "error", error: err.code, message: err.message };
+  }
+  if (err instanceof Error) {
+    return {
+      status: "error",
+      error: "INTERNAL_ERROR",
+      message: `${err.name} during '${method}': ${err.message}`,
+      ...(err.stack ? { stack: formatStack(err.stack, workspace) } : {}),
+    };
+  }
+  return { status: "error", error: "INTERNAL_ERROR", message: String(err) };
+}
+
 // ─── Dispatcher ────────────────────────────────────────────────────────────
 
 export async function dispatchRequest(
   req: { method: string; params: Record<string, unknown> },
   workspace: string,
-): Promise<object> {
-  // Fresh per dispatch so a tsconfig.json or the workspace's first .vue file added
-  // since the last request is picked up before engine selection or project discovery.
-  resetDiscoveryCaches();
+): Promise<DispatchResponse> {
+  try {
+    // Fresh per dispatch so a tsconfig.json or the workspace's first .vue file added
+    // since the last request is picked up before engine selection or project discovery.
+    resetDiscoveryCaches();
 
-  const descriptor = OPERATIONS[req.method];
-  if (!descriptor) {
-    return {
-      status: "error" as const,
-      error: "UNKNOWN_METHOD",
-      message: `Unknown method: ${req.method}`,
-    };
-  }
-
-  const parsed = descriptor.schema.safeParse(req.params);
-  if (!parsed.success) {
-    const message = parsed.error.issues.map((i) => i.message).join("; ");
-    return { status: "error" as const, error: "VALIDATION_ERROR", message };
-  }
-
-  for (const paramKey of descriptor.pathParams) {
-    const value = req.params[paramKey] as string;
-    const pathResult = validateFilePath(value);
-    if (!pathResult.ok) {
+    const descriptor = OPERATIONS[req.method];
+    if (!descriptor) {
       return {
         status: "error" as const,
-        error: "INVALID_PATH",
-        message:
-          pathResult.reason === "CONTROL_CHARS"
-            ? `path contains control characters: ${paramKey}`
-            : `path contains URI fragment or query character: ${paramKey}`,
+        error: "UNKNOWN_METHOD",
+        message: `Unknown method: ${req.method}`,
       };
     }
-    if (!new WorkspaceScope(workspace, new NodeFileSystem()).contains(value)) {
-      return {
-        status: "error" as const,
-        error: "WORKSPACE_VIOLATION",
-        message: `${paramKey} is outside the workspace: ${value}`,
-      };
+
+    const parsed = descriptor.schema.safeParse(req.params);
+    if (!parsed.success) {
+      const message = parsed.error.issues.map((i) => i.message).join("; ");
+      return { status: "error" as const, error: "VALIDATION_ERROR", message };
     }
+
+    for (const paramKey of descriptor.pathParams) {
+      const value = req.params[paramKey] as string;
+      const pathResult = validateFilePath(value);
+      if (!pathResult.ok) {
+        return {
+          status: "error" as const,
+          error: "INVALID_PATH",
+          message:
+            pathResult.reason === "CONTROL_CHARS"
+              ? `path contains control characters: ${paramKey}`
+              : `path contains URI fragment or query character: ${paramKey}`,
+        };
+      }
+      if (!new WorkspaceScope(workspace, new NodeFileSystem()).contains(value)) {
+        return {
+          status: "error" as const,
+          error: "WORKSPACE_VIOLATION",
+          message: `${paramKey} is outside the workspace: ${value}`,
+        };
+      }
+    }
+
+    const registry =
+      descriptor.pathParams.length > 0
+        ? makeRegistry(req.params[descriptor.pathParams[0]] as string, workspace)
+        : makeRegistry(
+            descriptor.usesFileForRegistry && typeof req.params.file === "string"
+              ? req.params.file
+              : undefined,
+            workspace,
+          );
+
+    const result = (await descriptor.invoke(registry, parsed.data, workspace)) as Record<
+      string,
+      unknown
+    >;
+
+    if (
+      parsed.data.checkTypeErrors !== false &&
+      Array.isArray(result.filesModified) &&
+      (result.filesModified as string[]).length > 0
+    ) {
+      const tsEngine = await registry.tsEngine();
+      const diagnostics = getTypeErrorsForFiles(
+        tsEngine,
+        result.filesModified as string[],
+        new NodeFileSystem(),
+      );
+      result.typeErrors = diagnostics.typeErrors;
+      result.typeErrorCount = diagnostics.typeErrorCount;
+      result.typeErrorsTruncated = diagnostics.typeErrorsTruncated;
+    }
+
+    const status =
+      typeof result.typeErrorCount === "number" && result.typeErrorCount > 0
+        ? ("warn" as const)
+        : ("success" as const);
+    return { status, ...result };
+  } catch (err) {
+    return toDispatchError(err, req.method, workspace);
   }
-
-  const registry =
-    descriptor.pathParams.length > 0
-      ? makeRegistry(req.params[descriptor.pathParams[0]] as string, workspace)
-      : makeRegistry(
-          descriptor.usesFileForRegistry && typeof req.params.file === "string"
-            ? req.params.file
-            : undefined,
-          workspace,
-        );
-
-  const result = (await descriptor.invoke(registry, parsed.data, workspace)) as Record<
-    string,
-    unknown
-  >;
-
-  if (
-    parsed.data.checkTypeErrors !== false &&
-    Array.isArray(result.filesModified) &&
-    (result.filesModified as string[]).length > 0
-  ) {
-    const tsEngine = await registry.tsEngine();
-    const diagnostics = getTypeErrorsForFiles(
-      tsEngine,
-      result.filesModified as string[],
-      new NodeFileSystem(),
-    );
-    result.typeErrors = diagnostics.typeErrors;
-    result.typeErrorCount = diagnostics.typeErrorCount;
-    result.typeErrorsTruncated = diagnostics.typeErrorsTruncated;
-  }
-
-  const status =
-    typeof result.typeErrorCount === "number" && result.typeErrorCount > 0
-      ? ("warn" as const)
-      : ("success" as const);
-  return { status, ...result };
 }

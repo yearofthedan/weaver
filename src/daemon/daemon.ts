@@ -1,15 +1,15 @@
 import * as net from "node:net";
 import { z } from "zod";
-import { EngineError } from "../domain/errors.js";
 import type { FileSystem } from "../ports/filesystem.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { VUE_EXTENSIONS } from "../utils/extensions.js";
 import { readBuildId } from "./build-id.js";
+import type { DispatchResponse } from "./dispatcher.js";
 import { dispatchRequest, invalidateAll, invalidateFile } from "./dispatcher.js";
 import type { DaemonHost } from "./lifecycle.js";
 import { runLifecycle } from "./lifecycle.js";
 import type { DaemonLogger } from "./logger.js";
-import { createLogger, stripWorkspacePrefix } from "./logger.js";
+import { createLogger } from "./logger.js";
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
 import { validateWorkspace } from "./validate-workspace.js";
 import { startWatcher } from "./watcher.js";
@@ -251,6 +251,15 @@ const WRITE_METHODS = new Set([
   "replaceText",
 ]);
 
+/** Parse a socket line as JSON, isolating the one throw source in the request path. */
+function parseLine(line: string): { ok: true; value: unknown } | { ok: false; message: string } {
+  try {
+    return { ok: true, value: JSON.parse(line) };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 async function handleSocketRequest(
   socket: net.Socket,
   line: string,
@@ -259,34 +268,23 @@ async function handleSocketRequest(
 ): Promise<void> {
   const start = Date.now();
   let method = "unknown";
-  let response: object;
-  let caughtError: unknown = null;
+  let response: DispatchResponse | { status: "success"; buildId: number };
 
-  try {
-    const raw: unknown = JSON.parse(line);
-    const envelope = RequestEnvelopeSchema.safeParse(raw);
+  const parsed = parseLine(line);
+  if (!parsed.ok) {
+    response = { status: "error", error: "PARSE_ERROR", message: parsed.message };
+  } else {
+    const envelope = RequestEnvelopeSchema.safeParse(parsed.value);
     if (!envelope.success) {
       const message = envelope.error.issues.map((i) => i.message).join("; ");
-      response = { status: "error" as const, error: "PARSE_ERROR", message };
+      response = { status: "error", error: "PARSE_ERROR", message };
     } else {
       method = envelope.data.method;
-      if (method === "ping") {
-        response = { status: "success" as const, buildId: RUNNING_BUILD_ID };
-      } else {
-        response = await dispatchRequest(envelope.data, workspace);
-      }
+      response =
+        method === "ping"
+          ? { status: "success", buildId: RUNNING_BUILD_ID }
+          : await dispatchRequest(envelope.data, workspace);
     }
-  } catch (err) {
-    caughtError = err;
-    response = {
-      status: "error" as const,
-      error: EngineError.is(err)
-        ? err.code
-        : err instanceof SyntaxError
-          ? "PARSE_ERROR"
-          : "INTERNAL_ERROR",
-      message: err instanceof Error ? err.message : String(err),
-    };
   }
 
   socket.write(`${JSON.stringify(response)}\n`);
@@ -306,6 +304,7 @@ async function handleSocketRequest(
     if (status === "error") {
       if (typeof res.error === "string") entry.error = res.error;
       if (typeof res.message === "string") entry.message = res.message;
+      if (typeof res.stack === "string") entry.stack = res.stack;
     }
 
     if (status !== "error" && WRITE_METHODS.has(method)) {
@@ -315,10 +314,6 @@ async function handleSocketRequest(
       } else if (typeof modified === "number") {
         entry.filesModified = modified;
       }
-    }
-
-    if (caughtError instanceof Error && caughtError.stack) {
-      entry.stack = stripWorkspacePrefix(caughtError.stack, workspace);
     }
 
     logger.log(entry);

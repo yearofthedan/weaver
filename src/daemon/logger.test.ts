@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createLogger, stripWorkspacePrefix } from "./logger.js";
+import { createLogger } from "./logger.js";
 import { logfilePath } from "./paths.js";
 
 const CACHE_DIR = path.join(os.homedir(), ".cache", "weaver");
@@ -22,24 +22,6 @@ describe("logfilePath", () => {
 
   it("different workspaces produce different paths", () => {
     expect(logfilePath(WORKSPACE_A)).not.toBe(logfilePath(WORKSPACE_B));
-  });
-});
-
-describe("stripWorkspacePrefix", () => {
-  it("removes workspace prefix from absolute paths", () => {
-    const stack = "Error: boom\n  at /ws/project/src/foo.ts:10:5\n  at /ws/project/src/bar.ts:20:3";
-    const result = stripWorkspacePrefix(stack, "/ws/project");
-    expect(result).toBe("Error: boom\n  at src/foo.ts:10:5\n  at src/bar.ts:20:3");
-  });
-
-  it("handles workspace with trailing slash", () => {
-    const stack = "at /ws/project/src/foo.ts:1:1";
-    expect(stripWorkspacePrefix(stack, "/ws/project/")).toBe("at src/foo.ts:1:1");
-  });
-
-  it("returns unchanged string when prefix not present", () => {
-    const stack = "at /other/path/foo.ts:1:1";
-    expect(stripWorkspacePrefix(stack, "/ws/project")).toBe(stack);
   });
 });
 
