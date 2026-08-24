@@ -11,6 +11,7 @@ import { runLifecycle } from "./lifecycle.js";
 import type { DaemonLogger } from "./logger.js";
 import { createLogger } from "./logger.js";
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
+import { serialiseResponse } from "./serialise-response.js";
 import { validateWorkspace } from "./validate-workspace.js";
 import { startWatcher } from "./watcher.js";
 
@@ -287,7 +288,7 @@ async function handleSocketRequest(
     }
   }
 
-  socket.write(`${JSON.stringify(response)}\n`);
+  socket.write(serialiseResponse(response));
 
   if (logger && method !== "ping") {
     const durationMs = Date.now() - start;
