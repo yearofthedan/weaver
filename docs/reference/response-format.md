@@ -81,6 +81,22 @@ Read-only results are never filtered to the workspace boundary. Hiding cross-pac
 | --- | --- |
 | `error` | Stable machine-readable code. Branch on this — see [error codes](./error-codes.md) for the full list. |
 | `message` | Human-readable description. May change between versions; do not parse. |
+| `stack` | Present only on `INTERNAL_ERROR`. See below. |
+
+### `INTERNAL_ERROR`
+
+`INTERNAL_ERROR` means weaver itself failed, rather than the request being wrong. Only this code carries a `stack`:
+
+```json
+{
+  "status": "error",
+  "error": "INTERNAL_ERROR",
+  "message": "TypeError during 'moveFile': Cannot read properties of undefined (reading 'getSourceFile')",
+  "stack": "    at tsMoveFile (/opt/weaver/dist/ts-engine/move-file.js:42:19)\n    at async moveFile (/opt/weaver/dist/operations/moveFile.js:20:5)"
+}
+```
+
+The `message` names the operation and the error class; `stack` carries up to 10 frame lines with workspace paths stripped. Include both verbatim in a bug report — no flag has to be set in advance to obtain them.
 
 ## Common conventions
 

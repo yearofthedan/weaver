@@ -39,7 +39,7 @@ Every failed tool call returns `{ "status": "error", "error": "<CODE>", "message
 | --- | --- | --- |
 | `DAEMON_STARTING` | The daemon is still loading the project graph. | **Yes** — retry shortly. |
 | `UNKNOWN_METHOD` | The daemon does not implement the requested method (version mismatch). | No — restart the daemon to pick up the new version. |
-| `INTERNAL_ERROR` | Unexpected server-side failure. | Maybe — check daemon logs (`--verbose`). |
+| `INTERNAL_ERROR` | Unexpected failure inside weaver itself. | Maybe — the response carries `message` and `stack`; include both when reporting it. |
 
 ## Per-command code lists
 

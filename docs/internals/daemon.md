@@ -97,6 +97,9 @@ Exported from `daemon.ts`. Reads the lockfile PID, sends SIGTERM, polls until `i
 **`ping` is a meta-operation handled before `dispatchRequest`.**
 `handleSocketRequest` in `daemon.ts` intercepts `method === "ping"` before calling `dispatchRequest`, returning `{ status: "success", buildId }` directly. This avoids adding `ping` to the `OPERATIONS` table and keeps the dispatcher clean of protocol-level concerns.
 
+**`dispatchRequest` is total — the socket handler only serialises.**
+Every failure, including anything an operation throws, is caught inside `dispatchRequest` and returned as a `DispatchResponse` discriminated on `status`. The handler does not map `EngineError` to a code; it owns only `PARSE_ERROR`, which describes a malformed wire message rather than a failed operation, and which is the sole remaining throw source in the request path (`JSON.parse`). A second transport therefore needs no error-shaping logic of its own.
+
 **A daemon is reused only if it is running the build on disk.**
 `build-id.ts` defines the build as the mtime of `dist/adapters/cli/cli.js` — the entry both the CLI and the daemon it spawns run from. The daemon captures it at module load into `RUNNING_BUILD_ID` and reports it from `ping`; `ensureDaemon` compares against a fresh read and, on mismatch, calls `stopDaemon` and respawns.
 
