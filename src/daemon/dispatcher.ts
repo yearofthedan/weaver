@@ -264,9 +264,8 @@ export type DispatchResponse =
 /**
  * Strip the workspace prefix from absolute paths in a stack trace so that
  * responses are portable and don't leak the full host path.
- * Exported for testing only.
  */
-export function stripWorkspacePrefix(stack: string, workspace: string): string {
+function stripWorkspacePrefix(stack: string, workspace: string): string {
   const prefix = workspace.endsWith("/") ? workspace : `${workspace}/`;
   return stack.replaceAll(prefix, "");
 }

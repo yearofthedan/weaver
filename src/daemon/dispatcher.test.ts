@@ -2,7 +2,7 @@ import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
-import { dispatchRequest, makeRegistry, stripWorkspacePrefix } from "./dispatcher.js";
+import { dispatchRequest, makeRegistry } from "./dispatcher.js";
 
 const mockMoveFile = vi.hoisted(() =>
   vi.fn<typeof import("../operations/moveFile.js")["moveFile"]>(),
@@ -347,24 +347,6 @@ describe("dispatchRequest workspace boundary enforcement", () => {
   });
 });
 
-describe("stripWorkspacePrefix", () => {
-  it("removes workspace prefix from absolute paths", () => {
-    const stack = "Error: boom\n  at /ws/project/src/foo.ts:10:5\n  at /ws/project/src/bar.ts:20:3";
-    const result = stripWorkspacePrefix(stack, "/ws/project");
-    expect(result).toBe("Error: boom\n  at src/foo.ts:10:5\n  at src/bar.ts:20:3");
-  });
-
-  it("handles workspace with trailing slash", () => {
-    const stack = "at /ws/project/src/foo.ts:1:1";
-    expect(stripWorkspacePrefix(stack, "/ws/project/")).toBe("at src/foo.ts:1:1");
-  });
-
-  it("returns unchanged string when prefix not present", () => {
-    const stack = "at /other/path/foo.ts:1:1";
-    expect(stripWorkspacePrefix(stack, "/ws/project")).toBe(stack);
-  });
-});
-
 describe("dispatchRequest error responses", () => {
   it("resolves an EngineError thrown by an operation to a matching error response", async () => {
     const workspace = "/tmp/test-workspace";
@@ -427,9 +409,11 @@ describe("dispatchRequest error responses", () => {
     )) as Record<string, unknown>;
 
     const stack = result.stack as string;
+    const stackLines = stack.split("\n");
     expect(stack).not.toContain("TypeError: boom");
-    expect(stack.split("\n").length).toBeLessThanOrEqual(10);
+    expect(stackLines.length).toBeLessThanOrEqual(10);
     expect(stack).not.toContain(dir);
+    expect(stackLines[0]).toBe("    at fn (src/utils.ts:1:1)");
   });
 
   test("resolves a thrown non-Error value to an INTERNAL_ERROR response with no stack", async ({

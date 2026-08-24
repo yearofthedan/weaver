@@ -56,7 +56,7 @@
 - [ ] `dispatchRequest` is declared `Promise<DispatchResponse>`, not `Promise<object>`.
 - [ ] `dispatcher.ts` exports `DispatchResponse`, discriminated on `status`.
 - [ ] `daemon.ts` does not import `EngineError`.
-- [ ] `stripWorkspacePrefix` is no longer exported from `logger.ts` — it moves into `dispatcher.ts`, its only remaining caller. It is three lines; it does not need a module of its own.
+- [ ] `stripWorkspacePrefix` is no longer exported from `logger.ts` — it becomes a **private** function inside `dispatcher.ts`, its only remaining caller. Its three unit tests in `logger.test.ts` are deleted, not relocated: keeping the export so a test can reach it directly is the export-for-tests-only smell in `docs/design-principles.md`, and the stripping is asserted through `dispatchRequest`'s return value instead.
 
 ## Interface
 
