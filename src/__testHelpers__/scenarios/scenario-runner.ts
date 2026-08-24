@@ -57,9 +57,16 @@ function resolveParams(root: string, params: Record<string, unknown>): Record<st
 function assertEffects(root: string, before: Tree, effects: Effects): void {
   const after = readTree(root);
 
-  for (const [from, to] of Object.entries(effects.moved)) {
+  for (const [from, target] of Object.entries(effects.moved)) {
     expect(after[from], `${from} should have moved away`).toBeUndefined();
-    expect(after[to], `${to} should exist, with content intact, after the move`).toBe(before[from]);
+    if (target.content === undefined) {
+      expect(
+        after[target.to],
+        `${target.to} should exist, with content intact, after the move`,
+      ).toBe(before[from]);
+    } else {
+      expect(after[target.to], `${target.to} content after the move`).toBe(target.content);
+    }
   }
 
   for (const [file, content] of Object.entries(effects.changed)) {
@@ -74,7 +81,7 @@ function assertEffects(root: string, before: Tree, effects: Effects): void {
 
   const claimed = new Set([
     ...Object.keys(effects.moved),
-    ...Object.values(effects.moved),
+    ...Object.values(effects.moved).map((target) => target.to),
     ...Object.keys(effects.changed),
     ...effects.unchanged,
   ]);
@@ -102,6 +109,17 @@ function assertResponseMatches(
   expect(scrubRoot(root, actual), "response").toEqual(expandResponseSugar(written));
 }
 
+/**
+ * A step in a sequence carries no stated response, so the only thing holding it is that it
+ * worked. `warn` is a success that also reported a type error, which a scenario is free to
+ * end in; `error` means the run stopped being the one the scenario describes.
+ */
+function assertStepSucceeded(method: string, result: Record<string, unknown>): void {
+  expect(result.status, `step \`${method}\` status (${String(result.message ?? "")})`).not.toBe(
+    "error",
+  );
+}
+
 export async function executeScenario(
   scenario: Scenario,
   file: ScenarioFile,
@@ -110,12 +128,20 @@ export async function executeScenario(
   seed(root, resolveFixture(scenario.given, file.fixtures));
   const before = readTree(root);
 
-  const [step] = scenario.when;
-  const [method, rawParams] = Object.entries(step)[0];
-  const params = resolveParams(root, rawParams);
-
-  const result = (await dispatchRequest({ method, params }, root)) as Record<string, unknown>;
+  let last: Record<string, unknown> = {};
+  for (const step of scenario.when) {
+    const [method, rawParams] = Object.entries(step)[0];
+    const params = resolveParams(root, rawParams);
+    last = (await dispatchRequest({ method, params }, root)) as Record<string, unknown>;
+    // A stated response says what to expect, failure included; a sequence has no such claim.
+    if (scenario.then.response === undefined) {
+      assertStepSucceeded(method, last);
+    }
+  }
 
   assertEffects(root, before, scenario.then.files);
-  assertResponseMatches(root, scenario.then.response, result);
+
+  if (scenario.then.response !== undefined) {
+    assertResponseMatches(root, scenario.then.response, last);
+  }
 }

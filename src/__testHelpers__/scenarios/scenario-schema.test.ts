@@ -1,13 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { expandResponseSugar, resolveFixture, scenarioFile } from "./scenario-schema.js";
 
-const minimalScenario = {
-  name: "a scenario",
-  given: { files: { "a.ts": "" } },
-  when: [{ moveFile: { oldPath: "a.ts", newPath: "b.ts" } }],
-  // biome-ignore lint/suspicious/noThenProperty: `then` is the Given/When/Then vocabulary of the scenario format under test; this object is a scenario, never awaited, so being thenable is inert.
-  then: { response: { status: "success" } },
-};
+const SUCCESS = { response: { status: "success" } };
+
+/**
+ * A parseable scenario, with the step list and outcome block overridable per case.
+ *
+ * Call sites say `outcome` so the format's `then` key appears once, here. A scenario is
+ * never awaited, so being thenable is inert, and one suppression beats one per test.
+ */
+function scenarioOf(parts: { when?: unknown; outcome?: unknown } = {}): unknown {
+  return {
+    name: "a scenario",
+    given: { files: { "a.ts": "" } },
+    when: parts.when ?? [{ moveFile: { oldPath: "a.ts", newPath: "b.ts" } }],
+    // biome-ignore lint/suspicious/noThenProperty: the Given/When/Then vocabulary of the format under test.
+    then: "outcome" in parts ? parts.outcome : SUCCESS,
+  };
+}
 
 describe("scenarioFile", () => {
   it("rejects a file with no scenarios, so an empty suite cannot pass silently", () => {
@@ -17,36 +27,66 @@ describe("scenarioFile", () => {
   it("rejects a step declaring two methods, naming both", () => {
     const parse = () =>
       scenarioFile.parse({
-        scenarios: [{ ...minimalScenario, when: [{ moveFile: {}, renameSymbol: {} }] }],
+        scenarios: [scenarioOf({ when: [{ moveFile: {}, renameSymbol: {} }] })],
       });
 
     expect(parse).toThrow(/exactly one method, got: moveFile, renameSymbol/);
   });
 
-  it("rejects more than one step while multi-step support is undecided", () => {
+  it("accepts a sequence of steps, which is how state carried between calls is tested", () => {
+    const file = scenarioFile.parse({
+      scenarios: [
+        scenarioOf({ when: [{ moveFile: {} }, { moveFile: {} }], outcome: { files: {} } }),
+      ],
+    });
+
+    expect(file.scenarios[0].when).toHaveLength(2);
+  });
+
+  it("rejects a multi-step scenario that states a response, which could only be the last", () => {
     const parse = () =>
       scenarioFile.parse({
-        scenarios: [{ ...minimalScenario, when: [{ moveFile: {} }, { moveFile: {} }] }],
+        scenarios: [scenarioOf({ when: [{ moveFile: {} }, { moveFile: {} }] })],
       });
 
-    expect(parse).toThrow();
+    expect(parse).toThrow(/net file effects, not one step's response/);
+  });
+
+  it("reads a plain destination as a move that leaves content untouched", () => {
+    const file = scenarioFile.parse({
+      scenarios: [scenarioOf({ outcome: { ...SUCCESS, files: { moved: { "a.ts": "b.ts" } } } })],
+    });
+
+    expect(file.scenarios[0].then.files.moved["a.ts"]).toEqual({ to: "b.ts" });
+  });
+
+  it("reads the object form as a move that rewrites the file on the way", () => {
+    const moved = { "a.ts": { to: "b.ts", content: "rewritten\n" } };
+    const file = scenarioFile.parse({
+      scenarios: [scenarioOf({ outcome: { ...SUCCESS, files: { moved } } })],
+    });
+
+    expect(file.scenarios[0].then.files.moved["a.ts"]).toEqual({
+      to: "b.ts",
+      content: "rewritten\n",
+    });
   });
 
   it("defaults the effect contract, so omitting `files` claims nothing changed", () => {
-    const file = scenarioFile.parse({ scenarios: [minimalScenario] });
+    const file = scenarioFile.parse({ scenarios: [scenarioOf()] });
 
     expect(file.scenarios[0].then.files).toEqual({ moved: {}, changed: {}, unchanged: [] });
   });
 
   it("rejects a scenario that states no response, the contract a consumer receives", () => {
-    const { then: _omitted, ...noResponse } = minimalScenario;
+    const parse = () => scenarioFile.parse({ scenarios: [scenarioOf({ outcome: { files: {} } })] });
 
-    expect(() => scenarioFile.parse({ scenarios: [noResponse] })).toThrow();
+    expect(parse).toThrow(/must state the response a consumer receives/);
   });
 
   it("drops keys the schema does not declare instead of rejecting them", () => {
     const file = scenarioFile.parse({
-      scenarios: [{ ...minimalScenario, invented: "ignored" }],
+      scenarios: [{ ...(scenarioOf() as object), invented: "ignored" }],
     });
 
     expect(file.scenarios[0]).not.toHaveProperty("invented");

@@ -175,3 +175,35 @@ scenarios:
         status: error
         error: FILE_NOT_FOUND
         message: "File not found: src/missing.ts"
+
+  - name: a later move uses project state the earlier move updated
+    description: >
+      The daemon keeps one compiler across calls, so the second move must see that the
+      first one relocated its dependency. A project still holding the old src/utils.ts
+      computes edit offsets against text that no longer matches disk, splicing the
+      import into nonsense like ../src/utilsutils.
+
+      checkTypeErrors is off deliberately. Collecting diagnostics reloads every modified
+      file, which repairs an incoherent project as a side effect and hides this class of
+      fault; with it off, the move has to keep its own state straight.
+    given:
+      extends: greeter
+      files:
+        src/main.ts: |
+          import { greetUser } from "./utils";
+
+          console.log(greetUser("World"));
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts, checkTypeErrors: false }
+      - moveFile: { oldPath: src/main.ts, newPath: dist/main.ts, checkTypeErrors: false }
+    then:
+      files:
+        moved:
+          src/utils.ts: lib/utils.ts
+          src/main.ts:
+            to: dist/main.ts
+            content: |
+              import { greetUser } from "../lib/utils";
+
+              console.log(greetUser("World"));
+        unchanged: [tsconfig.json]

@@ -19,9 +19,18 @@ export type FixtureBody = z.infer<typeof fixtureBody>;
  * leave alone, so the non-change reads as the point of the scenario rather than as
  * something nobody got around to asserting.
  */
+/**
+ * Where a moved file landed. The string form asserts the destination is byte-identical to
+ * what the source held; the object form states new content, for a move that rewrites the
+ * file's own imports on the way.
+ */
+const moveTarget = z
+  .union([z.string(), z.object({ to: z.string(), content: z.string() })])
+  .transform((value) => (typeof value === "string" ? { to: value } : value));
+
 const effects = z
   .object({
-    moved: z.record(z.string(), z.string()).default({}),
+    moved: z.record(z.string(), moveTarget).default({}),
     changed: z.record(z.string(), z.string()).default({}),
     unchanged: z.array(z.string()).default([]),
   })
@@ -33,9 +42,14 @@ export type Effects = z.infer<typeof effects>;
  * The response contract: the JSON the daemon returns, which the CLI passes through to
  * the calling agent verbatim.
  *
- * Required, and asserted by deep equality, so a renamed, dropped, added or retyped field
- * fails here. There is deliberately no second, looser mode: a derived expectation checks
- * a weaker contract than the one a consumer actually receives.
+ * A single-step scenario must state it, asserted by deep equality, so a renamed, dropped,
+ * added or retyped field fails here.
+ *
+ * A multi-step scenario states no response. Each step is its own call with its own
+ * response, so a top-level block could only approve the last one — leaving the earlier
+ * calls unasserted while looking total. Those scenarios exist to prove state carried
+ * between calls is correct, which the net file effects show; the runner still requires
+ * every step to have succeeded.
  *
  * Field names are the ones a consumer receives, deliberately: renaming them here would put
  * a mapping layer between the file and the contract, which is where a silent break hides.
@@ -62,13 +76,20 @@ const step = z
 
 export type Step = z.infer<typeof step>;
 
-const scenario = z.object({
-  name: z.string(),
-  given: z.union([z.string(), fixtureBody]),
-  when: z.array(step).length(1),
-  // biome-ignore lint/suspicious/noThenProperty: `then` is the Given/When/Then vocabulary these files are written in; renaming it internally would put a mapping layer between the YAML and the parsed object, and a scenario is never awaited so being thenable is inert.
-  then: z.object({ response, files: effects }),
-});
+const scenario = z
+  .object({
+    name: z.string(),
+    given: z.union([z.string(), fixtureBody]),
+    when: z.array(step).min(1),
+    // biome-ignore lint/suspicious/noThenProperty: `then` is the Given/When/Then vocabulary these files are written in; renaming it internally would put a mapping layer between the YAML and the parsed object, and a scenario is never awaited so being thenable is inert.
+    then: z.object({ response: response.optional(), files: effects }),
+  })
+  .refine((value) => value.when.length > 1 || value.then.response !== undefined, {
+    error: "a single-step scenario must state the response a consumer receives",
+  })
+  .refine((value) => value.when.length === 1 || value.then.response === undefined, {
+    error: "a multi-step scenario asserts the net file effects, not one step's response",
+  });
 
 export type Scenario = z.infer<typeof scenario>;
 
