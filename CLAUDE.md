@@ -99,6 +99,8 @@ Do not add ACs to command or internals docs (`docs/commands/*.md`, `docs/interna
 
 - **When prompting an execution agent, describe *what* to do, not *what comments to leave*.** "Step 1:/Step 2:" in a prompt gets transcribed as code comments; put method-level context in a JSDoc instead. Say "test at the lowest layer that verifies the behaviour" — don't restate an assertion at two layers.
 - **Use worktrees for parallel, independent ACs** (`isolation: "worktree"`), so agents on the same working tree don't conflict. Run sequentially when one AC depends on another's output. The `using-git-worktrees` skill carries the procedure.
+- **A completion notification is not proof the agent finished.** It fires whenever an agent stops with no live background children — including when the agent parked itself waiting on a job it launched and will never be woken from. Check `ListAgents` before acting on a batch: an agent still listed as running can wake and write to the working tree mid-commit. Stop it explicitly once you have taken the work over.
+- **Name the steps the agent must *not* take.** An execution agent handed a spec will run adjacent workflow steps it can see — a mutation run, triage, the next batch — and those collide with the orchestrator's. State the boundary outright ("do not run Stryker", "do not end your turn waiting on a background job"); the batch's scope does not imply it.
 
 ### Commit hygiene
 

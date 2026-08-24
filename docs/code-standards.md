@@ -177,6 +177,8 @@ Mutation testing exposes these: a surviving mutant on a guard you "know" can't b
 
 If a surviving mutant genuinely cannot be killed because the branch is unreachable, delete the branch — don't document it.
 
+**A direct test of a helper can hide that its branches are unreachable.** Called through its own entry point, a helper can be handed inputs its real callers never produce — so an unreachable branch looks covered, no mutant survives on it, and nothing flags it. The dead code surfaces only when the direct test is removed. That is a second reason to test at the altitude the system actually reaches the code from: coverage bought with impossible inputs is coverage of a path that does not exist.
+
 ## Imports
 
 Default to static imports at the top of the file. Use `await import()` only when you can name the specific reason — and write that reason as a comment.

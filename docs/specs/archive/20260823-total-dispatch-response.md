@@ -39,24 +39,24 @@
 
 ## Behaviour
 
-- [ ] **An operation's thrown `EngineError` becomes a returned response.** Given `dispatchRequest({ method: "getTypeErrors", params: { file: "<workspace>/does-not-exist.ts" } }, workspace)`, the promise **resolves** to `{ status: "error", error: "FILE_NOT_FOUND", message: "File not found: <workspace>/does-not-exist.ts" }` with no `stack` field. It does not reject. (`getTypeErrors` has `pathParams: []`, so no boundary pre-check intercepts it.)
+- [x] **An operation's thrown `EngineError` becomes a returned response.** Given `dispatchRequest({ method: "getTypeErrors", params: { file: "<workspace>/does-not-exist.ts" } }, workspace)`, the promise **resolves** to `{ status: "error", error: "FILE_NOT_FOUND", message: "File not found: <workspace>/does-not-exist.ts" }` with no `stack` field. It does not reject. (`getTypeErrors` has `pathParams: []`, so no boundary pre-check intercepts it.)
 
-- [ ] **An unexpected throw becomes `INTERNAL_ERROR` with a stack.** Given an operation that throws a non-`EngineError` — a `TypeError` with message `"boom"`, induced by stubbing the operation module — `dispatchRequest({ method: "moveFile", … })` resolves to `{ status: "error", error: "INTERNAL_ERROR", message: "TypeError during 'moveFile': boom", stack: <frame lines> }`.
+- [x] **An unexpected throw becomes `INTERNAL_ERROR` with a stack.** Given an operation that throws a non-`EngineError` — a `TypeError` with message `"boom"`, induced by stubbing the operation module — `dispatchRequest({ method: "moveFile", … })` resolves to `{ status: "error", error: "INTERNAL_ERROR", message: "TypeError during 'moveFile': boom", stack: <frame lines> }`.
 
-- [ ] **The stack is frames only, workspace-stripped, and capped.** Given a thrown `Error` whose `stack` is `"TypeError: boom"` followed by 15 frame lines, three of which contain `<workspace>/src/`, the returned `stack` contains no `"TypeError: boom"` line, contains at most 10 frames, and contains no occurrence of the workspace prefix.
+- [x] **The stack is frames only, workspace-stripped, and capped.** Given a thrown `Error` whose `stack` is `"TypeError: boom"` followed by 15 frame lines, three of which contain `<workspace>/src/`, the returned `stack` contains no `"TypeError: boom"` line, contains at most 10 frames, and contains no occurrence of the workspace prefix.
 
-- [ ] **A thrown non-`Error` still produces a valid response.** Given an operation that throws the string `"boom"`, `dispatchRequest` resolves to `{ status: "error", error: "INTERNAL_ERROR", message: "boom" }` with no `stack` field.
+- [x] **A thrown non-`Error` still produces a valid response.** Given an operation that throws the string `"boom"`, `dispatchRequest` resolves to `{ status: "error", error: "INTERNAL_ERROR", message: "boom" }` with no `stack` field.
 
-- [ ] **The socket still produces the same contract.** Against a live daemon, `getTypeErrors` on a missing file returns `{ status: "error", error: "FILE_NOT_FOUND" }` over the socket. (Regression guard: the transport change must not alter what an agent sees.)
+- [x] **The socket still produces the same contract.** Against a live daemon, `getTypeErrors` on a missing file returns `{ status: "error", error: "FILE_NOT_FOUND" }` over the socket. (Regression guard: the transport change must not alter what an agent sees.)
 
-- [ ] **A response that cannot be serialised still yields a response.** Given a `DispatchResponse` containing a circular reference, `serialiseResponse` returns `{"status":"error","error":"INTERNAL_ERROR","message":"response could not be serialised"}\n` rather than throwing. Given any ordinary response, it returns that response's JSON followed by a newline.
+- [x] **A response that cannot be serialised still yields a response.** Given a `DispatchResponse` containing a circular reference, `serialiseResponse` returns `{"status":"error","error":"INTERNAL_ERROR","message":"response could not be serialised"}\n` rather than throwing. Given any ordinary response, it returns that response's JSON followed by a newline.
 
 ## Structural criteria
 
-- [ ] `dispatchRequest` is declared `Promise<DispatchResponse>`, not `Promise<object>`.
-- [ ] `dispatcher.ts` exports `DispatchResponse`, discriminated on `status`.
-- [ ] `daemon.ts` does not import `EngineError`.
-- [ ] `stripWorkspacePrefix` is no longer exported from `logger.ts` — it becomes a **private** function inside `dispatcher.ts`, its only remaining caller. Its three unit tests in `logger.test.ts` are deleted, not relocated: keeping the export so a test can reach it directly is the export-for-tests-only smell in `docs/design-principles.md`, and the stripping is asserted through `dispatchRequest`'s return value instead.
+- [x] `dispatchRequest` is declared `Promise<DispatchResponse>`, not `Promise<object>`.
+- [x] `dispatcher.ts` exports `DispatchResponse`, discriminated on `status`.
+- [x] `daemon.ts` does not import `EngineError`.
+- [x] `stripWorkspacePrefix` is no longer exported from `logger.ts` — it becomes a **private** function inside `dispatcher.ts`, its only remaining caller. Its three unit tests in `logger.test.ts` are deleted, not relocated: keeping the export so a test can reach it directly is the export-for-tests-only smell in `docs/design-principles.md`, and the stripping is asserted through `dispatchRequest`'s return value instead.
 
 ## Interface
 
@@ -122,16 +122,76 @@ Both forks were resolved with the user before this spec was written.
 
 ## Done-when
 
-- [ ] All ACs verified by tests
-- [ ] Mutation score ≥ threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`. The `dispatcher.test.ts` split is a prep step, not a cleanup step — do it before adding tests.
-- [ ] The verbose log still carries a stack for `INTERNAL_ERROR`, read from the error response rather than a caught error
-- [ ] Docs updated:
+- [x] All ACs verified by tests
+- [x] Mutation score ≥ threshold for touched files
+- [x] `pnpm check` passes (lint + build + test)
+- [x] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`. The `dispatcher.test.ts` split is a prep step, not a cleanup step — do it before adding tests.
+- [x] The verbose log still carries a stack for `INTERNAL_ERROR`, read from the error response rather than a caught error
+- [x] Docs updated:
       - `docs/reference/response-format.md` — a `stack` row in the failure table, noting it is present only on `INTERNAL_ERROR`
       - `docs/reference/error-codes.md` — `INTERNAL_ERROR` guidance points at `stack`, not `--verbose`
       - `docs/internals/daemon.md` — the socket handler no longer maps `EngineError`
       - handoff.md current-state section — `dispatcher.ts` and `daemon.ts` line entries
-- [ ] Tech debt discovered during implementation added to handoff.md as `[needs design]`
-- [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Tech debt discovered during implementation added to handoff.md as `[needs design]`
+- [x] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+---
+
+## Outcome
+
+**Shipped:** 10 commits, `a16d092..6a7eacb`. 13 tests added (1153 → 1166). No public behaviour changed except the new `stack` field.
+
+### Verification
+
+Driven on the real path — built CLI, live daemon, scratch TS workspace — not through unit tests.
+
+*Thrown `EngineError` returns rather than propagating:*
+```
+$ weaver get-type-errors '{"file":".../src/does-not-exist.ts"}'
+{"status":"error","error":"FILE_NOT_FOUND","message":"File not found: .../src/does-not-exist.ts"}   exit=1
+```
+The next two requests on the same daemon returned `status: "success"` — the mutex chain is not poisoned by a returned error.
+
+*`INTERNAL_ERROR` carries a usable stack.* A `TypeError` was injected into the built `dist/operations/findReferences.js`, the daemon restarted, and the CLI invoked:
+```json
+{
+  "status": "error",
+  "error": "INTERNAL_ERROR",
+  "message": "TypeError during 'findReferences': injected fault for verification",
+  "stack": "    at findReferences (…/dist/operations/findReferences.js:5:11)\n    at Object.invoke (…/dist/daemon/dispatcher.js:88:20)\n    at async dispatchRequest (…/dist/daemon/dispatcher.js:216:25)\n    at async handleSocketRequest (…/dist/daemon/daemon.js:246:23)"
+}
+```
+The operation and error class are named, frames point at the fault line, and the daemon served the following request normally. No flag was set in advance — which was the entire point. `dist` was restored afterwards.
+
+Frames show weaver's install path unstripped, which is correct: `stripWorkspacePrefix` strips the *workspace*, and these frames live in weaver itself.
+
+### Mutation
+
+| File | Score | Notes |
+| --- | --- | --- |
+| `serialise-response.ts` | 100% | 4/4 |
+| `dispatcher.ts` | 95.05% | up from 84.3%; 5 survivors, all classified |
+| `daemon.ts` | 12.78% | outside default scope by design |
+
+`dispatcher.ts`'s survivors: three on `usesFileForRegistry &&` are equivalent under the current `OPERATIONS` table (only `getTypeErrors` both lacks path params and takes a `file`); one on the `typeof result.typeErrorCount === "number"` narrowing is the documented null-guard class — forcing it true leaves `undefined > 0`, still false, and TypeScript requires the narrowing. One was a **real gap** and is now closed (below).
+
+`daemon.ts` is excluded from the default `mutate` array because its request path only runs inside spawned subprocesses the runner cannot reach. It was forced in for this measurement; 148 no-coverage is that structural limit, not untested code, and none of its 9 survivors touch lines this work changed. **Do not chase this number.**
+
+### Discoveries
+
+**A direct unit test of a private helper was masking dead code.** `stripWorkspacePrefix`'s trailing-slash branch is unreachable — `validateWorkspace` runs `path.resolve` and rejects `"/"` — but three tests called the helper directly with inputs no caller produces, so it looked covered and no mutant ever survived on it. Deleting those tests exposed the branch immediately. Folded into `docs/code-standards.md` under *Defensive code vs. dead branches*.
+
+**Engine resolution from the path param was never pinned.** Every fixture's file shared the workspace root's tsconfig, so resolving the registry from the root instead of the target file was indistinguishable. Under that mutation a rename inside a nested project leaves the project's `.vue` references untouched and still reports `success` — the silent-skip class the discovery-cache spec fixed, re-reachable through a different door. Now covered.
+
+**`usesFileForRegistry` is currently redundant.** It only discriminates if a `pathParams: []` operation gains a `file` param. Harmless, left alone, noted here so a future reader does not mistake the surviving mutants for a test gap.
+
+### Reflection
+
+**What went well.** Splitting prep from implementation kept the 478-line test file from being extended before it was split. Verifying with an injected fault rather than reasoning about the code proved the whole crash-report path end-to-end, including that the daemon survives an internal crash — something no unit test covers. Mutation triage earned its keep: it found a genuine pre-existing routing gap that had nothing to do with this change.
+
+**What did not go well.** The spec shipped an internal contradiction — "move `stripWorkspacePrefix` into `dispatcher.ts`" and "its three tests move with it" cannot both hold, since the tests can only reach it if it stays exported. The execution agent resolved it the only way it could and shipped `export function stripWorkspacePrefix` with the comment `Exported for testing only` — the smell named in `design-principles.md`, written in and labelled. The spec's own step-5 design-shape check should have caught it; it was run against the Interface section and not turned on the structural criteria.
+
+**What took longer than it should have.** An execution agent launched its own Stryker run — the orchestrator's step — then ended its turn awaiting a notification that could not arrive, leaving uncommitted work in the tree and itself parked. Its completion notification looked like success. Two rules now in `CLAUDE.md`: a completion notification is not proof an agent finished (check `ListAgents`), and name the steps an agent must *not* take.
+
+**For the next agent.** `daemon.ts`'s socket handler is now a pure serialiser, so a second transport (stdio, in-process) needs no error-shaping logic — call `dispatchRequest` and serialise. Two follow-ups are queued in handoff: always-on crash logging (the npm/rustc pattern, which supersedes the `stack` field as the general answer), and the mutex-chain poisoning hazard, whose reachable path this change removed but whose `logger.log` and `socket.write` sources remain.
