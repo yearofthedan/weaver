@@ -165,3 +165,13 @@ scenarios:
             import { greetUser } from "../lib/utils";
 
             console.log(greetUser('test'));
+
+  - name: refuses to move a file that does not exist, leaving the workspace alone
+    given: greeter
+    when:
+      - moveFile: { oldPath: src/missing.ts, newPath: lib/missing.ts }
+    then:
+      response:
+        status: error
+        error: FILE_NOT_FOUND
+        message: "File not found: src/missing.ts"
