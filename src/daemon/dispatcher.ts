@@ -264,10 +264,12 @@ export type DispatchResponse =
 /**
  * Strip the workspace prefix from absolute paths in a stack trace so that
  * responses are portable and don't leak the full host path.
+ *
+ * `workspace` always arrives resolved (validateWorkspace runs path.resolve and
+ * rejects "/"), so it never carries a trailing slash to normalise away.
  */
 function stripWorkspacePrefix(stack: string, workspace: string): string {
-  const prefix = workspace.endsWith("/") ? workspace : `${workspace}/`;
-  return stack.replaceAll(prefix, "");
+  return stack.replaceAll(`${workspace}/`, "");
 }
 
 /** Frame lines only (drops the leading `Name: message` line), capped and workspace-stripped. */
