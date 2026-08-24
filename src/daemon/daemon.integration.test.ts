@@ -184,9 +184,7 @@ describe("daemon command", () => {
     });
   });
 
-  test("returns PARSE_ERROR for invalid JSON (SyntaxError) and INTERNAL_ERROR for other unexpected errors", async ({
-    seedNamedFixture,
-  }) => {
+  test("returns PARSE_ERROR for invalid JSON (SyntaxError)", async ({ seedNamedFixture }) => {
     const dir = await setup(seedNamedFixture);
     const proc = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
     procs.push(proc);
