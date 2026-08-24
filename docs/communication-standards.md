@@ -1,8 +1,9 @@
 **Purpose:** How the agent talks to the user, and how it writes anything that outlives the conversation — commits, comments, docs, specs.
-**Audience:** Agents working in this repo, and engineers writing durable records.
-**Related docs:** [Code standards](code-standards.md) (how code is written), [Design principles](design-principles.md) (the shape of a change)
+**Audience:** Engineers and AI agents working on the codebase.
 **Status:** Current
+**Related docs:** [Code standards](code-standards.md) (how code is written), [Design principles](design-principles.md) (the shape of a change)
 
+---
 
 # Communication standards
 
