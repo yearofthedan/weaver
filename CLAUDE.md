@@ -42,7 +42,7 @@ Every rule has one home, chosen by what it is about. Route new learnings by this
 | The **shape** of a change (where logic lives, boundaries, what's exposed, minimal shape) | [`docs/design-principles.md`](docs/design-principles.md) |
 | A **procedure scoped to one workflow** (spec, slice, investigate, mutation triage, worktrees, running checks) | that workflow's **internal** skill in `.claude/skills/` (`internal: true`) |
 | A **domain gotcha** (one command, engine, or tool) | the owning [`docs/internals/`](docs/internals/) or [`docs/tech/`](docs/tech/) doc |
-| How the agent **writes** (tone, durability tests, banned phrases) — unless the rule names this repo | [`docs/writing-standards.md`](docs/writing-standards.md) |
+| How the agent **communicates and writes** (tone, assumptions, relevance and placement, banned phrases) — unless the rule names this repo | [`docs/communication-standards.md`](docs/communication-standards.md) |
 | **How the agent works** across all workflows | this file |
 | Current **state / status** of the project | [`docs/handoff.md`](docs/handoff.md) |
 
@@ -127,6 +127,6 @@ Use conventional commits, imperative style — `type(scope): short description`:
 
 ### Communication style
 
-@docs/writing-standards.md
+@docs/communication-standards.md
 
 **Plain engineering language, never research or statistics vocabulary.** Say what the thing does in ordinary words: "take the table out and see if scores drop", not "ablation"; "small numbers lie", not "underpowered". Avoid *ablation* (in any form), *p-value*, *Fisher's exact test*, *paired deltas*, *sign test*, *unit of analysis*. Where a concept genuinely needs a technical term, define it in one clause on first use. This binds written artifacts hardest — docs, handoff entries, commit messages, and file *names* outlive the conversation and are read by people who never saw it. The eval docs use this vocabulary in places; translate it, don't echo it.
