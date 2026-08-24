@@ -112,7 +112,6 @@ Use conventional commits, imperative style — `type(scope): short description`:
 - `test(vue-engine): add cross-boundary rename cases`
 
 - **The body explains WHY, not WHAT.** Split commits at logical boundaries and commit at every logical milestone — don't let changes accumulate.
-- **Commit messages must not mention things you're NOT doing.** "Does not use X" is meaningless to someone reading the log without the conversation's context.
 
 ### Long-running commands
 
