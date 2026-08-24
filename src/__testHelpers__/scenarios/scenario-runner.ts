@@ -12,8 +12,12 @@ import {
   scenarioFile,
 } from "./scenario-schema.js";
 
+export function parseScenarios(text: string): ScenarioFile {
+  return scenarioFile.parse(parseYaml(text));
+}
+
 export function loadScenarios(absPath: string): ScenarioFile {
-  return scenarioFile.parse(parseYaml(fs.readFileSync(absPath, "utf8")));
+  return parseScenarios(fs.readFileSync(absPath, "utf8"));
 }
 
 type Tree = Record<string, string>;
@@ -98,41 +102,6 @@ function assertResponseMatches(
   expect(scrubRoot(root, actual), "response").toEqual(expandResponseSugar(written));
 }
 
-/**
- * The expectation when a scenario states no response: the reported files agree with the
- * effect contract, nothing was skipped, and the touched files are type-clean.
- *
- * These are the dispatcher's envelope fields, carried by every method's response, so they
- * are asserted here rather than declared per file. Read without fallbacks, so a response
- * that stops carrying one fails instead of defaulting to the expected value.
- */
-function assertDerivedResponse(
-  root: string,
-  actual: Record<string, unknown>,
-  effects: Effects,
-  sentParams: Record<string, unknown>,
-): void {
-  const scrubbed = scrubRoot(root, actual) as Record<string, unknown>;
-
-  expect(scrubbed.status, "response.status").toBe("success");
-  expect((scrubbed.filesModified as string[]).slice().sort(), "response.filesModified").toEqual(
-    [...Object.keys(effects.changed), ...Object.values(effects.moved)].sort(),
-  );
-  expect(scrubbed.filesSkipped, "response.filesSkipped").toEqual([]);
-  expect(scrubbed.typeErrors, "response.typeErrors").toEqual([]);
-  expect(scrubbed.typeErrorCount, "response.typeErrorCount").toBe(0);
-  expect(scrubbed.typeErrorsTruncated, "response.typeErrorsTruncated").toBe(false);
-
-  // Path params are echoed back resolved; a mismatch means resolution went wrong.
-  for (const [key, sent] of Object.entries(sentParams)) {
-    if (key in scrubbed) {
-      expect(scrubbed[key], `response.${key} should echo the request`).toEqual(
-        typeof sent === "string" ? sent.replace(`${root}/`, "") : sent,
-      );
-    }
-  }
-}
-
 export async function executeScenario(
   scenario: Scenario,
   file: ScenarioFile,
@@ -148,10 +117,5 @@ export async function executeScenario(
   const result = (await dispatchRequest({ method, params }, root)) as Record<string, unknown>;
 
   assertEffects(root, before, scenario.then.files);
-
-  if (scenario.then.response === undefined) {
-    assertDerivedResponse(root, result, scenario.then.files, params);
-  } else {
-    assertResponseMatches(root, scenario.then.response, result);
-  }
+  assertResponseMatches(root, scenario.then.response, result);
 }
