@@ -207,3 +207,210 @@ scenarios:
 
               console.log(greetUser("World"));
         unchanged: [tsconfig.json]
+
+  - name: rewrites the moved file's own relative import to keep pointing at the same target
+    given:
+      extends: greeter
+      files:
+        tests/utils.test.ts: |
+          import { greetUser } from "../src/utils";
+
+          console.log(greetUser("Test"));
+    when:
+      - moveFile: { oldPath: tests/utils.test.ts, newPath: tests/unit/utils.test.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [tests/utils.test.ts, tests/unit/utils.test.ts]
+        filesSkipped: []
+        oldPath: tests/utils.test.ts
+        newPath: tests/unit/utils.test.ts
+      files:
+        moved:
+          tests/utils.test.ts:
+            to: tests/unit/utils.test.ts
+            content: |
+              import { greetUser } from "../../src/utils";
+
+              console.log(greetUser("Test"));
+
+  - name: leaves a bare module specifier alone while rewriting the relative one beside it
+    given:
+      extends: greeter
+      files:
+        tests/mixed.test.ts: |
+          import { describe } from "vitest";
+          import { greetUser } from "../src/utils";
+    when:
+      - moveFile: { oldPath: tests/mixed.test.ts, newPath: tests/unit/mixed.test.ts }
+    then:
+      response:
+        status: warn
+        filesModified: [tests/mixed.test.ts, tests/unit/mixed.test.ts]
+        filesSkipped: []
+        oldPath: tests/mixed.test.ts
+        newPath: tests/unit/mixed.test.ts
+        typeErrorCount: 1
+        typeErrorsTruncated: false
+        typeErrors:
+          - file: tests/unit/mixed.test.ts
+            line: 1
+            col: 26
+            code: 2307
+            message: "Cannot find module 'vitest' or its corresponding type declarations."
+      files:
+        moved:
+          tests/mixed.test.ts:
+            to: tests/unit/mixed.test.ts
+            content: |
+              import { describe } from "vitest";
+              import { greetUser } from "../../src/utils";
+
+  - name: keeps the .js extension when rewriting the moved file's own import
+    given:
+      extends: greeter
+      files:
+        tests/js-ext.test.ts: |
+          import { greetUser } from "../src/utils.js";
+    when:
+      - moveFile: { oldPath: tests/js-ext.test.ts, newPath: tests/unit/js-ext.test.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [tests/js-ext.test.ts, tests/unit/js-ext.test.ts]
+        filesSkipped: []
+        oldPath: tests/js-ext.test.ts
+        newPath: tests/unit/js-ext.test.ts
+      files:
+        moved:
+          tests/js-ext.test.ts:
+            to: tests/unit/js-ext.test.ts
+            content: |
+              import { greetUser } from "../../src/utils.js";
+
+  - name: leaves the moved file's imports alone when the rename stays at the same depth
+    given:
+      extends: greeter
+      files:
+        tests/renamed.test.ts: |
+          import { greetUser } from "../src/utils";
+    when:
+      - moveFile: { oldPath: tests/renamed.test.ts, newPath: tests/other.test.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [tests/other.test.ts]
+        filesSkipped: []
+        oldPath: tests/renamed.test.ts
+        newPath: tests/other.test.ts
+      files:
+        moved:
+          tests/renamed.test.ts: tests/other.test.ts
+
+  - name: rewrites the .js specifier when the tsconfig resolves modules the node way
+    description: >
+      Under moduleResolution node a ./utils.js specifier resolves to utils.ts, so the
+      move has to rewrite it rather than leave it as an unresolved literal.
+    given:
+      files:
+        tsconfig.json: |
+          {
+            "compilerOptions": { "strict": true, "moduleResolution": "node" },
+            "include": ["src/**/*.ts"]
+          }
+        src/utils.ts: |
+          export function greetUser(name: string): string {
+            return `Hello, ${name}`;
+          }
+        src/consumer.ts: |
+          import { greetUser } from "./utils.js";
+
+          export { greetUser };
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/consumer.ts, lib/utils.ts]
+        filesSkipped: []
+        oldPath: src/utils.ts
+        newPath: lib/utils.ts
+      files:
+        moved:
+          src/utils.ts: lib/utils.ts
+        changed:
+          src/consumer.ts: |
+            import { greetUser } from "../lib/utils.js";
+
+            export { greetUser };
+
+  - name: moving a file back restores the importer to its original specifier
+    given: greeter-with-importers
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
+      - moveFile: { oldPath: lib/utils.ts, newPath: src/utils.ts }
+    then:
+      files:
+        unchanged: [tsconfig.json, src/utils.ts, src/main.ts, tests/utils.test.ts]
+
+  - name: two out-of-project files move in turn and the importer follows both
+    given:
+      extends: tsproject
+      files:
+        tests/helper.ts: |
+          export function help(): number {
+            return 42;
+          }
+        tests/consumer.test.ts: |
+          import { help } from "./helper";
+
+          console.log(help());
+    when:
+      - moveFile: { oldPath: tests/helper.ts, newPath: lib/helper.ts }
+      - moveFile: { oldPath: tests/consumer.test.ts, newPath: tests/unit/consumer.test.ts }
+    then:
+      files:
+        moved:
+          tests/helper.ts: lib/helper.ts
+          tests/consumer.test.ts:
+            to: tests/unit/consumer.test.ts
+            content: |
+              import { help } from "../../lib/helper";
+
+              console.log(help());
+        unchanged: [tsconfig.json]
+
+  - name: the fallback scan repoints an out-of-project importer on the second move
+    given:
+      extends: greeter
+      files:
+        src/main.ts: |
+          import { greetUser } from "./utils";
+
+          export { greetUser };
+        scripts/run.ts: |
+          import { greetUser } from "../src/main";
+
+          console.log(greetUser("world"));
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
+      - moveFile: { oldPath: src/main.ts, newPath: dist/main.ts }
+    then:
+      files:
+        moved:
+          src/utils.ts: lib/utils.ts
+          src/main.ts:
+            to: dist/main.ts
+            content: |
+              import { greetUser } from "../lib/utils";
+
+              export { greetUser };
+        changed:
+          scripts/run.ts: |
+            import { greetUser } from "../dist/main";
+
+            console.log(greetUser("world"));
