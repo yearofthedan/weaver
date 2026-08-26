@@ -3,7 +3,7 @@
 # scenario needing a third layer inlines its files instead, so the input a `then` block
 # depends on stays visible in the scenario itself.
 fixtures:
-  ts-project:
+  a-ts-project:
     description: a tsconfig file including src
     files:
       tsconfig.json: |
@@ -12,18 +12,18 @@ fixtures:
           "include": ["src/**/*.ts"]
         }
 
-  module-nobody-imports:
-    description: an exported utility with no importers anywhere in the workspace
-    extends: ts-project
+  a-utils-module:
+    description: an exported utility at src/utils.ts, with no importers of its own
+    extends: a-ts-project
     files:
       src/utils.ts: |
         export function greetUser(name: string): string {
           return `Hello, ${name}`;
         }
 
-  module-with-importers:
-    description: the same utility, imported once from src and once from an out-of-project test
-    extends: ts-project
+  a-utils-module-with-importers:
+    description: an exported utility, imported once from src and once from an out-of-project test
+    extends: a-ts-project
     files:
       src/utils.ts: |
         export function greetUser(name: string): string {
@@ -40,7 +40,7 @@ fixtures:
 
 scenarios:
   - name: moves a file and repoints every importer
-    given: module-with-importers
+    given: a-utils-module-with-importers
     when:
       - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
     then:
@@ -65,7 +65,7 @@ scenarios:
             console.log(greetUser("Test"));
 
   - name: creates missing destination directories on the way
-    given: module-with-importers
+    given: a-utils-module-with-importers
     when:
       - moveFile: { oldPath: src/utils.ts, newPath: deep/nested/lib/utils.ts }
     then:
@@ -92,7 +92,7 @@ scenarios:
   - name: leaves an importer of a similarly-named file alone
     given:
       description: a second utility whose name has the moved file's name as a prefix
-      extends: module-nobody-imports
+      extends: a-utils-module
       files:
         src/my-utils.ts: |
           export function myHelper() { return 42; }
@@ -119,7 +119,7 @@ scenarios:
   - name: leaves a .js specifier alone when a real .js file sits beside the moved one
     given:
       description: a hand-written utils.js next to utils.ts, imported with a .js specifier
-      extends: module-nobody-imports
+      extends: a-utils-module
       files:
         src/utils.js: |
           // this is an actual JS file
@@ -147,7 +147,7 @@ scenarios:
   - name: rewrites the import without disturbing a comment that names both paths
     given:
       description: an out-of-project test whose comment names both the old and the new path
-      extends: module-nobody-imports
+      extends: a-utils-module
       files:
         tests/import-with-comment.ts: |
           // TODO: migrate logic from ../src/utils to ../lib/utils
@@ -175,7 +175,7 @@ scenarios:
             console.log(greetUser('test'));
 
   - name: refuses to move a file that does not exist, leaving the workspace alone
-    given: module-nobody-imports
+    given: a-utils-module
     when:
       - moveFile: { oldPath: src/missing.ts, newPath: lib/missing.ts }
     then:
@@ -195,7 +195,7 @@ scenarios:
       file, which repairs an incoherent project as a side effect and hides this class of
       fault; with it off, the move has to keep its own state straight.
     given:
-      extends: module-nobody-imports
+      extends: a-utils-module
       files:
         src/main.ts: |
           import { greetUser } from "./utils";
@@ -218,7 +218,7 @@ scenarios:
 
   - name: rewrites the moved file's own relative import to keep pointing at the same target
     given:
-      extends: module-nobody-imports
+      extends: a-utils-module
       files:
         tests/utils.test.ts: |
           import { greetUser } from "../src/utils";
@@ -245,7 +245,7 @@ scenarios:
 
   - name: leaves a bare module specifier alone while rewriting the relative one beside it
     given:
-      extends: module-nobody-imports
+      extends: a-utils-module
       files:
         tests/mixed.test.ts: |
           import { describe } from "vitest";
@@ -277,7 +277,7 @@ scenarios:
 
   - name: keeps the .js extension when rewriting the moved file's own import
     given:
-      extends: module-nobody-imports
+      extends: a-utils-module
       files:
         tests/js-ext.test.ts: |
           import { greetUser } from "../src/utils.js";
@@ -300,7 +300,7 @@ scenarios:
 
   - name: leaves the moved file's imports alone when the rename stays at the same depth
     given:
-      extends: module-nobody-imports
+      extends: a-utils-module
       files:
         tests/renamed.test.ts: |
           import { greetUser } from "../src/utils";
@@ -357,7 +357,7 @@ scenarios:
             export { greetUser };
 
   - name: moving a file back restores the importer to its original specifier
-    given: module-with-importers
+    given: a-utils-module-with-importers
     when:
       - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
       - moveFile: { oldPath: lib/utils.ts, newPath: src/utils.ts }
@@ -367,7 +367,7 @@ scenarios:
 
   - name: two out-of-project files move in turn and the importer follows both
     given:
-      extends: ts-project
+      extends: a-ts-project
       files:
         tests/helper.ts: |
           export function help(): number {
@@ -394,7 +394,7 @@ scenarios:
 
   - name: the fallback scan repoints an out-of-project importer on the second move
     given:
-      extends: module-nobody-imports
+      extends: a-utils-module
       files:
         src/main.ts: |
           import { greetUser } from "./utils";
