@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.10](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.9...weaver-v0.1.10) (2026-08-27)
+
+
+### Features
+
+* **eval:** add a real-host tool-use policy arm behind a flag ([8778d66](https://github.com/yearofthedan/weaver/commit/8778d669415484e33a739a15753333f9ab87dd3c))
+
+
+### Bug Fixes
+
+* **daemon:** guard the socket write against unserialisable responses ([d16dd2f](https://github.com/yearofthedan/weaver/commit/d16dd2f5d27c06bf3544102cfd7007c45dcb5d81))
+* **daemon:** make dispatchRequest total so failures return, not throw ([2e63350](https://github.com/yearofthedan/weaver/commit/2e633503829527a76ab5c8bcbaf54f790b4b0bfa))
+* **daemon:** route getTypeErrors to the correct engine in Vue projects ([dc3342f](https://github.com/yearofthedan/weaver/commit/dc3342f1f1b18b98a42d67af153dc4076b560b0b))
+* **eval:** surface provider errors returned with a 200 status ([fc08004](https://github.com/yearofthedan/weaver/commit/fc08004851dd1e5948633e20329c6c2e6db54b9d))
+* **replaceText:** remove dead empty-match branch, cover pattern-mode validation gaps ([613be9e](https://github.com/yearofthedan/weaver/commit/613be9e3a5ce2e2ec701f7426b82f5b98965d3ad))
+* **schema:** reject glob/excludeGlob combined with edits in replace-text ([b971821](https://github.com/yearofthedan/weaver/commit/b9718218ecb1134c032859e0e45a4c802f003e98))
+
 ## [0.1.9](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.8...weaver-v0.1.9) (2026-08-09)
 
 
