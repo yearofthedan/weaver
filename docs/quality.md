@@ -13,6 +13,7 @@
 
 - **Unit tests** — primary coverage at the engine layer. Each engine operation (rename, move) is tested in isolation against known inputs and expected outputs.
 - **Integration tests** — run against realistic fixture projects that mirror real-world TS/Vue structures. Fixtures should include cross-file dependencies, shared utilities, composables, and Vue components importing TypeScript modules.
+- **Scenario tests** — declarative YAML cases in `src/operations/<operation>.scenarios.yaml`, run through the daemon dispatcher by a shared runner. Each case names a fixture, a sequence of calls, and two contracts: the exact response a consumer receives, and the complete set of file effects. Any file changed without being named fails the case, so the assertion cannot be narrowed to the part the author happened to think of — which is the mistake a `toContain` invites. Prefer a scenario for an operation's observable behaviour; see [`.claude/skills/scenario-tests`](../.claude/skills/scenario-tests/SKILL.md) for when a focused test is still the right layer.
 
 ### Fixtures
 
