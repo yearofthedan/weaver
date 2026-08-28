@@ -38,6 +38,45 @@ fixtures:
 
         console.log(greetUser("Test"));
 
+  a-vue-project:
+    description: a Vue SFC and a composable it imports, alongside a plain TS entry point
+    files:
+      tsconfig.json: |
+        {
+          "compilerOptions": {
+            "strict": true,
+            "target": "ESNext",
+            "module": "ESNext",
+            "moduleResolution": "bundler",
+            "jsx": "preserve"
+          },
+          "include": ["src/**/*.ts", "src/**/*.vue"]
+        }
+      src/composables/useCounter.ts: |
+        export function useCounter(initialValue = 0) {
+          let count = initialValue;
+          return {
+            count: () => count,
+            increment: () => {
+              count++;
+            },
+          };
+        }
+      src/App.vue: |
+        <script setup lang="ts">
+        import { useCounter } from "./composables/useCounter";
+
+        const counter = useCounter(0);
+        </script>
+
+        <template>
+          <div>{{ counter.count() }}</div>
+        </template>
+      src/main.ts: |
+        import { useCounter } from "./composables/useCounter";
+
+        const _counter = useCounter(0);
+
 scenarios:
   - name: moves a file and repoints every importer
     given: a-utils-module-with-importers
@@ -422,3 +461,164 @@ scenarios:
             import { greetUser } from "../dist/main";
 
             console.log(greetUser("world"));
+
+  - name: repoints a Vue SFC import when the composable it uses moves
+    description: >
+      The SFC's specifier gains a .js extension it did not have. Vue imports are
+      repointed by regex scan rather than the language service, and that path builds
+      the new specifier with computeRelativeImportPath, which always emits .js for a
+      .ts target. Under moduleResolution bundler both forms resolve, so nothing fails
+      — the scenario states the extension to keep the rewrite visible rather than
+      approving it silently.
+    given: a-vue-project
+    when:
+      - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/main.ts, src/utils/useCounter.ts, src/App.vue]
+        filesSkipped: []
+        oldPath: src/composables/useCounter.ts
+        newPath: src/utils/useCounter.ts
+      files:
+        moved:
+          src/composables/useCounter.ts: src/utils/useCounter.ts
+        changed:
+          src/App.vue: |
+            <script setup lang="ts">
+            import { useCounter } from "./utils/useCounter.js";
+
+            const counter = useCounter(0);
+            </script>
+
+            <template>
+              <div>{{ counter.count() }}</div>
+            </template>
+          src/main.ts: |
+            import { useCounter } from "./utils/useCounter";
+
+            const _counter = useCounter(0);
+
+  - name: moving the composable back restores the SFC import
+    description: >
+      The TS round-trip leaves every file byte-identical. This one does not: the SFC
+      comes back pointing at its original directory but keeps the .js extension the
+      first move introduced, so the import is listed as changed rather than unchanged.
+    given: a-vue-project
+    when:
+      - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
+      - moveFile: { oldPath: src/utils/useCounter.ts, newPath: src/composables/useCounter.ts }
+    then:
+      files:
+        unchanged: [tsconfig.json, src/composables/useCounter.ts, src/main.ts]
+        changed:
+          src/App.vue: |
+            <script setup lang="ts">
+            import { useCounter } from "./composables/useCounter.js";
+
+            const counter = useCounter(0);
+            </script>
+
+            <template>
+              <div>{{ counter.count() }}</div>
+            </template>
+
+  - name: rewrites the moved test's own imports while leaving its bare specifier alone
+    given:
+      extends: a-vue-project
+      files:
+        tests/unit/counter.test.ts: |
+          import { describe, expect, it } from "vitest";
+          import { useCounter } from "../../src/composables/useCounter";
+
+          describe("counter", () => {
+            it("increments", () => {
+              const c = useCounter();
+              c.increment();
+              expect(c.count()).toBe(1);
+            });
+          });
+    when:
+      - moveFile: { oldPath: tests/unit/counter.test.ts, newPath: src/counter.test.ts }
+    then:
+      response:
+        status: warn
+        filesModified: [tests/unit/counter.test.ts, src/counter.test.ts]
+        filesSkipped: []
+        oldPath: tests/unit/counter.test.ts
+        newPath: src/counter.test.ts
+        typeErrorCount: 1
+        typeErrorsTruncated: false
+        typeErrors:
+          - file: src/counter.test.ts
+            line: 1
+            col: 38
+            code: 2307
+            message: "Cannot find module 'vitest' or its corresponding type declarations."
+      files:
+        moved:
+          tests/unit/counter.test.ts:
+            to: src/counter.test.ts
+            content: |
+              import { describe, expect, it } from "vitest";
+              import { useCounter } from "./composables/useCounter";
+
+              describe("counter", () => {
+                it("increments", () => {
+                  const c = useCounter();
+                  c.increment();
+                  expect(c.count()).toBe(1);
+                });
+              });
+
+  - name: repoints an out-of-project test when the composable it imports moves
+    given:
+      extends: a-vue-project
+      files:
+        tests/unit/counter.test.ts: |
+          import { useCounter } from "../../src/composables/useCounter";
+
+          console.log(useCounter(0).count());
+    when:
+      - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/main.ts, tests/unit/counter.test.ts, src/utils/useCounter.ts, src/App.vue]
+        filesSkipped: []
+        oldPath: src/composables/useCounter.ts
+        newPath: src/utils/useCounter.ts
+      files:
+        moved:
+          src/composables/useCounter.ts: src/utils/useCounter.ts
+        changed:
+          src/App.vue: |
+            <script setup lang="ts">
+            import { useCounter } from "./utils/useCounter.js";
+
+            const counter = useCounter(0);
+            </script>
+
+            <template>
+              <div>{{ counter.count() }}</div>
+            </template>
+          src/main.ts: |
+            import { useCounter } from "./utils/useCounter";
+
+            const _counter = useCounter(0);
+          tests/unit/counter.test.ts: |
+            import { useCounter } from "../../src/utils/useCounter";
+
+            console.log(useCounter(0).count());
+
+  - name: refuses to move a file that does not exist in a Vue project
+    given: a-vue-project
+    when:
+      - moveFile: { oldPath: src/missing.ts, newPath: src/utils/missing.ts }
+    then:
+      response:
+        status: error
+        error: FILE_NOT_FOUND
+        message: "File not found: src/missing.ts"
