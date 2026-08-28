@@ -173,6 +173,8 @@ If you're tempted to add a cast during implementation, stop and read the return 
 
 ## Defensive code vs. dead branches
 
+**Name a concrete input for each branch as you write the condition.** Enumerate the classes the condition discriminates and say which branch each lands in. A branch you cannot name an input for is dead. An input class that lands in a branch you did not intend is a bug — and it is invisible afterwards, because the code reads as considered. A path predicate, for instance, splits its input into file, directory and absent, so a check that only distinguishes "present" has silently decided what a directory means.
+
 If you write a guard (null check, boundary check, type narrowing) and can't construct a realistic input that exercises the fail path, the guard is dead code. TypeScript already rules out the case — you're guarding against a ghost.
 
 Mutation testing exposes these: a surviving mutant on a guard you "know" can't be hit is not "noise, untestable" — it's a signal that the branch should be removed. Restructure the code so the impossible case isn't representable. Examples:
