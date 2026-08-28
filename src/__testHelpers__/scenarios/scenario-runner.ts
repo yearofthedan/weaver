@@ -120,6 +120,17 @@ function assertStepSucceeded(method: string, result: Record<string, unknown>): v
   );
 }
 
+/**
+ * Lead a failure with the scenario's own account of itself. A case pinning behaviour we
+ * know is wrong expects content that looks like a bug, so without this the next reader
+ * has to find the file to learn the expectation is deliberate.
+ */
+function describeFailure(error: unknown, description: string | undefined): unknown {
+  if (description === undefined || !(error instanceof Error)) return error;
+  error.message = `${description}\n\n${error.message}`;
+  return error;
+}
+
 export async function executeScenario(
   scenario: Scenario,
   file: ScenarioFile,
@@ -139,9 +150,13 @@ export async function executeScenario(
     }
   }
 
-  assertEffects(root, before, scenario.then.files);
+  try {
+    assertEffects(root, before, scenario.then.files);
 
-  if (scenario.then.response !== undefined) {
-    assertResponseMatches(root, scenario.then.response, last);
+    if (scenario.then.response !== undefined) {
+      assertResponseMatches(root, scenario.then.response, last);
+    }
+  } catch (error) {
+    throw describeFailure(error, scenario.description);
   }
 }

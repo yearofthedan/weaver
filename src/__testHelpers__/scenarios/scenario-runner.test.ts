@@ -233,3 +233,36 @@ ${CHANGED_MAIN}`),
     await expect(executeScenario(file.scenarios[0], file, dir)).resolves.toBeUndefined();
   });
 });
+
+describe("scenario description", () => {
+  test("puts the description in front of the failure, so a deliberate expectation reads as one", async ({
+    dir,
+  }) => {
+    const described = `scenarios:
+  - name: the case under test
+    description: the scan never considers this specifier, so the stale path is expected
+${GIVEN}
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
+    then:
+${RESPONSE}
+      files:
+${MOVED}`;
+
+    const message = await rejectionOf(described, dir);
+
+    expect(message).toContain("the scan never considers this specifier");
+    expect(message).toContain("files changed without being named in `then.files`");
+  });
+
+  test("leaves the failure alone when the scenario carries no description", async ({ dir }) => {
+    const message = await rejectionOf(
+      moveScenario(`${RESPONSE}
+      files:
+${MOVED}`),
+      dir,
+    );
+
+    expect(message).toMatch(/^files changed without being named/);
+  });
+});

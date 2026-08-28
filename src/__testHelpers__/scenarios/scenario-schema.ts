@@ -81,6 +81,8 @@ export type Step = z.infer<typeof step>;
 const scenario = z
   .object({
     name: z.string(),
+    /** Why the expectation below is what it is. Reaches a failure message, nothing else. */
+    description: z.string().optional(),
     given: z.union([z.string(), fixtureBody]),
     when: z.array(step).min(1),
     // biome-ignore lint/suspicious/noThenProperty: `then` is the Given/When/Then vocabulary these files are written in; renaming it internally would put a mapping layer between the YAML and the parsed object, and a scenario is never awaited so being thenable is inert.

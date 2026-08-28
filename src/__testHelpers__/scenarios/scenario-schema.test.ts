@@ -84,6 +84,14 @@ describe("scenarioFile", () => {
     expect(parse).toThrow(/must state the response a consumer receives/);
   });
 
+  it("keeps a scenario's description, which the runner puts in front of a failure", () => {
+    const file = scenarioFile.parse({
+      scenarios: [{ ...(scenarioOf() as object), description: "the stale path is deliberate" }],
+    });
+
+    expect(file.scenarios[0].description).toBe("the stale path is deliberate");
+  });
+
   it("drops keys the schema does not declare instead of rejecting them", () => {
     const file = scenarioFile.parse({
       scenarios: [{ ...(scenarioOf() as object), invented: "ignored" }],
