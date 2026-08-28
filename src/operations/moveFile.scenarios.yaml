@@ -622,3 +622,64 @@ scenarios:
         status: error
         error: FILE_NOT_FOUND
         message: "File not found: src/missing.ts"
+
+  - name: repoints an SFC's .js specifier away from the real .js file sitting beside the moved composable
+    description: >
+      The TypeScript path leaves this specifier alone: ./composables/useCounter.js names
+      a hand-written JS file that did not move, so rewriting it would be wrong. The Vue
+      scan has no such guard and repoints it at the moved TypeScript file, which is a
+      different module from the one the SFC was importing.
+
+      Nothing reports the change. Under moduleResolution bundler the new specifier
+      resolves to useCounter.ts, so the response is a clean success with no type errors
+      while the meaning of the import has moved. Pinned to keep that visible; the sibling
+      TS scenario states the behaviour this one should have had.
+    given:
+      description: a hand-written useCounter.js beside the composable, imported with a .js specifier from the SFC
+      extends: a-vue-project
+      files:
+        src/composables/useCounter.js: |
+          // this is an actual JS file
+          export function useCounter(initial) {
+            return { count: () => initial };
+          }
+        src/App.vue: |
+          <script setup lang="ts">
+          import { useCounter } from "./composables/useCounter.js";
+
+          const counter = useCounter(0);
+          </script>
+
+          <template>
+            <div>{{ counter.count() }}</div>
+          </template>
+    when:
+      - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/main.ts, src/utils/useCounter.ts, src/App.vue]
+        filesSkipped: []
+        oldPath: src/composables/useCounter.ts
+        newPath: src/utils/useCounter.ts
+      files:
+        moved:
+          src/composables/useCounter.ts: src/utils/useCounter.ts
+        changed:
+          src/App.vue: |
+            <script setup lang="ts">
+            import { useCounter } from "./utils/useCounter.js";
+
+            const counter = useCounter(0);
+            </script>
+
+            <template>
+              <div>{{ counter.count() }}</div>
+            </template>
+          src/main.ts: |
+            import { useCounter } from "./utils/useCounter";
+
+            const _counter = useCounter(0);
+        unchanged:
+          - src/composables/useCounter.js
