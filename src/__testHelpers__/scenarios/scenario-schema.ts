@@ -26,7 +26,9 @@ export type FixtureBody = z.infer<typeof fixtureBody>;
  */
 const moveTarget = z
   .union([z.string(), z.object({ to: z.string(), content: z.string() })])
-  .transform((value) => (typeof value === "string" ? { to: value } : value));
+  .transform((value): { to: string; content?: string } =>
+    typeof value === "string" ? { to: value } : value,
+  );
 
 const effects = z
   .object({
