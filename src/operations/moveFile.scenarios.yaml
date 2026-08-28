@@ -683,3 +683,103 @@ scenarios:
             const _counter = useCounter(0);
         unchanged:
           - src/composables/useCounter.js
+
+  - name: follows the moved file through an @ path alias
+    given:
+      description: a project mapping @/* onto src/*, with the importer using the alias
+      files:
+        tsconfig.json: |
+          {
+            "compilerOptions": {
+              "strict": true,
+              "baseUrl": ".",
+              "paths": { "@/*": ["src/*"] }
+            },
+            "include": ["src/**/*.ts"]
+          }
+        src/utils.ts: |
+          export function greetUser(name: string): string {
+            return `Hello, ${name}`;
+          }
+        src/main.ts: |
+          import { greetUser } from "@/utils";
+
+          console.log(greetUser("World"));
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: src/lib/utils.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/main.ts, src/lib/utils.ts]
+        filesSkipped: []
+        oldPath: src/utils.ts
+        newPath: src/lib/utils.ts
+      files:
+        moved:
+          src/utils.ts: src/lib/utils.ts
+        changed:
+          src/main.ts: |
+            import { greetUser } from "@/lib/utils";
+
+            console.log(greetUser("World"));
+
+  - name: leaves an SFC's aliased import pointing at the composable's old location
+    description: >
+      The TypeScript path follows an @ alias correctly, because the language service
+      resolves it. The Vue scan matches specifiers with a regex that requires a leading
+      ./ or ../, so an aliased import is never considered and the SFC keeps pointing at
+      a path that no longer exists.
+
+      Nothing reports it. App.vue is not written, so it never enters filesModified, and
+      the post-write type check only looks at the files that array names — the one broken
+      file is the one file excluded from the check. The caller gets status success with
+      an error count of zero.
+
+      An @/* alias onto src/* is what the Vue and Vite scaffolds generate, so this is the
+      default project shape rather than an unusual one. Pinned as it behaves today.
+    given:
+      description: a Vue project mapping @/* onto src/*, with the SFC importing through the alias
+      files:
+        tsconfig.json: |
+          {
+            "compilerOptions": {
+              "strict": true,
+              "target": "ESNext",
+              "module": "ESNext",
+              "moduleResolution": "bundler",
+              "jsx": "preserve",
+              "baseUrl": ".",
+              "paths": { "@/*": ["src/*"] }
+            },
+            "include": ["src/**/*.ts", "src/**/*.vue"]
+          }
+        src/composables/useCounter.ts: |
+          export function useCounter(initialValue = 0) {
+            return { count: () => initialValue };
+          }
+        src/App.vue: |
+          <script setup lang="ts">
+          import { useCounter } from "@/composables/useCounter";
+
+          const counter = useCounter(0);
+          </script>
+
+          <template>
+            <div>{{ counter.count() }}</div>
+          </template>
+    when:
+      - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/utils/useCounter.ts]
+        filesSkipped: []
+        oldPath: src/composables/useCounter.ts
+        newPath: src/utils/useCounter.ts
+      files:
+        moved:
+          src/composables/useCounter.ts: src/utils/useCounter.ts
+        unchanged:
+          - src/App.vue
