@@ -162,6 +162,21 @@ ${MOVED}
 
     expect(message).toContain("src/never-existed.ts should have existed beforehand");
   });
+
+  test("rejects a `moved` entry whose source was never in the workspace", async ({ dir }) => {
+    // Both halves of the move assertion read as satisfied when the source is absent: nothing
+    // is there afterwards, and the destination matches the source's equally absent content.
+    const message = await rejectionOf(
+      moveScenario(`${RESPONSE}
+      files:
+${MOVED}
+          src/ghost.ts: lib/ghost.ts
+${CHANGED_MAIN}`),
+      dir,
+    );
+
+    expect(message).toContain("src/ghost.ts");
+  });
 });
 
 describe("response contract", () => {

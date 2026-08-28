@@ -58,6 +58,9 @@ function assertEffects(root: string, before: Tree, effects: Effects): void {
   const after = readTree(root);
 
   for (const [from, target] of Object.entries(effects.moved)) {
+    // Without this, a `moved` naming a source that was never there passes on both halves:
+    // nothing is at the source afterwards, and the destination matches its absent content.
+    expect(before[from], `${from} should have existed beforehand`).toBeDefined();
     expect(after[from], `${from} should have moved away`).toBeUndefined();
     if (target.content === undefined) {
       expect(

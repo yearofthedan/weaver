@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { parse } from "@vue/language-core";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
+import type { FileSystem } from "../../ports/filesystem.js";
 import { ImportRewriter } from "../../ts-engine/import-rewriter.js";
 import { stripExt } from "../../utils/extensions.js";
 import { walkFiles } from "../../utils/file-walk.js";
@@ -22,7 +23,6 @@ export function updateVueImportsAfterMove(
   searchRoot: string,
   scope: WorkspaceScope,
 ): void {
-  const oldWithoutExt = stripExt(oldPath);
   const vueFiles = walkFiles(searchRoot, [".vue"]);
 
   for (const vueFile of vueFiles) {
@@ -36,7 +36,7 @@ export function updateVueImportsAfterMove(
       continue;
     }
 
-    const updated = rewriteImports(content, vueFile, oldWithoutExt, newPath);
+    const updated = rewriteImports(content, vueFile, oldPath, newPath, scope.fs);
     if (updated !== content) {
       scope.writeFile(vueFile, updated);
     }
@@ -44,22 +44,46 @@ export function updateVueImportsAfterMove(
 }
 
 /**
- * Rewrite all `from '...'` / `from "..."` strings in `source` that resolve
- * to `oldPathNoExt`, replacing them with a new relative path to `newPath`.
+ * Keep the specifier's own extension style. `computeRelativeImportPath` always emits one,
+ * which is right for the TypeScript fallback scan that generates specifiers from scratch,
+ * but here the original is in hand and an extensionless import must stay extensionless —
+ * otherwise a move gives the file an extension the project never used, and moving it back
+ * does not restore it.
+ */
+function specifierLike(original: string, fromFile: string, newPath: string): string {
+  const rewritten = computeRelativeImportPath(fromFile, newPath);
+  const hadExtension = /\.[^./]+$/.test(path.basename(original));
+  return hadExtension ? rewritten : rewritten.replace(/\.[^./]+$/, "");
+}
+
+/**
+ * Rewrite all `from '...'` / `from "..."` strings in `source` that name the file moved from
+ * `oldPath`, pointing them at `newPath` instead.
+ *
+ * A specifier naming a file that is present on disk means *that* file, so it is repointed
+ * only when it is the one that moved. Without the check, `./useCounter.js` and
+ * `useCounter.ts` compare equal once their extensions are stripped, and an import of a
+ * hand-written sibling `.js` is silently repointed at the TypeScript file — a different
+ * module. Falling back to the extensionless comparison when nothing is there is what lets a
+ * `.js` specifier resolve to the `.ts` that really backs it.
  */
 function rewriteImports(
   source: string,
   fromFile: string,
-  oldPathNoExt: string,
+  oldPath: string,
   newPath: string,
+  files: FileSystem,
 ): string {
+  const oldPathNoExt = stripExt(oldPath);
   // Matches: from './foo'  from "../bar/baz"  (relative paths only)
   return source.replace(/\bfrom\s+(['"])(\.\.?\/[^'"]+)\1/g, (match, quote, importPath) => {
-    const absImport = stripExt(path.resolve(path.dirname(fromFile), importPath));
-    if (absImport !== oldPathNoExt) return match;
+    const absImport = path.resolve(path.dirname(fromFile), importPath);
+    const namesTheMovedFile = files.exists(absImport)
+      ? absImport === oldPath
+      : stripExt(absImport) === oldPathNoExt;
 
-    const rel = computeRelativeImportPath(fromFile, newPath);
-    return `from ${quote}${rel}${quote}`;
+    if (!namesTheMovedFile) return match;
+    return `from ${quote}${specifierLike(importPath, fromFile, newPath)}${quote}`;
   });
 }
 

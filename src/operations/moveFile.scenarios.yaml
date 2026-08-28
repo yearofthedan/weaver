@@ -104,7 +104,6 @@ scenarios:
             console.log(greetUser("Test"));
 
   - name: repoints a Vue SFC import when the composable it uses moves
-    description: Vue imports are repointed by regex scan rather than the language service, so the rewritten specifier gains a .js extension the original did not have.
     given: a-vue-project
     when:
       - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
@@ -122,7 +121,7 @@ scenarios:
         changed:
           src/App.vue: |
             <script setup lang="ts">
-            import { useCounter } from "./utils/useCounter.js";
+            import { useCounter } from "./utils/useCounter";
 
             const counter = useCounter(0);
             </script>
@@ -145,25 +144,13 @@ scenarios:
         unchanged: [tsconfig.json, src/utils.ts, src/main.ts, tests/utils.test.ts]
 
   - name: moving the composable back restores the SFC import
-    description: The TypeScript round-trip leaves every file byte-identical; this one lists the SFC as changed, because the .js the first move introduced stays behind.
     given: a-vue-project
     when:
       - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
       - moveFile: { oldPath: src/utils/useCounter.ts, newPath: src/composables/useCounter.ts }
     then:
       files:
-        unchanged: [tsconfig.json, src/composables/useCounter.ts, src/main.ts]
-        changed:
-          src/App.vue: |
-            <script setup lang="ts">
-            import { useCounter } from "./composables/useCounter.js";
-
-            const counter = useCounter(0);
-            </script>
-
-            <template>
-              <div>{{ counter.count() }}</div>
-            </template>
+        unchanged: [tsconfig.json, src/composables/useCounter.ts, src/main.ts, src/App.vue]
 
   - name: creates missing destination directories on the way
     given: a-utils-module-with-importers
@@ -265,8 +252,7 @@ scenarios:
           - src/jsConsumer.ts
           - src/utils.js
 
-  - name: repoints an SFC's .js specifier away from the real .js file sitting beside the moved composable
-    description: The TypeScript path leaves this specifier alone, since ./composables/useCounter.js names a real file that did not move.
+  - name: leaves an SFC's .js specifier alone when a real .js file sits beside the moved one
     given:
       description: a hand-written useCounter.js beside the composable, imported with a .js specifier from the SFC
       extends: a-vue-project
@@ -292,7 +278,7 @@ scenarios:
       response:
         status: success
         typeErrors: none
-        filesModified: [src/main.ts, src/utils/useCounter.ts, src/App.vue]
+        filesModified: [src/main.ts, src/utils/useCounter.ts]
         filesSkipped: []
         oldPath: src/composables/useCounter.ts
         newPath: src/utils/useCounter.ts
@@ -300,22 +286,13 @@ scenarios:
         moved:
           src/composables/useCounter.ts: src/utils/useCounter.ts
         changed:
-          src/App.vue: |
-            <script setup lang="ts">
-            import { useCounter } from "./utils/useCounter.js";
-
-            const counter = useCounter(0);
-            </script>
-
-            <template>
-              <div>{{ counter.count() }}</div>
-            </template>
           src/main.ts: |
             import { useCounter } from "./utils/useCounter";
 
             const _counter = useCounter(0);
         unchanged:
           - src/composables/useCounter.js
+          - src/App.vue
 
   - name: follows the moved file through an @ path alias
     given:
@@ -647,7 +624,7 @@ scenarios:
         changed:
           src/App.vue: |
             <script setup lang="ts">
-            import { useCounter } from "./utils/useCounter.js";
+            import { useCounter } from "./utils/useCounter";
 
             const counter = useCounter(0);
             </script>

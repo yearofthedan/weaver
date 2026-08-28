@@ -49,7 +49,7 @@ describe("updateVueImportsAfterMove", () => {
     updateVueImportsAfterMove(oldPath, newPath, tmpDir, makeScope(tmpDir));
 
     const result = fs.readFileSync(vueFile, "utf8");
-    expect(result).toContain("from './helpers.js'");
+    expect(result).toContain("from './helpers'");
     expect(result).not.toContain("from './utils'");
   });
 
@@ -64,7 +64,7 @@ describe("updateVueImportsAfterMove", () => {
     updateVueImportsAfterMove(oldPath, newPath, tmpDir, makeScope(tmpDir));
 
     const result = fs.readFileSync(vueFile, "utf8");
-    expect(result).toContain("from '../shared/helpers.js'");
+    expect(result).toContain("from '../shared/helpers'");
     expect(result).not.toContain("from '../shared/utils'");
   });
 
@@ -131,7 +131,7 @@ describe("updateVueImportsAfterMove", () => {
 
     updateVueImportsAfterMove(oldPath, newPath, tmpDir, makeScope(tmpDir));
 
-    expect(fs.readFileSync(vueFile, "utf8")).toContain('from "./helpers.js"');
+    expect(fs.readFileSync(vueFile, "utf8")).toContain('from "./helpers"');
   });
 
   it("rewrites a deeply-nested import", () => {
@@ -145,7 +145,7 @@ describe("updateVueImportsAfterMove", () => {
     updateVueImportsAfterMove(oldPath, newPath, tmpDir, makeScope(tmpDir));
 
     const result = fs.readFileSync(vueFile, "utf8");
-    expect(result).toContain("from '../lib/deep/renamed.js'");
+    expect(result).toContain("from '../lib/deep/renamed'");
   });
 
   it("rewrites import with multiple spaces after from keyword", () => {
@@ -161,7 +161,7 @@ describe("updateVueImportsAfterMove", () => {
     // The replacement normalises whitespace to a single space.
     // The key assertion is that the rewrite DID happen (two-space import was matched).
     const result = fs.readFileSync(vueFile, "utf8");
-    expect(result).toContain("from './helpers.js'");
+    expect(result).toContain("from './helpers'");
     expect(result).not.toContain("'./utils'");
   });
 
