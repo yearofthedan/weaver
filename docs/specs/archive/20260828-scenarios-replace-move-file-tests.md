@@ -106,3 +106,57 @@ Both forks the handoff left open were settled before this spec was written:
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+---
+
+## Outcome
+
+**Shipped** 2026-08-28 on `spike/approved-scenarios`, commits `4fed127`..`e9cc6aa`.
+
+### Verification
+
+- **AC1 (description reaches the failure), driven on the real path.** Flipped the aliased-import scenario's expectation to what a *fixed* Vue scan would produce and ran the suite. Observed:
+  ```
+  AssertionError: The TypeScript path follows the alias; the Vue scan matches only
+  ./ and ../ specifiers, so it never considers this one.
+
+  src/App.vue was listed as changed but is identical: ...
+  ```
+  The description leads the assertion, which is the case it exists for — whoever fixes that Vue defect meets this red and learns the old expectation was deliberate. Expectation restored; suite green at 23/23.
+- **AC2 (mutation backstop).** Same six files, `--force`, before and after the deletions:
+
+  | File | Before | After |
+  |---|---|---|
+  | `operations/moveFile.ts` | 100.00 | 100.00 |
+  | `ts-engine/apply-rename-edits.ts` | 100.00 | 100.00 |
+  | `ts-engine/rewrite-own-imports.ts` | 98.08 | 98.08 |
+  | `ts-engine/rewrite-importers-of-moved-file.ts` | 97.87 | 97.87 |
+  | `ts-engine/move-file.ts` | 90.91 | 90.91 |
+  | `ts-engine/after-file-rename.ts` | 66.67 | 66.67 |
+  | **All files** | **95.10** | **95.10** |
+
+  The survivor set is byte-identical — the same 7 mutants at the same positions. No mutant was killed before and survives now, so the AC's "name every regression" clause had nothing to name. Four of the seven sit at `after-file-rename.ts:25–35`, the cache-eviction block already owned by the *project-cache coherence* handoff entry; they are pre-existing and untouched here.
+
+### Numbers
+
+- **Tests:** 1217 → 1197. Added 3 (harness cases for the description field), retired 23 (17 + 5 + 1). Test files 91 → 89.
+- **`move-file.test.ts`:** 497 → 148 lines, 21 → 4 tests.
+- **Mutation:** 95.10% over the move call graph, unchanged.
+- The tracked `reports/stryker-incremental.json` was deliberately **not** written: both runs used `--incrementalFile` pointed at scratch, because a 6-file scoped run would otherwise overwrite the full-project cache with a partial one.
+
+### Decisions and discoveries
+
+- **The `pins:` field was dropped, reversing the direction the spec started in.** The argument for it was that nobody could enumerate the scenarios pinning known-broken behaviour. It does not survive contact: the handoff entries owning those defects already name their scenarios, so the field was the reverse of a link that exists, and it would have had no users at all once the defects are fixed. Retaining and surfacing `description` carries the same information, serves all 23 scenarios rather than 4, and deleted a gotcha the skill would otherwise have had to document — two identical-looking `description:` keys with opposite fates depending on nesting depth.
+- **`docs/quality.md:48` still reads "as of 413 tests".** Left alone deliberately. It dates the coverage table's measurement, and it was already stale by ~780 tests before this change; bumping only the number would present old percentages as freshly measured. It needs a `pnpm coverage` re-run, not an edit — logged as a chore.
+- **The reorder was verified as a pure move**, by parsing before and after and comparing the sorted scenario set. Worth repeating for any future reordering: a YAML block shuffle done by script is easy to get subtly wrong, and the parse-and-compare check is three lines.
+
+### Reflection
+
+**What went well.** The per-test mapping was the right unit of work. Writing all 23 retirements down against their replacing scenario before deleting anything turned a judgment call into a checkable one, and it is what made the identical mutation result interpretable rather than lucky — the score holding is weak evidence on its own, but the score holding *and* every deleted test having a named replacement is strong. Capturing the baseline before any deletion was essential and nearly skipped.
+
+**What did not go well.** Three self-inflicted failures, all in the mutation tooling:
+1. `--jsonReporter.fileName` is not a CLI flag. Worse, `| tee` swallowed the non-zero exit, so the run reported success while producing nothing — and I passed the same bad flag a second time after already seeing it fail.
+2. I committed while a mutation run was in flight. The pre-commit hook runs `rm -rf dist && tsc` plus the full 1217-test suite, which killed the run at 33%.
+3. The reorder script dropped the newline after `scenarios:` and corrupted the file. The parse-and-compare check caught it immediately, which is the argument for having written it.
+
+**Recommendation to the next agent.** Nothing here needed a Stryker threshold conversation, and the temptation to treat 95.10% as the result should be resisted — the number was identical before and after, so on its own it would have justified deleting the four keepers too. It is the mapping that says which tests may go. Also: run mutation *first*, then do all the committing, because the two cannot share a machine.

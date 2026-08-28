@@ -46,6 +46,17 @@ The config must list `json` in `reporters` and configure `jsonReporter.fileName`
 **`.pnpm-store` must be in `ignorePatterns`.**
 The dev container keeps pnpm's content-addressed store at `/workspaces/weaver/.pnpm-store`. Stryker's sandbox copy resolves symlinks and fails with `ENOENT` when link targets don't exist in the sandbox (e.g. stale worktree symlinks in `.pnpm-store/v10/projects/`). Adding `".pnpm-store"` to `ignorePatterns` excludes it from the copy.
 
+**A scoped before/after comparison needs three flags, and two of them are easy to get wrong.**
+Measuring whether a change cost coverage means running the same set of files before and after. `--mutate "a.ts,b.ts"` selects them, but:
+- **`--incremental` has no negation.** The config sets `incremental: true`, so a second run reads the cache and reports the first run's numbers. Use `--force` to re-run every mutant.
+- **Point `--incrementalFile` at a scratch path.** A scoped run writes its partial results over the tracked full-project cache otherwise, so the next `pnpm test:mutate` starts from a cache that knows about six files.
+- **`--jsonReporter.fileName` is not a CLI option** — Stryker exits with `error: unknown option`. The json path comes from the config file only. Piping through `tee` masks this, because the pipeline's exit status is `tee`'s, so a run that produced nothing still looks like it passed. Check the log has content, not just that the command returned.
+
+Compare the survivor *positions*, not the headline score. Two runs can both read 95.10% with a different mutant surviving in each, and a score that holds is not evidence on its own — see [code-standards § Layer fit](../code-standards.md) on why mutation parity does not license deleting a test.
+
+**Never commit while a mutation run is in flight.**
+The pre-commit hook runs `rm -rf dist && tsc` and the full test suite. Two heavy vitest jobs on one machine kill the Stryker run part-way, silently — it stops mid-progress rather than reporting an error. Sequence the work: finish the run, read the numbers, then commit.
+
 **Kill stryker processes before cleaning `.stryker-tmp`.**
 Stryker's sandbox directories (`.stryker-tmp/sandbox-*`) can't be removed by `rm -rf` while worker processes still have them open. Run `pkill -f stryker` and wait a moment before cleaning. Stale sandboxes also cause Biome to error with "Found a nested root configuration" — run `rm -rf .stryker-tmp` before `pnpm check`.
 

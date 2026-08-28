@@ -19,6 +19,12 @@ pnpm check 2>&1 | tee /tmp/check.log
 
 Then use the `Read` tool on `/tmp/check.log` to inspect any section — failures, summary, specific lines. No second run needed.
 
+## `tee` hides whether the command failed
+
+A pipeline's exit status is the *last* command's, so `cmd | tee log` reports `tee`'s success even when `cmd` died on a bad flag or was killed part-way. A run that produced nothing looks identical to one that passed.
+
+Read the log before believing the exit code — check it has the output you expected (a summary line, a final score), not just that the command returned. When the exit status itself matters, `set -o pipefail` first.
+
 ## Scoped test runs first
 
 When working on a specific file, run only the relevant tests before running the full suite:
