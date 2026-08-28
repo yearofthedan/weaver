@@ -10,16 +10,6 @@ const fixtureBody = z.object({
 export type FixtureBody = z.infer<typeof fixtureBody>;
 
 /**
- * The effect contract: what the operation did to the workspace, grouped by outcome.
- *
- * Any file not named here must be untouched — the runner fails on a change it was not
- * told to expect, which is what makes the contract total rather than a set of probes.
- *
- * `unchanged` is therefore not bookkeeping: it names a file the tool was *right* to
- * leave alone, so the non-change reads as the point of the scenario rather than as
- * something nobody got around to asserting.
- */
-/**
  * Where a moved file landed. The string form asserts the destination is byte-identical to
  * what the source held; the object form states new content, for a move that rewrites the
  * file's own imports on the way.
@@ -30,6 +20,16 @@ const moveTarget = z
     typeof value === "string" ? { to: value } : value,
   );
 
+/**
+ * The effect contract: what the operation did to the workspace, grouped by outcome.
+ *
+ * Any file not named here must be untouched — the runner fails on a change it was not
+ * told to expect, which is what makes the contract total rather than a set of probes.
+ *
+ * `unchanged` is therefore not bookkeeping: it names a file the tool was *right* to
+ * leave alone, so the non-change reads as the point of the scenario rather than as
+ * something nobody got around to asserting.
+ */
 const effects = z
   .object({
     moved: z.record(z.string(), moveTarget).default({}),
@@ -75,8 +75,6 @@ const step = z
     error: (issue) =>
       `a step declares exactly one method, got: ${Object.keys(issue.input as object).join(", ")}`,
   });
-
-export type Step = z.infer<typeof step>;
 
 const scenario = z
   .object({

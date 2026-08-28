@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { expect } from "vitest";
 import { parse as parseYaml } from "yaml";
-import { dispatchRequest } from "../../daemon/dispatcher.js";
+import { type DispatchResponse, dispatchRequest } from "../../daemon/dispatcher.js";
 import {
   type Effects,
   expandResponseSugar,
@@ -95,7 +95,7 @@ function assertEffects(root: string, before: Tree, effects: Effects): void {
 }
 
 /** Rewrite the temp root out of every path the response carries, at any depth. */
-function scrubRoot(root: string, value: Record<string, unknown>): unknown {
+function scrubRoot(root: string, value: DispatchResponse): unknown {
   return JSON.parse(JSON.stringify(value).split(`${root}/`).join(""));
 }
 
@@ -107,7 +107,7 @@ function scrubRoot(root: string, value: Record<string, unknown>): unknown {
 function assertResponseMatches(
   root: string,
   written: Record<string, unknown>,
-  actual: Record<string, unknown>,
+  actual: DispatchResponse,
 ): void {
   expect(scrubRoot(root, actual), "response").toEqual(expandResponseSugar(written));
 }
@@ -117,7 +117,7 @@ function assertResponseMatches(
  * worked. `warn` is a success that also reported a type error, which a scenario is free to
  * end in; `error` means the run stopped being the one the scenario describes.
  */
-function assertStepSucceeded(method: string, result: Record<string, unknown>): void {
+function assertStepSucceeded(method: string, result: DispatchResponse): void {
   expect(result.status, `step \`${method}\` status (${String(result.message ?? "")})`).not.toBe(
     "error",
   );
@@ -142,11 +142,12 @@ export async function executeScenario(
   seed(root, resolveFixture(scenario.given, file.fixtures));
   const before = readTree(root);
 
-  let last: Record<string, unknown> = {};
+  // `when` is `.min(1)`, so the loop below always assigns before anything reads this.
+  let last!: DispatchResponse;
   for (const step of scenario.when) {
     const [method, rawParams] = Object.entries(step)[0];
     const params = resolveParams(root, rawParams);
-    last = (await dispatchRequest({ method, params }, root)) as Record<string, unknown>;
+    last = await dispatchRequest({ method, params }, root);
     // A stated response says what to expect, failure included; a sequence has no such claim.
     if (scenario.then.response === undefined) {
       assertStepSucceeded(method, last);

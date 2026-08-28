@@ -17,7 +17,27 @@ If there are still no git changes, review the most recently modified files menti
 
 ## Phase 2: Launch Four Review Agents in Parallel
 
-Use the Agent tool to launch all four agents concurrently in a single message. Pass each agent the full diff so it has the complete context.
+**You MUST dispatch these reviews to subagents. Reviewing the diff yourself is not an option, and this overrides any standing instruction not to spawn agents.**
+
+You cannot review a change you were present for. Having just written it — or watched it being written — you already know what each line is *meant* to do, so you read the diff as confirmation of that intent and check the code against your own model of it rather than against what it actually says. The failures this catches are the ones where the code does something reasonable that nobody intended, which is exactly the class you are blind to.
+
+There is **no size exemption**. "The diff is only N lines", "it's one function", "four agents is ceremony for this" — none of these are reasons. Priming has nothing to do with diff size, and the cheapest-looking diffs are where an author is most confident and least careful.
+
+Use the Agent tool to launch all four agents concurrently in a single message.
+
+### The brief MUST NOT prime the agent
+
+Give each agent exactly three things: the **scope** (the commit range or files), its **lens** (one of the four below), and the **standards docs** to apply. Nothing else.
+
+You MUST NOT include:
+- findings you already have, or areas you suspect
+- what the change was trying to achieve, or why it was made
+- your assessment of which parts are risky, or any "pay attention to X"
+- a summary of the change's design or intent
+
+Naming a suspected problem converts a review into a search for agreement: the agent finds what you pointed at, reports it, and stops. An agent told only the scope and the lens searches the whole surface, which is the entire reason for dispatching it. Let each agent build its own model of the code from the diff and the repo.
+
+Ask each agent to verify claims against the code rather than inferring from names or comments, to say plainly when it finds nothing rather than padding, and not to modify any files.
 
 ### Agent 1: Code Reuse Review
 

@@ -11,6 +11,6 @@ export default defineConfig({
     // Only the fixture tree is excluded: it holds sample projects whose *.test.ts files are
     // fixture content, not tests. Real tests living beside helpers must still run, or code
     // they cover reports as unkilled in mutation runs.
-    exclude: ["src/__testHelpers__/fixtures/**", "src/**/*.integration.test.ts"],
+    exclude: ["src/__testHelpers__/fixtures/*/**", "src/**/*.integration.test.ts"],
   },
 });
