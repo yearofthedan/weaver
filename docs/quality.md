@@ -43,20 +43,18 @@ The pure parts of the harness (command matching, prompt assembly, the case-table
 - Cross-boundary scenarios (`.ts` ↔ `.vue`) covered by integration tests
 - Error paths (symbol not found, file not found, invalid path) explicitly tested
 
-### Coverage targets by module
+### Coverage
 
-Numbers from `pnpm coverage` (vitest v8) as of 413 tests.
+Run `pnpm coverage` for current numbers. They are deliberately not copied here — a snapshot in a doc drifts, and this one sat three months stale against a suite that had tripled, understating `daemon` by twenty points.
 
-| Module | Lines | Branches | Target | Notes |
-|--------|-------|----------|--------|-------|
-| `src/operations/` | 95.68% | 84.49% | 90%+ | Exceeding target; mutation score is the better signal |
-| `src/providers/` | 91.61% | 66.04% | 85%+ | Lines healthy; branch coverage low — virtual↔real path translation has many branches |
-| `src/utils/` | 98.70% | 96.55% | 95%+ | Healthy; maintain |
-| `src/security.ts` | 94.11% | 100% | 90%+ | All branches covered; two uncovered lines are `realpathSync` catch paths |
-| `src/daemon/` | 60.4% | 59.42% | 60%+ | At threshold (folder level); `daemon.ts` alone is 57.28% — `handleSocketRequest` and watcher-extension logic only run inside spawned processes |
-| `src/schema.ts` | 100% | 100% | — | Declarative Zod schemas; trivially covered |
+Nothing enforces a floor: `vitest.config.ts` configures the v8 provider with no `thresholds`, so the run reports and never fails. Read the output as a map of where assertions are thin, not as a gate.
 
-Targets are floors, not goals. Mutation score is a better quality signal than line coverage for modules above 80%.
+Two areas read low for structural reasons rather than missing tests. Their integration tests spawn the built binary, so the code executing in the child process is invisible to the parent's coverage — this is the same reason `stryker.config.mjs` excludes most of `daemon/**`:
+
+- **`adapters/cli`** — the CLI is exercised end-to-end through a spawned process.
+- **`daemon`** — `handleSocketRequest` and the watcher only run inside the spawned daemon.
+
+Above roughly 80%, mutation score is the better signal: line coverage says a line ran, not that any assertion would notice if it were wrong. See [mutation testing](tech/mutation-testing.md).
 
 ### Mutation testing
 
