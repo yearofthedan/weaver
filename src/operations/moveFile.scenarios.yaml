@@ -103,6 +103,68 @@ scenarios:
 
             console.log(greetUser("Test"));
 
+  - name: repoints a Vue SFC import when the composable it uses moves
+    description: Vue imports are repointed by regex scan rather than the language service, so the rewritten specifier gains a .js extension the original did not have.
+    given: a-vue-project
+    when:
+      - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/main.ts, src/utils/useCounter.ts, src/App.vue]
+        filesSkipped: []
+        oldPath: src/composables/useCounter.ts
+        newPath: src/utils/useCounter.ts
+      files:
+        moved:
+          src/composables/useCounter.ts: src/utils/useCounter.ts
+        changed:
+          src/App.vue: |
+            <script setup lang="ts">
+            import { useCounter } from "./utils/useCounter.js";
+
+            const counter = useCounter(0);
+            </script>
+
+            <template>
+              <div>{{ counter.count() }}</div>
+            </template>
+          src/main.ts: |
+            import { useCounter } from "./utils/useCounter";
+
+            const _counter = useCounter(0);
+
+  - name: moving a file back restores the importer to its original specifier
+    given: a-utils-module-with-importers
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
+      - moveFile: { oldPath: lib/utils.ts, newPath: src/utils.ts }
+    then:
+      files:
+        unchanged: [tsconfig.json, src/utils.ts, src/main.ts, tests/utils.test.ts]
+
+  - name: moving the composable back restores the SFC import
+    description: The TypeScript round-trip leaves every file byte-identical; this one lists the SFC as changed, because the .js the first move introduced stays behind.
+    given: a-vue-project
+    when:
+      - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
+      - moveFile: { oldPath: src/utils/useCounter.ts, newPath: src/composables/useCounter.ts }
+    then:
+      files:
+        unchanged: [tsconfig.json, src/composables/useCounter.ts, src/main.ts]
+        changed:
+          src/App.vue: |
+            <script setup lang="ts">
+            import { useCounter } from "./composables/useCounter.js";
+
+            const counter = useCounter(0);
+            </script>
+
+            <template>
+              <div>{{ counter.count() }}</div>
+            </template>
+
   - name: creates missing destination directories on the way
     given: a-utils-module-with-importers
     when:
@@ -127,6 +189,26 @@ scenarios:
             import { greetUser } from "../deep/nested/lib/utils";
 
             console.log(greetUser("Test"));
+
+  - name: refuses to move a file that does not exist, leaving the workspace alone
+    given: a-utils-module
+    when:
+      - moveFile: { oldPath: src/missing.ts, newPath: lib/missing.ts }
+    then:
+      response:
+        status: error
+        error: FILE_NOT_FOUND
+        message: "File not found: src/missing.ts"
+
+  - name: refuses to move a file that does not exist in a Vue project
+    given: a-vue-project
+    when:
+      - moveFile: { oldPath: src/missing.ts, newPath: src/utils/missing.ts }
+    then:
+      response:
+        status: error
+        error: FILE_NOT_FOUND
+        message: "File not found: src/missing.ts"
 
   - name: leaves an importer of a similarly-named file alone
     given:
@@ -182,437 +264,6 @@ scenarios:
         unchanged:
           - src/jsConsumer.ts
           - src/utils.js
-
-  - name: rewrites the import without disturbing a comment that names both paths
-    given:
-      description: an out-of-project test whose comment names both the old and the new path
-      extends: a-utils-module
-      files:
-        tests/import-with-comment.ts: |
-          // TODO: migrate logic from ../src/utils to ../lib/utils
-          import { greetUser } from "../src/utils";
-
-          console.log(greetUser('test'));
-    when:
-      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
-    then:
-      response:
-        status: success
-        typeErrors: none
-        filesModified: [tests/import-with-comment.ts, lib/utils.ts]
-        filesSkipped: []
-        oldPath: src/utils.ts
-        newPath: lib/utils.ts
-      files:
-        moved:
-          src/utils.ts: lib/utils.ts
-        changed:
-          tests/import-with-comment.ts: |
-            // TODO: migrate logic from ../src/utils to ../lib/utils
-            import { greetUser } from "../lib/utils";
-
-            console.log(greetUser('test'));
-
-  - name: refuses to move a file that does not exist, leaving the workspace alone
-    given: a-utils-module
-    when:
-      - moveFile: { oldPath: src/missing.ts, newPath: lib/missing.ts }
-    then:
-      response:
-        status: error
-        error: FILE_NOT_FOUND
-        message: "File not found: src/missing.ts"
-
-  - name: a later move uses project state the earlier move updated
-    description: >
-      The daemon keeps one compiler across calls, so the second move must see that the
-      first one relocated its dependency. A project still holding the old src/utils.ts
-      computes edit offsets against text that no longer matches disk, splicing the
-      import into nonsense like ../src/utilsutils.
-
-      checkTypeErrors is off deliberately. Collecting diagnostics reloads every modified
-      file, which repairs an incoherent project as a side effect and hides this class of
-      fault; with it off, the move has to keep its own state straight.
-    given:
-      extends: a-utils-module
-      files:
-        src/main.ts: |
-          import { greetUser } from "./utils";
-
-          console.log(greetUser("World"));
-    when:
-      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts, checkTypeErrors: false }
-      - moveFile: { oldPath: src/main.ts, newPath: dist/main.ts, checkTypeErrors: false }
-    then:
-      files:
-        moved:
-          src/utils.ts: lib/utils.ts
-          src/main.ts:
-            to: dist/main.ts
-            content: |
-              import { greetUser } from "../lib/utils";
-
-              console.log(greetUser("World"));
-        unchanged: [tsconfig.json]
-
-  - name: rewrites the moved file's own relative import to keep pointing at the same target
-    given:
-      extends: a-utils-module
-      files:
-        tests/utils.test.ts: |
-          import { greetUser } from "../src/utils";
-
-          console.log(greetUser("Test"));
-    when:
-      - moveFile: { oldPath: tests/utils.test.ts, newPath: tests/unit/utils.test.ts }
-    then:
-      response:
-        status: success
-        typeErrors: none
-        filesModified: [tests/utils.test.ts, tests/unit/utils.test.ts]
-        filesSkipped: []
-        oldPath: tests/utils.test.ts
-        newPath: tests/unit/utils.test.ts
-      files:
-        moved:
-          tests/utils.test.ts:
-            to: tests/unit/utils.test.ts
-            content: |
-              import { greetUser } from "../../src/utils";
-
-              console.log(greetUser("Test"));
-
-  - name: leaves a bare module specifier alone while rewriting the relative one beside it
-    given:
-      extends: a-utils-module
-      files:
-        tests/mixed.test.ts: |
-          import { describe } from "vitest";
-          import { greetUser } from "../src/utils";
-    when:
-      - moveFile: { oldPath: tests/mixed.test.ts, newPath: tests/unit/mixed.test.ts }
-    then:
-      response:
-        status: warn
-        filesModified: [tests/mixed.test.ts, tests/unit/mixed.test.ts]
-        filesSkipped: []
-        oldPath: tests/mixed.test.ts
-        newPath: tests/unit/mixed.test.ts
-        typeErrorCount: 1
-        typeErrorsTruncated: false
-        typeErrors:
-          - file: tests/unit/mixed.test.ts
-            line: 1
-            col: 26
-            code: 2307
-            message: "Cannot find module 'vitest' or its corresponding type declarations."
-      files:
-        moved:
-          tests/mixed.test.ts:
-            to: tests/unit/mixed.test.ts
-            content: |
-              import { describe } from "vitest";
-              import { greetUser } from "../../src/utils";
-
-  - name: keeps the .js extension when rewriting the moved file's own import
-    given:
-      extends: a-utils-module
-      files:
-        tests/js-ext.test.ts: |
-          import { greetUser } from "../src/utils.js";
-    when:
-      - moveFile: { oldPath: tests/js-ext.test.ts, newPath: tests/unit/js-ext.test.ts }
-    then:
-      response:
-        status: success
-        typeErrors: none
-        filesModified: [tests/js-ext.test.ts, tests/unit/js-ext.test.ts]
-        filesSkipped: []
-        oldPath: tests/js-ext.test.ts
-        newPath: tests/unit/js-ext.test.ts
-      files:
-        moved:
-          tests/js-ext.test.ts:
-            to: tests/unit/js-ext.test.ts
-            content: |
-              import { greetUser } from "../../src/utils.js";
-
-  - name: leaves the moved file's imports alone when the rename stays at the same depth
-    given:
-      extends: a-utils-module
-      files:
-        tests/renamed.test.ts: |
-          import { greetUser } from "../src/utils";
-    when:
-      - moveFile: { oldPath: tests/renamed.test.ts, newPath: tests/other.test.ts }
-    then:
-      response:
-        status: success
-        typeErrors: none
-        filesModified: [tests/other.test.ts]
-        filesSkipped: []
-        oldPath: tests/renamed.test.ts
-        newPath: tests/other.test.ts
-      files:
-        moved:
-          tests/renamed.test.ts: tests/other.test.ts
-
-  - name: rewrites the .js specifier when the tsconfig resolves modules the node way
-    description: >
-      Under moduleResolution node a ./utils.js specifier resolves to utils.ts, so the
-      move has to rewrite it rather than leave it as an unresolved literal.
-    given:
-      files:
-        tsconfig.json: |
-          {
-            "compilerOptions": { "strict": true, "moduleResolution": "node" },
-            "include": ["src/**/*.ts"]
-          }
-        src/utils.ts: |
-          export function greetUser(name: string): string {
-            return `Hello, ${name}`;
-          }
-        src/consumer.ts: |
-          import { greetUser } from "./utils.js";
-
-          export { greetUser };
-    when:
-      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
-    then:
-      response:
-        status: success
-        typeErrors: none
-        filesModified: [src/consumer.ts, lib/utils.ts]
-        filesSkipped: []
-        oldPath: src/utils.ts
-        newPath: lib/utils.ts
-      files:
-        moved:
-          src/utils.ts: lib/utils.ts
-        changed:
-          src/consumer.ts: |
-            import { greetUser } from "../lib/utils.js";
-
-            export { greetUser };
-
-  - name: moving a file back restores the importer to its original specifier
-    given: a-utils-module-with-importers
-    when:
-      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
-      - moveFile: { oldPath: lib/utils.ts, newPath: src/utils.ts }
-    then:
-      files:
-        unchanged: [tsconfig.json, src/utils.ts, src/main.ts, tests/utils.test.ts]
-
-  - name: two out-of-project files move in turn and the importer follows both
-    given:
-      extends: a-ts-project
-      files:
-        tests/helper.ts: |
-          export function help(): number {
-            return 42;
-          }
-        tests/consumer.test.ts: |
-          import { help } from "./helper";
-
-          console.log(help());
-    when:
-      - moveFile: { oldPath: tests/helper.ts, newPath: lib/helper.ts }
-      - moveFile: { oldPath: tests/consumer.test.ts, newPath: tests/unit/consumer.test.ts }
-    then:
-      files:
-        moved:
-          tests/helper.ts: lib/helper.ts
-          tests/consumer.test.ts:
-            to: tests/unit/consumer.test.ts
-            content: |
-              import { help } from "../../lib/helper";
-
-              console.log(help());
-        unchanged: [tsconfig.json]
-
-  - name: the fallback scan repoints an out-of-project importer on the second move
-    given:
-      extends: a-utils-module
-      files:
-        src/main.ts: |
-          import { greetUser } from "./utils";
-
-          export { greetUser };
-        scripts/run.ts: |
-          import { greetUser } from "../src/main";
-
-          console.log(greetUser("world"));
-    when:
-      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
-      - moveFile: { oldPath: src/main.ts, newPath: dist/main.ts }
-    then:
-      files:
-        moved:
-          src/utils.ts: lib/utils.ts
-          src/main.ts:
-            to: dist/main.ts
-            content: |
-              import { greetUser } from "../lib/utils";
-
-              export { greetUser };
-        changed:
-          scripts/run.ts: |
-            import { greetUser } from "../dist/main";
-
-            console.log(greetUser("world"));
-
-  - name: repoints a Vue SFC import when the composable it uses moves
-    description: Vue imports are repointed by regex scan rather than the language service, so the rewritten specifier gains a .js extension the original did not have.
-    given: a-vue-project
-    when:
-      - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
-    then:
-      response:
-        status: success
-        typeErrors: none
-        filesModified: [src/main.ts, src/utils/useCounter.ts, src/App.vue]
-        filesSkipped: []
-        oldPath: src/composables/useCounter.ts
-        newPath: src/utils/useCounter.ts
-      files:
-        moved:
-          src/composables/useCounter.ts: src/utils/useCounter.ts
-        changed:
-          src/App.vue: |
-            <script setup lang="ts">
-            import { useCounter } from "./utils/useCounter.js";
-
-            const counter = useCounter(0);
-            </script>
-
-            <template>
-              <div>{{ counter.count() }}</div>
-            </template>
-          src/main.ts: |
-            import { useCounter } from "./utils/useCounter";
-
-            const _counter = useCounter(0);
-
-  - name: moving the composable back restores the SFC import
-    description: The TypeScript round-trip leaves every file byte-identical; this one lists the SFC as changed, because the .js the first move introduced stays behind.
-    given: a-vue-project
-    when:
-      - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
-      - moveFile: { oldPath: src/utils/useCounter.ts, newPath: src/composables/useCounter.ts }
-    then:
-      files:
-        unchanged: [tsconfig.json, src/composables/useCounter.ts, src/main.ts]
-        changed:
-          src/App.vue: |
-            <script setup lang="ts">
-            import { useCounter } from "./composables/useCounter.js";
-
-            const counter = useCounter(0);
-            </script>
-
-            <template>
-              <div>{{ counter.count() }}</div>
-            </template>
-
-  - name: rewrites the moved test's own imports while leaving its bare specifier alone
-    given:
-      extends: a-vue-project
-      files:
-        tests/unit/counter.test.ts: |
-          import { describe, expect, it } from "vitest";
-          import { useCounter } from "../../src/composables/useCounter";
-
-          describe("counter", () => {
-            it("increments", () => {
-              const c = useCounter();
-              c.increment();
-              expect(c.count()).toBe(1);
-            });
-          });
-    when:
-      - moveFile: { oldPath: tests/unit/counter.test.ts, newPath: src/counter.test.ts }
-    then:
-      response:
-        status: warn
-        filesModified: [tests/unit/counter.test.ts, src/counter.test.ts]
-        filesSkipped: []
-        oldPath: tests/unit/counter.test.ts
-        newPath: src/counter.test.ts
-        typeErrorCount: 1
-        typeErrorsTruncated: false
-        typeErrors:
-          - file: src/counter.test.ts
-            line: 1
-            col: 38
-            code: 2307
-            message: "Cannot find module 'vitest' or its corresponding type declarations."
-      files:
-        moved:
-          tests/unit/counter.test.ts:
-            to: src/counter.test.ts
-            content: |
-              import { describe, expect, it } from "vitest";
-              import { useCounter } from "./composables/useCounter";
-
-              describe("counter", () => {
-                it("increments", () => {
-                  const c = useCounter();
-                  c.increment();
-                  expect(c.count()).toBe(1);
-                });
-              });
-
-  - name: repoints an out-of-project test when the composable it imports moves
-    given:
-      extends: a-vue-project
-      files:
-        tests/unit/counter.test.ts: |
-          import { useCounter } from "../../src/composables/useCounter";
-
-          console.log(useCounter(0).count());
-    when:
-      - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
-    then:
-      response:
-        status: success
-        typeErrors: none
-        filesModified: [src/main.ts, tests/unit/counter.test.ts, src/utils/useCounter.ts, src/App.vue]
-        filesSkipped: []
-        oldPath: src/composables/useCounter.ts
-        newPath: src/utils/useCounter.ts
-      files:
-        moved:
-          src/composables/useCounter.ts: src/utils/useCounter.ts
-        changed:
-          src/App.vue: |
-            <script setup lang="ts">
-            import { useCounter } from "./utils/useCounter.js";
-
-            const counter = useCounter(0);
-            </script>
-
-            <template>
-              <div>{{ counter.count() }}</div>
-            </template>
-          src/main.ts: |
-            import { useCounter } from "./utils/useCounter";
-
-            const _counter = useCounter(0);
-          tests/unit/counter.test.ts: |
-            import { useCounter } from "../../src/utils/useCounter";
-
-            console.log(useCounter(0).count());
-
-  - name: refuses to move a file that does not exist in a Vue project
-    given: a-vue-project
-    when:
-      - moveFile: { oldPath: src/missing.ts, newPath: src/utils/missing.ts }
-    then:
-      response:
-        status: error
-        error: FILE_NOT_FOUND
-        message: "File not found: src/missing.ts"
 
   - name: repoints an SFC's .js specifier away from the real .js file sitting beside the moved composable
     description: The TypeScript path leaves this specifier alone, since ./composables/useCounter.js names a real file that did not move.
@@ -753,3 +404,352 @@ scenarios:
           src/composables/useCounter.ts: src/utils/useCounter.ts
         unchanged:
           - src/App.vue
+
+  - name: rewrites the import without disturbing a comment that names both paths
+    given:
+      description: an out-of-project test whose comment names both the old and the new path
+      extends: a-utils-module
+      files:
+        tests/import-with-comment.ts: |
+          // TODO: migrate logic from ../src/utils to ../lib/utils
+          import { greetUser } from "../src/utils";
+
+          console.log(greetUser('test'));
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [tests/import-with-comment.ts, lib/utils.ts]
+        filesSkipped: []
+        oldPath: src/utils.ts
+        newPath: lib/utils.ts
+      files:
+        moved:
+          src/utils.ts: lib/utils.ts
+        changed:
+          tests/import-with-comment.ts: |
+            // TODO: migrate logic from ../src/utils to ../lib/utils
+            import { greetUser } from "../lib/utils";
+
+            console.log(greetUser('test'));
+
+  - name: rewrites the .js specifier when the tsconfig resolves modules the node way
+    description: >
+      Under moduleResolution node a ./utils.js specifier resolves to utils.ts, so the
+      move has to rewrite it rather than leave it as an unresolved literal.
+    given:
+      files:
+        tsconfig.json: |
+          {
+            "compilerOptions": { "strict": true, "moduleResolution": "node" },
+            "include": ["src/**/*.ts"]
+          }
+        src/utils.ts: |
+          export function greetUser(name: string): string {
+            return `Hello, ${name}`;
+          }
+        src/consumer.ts: |
+          import { greetUser } from "./utils.js";
+
+          export { greetUser };
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/consumer.ts, lib/utils.ts]
+        filesSkipped: []
+        oldPath: src/utils.ts
+        newPath: lib/utils.ts
+      files:
+        moved:
+          src/utils.ts: lib/utils.ts
+        changed:
+          src/consumer.ts: |
+            import { greetUser } from "../lib/utils.js";
+
+            export { greetUser };
+
+  - name: rewrites the moved file's own relative import to keep pointing at the same target
+    given:
+      extends: a-utils-module
+      files:
+        tests/utils.test.ts: |
+          import { greetUser } from "../src/utils";
+
+          console.log(greetUser("Test"));
+    when:
+      - moveFile: { oldPath: tests/utils.test.ts, newPath: tests/unit/utils.test.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [tests/utils.test.ts, tests/unit/utils.test.ts]
+        filesSkipped: []
+        oldPath: tests/utils.test.ts
+        newPath: tests/unit/utils.test.ts
+      files:
+        moved:
+          tests/utils.test.ts:
+            to: tests/unit/utils.test.ts
+            content: |
+              import { greetUser } from "../../src/utils";
+
+              console.log(greetUser("Test"));
+
+  - name: keeps the .js extension when rewriting the moved file's own import
+    given:
+      extends: a-utils-module
+      files:
+        tests/js-ext.test.ts: |
+          import { greetUser } from "../src/utils.js";
+    when:
+      - moveFile: { oldPath: tests/js-ext.test.ts, newPath: tests/unit/js-ext.test.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [tests/js-ext.test.ts, tests/unit/js-ext.test.ts]
+        filesSkipped: []
+        oldPath: tests/js-ext.test.ts
+        newPath: tests/unit/js-ext.test.ts
+      files:
+        moved:
+          tests/js-ext.test.ts:
+            to: tests/unit/js-ext.test.ts
+            content: |
+              import { greetUser } from "../../src/utils.js";
+
+  - name: leaves the moved file's imports alone when the rename stays at the same depth
+    given:
+      extends: a-utils-module
+      files:
+        tests/renamed.test.ts: |
+          import { greetUser } from "../src/utils";
+    when:
+      - moveFile: { oldPath: tests/renamed.test.ts, newPath: tests/other.test.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [tests/other.test.ts]
+        filesSkipped: []
+        oldPath: tests/renamed.test.ts
+        newPath: tests/other.test.ts
+      files:
+        moved:
+          tests/renamed.test.ts: tests/other.test.ts
+
+  - name: leaves a bare module specifier alone while rewriting the relative one beside it
+    given:
+      extends: a-utils-module
+      files:
+        tests/mixed.test.ts: |
+          import { describe } from "vitest";
+          import { greetUser } from "../src/utils";
+    when:
+      - moveFile: { oldPath: tests/mixed.test.ts, newPath: tests/unit/mixed.test.ts }
+    then:
+      response:
+        status: warn
+        filesModified: [tests/mixed.test.ts, tests/unit/mixed.test.ts]
+        filesSkipped: []
+        oldPath: tests/mixed.test.ts
+        newPath: tests/unit/mixed.test.ts
+        typeErrorCount: 1
+        typeErrorsTruncated: false
+        typeErrors:
+          - file: tests/unit/mixed.test.ts
+            line: 1
+            col: 26
+            code: 2307
+            message: "Cannot find module 'vitest' or its corresponding type declarations."
+      files:
+        moved:
+          tests/mixed.test.ts:
+            to: tests/unit/mixed.test.ts
+            content: |
+              import { describe } from "vitest";
+              import { greetUser } from "../../src/utils";
+
+  - name: rewrites the moved test's own imports while leaving its bare specifier alone
+    given:
+      extends: a-vue-project
+      files:
+        tests/unit/counter.test.ts: |
+          import { describe, expect, it } from "vitest";
+          import { useCounter } from "../../src/composables/useCounter";
+
+          describe("counter", () => {
+            it("increments", () => {
+              const c = useCounter();
+              c.increment();
+              expect(c.count()).toBe(1);
+            });
+          });
+    when:
+      - moveFile: { oldPath: tests/unit/counter.test.ts, newPath: src/counter.test.ts }
+    then:
+      response:
+        status: warn
+        filesModified: [tests/unit/counter.test.ts, src/counter.test.ts]
+        filesSkipped: []
+        oldPath: tests/unit/counter.test.ts
+        newPath: src/counter.test.ts
+        typeErrorCount: 1
+        typeErrorsTruncated: false
+        typeErrors:
+          - file: src/counter.test.ts
+            line: 1
+            col: 38
+            code: 2307
+            message: "Cannot find module 'vitest' or its corresponding type declarations."
+      files:
+        moved:
+          tests/unit/counter.test.ts:
+            to: src/counter.test.ts
+            content: |
+              import { describe, expect, it } from "vitest";
+              import { useCounter } from "./composables/useCounter";
+
+              describe("counter", () => {
+                it("increments", () => {
+                  const c = useCounter();
+                  c.increment();
+                  expect(c.count()).toBe(1);
+                });
+              });
+
+  - name: repoints an out-of-project test when the composable it imports moves
+    given:
+      extends: a-vue-project
+      files:
+        tests/unit/counter.test.ts: |
+          import { useCounter } from "../../src/composables/useCounter";
+
+          console.log(useCounter(0).count());
+    when:
+      - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/main.ts, tests/unit/counter.test.ts, src/utils/useCounter.ts, src/App.vue]
+        filesSkipped: []
+        oldPath: src/composables/useCounter.ts
+        newPath: src/utils/useCounter.ts
+      files:
+        moved:
+          src/composables/useCounter.ts: src/utils/useCounter.ts
+        changed:
+          src/App.vue: |
+            <script setup lang="ts">
+            import { useCounter } from "./utils/useCounter.js";
+
+            const counter = useCounter(0);
+            </script>
+
+            <template>
+              <div>{{ counter.count() }}</div>
+            </template>
+          src/main.ts: |
+            import { useCounter } from "./utils/useCounter";
+
+            const _counter = useCounter(0);
+          tests/unit/counter.test.ts: |
+            import { useCounter } from "../../src/utils/useCounter";
+
+            console.log(useCounter(0).count());
+
+  - name: a later move uses project state the earlier move updated
+    description: >
+      The daemon keeps one compiler across calls, so the second move must see that the
+      first one relocated its dependency. A project still holding the old src/utils.ts
+      computes edit offsets against text that no longer matches disk, splicing the
+      import into nonsense like ../src/utilsutils.
+
+      checkTypeErrors is off deliberately. Collecting diagnostics reloads every modified
+      file, which repairs an incoherent project as a side effect and hides this class of
+      fault; with it off, the move has to keep its own state straight.
+    given:
+      extends: a-utils-module
+      files:
+        src/main.ts: |
+          import { greetUser } from "./utils";
+
+          console.log(greetUser("World"));
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts, checkTypeErrors: false }
+      - moveFile: { oldPath: src/main.ts, newPath: dist/main.ts, checkTypeErrors: false }
+    then:
+      files:
+        moved:
+          src/utils.ts: lib/utils.ts
+          src/main.ts:
+            to: dist/main.ts
+            content: |
+              import { greetUser } from "../lib/utils";
+
+              console.log(greetUser("World"));
+        unchanged: [tsconfig.json]
+
+  - name: two out-of-project files move in turn and the importer follows both
+    given:
+      extends: a-ts-project
+      files:
+        tests/helper.ts: |
+          export function help(): number {
+            return 42;
+          }
+        tests/consumer.test.ts: |
+          import { help } from "./helper";
+
+          console.log(help());
+    when:
+      - moveFile: { oldPath: tests/helper.ts, newPath: lib/helper.ts }
+      - moveFile: { oldPath: tests/consumer.test.ts, newPath: tests/unit/consumer.test.ts }
+    then:
+      files:
+        moved:
+          tests/helper.ts: lib/helper.ts
+          tests/consumer.test.ts:
+            to: tests/unit/consumer.test.ts
+            content: |
+              import { help } from "../../lib/helper";
+
+              console.log(help());
+        unchanged: [tsconfig.json]
+
+  - name: the fallback scan repoints an out-of-project importer on the second move
+    given:
+      extends: a-utils-module
+      files:
+        src/main.ts: |
+          import { greetUser } from "./utils";
+
+          export { greetUser };
+        scripts/run.ts: |
+          import { greetUser } from "../src/main";
+
+          console.log(greetUser("world"));
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
+      - moveFile: { oldPath: src/main.ts, newPath: dist/main.ts }
+    then:
+      files:
+        moved:
+          src/utils.ts: lib/utils.ts
+          src/main.ts:
+            to: dist/main.ts
+            content: |
+              import { greetUser } from "../lib/utils";
+
+              export { greetUser };
+        changed:
+          scripts/run.ts: |
+            import { greetUser } from "../dist/main";
+
+            console.log(greetUser("world"));
