@@ -463,13 +463,7 @@ scenarios:
             console.log(greetUser("world"));
 
   - name: repoints a Vue SFC import when the composable it uses moves
-    description: >
-      The SFC's specifier gains a .js extension it did not have. Vue imports are
-      repointed by regex scan rather than the language service, and that path builds
-      the new specifier with computeRelativeImportPath, which always emits .js for a
-      .ts target. Under moduleResolution bundler both forms resolve, so nothing fails
-      — the scenario states the extension to keep the rewrite visible rather than
-      approving it silently.
+    description: Vue imports are repointed by regex scan rather than the language service, so the rewritten specifier gains a .js extension the original did not have.
     given: a-vue-project
     when:
       - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
@@ -501,10 +495,7 @@ scenarios:
             const _counter = useCounter(0);
 
   - name: moving the composable back restores the SFC import
-    description: >
-      The TS round-trip leaves every file byte-identical. This one does not: the SFC
-      comes back pointing at its original directory but keeps the .js extension the
-      first move introduced, so the import is listed as changed rather than unchanged.
+    description: The TypeScript round-trip leaves every file byte-identical; this one lists the SFC as changed, because the .js the first move introduced stays behind.
     given: a-vue-project
     when:
       - moveFile: { oldPath: src/composables/useCounter.ts, newPath: src/utils/useCounter.ts }
@@ -624,16 +615,7 @@ scenarios:
         message: "File not found: src/missing.ts"
 
   - name: repoints an SFC's .js specifier away from the real .js file sitting beside the moved composable
-    description: >
-      The TypeScript path leaves this specifier alone: ./composables/useCounter.js names
-      a hand-written JS file that did not move, so rewriting it would be wrong. The Vue
-      scan has no such guard and repoints it at the moved TypeScript file, which is a
-      different module from the one the SFC was importing.
-
-      Nothing reports the change. Under moduleResolution bundler the new specifier
-      resolves to useCounter.ts, so the response is a clean success with no type errors
-      while the meaning of the import has moved. Pinned to keep that visible; the sibling
-      TS scenario states the behaviour this one should have had.
+    description: The TypeScript path leaves this specifier alone, since ./composables/useCounter.js names a real file that did not move.
     given:
       description: a hand-written useCounter.js beside the composable, imported with a .js specifier from the SFC
       extends: a-vue-project
@@ -725,19 +707,7 @@ scenarios:
             console.log(greetUser("World"));
 
   - name: leaves an SFC's aliased import pointing at the composable's old location
-    description: >
-      The TypeScript path follows an @ alias correctly, because the language service
-      resolves it. The Vue scan matches specifiers with a regex that requires a leading
-      ./ or ../, so an aliased import is never considered and the SFC keeps pointing at
-      a path that no longer exists.
-
-      Nothing reports it. App.vue is not written, so it never enters filesModified, and
-      the post-write type check only looks at the files that array names — the one broken
-      file is the one file excluded from the check. The caller gets status success with
-      an error count of zero.
-
-      An @/* alias onto src/* is what the Vue and Vite scaffolds generate, so this is the
-      default project shape rather than an unusual one. Pinned as it behaves today.
+    description: The TypeScript path follows the alias; the Vue scan matches only ./ and ../ specifiers, so it never considers this one.
     given:
       description: a Vue project mapping @/* onto src/*, with the SFC importing through the alias
       files:
