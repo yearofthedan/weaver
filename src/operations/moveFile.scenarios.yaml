@@ -294,6 +294,54 @@ scenarios:
           - src/composables/useCounter.js
           - src/App.vue
 
+  - name: repoints an SFC import whose specifier is shadowed by a directory of the same name
+    given:
+      description: a barrel src/utils.ts beside a src/utils/ directory, imported extensionlessly
+      extends: a-vue-project
+      files:
+        src/utils.ts: |
+          export function greet(): string {
+            return "hi";
+          }
+        src/utils/helper.ts: |
+          export const helper = 1;
+        src/App.vue: |
+          <script setup lang="ts">
+          import { greet } from "./utils";
+
+          const label = greet();
+          </script>
+
+          <template>
+            <div>{{ label }}</div>
+          </template>
+    when:
+      - moveFile: { oldPath: src/utils.ts, newPath: src/lib/utils.ts }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/lib/utils.ts, src/App.vue]
+        filesSkipped: []
+        oldPath: src/utils.ts
+        newPath: src/lib/utils.ts
+      files:
+        moved:
+          src/utils.ts: src/lib/utils.ts
+        changed:
+          src/App.vue: |
+            <script setup lang="ts">
+            import { greet } from "./lib/utils";
+
+            const label = greet();
+            </script>
+
+            <template>
+              <div>{{ label }}</div>
+            </template>
+        unchanged:
+          - src/utils/helper.ts
+
   - name: follows the moved file through an @ path alias
     given:
       description: a project mapping @/* onto src/*, with the importer using the alias
