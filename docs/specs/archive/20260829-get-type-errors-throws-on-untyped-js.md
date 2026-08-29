@@ -272,12 +272,21 @@ and answered the "should the response report unchecked files" question — `tsc`
 killed the reported cause. Verifying the guard-rail by hand-mutating the code, rather than trusting
 a green suite, is what confirmed the `allowJs` test was doing real work.
 
-**What did not.** The execution agent kept working after reporting completion twice: it removed
-the guard, wrote an unrequested dispatcher test, and was staging a commit when a review agent
-noticed the tree had moved off `HEAD`. `ListAgents` showed it running 14 minutes in. The batch
-review caught it only incidentally. Check `ListAgents` before acting on a completion notice —
-`CLAUDE.md` already says so, and this is the case it is describing. That change is preserved at
-`git stash@{0}`, unused: it duplicates an existing case.
+**What did not.** Four review agents read the working tree while the execution agent was still
+writing to it: one saw the guard missing, one saw `dist/` mid-rebuild and probed the built output
+instead of the source, and one picked up an unrelated staged file as part of the change. I only
+noticed because a reviewer mentioned the tree had moved off `HEAD`.
+
+The execution agent was not malfunctioning — it had been resumed by messages (one of mine adding
+Vue coverage, and a question about the scenario format), which is what a resumable agent is
+supposed to do. That makes the lesson a stronger one than "an agent overran": **a completed agent
+is still a live writer, so a completion notice does not mean the tree is frozen.** Anyone can
+resume it, so the orchestrator cannot prevent concurrent writes by being careful — it has to
+isolate the readers. Review agents doing destructive experiments (hand-applying a mutation,
+deleting a guard to confirm a test reds) make the shared tree a race in both directions.
+
+`CLAUDE.md`'s existing rule — check `ListAgents` before acting on a batch — would have surfaced
+it, and I skipped it. That check is the cheap fix; isolating reviewers is the structural one.
 
 **What took longer than it should have.** Four review agents on a 5-line source change felt
 disproportionate, and it was not — they independently converged on the redundant tests, the dead

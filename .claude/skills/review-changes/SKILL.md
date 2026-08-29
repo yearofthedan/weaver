@@ -25,6 +25,12 @@ There is **no size exemption**. "The diff is only N lines", "it's one function",
 
 Use the Agent tool to launch all four agents concurrently in a single message.
 
+**Dispatch each agent with `isolation: "worktree"` when reviewing a committed range.** Reviewers verify claims by running things — hand-applying a mutation, deleting a guard to confirm a test reds — so the shared tree is a race in both directions: their experiments corrupt yours, and a concurrent writer makes their reads unreliable. A completed agent is still a live writer, because anyone can resume it, so you cannot close this by sequencing carefully.
+
+The exception is the no-argument mode: `git diff HEAD` reviews uncommitted work, which a worktree cannot see. Run those in the main tree and accept the exposure.
+
+First `pnpm exec` in a worktree triggers an on-demand install (seconds — pnpm hardlinks from the shared store). It also runs `prepare: husky`, which writes `core.hooksPath` into `.git/config`, and worktrees share that file. Idempotent today, but do not assume a worktree isolates you from repo config.
+
 ### The brief MUST NOT prime the agent
 
 Give each agent exactly three things: the **scope** (the commit range or files), its **lens** (one of the four below), and the **standards docs** to apply. Nothing else.
