@@ -107,6 +107,7 @@ The alias is preserved by TypeScript's own module-specifier generation. The virt
 - [ ] `leaves an SFC's .js specifier alone when a real .js file sits beside the moved one` (line 255) still passes
 - [ ] Mutation score ≥ threshold for `src/plugins/vue/engine.ts`
 - [ ] `pnpm check` passes (lint + build + test)
+- [x] `/review-changes` run over the whole change and its findings applied
 - [ ] Docs updated if public surface changed (`docs/internals/` for the Vue engine's edit path)
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc
@@ -130,7 +131,7 @@ import { useCounter } from "@/utils/useCounter";
 
 The alias is preserved rather than flattened to `../utils/useCounter`, and `src/App.vue` now appears in `filesModified`, so the post-write type check covers it.
 
-**Tests.** 3 scenarios added or rewritten in `moveFile.scenarios.yaml` (aliased import, moved SFC, and the `.js`-coexistence case kept passing), 3 existing scenarios updated for `filesModified` ordering, 1 unit test added for `isCoexistingJsFileEdit`. 25 scenarios and the full suite green.
+**Tests.** 4 scenarios added or rewritten in `moveFile.scenarios.yaml` (aliased import, moved SFC, a moved SFC's own relative imports, and the `.js`-coexistence case kept passing), 3 existing scenarios updated for `filesModified` ordering, 1 unit test added for `isCoexistingJsFileEdit`. 26 scenarios and the full suite green.
 
 **Mutation.** `rewrite-importers-of-moved-file.ts` 94.74% → **98.25%** after the added test; the single remaining survivor (`105:11`, `if (specifier === undefined) continue`) is pre-existing code this change did not touch. `plugins/vue/engine.ts` **77.67%** — 3 of its 38 survivors are in new code: the `source === null` guard in `toRealFileEdit` (an unexercised defensive branch, matching the identical unkilled branch in the sibling `translateSingleLocation` it delegates to), and the `invalidateService` and `updateVueImportsAfterMove` calls in `moveFile`, both pre-existing lines. Run with `--incrementalFile` pointed at scratch, so the tracked incremental cache is untouched and there is nothing to commit.
 
@@ -141,5 +142,13 @@ The alias is preserved rather than flattened to `../utils/useCounter`, and `src/
 `moveDirectory` was in scope on a wrong premise. The spec claimed it "reaches the same filter", from a spike that queried the language service directly without checking whether `moveDirectory` makes that call. It does not: `engine.ts:285` filters its mappings to `.vue` files first, so a `.ts` file moving inside a directory never reaches the Vue edit path. Repairing it costs one Volar query per moved file rather than one per operation, which is a different decision — dropped here, logged as its own entry. **A probe against a dependency proves what the dependency does, not what the caller asks it.**
 
 Rewriting a `.ts` importer of a moved SFC put it into `filesModified` and surfaced `TS2307: Cannot find module '…/Widget.vue'`. Verified pre-existing and unrelated to moving — `get-type-errors` on a `.ts` file importing an *unmoved* SFC reports it too, because `engine.ts:361` routes a `.ts` file in a Vue project to the ts-morph engine, which has no `.vue` support. Pinned in the scenario with a `description` saying the `warn` is deliberate, and logged as `[needs investigation]`.
+
+**What the review changed.** The `/review-changes` pass ran after this file was first archived, which is itself the finding that produced the skill fix in `1412491` — both of the slice workflow's review instructions lived inside the batch-dispatch loop, so implementing inline skipped them and step 4 excused itself by pointing at a review that never happened.
+
+It then found real work in two commits. `df68d61` collapsed `getEditsForFileRename` from three passes to one and moved the `.vue` filter ahead of translation, so a `.ts` move no longer reads every `.ts` importer off disk to build edits it discards; it also made `isCoexistingJsFileEdit` delegate to the near-identical `isCoexistingJsFile` above it, narrowing that function to the `FileSystem` port. `8de201f` extracted the workflow to `plugins/vue/move-file.ts`, matching every sibling action.
+
+Two review claims were wrong and worth recording as such. A suspected gap — that a moved SFC's own relative imports go unrewritten — is false: the edit lands on the file at its old path and the rename carries the corrected content across. The scenario written to check it now pins that, and reproduces the standing `filesModified` defect on a `.vue` move as a side effect. And the raw `node:fs` in `isCoexistingJsFileEdit` is not a port violation: `docs/architecture.md` exempts the compiler adapters and `operations-purity.test.ts` enforces the exemption.
+
+The original scenario for the moved-SFC case used an **aliased** import, which resolves identically from either location — so it could not have detected a missing own-import rewrite whether or not one existed. That is the general lesson, now in `docs/code-standards.md` as a Quality model dimension: an input the operation leaves alone cannot distinguish a working implementation from one that does nothing.
 
 **For the next agent.** The `filesModified` ordering changed — SFC importers now lead, being written before the move. Nothing promised an order, but three scenarios and the example in `docs/commands/move-file.md` encoded the old one. If a fourth operation adopts the Volar edit path, expect the same.
