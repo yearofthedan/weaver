@@ -149,6 +149,17 @@ describe("effect contract", () => {
     expect(message).toContain("src/main.ts content");
   });
 
+  it("rejects a move whose declared content is not what landed", () => {
+    const message = failureOf(() =>
+      assertEffects(BEFORE, AFTER, {
+        ...CLEAN_EFFECTS,
+        moved: { "src/utils.ts": { to: "lib/utils.ts", content: "not what landed\n" } },
+      }),
+    );
+
+    expect(message).toContain("lib/utils.ts content after the move");
+  });
+
   it("rejects a file listed as `changed` that was left alone", () => {
     const message = failureOf(() =>
       assertEffects(BEFORE, AFTER, {
@@ -391,5 +402,43 @@ console.log(greetUser("World"));
     );
 
     await expect(executeScenario(file.scenarios[0], file, dir)).resolves.toBeUndefined();
+  });
+
+  test("stops a sequence at the first step that fails, naming it", async ({ dir }) => {
+    const file = scenarioFileOf(
+      scenarioOf({
+        name: "a second move that finds no file",
+        when: [
+          { moveFile: { oldPath: "src/utils.ts", newPath: "lib/utils.ts" } },
+          { moveFile: { oldPath: "src/missing.ts", newPath: "lib/missing.ts" } },
+        ],
+        outcome: { files: effectsOf() },
+      }),
+    );
+
+    const execution = executeScenario(file.scenarios[0], file, dir);
+
+    // The dispatcher's message carries the absolute path; the tail names the file.
+    await expect(execution).rejects.toThrow("step `moveFile` status");
+    await expect(execution).rejects.toThrow("src/missing.ts");
+  });
+
+  test("rejects a stated response that is not what the dispatcher returned", async ({ dir }) => {
+    const file = scenarioFileOf(
+      scenarioOf({
+        name: "a move whose stated response gets the status wrong",
+        when: [{ moveFile: { oldPath: "src/utils.ts", newPath: "lib/utils.ts" } }],
+        outcome: {
+          response: { ...WRITTEN_RESPONSE, status: "warn" },
+          files: CLEAN_EFFECTS,
+        },
+      }),
+    );
+
+    const execution = executeScenario(file.scenarios[0], file, dir);
+
+    // The file effects all hold, so only the response assertion can catch the wrong status.
+    await expect(execution).rejects.toThrow("response:");
+    await expect(execution).rejects.toThrow("warn");
   });
 });
