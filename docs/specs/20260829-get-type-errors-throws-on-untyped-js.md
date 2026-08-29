@@ -113,14 +113,23 @@ genuine type error (`bad.toUpperCase()` on a number) planted in `jest.config.js`
 | `allowJs: true, checkJs: true` | `jest.config.js(2,5): error TS2339` |
 
 **In `tsGetTypeErrorsForProject` (`ts-engine/get-type-errors.ts:44`), ask only about files the
-TypeScript program contains.** Two spellings, both localised to this function; pick whichever
-reads better against the code:
+TypeScript program contains.** The function already holds the language service it needs —
+`ls.getProgram()?.getSourceFile(filePath)` answers membership directly, so skip any path it
+does not resolve before calling `getSemanticDiagnostics`.
 
-- Filter `compiler.getProjectSourceFilePaths(workspace)` by program membership before the
-  `getSemanticDiagnostics` call.
-- Iterate the program's own source files instead. Note this list also carries `lib.*.d.ts` and
-  everything transitively resolved from `node_modules`, so it needs its own filter to the
-  workspace and to non-declaration files — it is not automatically the simpler option.
+Verified against both fixtures before dispatch — the check discriminates in both directions,
+which is the property the guard-rail below depends on:
+
+```
+allowJs unset:   OUT  ./jest.config.js      IN   ./src/main.ts
+allowJs true:    IN   ./jest.config.js      IN   ./src/main.ts
+```
+
+Iterating `program.getSourceFiles()` instead was considered and rejected: that list also
+carries `lib.*.d.ts` and everything transitively resolved from `node_modules`, so it would need
+its own workspace and declaration-file filtering — more code, and a new way to get the file set
+wrong. Filtering the existing list needs no new engine method and leaves
+`getProjectSourceFilePaths`'s contract untouched for its other callers.
 
 **Guard-rail — key on program membership, not on the file extension.** A fix that skips `.js`
 paths passes the reproduction and silently suppresses the TS2339 above in any project that
