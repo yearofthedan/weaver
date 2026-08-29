@@ -145,6 +145,14 @@ Fixed gaps are removed. Remaining survivors by category:
 |------|----------|-------------|
 | `schema.ts` | Mode-XOR `.refine()`'s `{ message: "..." }` → `{}` (line 220, pre-existing) | No test asserts the mode-XOR failure's exact message text, only `success: false`. Same class as every other declarative-field survivor in this file (`.min(1)` → `.max(1)`, `.regex()` character-class narrowing) — the rest of the file is intentionally excluded from mutation scope for this reason. The glob-with-edits `.refine()` added alongside it *is* message-tested (`.error.issues[0].message` asserted per field), which is why its own `{ message: ... }` mutant is killed. |
 
+**`ts-engine/get-type-errors.ts` (scoped run, 84.62% — `src/ts-engine/**` Tier 2 is commented out in `stryker.config.mjs`, so only an explicit `--mutate` run reaches this file):**
+
+| Area | Survivor | Why accepted |
+|------|----------|-------------|
+| `get-type-errors.ts` | `toDiagnostic`'s `sourceFile?.fileName ?? ""` → `sourceFile.fileName`, and `sourceFile !== undefined && d.start !== undefined` forced to `true` / `&&` flipped to `\|\|` (lines 15, 18) | Every diagnostic reaching `toDiagnostic` comes from `getSemanticDiagnostics(filePath)`, which attaches the file it was asked about and a start position. The guards are defensive against a diagnostic shape this call path does not produce — project-level config diagnostics (which genuinely have no `file`) arrive through `getConfigFileParsingDiagnostics`, which nothing here calls. |
+| `get-type-errors.ts` | The `d.category === ts.DiagnosticCategory.Error` filters — `.filter(...)` → `all`, and the predicate forced to `true` (lines 29, 50) | `getSemanticDiagnostics` returns only Error-category diagnostics. Probed 2026-08-29 with the two most likely non-Error candidates, unreachable code (7027) and a `@deprecated` call (6387): both came back through `getSuggestionDiagnostics` — a separate API this module never calls — while `getSemanticDiagnostics` returned `[]`. The filter enforces the documented "errors only" contract against a channel that cannot currently deliver a violation, so no constructible input kills these. |
+
+
 **`dispatcher.ts` (not in the full run's `mutate` array — `src/daemon/**` Tier 3 is commented out in `stryker.config.mjs`; scoped run score 82.35%):**
 
 | Area | Survivor | Why accepted |

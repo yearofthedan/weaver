@@ -190,11 +190,102 @@ excluded JS, which must return `errorCount: 0` rather than an error.
 
 ## Done-when
 
-- [ ] Reproduction case now produces expected output
-- [ ] Regression test covers the exact failing case
-- [ ] Mutation score ≥ threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] Docs updated if public surface changed (`docs/commands/get-type-errors.md` for user-facing, `docs/internals/` for implementation)
-- [ ] Tech debt discovered during investigation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Reproduction case now produces expected output
+- [x] Regression test covers the exact failing case
+- [x] Mutation score ≥ threshold for touched files
+- [x] `pnpm check` passes (lint + build + test)
+- [x] Docs updated if public surface changed (`docs/commands/get-type-errors.md` for user-facing, `docs/internals/` for implementation)
+- [x] Tech debt discovered during investigation added to handoff.md as [needs design]
+- [x] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+---
+
+## Outcome
+
+**Shipped:** `e59e37f` (fix + regression tests), `12cf414` (review fixes).
+
+### Verification
+
+Driven on the real CLI path against a freshly built `dist`, re-running the exact commands that
+established the failing state:
+
+| Fixture | Before | After |
+| --- | --- | --- |
+| NestJS shape, root `jest.config.js` | `INTERNAL_ERROR` | `success`, `errorCount: 0` |
+| `+ include: ["src"]` | `INTERNAL_ERROR` | `success`, `errorCount: 0` |
+| `.js` nested at `src/legacy.js` | `INTERNAL_ERROR` | `success`, `errorCount: 0` |
+| No tsconfig at all | `INTERNAL_ERROR` | `success`, `errorCount: 0` |
+| Vue project + `vite.config.js` | `INTERNAL_ERROR` | `success` + real diagnostics |
+| `allowJs: true, checkJs: true` | — | still reports the planted `TS2339`, matching `tsc --noEmit` |
+
+The last row is the one that matters most: it confirms the fix narrows the query rather than
+suppressing results.
+
+### Tests
+
+**+3 net** (7 added, 4 removed in review). Suite 1206 → 1202 — the drop is the four redundant
+cases, not lost coverage.
+
+Both failure modes were verified by hand-mutating the implementation and watching the suite go
+red, rather than inferred from a passing run:
+
+| Mutant | Result |
+| --- | --- |
+| Guard removed entirely | 2 failures (TS skip case + Vue delegation) |
+| Keyed on `.js`/`.jsx` extension instead of program membership | 1 failure (the `allowJs` case) |
+
+### Mutation
+
+`pnpm test:mutate:file src/ts-engine/get-type-errors.ts` — **84.62%**, 44 mutants, 8 survivors,
+0 uncovered. No survivor sits on a changed line; the guard is fully killed. All 8 are
+pre-existing and classified as noise in `docs/tech/mutation-testing.md`, with the
+`getSemanticDiagnostics`-never-returns-non-Error claim probed rather than assumed.
+
+Note `src/ts-engine/**` is commented out of `stryker.config.mjs`'s `mutate` array, so this file
+is only measured by an explicit `--mutate` run. A plain `pnpm test:mutate` would have reported
+green without touching it.
+
+### Discoveries worth keeping
+
+**The suite could not have caught this bug.** Every test in `getTypeErrors.test.ts` built
+`TsMorphEngine` with no `workspaceRoot`, and `addWorkspaceFiles` begins `if (!this.workspaceRoot) return;`.
+Production (`daemon/language-plugin-registry.ts`) always passes it. So seven project-wide tests
+ran with the workspace file walk switched off — the exact mechanism that produces the bug. All
+15 construction sites now match production, and the general rule is in `docs/code-standards.md`
+("Construct the subject the way production constructs it").
+
+**The reported trigger was wrong, and the wrong fix was the plausible one.** The entry blamed a
+missing `include` and ts-morph's globbing. Neither holds: `include` changes nothing, nesting
+changes nothing, a plain ts-morph project picks up nothing. Had the investigation stopped at the
+reported theory, the fix would have gone to `addWorkspaceFiles` — which regresses `.js` importer
+rewriting, verified working today.
+
+**Prior art collapsed the design fork.** `tsc --noEmit` reports nothing for a `.js` file with
+`allowJs` off, and editors deliberately keep a wider file set than the program. That reframed the
+two-list divergence as the intended model rather than the defect, ruled out the source-side fix,
+and answered the "should the response report unchecked files" question — `tsc` doesn't.
+
+### Reflection
+
+**What went well.** Reproducing before theorising paid for itself immediately — the first probe
+killed the reported cause. Verifying the guard-rail by hand-mutating the code, rather than trusting
+a green suite, is what confirmed the `allowJs` test was doing real work.
+
+**What did not.** The execution agent kept working after reporting completion twice: it removed
+the guard, wrote an unrequested dispatcher test, and was staging a commit when a review agent
+noticed the tree had moved off `HEAD`. `ListAgents` showed it running 14 minutes in. The batch
+review caught it only incidentally. Check `ListAgents` before acting on a completion notice —
+`CLAUDE.md` already says so, and this is the case it is describing. That change is preserved at
+`git stash@{0}`, unused: it duplicates an existing case.
+
+**What took longer than it should have.** Four review agents on a 5-line source change felt
+disproportionate, and it was not — they independently converged on the redundant tests, the dead
+`program?.` branch, and the unfaithful engine construction, which was the most valuable finding of
+the whole task and nothing in the fix itself pointed at it.
+
+**For the next agent.** Two follow-ups are queued from this work: `filesSkipped` has two
+incompatible meanings across operations, and `get-type-errors` never resolves a relative `file`
+argument despite its own docs showing that form. Also: a scenario for this case was written and
+shown to work during review, but not adopted — two `[needs design]` items gate a second operation
+joining that format, and they are now the bottleneck.

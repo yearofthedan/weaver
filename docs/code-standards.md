@@ -96,6 +96,14 @@ Tests follow their subject. A test for an operation lives in the operation's tes
 
 Size doesn't override this. When a test file grows large enough to give pause, that triggers assessment via the refactoring hierarchy above — not a new test file as a workaround. A new test file is only justified after the hierarchy has been applied and the file still warrants splitting along feature boundaries.
 
+### Construct the subject the way production constructs it
+
+A test that builds its subject differently from the production wiring is testing a shape no user reaches, and it fails silently: the suite is green because the code path carrying the defect was never switched on.
+
+The tell is a constructor argument the tests omit and production always passes. When that argument gates behaviour, every test in the file inherits the blind spot — a whole describe block can look like coverage while exercising a disabled path.
+
+So take the construction from the production call site, not from the neighbouring test. When a helper builds the subject for a whole file, check it against that call site before adding a case to it: a helper is where one wrong argument becomes the file's default. And if a new test needs a *different* construction from its siblings to reach the behaviour it is pinning, that is not a local workaround to comment — it means the siblings are wrong, and the helper is what should change.
+
 ### Use fixtureTest with body-level seed helpers
 
 Use `fixtureTest` from `src/__testHelpers__/helpers.ts` for any test that needs a temp directory. Each seed helper returns the absolute path of a fresh per-test temp dir (cleaned up after). Both helpers write into the same dir, so they compose:
