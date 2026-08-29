@@ -20,10 +20,10 @@ Use [Stryker](https://stryker-mutator.io/) with vitest (`pnpm test:mutate`) to v
 **Scoping a run to a single file:** use the `--mutate` flag:
 ```bash
 stryker run --mutate 'src/operations/getTypeErrors.ts'          # one file
-stryker run --mutate 'src/foo.ts' --mutate 'src/bar.ts'         # multiple
+stryker run --mutate 'src/foo.ts,src/bar.ts'                    # multiple — comma-separated in ONE flag
 stryker run --mutate 'src/operations/getTypeErrors.ts:68-70'    # line range — fastest feedback
 ```
-This overrides the `mutate` array from the config. Useful when checking mutation score for touched files without running the full suite. There is **no `--include` flag** — passing it fails with `too many arguments for 'run'`.
+This overrides the `mutate` array from the config. Useful when checking mutation score for touched files without running the full suite. There is **no `--include` flag** — passing it fails with `too many arguments for 'run'`. **Repeated `--mutate` flags do not accumulate** — the last one wins (observed on Stryker 10.0.0), so the comma form above is the only way to select several files in one run. Brace expansion (`scenario-{a,b}.ts`) is not expanded either — it matches nothing and the run instruments zero files.
 
 **Re-run with `--force` after adding tests — but always scope it.** `--force` ignores the incremental cache and re-runs *every mutant in scope* — it forces a full rebuild of the incremental file, not a targeted re-check. After adding tests, the cache may still report a now-killable mutant as `survived` because it reuses the prior result; `--force` rebuilds it. Always combine with `--mutate` so you rebuild only the touched file — `pnpm test:mutate:file src/foo.ts --force`. Never `--force` a bare `pnpm test:mutate`: that re-runs the entire hours-long suite, defeating the cache.
 
@@ -50,6 +50,7 @@ The dev container keeps pnpm's content-addressed store at `/workspaces/weaver/.p
 Measuring whether a change cost coverage means running the same set of files before and after. `--mutate "a.ts,b.ts"` selects them, but:
 - **`--incremental` has no negation.** The config sets `incremental: true`, so a second run reads the cache and reports the first run's numbers. Use `--force` to re-run every mutant.
 - **Point `--incrementalFile` at a scratch path.** A scoped run writes its partial results over the tracked full-project cache otherwise, so the next `pnpm test:mutate` starts from a cache that knows about six files.
+- **Use a fresh scratch path per run (or add `--force`).** Reusing one scratch file across targeted runs merges stale verdicts back into scope: the incremental differ pulls cached mutants into later runs even when their file is no longer in the current `--mutate` glob, reporting pre-test-addition verdicts as if they were fresh. Observed 2026-08-29: a second targeted run reported a file at byte-identical score after new tests were added, because its mutants were cached `survived` from the first run.
 - **`--jsonReporter.fileName` is not a CLI option** — Stryker exits with `error: unknown option`. The json path comes from the config file only. Piping through `tee` masks this, because the pipeline's exit status is `tee`'s, so a run that produced nothing still looks like it passed. Check the log has content, not just that the command returned.
 
 Compare the survivor *positions*, not the headline score. Two runs can both read 95.10% with a different mutant surviving in each, and a score that holds is not evidence on its own — see [code-standards § Layer fit](../code-standards.md) on why mutation parity does not license deleting a test.
@@ -132,6 +133,12 @@ Fixed gaps are removed. Remaining survivors by category:
 | Area | Survivor | Why accepted |
 |------|----------|-------------|
 | `paths.ts` | `ensureCacheDir`'s `fs.mkdir(CACHE_DIR, { recursive: true })` → `{}` / `{ recursive: false }` | Same class as `install-skills.ts`'s `mkdir` entry directly below — `InMemoryFileSystem.mkdir` ignores its options, so the option has no observable effect at the unit layer. `ensureCacheDir`'s single caller (`runDaemon`) only ever runs against the real, deeply-nested `~/.cache/weaver` path, where `recursive` is required; that path is exercised only via the subprocess-spawning daemon integration tests, which Stryker's sandbox can't run. |
+
+**`scenario-runner.ts` (scoped run, 95.12% — `src/**/__testHelpers__/**` is outside the default `mutate` array, so only an explicit `--mutate` run reaches the harness):**
+
+| Area | Survivor | Why accepted |
+|------|----------|-------------|
+| `scenario-runner.ts` | `parseScenarios` and `loadScenarios` bodies emptied (lines 19, 23) | Same class as `cases.ts`'s module-scope crash (see the eval-lane note above): both mutants break `moveFile.scenarios.test.ts` at collection — its module-level `loadScenarios(...)` call feeds `for (const scenario of file.scenarios)`, so the file fails with `Test Files 1 failed`, `Tests no tests`. Stryker's result comparison sees zero test results and reports Survived; hand-applying each mutant confirms the suite does fail. The same break fails `pnpm test` loudly in CI — this is a runner artifact, not a coverage gap. |
 
 **`install-skills.ts` (scoped run, 94.6%):**
 

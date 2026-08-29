@@ -1,26 +1,28 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { expect } from "vitest";
 import { parse as parseYaml } from "yaml";
 import { type DispatchResponse, dispatchRequest } from "../../daemon/dispatcher.js";
 import {
-  type Effects,
-  expandResponseSugar,
+  assertEffects,
+  assertResponseMatches,
+  assertStepSucceeded,
+  describeFailure,
+  type Tree,
+} from "./scenario-oracle.js";
+import {
   resolveFixture,
   type Scenario,
   type ScenarioFile,
   scenarioFile,
 } from "./scenario-schema.js";
 
-export function parseScenarios(text: string): ScenarioFile {
+function parseScenarios(text: string): ScenarioFile {
   return scenarioFile.parse(parseYaml(text));
 }
 
 export function loadScenarios(absPath: string): ScenarioFile {
   return parseScenarios(fs.readFileSync(absPath, "utf8"));
 }
-
-type Tree = Record<string, string>;
 
 function readTree(root: string): Tree {
   const tree: Tree = {};
@@ -54,84 +56,9 @@ function resolveParams(root: string, params: Record<string, unknown>): Record<st
   );
 }
 
-function assertEffects(root: string, before: Tree, effects: Effects): void {
-  const after = readTree(root);
-
-  for (const [from, target] of Object.entries(effects.moved)) {
-    // Without this, a `moved` naming a source that was never there passes on both halves:
-    // nothing is at the source afterwards, and the destination matches its absent content.
-    expect(before[from], `${from} should have existed beforehand`).toBeDefined();
-    expect(after[from], `${from} should have moved away`).toBeUndefined();
-    if (target.content === undefined) {
-      expect(
-        after[target.to],
-        `${target.to} should exist, with content intact, after the move`,
-      ).toBe(before[from]);
-    } else {
-      expect(after[target.to], `${target.to} content after the move`).toBe(target.content);
-    }
-  }
-
-  for (const [file, content] of Object.entries(effects.changed)) {
-    expect(after[file], `${file} was listed as changed but is identical`).not.toBe(before[file]);
-    expect(after[file], `${file} content`).toBe(content);
-  }
-
-  for (const file of effects.unchanged) {
-    expect(before[file], `${file} should have existed beforehand`).toBeDefined();
-    expect(after[file], `${file} should have been left alone`).toBe(before[file]);
-  }
-
-  const claimed = new Set([
-    ...Object.keys(effects.moved),
-    ...Object.values(effects.moved).map((target) => target.to),
-    ...Object.keys(effects.changed),
-    ...effects.unchanged,
-  ]);
-  const unaccounted = [...new Set([...Object.keys(before), ...Object.keys(after)])]
-    .filter((file) => !claimed.has(file) && before[file] !== after[file])
-    .sort();
-  expect(unaccounted, "files changed without being named in `then.files`").toEqual([]);
-}
-
 /** Rewrite the temp root out of every path the response carries, at any depth. */
 function scrubRoot(root: string, value: DispatchResponse): unknown {
   return JSON.parse(JSON.stringify(value).split(`${root}/`).join(""));
-}
-
-/**
- * Exact equality against the response a scenario documents, so a field appearing that the
- * file does not mention fails here — the one place per operation that has to be looked at
- * when the shape a consumer receives grows.
- */
-function assertResponseMatches(
-  root: string,
-  written: Record<string, unknown>,
-  actual: DispatchResponse,
-): void {
-  expect(scrubRoot(root, actual), "response").toEqual(expandResponseSugar(written));
-}
-
-/**
- * A step in a sequence carries no stated response, so the only thing holding it is that it
- * worked. `warn` is a success that also reported a type error, which a scenario is free to
- * end in; `error` means the run stopped being the one the scenario describes.
- */
-function assertStepSucceeded(method: string, result: DispatchResponse): void {
-  expect(result.status, `step \`${method}\` status (${String(result.message ?? "")})`).not.toBe(
-    "error",
-  );
-}
-
-/**
- * Lead a failure with the scenario's own account of itself. A case pinning behaviour we
- * know is wrong expects content that looks like a bug, so without this the next reader
- * has to find the file to learn the expectation is deliberate.
- */
-function describeFailure(error: unknown, description: string | undefined): unknown {
-  if (description === undefined || !(error instanceof Error)) return error;
-  error.message = `${description}\n\n${error.message}`;
-  return error;
 }
 
 export async function executeScenario(
@@ -155,10 +82,10 @@ export async function executeScenario(
   }
 
   try {
-    assertEffects(root, before, scenario.then.files);
+    assertEffects(before, readTree(root), scenario.then.files);
 
     if (scenario.then.response !== undefined) {
-      assertResponseMatches(root, scenario.then.response, last);
+      assertResponseMatches(scenario.then.response, scrubRoot(root, last));
     }
   } catch (error) {
     throw describeFailure(error, scenario.description);
