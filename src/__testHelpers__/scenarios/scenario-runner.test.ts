@@ -14,9 +14,7 @@ import type { Effects, Scenario, ScenarioFile } from "./scenario-schema.js";
  * The scenario harness is a shared oracle: if its comparison is wrong, every scenario can
  * pass for the wrong reason. Its assertions are pure functions of the values they judge,
  * so most cases state one wrong contract about a known workspace change and watch the
- * oracle reject it — no project, no dispatch. The last three cases drive a real dispatch
- * through the executor, pinning the wiring those units never see: the temp-root scrubbing,
- * the description at the catch site, and the step loop.
+ * oracle reject it — no project, no dispatch.
  */
 
 /**
@@ -330,15 +328,6 @@ function scenarioFileOf(scenario: Scenario): ScenarioFile {
   return { fixtures: {}, scenarios: [scenario] };
 }
 
-async function rejectionOf(file: ScenarioFile, dir: string): Promise<string> {
-  try {
-    await executeScenario(file.scenarios[0], file, dir);
-  } catch (err) {
-    return (err as Error).message;
-  }
-  throw new Error("the runner accepted a scenario it should have rejected");
-}
-
 describe("executor wiring", () => {
   test("scrubs the temp root so a passing response reads as workspace-relative", async ({
     dir,
@@ -369,10 +358,11 @@ describe("executor wiring", () => {
       }),
     );
 
-    const message = await rejectionOf(file, dir);
+    // Two pattern assertions against the one stored rejection both run.
+    const execution = executeScenario(file.scenarios[0], file, dir);
 
-    expect(message).toMatch(/^the scan never considers this specifier/);
-    expect(message).toContain("files changed without being named in `then.files`");
+    await expect(execution).rejects.toThrow(/^the scan never considers this specifier/);
+    await expect(execution).rejects.toThrow("files changed without being named in `then.files`");
   });
 
   test("runs every step of a sequence and judges the net effects, since no step states a response", async ({
