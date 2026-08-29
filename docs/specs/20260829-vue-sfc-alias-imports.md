@@ -20,7 +20,7 @@ expected: src/App.vue imports "@/utils/useCounter"
 
 Pinned by `leaves an SFC's aliased import pointing at the composable's old location` (`src/operations/moveFile.scenarios.yaml:385`), alongside the TS scenario at line 345 showing the behaviour it should have had. An `@/*` alias onto `src/*` is what the Vue and Vite scaffolds generate, so this is the default Vue project shape.
 
-`moveDirectory` carries the same defect through the same line — see Root cause.
+`moveDirectory` carries the same defect by a different route, and is scoped out — see Root cause.
 
 ## Value / Effort
 
@@ -34,12 +34,6 @@ input:    moveFile { oldPath: src/composables/useCounter.ts, newPath: src/utils/
           tsconfig maps "@/*" -> ["src/*"]; src/App.vue imports "@/composables/useCounter"
 output:   src/App.vue imports "@/utils/useCounter"   (alias preserved, not rewritten to a relative path)
           response: filesModified includes src/App.vue
-```
-
-```
-input:    moveDirectory { oldPath: src/composables, newPath: src/lib/composables }
-          src/App.vue imports "@/composables/useCounter"
-output:   src/App.vue imports "@/lib/composables/useCounter"
 ```
 
 Unchanged — this is what proves the fix did not overreach:
@@ -72,7 +66,7 @@ The alias is preserved by TypeScript's own module-specifier generation. The virt
 
 2. `VolarEngine.moveFile` (`src/plugins/vue/engine.ts:259`) never calls that method at all. It delegates to `tsMoveFile(this.tsEngine, …)` — the plain ts-morph engine, which genuinely cannot see inside SFC script blocks — then patches up with `updateVueImportsAfterMove`, whose regex (`src/plugins/vue/scan.ts:64`) matches `/\bfrom\s+(['"])(\.\.?\/[^'"]+)\1/g` and so never considers a non-relative specifier.
 
-`moveDirectory` (`src/plugins/vue/engine.ts:296`) *does* call `getEditsForFileRename`, so it reaches the same filter and loses the same edits. Probed against the same fixture, a `moveDirectory` of `src/composables` produces `Widget.vue` and `App.vue` edits to `@/lib/composables/useCounter`, both dropped.
+`moveDirectory` carries the same defect but **not** through this filter, which is why it is not fixed here. `engine.ts:285` filters its mappings to `.vue` files before querying Volar at all, so a `.ts` file moving inside a directory goes to `this.tsEngine.moveDirectory` and never reaches the Vue engine's edit path. Repairing it needs a Volar query per moved file rather than one per operation — a different cost decision, logged as its own handoff entry.
 
 **The `.js`-coexistence rule is weaver's, not TypeScript's.** `resolveModuleName` was run on `./utils.js` with a real `utils.js` beside a `utils.ts`, under three configs — no `moduleResolution` (the `a-ts-project` fixture), `bundler` (the `a-vue-project` fixture), and `nodenext`. All three resolve to `utils.ts` and all three rewrite the specifier. Weaver overrides that in `isCoexistingJsFileEdit` (`src/ts-engine/engine.ts:417`), applied at line 350 inside `TsMorphEngine.getEditsForFileRename`. The Vue engine's equivalent has no such filter, so routing SFC edits through it without porting the rule regresses `moveFile.scenarios.yaml:255`.
 
@@ -108,8 +102,8 @@ The alias is preserved by TypeScript's own module-specifier generation. The virt
 ## Done-when
 
 - [ ] `leaves an SFC's aliased import pointing at the composable's old location` (`src/operations/moveFile.scenarios.yaml:385`) is rewritten to assert the corrected behaviour and passes
-- [ ] A scenario covers the same defect through `moveDirectory` and passes
 - [ ] A scenario covers `moveFile` of a `.vue` file whose importers use an alias; either it passes as written, or the fix is extended to make it pass
+- [ ] The `moveDirectory` sibling and the `.ts`-importing-`.vue` diagnostics defect are logged as handoff entries
 - [ ] `leaves an SFC's .js specifier alone when a real .js file sits beside the moved one` (line 255) still passes
 - [ ] Mutation score ≥ threshold for `src/plugins/vue/engine.ts`
 - [ ] `pnpm check` passes (lint + build + test)

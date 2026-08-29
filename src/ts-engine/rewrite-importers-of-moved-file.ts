@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import { JS_EXTENSIONS, JS_TS_PAIRS } from "../utils/extensions.js";
@@ -16,6 +17,27 @@ export function isCoexistingJsFile(
 ): boolean {
   if (!JS_EXTENSIONS.has(path.extname(specifier))) return false;
   return scope.fs.exists(path.resolve(fromDir, specifier));
+}
+
+/**
+ * Returns true if the text span at `start`/`length` in `fileName` is a JS-family import
+ * specifier that resolves to a real file on disk — the edit must be suppressed.
+ *
+ * TypeScript resolves `./x.js` to `x.ts` whenever the `.js` is not itself in the program,
+ * under every `moduleResolution` mode, and so offers to repoint it when `x.ts` moves. That
+ * is wrong whenever the `.js` beside it is a real hand-written file staying put, which is
+ * what this check restores.
+ */
+export function isCoexistingJsFileEdit(fileName: string, start: number, length: number): boolean {
+  let content: string;
+  try {
+    content = fs.readFileSync(fileName, "utf8");
+  } catch {
+    return false;
+  }
+  const specifier = content.slice(start, start + length);
+  if (!JS_EXTENSIONS.has(path.extname(specifier))) return false;
+  return fs.existsSync(path.resolve(path.dirname(fileName), specifier));
 }
 
 /**

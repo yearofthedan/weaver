@@ -1,11 +1,10 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
 import { Project } from "ts-morph";
 import type ts from "typescript";
 import { EngineError } from "../domain/errors.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { GetTypeErrorsResult, RenameResult } from "../operations/types.js";
-import { JS_EXTENSIONS, TS_EXTENSIONS } from "../utils/extensions.js";
+import { TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 import { tsDeleteFile } from "./delete-file.js";
@@ -16,6 +15,7 @@ import { tsMoveFile } from "./move-file.js";
 import { tsMoveSymbol } from "./move-symbol.js";
 import { tsRemoveImportersOf } from "./remove-importers.js";
 import { tsRename } from "./rename.js";
+import { isCoexistingJsFileEdit } from "./rewrite-importers-of-moved-file.js";
 import type {
   DefinitionLocation,
   DeleteFileActionResult,
@@ -408,20 +408,4 @@ export class TsMorphEngine implements Engine {
   ): Promise<ExtractFunctionResult> {
     return tsExtractFunction(this, file, startLine, startCol, endLine, endCol, functionName, scope);
   }
-}
-
-/**
- * Returns true if the text span at `start`/`length` in `fileName` is a JS-family
- * import specifier that resolves to a real file on disk — the edit must be suppressed.
- */
-function isCoexistingJsFileEdit(fileName: string, start: number, length: number): boolean {
-  let content: string;
-  try {
-    content = fs.readFileSync(fileName, "utf8");
-  } catch {
-    return false;
-  }
-  const specifier = content.slice(start, start + length);
-  if (!JS_EXTENSIONS.has(path.extname(specifier))) return false;
-  return fs.existsSync(path.resolve(path.dirname(fileName), specifier));
 }

@@ -111,7 +111,7 @@ scenarios:
       response:
         status: success
         typeErrors: none
-        filesModified: [src/main.ts, src/utils/useCounter.ts, src/App.vue]
+        filesModified: [src/App.vue, src/main.ts, src/utils/useCounter.ts]
         filesSkipped: []
         oldPath: src/composables/useCounter.ts
         newPath: src/utils/useCounter.ts
@@ -321,7 +321,7 @@ scenarios:
       response:
         status: success
         typeErrors: none
-        filesModified: [src/lib/utils.ts, src/App.vue]
+        filesModified: [src/App.vue, src/lib/utils.ts]
         filesSkipped: []
         oldPath: src/utils.ts
         newPath: src/lib/utils.ts
@@ -382,8 +382,8 @@ scenarios:
 
             console.log(greetUser("World"));
 
-  - name: leaves an SFC's aliased import pointing at the composable's old location
-    description: The TypeScript path follows the alias; the Vue scan matches only ./ and ../ specifiers, so it never considers this one.
+  - name: repoints an SFC's aliased import when the composable it names moves
+    description: The alias is preserved rather than flattened to a relative specifier, so the SFC keeps the import style its author chose.
     given:
       description: a Vue project mapping @/* onto src/*, with the SFC importing through the alias
       files:
@@ -420,15 +420,111 @@ scenarios:
       response:
         status: success
         typeErrors: none
-        filesModified: [src/utils/useCounter.ts]
+        filesModified: [src/App.vue, src/utils/useCounter.ts]
         filesSkipped: []
         oldPath: src/composables/useCounter.ts
         newPath: src/utils/useCounter.ts
       files:
         moved:
           src/composables/useCounter.ts: src/utils/useCounter.ts
+        changed:
+          src/App.vue: |
+            <script setup lang="ts">
+            import { useCounter } from "@/utils/useCounter";
+
+            const counter = useCounter(0);
+            </script>
+
+            <template>
+              <div>{{ counter.count() }}</div>
+            </template>
+
+  - name: repoints aliased importers of a moved SFC
+    description: |
+      The moved file is itself an SFC, so its importers are found through the virtual .vue.ts
+      path rather than the real one. The type error is not this move's doing and not a failure
+      of it: a .ts file in a Vue project has its diagnostics answered by the TypeScript engine,
+      which cannot resolve a .vue module at all, so `import Widget from "@/…/Widget.vue"`
+      reports 2307 with no refactor in sight. Rewriting main.ts is what puts it in
+      filesModified, and the post-write check only ever looks at that array — so the move
+      makes a standing defect visible rather than causing one.
+    given:
+      description: a Vue project mapping @/* onto src/*, with a component imported through the alias from both an SFC and a .ts file
+      files:
+        tsconfig.json: |
+          {
+            "compilerOptions": {
+              "strict": true,
+              "target": "ESNext",
+              "module": "ESNext",
+              "moduleResolution": "bundler",
+              "jsx": "preserve",
+              "baseUrl": ".",
+              "paths": { "@/*": ["src/*"] }
+            },
+            "include": ["src/**/*.ts", "src/**/*.vue"]
+          }
+        src/composables/useCounter.ts: |
+          export function useCounter(initialValue = 0) {
+            return { count: () => initialValue };
+          }
+        src/components/Widget.vue: |
+          <script setup lang="ts">
+          import { useCounter } from "@/composables/useCounter";
+
+          const counter = useCounter(0);
+          </script>
+
+          <template>
+            <div>{{ counter.count() }}</div>
+          </template>
+        src/App.vue: |
+          <script setup lang="ts">
+          import Widget from "@/components/Widget.vue";
+          </script>
+
+          <template>
+            <Widget />
+          </template>
+        src/main.ts: |
+          import Widget from "@/components/Widget.vue";
+
+          export const entry = Widget;
+    when:
+      - moveFile: { oldPath: src/components/Widget.vue, newPath: src/widgets/Widget.vue }
+    then:
+      response:
+        status: warn
+        typeErrorCount: 1
+        typeErrorsTruncated: false
+        typeErrors:
+          - file: src/main.ts
+            line: 1
+            col: 20
+            code: 2307
+            message: "Cannot find module '@/widgets/Widget.vue' or its corresponding type declarations."
+        filesModified: [src/main.ts, src/App.vue, src/widgets/Widget.vue]
+        filesSkipped: []
+        oldPath: src/components/Widget.vue
+        newPath: src/widgets/Widget.vue
+      files:
+        moved:
+          src/components/Widget.vue: src/widgets/Widget.vue
+        changed:
+          src/App.vue: |
+            <script setup lang="ts">
+            import Widget from "@/widgets/Widget.vue";
+            </script>
+
+            <template>
+              <Widget />
+            </template>
+          src/main.ts: |
+            import Widget from "@/widgets/Widget.vue";
+
+            export const entry = Widget;
         unchanged:
-          - src/App.vue
+          - src/composables/useCounter.ts
 
   - name: rewrites the import without disturbing a comment that names both paths
     given:
@@ -662,7 +758,7 @@ scenarios:
       response:
         status: success
         typeErrors: none
-        filesModified: [src/main.ts, tests/unit/counter.test.ts, src/utils/useCounter.ts, src/App.vue]
+        filesModified: [src/App.vue, src/main.ts, tests/unit/counter.test.ts, src/utils/useCounter.ts]
         filesSkipped: []
         oldPath: src/composables/useCounter.ts
         newPath: src/utils/useCounter.ts
