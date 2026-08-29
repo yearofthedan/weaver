@@ -1,6 +1,8 @@
-import { describe, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fixtureTest as test } from "../helpers.js";
+import { assertEffects, type Tree } from "./scenario-oracle.js";
 import { executeScenario, parseScenarios } from "./scenario-runner.js";
+import type { Effects } from "./scenario-schema.js";
 
 /**
  * The scenario harness is a shared oracle: if its comparison is wrong, every scenario can
@@ -62,117 +64,180 @@ async function rejectionOf(yaml: string, dir: string): Promise<string> {
   throw new Error("the harness accepted a scenario it should have rejected");
 }
 
+/**
+ * The workspace the effect cases judge: src/utils.ts imported once from src/main.ts, with
+ * a tsconfig beside them.
+ */
+const BEFORE: Tree = {
+  "tsconfig.json": `{ "compilerOptions": { "strict": true }, "include": ["src/**/*.ts"] }
+`,
+  "src/main.ts": `import { greetUser } from "./utils";
+
+console.log(greetUser("World"));
+`,
+  "src/utils.ts": `export function greetUser(name: string): string {
+  return \`Hello, \${name}\`;
+}
+`,
+};
+
+/** What moving src/utils.ts to lib/utils.ts leaves behind, the importer rewritten. */
+const AFTER: Tree = {
+  "tsconfig.json": BEFORE["tsconfig.json"],
+  "lib/utils.ts": BEFORE["src/utils.ts"],
+  "src/main.ts": `import { greetUser } from "../lib/utils";
+
+console.log(greetUser("World"));
+`,
+};
+
+function effectsOf(parts: Partial<Effects> = {}): Effects {
+  return { moved: {}, changed: {}, unchanged: [], ...parts };
+}
+
+function failureOf(assert: () => void): string {
+  try {
+    assert();
+  } catch (err) {
+    return (err as Error).message;
+  }
+  throw new Error("the oracle accepted a contract it should have rejected");
+}
+
 describe("effect contract", () => {
-  test("rejects a modification no `then.files` entry claims", async ({ dir }) => {
-    const message = await rejectionOf(
-      moveScenario(`${RESPONSE}
-      files:
-${MOVED}`),
-      dir,
+  const CLEAN = effectsOf({
+    moved: { "src/utils.ts": { to: "lib/utils.ts" } },
+    changed: { "src/main.ts": AFTER["src/main.ts"] },
+    unchanged: ["tsconfig.json"],
+  });
+
+  it("passes when every declared effect holds and no unnamed file differs", () => {
+    assertEffects(BEFORE, AFTER, CLEAN);
+  });
+
+  it("accepts a move whose declared content is what landed", () => {
+    const rewritten = "rewritten on the way\n";
+
+    assertEffects(
+      BEFORE,
+      { ...AFTER, "lib/utils.ts": rewritten },
+      {
+        ...CLEAN,
+        moved: { "src/utils.ts": { to: "lib/utils.ts", content: rewritten } },
+      },
+    );
+  });
+
+  it("passes on an empty workspace with nothing declared", () => {
+    assertEffects({}, {}, effectsOf());
+  });
+
+  it("rejects any effect against an empty workspace", () => {
+    const message = failureOf(() =>
+      assertEffects({}, {}, effectsOf({ moved: { "a.ts": { to: "b.ts" } } })),
+    );
+
+    expect(message).toContain("a.ts should have existed beforehand");
+  });
+
+  it("rejects a modification no `then.files` entry claims", () => {
+    const message = failureOf(() =>
+      assertEffects(
+        BEFORE,
+        AFTER,
+        effectsOf({ moved: { "src/utils.ts": { to: "lib/utils.ts" } } }),
+      ),
     );
 
     expect(message).toContain("files changed without being named in `then.files`");
     expect(message).toContain("src/main.ts");
   });
 
-  test("rejects a scenario claiming nothing happened at all", async ({ dir }) => {
-    const message = await rejectionOf(moveScenario(RESPONSE), dir);
+  it("rejects a claim that nothing happened at all", () => {
+    const message = failureOf(() => assertEffects(BEFORE, AFTER, effectsOf()));
 
-    // The destination did not exist before and the source is gone after, so a scenario
-    // claiming no effects has to fail on both.
+    // The destination did not exist before and the source is gone after, so a claim of
+    // no effects has to fail on both.
     expect(message).toContain("files changed without being named in `then.files`");
     expect(message).toContain("lib/utils.ts");
   });
 
-  test("rejects `changed` content that does not match the file on disk", async ({ dir }) => {
-    const message = await rejectionOf(
-      moveScenario(`${RESPONSE}
-      files:
-${MOVED}
-        changed:
-          src/main.ts: |
-            import { greetUser } from "./stale-path";`),
-      dir,
+  it("rejects `changed` content that does not match the file on disk", () => {
+    const message = failureOf(() =>
+      assertEffects(BEFORE, AFTER, {
+        ...CLEAN,
+        changed: { "src/main.ts": 'import { greetUser } from "./stale-path";\n' },
+      }),
     );
 
     expect(message).toContain("src/main.ts content");
   });
 
-  test("rejects a file listed as `changed` that the operation left alone", async ({ dir }) => {
-    const message = await rejectionOf(
-      moveScenario(`${RESPONSE}
-      files:
-${MOVED}
-${CHANGED_MAIN}
-          tsconfig.json: |
-            { "compilerOptions": { "strict": true }, "include": ["src/**/*.ts"] }`),
-      dir,
+  it("rejects a file listed as `changed` that was left alone", () => {
+    const message = failureOf(() =>
+      assertEffects(BEFORE, AFTER, {
+        ...CLEAN,
+        changed: { ...CLEAN.changed, "tsconfig.json": BEFORE["tsconfig.json"] },
+      }),
     );
 
     expect(message).toContain("tsconfig.json was listed as changed but is identical");
   });
 
-  test("rejects a move whose declared destination is not where the file landed", async ({
-    dir,
-  }) => {
-    const message = await rejectionOf(
-      moveScenario(`${RESPONSE}
-      files:
-        moved:
-          src/utils.ts: lib/elsewhere.ts`),
-      dir,
+  it("rejects a move whose declared destination is not where the file landed", () => {
+    const message = failureOf(() =>
+      assertEffects(
+        BEFORE,
+        AFTER,
+        effectsOf({ moved: { "src/utils.ts": { to: "lib/elsewhere.ts" } } }),
+      ),
     );
 
     expect(message).toContain("lib/elsewhere.ts should exist, with content intact");
   });
 
-  test("rejects a declared move whose source is still sitting there", async ({ dir }) => {
+  it("rejects a declared move whose source is still sitting there", () => {
     // A copy that leaves the original behind passes the totality check — the source is
     // byte-identical, so nothing reads as changed. Only this assertion catches it.
-    const message = await rejectionOf(
-      moveScenario(`${RESPONSE}
-      files:
-        moved:
-          tsconfig.json: lib/tsconfig.json`),
-      dir,
+    const message = failureOf(() =>
+      assertEffects(
+        BEFORE,
+        { ...BEFORE, "lib/tsconfig.json": BEFORE["tsconfig.json"] },
+        effectsOf({ moved: { "tsconfig.json": { to: "lib/tsconfig.json" } } }),
+      ),
     );
 
     expect(message).toContain("tsconfig.json should have moved away");
   });
 
-  test("rejects a file declared `unchanged` that the operation rewrote", async ({ dir }) => {
-    const message = await rejectionOf(
-      moveScenario(`${RESPONSE}
-      files:
-${MOVED}
-        unchanged: [src/main.ts]`),
-      dir,
+  it("rejects a file declared `unchanged` that was rewritten", () => {
+    const message = failureOf(() =>
+      assertEffects(BEFORE, AFTER, {
+        ...CLEAN,
+        changed: {},
+        unchanged: ["src/main.ts"],
+      }),
     );
 
     expect(message).toContain("src/main.ts should have been left alone");
   });
 
-  test("rejects `unchanged` naming a file the fixture never seeded", async ({ dir }) => {
-    const message = await rejectionOf(
-      moveScenario(`${RESPONSE}
-      files:
-        unchanged: [src/never-existed.ts]`),
-      dir,
+  it("rejects `unchanged` naming a file that never existed", () => {
+    const message = failureOf(() =>
+      assertEffects(BEFORE, BEFORE, effectsOf({ unchanged: ["src/never-existed.ts"] })),
     );
 
     expect(message).toContain("src/never-existed.ts should have existed beforehand");
   });
 
-  test("rejects a `moved` entry whose source was never in the workspace", async ({ dir }) => {
+  it("rejects a `moved` entry whose source was never in the workspace", () => {
     // Both halves of the move assertion read as satisfied when the source is absent: nothing
     // is there afterwards, and the destination matches the source's equally absent content.
-    const message = await rejectionOf(
-      moveScenario(`${RESPONSE}
-      files:
-${MOVED}
-          src/ghost.ts: lib/ghost.ts
-${CHANGED_MAIN}`),
-      dir,
+    const message = failureOf(() =>
+      assertEffects(BEFORE, AFTER, {
+        ...CLEAN,
+        moved: { ...CLEAN.moved, "src/ghost.ts": { to: "lib/ghost.ts" } },
+      }),
     );
 
     expect(message).toContain("src/ghost.ts");
