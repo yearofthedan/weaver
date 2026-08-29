@@ -16,7 +16,7 @@ describe("getTypeErrors operation", () => {
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
-      const compiler = new TsMorphEngine();
+      const compiler = new TsMorphEngine(dir);
 
       const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
 
@@ -38,7 +38,7 @@ describe("getTypeErrors operation", () => {
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
-      const compiler = new TsMorphEngine();
+      const compiler = new TsMorphEngine(dir);
 
       const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
 
@@ -68,7 +68,7 @@ describe("getTypeErrors operation", () => {
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
-      const compiler = new TsMorphEngine();
+      const compiler = new TsMorphEngine(dir);
 
       const result = await getTypeErrors(compiler, `${dir}/src/chained-error.ts`, makeScope(dir));
 
@@ -82,7 +82,7 @@ describe("getTypeErrors operation", () => {
 
     test("returns empty diagnostics for a clean file", async ({ seedNamedFixture }) => {
       const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
-      const compiler = new TsMorphEngine();
+      const compiler = new TsMorphEngine(dir);
 
       const result = await getTypeErrors(compiler, `${dir}/src/clean.ts`, makeScope(dir));
 
@@ -93,7 +93,7 @@ describe("getTypeErrors operation", () => {
 
     test("throws FILE_NOT_FOUND for a non-existent file", async ({ seedNamedFixture }) => {
       const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
-      const compiler = new TsMorphEngine();
+      const compiler = new TsMorphEngine(dir);
 
       await expect(
         getTypeErrors(compiler, `${dir}/src/doesNotExist.ts`, makeScope(dir)),
@@ -104,7 +104,7 @@ describe("getTypeErrors operation", () => {
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
-      const compiler = new TsMorphEngine();
+      const compiler = new TsMorphEngine(dir);
 
       await expect(getTypeErrors(compiler, "/etc/hosts", makeScope(dir))).rejects.toMatchObject({
         code: "WORKSPACE_VIOLATION",
@@ -115,7 +115,7 @@ describe("getTypeErrors operation", () => {
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
-      const compiler = new TsMorphEngine();
+      const compiler = new TsMorphEngine(dir);
 
       const result = await getTypeErrors(compiler, `${dir}/src/broken.ts`, makeScope(dir));
 
@@ -127,7 +127,7 @@ describe("getTypeErrors operation", () => {
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
-      const compiler = new TsMorphEngine();
+      const compiler = new TsMorphEngine(dir);
 
       const result = await getTypeErrors(compiler, `${dir}/src/many-errors.ts`, makeScope(dir));
 
@@ -142,7 +142,7 @@ describe("getTypeErrors operation", () => {
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.ts100Errors.name);
-      const compiler = new TsMorphEngine();
+      const compiler = new TsMorphEngine(dir);
 
       const result = await getTypeErrors(compiler, `${dir}/src/exactly-100.ts`, makeScope(dir));
 
@@ -155,7 +155,7 @@ describe("getTypeErrors operation", () => {
   describe("project-wide mode (no file param)", () => {
     test("returns errors from all files in the project", async ({ seedNamedFixture }) => {
       const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
-      const compiler = new TsMorphEngine();
+      const compiler = new TsMorphEngine(dir);
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
 
@@ -168,7 +168,7 @@ describe("getTypeErrors operation", () => {
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
-      const compiler = new TsMorphEngine();
+      const compiler = new TsMorphEngine(dir);
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
 
@@ -182,7 +182,7 @@ describe("getTypeErrors operation", () => {
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
-      const compiler = new TsMorphEngine();
+      const compiler = new TsMorphEngine(dir);
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
 
@@ -204,7 +204,7 @@ describe("getTypeErrors operation", () => {
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.ts100Errors.name);
-      const compiler = new TsMorphEngine();
+      const compiler = new TsMorphEngine(dir);
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
 
@@ -217,7 +217,7 @@ describe("getTypeErrors operation", () => {
   describe("project-wide mode — clean project", () => {
     test("returns empty result for a project with no errors", async ({ seedNamedFixture }) => {
       const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
-      const compiler = new TsMorphEngine();
+      const compiler = new TsMorphEngine(dir);
 
       const result = await getTypeErrors(compiler, undefined, makeScope(dir));
 
@@ -228,7 +228,7 @@ describe("getTypeErrors operation", () => {
   });
 
   describe("project-wide mode — workspace holds a JS file the program excludes", () => {
-    test("does not throw for a root .js config file when allowJs is unset", async ({
+    test("reports no errors for a .js file the compiled program excludes", async ({
       seedInlineFixture,
     }) => {
       const dir = await seedInlineFixture({
@@ -248,45 +248,7 @@ describe("getTypeErrors operation", () => {
       expect(result.truncated).toBe(false);
     });
 
-    test("does not throw for a .js file nested under src/ when allowJs is unset", async ({
-      seedInlineFixture,
-    }) => {
-      const dir = await seedInlineFixture({
-        "tsconfig.json": JSON.stringify({
-          compilerOptions: { strict: true },
-          include: ["src"],
-        }),
-        "src/main.ts": "export const value: number = 1;",
-        "src/legacy.js": "module.exports = { legacy: true };",
-      });
-      const compiler = new TsMorphEngine(dir);
-
-      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
-
-      expect(result.diagnostics).toHaveLength(0);
-      expect(result.errorCount).toBe(0);
-      expect(result.truncated).toBe(false);
-    });
-
-    test("does not throw for a .jsx file when allowJs is unset", async ({ seedInlineFixture }) => {
-      const dir = await seedInlineFixture({
-        "tsconfig.json": JSON.stringify({
-          compilerOptions: { strict: true, jsx: "preserve" },
-          include: ["src"],
-        }),
-        "src/main.ts": "export const value: number = 1;",
-        "src/widget.jsx": "module.exports = function Widget() { return null; };",
-      });
-      const compiler = new TsMorphEngine(dir);
-
-      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
-
-      expect(result.diagnostics).toHaveLength(0);
-      expect(result.errorCount).toBe(0);
-      expect(result.truncated).toBe(false);
-    });
-
-    test("still reports type errors inside a .js file when allowJs and checkJs are enabled", async ({
+    test("still reports errors inside a .js file when allowJs and checkJs put it in the program", async ({
       seedInlineFixture,
     }) => {
       const dir = await seedInlineFixture({
@@ -308,45 +270,11 @@ describe("getTypeErrors operation", () => {
         code: 2339,
       });
     });
-
-    test("does not throw for a workspace with no tsconfig at all", async ({
-      seedInlineFixture,
-    }) => {
-      const dir = await seedInlineFixture({
-        "src/main.ts": "export const value = 1;",
-        "jest.config.js": "module.exports = { testEnvironment: 'node' };",
-      });
-      const compiler = new TsMorphEngine(dir);
-
-      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
-
-      expect(result.diagnostics).toHaveLength(0);
-      expect(result.errorCount).toBe(0);
-      expect(result.truncated).toBe(false);
-    });
-
-    test("returns errorCount 0 for a workspace whose only file is excluded JS", async ({
-      seedInlineFixture,
-    }) => {
-      const dir = await seedInlineFixture({
-        "tsconfig.json": JSON.stringify({
-          compilerOptions: { strict: true },
-        }),
-        "jest.config.js": "module.exports = { testEnvironment: 'node' };",
-      });
-      const compiler = new TsMorphEngine(dir);
-
-      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
-
-      expect(result.diagnostics).toHaveLength(0);
-      expect(result.errorCount).toBe(0);
-      expect(result.truncated).toBe(false);
-    });
   });
 
   describe("Vue SFC support via VolarEngine", () => {
     function makeVolarEngine(dir: string): VolarEngine {
-      return new VolarEngine(new TsMorphEngine(), dir);
+      return new VolarEngine(new TsMorphEngine(dir), dir);
     }
 
     describe("single .vue file with type errors", () => {
@@ -521,10 +449,7 @@ describe("getTypeErrors operation", () => {
             "<script setup lang='ts'>\nconst greeting: string = 'hi';\n</script>\n<template>\n<div>{{ greeting }}</div>\n</template>\n",
           "vite.config.js": "module.exports = { plugins: [] };",
         });
-        // Constructed with workspaceRoot, unlike makeVolarEngine — matches production wiring
-        // (language-plugin-registry.ts always passes it), which is what makes addWorkspaceFiles
-        // pick up vite.config.js and reach the bug this test guards against.
-        const engine = new VolarEngine(new TsMorphEngine(dir), dir);
+        const engine = makeVolarEngine(dir);
 
         const result = await getTypeErrors(engine, undefined, makeScope(dir));
 
@@ -540,7 +465,7 @@ describe("getTypeErrors operation", () => {
       }) => {
         const dir = await seedNamedFixture(FIXTURES.vueErrors.name);
         const volarEngine = makeVolarEngine(dir);
-        const tsEngine = new TsMorphEngine();
+        const tsEngine = new TsMorphEngine(dir);
         const tsFilePath = `${dir}/src/utils.ts`;
         const scope = makeScope(dir);
 

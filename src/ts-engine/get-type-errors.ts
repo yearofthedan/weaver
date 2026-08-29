@@ -23,10 +23,7 @@ export function toDiagnostic(
   return { file, line, col, code: d.code, message: extractDiagnosticMessage(d.messageText) };
 }
 
-export function tsGetTypeErrorsForFile(
-  compiler: TsMorphEngine,
-  absPath: string,
-): GetTypeErrorsResult {
+function tsGetTypeErrorsForFile(compiler: TsMorphEngine, absPath: string): GetTypeErrorsResult {
   const ls = compiler.getLanguageServiceForFile(absPath);
   const all = ls.getSemanticDiagnostics(absPath);
   const errors = all.filter((d) => d.category === ts.DiagnosticCategory.Error);
@@ -35,18 +32,19 @@ export function tsGetTypeErrorsForFile(
   return { diagnostics, errorCount: errors.length, truncated };
 }
 
-export function tsGetTypeErrorsForProject(
+function tsGetTypeErrorsForProject(
   compiler: TsMorphEngine,
   workspace: string,
 ): GetTypeErrorsResult {
   const ls = compiler.getLanguageServiceForDirectory(workspace);
-  const program = ls.getProgram();
+  // Only a syntax-only service returns undefined here, and ts-morph never builds one.
+  const program = ls.getProgram() as ts.Program;
   const allErrors: ReturnType<typeof ls.getSemanticDiagnostics> = [];
   for (const filePath of compiler.getProjectSourceFilePaths(workspace)) {
-    // addWorkspaceFiles keeps a wider file set than the compiled program (e.g. .js files with
-    // allowJs unset) so weaver can still rewrite their imports; only the program's own files
-    // have semantic diagnostics to ask the language service for.
-    if (!program?.getSourceFile(filePath)) continue;
+    // getSemanticDiagnostics throws for a path outside the compiled program, and
+    // addWorkspaceFiles deliberately adds files the program excludes (.js with allowJs unset)
+    // so that a move can still repoint their imports.
+    if (!program.getSourceFile(filePath)) continue;
     const diags = ls.getSemanticDiagnostics(filePath);
     for (const d of diags) {
       if (d.category === ts.DiagnosticCategory.Error) {
