@@ -6,7 +6,6 @@ import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type { GetTypeErrorsResult, RenameResult } from "../../operations/types.js";
 import { applyRenameEdits, mergeFileEdits } from "../../ts-engine/apply-rename-edits.js";
 import type { TsMorphEngine } from "../../ts-engine/engine.js";
-import { tsMoveFile } from "../../ts-engine/move-file.js";
 import { isCoexistingJsFileEdit } from "../../ts-engine/rewrite-importers-of-moved-file.js";
 import type {
   DefinitionLocation,
@@ -23,6 +22,7 @@ import { findTsConfig, findTsConfigForFile } from "../../utils/ts-project.js";
 import { vueDeleteFile } from "./delete-file.js";
 import { vueExtractFunction } from "./extract-function.js";
 import { vueGetTypeErrorsForFile, vueGetTypeErrorsForProject } from "./get-type-errors.js";
+import { vueMoveFile, vueRenameEdits } from "./move-file.js";
 import { vueMoveSymbol } from "./move-symbol.js";
 import { scanVueNameMatches } from "./name-matches.js";
 import {
@@ -286,38 +286,12 @@ export class VolarEngine implements Engine {
     updateVueImportsAfterSymbolMove(symbolName, sourceFile, destFile, searchRoot, scope);
   }
 
-  /**
-   * The import edits only the Vue language service can produce, for one file about to move.
-   *
-   * Volar registers each SFC under a virtual `<name>.vue.ts`, so a moved SFC has to be named
-   * that way for its importers to be found at all — a query against the real path returns
-   * nothing. Everything importing a moved SFC is taken, because no other engine can see it.
-   *
-   * A moved `.ts` file yields only its SFC importers here; its `.ts` importers belong to the
-   * TypeScript engine, which runs afterwards and would otherwise rewrite them a second time.
-   */
-  private async vueRenameEdits(oldPath: string, newPath: string): Promise<FileTextEdit[]> {
-    if (oldPath.endsWith(".vue")) {
-      return this.getEditsForFileRename(`${oldPath}.ts`, `${newPath}.ts`);
-    }
-    return this.getEditsForFileRename(oldPath, newPath, (f) => f.endsWith(".vue"));
-  }
-
   async moveFile(
     oldPath: string,
     newPath: string,
     scope: WorkspaceScope,
   ): Promise<MoveFileActionResult> {
-    const tsConfig = findTsConfigForFile(oldPath);
-    const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
-
-    // The service has to see oldPath on disk, so this query cannot wait until after the move.
-    applyRenameEdits(this, await this.vueRenameEdits(oldPath, newPath), scope);
-
-    const result = await tsMoveFile(this.tsEngine, oldPath, newPath, scope);
-    this.invalidateService(oldPath);
-    updateVueImportsAfterMove(oldPath, newPath, searchRoot, scope);
-    return result;
+    return vueMoveFile(this, this.tsEngine, oldPath, newPath, scope);
   }
 
   async moveDirectory(
@@ -342,7 +316,7 @@ export class VolarEngine implements Engine {
     // Run before the move — the service has to see each old path on disk.
     const editSets = await Promise.all(
       vueMappings.map(({ oldFilePath, newFilePath }) =>
-        this.vueRenameEdits(oldFilePath, newFilePath),
+        vueRenameEdits(this, oldFilePath, newFilePath),
       ),
     );
     applyRenameEdits(this, mergeFileEdits(editSets), scope);
