@@ -3,6 +3,7 @@ import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
 import {
   isCoexistingJsFile,
+  isCoexistingJsFileEdit,
   rewriteImportersOfMovedFile,
   rewriteSpecifier,
 } from "./rewrite-importers-of-moved-file.js";
@@ -43,6 +44,14 @@ describe("isCoexistingJsFile", () => {
       const scope = makeScope({ "/project/src/utils.mjs": "export const x = 1;" });
       expect(isCoexistingJsFile("./utils.mjs", "/project/src", scope)).toBe(true);
     });
+  });
+});
+
+describe("isCoexistingJsFileEdit", () => {
+  it("does not suppress an edit to a file it cannot read", () => {
+    // Reads real disk, so a path that cannot exist is the whole input. Answering "suppress"
+    // here would silently drop a correct rewrite; the edit is left to be applied instead.
+    expect(isCoexistingJsFileEdit("/nowhere/absent.ts", 0, 10)).toBe(false);
   });
 });
 

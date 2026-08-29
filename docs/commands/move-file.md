@@ -28,7 +28,7 @@ weaver move-file '{"oldPath": "src/utils/helpers.ts", "newPath": "src/lib/helper
 ```json
 {
   "status": "success",
-  "filesModified": ["src/lib/helpers.ts", "src/main.ts", "src/components/App.vue"],
+  "filesModified": ["src/components/App.vue", "src/lib/helpers.ts", "src/main.ts"],
   "filesSkipped": []
 }
 ```

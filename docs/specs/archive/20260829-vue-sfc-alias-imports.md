@@ -111,3 +111,35 @@ The alias is preserved by TypeScript's own module-specifier generation. The virt
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+---
+
+## Outcome
+
+**Verification.** Driven through the built CLI and daemon against a real Vue project (`moduleResolution: bundler`, `@/*` → `src/*`), not the test harness:
+
+```
+$ node dist/adapters/cli/cli.js move-file '{"oldPath": "src/composables/useCounter.ts", "newPath": "src/utils/useCounter.ts"}'
+{"status":"success","filesModified":["…/src/App.vue","…/src/utils/useCounter.ts"],"filesSkipped":[],
+ "typeErrors":[],"typeErrorCount":0,"typeErrorsTruncated":false}
+
+$ cat src/App.vue
+<script setup lang="ts">
+import { useCounter } from "@/utils/useCounter";
+```
+
+The alias is preserved rather than flattened to `../utils/useCounter`, and `src/App.vue` now appears in `filesModified`, so the post-write type check covers it.
+
+**Tests.** 3 scenarios added or rewritten in `moveFile.scenarios.yaml` (aliased import, moved SFC, and the `.js`-coexistence case kept passing), 3 existing scenarios updated for `filesModified` ordering, 1 unit test added for `isCoexistingJsFileEdit`. 25 scenarios and the full suite green.
+
+**Mutation.** `rewrite-importers-of-moved-file.ts` 94.74% → **98.25%** after the added test; the single remaining survivor (`105:11`, `if (specifier === undefined) continue`) is pre-existing code this change did not touch. `plugins/vue/engine.ts` **77.67%** — 3 of its 38 survivors are in new code: the `source === null` guard in `toRealFileEdit` (an unexercised defensive branch, matching the identical unkilled branch in the sibling `translateSingleLocation` it delegates to), and the `invalidateService` and `updateVueImportsAfterMove` calls in `moveFile`, both pre-existing lines. Run with `--incrementalFile` pointed at scratch, so the tracked incremental cache is untouched and there is nothing to commit.
+
+**What the spike changed about the task.** The handoff entry framed the fork as "do `.vue` imports get a real resolver", with hand-rolling `baseUrl`, `paths` globs and `extends` chains as the cost. The resolver was already there: the Volar service computes the correct alias-preserving edit and the engine discarded it, because the edit names a virtual `<name>.vue.ts` that a caller cannot write to. Four hours of design argument collapsed into a span translation once that was observed rather than reasoned about. **Reach for the running system before the design document** — the deciding fact was one 40-line script away the whole time.
+
+**Two findings that changed scope mid-implementation.**
+
+`moveDirectory` was in scope on a wrong premise. The spec claimed it "reaches the same filter", from a spike that queried the language service directly without checking whether `moveDirectory` makes that call. It does not: `engine.ts:285` filters its mappings to `.vue` files first, so a `.ts` file moving inside a directory never reaches the Vue edit path. Repairing it costs one Volar query per moved file rather than one per operation, which is a different decision — dropped here, logged as its own entry. **A probe against a dependency proves what the dependency does, not what the caller asks it.**
+
+Rewriting a `.ts` importer of a moved SFC put it into `filesModified` and surfaced `TS2307: Cannot find module '…/Widget.vue'`. Verified pre-existing and unrelated to moving — `get-type-errors` on a `.ts` file importing an *unmoved* SFC reports it too, because `engine.ts:361` routes a `.ts` file in a Vue project to the ts-morph engine, which has no `.vue` support. Pinned in the scenario with a `description` saying the `warn` is deliberate, and logged as `[needs investigation]`.
+
+**For the next agent.** The `filesModified` ordering changed — SFC importers now lead, being written before the move. Nothing promised an order, but three scenarios and the example in `docs/commands/move-file.md` encoded the old one. If a fourth operation adopts the Volar edit path, expect the same.
