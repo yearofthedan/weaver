@@ -227,6 +227,123 @@ describe("getTypeErrors operation", () => {
     });
   });
 
+  describe("project-wide mode — workspace holds a JS file the program excludes", () => {
+    test("does not throw for a root .js config file when allowJs is unset", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true },
+          include: ["src"],
+        }),
+        "src/main.ts": "export const value: number = 1;",
+        "jest.config.js": "module.exports = { testEnvironment: 'node' };",
+      });
+      const compiler = new TsMorphEngine(dir);
+
+      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
+
+      expect(result.diagnostics).toHaveLength(0);
+      expect(result.errorCount).toBe(0);
+      expect(result.truncated).toBe(false);
+    });
+
+    test("does not throw for a .js file nested under src/ when allowJs is unset", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true },
+          include: ["src"],
+        }),
+        "src/main.ts": "export const value: number = 1;",
+        "src/legacy.js": "module.exports = { legacy: true };",
+      });
+      const compiler = new TsMorphEngine(dir);
+
+      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
+
+      expect(result.diagnostics).toHaveLength(0);
+      expect(result.errorCount).toBe(0);
+      expect(result.truncated).toBe(false);
+    });
+
+    test("does not throw for a .jsx file when allowJs is unset", async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true, jsx: "preserve" },
+          include: ["src"],
+        }),
+        "src/main.ts": "export const value: number = 1;",
+        "src/widget.jsx": "module.exports = function Widget() { return null; };",
+      });
+      const compiler = new TsMorphEngine(dir);
+
+      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
+
+      expect(result.diagnostics).toHaveLength(0);
+      expect(result.errorCount).toBe(0);
+      expect(result.truncated).toBe(false);
+    });
+
+    test("still reports type errors inside a .js file when allowJs and checkJs are enabled", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true, allowJs: true, checkJs: true },
+          include: ["src", "jest.config.js"],
+        }),
+        "src/main.ts": "export const value: number = 1;",
+        "jest.config.js": "const bad = 5;\nbad.toUpperCase();\n",
+      });
+      const compiler = new TsMorphEngine(dir);
+
+      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
+
+      expect(result.errorCount).toBe(1);
+      expect(result.diagnostics).toHaveLength(1);
+      expect(result.diagnostics[0]).toMatchObject({
+        file: `${dir}/jest.config.js`,
+        code: 2339,
+      });
+    });
+
+    test("does not throw for a workspace with no tsconfig at all", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "src/main.ts": "export const value = 1;",
+        "jest.config.js": "module.exports = { testEnvironment: 'node' };",
+      });
+      const compiler = new TsMorphEngine(dir);
+
+      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
+
+      expect(result.diagnostics).toHaveLength(0);
+      expect(result.errorCount).toBe(0);
+      expect(result.truncated).toBe(false);
+    });
+
+    test("returns errorCount 0 for a workspace whose only file is excluded JS", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true },
+        }),
+        "jest.config.js": "module.exports = { testEnvironment: 'node' };",
+      });
+      const compiler = new TsMorphEngine(dir);
+
+      const result = await getTypeErrors(compiler, undefined, makeScope(dir));
+
+      expect(result.diagnostics).toHaveLength(0);
+      expect(result.errorCount).toBe(0);
+      expect(result.truncated).toBe(false);
+    });
+  });
+
   describe("Vue SFC support via VolarEngine", () => {
     function makeVolarEngine(dir: string): VolarEngine {
       return new VolarEngine(new TsMorphEngine(), dir);
@@ -382,6 +499,38 @@ describe("getTypeErrors operation", () => {
         } else {
           expect(result.errorCount).toBe(result.diagnostics.length);
         }
+      });
+    });
+
+    describe("project-wide mode in a Vue project — workspace holds a JS file the program excludes", () => {
+      test("does not throw for a root vite.config.js when allowJs is unset", async ({
+        seedInlineFixture,
+      }) => {
+        const dir = await seedInlineFixture({
+          "tsconfig.json": JSON.stringify({
+            compilerOptions: {
+              strict: true,
+              target: "ESNext",
+              module: "ESNext",
+              moduleResolution: "bundler",
+              jsx: "preserve",
+            },
+            include: ["src/**/*.ts", "src/**/*.vue"],
+          }),
+          "src/App.vue":
+            "<script setup lang='ts'>\nconst greeting: string = 'hi';\n</script>\n<template>\n<div>{{ greeting }}</div>\n</template>\n",
+          "vite.config.js": "module.exports = { plugins: [] };",
+        });
+        // Constructed with workspaceRoot, unlike makeVolarEngine — matches production wiring
+        // (language-plugin-registry.ts always passes it), which is what makes addWorkspaceFiles
+        // pick up vite.config.js and reach the bug this test guards against.
+        const engine = new VolarEngine(new TsMorphEngine(dir), dir);
+
+        const result = await getTypeErrors(engine, undefined, makeScope(dir));
+
+        expect(result.errorCount).toBe(0);
+        expect(result.diagnostics).toHaveLength(0);
+        expect(result.truncated).toBe(false);
       });
     });
 

@@ -40,8 +40,13 @@ export function tsGetTypeErrorsForProject(
   workspace: string,
 ): GetTypeErrorsResult {
   const ls = compiler.getLanguageServiceForDirectory(workspace);
+  const program = ls.getProgram();
   const allErrors: ReturnType<typeof ls.getSemanticDiagnostics> = [];
   for (const filePath of compiler.getProjectSourceFilePaths(workspace)) {
+    // addWorkspaceFiles keeps a wider file set than the compiled program (e.g. .js files with
+    // allowJs unset) so weaver can still rewrite their imports; only the program's own files
+    // have semantic diagnostics to ask the language service for.
+    if (!program?.getSourceFile(filePath)) continue;
     const diags = ls.getSemanticDiagnostics(filePath);
     for (const d of diags) {
       if (d.category === ts.DiagnosticCategory.Error) {

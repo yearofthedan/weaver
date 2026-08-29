@@ -59,3 +59,6 @@ The dispatcher calls `registry.projectEngine()`, which returns `VolarEngine` for
 
 **`getTypeErrorsForFiles` must call `refreshFromFileSystemSync()` before checking diagnostics.**
 When post-write diagnostics run against a file that the TsMorphEngine project already has cached, ts-morph will see stale content unless `refreshFromFileSystemSync()` is called first. `getTypeErrorsForFiles` always does this.
+
+**Project-wide mode filters the workspace file list down to the compiled program.**
+`TsMorphEngine.addWorkspaceFiles` adds every `.ts`/`.tsx`/`.js`/`.jsx` file under the workspace to the ts-morph project, regardless of `allowJs` — this is deliberate, so a `.js` file with no type checking still gets navigation and import-rewrite support (e.g. a `moveFile` that repoints a `.js` importer). The compiled `Program` behind the language service excludes `.js`/`.jsx` files when `allowJs` is unset, so `tsGetTypeErrorsForProject` skips any path from `getProjectSourceFilePaths` that `program.getSourceFile(filePath)` doesn't resolve — asking the language service about a file outside the program throws. Filtering on program membership, not on extension, matters: a project with `allowJs: true` still needs its `.js` files' diagnostics reported.
