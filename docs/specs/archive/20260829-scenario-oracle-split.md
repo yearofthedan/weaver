@@ -92,11 +92,23 @@ All three forks were settled with the user before implementation:
 
 ## Done-when
 
-- [ ] All ACs verified by tests
-- [ ] Mutation score ≥ threshold for `scenario-oracle.ts` and `scenario-runner.ts`, via a targeted `--mutate` run with `--incrementalFile` pointed at scratch (per the `scenario-tests` skill); every survivor classified
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`. If implementation pushes a file past threshold, extract per the test refactoring hierarchy (push down to units → decompose source) before marking this item done.
-- [ ] Docs updated if public surface changed: none — test-harness surface only; the `scenario-tests` skill does not name the runner's exports
-- [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] All ACs verified by tests
+- [x] Mutation score ≥ threshold for `scenario-oracle.ts` and `scenario-runner.ts`, via a targeted `--mutate` run with `--incrementalFile` pointed at scratch (per the `scenario-tests` skill); every survivor classified
+- [x] `pnpm check` passes (lint + build + test)
+- [x] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`. If implementation pushes a file past threshold, extract per the test refactoring hierarchy (push down to units → decompose source) before marking this item done.
+- [x] Docs updated if public surface changed: none — test-harness surface only; the `scenario-tests` skill does not name the runner's exports
+- [x] Tech debt discovered during implementation added to handoff.md as [needs design] — the harness's mutation scope and location, queued during speccing
+- [x] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Verification:** the deliverable is test infrastructure, so the real path is the scenario lane itself: all 24 `moveFile.scenarios.yaml` cases run through the same `executeScenario` entry point, byte-identical YAML, green inside `pnpm check` (1217 main + 527 eval tests). The harness's own file grew from 15 to 31 tests; 46 tests across the scenarios directory pass in ~1.3s (the pre-split file's 15 cases each paid a full ts-morph dispatch — a measured 2.56s of test time dropped to 0.86s for more than double the cases). The tracked incremental cache (`reports/stryker-incremental.json`) was never touched — all targeted runs used scratch paths — so there was nothing to commit for it.
+
+**Mutation:** `scenario-oracle.ts` 100% (39/39). `scenario-runner.ts` 95.12% (39/41) — the 2 survivors are the documented collection-crash artifact (`parseScenarios`/`loadScenarios` bodies emptied), recorded in `docs/tech/mutation-testing.md`'s known-survivors table. The run also found three real gaps, fixed: the executor's two conditional wiring branches had no end-to-end pin (the old suite's response-contract cases had provided one; the rewrite moved them to pure units), and the oracle's declared-content branch had no negative case — a passing case cannot kill an assertion-removal mutant.
+
+**Reflection:**
+- *What went well:* the four-reviewer pass caught what a present author wouldn't — a helper re-implementing vitest at one remaining call site, a positional comment reference, the handoff trim the spec's Edges had directed. Mutation then caught what the review couldn't — unpinned wiring branches. The two passes composed; neither alone was enough.
+- *What did not go well:* the case-count decision ("exactly three e2e cases") was made pre-mutation and survived speccing, review, and green tests before a mutant exposed it. When a refactor relocates coverage, case counts settled at spec time are provisional until the mutation run — the AC now says five.
+- *What took longer than it should have:* the targeted mutation runs. Three avoidable re-runs: repeated `--mutate` flags keep only the last (comma-separate instead), a reused scratch incremental file merged stale verdicts into a later run, and brace globs match nothing. All three are now in `docs/tech/mutation-testing.md`.
+- *For the next agent:* the oracle module must stay fs-free (structural criterion); the five wiring cases each pin one executor branch — if you add a branch to `executeScenario`, add its case. The get-type-errors adoption can now extend the executor without re-proving the oracle.
