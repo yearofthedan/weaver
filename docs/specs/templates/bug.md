@@ -95,6 +95,7 @@ the reported symptom.
 - [ ] Regression test covers the exact failing case
 - [ ] Mutation score ≥ threshold for touched files
 - [ ] `pnpm check` passes (lint + build + test)
+- [ ] `/review-changes` run over the whole change and its findings applied — a green `pnpm check` does not stand in for it
 - [ ] Docs updated if public surface changed (`docs/commands/<name>.md` for user-facing, `docs/internals/<name>.md` for implementation)
 - [ ] Tech debt discovered during investigation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)

@@ -11,6 +11,8 @@ metadata:
 
 Steps 1-2 and 4-10 run in the main conversation (interactive spec and review work). Step 3 dispatches ACs to `execution-agent` (defined in `.claude/agents/`), grouped by neighbourhood — ACs that touch the same files go in one call — and **reviews each batch in the main conversation before dispatching the next**.
 
+**Dispatch is the default.** `execution-agent` exists because mechanical code changes do not need the orchestrator's model, and dispatching keeps the neighbourhood's file output out of this conversation. Implement inline only when dispatching would cost more than it saves — a single-unit bug fix in one file, or a change whose whole context the orchestrator already holds from investigation. Inline execution does not shed any of step 3's obligations, and step 4 runs either way.
+
 ---
 
 1. **Find the task.** Read `docs/handoff.md` — identify the first task by priority. Do not skip items or search `docs/specs/` for existing specs; the first item in the queue is the task, whatever its state.
@@ -51,11 +53,15 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
    After each batch, before dispatching the next:
    - **Read the agent's notes file** from `.claude/agent-notes/` — the file itself, not the completion summary the agent hands back (that summary is lossy and buries self-review catches). It logs deviations, assumptions, surprises, and self-corrections as they happen. Mine it for batch-specific issues *and* generalisable learnings to promote in step 8
    - Verify the batch's commits exist and `pnpm check` passes
-   - **Review the batch.** Run `/review-changes <this-batch-start-sha>..HEAD` on just this batch's commits and apply the fixes before moving on. Reviewing per batch — not once at the end — catches issues while they are cheap: before later batches build on them, and especially before a destructive or irreversible batch (deletions, migrations, dependency removal) runs against a problem the build-up introduced. It also surfaces problems through interactive follow-up that a single end-of-slice pass misses. Scrutinise anything the execution agent did beyond the batch's stated scope.
+   - **Review the batch.** Run `/review-changes <this-batch-start-sha>..HEAD` on just this batch's commits and apply the fixes before moving on. Reviewing per batch — not once at the end — catches issues while they are cheap: before later batches build on them, and especially before a destructive or irreversible batch (deletions, migrations, dependency removal) runs against a problem the build-up introduced. This is in addition to step 4, never instead of it — the last batch has no "next batch" to protect, which is exactly where skipping feels reasonable and is not. It also surfaces problems through interactive follow-up that a single end-of-slice pass misses. Scrutinise anything the execution agent did beyond the batch's stated scope.
    - If the agent reported assumptions or spec mismatches, decide whether to adjust the next batch's instructions, fix something, or ask the user
    - **Spec-reality tripwire.** If a batch fails for reasons that require changing an AC's *interface* — the shape it exposes to callers (signature, parameters, return type, error contract), not just how it is implemented — stop. Do not adapt the interface in-flight and carry on. Escalate to the user (or, if unavailable, the `Plan` agent per step 3's rule), record the resolution in the spec, then resume. An interface that drifts mid-slice leaves the spec describing something the code no longer does.
 
-4. **Final cross-batch review pass.** The per-batch reviews in step 3 do the heavy lifting; this pass catches interactions *between* batches that no single batch review could see (e.g. a late batch deletes something an early batch still depends on). Run `/review-changes <baseline-sha>..HEAD` over the whole task, apply any fixes, and commit. For a single-batch task the per-batch review already covered this — the final pass is then redundant. Skip entirely for `[chore]` tasks.
+4. **Review the whole change — unconditional.** Run `/review-changes <baseline-sha>..HEAD` over the task, apply any fixes, and commit.
+
+   **This step keys off the diff, not off how the code was produced.** It runs whether the work was dispatched in ten batches or written inline in this conversation, and whether there was one batch or six. Step 3's per-batch reviews do not discharge it: they exist to catch problems early, while later batches are still being built on top, and a review that ran mid-task cannot have seen the final state. A green `pnpm check` does not discharge it either — "it passes" and "it is well-shaped" are different claims, and only tests check the first.
+
+   Skip only for `[chore]` tasks.
 
 5. **Run mutation testing on every new or significantly modified source file.** This step is not optional and cannot be deferred to a follow-up task.
    ```bash

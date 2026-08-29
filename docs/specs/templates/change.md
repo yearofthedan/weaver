@@ -222,6 +222,7 @@ Examples of what belongs here:
 - [ ] All ACs verified by tests
 - [ ] Mutation score ≥ threshold for touched files
 - [ ] `pnpm check` passes (lint + build + test)
+- [ ] `/review-changes` run over the whole change and its findings applied — a green `pnpm check` does not stand in for it
 - [ ] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`. If implementation pushes a file past threshold, extract per the test refactoring hierarchy (push down to units → decompose source) before marking this item done.
 - [ ] Docs updated if public surface changed:
       - README.md (commands table, install snippet, top-level overview)
