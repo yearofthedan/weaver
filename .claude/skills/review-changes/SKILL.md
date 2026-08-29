@@ -27,6 +27,8 @@ Use the Agent tool to launch all four agents concurrently in a single message.
 
 **Dispatch each agent with `isolation: "worktree"` when reviewing a committed range.** Reviewers verify claims by running things — hand-applying a mutation, deleting a guard to confirm a test reds — so the shared tree is a race in both directions: their experiments corrupt yours, and a concurrent writer makes their reads unreliable. A completed agent is still a live writer, because anyone can resume it, so you cannot close this by sequencing carefully.
 
+**Pin both ends of the range to explicit commit SHAs — never `HEAD`.** A worktree can be created from a commit that predates work committed in this session, so `HEAD` inside it is not the `HEAD` you meant, and a range built from it can resolve to nothing or to the reverse patch. An agent that notices will recover and review the right thing; one that does not will review a deletion and report confidently on it. Resolve the range yourself before dispatching and pass the resulting SHAs.
+
 The exception is the no-argument mode: `git diff HEAD` reviews uncommitted work, which a worktree cannot see. Run those in the main tree and accept the exposure.
 
 First `pnpm exec` in a worktree triggers an on-demand install (seconds — pnpm hardlinks from the shared store). It also runs `prepare: husky`, which writes `core.hooksPath` into `.git/config`, and worktrees share that file. Idempotent today, but do not assume a worktree isolates you from repo config.
