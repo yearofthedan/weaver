@@ -22,35 +22,34 @@ describe("isCoexistingJsFile", () => {
   describe("JS-family extension detection", () => {
     it("returns false for a specifier without a JS-family extension", () => {
       const scope = makeScope({});
-      expect(isCoexistingJsFile("./utils", "/project/src", scope)).toBe(false);
+      expect(isCoexistingJsFile("./utils", "/project/src", scope.fs)).toBe(false);
     });
 
     it("returns false for a .ts extension specifier (not JS-family)", () => {
       const scope = makeScope({ "/project/src/utils.ts": "export const x = 1;" });
-      expect(isCoexistingJsFile("./utils.ts", "/project/src", scope)).toBe(false);
+      expect(isCoexistingJsFile("./utils.ts", "/project/src", scope.fs)).toBe(false);
     });
 
     it("returns true when a .js specifier resolves to a real file", () => {
       const scope = makeScope({ "/project/src/utils.js": "export const x = 1;" });
-      expect(isCoexistingJsFile("./utils.js", "/project/src", scope)).toBe(true);
+      expect(isCoexistingJsFile("./utils.js", "/project/src", scope.fs)).toBe(true);
     });
 
     it("returns false when a .js specifier does not resolve to a file", () => {
       const scope = makeScope({});
-      expect(isCoexistingJsFile("./utils.js", "/project/src", scope)).toBe(false);
+      expect(isCoexistingJsFile("./utils.js", "/project/src", scope.fs)).toBe(false);
     });
 
     it("returns true when a .mjs specifier resolves to a real file", () => {
       const scope = makeScope({ "/project/src/utils.mjs": "export const x = 1;" });
-      expect(isCoexistingJsFile("./utils.mjs", "/project/src", scope)).toBe(true);
+      expect(isCoexistingJsFile("./utils.mjs", "/project/src", scope.fs)).toBe(true);
     });
   });
 });
 
 describe("isCoexistingJsFileEdit", () => {
   it("does not suppress an edit to a file it cannot read", () => {
-    // Reads real disk, so a path that cannot exist is the whole input. Answering "suppress"
-    // here would silently drop a correct rewrite; the edit is left to be applied instead.
+    // Reads real disk, so a path that cannot exist is the whole input.
     expect(isCoexistingJsFileEdit("/nowhere/absent.ts", 0, 10)).toBe(false);
   });
 });

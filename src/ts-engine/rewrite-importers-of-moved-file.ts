@@ -1,22 +1,21 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
+import type { FileSystem } from "../ports/filesystem.js";
+import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { JS_EXTENSIONS, JS_TS_PAIRS } from "../utils/extensions.js";
 import { toRelBase } from "../utils/relative-path.js";
 import { createThrowawaySourceFile } from "./throwaway-project.js";
+
+const nodeFs = new NodeFileSystem();
 
 /**
  * Returns true if `specifier` has a JS-family extension and resolves to a real
  * file on disk at `fromDir`. Used to suppress rewrites of imports that genuinely
  * target a `.js` file rather than aliasing a `.ts` source.
  */
-export function isCoexistingJsFile(
-  specifier: string,
-  fromDir: string,
-  scope: WorkspaceScope,
-): boolean {
+export function isCoexistingJsFile(specifier: string, fromDir: string, fs: FileSystem): boolean {
   if (!JS_EXTENSIONS.has(path.extname(specifier))) return false;
-  return scope.fs.exists(path.resolve(fromDir, specifier));
+  return fs.exists(path.resolve(fromDir, specifier));
 }
 
 /**
@@ -29,15 +28,15 @@ export function isCoexistingJsFile(
  * what this check restores.
  */
 export function isCoexistingJsFileEdit(fileName: string, start: number, length: number): boolean {
+  // Reads disk directly rather than through a scope: both call sites are inside
+  // `Engine.getEditsForFileRename`, which carries no WorkspaceScope to thread one from.
   let content: string;
   try {
-    content = fs.readFileSync(fileName, "utf8");
+    content = nodeFs.readFile(fileName);
   } catch {
     return false;
   }
-  const specifier = content.slice(start, start + length);
-  if (!JS_EXTENSIONS.has(path.extname(specifier))) return false;
-  return fs.existsSync(path.resolve(path.dirname(fileName), specifier));
+  return isCoexistingJsFile(content.slice(start, start + length), path.dirname(fileName), nodeFs);
 }
 
 /**
@@ -58,7 +57,7 @@ export function rewriteSpecifier(
 
   for (const [jsExt, tsExt] of JS_TS_PAIRS) {
     if (specifier === relOldBase + jsExt) {
-      if (isCoexistingJsFile(specifier, fromDir, scope)) return null;
+      if (isCoexistingJsFile(specifier, fromDir, scope.fs)) return null;
       return relNewBase + jsExt;
     }
     if (specifier === relOldBase + tsExt) return relNewBase + tsExt;

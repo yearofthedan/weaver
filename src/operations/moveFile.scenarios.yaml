@@ -439,6 +439,66 @@ scenarios:
               <div>{{ counter.count() }}</div>
             </template>
 
+  - name: rewrites a moved SFC's own relative import
+    description: |
+      The SFC moves a directory deeper, so a specifier relative to its old location no longer
+      resolves. The rewrite travels with the rename: the edit lands on the file at its old path
+      and the move carries the corrected content across, which is why filesModified names both
+      paths. The old one no longer exists on disk — that is the standing filesModified defect,
+      pinned here on a .vue move as well as the .ts moves that already pin it.
+    given:
+      description: a Vue project with a component importing a sibling helper relatively
+      files:
+        tsconfig.json: |
+          {
+            "compilerOptions": {
+              "strict": true,
+              "target": "ESNext",
+              "module": "ESNext",
+              "moduleResolution": "bundler",
+              "jsx": "preserve"
+            },
+            "include": ["src/**/*.ts", "src/**/*.vue"]
+          }
+        src/components/helper.ts: |
+          export const helper = 1;
+        src/components/Widget.vue: |
+          <script setup lang="ts">
+          import { helper } from "./helper";
+
+          const n = helper;
+          </script>
+
+          <template>
+            <div>{{ n }}</div>
+          </template>
+    when:
+      - moveFile: { oldPath: src/components/Widget.vue, newPath: src/widgets/Widget.vue }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/components/Widget.vue, src/widgets/Widget.vue]
+        filesSkipped: []
+        oldPath: src/components/Widget.vue
+        newPath: src/widgets/Widget.vue
+      files:
+        moved:
+          src/components/Widget.vue:
+            to: src/widgets/Widget.vue
+            content: |
+              <script setup lang="ts">
+              import { helper } from "../components/helper";
+
+              const n = helper;
+              </script>
+
+              <template>
+                <div>{{ n }}</div>
+              </template>
+        unchanged:
+          - src/components/helper.ts
+
   - name: repoints aliased importers of a moved SFC
     description: |
       The moved file is itself an SFC, so its importers are found through the virtual .vue.ts

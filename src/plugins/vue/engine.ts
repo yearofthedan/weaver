@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type ts from "typescript";
 import { EngineError } from "../../domain/errors.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type { GetTypeErrorsResult, RenameResult } from "../../operations/types.js";
@@ -216,42 +217,39 @@ export class VolarEngine implements Engine {
    * each change is mapped back onto the SFC's own source. A change with no mapping sits in
    * Volar's glue code and belongs to no source file, so it is dropped rather than written.
    */
-  private toRealFileEdit(edit: FileTextEdit, service: CachedService): FileTextEdit {
+  private toRealFileEdit(edit: ts.FileTextChanges, service: CachedService): FileTextEdit {
+    const fileName = service.vueVirtualToReal.get(edit.fileName) ?? edit.fileName;
     return {
-      fileName: service.vueVirtualToReal.get(edit.fileName) ?? edit.fileName,
+      fileName,
       textChanges: edit.textChanges.flatMap((change) => {
         const source = this.translateSingleLocation(
           { fileName: edit.fileName, textSpan: change.span },
           service,
         );
-        return source === null ? [] : [{ span: source.textSpan, newText: change.newText }];
+        if (source === null) return [];
+        const span = { start: source.textSpan.start, length: source.textSpan.length };
+        if (isCoexistingJsFileEdit(fileName, span.start, span.length)) return [];
+        return [{ span, newText: change.newText }];
       }),
     };
   }
 
-  async getEditsForFileRename(oldPath: string, newPath: string): Promise<FileTextEdit[]> {
+  /**
+   * `targets` narrows which files are worth translating at all. Everything outside it would be
+   * built, disk-checked for a coexisting `.js`, and then discarded by the caller — so a move
+   * that only wants SFC edits reads every `.ts` importer for nothing.
+   */
+  async getEditsForFileRename(
+    oldPath: string,
+    newPath: string,
+    targets: (fileName: string) => boolean = () => true,
+  ): Promise<FileTextEdit[]> {
     const service = await this.getService(oldPath);
     const edits = service.languageService.getEditsForFileRename(oldPath, newPath, {}, {});
 
     return edits
-      .map((e) =>
-        this.toRealFileEdit(
-          {
-            fileName: e.fileName,
-            textChanges: e.textChanges.map((c) => ({
-              span: { start: c.span.start, length: c.span.length },
-              newText: c.newText,
-            })),
-          },
-          service,
-        ),
-      )
-      .map((e) => ({
-        fileName: e.fileName,
-        textChanges: e.textChanges.filter(
-          (c) => !isCoexistingJsFileEdit(e.fileName, c.span.start, c.span.length),
-        ),
-      }))
+      .filter((e) => targets(service.vueVirtualToReal.get(e.fileName) ?? e.fileName))
+      .map((e) => this.toRealFileEdit(e, service))
       .filter((e) => e.textChanges.length > 0);
   }
 
@@ -299,12 +297,10 @@ export class VolarEngine implements Engine {
    * TypeScript engine, which runs afterwards and would otherwise rewrite them a second time.
    */
   private async vueRenameEdits(oldPath: string, newPath: string): Promise<FileTextEdit[]> {
-    const movingSfc = oldPath.endsWith(".vue");
-    const edits = await this.getEditsForFileRename(
-      movingSfc ? `${oldPath}.ts` : oldPath,
-      movingSfc ? `${newPath}.ts` : newPath,
-    );
-    return movingSfc ? edits : edits.filter((e) => e.fileName.endsWith(".vue"));
+    if (oldPath.endsWith(".vue")) {
+      return this.getEditsForFileRename(`${oldPath}.ts`, `${newPath}.ts`);
+    }
+    return this.getEditsForFileRename(oldPath, newPath, (f) => f.endsWith(".vue"));
   }
 
   async moveFile(
@@ -312,10 +308,10 @@ export class VolarEngine implements Engine {
     newPath: string,
     scope: WorkspaceScope,
   ): Promise<MoveFileActionResult> {
-    // Must resolve before the physical move, and before the edits below are applied.
     const tsConfig = findTsConfigForFile(oldPath);
     const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
 
+    // The service has to see oldPath on disk, so this query cannot wait until after the move.
     applyRenameEdits(this, await this.vueRenameEdits(oldPath, newPath), scope);
 
     const result = await tsMoveFile(this.tsEngine, oldPath, newPath, scope);
@@ -343,14 +339,13 @@ export class VolarEngine implements Engine {
     const tsConfig = findTsConfigForFile(absOld);
     const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
 
-    // Use virtual .vue.ts paths: Volar registers .vue files under that form in the TS LS,
-    // so real .vue paths return nothing from getEditsForFileRename. Run before the move.
-    const vueRenameEdits = await Promise.all(
+    // Run before the move — the service has to see each old path on disk.
+    const editSets = await Promise.all(
       vueMappings.map(({ oldFilePath, newFilePath }) =>
-        this.getEditsForFileRename(`${oldFilePath}.ts`, `${newFilePath}.ts`),
+        this.vueRenameEdits(oldFilePath, newFilePath),
       ),
     );
-    applyRenameEdits(this, mergeFileEdits(vueRenameEdits), scope);
+    applyRenameEdits(this, mergeFileEdits(editSets), scope);
 
     const result = await this.tsEngine.moveDirectory(absOld, absNew, scope);
     this.invalidateService(absOld);
