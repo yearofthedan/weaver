@@ -126,6 +126,32 @@ describe("dispatchRequest per-operation dispatch", () => {
     expect(result).toHaveProperty("truncated");
   }, 15_000);
 
+  // Kept deliberately alongside the operation-level cases in getTypeErrors.test.ts, which cover
+  // the same guard. Those build the engine by hand, so they only pin the behaviour for as long as
+  // that construction stays right; this one goes through the registry and cannot drift. Dropping
+  // it because the branch looks covered puts the file back where the bug hid.
+  test("wires a project-wide getTypeErrors through the registry against a workspace holding an excluded JS file", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: { strict: true },
+        include: ["src"],
+      }),
+      "src/main.ts": "export const value: number = 1;",
+      "jest.config.js": "module.exports = { testEnvironment: 'node' };",
+    });
+
+    const result = (await dispatchRequest({ method: "getTypeErrors", params: {} }, dir)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(result.status).toBe("success");
+    expect(result.errorCount).toBe(0);
+    expect(result.diagnostics).toEqual([]);
+  }, 15_000);
+
   test("dispatches findReferences and returns references shape", async ({ seedNamedFixture }) => {
     const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const file = path.join(dir, "src/clean.ts");
