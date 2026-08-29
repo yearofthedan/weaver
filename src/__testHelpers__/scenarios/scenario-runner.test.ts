@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fixtureTest as test } from "../helpers.js";
-import { assertEffects, type Tree } from "./scenario-oracle.js";
+import { assertEffects, assertResponseMatches, type Tree } from "./scenario-oracle.js";
 import { executeScenario, parseScenarios } from "./scenario-runner.js";
 import type { Effects } from "./scenario-schema.js";
 
@@ -94,6 +94,28 @@ console.log(greetUser("World"));
 function effectsOf(parts: Partial<Effects> = {}): Effects {
   return { moved: {}, changed: {}, unchanged: [], ...parts };
 }
+
+/** The response the dispatcher really returns for that move, in the sugar form files write. */
+const WRITTEN_RESPONSE: Record<string, unknown> = {
+  status: "success",
+  typeErrors: "none",
+  filesModified: ["src/main.ts", "lib/utils.ts"],
+  filesSkipped: [],
+  oldPath: "src/utils.ts",
+  newPath: "lib/utils.ts",
+};
+
+/** The same response already scrubbed of the temp root, as the executor passes it in. */
+const SCRUBBED_RESPONSE = {
+  status: "success",
+  typeErrors: [],
+  typeErrorCount: 0,
+  typeErrorsTruncated: false,
+  filesModified: ["src/main.ts", "lib/utils.ts"],
+  filesSkipped: [],
+  oldPath: "src/utils.ts",
+  newPath: "lib/utils.ts",
+};
 
 function failureOf(assert: () => void): string {
   try {
@@ -245,54 +267,32 @@ describe("effect contract", () => {
 });
 
 describe("response contract", () => {
-  test("rejects a written response whose field value is wrong", async ({ dir }) => {
-    const message = await rejectionOf(
-      moveScenario(`      response:
-        status: warn
-        typeErrors: none
-        filesModified: [src/main.ts, lib/utils.ts]
-        filesSkipped: []
-        oldPath: src/utils.ts
-        newPath: lib/utils.ts
-      files:
-${MOVED}
-${CHANGED_MAIN}`),
-      dir,
+  it("passes when the written block, sugar expanded, is exactly what was returned", () => {
+    assertResponseMatches(WRITTEN_RESPONSE, SCRUBBED_RESPONSE);
+  });
+
+  it("rejects a written response whose field value is wrong", () => {
+    const message = failureOf(() =>
+      assertResponseMatches({ ...WRITTEN_RESPONSE, status: "warn" }, SCRUBBED_RESPONSE),
     );
 
     expect(message).toContain("response:");
     expect(message).toContain("warn");
   });
 
-  test("rejects a written response that omits a field the dispatcher returns", async ({ dir }) => {
-    const message = await rejectionOf(
-      moveScenario(`      response:
-        status: success
-        filesModified: [src/main.ts, lib/utils.ts]
-        filesSkipped: []
-        oldPath: src/utils.ts
-        newPath: lib/utils.ts
-      files:
-${MOVED}
-${CHANGED_MAIN}`),
-      dir,
-    );
+  it("rejects a written response that omits a field the dispatcher returns", () => {
+    const { typeErrors: _sugar, ...omitted } = WRITTEN_RESPONSE;
+
+    const message = failureOf(() => assertResponseMatches(omitted, SCRUBBED_RESPONSE));
 
     // Exact equality is what stops a consumer-visible field being dropped unnoticed.
     expect(message).toContain("response:");
     expect(message).toContain("to deeply equal");
   });
 
-  test("rejects a written response carrying a field the dispatcher never returns", async ({
-    dir,
-  }) => {
-    const message = await rejectionOf(
-      moveScenario(`${RESPONSE}
-        invented: true
-      files:
-${MOVED}
-${CHANGED_MAIN}`),
-      dir,
+  it("rejects a written response carrying a field the dispatcher never returns", () => {
+    const message = failureOf(() =>
+      assertResponseMatches({ ...WRITTEN_RESPONSE, invented: true }, SCRUBBED_RESPONSE),
     );
 
     expect(message).toContain("response:");
