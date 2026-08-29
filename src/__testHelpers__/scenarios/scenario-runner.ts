@@ -16,7 +16,7 @@ import {
   scenarioFile,
 } from "./scenario-schema.js";
 
-export function parseScenarios(text: string): ScenarioFile {
+function parseScenarios(text: string): ScenarioFile {
   return scenarioFile.parse(parseYaml(text));
 }
 

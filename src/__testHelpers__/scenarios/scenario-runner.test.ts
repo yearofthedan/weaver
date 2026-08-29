@@ -7,72 +7,21 @@ import {
   describeFailure,
   type Tree,
 } from "./scenario-oracle.js";
-import { executeScenario, parseScenarios } from "./scenario-runner.js";
-import type { Effects } from "./scenario-schema.js";
+import { executeScenario } from "./scenario-runner.js";
+import type { Effects, Scenario, ScenarioFile } from "./scenario-schema.js";
 
 /**
  * The scenario harness is a shared oracle: if its comparison is wrong, every scenario can
- * pass for the wrong reason. These cases each state one wrong expectation about a move that
- * really happens, and assert the harness rejects it.
+ * pass for the wrong reason. Its assertions are pure functions of the values they judge,
+ * so most cases state one wrong contract about a known workspace change and watch the
+ * oracle reject it — no project, no dispatch. The last three cases drive a real dispatch
+ * through the executor, pinning the wiring those units never see: the temp-root scrubbing,
+ * the description at the catch site, and the step loop.
  */
 
-const GIVEN = `    given:
-      files:
-        tsconfig.json: |
-          { "compilerOptions": { "strict": true }, "include": ["src/**/*.ts"] }
-        src/utils.ts: |
-          export function greetUser(name: string): string {
-            return \`Hello, \${name}\`;
-          }
-        src/main.ts: |
-          import { greetUser } from "./utils";
-
-          console.log(greetUser("World"));
-`;
-
-/** What the dispatcher really returns for the move every case below performs. */
-const RESPONSE = `      response:
-        status: success
-        typeErrors: none
-        filesModified: [src/main.ts, lib/utils.ts]
-        filesSkipped: []
-        oldPath: src/utils.ts
-        newPath: lib/utils.ts`;
-
-/** The importer rewrite the move really performs, as a `changed` entry. */
-const CHANGED_MAIN = `        changed:
-          src/main.ts: |
-            import { greetUser } from "../lib/utils";
-
-            console.log(greetUser("World"));`;
-
-const MOVED = `        moved:
-          src/utils.ts: lib/utils.ts`;
-
-/** A move of src/utils.ts to lib/utils.ts, with whatever `then` block the case is testing. */
-function moveScenario(then: string): string {
-  return `scenarios:
-  - name: the case under test
-${GIVEN}
-    when:
-      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
-    then:
-${then}`;
-}
-
-async function rejectionOf(yaml: string, dir: string): Promise<string> {
-  const file = parseScenarios(yaml);
-  try {
-    await executeScenario(file.scenarios[0], file, dir);
-  } catch (err) {
-    return (err as Error).message;
-  }
-  throw new Error("the harness accepted a scenario it should have rejected");
-}
-
 /**
- * The workspace the effect cases judge: src/utils.ts imported once from src/main.ts, with
- * a tsconfig beside them.
+ * The workspace the cases judge: src/utils.ts imported once from src/main.ts, with a
+ * tsconfig beside them.
  */
 const BEFORE: Tree = {
   "tsconfig.json": `{ "compilerOptions": { "strict": true }, "include": ["src/**/*.ts"] }
@@ -97,9 +46,12 @@ console.log(greetUser("World"));
 `,
 };
 
-function effectsOf(parts: Partial<Effects> = {}): Effects {
-  return { moved: {}, changed: {}, unchanged: [], ...parts };
-}
+/** The effect contract that move really performs: the move, the rewrite, the bystander. */
+const CLEAN_EFFECTS: Effects = {
+  moved: { "src/utils.ts": { to: "lib/utils.ts" } },
+  changed: { "src/main.ts": AFTER["src/main.ts"] },
+  unchanged: ["tsconfig.json"],
+};
 
 /** The response the dispatcher really returns for that move, in the sugar form files write. */
 const WRITTEN_RESPONSE: Record<string, unknown> = {
@@ -123,6 +75,10 @@ const SCRUBBED_RESPONSE = {
   newPath: "lib/utils.ts",
 };
 
+function effectsOf(parts: Partial<Effects> = {}): Effects {
+  return { moved: {}, changed: {}, unchanged: [], ...parts };
+}
+
 function failureOf(assert: () => void): string {
   try {
     assert();
@@ -133,14 +89,8 @@ function failureOf(assert: () => void): string {
 }
 
 describe("effect contract", () => {
-  const CLEAN = effectsOf({
-    moved: { "src/utils.ts": { to: "lib/utils.ts" } },
-    changed: { "src/main.ts": AFTER["src/main.ts"] },
-    unchanged: ["tsconfig.json"],
-  });
-
   it("passes when every declared effect holds and no unnamed file differs", () => {
-    assertEffects(BEFORE, AFTER, CLEAN);
+    assertEffects(BEFORE, AFTER, CLEAN_EFFECTS);
   });
 
   it("accepts a move whose declared content is what landed", () => {
@@ -150,7 +100,7 @@ describe("effect contract", () => {
       BEFORE,
       { ...AFTER, "lib/utils.ts": rewritten },
       {
-        ...CLEAN,
+        ...CLEAN_EFFECTS,
         moved: { "src/utils.ts": { to: "lib/utils.ts", content: rewritten } },
       },
     );
@@ -193,7 +143,7 @@ describe("effect contract", () => {
   it("rejects `changed` content that does not match the file on disk", () => {
     const message = failureOf(() =>
       assertEffects(BEFORE, AFTER, {
-        ...CLEAN,
+        ...CLEAN_EFFECTS,
         changed: { "src/main.ts": 'import { greetUser } from "./stale-path";\n' },
       }),
     );
@@ -204,8 +154,8 @@ describe("effect contract", () => {
   it("rejects a file listed as `changed` that was left alone", () => {
     const message = failureOf(() =>
       assertEffects(BEFORE, AFTER, {
-        ...CLEAN,
-        changed: { ...CLEAN.changed, "tsconfig.json": BEFORE["tsconfig.json"] },
+        ...CLEAN_EFFECTS,
+        changed: { ...CLEAN_EFFECTS.changed, "tsconfig.json": BEFORE["tsconfig.json"] },
       }),
     );
 
@@ -241,7 +191,7 @@ describe("effect contract", () => {
   it("rejects a file declared `unchanged` that was rewritten", () => {
     const message = failureOf(() =>
       assertEffects(BEFORE, AFTER, {
-        ...CLEAN,
+        ...CLEAN_EFFECTS,
         changed: {},
         unchanged: ["src/main.ts"],
       }),
@@ -263,8 +213,8 @@ describe("effect contract", () => {
     // is there afterwards, and the destination matches the source's equally absent content.
     const message = failureOf(() =>
       assertEffects(BEFORE, AFTER, {
-        ...CLEAN,
-        moved: { ...CLEAN.moved, "src/ghost.ts": { to: "lib/ghost.ts" } },
+        ...CLEAN_EFFECTS,
+        moved: { ...CLEAN_EFFECTS.moved, "src/ghost.ts": { to: "lib/ghost.ts" } },
       }),
     );
 
@@ -354,50 +304,102 @@ describe("failure description", () => {
   });
 });
 
-describe("path handling", () => {
+/**
+ * A scenario over the shared workspace, with the step list and outcome block per case.
+ *
+ * Call sites say `outcome` so the format's `then` key appears once, here. A scenario is
+ * never awaited, so being thenable is inert, and one suppression beats one per case.
+ */
+function scenarioOf(parts: {
+  name: string;
+  description?: string;
+  when: Scenario["when"];
+  outcome: Scenario["then"];
+}): Scenario {
+  return {
+    name: parts.name,
+    description: parts.description,
+    given: { files: BEFORE },
+    when: parts.when,
+    // biome-ignore lint/suspicious/noThenProperty: the Given/When/Then vocabulary of the format under test.
+    then: parts.outcome,
+  };
+}
+
+function scenarioFileOf(scenario: Scenario): ScenarioFile {
+  return { fixtures: {}, scenarios: [scenario] };
+}
+
+async function rejectionOf(file: ScenarioFile, dir: string): Promise<string> {
+  try {
+    await executeScenario(file.scenarios[0], file, dir);
+  } catch (err) {
+    return (err as Error).message;
+  }
+  throw new Error("the runner accepted a scenario it should have rejected");
+}
+
+describe("executor wiring", () => {
   test("scrubs the temp root so a passing response reads as workspace-relative", async ({
     dir,
   }) => {
-    const file = parseScenarios(
-      moveScenario(`${RESPONSE}
-      files:
-${MOVED}
-${CHANGED_MAIN}`),
+    const file = scenarioFileOf(
+      scenarioOf({
+        name: "a single move with its response stated",
+        when: [{ moveFile: { oldPath: "src/utils.ts", newPath: "lib/utils.ts" } }],
+        outcome: { response: WRITTEN_RESPONSE, files: CLEAN_EFFECTS },
+      }),
     );
 
     await expect(executeScenario(file.scenarios[0], file, dir)).resolves.toBeUndefined();
   });
-});
 
-describe("scenario description", () => {
   test("puts the description in front of the failure, so a deliberate expectation reads as one", async ({
     dir,
   }) => {
-    const described = `scenarios:
-  - name: the case under test
-    description: the scan never considers this specifier, so the stale path is expected
-${GIVEN}
-    when:
-      - moveFile: { oldPath: src/utils.ts, newPath: lib/utils.ts }
-    then:
-${RESPONSE}
-      files:
-${MOVED}`;
+    const file = scenarioFileOf(
+      scenarioOf({
+        name: "a deliberately wrong expectation",
+        description: "the scan never considers this specifier, so the stale path is expected",
+        when: [{ moveFile: { oldPath: "src/utils.ts", newPath: "lib/utils.ts" } }],
+        outcome: {
+          response: WRITTEN_RESPONSE,
+          files: effectsOf({ moved: { "src/utils.ts": { to: "lib/utils.ts" } } }),
+        },
+      }),
+    );
 
-    const message = await rejectionOf(described, dir);
+    const message = await rejectionOf(file, dir);
 
-    expect(message).toContain("the scan never considers this specifier");
+    expect(message).toMatch(/^the scan never considers this specifier/);
     expect(message).toContain("files changed without being named in `then.files`");
   });
 
-  test("leaves the failure alone when the scenario carries no description", async ({ dir }) => {
-    const message = await rejectionOf(
-      moveScenario(`${RESPONSE}
-      files:
-${MOVED}`),
-      dir,
+  test("runs every step of a sequence and judges the net effects, since no step states a response", async ({
+    dir,
+  }) => {
+    const file = scenarioFileOf(
+      scenarioOf({
+        name: "two moves in turn",
+        when: [
+          { moveFile: { oldPath: "src/utils.ts", newPath: "lib/utils.ts" } },
+          { moveFile: { oldPath: "lib/utils.ts", newPath: "dist/utils.ts" } },
+        ],
+        outcome: {
+          files: {
+            moved: { "src/utils.ts": { to: "dist/utils.ts" } },
+            changed: {
+              "src/main.ts": `import { greetUser } from "../dist/utils";
+
+console.log(greetUser("World"));
+`,
+            },
+            unchanged: ["tsconfig.json"],
+          },
+        },
+      }),
     );
 
-    expect(message).toMatch(/^files changed without being named/);
+    await expect(executeScenario(file.scenarios[0], file, dir)).resolves.toBeUndefined();
   });
 });
