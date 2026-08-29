@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { fixtureTest as test } from "../helpers.js";
-import { assertEffects, assertResponseMatches, type Tree } from "./scenario-oracle.js";
+import {
+  assertEffects,
+  assertResponseMatches,
+  assertStepSucceeded,
+  describeFailure,
+  type Tree,
+} from "./scenario-oracle.js";
 import { executeScenario, parseScenarios } from "./scenario-runner.js";
 import type { Effects } from "./scenario-schema.js";
 
@@ -296,6 +302,55 @@ describe("response contract", () => {
     );
 
     expect(message).toContain("response:");
+  });
+});
+
+describe("step status", () => {
+  it("rejects an `error` status, naming the step and its message", () => {
+    const message = failureOf(() =>
+      assertStepSucceeded("moveFile", {
+        status: "error",
+        error: "FILE_NOT_FOUND",
+        message: "File not found: src/missing.ts",
+      }),
+    );
+
+    expect(message).toContain("step `moveFile` status");
+    expect(message).toContain("File not found: src/missing.ts");
+  });
+
+  it("passes `success`", () => {
+    assertStepSucceeded("moveFile", { status: "success" });
+  });
+
+  it("passes `warn`, a success that also reported a type error", () => {
+    assertStepSucceeded("moveFile", { status: "warn", typeErrorCount: 1 });
+  });
+});
+
+describe("failure description", () => {
+  it("puts the description in front of the failure, so a deliberate expectation reads as one", () => {
+    const error = new Error("files changed without being named in `then.files`");
+
+    const described = describeFailure(error, "the stale path is expected");
+
+    expect(described).toBe(error);
+    expect(error.message).toBe(
+      "the stale path is expected\n\nfiles changed without being named in `then.files`",
+    );
+  });
+
+  it("leaves the failure alone when there is no description", () => {
+    const error = new Error("files changed without being named in `then.files`");
+
+    const returned = describeFailure(error, undefined);
+
+    expect(returned).toBe(error);
+    expect(error.message).toBe("files changed without being named in `then.files`");
+  });
+
+  it("returns a non-Error failure unchanged", () => {
+    expect(describeFailure("something threw", "a description")).toBe("something threw");
   });
 });
 
