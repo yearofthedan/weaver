@@ -103,36 +103,56 @@ source, not reproduced — verify it when fixing.
 
 ## Fix
 
-*Left blank pending a design pass. The two candidate approaches differ in blast radius, not
-just implementation.*
+**Target behaviour is defined by `tsc`.** Project-wide `get-type-errors` should return what
+`tsc --noEmit` returns for the same project. Verified against the reproduction fixture, with a
+genuine type error (`bad.toUpperCase()` on a number) planted in `jest.config.js`:
 
-**Constraint the design pass must respect, verified here.** Removing the JS files from the
-project is not a free "fix the cause" option: with `allowJs` off, weaver currently *does*
-rewrite an ESM import inside a `.js` file when the target moves. Observed on the reproduction
-shape — `src/consumer.js` importing `./main.js`, after `move-file src/main.ts -> src/lib/main.ts`:
+| Config | `tsc --noEmit` |
+| --- | --- |
+| `allowJs` unset (reproduction shape) | exit 0, reports nothing — the file is not in the program |
+| `allowJs: true, checkJs: true` | `jest.config.js(2,5): error TS2339` |
+
+**In `tsGetTypeErrorsForProject` (`ts-engine/get-type-errors.ts:44`), ask only about files the
+TypeScript program contains.** Two spellings, both localised to this function; pick whichever
+reads better against the code:
+
+- Filter `compiler.getProjectSourceFilePaths(workspace)` by program membership before the
+  `getSemanticDiagnostics` call.
+- Iterate the program's own source files instead. Note this list also carries `lib.*.d.ts` and
+  everything transitively resolved from `node_modules`, so it needs its own filter to the
+  workspace and to non-declaration files — it is not automatically the simpler option.
+
+**Guard-rail — key on program membership, not on the file extension.** A fix that skips `.js`
+paths passes the reproduction and silently suppresses the TS2339 above in any project that
+sets `allowJs`. The extension is not the property that matters; presence in the program is.
+
+**Do not change `addWorkspaceFiles`.** Removing JS files from the project would remove the
+divergence at its source, but it regresses behaviour that works today and matches prior art.
+Verified on the reproduction shape — `src/consumer.js` importing `./main.js`, after
+`move-file src/main.ts -> src/lib/main.ts` with `allowJs` unset:
 
 ```
 before: import { greet as g } from "./main.js";
-after:  import { greet as g } from "./lib/main.js";     <- rewritten, allowJs unset
+after:  import { greet as g } from "./lib/main.js";     <- rewritten
 ```
 
-That reach comes from `addWorkspaceFiles` adding the file. Making that walk `allowJs`-aware
-would trade a loud `INTERNAL_ERROR` on one read-only command for a silently stale import
-across every move and rename — a strictly worse failure. (A `require()` call in the same file
-is not rewritten either way; that is the existing ts-morph import-declaration boundary, not
-part of this bug.)
+This is deliberate and correct. Editors keep a wider set of files known to the language
+service than the set the program type-checks: open a `.js` file in a TS project with `allowJs`
+off and you still get navigation and rename support, but no type-checking. `addWorkspaceFiles`
+gives weaver the same property, which is what lets a move fix `.js` importers. The two-list
+divergence is the intended model; the defect is only that the diagnostics loop asks the wide
+list a question that belongs to the program. (A `require()` call in the same file is not
+rewritten either way — the existing ts-morph import-declaration boundary, out of scope here.)
 
-So the fork is where the fix sits, not whether the divergence is real:
+**Do not add a "files not type-checked" field to the response.** `tsc` does not report one, and
+a file outside the program has no diagnostics to withhold. `filesSkipped` is not a precedent to
+copy — it currently carries two incompatible meanings and is being reconsidered separately
+(see the handoff entry).
 
-- **At the point of use** — `tsGetTypeErrorsForProject` asks only about files the program
-  contains (filter the list, or iterate the program's list instead). Localised; keeps JS
-  importer reach intact. Leaves the divergent list in place for any future consumer of
-  `getProjectSourceFilePaths` to trip over.
-- **At the source** — `addWorkspaceFiles` stops adding what the program rejects. Removes the
-  divergence for everyone, but regresses the JS importer rewriting shown above.
-- **Open question either way** — whether the response should tell the caller that JS files
-  were not type-checked, or stay silent because a file outside the program has nothing to
-  report. `filesSkipped` is the existing precedent for "weaver declined to touch this".
+**Adjacent inputs to cover with regression tests:** a `.js` at the workspace root and one
+nested under `src/`; a `.jsx`; the same project with `allowJs: true`, which must still report
+the JS file's errors; a workspace with no tsconfig at all; and a project whose only files are
+excluded JS, which must return `errorCount: 0` rather than an error.
 
 ## Security
 
