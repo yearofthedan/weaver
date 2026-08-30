@@ -17,6 +17,29 @@ fixtures:
       src/a.ts: |
         function foo() { return 1; }
 
+  a-vue-project:
+    description: a Vue SFC alongside a tsconfig that also covers plain TS modules
+    files:
+      tsconfig.json: |
+        {
+          "compilerOptions": {
+            "strict": true,
+            "target": "ESNext",
+            "module": "ESNext",
+            "moduleResolution": "bundler",
+            "jsx": "preserve"
+          },
+          "include": ["src/**/*.ts", "src/**/*.vue"]
+        }
+      src/App.vue: |
+        <script setup lang="ts">
+        const label = "hello";
+        </script>
+
+        <template>
+          <div>{{ label }}</div>
+        </template>
+
 scenarios:
   - name: adds the export keyword to a function declaration
     given: a-non-exported-function
@@ -384,6 +407,109 @@ scenarios:
         status: error
         error: SYMBOL_NOT_FOUND
         message: "Symbol 'foo' not found as a top-level declaration in src/a.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: refuses to change the visibility of a .vue target file
+    given: a-vue-project
+    when:
+      - setExport: { file: src/App.vue, symbolName: label, exported: true }
+    then:
+      response:
+        status: error
+        error: NOT_SUPPORTED
+        message: "Cannot change the visibility of 'label' in src/App.vue: a top-level export is not valid inside a Vue SFC script block."
+      files:
+        unchanged: [tsconfig.json, src/App.vue]
+
+  - name: refuses a name that resolves only through a re-export
+    given:
+      extends: a-ts-project
+      files:
+        src/other.ts: |
+          export function foo() { return 1; }
+        src/a.ts: |
+          export { foo } from "./other";
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: NOT_SUPPORTED
+        message: "Symbol 'foo' in src/a.ts is a re-export via 'export { } from'. Only declarations in this file can have their visibility changed."
+      files:
+        unchanged: [tsconfig.json, src/other.ts, src/a.ts]
+
+  - name: refuses a name exported only via a trailing export statement
+    description: >
+      Removing the export keyword from the declaration would do nothing — the trailing
+      `export { foo };` still exposes the name — so the operation refuses rather than
+      pretending the visibility changed.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          const foo = 1;
+          export { foo };
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: NOT_SUPPORTED
+        message: "Symbol 'foo' in src/a.ts is exported by a separate 'export { }' statement. Only the 'export' keyword on a declaration is supported."
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: refuses a name that resolves only to a default export
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export default function foo() { return 1; }
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: NOT_SUPPORTED
+        message: "Symbol 'foo' in src/a.ts is a default export. Only named exports are supported."
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: refuses a name shared by function overloads
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          function foo(x: number): number;
+          function foo(x: string): string;
+          function foo(x: any): any {
+            return x;
+          }
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: error
+        error: NOT_SUPPORTED
+        message: "Symbol 'foo' has 3 top-level declarations in src/a.ts. Overloaded and duplicated names are not supported."
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: refuses a name that is one declarator of a multi-declarator statement
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          const a = 1, foo = 2;
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: error
+        error: NOT_SUPPORTED
+        message: "Symbol 'foo' in src/a.ts is one of several declarators in a single statement. Split the statement first — changing it would carry the siblings along."
       files:
         unchanged: [tsconfig.json, src/a.ts]
 
