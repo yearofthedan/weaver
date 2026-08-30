@@ -1,0 +1,36 @@
+# Fixtures name the workspace state a scenario starts from, on the one axis visibility turns
+# on: whether the declaration is exported, and who outside the file uses it.
+fixtures:
+  a-ts-project:
+    description: a tsconfig file including src
+    files:
+      tsconfig.json: |
+        {
+          "compilerOptions": { "strict": true },
+          "include": ["src/**/*.ts"]
+        }
+
+  a-non-exported-function:
+    description: a single source file holding one non-exported function
+    extends: a-ts-project
+    files:
+      src/a.ts: |
+        function foo() { return 1; }
+
+scenarios:
+  - name: adds the export keyword to a function declaration
+    given: a-non-exported-function
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/a.ts: |
+            export function foo() { return 1; }
+        unchanged: [tsconfig.json]

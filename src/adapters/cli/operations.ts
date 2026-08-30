@@ -17,6 +17,7 @@ import {
   RenameArgsSchema,
   ReplaceTextBaseSchema,
   SearchTextArgsSchema,
+  SetExportArgsSchema,
 } from "../schema.js";
 import { classifyDaemonError } from "./classify-error.js";
 
@@ -44,6 +45,11 @@ const SUBCOMMANDS: Record<
     method: "extractFunction",
     pathParams: ["file"],
     schema: ExtractFunctionArgsSchema,
+  },
+  "set-export": {
+    method: "setExport",
+    pathParams: ["file"],
+    schema: SetExportArgsSchema,
   },
   "find-importers": {
     method: "findImporters",

@@ -11,6 +11,7 @@ import {
   RenameArgsSchema,
   ReplaceTextArgsSchema,
   SearchTextArgsSchema,
+  SetExportArgsSchema,
 } from "../adapters/schema.js";
 import { EngineError, type ErrorCode } from "../domain/errors.js";
 import { validateFilePath } from "../domain/security.js";
@@ -25,6 +26,7 @@ import { moveFile } from "../operations/moveFile.js";
 import { rename } from "../operations/rename.js";
 import { replaceText } from "../operations/replaceText.js";
 import { searchText } from "../operations/searchText.js";
+import { setExport } from "../operations/setExport.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import type { EngineRegistry } from "../ts-engine/types.js";
 import { resetDiscoveryCaches } from "../utils/ts-project.js";
@@ -148,6 +150,21 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         functionName,
         scope,
       );
+    },
+  },
+
+  setExport: {
+    pathParams: ["file"],
+    schema: SetExportArgsSchema,
+    async invoke(registry, params, workspace) {
+      const { file, symbolName, exported } = params as {
+        file: string;
+        symbolName: string;
+        exported: boolean;
+      };
+      const engine = await registry.projectEngine();
+      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      return setExport(engine, file, symbolName, exported, scope);
     },
   },
 

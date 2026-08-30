@@ -19,6 +19,7 @@ export const SUBCOMMAND_MUTABILITY: Record<string, SubcommandMutability> = {
   "extract-function": "mutating",
   "replace-text": "mutating",
   "delete-file": "mutating",
+  "set-export": "mutating",
   "find-references": "read-only",
   "find-importers": "read-only",
   "get-definition": "read-only",

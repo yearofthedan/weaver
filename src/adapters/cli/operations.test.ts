@@ -90,7 +90,7 @@ describe("registerOperationSubcommands help rendering", () => {
     expect(help).toContain("(optional) Absolute path to a single .ts/.tsx file");
   });
 
-  it("all 12 subcommands are registered", () => {
+  it("all 13 subcommands are registered", () => {
     const program = buildProgram();
     const names = program.commands.map((c) => c.name());
     expect(names).toContain("rename");
@@ -105,7 +105,8 @@ describe("registerOperationSubcommands help rendering", () => {
     expect(names).toContain("search-text");
     expect(names).toContain("delete-file");
     expect(names).toContain("replace-text");
-    expect(names.length).toBe(12);
+    expect(names).toContain("set-export");
+    expect(names.length).toBe(13);
   });
 
   it("replace-text help includes edits field with surgical mode description", () => {

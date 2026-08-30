@@ -79,6 +79,38 @@ export class ImportRewriter {
     return sf.getFullText();
   }
 
+  /**
+   * Whether `content` imports or re-exports `symbolName` from `sourceFile`.
+   *
+   * Covers the same declaration forms `rewriteScript` rewrites — named imports
+   * and named re-exports. A namespace import is not inspected for member use,
+   * so a `.vue` script reaching the symbol that way is invisible here.
+   */
+  scriptReferencesSymbol(
+    filePath: string,
+    content: string,
+    symbolName: string,
+    sourceFile: string,
+    scope: WorkspaceScope,
+  ): boolean {
+    const fromDir = path.dirname(filePath);
+    const relBase = toRelBase(fromDir, sourceFile);
+    const sf = createThrowawaySourceFile("__scan__.ts", content);
+
+    for (const decl of sf.getImportDeclarations()) {
+      if (!this.matchesSourceFile(decl.getModuleSpecifierValue(), relBase, fromDir, scope))
+        continue;
+      if (decl.getNamedImports().some((spec) => spec.getName() === symbolName)) return true;
+    }
+    for (const decl of sf.getExportDeclarations()) {
+      const specifier = decl.getModuleSpecifierValue();
+      if (specifier === undefined) continue;
+      if (!this.matchesSourceFile(specifier, relBase, fromDir, scope)) continue;
+      if (decl.getNamedExports().some((spec) => spec.getName() === symbolName)) return true;
+    }
+    return false;
+  }
+
   private rewriteImport(
     decl: ReturnType<import("ts-morph").SourceFile["getImportDeclarations"]>[number],
     sf: import("ts-morph").SourceFile,

@@ -117,6 +117,37 @@ export function updateVueImportsAfterSymbolMove(
 }
 
 /**
+ * Scan all .vue files under searchRoot for scripts that import or re-export
+ * `symbolName` from `sourceFile`, and return their paths.
+ *
+ * The TypeScript language service cannot see inside SFC script blocks, so
+ * without this scan un-exporting a symbol a component uses would look safe.
+ */
+export function vueScriptsReferencingSymbol(
+  symbolName: string,
+  sourceFile: string,
+  searchRoot: string,
+  scope: WorkspaceScope,
+): string[] {
+  const rewriter = new ImportRewriter();
+  const referencing: string[] = [];
+
+  for (const vueFile of walkFiles(searchRoot, [".vue"])) {
+    const fileContent = scope.fs.readFile(vueFile);
+    const { descriptor } = parse(fileContent);
+    const block = descriptor.script ?? descriptor.scriptSetup;
+    if (!block) continue;
+
+    const { start, end } = block.loc;
+    const scriptContent = fileContent.slice(start.offset, end.offset);
+    if (rewriter.scriptReferencesSymbol(vueFile, scriptContent, symbolName, sourceFile, scope)) {
+      referencing.push(vueFile);
+    }
+  }
+  return referencing;
+}
+
+/**
  * After a file deletion, scan all .vue files under searchRoot and remove any
  * import or re-export lines whose module specifier resolves to deletedFile.
  *

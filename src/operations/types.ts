@@ -34,6 +34,14 @@ export interface MoveSymbolResult {
   destFile: string;
 }
 
+export interface SetExportResult {
+  /** The target file when the keyword changed; empty when it was already in the asked-for state. */
+  filesModified: string[];
+  /** Always empty — set-export writes one workspace-validated file or none. */
+  filesSkipped: string[];
+  symbolName: string;
+}
+
 export type { ExtractFunctionResult } from "../ts-engine/types.js";
 
 export interface Reference {

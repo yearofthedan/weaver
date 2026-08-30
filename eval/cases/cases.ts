@@ -347,6 +347,16 @@ export const CASES: CaseEntry[] = validateCases([
     },
   },
   {
+    name: "command-set-export",
+    exposure: "front-loaded",
+    momentumTurns: 3,
+    task: "Export the `User` interface in /tmp/weaver-eval/src/auth.ts so other modules can use it.",
+    expect: {
+      command: "set-export",
+      keyArgs: { symbolName: "User", exported: true },
+    },
+  },
+  {
     name: "command-find-importers",
     exposure: "front-loaded",
     momentumTurns: 3,

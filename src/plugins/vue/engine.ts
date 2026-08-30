@@ -3,10 +3,11 @@ import * as path from "node:path";
 import type ts from "typescript";
 import { EngineError } from "../../domain/errors.js";
 import type { WorkspaceScope } from "../../domain/workspace-scope.js";
-import type { GetTypeErrorsResult, RenameResult } from "../../operations/types.js";
+import type { GetTypeErrorsResult, RenameResult, SetExportResult } from "../../operations/types.js";
 import { applyRenameEdits, mergeFileEdits } from "../../ts-engine/apply-rename-edits.js";
 import type { TsMorphEngine } from "../../ts-engine/engine.js";
 import { isCoexistingJsFileEdit } from "../../ts-engine/rewrite-importers-of-moved-file.js";
+import { tsSetExport } from "../../ts-engine/set-export.js";
 import type {
   DefinitionLocation,
   DeleteFileActionResult,
@@ -29,6 +30,7 @@ import {
   rewriteVueOwnImportsAfterMove,
   updateVueImportsAfterMove,
   updateVueImportsAfterSymbolMove,
+  vueScriptsReferencingSymbol,
 } from "./scan.js";
 import { buildVolarService, type CachedService } from "./service.js";
 
@@ -338,6 +340,28 @@ export class VolarEngine implements Engine {
 
   async deleteFile(targetFile: string, scope: WorkspaceScope): Promise<DeleteFileActionResult> {
     return vueDeleteFile(this.tsEngine, targetFile, scope);
+  }
+
+  async setExport(
+    file: string,
+    symbolName: string,
+    exported: boolean,
+    scope: WorkspaceScope,
+  ): Promise<SetExportResult> {
+    if (file.endsWith(".vue")) {
+      throw new EngineError(
+        `Cannot change the visibility of '${symbolName}' in ${file}: a top-level export is not valid inside a Vue SFC script block.`,
+        "NOT_SUPPORTED",
+      );
+    }
+
+    const tsConfig = findTsConfigForFile(file);
+    const searchRoot = tsConfig ? path.dirname(tsConfig) : scope.root;
+    const vueReferences = exported
+      ? []
+      : vueScriptsReferencingSymbol(symbolName, file, searchRoot, scope);
+
+    return tsSetExport(this.tsEngine, file, symbolName, exported, scope, vueReferences);
   }
 
   async extractFunction(
