@@ -564,19 +564,8 @@ scenarios:
 
   - name: refuses to un-export a symbol a Vue SFC script imports
     given:
-      extends: a-ts-project
+      extends: a-vue-project
       files:
-        tsconfig.json: |
-          {
-            "compilerOptions": {
-              "strict": true,
-              "target": "ESNext",
-              "module": "ESNext",
-              "moduleResolution": "bundler",
-              "jsx": "preserve"
-            },
-            "include": ["src/**/*.ts", "src/**/*.vue"]
-          }
         src/utils.ts: |
           export function foo() { return 1; }
         src/App.vue: |
@@ -601,8 +590,9 @@ scenarios:
 
   - name: refuses to un-export a symbol used by a TS file outside the tsconfig include set
     description: >
-      The project also contains a Vue SFC, so this pins that the out-of-include scan and the
-      SFC scan are independent — one file being irrelevant does not exempt the other.
+      Every workspace TS file is added to the project graph regardless of the tsconfig include
+      set, so the language-service reference check already sees this importer — no separate scan
+      covers it. The Vue SFC in the project has no bearing on the call and must stay untouched.
     given:
       extends: a-vue-project
       files:
