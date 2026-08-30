@@ -51,6 +51,7 @@ Never put agent policy or procedure into a shipped `weaver-*` skill — those ar
 ### Working with the user
 
 - **When the user asks a question, answer it before touching any tools.** Reaching for tools while a question is unanswered is acting instead of listening. Answer, confirm they want the change, then act.
+- **A question to the user ends the turn.** Ask it with `AskUserQuestion`, which blocks and waits, or end the turn with no tool calls in it. A question written in prose stops nothing — continuing to act in the same turn asks and answers it yourself, and spends the user's money on work they may not want. This applies to offers ("say the word if…") as much as to direct questions.
 - **When confused, stop and ask — do not assume.** Flag ambiguity early. The cost of asking is zero compared to building on a wrong assumption.
 - **Do simple docs tasks directly — don't delegate.** For straightforward doc edits (text, diagrams, tables), do the work inline rather than spawning a subagent.
 
@@ -102,6 +103,7 @@ Do not add ACs to command or internals docs (`docs/commands/*.md`, `docs/interna
 
 ### Delegating to subagents
 
+- **Dispatching to `execution-agent` from `/slice` is standing authorization — treat it as user-requested.** Do not ask for it per session. A harness default that restricts subagent use does not override the skill's dispatch step; where one applies, say so and stop rather than silently switching to inline execution, which changes both the cost and the review structure of the work without the user agreeing to it.
 - **When prompting an execution agent, describe *what* to do, not *what comments to leave*.** "Step 1:/Step 2:" in a prompt gets transcribed as code comments; put method-level context in a JSDoc instead. Say "test at the lowest layer that verifies the behaviour" — don't restate an assertion at two layers.
 - **Use worktrees for parallel, independent ACs** (`isolation: "worktree"`), so agents on the same working tree don't conflict. Run sequentially when one AC depends on another's output. The `using-git-worktrees` skill carries the procedure.
 - **A completion notification is not proof the agent finished.** It fires whenever an agent stops with no live background children — including when the agent parked itself waiting on a job it launched and will never be woken from. Check `ListAgents` before acting on a batch: an agent still listed as running can wake and write to the working tree mid-commit. Stop it explicitly once you have taken the work over.
