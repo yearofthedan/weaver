@@ -30,6 +30,7 @@ function stubCompiler(tag = "stub"): Engine {
     }),
     moveFile: async () => ({ oldPath: "", newPath: "" }),
     moveSymbol: async () => undefined,
+    setExport: async () => ({ filesModified: [], filesSkipped: [], symbolName: "" }),
     moveDirectory: async () => ({ filesMoved: [] }),
     deleteFile: async () => ({ importRefsRemoved: 0 }),
     getTypeErrors: async () => ({

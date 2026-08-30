@@ -166,3 +166,136 @@ scenarios:
 
             const local = foo();
         unchanged: [tsconfig.json]
+
+  - name: refuses to un-export a symbol another file imports and uses
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+        src/b.ts: |
+          import { foo } from "./a";
+
+          const value = foo();
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: SYMBOL_IN_USE
+        message: "Symbol 'foo' in src/a.ts is used by 1 other file(s); un-exporting it would break them: src/b.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts, src/b.ts]
+
+  - name: refuses to un-export a symbol another file imports without using
+    description: >
+      The import statement itself stops compiling once the export goes, so an unused import
+      blocks just as a used one does.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+        src/b.ts: |
+          import { foo } from "./a";
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: SYMBOL_IN_USE
+        message: "Symbol 'foo' in src/a.ts is used by 1 other file(s); un-exporting it would break them: src/b.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts, src/b.ts]
+
+  - name: refuses to un-export a symbol another file re-exports
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+        src/b.ts: |
+          export { foo } from "./a";
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: SYMBOL_IN_USE
+        message: "Symbol 'foo' in src/a.ts is used by 1 other file(s); un-exporting it would break them: src/b.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts, src/b.ts]
+
+  - name: refuses to un-export a symbol reached through a namespace import
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+        src/b.ts: |
+          import * as a from "./a";
+
+          const value = a.foo();
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: SYMBOL_IN_USE
+        message: "Symbol 'foo' in src/a.ts is used by 1 other file(s); un-exporting it would break them: src/b.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts, src/b.ts]
+
+  - name: un-exports when another file imports a different symbol from the same module
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+          export function bar() { return 2; }
+        src/b.ts: |
+          import { bar } from "./a";
+
+          const value = bar();
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/a.ts: |
+            function foo() { return 1; }
+            export function bar() { return 2; }
+        unchanged: [tsconfig.json, src/b.ts]
+
+  - name: un-exports when a namespace import never reaches the symbol
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+          export function bar() { return 2; }
+        src/b.ts: |
+          import * as a from "./a";
+
+          const value = a.bar();
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/a.ts: |
+            function foo() { return 1; }
+            export function bar() { return 2; }
+        unchanged: [tsconfig.json, src/b.ts]
