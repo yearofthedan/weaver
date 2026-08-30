@@ -34,3 +34,107 @@ scenarios:
           src/a.ts: |
             export function foo() { return 1; }
         unchanged: [tsconfig.json]
+
+  - name: adds the export keyword to a variable statement
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          const foo = 1;
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/a.ts: |
+            export const foo = 1;
+        unchanged: [tsconfig.json]
+
+  - name: adds the export keyword to a class declaration
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          class Foo {}
+    when:
+      - setExport: { file: src/a.ts, symbolName: Foo, exported: true }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: Foo
+      files:
+        changed:
+          src/a.ts: |
+            export class Foo {}
+        unchanged: [tsconfig.json]
+
+  - name: adds the export keyword to an interface declaration
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          interface Foo {}
+    when:
+      - setExport: { file: src/a.ts, symbolName: Foo, exported: true }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: Foo
+      files:
+        changed:
+          src/a.ts: |
+            export interface Foo {}
+        unchanged: [tsconfig.json]
+
+  - name: adds the export keyword to a type alias
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          type Foo = number;
+    when:
+      - setExport: { file: src/a.ts, symbolName: Foo, exported: true }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: Foo
+      files:
+        changed:
+          src/a.ts: |
+            export type Foo = number;
+        unchanged: [tsconfig.json]
+
+  - name: reports an enum name as not found
+    description: >
+      Enums are outside the supported declaration forms. Reporting the name as absent keeps
+      the operation's answer honest — a half-supported form that silently did nothing would
+      be worse than a clear miss.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          enum Foo {}
+    when:
+      - setExport: { file: src/a.ts, symbolName: Foo, exported: true }
+    then:
+      response:
+        status: error
+        error: SYMBOL_NOT_FOUND
+        message: "Symbol 'Foo' not found as a top-level declaration in src/a.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
