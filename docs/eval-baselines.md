@@ -15,7 +15,7 @@ Conditions: sampled rate gate (`pnpm eval:gate`), 2/3 floor, temperature omitted
 | Case | Exposure | Haiku 4.5 (n=3) | Gemini 2.5 Flash (n=10) | GPT-5.6-Luna (n=10) |
 |---|---|---|---|---|
 | trigger-refactor-rename | progressive | 3/3 | 10/10 | 10/10 |
-| trigger-refactor-rename-no-coords-sed-tempting | progressive | 3/3 | 10/10 | 10/10 |
+| trigger-refactor-rename-no-coords-sed-tempting | progressive | 3/3 | 10/10 | **8/10** |
 | trigger-refactor-move-file | progressive | 3/3 | 10/10 | 10/10 |
 | trigger-search-and-replace-pattern | progressive | 3/3 | 10/10 | 10/10 |
 | trigger-search-and-replace-todos-grep-tempting | progressive | 3/3 | 10/10 | 10/10 |
@@ -26,14 +26,14 @@ Conditions: sampled rate gate (`pnpm eval:gate`), 2/3 floor, temperature omitted
 | pressured-buried-replace-text-passive | progressive (3-turn) | 3/3 | 10/10 | 10/10 |
 | pressured-buried-find-references | progressive (3-turn) | 3/3 | 9/10 | 10/10 |
 | command-rename | front-loaded | 3/3 | 10/10 | 10/10 |
-| command-move-file | front-loaded | 5/6 | 10/10 | 10/10 |
-| command-move-directory | front-loaded | 4/6 | 10/10 | 10/10 |
-| command-move-symbol | front-loaded | 3/3 | 9/10 | 10/10 |
+| command-move-file | front-loaded | 12/12 | 10/10 | 10/10 |
+| command-move-directory | front-loaded | 11/12 | 10/10 | 10/10 |
+| command-move-symbol | front-loaded | 12/12 | 9/10 | 10/10 |
 | command-find-importers | front-loaded | 3/3 | 10/10 | 10/10 |
 | command-find-references | front-loaded | 3/3 | 10/10 | 10/10 |
 | command-get-definition | front-loaded | 3/3 | 10/10 | 10/10 |
 | command-get-type-errors | front-loaded | 3/3 — D | 10/10 | 10/10 |
-| command-search-text | front-loaded | 3/3 | 10/10 | 10/10 |
+| command-search-text | front-loaded | 12/12 | 10/10 | 10/10 |
 | command-delete-file | front-loaded | 3/3 | 10/10 | 10/10 |
 | command-replace-text | front-loaded | 3/3 | 10/10 | 10/10 |
 | two-step-search-then-rename | front-loaded (seeded) | 3/3 | 10/10 | 10/10 |
@@ -67,6 +67,32 @@ Per-case rates are the ground truth — any aggregate derives from them, so reco
 ---
 
 ## Run history
+
+### 2026-08-30 — spike: can a description edit stop the single-edit over-trigger?
+
+Full write-up: [20260830-single-edit-over-trigger-spike.md](specs/20260830-single-edit-over-trigger-spike.md).
+**$3.50.** Null result — nothing shipped, skill descriptions unchanged.
+
+Three wordings of `weaver-search-and-replace`'s opening clause took `boundary-bash-remove-console-log`
+from 0/10 to 8–10/10 clean on Luna. All three cost Haiku roughly a third of four front-loaded cases
+(13–16/24 against controls of 23/24 and 24/24), so none is shippable. The harm did not depend on the
+presence or scoping of a negative clause, which points at perturbation or added length rather than
+meaning — untested, and the thing to settle before wording that clause again.
+
+**Five table cells corrected, all measured on unedited code in this session.** Haiku's four
+front-loaded cases were re-run at n=12 across two control arms: `command-move-file` 5/6 → **12/12**,
+`command-move-directory` 4/6 → **11/12**, `command-move-symbol` 3/3 → **12/12**, `command-search-text`
+3/3 → **12/12**. All four were unresolved small-n draws the table's own rule says to widen; widened,
+they are stronger than recorded, not weaker.
+
+Luna's `trigger-refactor-rename-no-coords-sed-tempting` goes the other way: **10/10 → 8/10**, twice,
+on unedited code. Both failures are precursor-stalls — repeated `search-text` with a narrowing glob,
+never converting to `rename`.
+
+**That stale row nearly cost a correct conclusion.** It first appeared as an 8/10 alongside an edited
+description and read as a regression the edit had caused. A same-session control arm on unedited code
+also gave 8/10. Read against the table instead of a control, a working change would have been thrown
+away on a stale number — the concrete form of the drift warning in the 2026-08-16 entry.
 
 ### 2026-08-30 — `boundary-bash-search-non-ts-project` retired (no run)
 

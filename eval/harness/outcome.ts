@@ -13,6 +13,11 @@
  *   call) but did not guide the model to the right operation. A body to fix.
  * - `"never-reached"` — the model never read the skill at all. A description
  *   or shell-habit problem, not a body problem.
+ *
+ * Read the last tier on progressive cases only. A front-loaded case puts the
+ * bodies in the user turn and exposes no `Skill` tool, so `skillMdRead` is
+ * false on every trial and every miss lands in `never-reached` by
+ * construction — there it means "missed", nothing more.
  */
 export type TrialOutcome = "clean-pass" | "warned-pass" | "content-fail" | "never-reached";
 
