@@ -611,3 +611,31 @@ scenarios:
         message: "Symbol 'foo' in src/utils.ts is used by 1 other file(s); un-exporting it would break them: tests/utils.test.ts"
       files:
         unchanged: [tsconfig.json, src/App.vue, src/utils.ts, tests/utils.test.ts]
+
+  - name: refuses to un-export a symbol a Vue SFC script re-exports
+    description: >
+      A re-export from an SFC keeps the symbol reachable by other modules just as an import does,
+      so the SFC scan has to match a re-export too — matching only imports would let the removal
+      through and break the re-exporting component.
+    given:
+      extends: a-vue-project
+      files:
+        src/utils.ts: |
+          export function foo() { return 1; }
+        src/App.vue: |
+          <script lang="ts">
+          export { foo } from "./utils";
+          </script>
+
+          <template>
+            <div />
+          </template>
+    when:
+      - setExport: { file: src/utils.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: SYMBOL_IN_USE
+        message: "Symbol 'foo' in src/utils.ts is used by 1 other file(s); un-exporting it would break them: src/App.vue"
+      files:
+        unchanged: [tsconfig.json, src/utils.ts, src/App.vue]

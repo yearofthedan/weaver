@@ -1,4 +1,13 @@
-import { Node, type SourceFile, type Statement } from "ts-morph";
+import {
+  type ClassDeclaration,
+  type FunctionDeclaration,
+  type InterfaceDeclaration,
+  Node,
+  type SourceFile,
+  type TypeAliasDeclaration,
+  type VariableDeclaration,
+  type VariableStatement,
+} from "ts-morph";
 import { EngineError } from "../domain/errors.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { SetExportResult } from "../operations/types.js";
@@ -7,17 +16,29 @@ import type { TsMorphEngine } from "./engine.js";
 /** At most this many referencing files are named in a SYMBOL_IN_USE message. */
 const MAX_LISTED_FILES = 10;
 
+/** The top-level statement carrying the `export` keyword. */
+type ExportableStatement =
+  | FunctionDeclaration
+  | ClassDeclaration
+  | InterfaceDeclaration
+  | TypeAliasDeclaration
+  | VariableStatement;
+
 /**
- * A top-level declaration whose `export` keyword can be toggled.
- *
- * Every declaration form this operation supports carries ts-morph's
- * `ExportableNode` mixin; the intersection names only the part used here.
+ * The named node references resolve from. Identical to the statement for every
+ * form except a variable statement, where the name belongs to the declarator.
  */
-type ExportableStatement = Statement & {
-  isExported(): boolean;
-  isDefaultExport(): boolean;
-  setIsExported(value: boolean): unknown;
-};
+type NamedDeclaration =
+  | FunctionDeclaration
+  | ClassDeclaration
+  | InterfaceDeclaration
+  | TypeAliasDeclaration
+  | VariableDeclaration;
+
+interface Target {
+  statement: ExportableStatement;
+  declaration: NamedDeclaration;
+}
 
 /**
  * Add or remove the `export` keyword on a top-level declaration.
@@ -45,18 +66,18 @@ export async function tsSetExport(
 
   const target = resolveTarget(sourceFile, symbolName, file);
 
-  if (target.isExported() === exported) {
+  if (target.statement.isExported() === exported) {
     return { filesModified: [], filesSkipped: [], symbolName };
   }
 
   if (!exported) {
-    const users = [...new Set([...referencingFiles(target, symbolName, file), ...knownReferences])];
+    const users = [...new Set([...referencingFiles(target.declaration, file), ...knownReferences])];
     if (users.length > 0) {
       throw new EngineError(inUseMessage(symbolName, file, users.sort()), "SYMBOL_IN_USE");
     }
   }
 
-  target.setIsExported(exported);
+  target.statement.setIsExported(exported);
   scope.writeFile(file, sourceFile.getFullText());
   engine.invalidateProject(file);
 
@@ -67,11 +88,7 @@ export async function tsSetExport(
  * Find the single top-level declaration named `symbolName`, or throw explaining
  * why the name cannot be toggled.
  */
-function resolveTarget(
-  sourceFile: SourceFile,
-  symbolName: string,
-  file: string,
-): ExportableStatement {
+function resolveTarget(sourceFile: SourceFile, symbolName: string, file: string): Target {
   const candidates = topLevelDeclarationsNamed(sourceFile, symbolName);
 
   if (candidates.length === 0) {
@@ -96,14 +113,14 @@ function resolveTarget(
 
   const target = candidates[0];
 
-  if (target.isDefaultExport()) {
+  if (target.statement.isDefaultExport()) {
     throw new EngineError(
       `Symbol '${symbolName}' in ${file} is a default export. Only named exports are supported.`,
       "NOT_SUPPORTED",
     );
   }
 
-  if (Node.isVariableStatement(target) && target.getDeclarations().length > 1) {
+  if (Node.isVariableStatement(target.statement) && target.statement.getDeclarations().length > 1) {
     throw new EngineError(
       `Symbol '${symbolName}' in ${file} is one of several declarators in a single statement. Split the statement first — changing it would carry the siblings along.`,
       "NOT_SUPPORTED",
@@ -125,11 +142,8 @@ function resolveTarget(
  * they are outside this operation's supported forms, so an enum name reads as
  * not found rather than half-supported.
  */
-function topLevelDeclarationsNamed(
-  sourceFile: SourceFile,
-  symbolName: string,
-): ExportableStatement[] {
-  const found: ExportableStatement[] = [];
+function topLevelDeclarationsNamed(sourceFile: SourceFile, symbolName: string): Target[] {
+  const found: Target[] = [];
   for (const statement of sourceFile.getStatements()) {
     if (
       Node.isFunctionDeclaration(statement) ||
@@ -137,14 +151,14 @@ function topLevelDeclarationsNamed(
       Node.isInterfaceDeclaration(statement) ||
       Node.isTypeAliasDeclaration(statement)
     ) {
-      if (statement.getName() === symbolName) found.push(statement);
+      if (statement.getName() === symbolName) found.push({ statement, declaration: statement });
       continue;
     }
-    if (
-      Node.isVariableStatement(statement) &&
-      statement.getDeclarations().some((declaration) => declaration.getName() === symbolName)
-    ) {
-      found.push(statement);
+    if (Node.isVariableStatement(statement)) {
+      const declaration = statement
+        .getDeclarations()
+        .find((candidate) => candidate.getName() === symbolName);
+      if (declaration) found.push({ statement, declaration });
     }
   }
   return found;
@@ -182,37 +196,13 @@ function namesExport(
 }
 
 /** Files other than the declaring one that reference the symbol, via the project graph. */
-function referencingFiles(target: ExportableStatement, symbolName: string, file: string): string[] {
+function referencingFiles(declaration: NamedDeclaration, file: string): string[] {
   const files = new Set<string>();
-  for (const node of nameNodeOf(target, symbolName).findReferencesAsNodes()) {
+  for (const node of declaration.findReferencesAsNodes()) {
     const referencingFile = node.getSourceFile().getFilePath() as string;
     if (referencingFile !== file) files.add(referencingFile);
   }
   return [...files];
-}
-
-function nameNodeOf(
-  target: ExportableStatement,
-  symbolName: string,
-): Node & {
-  findReferencesAsNodes(): Node[];
-} {
-  if (Node.isVariableStatement(target)) {
-    const declaration = target
-      .getDeclarations()
-      .find((candidate) => candidate.getName() === symbolName);
-    // resolveTarget only returns a variable statement that declares this name.
-    if (declaration === undefined) {
-      throw new EngineError(
-        `Declarator '${symbolName}' vanished from its own statement — this is a bug`,
-        "INTERNAL_ERROR",
-      );
-    }
-    return declaration.getNameNode() as Node & { findReferencesAsNodes(): Node[] };
-  }
-  return (target as unknown as { getNameNode(): Node }).getNameNode() as Node & {
-    findReferencesAsNodes(): Node[];
-  };
 }
 
 function inUseMessage(symbolName: string, file: string, users: string[]): string {

@@ -63,11 +63,7 @@ export class ImportRewriter {
     const sf = createThrowawaySourceFile("__rewrite__.ts", content);
     let hasChanges = false;
 
-    for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {
-      const specifier = decl.getModuleSpecifierValue();
-      if (specifier === undefined) continue;
-      if (!this.matchesSourceFile(specifier, relOldBase, fromDir, scope)) continue;
-
+    for (const decl of this.declarationsResolvingTo(sf, relOldBase, fromDir, scope)) {
       if ("getNamedImports" in decl) {
         hasChanges = this.rewriteImport(decl, sf, symbolName, filePath, newSource) || hasChanges;
       } else {
@@ -97,18 +93,29 @@ export class ImportRewriter {
     const relBase = toRelBase(fromDir, sourceFile);
     const sf = createThrowawaySourceFile("__scan__.ts", content);
 
-    for (const decl of sf.getImportDeclarations()) {
-      if (!this.matchesSourceFile(decl.getModuleSpecifierValue(), relBase, fromDir, scope))
-        continue;
-      if (decl.getNamedImports().some((spec) => spec.getName() === symbolName)) return true;
+    for (const decl of this.declarationsResolvingTo(sf, relBase, fromDir, scope)) {
+      const named = "getNamedImports" in decl ? decl.getNamedImports() : decl.getNamedExports();
+      if (named.some((spec) => spec.getName() === symbolName)) return true;
     }
-    for (const decl of sf.getExportDeclarations()) {
+    return false;
+  }
+
+  /** Import and re-export declarations in `sf` whose specifier resolves to `sourceFile`. */
+  private *declarationsResolvingTo(
+    sf: import("ts-morph").SourceFile,
+    relBase: string,
+    fromDir: string,
+    scope: WorkspaceScope,
+  ): Generator<
+    | ReturnType<import("ts-morph").SourceFile["getImportDeclarations"]>[number]
+    | ReturnType<import("ts-morph").SourceFile["getExportDeclarations"]>[number]
+  > {
+    for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {
       const specifier = decl.getModuleSpecifierValue();
       if (specifier === undefined) continue;
       if (!this.matchesSourceFile(specifier, relBase, fromDir, scope)) continue;
-      if (decl.getNamedExports().some((spec) => spec.getName() === symbolName)) return true;
+      yield decl;
     }
-    return false;
   }
 
   private rewriteImport(
