@@ -513,3 +513,111 @@ scenarios:
       files:
         unchanged: [tsconfig.json, src/a.ts]
 
+  - name: adds the export keyword to a TS module in a project that also contains Vue files
+    given:
+      extends: a-vue-project
+      files:
+        src/utils.ts: |
+          function foo() { return 1; }
+    when:
+      - setExport: { file: src/utils.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/utils.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/utils.ts: |
+            export function foo() { return 1; }
+        unchanged: [tsconfig.json, src/App.vue]
+
+  - name: removes the export keyword from a TS module in a project that also contains Vue files
+    description: >
+      No .vue script and no other TS file reaches the symbol, so the SFC in the project is
+      irrelevant to this call — the removal proceeds exactly as it would with no Vue files at all.
+    given:
+      extends: a-vue-project
+      files:
+        src/utils.ts: |
+          export function foo() { return 1; }
+
+          const local = foo();
+    when:
+      - setExport: { file: src/utils.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/utils.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/utils.ts: |
+            function foo() { return 1; }
+
+            const local = foo();
+        unchanged: [tsconfig.json, src/App.vue]
+
+  - name: refuses to un-export a symbol a Vue SFC script imports
+    given:
+      extends: a-ts-project
+      files:
+        tsconfig.json: |
+          {
+            "compilerOptions": {
+              "strict": true,
+              "target": "ESNext",
+              "module": "ESNext",
+              "moduleResolution": "bundler",
+              "jsx": "preserve"
+            },
+            "include": ["src/**/*.ts", "src/**/*.vue"]
+          }
+        src/utils.ts: |
+          export function foo() { return 1; }
+        src/App.vue: |
+          <script setup lang="ts">
+          import { foo } from "./utils";
+
+          const value = foo();
+          </script>
+
+          <template>
+            <div>{{ value }}</div>
+          </template>
+    when:
+      - setExport: { file: src/utils.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: SYMBOL_IN_USE
+        message: "Symbol 'foo' in src/utils.ts is used by 1 other file(s); un-exporting it would break them: src/App.vue"
+      files:
+        unchanged: [tsconfig.json, src/utils.ts, src/App.vue]
+
+  - name: refuses to un-export a symbol used by a TS file outside the tsconfig include set
+    description: >
+      The project also contains a Vue SFC, so this pins that the out-of-include scan and the
+      SFC scan are independent — one file being irrelevant does not exempt the other.
+    given:
+      extends: a-vue-project
+      files:
+        src/utils.ts: |
+          export function foo() { return 1; }
+        tests/utils.test.ts: |
+          import { foo } from "../src/utils";
+
+          console.log(foo());
+    when:
+      - setExport: { file: src/utils.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: SYMBOL_IN_USE
+        message: "Symbol 'foo' in src/utils.ts is used by 1 other file(s); un-exporting it would break them: tests/utils.test.ts"
+      files:
+        unchanged: [tsconfig.json, src/App.vue, src/utils.ts, tests/utils.test.ts]
