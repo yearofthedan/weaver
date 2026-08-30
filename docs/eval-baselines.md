@@ -38,14 +38,13 @@ Conditions: sampled rate gate (`pnpm eval:gate`), 2/3 floor, temperature omitted
 | command-replace-text | front-loaded | 3/3 | 10/10 | 10/10 |
 | two-step-search-then-rename | front-loaded (seeded) | 3/3 | 10/10 | 10/10 |
 | two-step-cat-then-extract | front-loaded (seeded) | 3/3 | 10/10 | 9/10 |
-| boundary-bash-search-non-ts-project | boundary | 3/3 clean | 10/10 clean | **0/10 — D** |
 | boundary-bash-remove-console-log | boundary | 3/3 clean | 10/10 clean | **0/10 — D** |
-| **Cases cleared** (of 26) | | **26** | **26** | **26** |
-| **Demoted** (cap 2) | | 1 | 0 | 2 |
+| **Cases cleared** (of 25) | | **25** | **25** | **25** |
+| **Demoted** (cap 2) | | 1 | 0 | 1 |
 
-**D** = demoted for that model: measured and printed, never gating. Boundary cases are judged all-clean, not on the rate floor, so an n=10 column is a materially harder bar than an n=3 one. Luna's boundary failures are settled at 0/10 on both, not a 0/3 draw. Haiku's n=3 cells that read `x/6` escalated under the "escalate unless clean" rule.
+**D** = demoted for that model: measured and printed, never gating. Boundary cases are judged all-clean, not on the rate floor, so an n=10 column is a materially harder bar than an n=3 one. Luna's boundary failure is settled at 0/10, not a 0/3 draw. Haiku's n=3 cells that read `x/6` escalated under the "escalate unless clean" rule.
 
-**The roster's discrimination is decaying, and Luna's has gone.** On 2026-08-16 Luna cleared 24 of 25 non-boundary cases at 10/10 (`two-step-cat-then-extract` 9/10) against an unchanged lane. Every *gating* Luna case is now at ceiling: its only remaining signal is the two boundary cases, both demoted and therefore non-gating. A model whose gating cells are all 10/10 cannot go red for a skill edit, so Luna currently costs money and contributes no gating discrimination. Decide whether it earns its roster slot on the boundary cases alone — which would mean promoting them — or comes out.
+**The roster's discrimination is decaying, and Luna's has gone.** On 2026-08-16 Luna cleared 24 of 25 non-boundary cases at 10/10 (`two-step-cat-then-extract` 9/10) against an unchanged lane. Every *gating* Luna case is now at ceiling: its only remaining signal is `boundary-bash-remove-console-log`, demoted and therefore non-gating. A model whose gating cells are all 10/10 cannot go red for a skill edit, so Luna currently costs money and contributes no gating discrimination. Decide whether it earns its roster slot on that one case — which would mean promoting it — or comes out. Note that fixing the over-trigger sharpens the question rather than settling it: a promoted case that then passes leaves Luna a pure regression guard, which is what every other ceiling cell already is.
 
 **A clean n=3 pass repeatedly failed to survive widening.** On Haiku, `command-move-directory` went 3/3 → **8/10**, `command-move-file` 3/3 → **7/10**, `command-search-text` 3/3 → **9/10**. On Gemini the same thing happened harder: `command-find-references` 2/3 → **3/10** (a red the n=3 draw missed entirely), `command-rename` 3/3 → **7/10**, `pressured-buried-find-references` 3/3 → **8/10** — while `trigger-search-and-replace-sed-tempting` went the other way, 2/3 → **10/10**. Errors ran in both directions on both models. The practical rule: **treat any 2/3 or 3/6 as unresolved and widen it before drawing a conclusion**, in either direction.
 
@@ -68,6 +67,26 @@ Per-case rates are the ground truth — any aggregate derives from them, so reco
 ---
 
 ## Run history
+
+### 2026-08-30 — `boundary-bash-search-non-ts-project` retired (no run)
+
+Removed from the case table. No trials were spent; this records why a row left the baseline table
+while its 0/10 results stay in the history below.
+
+The case asserted that a text search on a Python project must stay in the shell. `search-text` and
+`replace-text` take no engine — the dispatcher entries pass only a `WorkspaceScope`
+(`src/daemon/dispatcher.ts`), and `searchText` walks workspace files without consulting a compiler.
+They run correctly on any language and still give the workspace-boundary and sensitive-file
+guarantees `grep` does not. So a language-agnostic description is not over-broad, and Luna calling
+`search-text` there was right.
+
+That fails the bar in [eval-design.md](eval-design.md) — a boundary case earns its place only if a
+*plausible description error* would flip it. This task sat inside the claim, not on its edge, so it
+measured a policy weaver does not hold. Luna's demoted tally drops 2 → 1.
+
+Left open: `find-references` and the other compiler-backed ops genuinely cannot serve a non-TS
+project, so a symbol-inspection task on one *would* sit on a real boundary. Unmeasured; tracked in
+handoff.md rather than assumed.
 
 ### 2026-08-16 — Luna re-baseline: the model moved, the lane did not
 

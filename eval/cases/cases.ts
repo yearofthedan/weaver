@@ -286,21 +286,10 @@ export const CASES: CaseEntry[] = validateCases([
 
   // ── Boundary cases (over-trigger guard) ─────────────────────────────────────
   // Legitimate shell/Edit work that must stay in `bash`, guarding against an
-  // over-broad description stealing a task no skill should claim. Both are
-  // adjacent negatives on a description's decision boundary; see
+  // over-broad description stealing a task no skill should claim. Each is an
+  // adjacent negative on a description's decision boundary; see
   // docs/eval-design.md for why tasks far from any description aren't included.
 
-  {
-    name: "boundary-bash-search-non-ts-project",
-    exposure: "progressive",
-    task: "Search for `API_KEY` across the Python files in /tmp/weaver-eval-py.",
-    expect: { skill: "bash" },
-    observational: {
-      since: "2026-08-08",
-      reason: "over-triggers into weaver search-text on a non-TS project — 0/10 at demotion",
-      models: ["openai/gpt-5.6-luna"],
-    },
-  },
   {
     name: "boundary-bash-remove-console-log",
     exposure: "progressive",

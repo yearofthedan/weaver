@@ -126,15 +126,11 @@ describe("case table", () => {
   });
 
   describe("adjacent-negative boundary cases", () => {
-    it("has the adjacent-negative cases with distinct tasks, all gated to bash", () => {
-      const names = ["boundary-bash-search-non-ts-project", "boundary-bash-remove-console-log"];
-      const found = names.map((name) => CASES.find((c) => c.name === name));
-      for (const [i, c] of found.entries()) {
-        expect(c, `Expected boundary case "${names[i]}" to exist`).toBeDefined();
-        expect(c !== undefined && isBoundaryCase(c)).toBe(true);
-      }
-
-      const tasks = found.map((c) => c?.task);
+    // Existence is asserted above; what a name list cannot express is that no
+    // two boundary cases probe the same task. A duplicate would double the paid
+    // trials while measuring one decision boundary twice.
+    it("gives every boundary case a distinct task", () => {
+      const tasks = CASES.filter(isBoundaryCase).map((c) => c.task);
       expect(new Set(tasks).size).toBe(tasks.length);
     });
   });
