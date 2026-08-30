@@ -333,3 +333,57 @@ scenarios:
       files:
         unchanged: [tsconfig.json, src/a.ts]
 
+  - name: reports a completely absent name as not found
+    given: a-non-exported-function
+    when:
+      - setExport: { file: src/a.ts, symbolName: doesNotExist, exported: true }
+    then:
+      response:
+        status: error
+        error: SYMBOL_NOT_FOUND
+        message: "Symbol 'doesNotExist' not found as a top-level declaration in src/a.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: reports a function-local name as not found
+    description: >
+      A local binding inside a function shares no visibility with the module, so it must
+      read the same as a name that never appears at all.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          function outer() {
+            const foo = 1;
+            return foo;
+          }
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: error
+        error: SYMBOL_NOT_FOUND
+        message: "Symbol 'foo' not found as a top-level declaration in src/a.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: reports a class member name as not found
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          class Foo {
+            foo() {
+              return 1;
+            }
+          }
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: error
+        error: SYMBOL_NOT_FOUND
+        message: "Symbol 'foo' not found as a top-level declaration in src/a.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
