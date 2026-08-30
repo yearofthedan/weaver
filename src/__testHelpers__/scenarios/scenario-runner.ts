@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { parse as parseYaml } from "yaml";
-import { type DispatchResponse, dispatchRequest } from "../../daemon/dispatcher.js";
+import { type DispatchResponse, dispatchRequest, pathParamsFor } from "../../daemon/dispatcher.js";
 import {
   assertEffects,
   assertResponseMatches,
@@ -43,15 +43,22 @@ function seed(root: string, files: Record<string, string>): void {
 }
 
 /**
- * Mirrors the CLI's own relative-path resolution. It resolves every relative string
- * param, where the CLI resolves only those a method declares as paths — good enough
- * while moveFile is the only method here, wrong for a method taking a literal string.
+ * Mirrors the CLI's relative-path resolution: resolve only the params a method declares
+ * as paths, so any other string — a search pattern, a symbol name — keeps the literal
+ * value the scenario wrote.
  */
-function resolveParams(root: string, params: Record<string, unknown>): Record<string, unknown> {
+function resolveParams(
+  root: string,
+  method: string,
+  params: Record<string, unknown>,
+): Record<string, unknown> {
+  const declared = pathParamsFor(method);
   return Object.fromEntries(
     Object.entries(params).map(([key, value]) => [
       key,
-      typeof value === "string" && !path.isAbsolute(value) ? path.join(root, value) : value,
+      declared.includes(key) && typeof value === "string" && !path.isAbsolute(value)
+        ? path.join(root, value)
+        : value,
     ]),
   );
 }
@@ -73,7 +80,7 @@ export async function executeScenario(
   let last!: DispatchResponse;
   for (const step of scenario.when) {
     const [method, rawParams] = Object.entries(step)[0];
-    const params = resolveParams(root, rawParams);
+    const params = resolveParams(root, method, rawParams);
     last = await dispatchRequest({ method, params }, root);
     // A stated response says what to expect, failure included; a sequence has no such claim.
     if (scenario.then.response === undefined) {

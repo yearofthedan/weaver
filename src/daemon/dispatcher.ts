@@ -247,6 +247,11 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
 /** Canonical list of dispatchable operation names — the single source of truth. */
 export const OPERATION_NAMES: string[] = Object.keys(OPERATIONS);
 
+/** The param keys a method declares as file paths; empty for methods with none. */
+export function pathParamsFor(method: string): string[] {
+  return OPERATIONS[method]?.pathParams ?? [];
+}
+
 // ─── Response types ────────────────────────────────────────────────────────
 
 export type DispatchError = {
