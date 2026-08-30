@@ -299,3 +299,37 @@ scenarios:
             function foo() { return 1; }
             export function bar() { return 2; }
         unchanged: [tsconfig.json, src/b.ts]
+
+  - name: leaves an already-exported symbol alone
+    description: >
+      A retry after a crash mid-write must read as done, not as a fresh change — the empty
+      filesModified is what tells a caller "already in that state" apart from a failure.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: success
+        filesModified: []
+        filesSkipped: []
+        symbolName: foo
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: leaves an already-non-exported symbol alone
+    given: a-non-exported-function
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: success
+        filesModified: []
+        filesSkipped: []
+        symbolName: foo
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
