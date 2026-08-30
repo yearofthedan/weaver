@@ -138,3 +138,31 @@ scenarios:
         message: "Symbol 'Foo' not found as a top-level declaration in src/a.ts"
       files:
         unchanged: [tsconfig.json, src/a.ts]
+
+  - name: removes the export keyword when only the declaring file uses the symbol
+    description: >
+      A call from inside the declaring file is not a reason to keep the symbol exported, so
+      the local call must survive untouched while the keyword goes.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+
+          const local = foo();
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/a.ts: |
+            function foo() { return 1; }
+
+            const local = foo();
+        unchanged: [tsconfig.json]
