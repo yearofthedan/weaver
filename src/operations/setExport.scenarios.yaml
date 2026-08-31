@@ -728,3 +728,28 @@ scenarios:
             const bar = 2;
             export { bar };
         unchanged: [tsconfig.json]
+
+  - name: leaves a declaration alone when a re-export carries the same name
+    description: >
+      A re-export binds the name for other modules without touching the local declaration, which
+      stays unexported — so asking for that is already true and nothing needs to change. The
+      export statement here belongs to another module's symbol, not to this declaration.
+    given:
+      extends: a-ts-project
+      files:
+        src/other.ts: |
+          export function foo() { return 1; }
+        src/a.ts: |
+          function foo() { return 1; }
+
+          export { foo } from "./other";
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: success
+        filesModified: []
+        filesSkipped: []
+        symbolName: foo
+      files:
+        unchanged: [tsconfig.json, src/other.ts, src/a.ts]
