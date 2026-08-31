@@ -83,7 +83,8 @@ export class VolarEngine implements Engine {
     this.services.delete(this.cacheKey(tsConfigPath, filePath));
   }
 
-  /** `Engine` interface seam — delegates to the Volar-specific `invalidateService`. */
+  // Volar has no per-file refresh: the cached service is rebuilt whole, so callers
+  // that refresh several files should do so before querying any of them.
   refreshFile(filePath: string): void {
     this.invalidateService(filePath);
   }

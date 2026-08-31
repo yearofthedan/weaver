@@ -20,15 +20,21 @@ export async function getTypeErrorsForFiles(
   files: string[],
   scope: WorkspaceScope,
 ): Promise<PostWriteDiagnostics> {
-  const tsFiles = files.filter((f) => TS_FILE_EXTENSIONS.has(path.extname(f)));
+  const tsFiles = files
+    .filter((f) => TS_FILE_EXTENSIONS.has(path.extname(f)))
+    .filter((f) => scope.fs.exists(f));
+
+  // Refresh every file before asking about any of them. An engine is free to
+  // implement refreshFile by dropping a whole cached project, so interleaving
+  // refresh and query rebuilds that project once per file.
+  for (const file of tsFiles) {
+    engine.refreshFile(file);
+  }
 
   let totalCount = 0;
   const allDiagnostics: TypeDiagnostic[] = [];
 
   for (const file of tsFiles) {
-    if (!scope.fs.exists(file)) continue;
-
-    engine.refreshFile(file);
     const result = await engine.getTypeErrors(file, scope);
     totalCount += result.errorCount;
     for (const d of result.diagnostics) {
