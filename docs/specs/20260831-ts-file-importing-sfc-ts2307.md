@@ -69,7 +69,7 @@ TS2307, because `vueGetTypeErrorsForProject` merges
 
 ## Root cause
 
-`VueEngine.getTypeErrors` (`src/plugins/vue/engine.ts:380-385`) branches on file
+`VueEngine.getTypeErrors` (`src/plugins/vue/engine.ts:400-409`) branches on file
 extension: a `.vue` file goes to `vueGetTypeErrorsForFile` against the Volar
 service, and anything else falls through to `this.tsEngine.getTypeErrors(file,
 scope)`. The ts-morph project has no `.vue` language support, so a `.vue`
@@ -106,36 +106,120 @@ not a diagnostics-routing one.
 
 ## Fix
 
-*Left blank deliberately: the fix has architectural forks and needs `/spec`.*
+Route `.ts` diagnostics in a Vue project through the Volar service the engine
+already holds, at all three sites that answer a diagnostics question. A probe
+settled the approach: given a `.ts` file with one valid SFC import, one missing
+SFC import and one real type error, ts-morph reports all three (the first
+falsely) while Volar reports only the last two. Volar drops the false positive
+and keeps every genuine diagnostic, so this is a correctness fix, not a
+suppression.
 
-The routing is confirmed, but "which service should answer for a `.ts` file in a
-Vue project" has more than one viable answer, with different correctness and
-blast radius:
+**1. Single file.** In `VueEngine.getTypeErrors` (`src/plugins/vue/engine.ts:400-409`),
+replace the non-`.vue` fall-through to `this.tsEngine.getTypeErrors(file, scope)`
+with a call through `getService(file, scope.root).baseService.getSemanticDiagnostics(file)`.
+Diagnostics for a `.ts` file come back carrying a real `d.file`, so the existing
+`toDiagnostic` in `src/ts-engine/get-type-errors.ts` maps them directly — the
+source-map translation in `translateVirtualOffset` is only needed for `.vue`.
+Keep the `MAX_DIAGNOSTICS` cap and the `truncated` flag consistent with the
+other two paths.
 
-- Route `.ts` diagnostics through the Volar service. Matches how the SFC path
-  already resolves, but changes the diagnostics every `.ts` file in a Vue project
-  reports, not only the `.vue`-import ones. The project-wide path
-  (`vueGetTypeErrorsForProject`) currently merges the ts-morph whole-project
-  result, so it needs restructuring alongside. The experiment above stubbed
-  `line`/`col`; a real implementation needs offsets mapped against the `.ts`
-  source directly, not through Volar's source map, which only covers `.vue`.
-- Teach the ts-morph project to resolve `.vue` specifiers, leaving routing as-is.
-  Narrower, but puts SFC knowledge inside the engine that exists not to have it.
-- Filter TS2307 on `.vue` specifiers out of `.ts` results. Rejected on sight: it
-  hides a genuinely missing SFC, which is the failure the code exists to report.
+**2. Project-wide.** `vueGetTypeErrorsForProject` stops merging
+`tsEngine.getTypeErrors(undefined, scope)` and iterates the Volar service for
+both file kinds: `.vue` through the existing `vueGetTypeErrorsFromService`, and
+everything else through `baseService`. `CachedService` does not currently expose
+its script list, so it gains a `scriptFileNames` field (the local already exists
+in `buildVolarService`). Constrain the iteration to the tsconfig's own file
+list. `buildVolarService` deliberately pulls in every workspace TS/JS file via
+`walkFiles` so test files stay visible to rename and find-references; iterating
+that set for diagnostics would start reporting errors in files the tsconfig
+excludes, which is a behaviour change this fix is not for.
 
-Adjacent inputs a fix must cover: relative (`./Widget.vue`) as well as aliased
-specifiers; the project-wide form with no `file`; a `.ts` file importing an SFC
-that genuinely does not exist, which must still report TS2307; and the post-write
-diagnostics path in `checkTypeErrors`, where the defect became visible.
+**3. Post-write.** The seam already exists and the wrong side of it is being
+called. `makeRegistry` returns both `projectEngine()` (Vue engine when the
+project is Vue) and `tsEngine()` (always ts-morph), and `dispatcher.ts:386` asks
+for the latter. Switch that call to `projectEngine()`, and widen
+`getTypeErrorsForFiles` (`src/daemon/post-write-diagnostics.ts`) to take the
+`Engine` interface instead of `TsMorphEngine`, looping `engine.getTypeErrors(file,
+scope)` per file and aggregating into the three `PostWriteDiagnostics` fields.
+
+`getTypeErrorsForFiles` currently calls `compiler.refreshSourceFile(file)` before
+each check, and that method is `TsMorphEngine`-specific. Add `refreshFile(path):
+void` to the `Engine` interface: `TsMorphEngine` maps it to the existing
+`refreshSourceFile`, and `VolarEngine` maps it to its existing
+`invalidateService`. The Vue engine already invalidates on its own writes, so
+this is belt-and-braces there — but a post-write freshness guarantee should be
+stated in the interface rather than left to each engine's internal habits. The
+alternative, reaching for the registry's module-level `invalidateFile` from
+inside the function, was rejected: `getTypeErrorsForFiles` takes every other
+dependency as an argument, and reaching for module state would be the only
+exception.
+
+**Adjacent inputs.** A relative specifier (`./Widget.vue`) as well as an aliased
+one; a `.ts` file importing an SFC that genuinely does not exist, which must
+still report TS2307; a `.tsx` file, which takes the same non-`.vue` branch; the
+project-wide form with no `file`; and a plain TypeScript project with no `.vue`
+files anywhere, which must keep reporting exactly what it reports today.
+
+## Test plan
+
+The pin becomes the proof. `repoints aliased importers of a moved SFC` in
+`src/operations/moveFile.scenarios.yaml` currently asserts `typeErrorCount: 1`,
+with a `description` explaining that the `warn` is deliberate. Flip it to
+`typeErrors: none` and delete that rationalising paragraph — the scenario was
+written to hold the defect still, and the fix retires it.
+
+Add scenarios alongside it for the relative-specifier form and for a move that
+leaves a genuinely broken SFC import, which must still return `warn`. Cover the
+single-file and project-wide paths in `src/plugins/vue/get-type-errors.test.ts`,
+which is where the Volar diagnostics translation is already tested.
+
+`getTypeErrorsForFiles`'s own tests (`src/daemon/post-write-diagnostics.test.ts`,
+7 cases) need their signature updated for the `Engine` widening but not
+relocating — they cover aggregation, the `.ts` filter and the `MAX_DIAGNOSTICS`
+cap, inputs no existing scenario builds. Migrating them to a scenario file is
+out of scope and deliberately not logged.
 
 ## Security
 
-*Pending — completed with the Fix.*
+- **Workspace boundary:** N/A for the boundary itself — the fix changes which
+  service answers a diagnostics question, and adds no file read or write.
+  `buildVolarService` already walks the workspace under the same rules and is
+  already built for every other Vue operation.
+- **Sensitive file exposure:** N/A — no new file content is read. The Volar
+  service's file set is unchanged by this fix; only which of its members are
+  queried for diagnostics changes.
+- **Input injection:** N/A — no user-supplied string reaches a new sink. The
+  `file` parameter is validated by the operation layer before either engine
+  sees it, exactly as today.
+- **Response leakage:** Diagnostic messages are compiler-generated and already
+  agent-visible. The fix removes messages rather than adding them. The one thing
+  to watch is item 2: constraining project-wide iteration to the tsconfig file
+  list is what keeps files the project excludes out of the response.
 
 ## Edges
 
-*Pending — completed with the Fix.*
+- A `.tsx` file in a Vue project — same non-`.vue` branch, must be covered.
+- A `.js`/`.jsx` file in a Vue project with `allowJs`, which ts-morph
+  deliberately admits to the project graph but excludes from the program.
+- A Vue project whose tsconfig does not list `.vue` in `include` — the
+  "bundler-only Vue setup" `buildVolarService` already compensates for.
+- A plain TypeScript project: `VolarEngine` is never constructed, so nothing
+  should change. Worth an explicit regression case, since this is the majority
+  path and the fix must not touch it.
+- The happy path for `.vue` files, which already routes to Volar and must keep
+  producing identical output after item 2 restructures the project-wide branch.
+- Not covered here, logged separately: `getTypeErrorsForFiles` filters to
+  `.ts`/`.tsx`, so a move that breaks an SFC still reports nothing.
+
+## Red flags
+
+- `src/plugins/vue/engine.ts` is 482 lines and `src/plugins/vue/get-type-errors.test.ts`
+  is 339. Neither is over the point where a split is automatic, but both are
+  where this change lands — check mixed responsibilities before adding to them
+  rather than after.
+- Item 2 is the only part that changes what a *passing* project reports. If the
+  tsconfig-file-list constraint is dropped or wrong, the project-wide form
+  starts reporting errors in excluded files and every consumer sees new noise.
 
 ## Done-when
 
