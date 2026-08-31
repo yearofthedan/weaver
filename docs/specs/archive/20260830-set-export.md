@@ -49,17 +49,17 @@ All behaviour ACs run through `dispatchRequest` as scenario cases (`src/operatio
 
 **Seam (prep — lands first, with its own test):**
 
-- [ ] **AC0 — the scenario runner resolves only declared path params.** The dispatcher's per-method `pathParams` declaration is exported and the runner uses it instead of resolving every relative string. A `searchText` scenario with `pattern: "foo"` (searchText declares `pathParams: []`) dispatches the literal string unjoined — before the fix the pattern arrives as `<workspace>/foo`. Every existing `moveFile` scenario still passes (declared path params resolve as before).
+- [x] **AC0 — the scenario runner resolves only declared path params.** The dispatcher's per-method `pathParams` declaration is exported and the runner uses it instead of resolving every relative string. A `searchText` scenario with `pattern: "foo"` (searchText declares `pathParams: []`) dispatches the literal string unjoined — before the fix the pattern arrives as `<workspace>/foo`. Every existing `moveFile` scenario still passes (declared path params resolve as before).
 
 **Add direction:**
 
-- [ ] **AC1 — add export to a function.** `src/a.ts` = `function foo() { return 1; }\n`; `setExport {file: src/a.ts, symbolName: foo, exported: true}` → response `{status: success, filesModified: [src/a.ts], filesSkipped: [], symbolName: "foo"}` (+ `typeErrors: none` sugar); `src/a.ts` becomes `export function foo() { return 1; }\n`; `tsconfig.json` unchanged.
-- [ ] **AC2 — every supported declaration form.** Non-exported `const foo = 1;`, `class Foo {}`, `interface Foo {}`, `type Foo = number;`, `enum Foo {}` each gain the `export` keyword with the rest of the file byte-identical. Enums excluded — see Edges.
+- [x] **AC1 — add export to a function.** `src/a.ts` = `function foo() { return 1; }\n`; `setExport {file: src/a.ts, symbolName: foo, exported: true}` → response `{status: success, filesModified: [src/a.ts], filesSkipped: [], symbolName: "foo"}` (+ `typeErrors: none` sugar); `src/a.ts` becomes `export function foo() { return 1; }\n`; `tsconfig.json` unchanged.
+- [x] **AC2 — every supported declaration form.** Non-exported `const foo = 1;`, `class Foo {}`, `interface Foo {}`, `type Foo = number;`, `enum Foo {}` each gain the `export` keyword with the rest of the file byte-identical. Enums excluded — see Edges.
 
 **Remove direction:**
 
-- [ ] **AC3 — remove export when nothing outside the file references it.** `src/a.ts` = `export function foo() { return 1; }` plus a local call to `foo()` in the same file; no other file references it; `exported: false` → `src/a.ts` becomes `function foo() { return 1; }` (local call intact), success response.
-- [ ] **AC4 — external use blocks removal.** With `src/b.ts` alongside:
+- [x] **AC3 — remove export when nothing outside the file references it.** `src/a.ts` = `export function foo() { return 1; }` plus a local call to `foo()` in the same file; no other file references it; `exported: false` → `src/a.ts` becomes `function foo() { return 1; }` (local call intact), success response.
+- [x] **AC4 — external use blocks removal.** With `src/b.ts` alongside:
   - `import { foo } from "./a";` (used) → `{status: error, error: "SYMBOL_IN_USE", message: …names src/b.ts…}`; every file byte-unchanged.
   - The same import **unused** still blocks — the import statement itself would break.
   - `export { foo } from "./a";` (re-export, no other use) → `SYMBOL_IN_USE`.
@@ -68,9 +68,9 @@ All behaviour ACs run through `dispatchRequest` as scenario cases (`src/operatio
 
 **Contract:**
 
-- [ ] **AC5 — idempotent no-op.** `foo` already exported + `exported: true` → `{status: success, filesModified: [], filesSkipped: [], symbolName: "foo"}`, `src/a.ts` byte-unchanged. Symmetric: non-exported + `exported: false`. With `filesModified` empty no `typeErrors` fields are attached — the deep-equal response pins that shape difference. This is also what distinguishes "already done" from `SYMBOL_NOT_FOUND` on mechanical retry.
-- [ ] **AC6 — SYMBOL_NOT_FOUND.** The name matches no top-level declaration, exported or not: absent entirely; present only function-local; present only as a class member. File byte-unchanged.
-- [ ] **AC7 — NOT_SUPPORTED set.** Each returns `{status: error, error: "NOT_SUPPORTED"}` with the reason in the message, all files byte-unchanged:
+- [x] **AC5 — idempotent no-op.** `foo` already exported + `exported: true` → `{status: success, filesModified: [], filesSkipped: [], symbolName: "foo"}`, `src/a.ts` byte-unchanged. Symmetric: non-exported + `exported: false`. With `filesModified` empty no `typeErrors` fields are attached — the deep-equal response pins that shape difference. This is also what distinguishes "already done" from `SYMBOL_NOT_FOUND` on mechanical retry.
+- [x] **AC6 — SYMBOL_NOT_FOUND.** The name matches no top-level declaration, exported or not: absent entirely; present only function-local; present only as a class member. File byte-unchanged.
+- [x] **AC7 — NOT_SUPPORTED set.** Each returns `{status: error, error: "NOT_SUPPORTED"}` with the reason in the message, all files byte-unchanged:
   - `.vue` target file.
   - The name resolves only through a re-export in this file (`export { foo } from "./other"` where `other.ts` owns the declaration).
   - The declaration is exported only via a trailing `export { }` statement (`const foo = 1;` + `export { foo };`) — removing nothing would leave it exported.
@@ -80,7 +80,7 @@ All behaviour ACs run through `dispatchRequest` as scenario cases (`src/operatio
 
 **Vue projects:**
 
-- [ ] **AC8 — `.ts` targets in a project containing `.vue` files.** Add and remove behave as above. Un-export is blocked when a `.vue` SFC's script imports the symbol (`SYMBOL_IN_USE`), and when any workspace file outside the tsconfig `include` set imports it — the same two detection layers moveSymbol uses.
+- [x] **AC8 — `.ts` targets in a project containing `.vue` files.** Add and remove behave as above. Un-export is blocked when a `.vue` SFC's script imports the symbol (`SYMBOL_IN_USE`), and when any workspace file outside the tsconfig `include` set imports it — the same two detection layers moveSymbol uses.
 
 ## Structural criteria
 
@@ -146,12 +146,12 @@ Consequences to watch: the ts-engine action is the primitive the future moveSymb
 
 ## Done-when
 
-- [ ] All ACs verified by tests: AC0 via a `searchText` scenario + surviving moveFile scenarios; AC1–AC8 in `src/operations/setExport.scenarios.yaml`
-- [ ] Mutation score ≥ threshold for touched files — `pnpm test:mutate:file` per file; note `src/operations/**` and `src/ts-engine/**` are commented out of the default mutate array, so runs must be explicit (`--mutate <files> --force`, scratch `--incrementalFile`), per the scenario-tests skill
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] `/review-changes` run over the whole change and its findings applied — a green `pnpm check` does not stand in for it
-- [ ] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`
-- [ ] Docs updated (public surface changed):
+- [x] All ACs verified by tests: AC0 via a `searchText` scenario + surviving moveFile scenarios; AC1–AC8 in `src/operations/setExport.scenarios.yaml`
+- [x] Mutation score ≥ threshold for touched files — `pnpm test:mutate:file` per file; note `src/operations/**` and `src/ts-engine/**` are commented out of the default mutate array, so runs must be explicit (`--mutate <files> --force`, scratch `--incrementalFile`), per the scenario-tests skill
+- [x] `pnpm check` passes (lint + build + test)
+- [x] `/review-changes` run over the whole change and its findings applied — a green `pnpm check` does not stand in for it
+- [x] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`
+- [x] Docs updated (public surface changed):
   - README.md — Refactor row in the commands table
   - `docs/commands/set-export.md` created (when, inputs, output, errors, examples, limits — including the supported declaration forms and the `.vue` restriction)
   - `docs/internals/set-export.md` created (how it works: `setIsExported`, the two-layer detection, why the guardrail is mandatory)
@@ -160,7 +160,34 @@ Consequences to watch: the ts-engine action is the primitive the future moveSymb
   - `.claude/skills/weaver-refactor/SKILL.md` — frontmatter description, "Pick a command" table row, a body section, `SYMBOL_IN_USE` in the errors list
   - `.claude/skills/scenario-tests/SKILL.md` — replace the `resolveParams` gotcha (the divergence is gone; the runner resolves only declared path params)
   - handoff.md current-state section (command count / layout)
-- [ ] Handoff entries removed at ship time: *No operation changes a symbol's visibility* and *`resolveParams` is a third copy of the CLI's path resolution* (the latter's residual — collapsing the `SUBCOMMANDS`/`OPERATIONS` declaration copies — is absorbed into the *get-type-errors scenarios* entry, which already references it)
-- [ ] Tech debt discovered during implementation added to handoff.md as `[needs design]`
-- [ ] Non-obvious gotchas added to `docs/internals/set-export.md` or the relevant `docs/tech/` doc (skip if nothing worth recording)
-- [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+- [x] Handoff entries removed at ship time: *No operation changes a symbol's visibility* and *`resolveParams` is a third copy of the CLI's path resolution* (the latter's residual — collapsing the `SUBCOMMANDS`/`OPERATIONS` declaration copies — is absorbed into the *get-type-errors scenarios* entry, which already references it)
+- [x] Tech debt discovered during implementation added to handoff.md as `[needs design]`
+- [x] Non-obvious gotchas added to `docs/internals/set-export.md` or the relevant `docs/tech/` doc (skip if nothing worth recording)
+- [x] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+---
+
+## Outcome
+
+**Verification:** driven on the real CLI path against this repo — built `dist`, real `node_modules`, real project graph, through the daemon. Un-exporting `tsSetExport` returned `SYMBOL_IN_USE` naming both genuine importers (`plugins/vue/engine.ts`, `ts-engine/engine.ts`), sorted, writing nothing. Exporting and then un-exporting `readVueScript` in `plugins/vue/scan.ts` round-tripped the file byte-for-byte (`git status --short` and `git diff --stat` both empty afterwards), each write reporting a clean post-write type check. A third identical call returned `filesModified: []` with no `typeErrors` fields — the no-op response shape AC5 specifies, confirmed outside the test harness.
+
+**Tests added:** 35 scenarios in `src/operations/setExport.scenarios.yaml` and 3 focused tests in `src/operations/setExport.test.ts`, on top of AC0's `searchText` seam scenario. The focused file holds the two cases the YAML can express only by burying them — the ten-file cap needs eleven importers, and the on-demand source load needs a git repository that ignores the target — and `scenario-tests` now records that criterion alongside the existing "input the format refuses to build" one.
+
+**Mutation:** `src/ts-engine/set-export.ts` 97.35% (110/113), `src/operations/setExport.ts` 100% (2/2). The first run scored 86.73% with 15 survivors; classifying all 15 turned up eleven real gaps, closed by five scenarios and the focused file. Three survivors remain, each noise with a stated reason: the `if (!exported)` guard (a non-exported declaration cannot be legitimately referenced from another file, so the scan always finds zero users in the add direction), `users.sort()` (the language service already returns references in path order, so the sort guarantees determinism no fixture can distinguish — kept because discovery order is not a contract), and `invalidateProject` (the write leaves the in-memory project already matching disk, so nothing in-process observes it; still required in the daemon, where the engine persists across requests).
+
+**Discoveries worth keeping:**
+
+- The `getSourceFile ?? addSourceFileAtPath` fallback is not defensive. `addWorkspaceFiles` sweeps the workspace via `walkFiles`, which delegates to `git ls-files` inside a repository — so a gitignored source file is absent from the project graph and the fallback is its only path. A surviving mutant pointed at genuinely untested production behaviour, not at dead code.
+- The out-of-include detection layer the spec called for does not need its own scan, for the same reason: `addWorkspaceFiles` already puts those files in the graph.
+- The four-lens review found an `as unknown as` cast the standards forbid, the dead guard it propped up, two duplicated blocks, and a branch of `scriptReferencesSymbol` that had never executed. Mutation then found eleven more gaps the review could not see. Neither pass subsumed the other.
+- `operations/setExport.ts` is a four-line wrapper and looked too trivial to mutate. It scored 50%: nothing tested `FILE_NOT_FOUND`, so a caller naming a missing file would have reached the engine. Thirty-four scenarios had missed the most ordinary error path in the operation.
+
+**Deferred, logged in handoff.md:** the SFC scan's blindness to namespace imports (a hole in this guardrail, documented in the internals page), the pre-commit hook stopping short of `pnpm check`'s typecheck steps, and the mutation lane's history predating its hermeticity fix (`d21011d`).
+
+**Note on the Done-when:** "No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`" has no numeric flag to check against — that doc gives a signal ("around 300 lines… over 500") and says length alone never justifies a split. `setExport.scenarios.yaml` ended at ~700 lines against `moveFile.scenarios.yaml`'s 936. Either the template should stop promising a flag, or the standard should define one.
+
+**Reflection:**
+- *What went well:* classifying every mutation survivor rather than stopping at the threshold. The score was already 86.73% — over both thresholds — and the eleven real gaps behind it included an untested error path and an untested production branch.
+- *What did not go well:* the first mutation run was reported as passing because the shell pipeline's exit code came from `tee`. It had aborted in Stryker's dry run. Read the log, never the exit code, for anything piped.
+- *What took longer than it should have:* the dry-run failure looked like a defect in this change and took an isolating experiment to attribute to `vitest.stryker.config.ts` missing `setupFiles`. Worth it — the mutation lane had been non-hermetic for every run before this one.
+- *For the next agent:* the ts-engine action takes `knownReferences` so a caller that finds references outside the project graph can fold them into one refusal. The Vue engine uses it for SFC scripts; the `moveSymbol` auto-export item should reuse `tsSetExport` the same way rather than re-deriving visibility logic.

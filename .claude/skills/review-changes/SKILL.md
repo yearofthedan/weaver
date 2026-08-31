@@ -29,6 +29,8 @@ Use the Agent tool to launch all four agents concurrently in a single message.
 
 **Pin both ends of the range to explicit commit SHAs — never `HEAD`.** A worktree can be created from a commit that predates work committed in this session, so `HEAD` inside it is not the `HEAD` you meant, and a range built from it can resolve to nothing or to the reverse patch. An agent that notices will recover and review the right thing; one that does not will review a deletion and report confidently on it. Resolve the range yourself before dispatching and pass the resulting SHAs.
 
+**Tell each agent to `git checkout <head-sha>` in its worktree before it reads anything.** Pinning the range is not enough. A reviewer reads the diff from the range but reads *surrounding context* — the modules a change calls, the standards it must meet — from the working tree, and the worktree's base commit is chosen for it, not by the range. A base predating the branch gives every agent a `src/` without the code under review, and the failure is confident rather than loud: an agent will report that a shipped symbol does not exist. Have it verify with `git rev-parse HEAD` and say so in its report.
+
 The exception is the no-argument mode: `git diff HEAD` reviews uncommitted work, which a worktree cannot see. Run those in the main tree and accept the exposure.
 
 First `pnpm exec` in a worktree triggers an on-demand install (seconds — pnpm hardlinks from the shared store). It also runs `prepare: husky`, which writes `core.hooksPath` into `.git/config`, and worktrees share that file. Idempotent today, but do not assume a worktree isolates you from repo config.
