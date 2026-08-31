@@ -42,7 +42,7 @@ Full per-command reference: [`docs/commands/`](docs/commands/). Common shape: ea
 
 | Category | Commands |
 | --- | --- |
-| Refactor | [`rename`](docs/commands/rename.md) · [`move-file`](docs/commands/move-file.md) · [`move-directory`](docs/commands/move-directory.md) · [`move-symbol`](docs/commands/move-symbol.md) · [`delete-file`](docs/commands/delete-file.md) · [`extract-function`](docs/commands/extract-function.md) |
+| Refactor | [`rename`](docs/commands/rename.md) · [`move-file`](docs/commands/move-file.md) · [`move-directory`](docs/commands/move-directory.md) · [`move-symbol`](docs/commands/move-symbol.md) · [`delete-file`](docs/commands/delete-file.md) · [`extract-function`](docs/commands/extract-function.md) · [`set-export`](docs/commands/set-export.md) |
 | Inspect | [`find-references`](docs/commands/find-references.md) · [`find-importers`](docs/commands/find-importers.md) · [`get-definition`](docs/commands/get-definition.md) · [`get-type-errors`](docs/commands/get-type-errors.md) |
 | Search | [`search-text`](docs/commands/search-text.md) · [`replace-text`](docs/commands/replace-text.md) |
 | Lifecycle | [`daemon`](docs/commands/daemon.md) · [`stop`](docs/commands/stop.md) |

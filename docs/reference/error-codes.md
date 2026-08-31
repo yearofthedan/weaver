@@ -29,6 +29,7 @@ Every failed tool call returns `{ "status": "error", "error": "<CODE>", "message
 | --- | --- | --- |
 | `SYMBOL_NOT_FOUND` | No renameable/movable symbol at the specified position. | No — verify position. |
 | `SYMBOL_EXISTS` | `move-symbol` destination already declares a same-named symbol. | Retry with `force: true` to overwrite. |
+| `SYMBOL_IN_USE` | `set-export` was asked to remove an export while other files still reference the symbol. The message names them, capped at 10 alongside the true total. | No — remove those references first, then retry. |
 | `RENAME_NOT_ALLOWED` | The symbol cannot be renamed (built-in identifier, string literal). | No. |
 | `TEXT_MISMATCH` | Surgical `replace-text` `oldText` did not match the file at the given position. | No — re-read the file or re-run `search-text` to refresh positions. |
 | `NOT_SUPPORTED` | The operation shape is not supported (e.g. `extract-function` on Vue without `<script setup>`, `move-symbol` on a re-export, selection that doesn't cover complete statements). | No. |

@@ -19,10 +19,12 @@ All operation commands accept JSON over CLI argument or stdin and return JSON on
 | [`move-symbol`](./move-symbol.md) | Move a named export to another file. | ✓ | ✓\* |
 | [`delete-file`](./delete-file.md) | Delete a file and remove its references. | ✓ | ✓† |
 | [`extract-function`](./extract-function.md) | Extract a code block into a module-scope function. | ✓ | ✓‡ |
+| [`set-export`](./set-export.md) | Add or remove `export` on a top-level declaration. | ✓ | ✓§ |
 
 \* `move-symbol` moves exports from `.ts`/`.tsx` sources and updates `.vue` importers. Moving from a `.vue` source is not yet supported.
 † `delete-file` cleans `.vue` SFC `<script>` blocks via regex scan.
 ‡ `extract-function` supports `.vue` files with a `<script setup>` block; Options API `<script>` returns `NOT_SUPPORTED`.
+§ `set-export` changes `.ts`/`.tsx` declarations and returns `NOT_SUPPORTED` for a `.vue` target, where a top-level `export` is not valid; `.vue` files importing the symbol are detected when un-exporting.
 
 ## Code inspection
 
