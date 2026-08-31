@@ -1,70 +1,45 @@
-import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect } from "vitest";
+import { fixtureTest as test } from "../../__testHelpers__/helpers.js";
 import { buildVolarService } from "./service.js";
 
 describe("buildVolarService", () => {
   describe("scriptFileNames", () => {
-    it("covers the tsconfig's own files and always-included .vue files, but not the workspace walk", async () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "volar-service-"));
-      try {
-        fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
-        fs.mkdirSync(path.join(tmpDir, "tests"), { recursive: true });
-        const tsConfigPath = path.join(tmpDir, "tsconfig.json");
-        fs.writeFileSync(
-          tsConfigPath,
-          JSON.stringify({
-            compilerOptions: { strict: true, moduleResolution: "bundler" },
-            include: ["src/**/*.ts", "src/**/*.vue"],
-          }),
-        );
-        fs.writeFileSync(path.join(tmpDir, "src/main.ts"), "export const x = 1;\n");
-        fs.writeFileSync(path.join(tmpDir, "src/App.vue"), "<template><div /></template>\n");
-        // Not under tsconfig.include — only pulled in by the workspace-wide walk.
-        fs.writeFileSync(path.join(tmpDir, "tests/outside.ts"), "export const y = 2;\n");
+    test("covers tsconfig files, always-included .vue files, and the workspace walk", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true, moduleResolution: "bundler" },
+          include: ["src/**/*.ts", "src/**/*.vue"],
+        }),
+        "src/main.ts": "export const x = 1;\n",
+        "src/App.vue": "<template><div /></template>\n",
+        // Outside tsconfig.include — reachable only through the workspace walk.
+        "tests/outside.ts": "export const y = 2;\n",
+      });
 
-        const service = await buildVolarService(tsConfigPath, undefined, tmpDir);
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
 
-        const mainTs = path.join(tmpDir, "src/main.ts");
-        const appVueTs = `${path.join(tmpDir, "src/App.vue")}.ts`;
-        const outsideTs = path.join(tmpDir, "tests/outside.ts");
-
-        expect(service.scriptFileNames).toContain(mainTs);
-        expect(service.scriptFileNames).toContain(appVueTs);
-        expect(service.scriptFileNames).not.toContain(outsideTs);
-      } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-      }
+      expect(service.scriptFileNames).toContain(path.join(dir, "src/main.ts"));
+      expect(service.scriptFileNames).toContain(`${path.join(dir, "src/App.vue")}.ts`);
+      expect(service.scriptFileNames).toContain(path.join(dir, "tests/outside.ts"));
     });
 
-    it("still includes the workspace-walked file in the language service host's own script set", async () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "volar-service-host-"));
-      try {
-        fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
-        fs.mkdirSync(path.join(tmpDir, "tests"), { recursive: true });
-        const tsConfigPath = path.join(tmpDir, "tsconfig.json");
-        fs.writeFileSync(
-          tsConfigPath,
-          JSON.stringify({
-            compilerOptions: { strict: true, moduleResolution: "bundler" },
-            include: ["src/**/*.ts", "src/**/*.vue"],
-          }),
-        );
-        fs.writeFileSync(path.join(tmpDir, "src/main.ts"), "export const x = 1;\n");
-        fs.writeFileSync(path.join(tmpDir, "tests/outside.ts"), "export const y = 2;\n");
+    test("names the virtual .vue.ts path, never the real .vue path", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true, moduleResolution: "bundler" },
+          include: ["src/**/*.ts", "src/**/*.vue"],
+        }),
+        "src/App.vue": "<template><div /></template>\n",
+      });
 
-        const service = await buildVolarService(tsConfigPath, undefined, tmpDir);
-        const outsideTs = path.join(tmpDir, "tests/outside.ts");
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
 
-        // Not part of scriptFileNames (the diagnostics-safe subset)...
-        expect(service.scriptFileNames).not.toContain(outsideTs);
-        // ...but still resolvable through the language service itself, since
-        // rename/find-references still need it.
-        expect(() => service.baseService.getSemanticDiagnostics(outsideTs)).not.toThrow();
-      } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-      }
+      expect(service.scriptFileNames).not.toContain(path.join(dir, "src/App.vue"));
     });
   });
 });

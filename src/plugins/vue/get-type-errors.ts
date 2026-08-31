@@ -1,7 +1,11 @@
 import ts from "typescript";
 import type { GetTypeErrorsResult, TypeDiagnostic } from "../../operations/types.js";
 import { MAX_DIAGNOSTICS } from "../../operations/types.js";
-import { extractDiagnosticMessage, toDiagnostic } from "../../ts-engine/get-type-errors.js";
+import {
+  capDiagnostics,
+  extractDiagnosticMessage,
+  semanticErrors,
+} from "../../ts-engine/get-type-errors.js";
 import { offsetToLineCol } from "../../utils/text-utils.js";
 import type { CachedService } from "./service.js";
 
@@ -98,42 +102,42 @@ export async function vueGetTypeErrorsForTsFile(
   getService: (file: string) => Promise<CachedService>,
 ): Promise<GetTypeErrorsResult> {
   const service = await getService(file);
-  const raw = service.baseService.getSemanticDiagnostics(file);
-  const errors = raw.filter((d) => d.category === ts.DiagnosticCategory.Error);
-  const truncated = errors.length > MAX_DIAGNOSTICS;
-  const diagnostics = errors.slice(0, MAX_DIAGNOSTICS).map(toDiagnostic);
-  return { diagnostics, errorCount: errors.length, truncated };
+  return capDiagnostics(semanticErrors(service.baseService, file));
 }
 
 /**
  * Project-wide type errors for a Vue project, answered entirely by the Volar
  * service: `.vue` files through `vueGetTypeErrorsFromService`, everything else
  * through `baseService` directly (no source-map translation needed — see
- * `vueGetTypeErrorsForTsFile`). Iteration is constrained to
- * `service.scriptFileNames` — the tsconfig's own file list — rather than the
- * host's full script set, which `buildVolarService` deliberately widens with
- * every workspace TS/JS file for rename and find-references; iterating that
- * wider set here would report errors in files the tsconfig excludes.
+ * `vueGetTypeErrorsForTsFile`). Iterates the full set the service serves, which
+ * is the set `TsMorphEngine` builds for the same workspace — so a project-wide
+ * check reports the same files whichever engine answers it.
  */
 export async function vueGetTypeErrorsForProject(
   getService: (file: undefined) => Promise<CachedService>,
 ): Promise<GetTypeErrorsResult> {
   const service = await getService(undefined);
-  const vueDiagnostics = vueGetTypeErrorsFromService(service);
 
-  const tsDiagnostics: TypeDiagnostic[] = [];
-  let tsErrorCount = 0;
+  // Only a syntax-only service returns undefined here, and Volar never builds one.
+  const program = service.baseService.getProgram() as ts.Program;
+
+  const errors: ts.Diagnostic[] = [];
   for (const fileName of service.scriptFileNames) {
-    // .vue entries are virtual (`Foo.vue.ts`) and already covered above.
+    // .vue entries are virtual (`Foo.vue.ts`) and handled below, where their
+    // offsets are mapped back through the source map to the real .vue file.
     if (service.vueVirtualToReal.has(fileName)) continue;
-    const raw = service.baseService.getSemanticDiagnostics(fileName);
-    const errors = raw.filter((d) => d.category === ts.DiagnosticCategory.Error);
-    tsErrorCount += errors.length;
-    tsDiagnostics.push(...errors.map(toDiagnostic));
+    // getSemanticDiagnostics throws for a path outside the compiled program, and the
+    // workspace walk deliberately adds files the program excludes (.js with allowJs
+    // unset) so that a move can still repoint their imports.
+    if (!program.getSourceFile(fileName)) continue;
+    errors.push(...semanticErrors(service.baseService, fileName));
   }
 
-  const allDiagnostics = [...tsDiagnostics, ...vueDiagnostics];
-  const totalCount = tsErrorCount + vueDiagnostics.length;
+  const tsResult = capDiagnostics(errors);
+  const vueDiagnostics = vueGetTypeErrorsFromService(service);
+
+  const allDiagnostics = [...tsResult.diagnostics, ...vueDiagnostics];
+  const totalCount = tsResult.errorCount + vueDiagnostics.length;
   const truncated = totalCount > MAX_DIAGNOSTICS;
   const diagnostics = allDiagnostics.slice(0, MAX_DIAGNOSTICS);
   return { diagnostics, errorCount: totalCount, truncated };
