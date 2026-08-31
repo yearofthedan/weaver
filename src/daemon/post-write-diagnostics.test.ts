@@ -126,6 +126,78 @@ describe("getTypeErrorsForFiles", () => {
     expect(result.typeErrorCount).toBe(105);
   });
 
+  test("skips a non-TS file that exists, not merely one that is absent", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: { strict: true },
+        include: ["src/**/*.ts"],
+      }),
+      "src/ok.ts": "export const a: number = 1;\n",
+      // Real file, real type error, but not a TS extension — must never be checked.
+      "src/Broken.vue": "<script lang='ts'>const bad: number = 'no';</script>\n",
+    });
+    const compiler = new TsMorphEngine();
+
+    const result = await getTypeErrorsForFiles(compiler, [`${dir}/src/Broken.vue`], makeScope(dir));
+
+    expect(result.typeErrors).toEqual([]);
+    expect(result.typeErrorCount).toBe(0);
+  });
+
+  test("does not flag truncation when the total across files is exactly the cap", async ({
+    seedInlineFixture,
+  }) => {
+    const half = (n: number) =>
+      Array.from({ length: n }, (_, i) => `export const e${i}: number = 'x';`).join("\n");
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: { strict: true },
+        include: ["src/**/*.ts"],
+      }),
+      "src/a.ts": `${half(50)}\n`,
+      "src/b.ts": `${half(50)}\n`,
+    });
+    const compiler = new TsMorphEngine();
+
+    const result = await getTypeErrorsForFiles(
+      compiler,
+      [`${dir}/src/a.ts`, `${dir}/src/b.ts`],
+      makeScope(dir),
+    );
+
+    expect(result.typeErrorCount).toBe(100);
+    expect(result.typeErrors).toHaveLength(100);
+    expect(result.typeErrorsTruncated).toBe(false);
+  });
+
+  test("caps the collected list at 100 when several files each contribute errors", async ({
+    seedInlineFixture,
+  }) => {
+    const errors = (n: number) =>
+      Array.from({ length: n }, (_, i) => `export const e${i}: number = 'x';`).join("\n");
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: { strict: true },
+        include: ["src/**/*.ts"],
+      }),
+      "src/a.ts": `${errors(60)}\n`,
+      "src/b.ts": `${errors(60)}\n`,
+    });
+    const compiler = new TsMorphEngine();
+
+    const result = await getTypeErrorsForFiles(
+      compiler,
+      [`${dir}/src/a.ts`, `${dir}/src/b.ts`],
+      makeScope(dir),
+    );
+
+    expect(result.typeErrors).toHaveLength(100);
+    expect(result.typeErrorCount).toBe(120);
+    expect(result.typeErrorsTruncated).toBe(true);
+  });
+
   test("refreshes each file from disk so content written after the project loaded is seen", async ({
     seedNamedFixture,
   }) => {
