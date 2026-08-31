@@ -639,3 +639,92 @@ scenarios:
         message: "Symbol 'foo' in src/utils.ts is used by 1 other file(s); un-exporting it would break them: src/App.vue"
       files:
         unchanged: [tsconfig.json, src/utils.ts, src/App.vue]
+
+  - name: reports a name only a local export statement mentions as not found
+    description: >
+      `export { foo }` naming something the file never declares is neither a declaration this
+      operation can act on nor a re-export from another module — the name is simply absent.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export { foo };
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: error
+        error: SYMBOL_NOT_FOUND
+        message: "Symbol 'foo' not found as a top-level declaration in src/a.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: reports a name absent from a re-export of other names as not found
+    description: >
+      A re-export in the file only blocks the name it actually carries; a different name is
+      still absent rather than unsupported.
+    given:
+      extends: a-ts-project
+      files:
+        src/other.ts: |
+          export function bar() { return 2; }
+        src/a.ts: |
+          export { bar } from "./other";
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: error
+        error: SYMBOL_NOT_FOUND
+        message: "Symbol 'foo' not found as a top-level declaration in src/a.ts"
+      files:
+        unchanged: [tsconfig.json, src/other.ts, src/a.ts]
+
+  - name: refuses a name carried by a re-export that also names other symbols
+    given:
+      extends: a-ts-project
+      files:
+        src/other.ts: |
+          export function foo() { return 1; }
+          export function bar() { return 2; }
+        src/a.ts: |
+          export { foo, bar } from "./other";
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: NOT_SUPPORTED
+        message: "Symbol 'foo' in src/a.ts is a re-export via 'export { } from'. Only declarations in this file can have their visibility changed."
+      files:
+        unchanged: [tsconfig.json, src/other.ts, src/a.ts]
+
+  - name: exports a declaration alongside an export statement naming a different symbol
+    description: >
+      An `export { }` statement only rules the declaration out when it names that declaration;
+      one covering a different symbol leaves this declaration free to take the keyword.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          function foo() { return 1; }
+
+          const bar = 2;
+          export { bar };
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/a.ts: |
+            export function foo() { return 1; }
+
+            const bar = 2;
+            export { bar };
+        unchanged: [tsconfig.json]
