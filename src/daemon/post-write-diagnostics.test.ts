@@ -1,14 +1,21 @@
+import * as fs from "node:fs";
 import { describe, expect } from "vitest";
 import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import { getTypeErrorsForFiles } from "./post-write-diagnostics.js";
 
+function makeScope(root: string): WorkspaceScope {
+  return new WorkspaceScope(root, new NodeFileSystem());
+}
+
 describe("getTypeErrorsForFiles", () => {
-  test("returns an empty result for an empty file list", async () => {
+  test("returns an empty result for an empty file list", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const compiler = new TsMorphEngine();
 
-    const result = getTypeErrorsForFiles(compiler, [], new NodeFileSystem());
+    const result = await getTypeErrorsForFiles(compiler, [], makeScope(dir));
 
     expect(result.typeErrors).toEqual([]);
     expect(result.typeErrorCount).toBe(0);
@@ -19,10 +26,10 @@ describe("getTypeErrorsForFiles", () => {
     const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const compiler = new TsMorphEngine();
 
-    const result = getTypeErrorsForFiles(
+    const result = await getTypeErrorsForFiles(
       compiler,
       [`${dir}/some-component.vue`, `${dir}/config.json`],
-      new NodeFileSystem(),
+      makeScope(dir),
     );
 
     expect(result.typeErrors).toEqual([]);
@@ -36,7 +43,7 @@ describe("getTypeErrorsForFiles", () => {
     const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const compiler = new TsMorphEngine();
 
-    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/broken.ts`], new NodeFileSystem());
+    const result = await getTypeErrorsForFiles(compiler, [`${dir}/src/broken.ts`], makeScope(dir));
 
     // broken.ts has exactly 3 deliberate errors
     expect(result.typeErrorCount).toBe(3);
@@ -58,7 +65,7 @@ describe("getTypeErrorsForFiles", () => {
     const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
     const compiler = new TsMorphEngine();
 
-    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/clean.ts`], new NodeFileSystem());
+    const result = await getTypeErrorsForFiles(compiler, [`${dir}/src/clean.ts`], makeScope(dir));
 
     expect(result.typeErrors).toEqual([]);
     expect(result.typeErrorCount).toBe(0);
@@ -72,7 +79,7 @@ describe("getTypeErrorsForFiles", () => {
     const compiler = new TsMorphEngine();
 
     // provide only clean.ts; broken.ts has errors but is not listed
-    const result = getTypeErrorsForFiles(compiler, [`${dir}/src/clean.ts`], new NodeFileSystem());
+    const result = await getTypeErrorsForFiles(compiler, [`${dir}/src/clean.ts`], makeScope(dir));
 
     expect(result.typeErrors).toEqual([]);
     expect(result.typeErrorCount).toBe(0);
@@ -88,10 +95,10 @@ describe("getTypeErrorsForFiles", () => {
     const compiler = new TsMorphEngine();
 
     // broken.ts: 3 errors, chained-error.ts: 1 error
-    const result = getTypeErrorsForFiles(
+    const result = await getTypeErrorsForFiles(
       compiler,
       [`${dir}/src/broken.ts`, `${dir}/src/chained-error.ts`],
-      new NodeFileSystem(),
+      makeScope(dir),
     );
 
     expect(result.typeErrorCount).toBe(4);
@@ -108,14 +115,31 @@ describe("getTypeErrorsForFiles", () => {
     const compiler = new TsMorphEngine();
 
     // many-errors.ts has 105 errors
-    const result = getTypeErrorsForFiles(
+    const result = await getTypeErrorsForFiles(
       compiler,
       [`${dir}/src/many-errors.ts`],
-      new NodeFileSystem(),
+      makeScope(dir),
     );
 
     expect(result.typeErrorsTruncated).toBe(true);
     expect(result.typeErrors).toHaveLength(100);
     expect(result.typeErrorCount).toBe(105);
+  });
+
+  test("refreshes each file from disk so content written after the project loaded is seen", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
+    const compiler = new TsMorphEngine();
+    const file = `${dir}/src/clean.ts`;
+    // Load the project against the original, clean content.
+    compiler.getLanguageServiceForFile(file);
+    // Simulate a write that lands after the project was loaded but before the check.
+    fs.writeFileSync(file, "export const bad: number = 'not-a-number';\n");
+
+    const result = await getTypeErrorsForFiles(compiler, [file], makeScope(dir));
+
+    expect(result.typeErrorCount).toBeGreaterThanOrEqual(1);
+    expect(result.typeErrors.some((d) => d.file === file)).toBe(true);
   });
 });

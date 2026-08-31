@@ -383,11 +383,11 @@ export async function dispatchRequest(
       Array.isArray(result.filesModified) &&
       (result.filesModified as string[]).length > 0
     ) {
-      const tsEngine = await registry.tsEngine();
-      const diagnostics = getTypeErrorsForFiles(
-        tsEngine,
+      const engine = await registry.projectEngine();
+      const diagnostics = await getTypeErrorsForFiles(
+        engine,
         result.filesModified as string[],
-        new NodeFileSystem(),
+        new WorkspaceScope(workspace, new NodeFileSystem()),
       );
       result.typeErrors = diagnostics.typeErrors;
       result.typeErrorCount = diagnostics.typeErrorCount;

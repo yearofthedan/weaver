@@ -1,10 +1,8 @@
 import * as path from "node:path";
-import ts from "typescript";
-import type { PostWriteDiagnostics } from "../operations/types.js";
+import type { WorkspaceScope } from "../domain/workspace-scope.js";
+import type { PostWriteDiagnostics, TypeDiagnostic } from "../operations/types.js";
 import { MAX_DIAGNOSTICS } from "../operations/types.js";
-import type { FileSystem } from "../ports/filesystem.js";
-import type { TsMorphEngine } from "../ts-engine/engine.js";
-import { toDiagnostic } from "../ts-engine/get-type-errors.js";
+import type { Engine } from "../ts-engine/types.js";
 
 const TS_FILE_EXTENSIONS = new Set([".ts", ".tsx"]);
 
@@ -12,28 +10,30 @@ const TS_FILE_EXTENSIONS = new Set([".ts", ".tsx"]);
  * Check type errors only in the given files and return the three post-write
  * diagnostic fields. Non-TS files are silently skipped. Results are capped at
  * MAX_DIAGNOSTICS total across all files; typeErrorCount reflects the true total.
+ *
+ * Takes the project's own `Engine` (ts-morph or, in a Vue project, Volar) so a
+ * write that touches a `.ts` file importing an SFC is answered by whichever
+ * engine actually resolves `.vue` specifiers.
  */
-export function getTypeErrorsForFiles(
-  compiler: TsMorphEngine,
+export async function getTypeErrorsForFiles(
+  engine: Engine,
   files: string[],
-  fs: FileSystem,
-): PostWriteDiagnostics {
+  scope: WorkspaceScope,
+): Promise<PostWriteDiagnostics> {
   const tsFiles = files.filter((f) => TS_FILE_EXTENSIONS.has(path.extname(f)));
 
   let totalCount = 0;
-  const allDiagnostics: ReturnType<typeof toDiagnostic>[] = [];
+  const allDiagnostics: TypeDiagnostic[] = [];
 
   for (const file of tsFiles) {
-    if (!fs.exists(file)) continue;
+    if (!scope.fs.exists(file)) continue;
 
-    compiler.refreshSourceFile(file);
-    const ls = compiler.getLanguageServiceForFile(file);
-    const raw = ls.getSemanticDiagnostics(file);
-    const errors = raw.filter((d) => d.category === ts.DiagnosticCategory.Error);
-    totalCount += errors.length;
-    for (const d of errors) {
+    engine.refreshFile(file);
+    const result = await engine.getTypeErrors(file, scope);
+    totalCount += result.errorCount;
+    for (const d of result.diagnostics) {
       if (allDiagnostics.length < MAX_DIAGNOSTICS) {
-        allDiagnostics.push(toDiagnostic(d));
+        allDiagnostics.push(d);
       }
     }
   }

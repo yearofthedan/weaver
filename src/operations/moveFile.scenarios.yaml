@@ -502,12 +502,7 @@ scenarios:
   - name: repoints aliased importers of a moved SFC
     description: |
       The moved file is itself an SFC, so its importers are found through the virtual .vue.ts
-      path rather than the real one. The type error is not this move's doing and not a failure
-      of it: a .ts file in a Vue project has its diagnostics answered by the TypeScript engine,
-      which cannot resolve a .vue module at all, so `import Widget from "@/…/Widget.vue"`
-      reports 2307 with no refactor in sight. Rewriting main.ts is what puts it in
-      filesModified, and the post-write check only ever looks at that array — so the move
-      makes a standing defect visible rather than causing one.
+      path rather than the real one.
     given:
       description: a Vue project mapping @/* onto src/*, with a component imported through the alias from both an SFC and a .ts file
       files:
@@ -554,15 +549,8 @@ scenarios:
       - moveFile: { oldPath: src/components/Widget.vue, newPath: src/widgets/Widget.vue }
     then:
       response:
-        status: warn
-        typeErrorCount: 1
-        typeErrorsTruncated: false
-        typeErrors:
-          - file: src/main.ts
-            line: 1
-            col: 20
-            code: 2307
-            message: "Cannot find module '@/widgets/Widget.vue' or its corresponding type declarations."
+        status: success
+        typeErrors: none
         filesModified: [src/main.ts, src/App.vue, src/widgets/Widget.vue]
         filesSkipped: []
         oldPath: src/components/Widget.vue
@@ -585,6 +573,132 @@ scenarios:
             export const entry = Widget;
         unchanged:
           - src/composables/useCounter.ts
+
+  - name: repoints a relatively-imported SFC used by both an SFC and a .ts file
+    given:
+      description: a Vue project with a component imported through a relative specifier from both an SFC and a .ts file
+      files:
+        tsconfig.json: |
+          {
+            "compilerOptions": {
+              "strict": true,
+              "target": "ESNext",
+              "module": "ESNext",
+              "moduleResolution": "bundler",
+              "jsx": "preserve"
+            },
+            "include": ["src/**/*.ts", "src/**/*.vue"]
+          }
+        src/components/Widget.vue: |
+          <script setup lang="ts">
+          const label = "hi";
+          </script>
+
+          <template>
+            <div>{{ label }}</div>
+          </template>
+        src/App.vue: |
+          <script setup lang="ts">
+          import Widget from "./components/Widget.vue";
+          </script>
+
+          <template>
+            <Widget />
+          </template>
+        src/main.ts: |
+          import Widget from "./components/Widget.vue";
+
+          export const entry = Widget;
+    when:
+      - moveFile: { oldPath: src/components/Widget.vue, newPath: src/widgets/Widget.vue }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/main.ts, src/App.vue, src/widgets/Widget.vue]
+        filesSkipped: []
+        oldPath: src/components/Widget.vue
+        newPath: src/widgets/Widget.vue
+      files:
+        moved:
+          src/components/Widget.vue: src/widgets/Widget.vue
+        changed:
+          src/App.vue: |
+            <script setup lang="ts">
+            import Widget from "./widgets/Widget.vue";
+            </script>
+
+            <template>
+              <Widget />
+            </template>
+          src/main.ts: |
+            import Widget from "./widgets/Widget.vue";
+
+            export const entry = Widget;
+
+  - name: still reports a genuinely missing SFC import untouched by the move
+    description: |
+      main.ts imports both the moved Widget (repointed automatically) and a Ghost
+      component that never existed. The move must still surface the pre-existing
+      TS2307 for Ghost — proving the routing fix is a correctness change, not a
+      suppression that would also hide a real missing-module error.
+    given:
+      description: a Vue project mapping @/* onto src/*, where a .ts file imports the moved component plus a component that does not exist
+      files:
+        tsconfig.json: |
+          {
+            "compilerOptions": {
+              "strict": true,
+              "target": "ESNext",
+              "module": "ESNext",
+              "moduleResolution": "bundler",
+              "jsx": "preserve",
+              "baseUrl": ".",
+              "paths": { "@/*": ["src/*"] }
+            },
+            "include": ["src/**/*.ts", "src/**/*.vue"]
+          }
+        src/components/Widget.vue: |
+          <script setup lang="ts">
+          const label = "hi";
+          </script>
+
+          <template>
+            <div>{{ label }}</div>
+          </template>
+        src/main.ts: |
+          import Widget from "@/components/Widget.vue";
+          import Ghost from "@/components/Ghost.vue";
+
+          export const entry = Widget;
+          export const ghost = Ghost;
+    when:
+      - moveFile: { oldPath: src/components/Widget.vue, newPath: src/widgets/Widget.vue }
+    then:
+      response:
+        status: warn
+        typeErrorCount: 1
+        typeErrorsTruncated: false
+        typeErrors:
+          - file: src/main.ts
+            line: 2
+            col: 19
+            code: 2307
+            message: "Cannot find module '@/components/Ghost.vue' or its corresponding type declarations."
+        filesModified: [src/main.ts, src/widgets/Widget.vue]
+        filesSkipped: []
+        oldPath: src/components/Widget.vue
+        newPath: src/widgets/Widget.vue
+      files:
+        moved:
+          src/components/Widget.vue: src/widgets/Widget.vue
+        changed:
+          src/main.ts: |
+            import Widget from "@/widgets/Widget.vue";
+            import Ghost from "@/components/Ghost.vue";
+
+            export const entry = Widget;
+            export const ghost = Ghost;
 
   - name: rewrites the import without disturbing a comment that names both paths
     given:
