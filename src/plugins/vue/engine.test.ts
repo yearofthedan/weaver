@@ -469,6 +469,56 @@ describe("VolarEngine", () => {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     }, 30_000);
+
+    it("project-wide: reports no diagnostics when a .ts file imports an existing SFC", async () => {
+      const tmpDir = makeVueTsFixture();
+      try {
+        fs.writeFileSync(
+          path.join(tmpDir, "src/main.ts"),
+          "import Widget from './components/Widget.vue';\n\nexport const w = Widget;\n",
+        );
+        const p = new VolarEngine(new TsMorphEngine());
+        const result = await p.getTypeErrors(undefined, makeScope(tmpDir));
+        expect(result).toEqual({ diagnostics: [], errorCount: 0, truncated: false });
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }, 30_000);
+
+    it("project-wide: still reports TS2307 for a .ts file importing an SFC that does not exist", async () => {
+      const tmpDir = makeVueTsFixture();
+      try {
+        fs.writeFileSync(
+          path.join(tmpDir, "src/broken.ts"),
+          "import Missing from './components/Missing.vue';\n",
+        );
+        const p = new VolarEngine(new TsMorphEngine());
+        const result = await p.getTypeErrors(undefined, makeScope(tmpDir));
+        expect(result.errorCount).toBe(1);
+        expect(result.diagnostics[0].code).toBe(2307);
+        expect(result.diagnostics[0].file).toBe(path.join(tmpDir, "src/broken.ts"));
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }, 30_000);
+
+    it("project-wide: still reports a genuine type error unrelated to any SFC import", async () => {
+      const tmpDir = makeVueTsFixture();
+      try {
+        fs.writeFileSync(
+          path.join(tmpDir, "src/typeError.ts"),
+          "export const bad: number = 'not-a-number';\n",
+        );
+        const p = new VolarEngine(new TsMorphEngine());
+        const result = await p.getTypeErrors(undefined, makeScope(tmpDir));
+        expect(result.errorCount).toBeGreaterThanOrEqual(1);
+        expect(
+          result.diagnostics.some((d) => d.file === path.join(tmpDir, "src/typeError.ts")),
+        ).toBe(true);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }, 30_000);
   });
 
   describe("workspace expansion — files outside tsconfig.include", () => {
@@ -518,6 +568,21 @@ describe("VolarEngine", () => {
       const testFile = path.join(dir, "tests/unit/counter.test.ts");
       const refInTest = refs?.find((r) => r.fileName === testFile);
       expect(refInTest).toBeDefined();
+    }, 30_000);
+
+    test("project-wide getTypeErrors ignores a type error in a file outside tsconfig.include", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+      const outsideFile = path.join(dir, "tests/unit/counter.test.ts");
+      // The workspace walk widens rename/find-references to this file, but project-wide
+      // diagnostics must stay scoped to what the tsconfig actually includes.
+      fs.writeFileSync(outsideFile, "export const bad: number = 'not-a-number';\n");
+      const p = new VolarEngine(new TsMorphEngine(dir), dir);
+
+      const result = await p.getTypeErrors(undefined, makeScope(dir));
+
+      expect(result.diagnostics.some((d) => d.file === outsideFile)).toBe(false);
     }, 30_000);
   });
 });

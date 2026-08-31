@@ -418,9 +418,10 @@ export class VolarEngine implements Engine {
       // imports the ts-morph project cannot; see scope.root note above.
       return vueGetTypeErrorsForTsFile(file, (f) => this.getService(f, scope.root));
     }
-    // Project-wide: merge TS and Vue errors. Root comes from the request's scope, not
-    // this.workspaceRoot — see getService's doc comment for why that distinction matters.
-    return vueGetTypeErrorsForProject(this.tsEngine, scope, (f) => this.getService(f, scope.root));
+    // Project-wide, answered entirely by the Volar service (both file kinds).
+    // Root comes from the request's scope, not this.workspaceRoot — see
+    // getService's doc comment for why that distinction matters.
+    return vueGetTypeErrorsForProject((f) => this.getService(f, scope.root));
   }
 
   async rename(

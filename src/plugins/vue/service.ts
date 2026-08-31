@@ -21,6 +21,14 @@ export interface CachedService {
   language: Language<string>;
   /** Maps virtual App.vue.ts filenames → real App.vue filenames */
   vueVirtualToReal: Map<string, string>;
+  /**
+   * The tsconfig's own file list (plus always-included `.vue` files), with `.vue`
+   * entries replaced by their virtual `.vue.ts` name — narrower than what the
+   * language service host actually serves, which also covers workspace files
+   * pulled in for rename/find-references. Project-wide diagnostics iterate this
+   * field specifically so a file outside tsconfig.include never reports an error.
+   */
+  scriptFileNames: string[];
 }
 
 function parseTsConfig(
@@ -166,6 +174,14 @@ export async function buildVolarService(
     if (!projectFiles.includes(f)) projectFiles.push(f);
   }
 
+  // The tsconfig's own file list (plus the always-included .vue files above),
+  // captured before the workspace-wide walk below pulls in extra files. Exposed
+  // as CachedService.scriptFileNames so project-wide diagnostics can iterate
+  // only what the tsconfig actually covers — the walk below deliberately exceeds
+  // that for rename/find-references, and reusing it for diagnostics would start
+  // reporting errors in files the tsconfig excludes.
+  const scriptFileNames = projectFiles.map((f) => (f.endsWith(".vue") ? `${f}.ts` : f));
+
   // Include all workspace TS/JS files so test files and scripts outside
   // tsconfig.include are visible to the Volar language service.
   if (workspaceRoot) {
@@ -218,12 +234,14 @@ export async function buildVolarService(
     }
   }
 
-  // Replace .vue entries with their virtual .vue.ts equivalents.
-  const scriptFileNames = projectFiles.map((f) => (f.endsWith(".vue") ? `${f}.ts` : f));
+  // Replace .vue entries with their virtual .vue.ts equivalents. Unlike the
+  // scriptFileNames field above, this reflects the fully workspace-expanded
+  // projectFiles — the host needs every file rename/find-references can touch.
+  const hostScriptFileNames = projectFiles.map((f) => (f.endsWith(".vue") ? `${f}.ts` : f));
 
   const host = buildLanguageServiceHost({
     compilerOptions,
-    scriptFileNames,
+    scriptFileNames: hostScriptFileNames,
     vueVirtualToReal,
     languageRef,
     tsConfigPath,
@@ -243,5 +261,6 @@ export async function buildVolarService(
     fileContents,
     language,
     vueVirtualToReal,
+    scriptFileNames,
   };
 }

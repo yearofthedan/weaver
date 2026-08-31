@@ -1,8 +1,6 @@
 import ts from "typescript";
-import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type { GetTypeErrorsResult, TypeDiagnostic } from "../../operations/types.js";
 import { MAX_DIAGNOSTICS } from "../../operations/types.js";
-import type { TsMorphEngine } from "../../ts-engine/engine.js";
 import { extractDiagnosticMessage, toDiagnostic } from "../../ts-engine/get-type-errors.js";
 import { offsetToLineCol } from "../../utils/text-utils.js";
 import type { CachedService } from "./service.js";
@@ -107,18 +105,35 @@ export async function vueGetTypeErrorsForTsFile(
   return { diagnostics, errorCount: errors.length, truncated };
 }
 
+/**
+ * Project-wide type errors for a Vue project, answered entirely by the Volar
+ * service: `.vue` files through `vueGetTypeErrorsFromService`, everything else
+ * through `baseService` directly (no source-map translation needed — see
+ * `vueGetTypeErrorsForTsFile`). Iteration is constrained to
+ * `service.scriptFileNames` — the tsconfig's own file list — rather than the
+ * host's full script set, which `buildVolarService` deliberately widens with
+ * every workspace TS/JS file for rename and find-references; iterating that
+ * wider set here would report errors in files the tsconfig excludes.
+ */
 export async function vueGetTypeErrorsForProject(
-  tsEngine: TsMorphEngine,
-  scope: WorkspaceScope,
-  getService: (file: string | undefined) => Promise<CachedService>,
+  getService: (file: undefined) => Promise<CachedService>,
 ): Promise<GetTypeErrorsResult> {
-  const tsResult = await tsEngine.getTypeErrors(undefined, scope);
-
   const service = await getService(undefined);
   const vueDiagnostics = vueGetTypeErrorsFromService(service);
 
-  const allDiagnostics = [...tsResult.diagnostics, ...vueDiagnostics];
-  const totalCount = tsResult.errorCount + vueDiagnostics.length;
+  const tsDiagnostics: TypeDiagnostic[] = [];
+  let tsErrorCount = 0;
+  for (const fileName of service.scriptFileNames) {
+    // .vue entries are virtual (`Foo.vue.ts`) and already covered above.
+    if (service.vueVirtualToReal.has(fileName)) continue;
+    const raw = service.baseService.getSemanticDiagnostics(fileName);
+    const errors = raw.filter((d) => d.category === ts.DiagnosticCategory.Error);
+    tsErrorCount += errors.length;
+    tsDiagnostics.push(...errors.map(toDiagnostic));
+  }
+
+  const allDiagnostics = [...tsDiagnostics, ...vueDiagnostics];
+  const totalCount = tsErrorCount + vueDiagnostics.length;
   const truncated = totalCount > MAX_DIAGNOSTICS;
   const diagnostics = allDiagnostics.slice(0, MAX_DIAGNOSTICS);
   return { diagnostics, errorCount: totalCount, truncated };

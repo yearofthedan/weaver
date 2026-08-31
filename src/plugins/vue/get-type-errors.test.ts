@@ -1,8 +1,6 @@
 import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
-import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { MAX_DIAGNOSTICS } from "../../operations/types.js";
-import type { TsMorphEngine } from "../../ts-engine/engine.js";
 import {
   vueGetTypeErrorsForFile,
   vueGetTypeErrorsForProject,
@@ -49,6 +47,7 @@ function makeMinimalService(
       maps: {} as unknown,
     } as unknown as CachedService["language"],
     vueVirtualToReal: new Map([[virtualPath, realVuePath]]),
+    scriptFileNames: [virtualPath],
   };
 }
 
@@ -104,6 +103,7 @@ function makeServiceWithSourceMap(
       maps: { get: () => mapper },
     } as unknown as CachedService["language"],
     vueVirtualToReal: new Map([[virtualPath, realVuePath]]),
+    scriptFileNames: [virtualPath],
   };
 }
 
@@ -148,6 +148,7 @@ function makeGreedyService(
       maps: { get: () => greedyMapper },
     } as unknown as CachedService["language"],
     vueVirtualToReal: new Map([[virtualPath, realVuePath]]),
+    scriptFileNames: [virtualPath],
   };
 }
 
@@ -303,6 +304,7 @@ describe("vueGetTypeErrorsForTsFile", () => {
         maps: {} as unknown,
       } as unknown as CachedService["language"],
       vueVirtualToReal: new Map(),
+      scriptFileNames: [],
     };
   }
 
@@ -376,20 +378,37 @@ describe("vueGetTypeErrorsForTsFile", () => {
 });
 
 describe("vueGetTypeErrorsForProject", () => {
-  function makeMockTsEngine(errorCount: number): TsMorphEngine {
+  /**
+   * A service whose scriptFileNames lists both plain .ts entries and one .vue
+   * virtual entry, with baseService.getSemanticDiagnostics keyed by the
+   * requested fileName — the shape vueGetTypeErrorsForProject now iterates
+   * directly (no separate tsEngine involved).
+   */
+  function makeProjectService(
+    tsDiagnosticsByFile: Record<string, ts.Diagnostic[]>,
+    vue: {
+      virtualPath: string;
+      realVuePath: string;
+      diagnostics: ts.Diagnostic[];
+      offsets: Array<[number, number]>;
+      realContent?: string;
+    },
+  ): CachedService {
+    const base = makeServiceWithSourceMap(
+      vue.virtualPath,
+      vue.realVuePath,
+      vue.diagnostics,
+      vue.offsets,
+      vue.realContent,
+    );
     return {
-      getTypeErrors: async () => ({
-        diagnostics: Array.from({ length: errorCount }, (_, i) => ({
-          file: `/project/file${i}.ts`,
-          line: 1,
-          col: 1,
-          code: 2322,
-          message: `ts error ${i}`,
-        })),
-        errorCount,
-        truncated: false,
-      }),
-    } as unknown as TsMorphEngine;
+      ...base,
+      baseService: {
+        getSemanticDiagnostics: (fileName: string) =>
+          fileName === vue.virtualPath ? vue.diagnostics : (tsDiagnosticsByFile[fileName] ?? []),
+      } as unknown as ts.LanguageService,
+      scriptFileNames: [...Object.keys(tsDiagnosticsByFile), vue.virtualPath],
+    };
   }
 
   it.each([
@@ -406,32 +425,75 @@ describe("vueGetTypeErrorsForProject", () => {
     const vueDiagnostics = Array.from({ length: vueCount }, (_, i) =>
       makeDiagnostic(ts.DiagnosticCategory.Error, 2322, `vue error ${i}`, i),
     );
-    const vueService = makeServiceWithSourceMap(
-      VIRTUAL_PATH,
-      REAL_VUE,
-      vueDiagnostics,
-      vueDiagnostics.map((_, i) => [i, 0] as [number, number]),
-      "x".repeat(vueCount + 1),
+    const tsFileContent = "const x: number = 'not-a-number';\n";
+    const tsDiagnosticsByFile = Object.fromEntries(
+      Array.from({ length: tsCount }, (_, i) => [
+        `/project/file${i}.ts`,
+        [
+          makeTsFileDiagnostic(
+            ts.DiagnosticCategory.Error,
+            2322,
+            `ts error ${i}`,
+            `/project/file${i}.ts`,
+            tsFileContent,
+            0,
+          ),
+        ],
+      ]),
     );
-    const scope = { root: "/project" } as unknown as WorkspaceScope;
+    const service = makeProjectService(tsDiagnosticsByFile, {
+      virtualPath: VIRTUAL_PATH,
+      realVuePath: REAL_VUE,
+      diagnostics: vueDiagnostics,
+      offsets: vueDiagnostics.map((_, i) => [i, 0] as [number, number]),
+      realContent: "x".repeat(vueCount + 1),
+    });
 
-    const result = await vueGetTypeErrorsForProject(
-      makeMockTsEngine(tsCount),
-      scope,
-      async () => vueService,
-    );
+    const result = await vueGetTypeErrorsForProject(async () => service);
 
     expect(result.truncated).toBe(truncated);
     expect(result.diagnostics).toHaveLength(Math.min(total, MAX_DIAGNOSTICS));
     expect(result.errorCount).toBe(total);
   });
 
+  it("attributes ts and vue diagnostics to their own files without double-counting the vue virtual entry", async () => {
+    const REAL_VUE = "/project/Test.vue";
+    const VIRTUAL_PATH = `${REAL_VUE}.ts`;
+    const tsFileContent = "const x: number = 'not-a-number';\n";
+    const service = makeProjectService(
+      {
+        "/project/broken.ts": [
+          makeTsFileDiagnostic(
+            ts.DiagnosticCategory.Error,
+            2322,
+            "ts error",
+            "/project/broken.ts",
+            tsFileContent,
+            0,
+          ),
+        ],
+      },
+      {
+        virtualPath: VIRTUAL_PATH,
+        realVuePath: REAL_VUE,
+        diagnostics: [makeDiagnostic(ts.DiagnosticCategory.Error, 2322, "vue error", 0)],
+        offsets: [[0, 0]],
+      },
+    );
+
+    const result = await vueGetTypeErrorsForProject(async () => service);
+
+    expect(result.errorCount).toBe(2);
+    expect(result.diagnostics).toHaveLength(2);
+    const files = result.diagnostics.map((d) => d.file).sort();
+    expect(files).toEqual(["/project/Test.vue", "/project/broken.ts"]);
+  });
+
   it("requests a project-wide service without fabricating a file path", async () => {
     const service = makeMinimalService("/project/Unused.vue.ts", "/project/Unused.vue", []);
-    const scope = { root: "/project" } as unknown as WorkspaceScope;
-    const getService = vi.fn().mockResolvedValue(service);
+    const getService = vi.fn().mockResolvedValue({ ...service, scriptFileNames: [] });
 
-    await vueGetTypeErrorsForProject(makeMockTsEngine(0), scope, getService);
+    await vueGetTypeErrorsForProject(getService);
 
     expect(getService).toHaveBeenCalledWith(undefined);
   });
