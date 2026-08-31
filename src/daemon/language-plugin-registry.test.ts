@@ -135,18 +135,6 @@ describe("LanguagePluginRegistry", () => {
       expect(compiler._tag).toBe("yes");
     });
 
-    it("tsEngine always returns TsMorphEngine regardless of registered plugins", async () => {
-      registerLanguagePlugin({
-        id: "claims-all",
-        supportsProject: () => true,
-        createEngine: async (_tsEngine) => stubCompiler("not-ts"),
-      });
-
-      const registry = makeRegistry(PROJECT_FILE, WORKSPACE_ROOT);
-      const tsCompiler = await registry.tsEngine();
-      expect(tsCompiler).toBeInstanceOf(TsMorphEngine);
-    });
-
     it("caches the engine from createEngine — does not call it twice for the same plugin", async () => {
       const factory = vi.fn(async (_tsEngine: TsMorphEngine) => stubCompiler("cached"));
       registerLanguagePlugin({

@@ -23,13 +23,29 @@ export function toDiagnostic(
   return { file, line, col, code: d.code, message: extractDiagnosticMessage(d.messageText) };
 }
 
+/** Errors only, from one file's semantic diagnostics. */
+export function semanticErrors(ls: ts.LanguageService, fileName: string): ts.Diagnostic[] {
+  return ls
+    .getSemanticDiagnostics(fileName)
+    .filter((d) => d.category === ts.DiagnosticCategory.Error);
+}
+
+/**
+ * Cap a collected error list at MAX_DIAGNOSTICS and map it into the response
+ * shape. `errorCount` stays the true total, so a caller can tell that results
+ * were trimmed rather than that fewer errors existed.
+ */
+export function capDiagnostics(errors: ts.Diagnostic[]): GetTypeErrorsResult {
+  return {
+    diagnostics: errors.slice(0, MAX_DIAGNOSTICS).map(toDiagnostic),
+    errorCount: errors.length,
+    truncated: errors.length > MAX_DIAGNOSTICS,
+  };
+}
+
 function tsGetTypeErrorsForFile(compiler: TsMorphEngine, absPath: string): GetTypeErrorsResult {
   const ls = compiler.getLanguageServiceForFile(absPath);
-  const all = ls.getSemanticDiagnostics(absPath);
-  const errors = all.filter((d) => d.category === ts.DiagnosticCategory.Error);
-  const truncated = errors.length > MAX_DIAGNOSTICS;
-  const diagnostics = errors.slice(0, MAX_DIAGNOSTICS).map(toDiagnostic);
-  return { diagnostics, errorCount: errors.length, truncated };
+  return capDiagnostics(semanticErrors(ls, absPath));
 }
 
 function tsGetTypeErrorsForProject(
@@ -39,22 +55,15 @@ function tsGetTypeErrorsForProject(
   const ls = compiler.getLanguageServiceForDirectory(workspace);
   // Only a syntax-only service returns undefined here, and ts-morph never builds one.
   const program = ls.getProgram() as ts.Program;
-  const allErrors: ReturnType<typeof ls.getSemanticDiagnostics> = [];
+  const allErrors: ts.Diagnostic[] = [];
   for (const filePath of compiler.getProjectSourceFilePaths(workspace)) {
     // getSemanticDiagnostics throws for a path outside the compiled program, and
     // addWorkspaceFiles deliberately adds files the program excludes (.js with allowJs unset)
     // so that a move can still repoint their imports.
     if (!program.getSourceFile(filePath)) continue;
-    const diags = ls.getSemanticDiagnostics(filePath);
-    for (const d of diags) {
-      if (d.category === ts.DiagnosticCategory.Error) {
-        allErrors.push(d);
-      }
-    }
+    allErrors.push(...semanticErrors(ls, filePath));
   }
-  const truncated = allErrors.length > MAX_DIAGNOSTICS;
-  const diagnostics = allErrors.slice(0, MAX_DIAGNOSTICS).map(toDiagnostic);
-  return { diagnostics, errorCount: allErrors.length, truncated };
+  return capDiagnostics(allErrors);
 }
 
 export function tsGetTypeErrors(

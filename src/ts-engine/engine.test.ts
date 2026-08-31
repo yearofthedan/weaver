@@ -326,40 +326,6 @@ describe("TsMorphEngine", () => {
     });
   });
 
-  describe("refreshSourceFile", () => {
-    it("is a no-op when the project has not been loaded yet", () => {
-      const p = new TsMorphEngine();
-      expect(() => p.refreshSourceFile("/nonexistent/path.ts")).not.toThrow();
-    });
-
-    test("re-reads the file from disk after content changes", async ({ seedNamedFixture }) => {
-      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
-      const p = new TsMorphEngine();
-      const file = path.join(dir, "src/utils.ts");
-      // Load the project so the file is tracked.
-      p.getLanguageServiceForFile(file);
-      // Overwrite the file with a type error.
-      fs.writeFileSync(file, "export const x: number = 'not-a-number';\n");
-      p.refreshSourceFile(file);
-      const ls = p.getLanguageServiceForFile(file);
-      const diags = ls.getSemanticDiagnostics(file);
-      expect(diags.length).toBeGreaterThan(0);
-    });
-
-    test("adds the file to the project when it was not already tracked", async ({
-      seedNamedFixture,
-    }) => {
-      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
-      const p = new TsMorphEngine();
-      const file = path.join(dir, "src/utils.ts");
-      // Load the project (but not this specific file).
-      const otherFile = path.join(dir, "src/main.ts");
-      p.getLanguageServiceForFile(otherFile);
-      // refreshSourceFile should add it without throwing.
-      expect(() => p.refreshSourceFile(file)).not.toThrow();
-    });
-  });
-
   describe("getProjectSourceFilePaths", () => {
     test("returns file paths as strings", async ({ seedNamedFixture }) => {
       const dir = await seedNamedFixture(FIXTURES.simpleTs.name);

@@ -166,23 +166,6 @@ export class TsMorphEngine implements Engine {
   }
 
   /**
-   * Refreshes the given file from disk within its cached project.
-   * If the file is already tracked, its content is re-read; if not, it is added.
-   * No-op when the project for the file has not been loaded yet.
-   */
-  refreshSourceFile(filePath: string): void {
-    const key = findTsConfigForFile(filePath) ?? "__no_tsconfig__";
-    const project = this.projects.get(key);
-    if (!project) return;
-    const existing = project.getSourceFile(filePath);
-    if (existing) {
-      existing.refreshFromFileSystemSync();
-    } else {
-      project.addSourceFileAtPath(filePath);
-    }
-  }
-
-  /**
    * Returns type errors for a single file or the whole project. Delegates to
    * the standalone `tsGetTypeErrors` action which handles both single-file and
    * project-wide modes.

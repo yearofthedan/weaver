@@ -17,20 +17,10 @@ vi.mock("../operations/moveFile.js", async (importOriginal) => {
 });
 
 describe("makeRegistry", () => {
-  it("returns an object with projectEngine and tsEngine functions", () => {
+  it("returns an object with a projectEngine function", () => {
     const registry = makeRegistry("/any/file.ts", "/any");
     expect(typeof registry.projectEngine).toBe("function");
-    expect(typeof registry.tsEngine).toBe("function");
   });
-
-  test("tsEngine resolves to a TsMorphEngine with Engine methods", async ({ seedNamedFixture }) => {
-    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
-    const registry = makeRegistry(path.join(dir, "src/utils.ts"), dir);
-    const engine = await registry.tsEngine();
-    expect(engine).toBeInstanceOf(TsMorphEngine);
-    expect(typeof engine.resolveOffset).toBe("function");
-    expect(typeof engine.moveSymbol).toBe("function");
-  }, 10_000);
 
   test("projectEngine resolves to a TsMorphEngine for a TS-only project", async ({
     seedNamedFixture,

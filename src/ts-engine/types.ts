@@ -204,6 +204,4 @@ export interface MoveFileActionResult {
 export interface EngineRegistry {
   /** Returns the project engine — Vue plugin if detected, TsMorphEngine otherwise. */
   projectEngine(): Promise<Engine>;
-  /** Always returns TsMorphEngine for AST-level operations (e.g. moveSymbol, extractFunction). */
-  tsEngine(): Promise<import("./engine.js").TsMorphEngine>;
 }

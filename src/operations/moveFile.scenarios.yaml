@@ -639,9 +639,8 @@ scenarios:
   - name: still reports a genuinely missing SFC import untouched by the move
     description: |
       main.ts imports both the moved Widget (repointed automatically) and a Ghost
-      component that never existed. The move must still surface the pre-existing
-      TS2307 for Ghost — proving the routing fix is a correctness change, not a
-      suppression that would also hide a real missing-module error.
+      component that never existed. Repointing the one must not silence the other:
+      a missing SFC is a real error and still belongs in the response.
     given:
       description: a Vue project mapping @/* onto src/*, where a .ts file imports the moved component plus a component that does not exist
       files:

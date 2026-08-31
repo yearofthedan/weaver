@@ -41,7 +41,6 @@ export function clearLanguagePlugins(): void {
  * Create an `EngineRegistry` scoped to the project containing `filePath`.
  * `projectEngine` iterates registered language plugins; first match wins,
  * with TsMorphEngine as the default fallback.
- * `tsEngine` always returns TsMorphEngine for AST-level operations (e.g. moveSymbol).
  *
  * `filePath` may be `undefined` for operations with no specific target file (e.g. a
  * project-wide `getTypeErrors`). In that case the tsconfig lookup starts from
@@ -60,9 +59,6 @@ export function makeRegistry(filePath: string | undefined, workspaceRoot: string
           }
         }
       }
-      return getTsMorphEngine(workspaceRoot);
-    },
-    async tsEngine() {
       return getTsMorphEngine(workspaceRoot);
     },
   };

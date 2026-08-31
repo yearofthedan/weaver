@@ -39,6 +39,7 @@ function makeMinimalService(
   return {
     baseService: {
       getSemanticDiagnostics: () => diagnostics,
+      getProgram: () => ({ getSourceFile: () => ({}) }),
     } as unknown as ts.LanguageService,
     languageService: {} as unknown as CachedService["languageService"],
     fileContents: new Map(),
@@ -293,16 +294,9 @@ describe("vueGetTypeErrorsForFile", () => {
 
 describe("vueGetTypeErrorsForTsFile", () => {
   function makeTsFileService(diagnostics: ts.Diagnostic[]): CachedService {
+    // No .vue entries: the non-.vue path must not consult the virtual-path map.
     return {
-      baseService: {
-        getSemanticDiagnostics: () => diagnostics,
-      } as unknown as ts.LanguageService,
-      languageService: {} as unknown as CachedService["languageService"],
-      fileContents: new Map(),
-      language: {
-        scripts: { get: () => undefined },
-        maps: {} as unknown,
-      } as unknown as CachedService["language"],
+      ...makeMinimalService("unused.vue.ts", "unused.vue", diagnostics),
       vueVirtualToReal: new Map(),
       scriptFileNames: [],
     };
@@ -406,6 +400,9 @@ describe("vueGetTypeErrorsForProject", () => {
       baseService: {
         getSemanticDiagnostics: (fileName: string) =>
           fileName === vue.virtualPath ? vue.diagnostics : (tsDiagnosticsByFile[fileName] ?? []),
+        // Every mocked file is in the program; the exclusion path is covered by the
+        // vite.config.js case in getTypeErrors.test.ts against a real service.
+        getProgram: () => ({ getSourceFile: () => ({}) }),
       } as unknown as ts.LanguageService,
       scriptFileNames: [...Object.keys(tsDiagnosticsByFile), vue.virtualPath],
     };
