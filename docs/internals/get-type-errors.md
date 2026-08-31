@@ -17,8 +17,10 @@ tool call
   │   ├─ single-file: tsLS.getSemanticDiagnostics(file)
   │   └─ project-wide: iterate tsconfig source files, getSemanticDiagnostics per file
   │
-  └─ VolarEngine path (Vue projects)
-      ├─ single .ts file: delegate to TsMorphEngine
+  └─ VolarEngine path (Vue projects) — every file kind answered by Volar
+      ├─ single non-.vue file:
+      │     getService(file) → baseService.getSemanticDiagnostics(file)
+      │     real positions, no source-map translation
       ├─ single .vue file:
       │     getService(file) → build/reuse Volar service
       │     baseService.getSemanticDiagnostics(file + ".ts")  ← virtual path
@@ -26,7 +28,8 @@ tool call
       │     offsetToLineCol(realContent, offset) → 1-based line/col
       │     exclude diagnostics with no source map entry (Volar glue code)
       └─ project-wide:
-            TsMorphEngine errors for .ts files
+            iterate service.scriptFileNames, skipping virtual .vue.ts entries
+            and anything absent from the compiled program
             + vueGetTypeErrorsFromService() for all .vue files in the Volar service
             merged under a single 100-error cap
 
@@ -57,8 +60,11 @@ The dispatcher calls `registry.projectEngine()`, which returns `VolarEngine` for
 **Vue position translation uses source maps, not TS line APIs.**
 `baseService.getSemanticDiagnostics(virtualPath)` returns positions in the virtual `.vue.ts` content. `translateVirtualOffset` maps each position back to the real `.vue` source offset via `mapper.toSourceLocation()` (the same source-map machinery as `translateSingleLocation`), then `offsetToLineCol()` converts to 1-based line/col. Diagnostics with no source map entry (Volar glue code) are excluded.
 
-**`getTypeErrorsForFiles` must call `refreshFromFileSystemSync()` before checking diagnostics.**
-When post-write diagnostics run against a file that the TsMorphEngine project already has cached, ts-morph will see stale content unless `refreshFromFileSystemSync()` is called first. `getTypeErrorsForFiles` always does this.
+**A `.ts` file in a Vue project is answered by Volar, not ts-morph.**
+The ts-morph project has no `.vue` language support, so it cannot resolve a `.vue` specifier and reports a false TS2307 for every import of one — while the Volar service the same engine already holds resolves it. Routing every file kind through Volar removes only that false positive: a genuinely missing SFC and an ordinary type error are still reported.
+
+**`getTypeErrorsForFiles` refreshes every file before querying any of them.**
+Post-write diagnostics would otherwise see content cached from before the write. The refreshes are hoisted out of the query loop deliberately: `Engine.refreshFile` is a per-file contract, but `VolarEngine` can only satisfy it by dropping the whole cached service for the tsconfig, so interleaving refresh and query rebuilds the entire Volar project once per modified file. Eight files cost eight builds and 1163ms interleaved, against one build and 224ms hoisted.
 
 **The workspace file set is deliberately wider than the compiled program.**
 `TsMorphEngine.addWorkspaceFiles` adds every `.ts`/`.tsx`/`.js`/`.jsx` file under the workspace to the ts-morph project regardless of `allowJs`, so a `.js` file that is never type-checked still gets navigation and import rewriting — that is what lets a `moveFile` repoint a `.js` importer. Editors draw the same distinction: a `.js` file in a TS project with `allowJs` off gets language features but no diagnostics.
