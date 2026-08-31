@@ -3,7 +3,7 @@ import type { WorkspaceScope } from "../../domain/workspace-scope.js";
 import type { GetTypeErrorsResult, TypeDiagnostic } from "../../operations/types.js";
 import { MAX_DIAGNOSTICS } from "../../operations/types.js";
 import type { TsMorphEngine } from "../../ts-engine/engine.js";
-import { extractDiagnosticMessage } from "../../ts-engine/get-type-errors.js";
+import { extractDiagnosticMessage, toDiagnostic } from "../../ts-engine/get-type-errors.js";
 import { offsetToLineCol } from "../../utils/text-utils.js";
 import type { CachedService } from "./service.js";
 
@@ -84,6 +84,27 @@ export async function vueGetTypeErrorsForFile(
   const truncated = allDiagnostics.length > MAX_DIAGNOSTICS;
   const diagnostics = allDiagnostics.slice(0, MAX_DIAGNOSTICS);
   return { diagnostics, errorCount: allDiagnostics.length, truncated };
+}
+
+/**
+ * Type errors for a non-`.vue` file (`.ts`, `.tsx`, `.js` with `allowJs`) in a
+ * Vue project, answered by the Volar service the engine already holds rather
+ * than a separate ts-morph project — the ts-morph project has no `.vue`
+ * language support, so it cannot resolve a `.vue` specifier and would report a
+ * false "cannot find module" for every import of one. Diagnostics for a
+ * non-`.vue` file carry a real `d.file`, so `toDiagnostic` maps them directly —
+ * no source-map translation, unlike the `.vue` path above.
+ */
+export async function vueGetTypeErrorsForTsFile(
+  file: string,
+  getService: (file: string) => Promise<CachedService>,
+): Promise<GetTypeErrorsResult> {
+  const service = await getService(file);
+  const raw = service.baseService.getSemanticDiagnostics(file);
+  const errors = raw.filter((d) => d.category === ts.DiagnosticCategory.Error);
+  const truncated = errors.length > MAX_DIAGNOSTICS;
+  const diagnostics = errors.slice(0, MAX_DIAGNOSTICS).map(toDiagnostic);
+  return { diagnostics, errorCount: errors.length, truncated };
 }
 
 export async function vueGetTypeErrorsForProject(

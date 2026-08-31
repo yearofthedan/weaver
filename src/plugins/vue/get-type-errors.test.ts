@@ -6,6 +6,7 @@ import type { TsMorphEngine } from "../../ts-engine/engine.js";
 import {
   vueGetTypeErrorsForFile,
   vueGetTypeErrorsForProject,
+  vueGetTypeErrorsForTsFile,
   vueGetTypeErrorsFromService,
 } from "./get-type-errors.js";
 import type { CachedService } from "./service.js";
@@ -17,6 +18,19 @@ function makeDiagnostic(
   start?: number,
 ): ts.Diagnostic {
   return { category, code, messageText, start, length: 1, file: undefined };
+}
+
+/** A diagnostic carrying a real `ts.SourceFile`, the shape a .ts file's own diagnostics have. */
+function makeTsFileDiagnostic(
+  category: ts.DiagnosticCategory,
+  code: number,
+  messageText: string,
+  fileName: string,
+  content: string,
+  start: number,
+): ts.Diagnostic {
+  const sourceFile = ts.createSourceFile(fileName, content, ts.ScriptTarget.Latest, true);
+  return { category, code, messageText, start, length: 1, file: sourceFile };
 }
 
 function makeMinimalService(
@@ -273,6 +287,91 @@ describe("vueGetTypeErrorsForFile", () => {
     expect(result.truncated).toBe(truncated);
     expect(result.diagnostics).toHaveLength(Math.min(errorCount, MAX_DIAGNOSTICS));
     expect(result.errorCount).toBe(errorCount);
+  });
+});
+
+describe("vueGetTypeErrorsForTsFile", () => {
+  function makeTsFileService(diagnostics: ts.Diagnostic[]): CachedService {
+    return {
+      baseService: {
+        getSemanticDiagnostics: () => diagnostics,
+      } as unknown as ts.LanguageService,
+      languageService: {} as unknown as CachedService["languageService"],
+      fileContents: new Map(),
+      language: {
+        scripts: { get: () => undefined },
+        maps: {} as unknown,
+      } as unknown as CachedService["language"],
+      vueVirtualToReal: new Map(),
+    };
+  }
+
+  it("maps a diagnostic directly from d.file — no source-map translation", async () => {
+    const FILE = "/project/main.ts";
+    const CONTENT = "import Widget from '@/components/Widget.vue';\n";
+    const service = makeTsFileService([
+      makeTsFileDiagnostic(
+        ts.DiagnosticCategory.Error,
+        2307,
+        "Cannot find module",
+        FILE,
+        CONTENT,
+        20,
+      ),
+    ]);
+    const result = await vueGetTypeErrorsForTsFile(FILE, async () => service);
+    expect(result).toEqual({
+      diagnostics: [{ file: FILE, line: 1, col: 21, code: 2307, message: "Cannot find module" }],
+      errorCount: 1,
+      truncated: false,
+    });
+  });
+
+  it("excludes non-Error diagnostics", async () => {
+    const FILE = "/project/main.ts";
+    const CONTENT = "const x = 1;\n";
+    const service = makeTsFileService([
+      makeTsFileDiagnostic(ts.DiagnosticCategory.Warning, 1001, "a warning", FILE, CONTENT, 0),
+      makeTsFileDiagnostic(
+        ts.DiagnosticCategory.Suggestion,
+        9999,
+        "a suggestion",
+        FILE,
+        CONTENT,
+        0,
+      ),
+    ]);
+    const result = await vueGetTypeErrorsForTsFile(FILE, async () => service);
+    expect(result).toEqual({ diagnostics: [], errorCount: 0, truncated: false });
+  });
+
+  it("returns empty when the service reports no diagnostics", async () => {
+    const service = makeTsFileService([]);
+    const result = await vueGetTypeErrorsForTsFile("/project/clean.ts", async () => service);
+    expect(result).toEqual({ diagnostics: [], errorCount: 0, truncated: false });
+  });
+
+  it.each([
+    { errorCount: MAX_DIAGNOSTICS + 1, truncated: true },
+    { errorCount: MAX_DIAGNOSTICS, truncated: false },
+  ])("truncated=$truncated when errorCount=$errorCount", async ({ errorCount, truncated }) => {
+    const FILE = "/project/many.ts";
+    const CONTENT = "x".repeat(errorCount + 1);
+    const diagnostics = Array.from({ length: errorCount }, (_, i) =>
+      makeTsFileDiagnostic(ts.DiagnosticCategory.Error, 2322, `error ${i}`, FILE, CONTENT, i),
+    );
+    const service = makeTsFileService(diagnostics);
+    const result = await vueGetTypeErrorsForTsFile(FILE, async () => service);
+    expect(result.truncated).toBe(truncated);
+    expect(result.diagnostics).toHaveLength(Math.min(errorCount, MAX_DIAGNOSTICS));
+    expect(result.errorCount).toBe(errorCount);
+  });
+
+  it("requests the service for the given file", async () => {
+    const service = makeTsFileService([]);
+    const getService = vi.fn().mockResolvedValue(service);
+    await vueGetTypeErrorsForTsFile("/project/main.ts", getService);
+    expect(getService).toHaveBeenCalledWith("/project/main.ts");
   });
 });
 

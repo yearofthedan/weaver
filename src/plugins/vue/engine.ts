@@ -22,7 +22,11 @@ import { applyTextEdits, lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfig, findTsConfigForFile } from "../../utils/ts-project.js";
 import { vueDeleteFile } from "./delete-file.js";
 import { vueExtractFunction } from "./extract-function.js";
-import { vueGetTypeErrorsForFile, vueGetTypeErrorsForProject } from "./get-type-errors.js";
+import {
+  vueGetTypeErrorsForFile,
+  vueGetTypeErrorsForProject,
+  vueGetTypeErrorsForTsFile,
+} from "./get-type-errors.js";
 import { vueMoveFile, vueRenameEdits } from "./move-file.js";
 import { vueMoveSymbol } from "./move-symbol.js";
 import { scanVueNameMatches } from "./name-matches.js";
@@ -410,8 +414,9 @@ export class VolarEngine implements Engine {
       if (file.endsWith(".vue")) {
         return vueGetTypeErrorsForFile(file, (f) => this.getService(f));
       }
-      // .ts file in a Vue project — delegate to the TS engine.
-      return this.tsEngine.getTypeErrors(file, scope);
+      // .ts/.tsx file in a Vue project — the Volar service resolves .vue
+      // imports the ts-morph project cannot; see scope.root note above.
+      return vueGetTypeErrorsForTsFile(file, (f) => this.getService(f, scope.root));
     }
     // Project-wide: merge TS and Vue errors. Root comes from the request's scope, not
     // this.workspaceRoot — see getService's doc comment for why that distinction matters.

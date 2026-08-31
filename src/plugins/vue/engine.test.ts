@@ -388,6 +388,89 @@ describe("VolarEngine", () => {
     }
   }, 30_000);
 
+  describe("getTypeErrors — .ts/.tsx file importing an SFC", () => {
+    function makeVueTsFixture(): string {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vue-ts-import-"));
+      fs.mkdirSync(path.join(tmpDir, "src/components"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "tsconfig.json"),
+        JSON.stringify({
+          compilerOptions: {
+            strict: true,
+            target: "ESNext",
+            module: "ESNext",
+            moduleResolution: "bundler",
+            jsx: "preserve",
+          },
+          include: ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],
+        }),
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, "src/components/Widget.vue"),
+        [
+          '<script setup lang="ts">',
+          "const label = 'hi';",
+          "</script>",
+          "",
+          "<template>",
+          "  <div>{{ label }}</div>",
+          "</template>",
+          "",
+        ].join("\n"),
+      );
+      return tmpDir;
+    }
+
+    it("reports no diagnostics for a .ts file importing an existing SFC", async () => {
+      const tmpDir = makeVueTsFixture();
+      try {
+        const file = path.join(tmpDir, "src/main.ts");
+        fs.writeFileSync(
+          file,
+          "import Widget from './components/Widget.vue';\n\nexport const w = Widget;\n",
+        );
+        const p = new VolarEngine(new TsMorphEngine());
+        const result = await p.getTypeErrors(file, makeScope(tmpDir));
+        expect(result).toEqual({ diagnostics: [], errorCount: 0, truncated: false });
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }, 30_000);
+
+    it("reports no diagnostics for a .tsx file importing an existing SFC — same non-.vue branch", async () => {
+      const tmpDir = makeVueTsFixture();
+      try {
+        const file = path.join(tmpDir, "src/Bad.tsx");
+        fs.writeFileSync(
+          file,
+          "import Widget from './components/Widget.vue';\n\nexport const w = Widget;\n",
+        );
+        const p = new VolarEngine(new TsMorphEngine());
+        const result = await p.getTypeErrors(file, makeScope(tmpDir));
+        expect(result).toEqual({ diagnostics: [], errorCount: 0, truncated: false });
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }, 30_000);
+
+    it("still reports TS2307 for a .ts file importing an SFC that does not exist", async () => {
+      const tmpDir = makeVueTsFixture();
+      try {
+        const file = path.join(tmpDir, "src/broken.ts");
+        fs.writeFileSync(file, "import Missing from './components/Missing.vue';\n");
+        const p = new VolarEngine(new TsMorphEngine());
+        const result = await p.getTypeErrors(file, makeScope(tmpDir));
+        expect(result.errorCount).toBe(1);
+        expect(result.truncated).toBe(false);
+        expect(result.diagnostics).toHaveLength(1);
+        expect(result.diagnostics[0].file).toBe(file);
+        expect(result.diagnostics[0].code).toBe(2307);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }, 30_000);
+  });
+
   describe("workspace expansion — files outside tsconfig.include", () => {
     test("getRenameLocations includes test file outside tsconfig.include", async ({
       seedNamedFixture,
