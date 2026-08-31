@@ -1,5 +1,5 @@
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import type { GetTypeErrorsResult, RenameResult } from "../operations/types.js";
+import type { GetTypeErrorsResult, RenameResult, SetExportResult } from "../operations/types.js";
 
 export interface ExtractFunctionResult {
   filesModified: string[];
@@ -125,6 +125,26 @@ export interface Engine {
    * Results are capped at `MAX_DIAGNOSTICS`; `errorCount` reflects the true total.
    */
   getTypeErrors(file: string | undefined, scope: WorkspaceScope): Promise<GetTypeErrorsResult>;
+
+  /**
+   * Add or remove the `export` keyword on the top-level declaration named
+   * `symbolName` in `file`. Returns empty `filesModified` when the declaration
+   * is already in the asked-for state.
+   *
+   * Throws `SYMBOL_NOT_FOUND` when no top-level declaration carries the name,
+   * `NOT_SUPPORTED` for declaration forms the keyword alone cannot express
+   * (default exports, re-exports, `export { }` statements, overloads,
+   * multi-declarator statements, `.vue` targets), and `SYMBOL_IN_USE` when
+   * `exported` is false while other files still reference the symbol.
+   *
+   * Precondition: `file` must exist (validated by the operation layer).
+   */
+  setExport(
+    file: string,
+    symbolName: string,
+    exported: boolean,
+    scope: WorkspaceScope,
+  ): Promise<SetExportResult>;
 
   /**
    * Full extractFunction workflow: compute extraction edits via the TypeScript

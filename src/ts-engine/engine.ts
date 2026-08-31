@@ -3,7 +3,7 @@ import { Project } from "ts-morph";
 import type ts from "typescript";
 import { EngineError } from "../domain/errors.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
-import type { GetTypeErrorsResult, RenameResult } from "../operations/types.js";
+import type { GetTypeErrorsResult, RenameResult, SetExportResult } from "../operations/types.js";
 import { TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
@@ -16,6 +16,7 @@ import { tsMoveSymbol } from "./move-symbol.js";
 import { tsRemoveImportersOf } from "./remove-importers.js";
 import { tsRename } from "./rename.js";
 import { isCoexistingJsFileEdit } from "./rewrite-importers-of-moved-file.js";
+import { tsSetExport } from "./set-export.js";
 import type {
   DefinitionLocation,
   DeleteFileActionResult,
@@ -390,6 +391,20 @@ export class TsMorphEngine implements Engine {
     scope: WorkspaceScope,
   ): Promise<RenameResult> {
     return tsRename(this, file, line, col, newName, scope);
+  }
+
+  /**
+   * Add or remove the `export` keyword on a top-level declaration: delegates to
+   * `tsSetExport`, which resolves the declaration, guards the remove direction
+   * against outside references, and writes through `scope`.
+   */
+  async setExport(
+    file: string,
+    symbolName: string,
+    exported: boolean,
+    scope: WorkspaceScope,
+  ): Promise<SetExportResult> {
+    return tsSetExport(this, file, symbolName, exported, scope);
   }
 
   /**

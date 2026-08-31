@@ -1,0 +1,27 @@
+fixtures:
+  a-file-containing-foo:
+    description: a single source file whose content holds the literal string foo once
+    files:
+      src/target.ts: |
+        const foo = 1;
+
+scenarios:
+  - name: dispatches a search pattern as the literal string, not a resolved path
+    description: >
+      searchText declares no path params, so the pattern must reach the search exactly as
+      written. If the runner joined it onto the workspace root, nothing in the file would
+      match and the match list would come back empty.
+    given: a-file-containing-foo
+    when:
+      - searchText: { pattern: foo }
+    then:
+      response:
+        status: success
+        matches:
+          - file: src/target.ts
+            line: 1
+            col: 7
+            matchText: foo
+        truncated: false
+      files:
+        unchanged: [src/target.ts]

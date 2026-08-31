@@ -18,6 +18,11 @@ export function makeMockCompiler(overrides: Partial<Engine> = {}): Engine {
     }),
     moveFile: vi.fn().mockResolvedValue({ oldPath: "", newPath: "" }),
     moveSymbol: vi.fn().mockResolvedValue(undefined),
+    setExport: vi.fn().mockResolvedValue({
+      filesModified: [],
+      filesSkipped: [],
+      symbolName: "",
+    }),
     moveDirectory: vi.fn().mockResolvedValue({ filesMoved: [] }),
     deleteFile: vi.fn().mockResolvedValue({ importRefsRemoved: 0 }),
     extractFunction: vi.fn().mockResolvedValue({

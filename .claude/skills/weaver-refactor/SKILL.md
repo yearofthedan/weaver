@@ -1,6 +1,6 @@
 ---
 name: weaver-refactor
-description: Rename, move, or restructure a symbol or file across the codebase — rename a symbol everywhere, move a file/directory/export, delete a file with importers, extract a function. If you don't have the symbol's line/col, it locates it for you first. Rewrites every import, re-export, and reference that mv, rm, sed, or manual edits miss — including across Vue SFCs.
+description: Rename, move, or restructure a symbol or file across the codebase — rename a symbol everywhere, move a file/directory/export, delete a file with importers, extract a function, add or remove an export. If you don't have the symbol's line/col, it locates it for you first. Rewrites every import, re-export, and reference that mv, rm, sed, or manual edits miss — including across Vue SFCs.
 ---
 
 # Refactor Across Files
@@ -42,6 +42,7 @@ Run the command in the middle — never the shell tool in the "Never" column, ev
 | Move an export to a different file (incl. across `.vue`) | `move-symbol` | cut/paste + fix imports |
 | Delete a file and clean up everything that imported it | `delete-file` | `rm` |
 | Pull a block of code into its own function | `extract-function` | manual cut/paste |
+| Add or remove `export` on a declaration | `set-export` | `sed` / manual edits |
 
 ## Rename a symbol across files
 
@@ -97,6 +98,20 @@ Infers parameters, return types, and async propagation. Function is placed at mo
 
 The selection must cover complete statements: `endCol` is inclusive and must point at the last character of the last statement (the `;` if present, or the last token in no-semicolon style).
 
+## Add or remove an export
+
+```bash
+weaver set-export '{"file": "src/utils.ts", "symbolName": "formatDate", "exported": true}'
+```
+
+One call covers every declaration form — `function`, `const`, `class`, `interface`, `type` — so there is no per-form pattern to write, and a name that does not resolve comes back as `SYMBOL_NOT_FOUND` instead of silently matching nothing. Top-level declarations only; enums are not covered.
+
+`"exported": false` returns `SYMBOL_IN_USE` when any other file references the symbol. The message names those files (up to 10, alongside the true total) and nothing is written. References inside the declaring file do not count; an unused named import in another file does.
+
+A declaration already in the requested state returns `filesModified: []` with no `typeErrors` fields — a success, not an error, which is what distinguishes it from `SYMBOL_NOT_FOUND` on a retry.
+
+`.vue` targets return `NOT_SUPPORTED`, since a top-level `export` is not valid inside an SFC script block. `.ts` files in a Vue project are fully supported, and `.vue` files importing the symbol are counted when un-exporting.
+
 ## Response fields
 
 All write operations return:
@@ -116,5 +131,6 @@ Pass `"checkTypeErrors": false` when batching changes to check errors once at th
 - **`DAEMON_STARTING`** — retry after a short delay
 - **`SYMBOL_NOT_FOUND`** / **`FILE_NOT_FOUND`** — check coordinates or path
 - **`SYMBOL_EXISTS`** — `move-symbol` destination already exports that name; pass `"force": true` to replace it
+- **`SYMBOL_IN_USE`** — `set-export` was asked to un-export a symbol other files still reference; the message names them
 - **`NOT_SUPPORTED`** — operation doesn't support this target (e.g. `extract-function` on a `.vue` file without a `<script setup>` block)
 - **`WORKSPACE_VIOLATION`** — path is outside the workspace

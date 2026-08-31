@@ -1,0 +1,767 @@
+# Fixtures name the workspace state a scenario starts from, on the one axis visibility turns
+# on: whether the declaration is exported, and who outside the file uses it.
+fixtures:
+  a-ts-project:
+    description: a tsconfig file including src
+    files:
+      tsconfig.json: |
+        {
+          "compilerOptions": { "strict": true },
+          "include": ["src/**/*.ts"]
+        }
+
+  a-non-exported-function:
+    description: a single source file holding one non-exported function
+    extends: a-ts-project
+    files:
+      src/a.ts: |
+        function foo() { return 1; }
+
+  a-vue-project:
+    description: a Vue SFC alongside a tsconfig that also covers plain TS modules
+    files:
+      tsconfig.json: |
+        {
+          "compilerOptions": {
+            "strict": true,
+            "target": "ESNext",
+            "module": "ESNext",
+            "moduleResolution": "bundler",
+            "jsx": "preserve"
+          },
+          "include": ["src/**/*.ts", "src/**/*.vue"]
+        }
+      src/App.vue: |
+        <script setup lang="ts">
+        const label = "hello";
+        </script>
+
+        <template>
+          <div>{{ label }}</div>
+        </template>
+
+scenarios:
+  - name: adds the export keyword to a function declaration
+    given: a-non-exported-function
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/a.ts: |
+            export function foo() { return 1; }
+        unchanged: [tsconfig.json]
+
+  - name: adds the export keyword to a variable statement
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          const foo = 1;
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/a.ts: |
+            export const foo = 1;
+        unchanged: [tsconfig.json]
+
+  - name: adds the export keyword to a class declaration
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          class Foo {}
+    when:
+      - setExport: { file: src/a.ts, symbolName: Foo, exported: true }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: Foo
+      files:
+        changed:
+          src/a.ts: |
+            export class Foo {}
+        unchanged: [tsconfig.json]
+
+  - name: adds the export keyword to an interface declaration
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          interface Foo {}
+    when:
+      - setExport: { file: src/a.ts, symbolName: Foo, exported: true }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: Foo
+      files:
+        changed:
+          src/a.ts: |
+            export interface Foo {}
+        unchanged: [tsconfig.json]
+
+  - name: adds the export keyword to a type alias
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          type Foo = number;
+    when:
+      - setExport: { file: src/a.ts, symbolName: Foo, exported: true }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: Foo
+      files:
+        changed:
+          src/a.ts: |
+            export type Foo = number;
+        unchanged: [tsconfig.json]
+
+  - name: reports an enum name as not found
+    description: >
+      Enums are outside the supported declaration forms. Reporting the name as absent keeps
+      the operation's answer honest — a half-supported form that silently did nothing would
+      be worse than a clear miss.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          enum Foo {}
+    when:
+      - setExport: { file: src/a.ts, symbolName: Foo, exported: true }
+    then:
+      response:
+        status: error
+        error: SYMBOL_NOT_FOUND
+        message: "Symbol 'Foo' not found as a top-level declaration in src/a.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: removes the export keyword when only the declaring file uses the symbol
+    description: >
+      A call from inside the declaring file is not a reason to keep the symbol exported, so
+      the local call must survive untouched while the keyword goes.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+
+          const local = foo();
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/a.ts: |
+            function foo() { return 1; }
+
+            const local = foo();
+        unchanged: [tsconfig.json]
+
+  - name: refuses to un-export a symbol another file imports and uses
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+        src/b.ts: |
+          import { foo } from "./a";
+
+          const value = foo();
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: SYMBOL_IN_USE
+        message: "Symbol 'foo' in src/a.ts is used by 1 other file(s); un-exporting it would break them: src/b.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts, src/b.ts]
+
+  - name: refuses to un-export a symbol another file imports without using
+    description: >
+      The import statement itself stops compiling once the export goes, so an unused import
+      blocks just as a used one does.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+        src/b.ts: |
+          import { foo } from "./a";
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: SYMBOL_IN_USE
+        message: "Symbol 'foo' in src/a.ts is used by 1 other file(s); un-exporting it would break them: src/b.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts, src/b.ts]
+
+  - name: refuses to un-export a symbol another file re-exports
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+        src/b.ts: |
+          export { foo } from "./a";
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: SYMBOL_IN_USE
+        message: "Symbol 'foo' in src/a.ts is used by 1 other file(s); un-exporting it would break them: src/b.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts, src/b.ts]
+
+  - name: refuses to un-export a symbol reached through a namespace import
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+        src/b.ts: |
+          import * as a from "./a";
+
+          const value = a.foo();
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: SYMBOL_IN_USE
+        message: "Symbol 'foo' in src/a.ts is used by 1 other file(s); un-exporting it would break them: src/b.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts, src/b.ts]
+
+  - name: un-exports when another file imports a different symbol from the same module
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+          export function bar() { return 2; }
+        src/b.ts: |
+          import { bar } from "./a";
+
+          const value = bar();
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/a.ts: |
+            function foo() { return 1; }
+            export function bar() { return 2; }
+        unchanged: [tsconfig.json, src/b.ts]
+
+  - name: un-exports when a namespace import never reaches the symbol
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+          export function bar() { return 2; }
+        src/b.ts: |
+          import * as a from "./a";
+
+          const value = a.bar();
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/a.ts: |
+            function foo() { return 1; }
+            export function bar() { return 2; }
+        unchanged: [tsconfig.json, src/b.ts]
+
+  - name: leaves an already-exported symbol alone
+    description: >
+      A retry after a crash mid-write must read as done, not as a fresh change — the empty
+      filesModified is what tells a caller "already in that state" apart from a failure.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export function foo() { return 1; }
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: success
+        filesModified: []
+        filesSkipped: []
+        symbolName: foo
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: leaves an already-non-exported symbol alone
+    given: a-non-exported-function
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: success
+        filesModified: []
+        filesSkipped: []
+        symbolName: foo
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: reports a completely absent name as not found
+    given: a-non-exported-function
+    when:
+      - setExport: { file: src/a.ts, symbolName: doesNotExist, exported: true }
+    then:
+      response:
+        status: error
+        error: SYMBOL_NOT_FOUND
+        message: "Symbol 'doesNotExist' not found as a top-level declaration in src/a.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: reports a function-local name as not found
+    description: >
+      A local binding inside a function shares no visibility with the module, so it must
+      read the same as a name that never appears at all.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          function outer() {
+            const foo = 1;
+            return foo;
+          }
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: error
+        error: SYMBOL_NOT_FOUND
+        message: "Symbol 'foo' not found as a top-level declaration in src/a.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: reports a class member name as not found
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          class Foo {
+            foo() {
+              return 1;
+            }
+          }
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: error
+        error: SYMBOL_NOT_FOUND
+        message: "Symbol 'foo' not found as a top-level declaration in src/a.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: refuses to change the visibility of a .vue target file
+    given: a-vue-project
+    when:
+      - setExport: { file: src/App.vue, symbolName: label, exported: true }
+    then:
+      response:
+        status: error
+        error: NOT_SUPPORTED
+        message: "Cannot change the visibility of 'label' in src/App.vue: a top-level export is not valid inside a Vue SFC script block."
+      files:
+        unchanged: [tsconfig.json, src/App.vue]
+
+  - name: refuses a name that resolves only through a re-export
+    given:
+      extends: a-ts-project
+      files:
+        src/other.ts: |
+          export function foo() { return 1; }
+        src/a.ts: |
+          export { foo } from "./other";
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: NOT_SUPPORTED
+        message: "Symbol 'foo' in src/a.ts is a re-export via 'export { } from'. Only declarations in this file can have their visibility changed."
+      files:
+        unchanged: [tsconfig.json, src/other.ts, src/a.ts]
+
+  - name: refuses a name exported only via a trailing export statement
+    description: >
+      Removing the export keyword from the declaration would do nothing — the trailing
+      `export { foo };` still exposes the name — so the operation refuses rather than
+      pretending the visibility changed.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          const foo = 1;
+          export { foo };
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: NOT_SUPPORTED
+        message: "Symbol 'foo' in src/a.ts is exported by a separate 'export { }' statement. Only the 'export' keyword on a declaration is supported."
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: refuses a name that resolves only to a default export
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export default function foo() { return 1; }
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: NOT_SUPPORTED
+        message: "Symbol 'foo' in src/a.ts is a default export. Only named exports are supported."
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: refuses a name shared by function overloads
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          function foo(x: number): number;
+          function foo(x: string): string;
+          function foo(x: any): any {
+            return x;
+          }
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: error
+        error: NOT_SUPPORTED
+        message: "Symbol 'foo' has 3 top-level declarations in src/a.ts. Overloaded and duplicated names are not supported."
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: refuses a name that is one declarator of a multi-declarator statement
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          const a = 1, foo = 2;
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: error
+        error: NOT_SUPPORTED
+        message: "Symbol 'foo' in src/a.ts is one of several declarators in a single statement. Split the statement first — changing it would carry the siblings along."
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: adds the export keyword to a TS module in a project that also contains Vue files
+    given:
+      extends: a-vue-project
+      files:
+        src/utils.ts: |
+          function foo() { return 1; }
+    when:
+      - setExport: { file: src/utils.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/utils.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/utils.ts: |
+            export function foo() { return 1; }
+        unchanged: [tsconfig.json, src/App.vue]
+
+  - name: removes the export keyword from a TS module in a project that also contains Vue files
+    description: >
+      No .vue script and no other TS file reaches the symbol, so the SFC in the project is
+      irrelevant to this call — the removal proceeds exactly as it would with no Vue files at all.
+    given:
+      extends: a-vue-project
+      files:
+        src/utils.ts: |
+          export function foo() { return 1; }
+
+          const local = foo();
+    when:
+      - setExport: { file: src/utils.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/utils.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/utils.ts: |
+            function foo() { return 1; }
+
+            const local = foo();
+        unchanged: [tsconfig.json, src/App.vue]
+
+  - name: refuses to un-export a symbol a Vue SFC script imports
+    given:
+      extends: a-vue-project
+      files:
+        src/utils.ts: |
+          export function foo() { return 1; }
+        src/App.vue: |
+          <script setup lang="ts">
+          import { foo } from "./utils";
+
+          const value = foo();
+          </script>
+
+          <template>
+            <div>{{ value }}</div>
+          </template>
+    when:
+      - setExport: { file: src/utils.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: SYMBOL_IN_USE
+        message: "Symbol 'foo' in src/utils.ts is used by 1 other file(s); un-exporting it would break them: src/App.vue"
+      files:
+        unchanged: [tsconfig.json, src/utils.ts, src/App.vue]
+
+  - name: refuses to un-export a symbol used by a TS file outside the tsconfig include set
+    description: >
+      Every workspace TS file is added to the project graph regardless of the tsconfig include
+      set, so the language-service reference check already sees this importer — no separate scan
+      covers it. The Vue SFC in the project has no bearing on the call and must stay untouched.
+    given:
+      extends: a-vue-project
+      files:
+        src/utils.ts: |
+          export function foo() { return 1; }
+        tests/utils.test.ts: |
+          import { foo } from "../src/utils";
+
+          console.log(foo());
+    when:
+      - setExport: { file: src/utils.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: SYMBOL_IN_USE
+        message: "Symbol 'foo' in src/utils.ts is used by 1 other file(s); un-exporting it would break them: tests/utils.test.ts"
+      files:
+        unchanged: [tsconfig.json, src/App.vue, src/utils.ts, tests/utils.test.ts]
+
+  - name: refuses to un-export a symbol a Vue SFC script re-exports
+    description: >
+      A re-export from an SFC keeps the symbol reachable by other modules just as an import does,
+      so the SFC scan has to match a re-export too — matching only imports would let the removal
+      through and break the re-exporting component.
+    given:
+      extends: a-vue-project
+      files:
+        src/utils.ts: |
+          export function foo() { return 1; }
+        src/App.vue: |
+          <script lang="ts">
+          export { foo } from "./utils";
+          </script>
+
+          <template>
+            <div />
+          </template>
+    when:
+      - setExport: { file: src/utils.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: SYMBOL_IN_USE
+        message: "Symbol 'foo' in src/utils.ts is used by 1 other file(s); un-exporting it would break them: src/App.vue"
+      files:
+        unchanged: [tsconfig.json, src/utils.ts, src/App.vue]
+
+  - name: reports a name only a local export statement mentions as not found
+    description: >
+      `export { foo }` naming something the file never declares is neither a declaration this
+      operation can act on nor a re-export from another module — the name is simply absent.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          export { foo };
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: error
+        error: SYMBOL_NOT_FOUND
+        message: "Symbol 'foo' not found as a top-level declaration in src/a.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
+
+  - name: reports a name absent from a re-export of other names as not found
+    description: >
+      A re-export in the file only blocks the name it actually carries; a different name is
+      still absent rather than unsupported.
+    given:
+      extends: a-ts-project
+      files:
+        src/other.ts: |
+          export function bar() { return 2; }
+        src/a.ts: |
+          export { bar } from "./other";
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: error
+        error: SYMBOL_NOT_FOUND
+        message: "Symbol 'foo' not found as a top-level declaration in src/a.ts"
+      files:
+        unchanged: [tsconfig.json, src/other.ts, src/a.ts]
+
+  - name: refuses a name carried by a re-export that also names other symbols
+    given:
+      extends: a-ts-project
+      files:
+        src/other.ts: |
+          export function foo() { return 1; }
+          export function bar() { return 2; }
+        src/a.ts: |
+          export { foo, bar } from "./other";
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: error
+        error: NOT_SUPPORTED
+        message: "Symbol 'foo' in src/a.ts is a re-export via 'export { } from'. Only declarations in this file can have their visibility changed."
+      files:
+        unchanged: [tsconfig.json, src/other.ts, src/a.ts]
+
+  - name: exports a declaration alongside an export statement naming a different symbol
+    description: >
+      An `export { }` statement only rules the declaration out when it names that declaration;
+      one covering a different symbol leaves this declaration free to take the keyword.
+    given:
+      extends: a-ts-project
+      files:
+        src/a.ts: |
+          function foo() { return 1; }
+
+          const bar = 2;
+          export { bar };
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: success
+        typeErrors: none
+        filesModified: [src/a.ts]
+        filesSkipped: []
+        symbolName: foo
+      files:
+        changed:
+          src/a.ts: |
+            export function foo() { return 1; }
+
+            const bar = 2;
+            export { bar };
+        unchanged: [tsconfig.json]
+
+  - name: leaves a declaration alone when a re-export carries the same name
+    description: >
+      A re-export binds the name for other modules without touching the local declaration, which
+      stays unexported — so asking for that is already true and nothing needs to change. The
+      export statement here belongs to another module's symbol, not to this declaration.
+    given:
+      extends: a-ts-project
+      files:
+        src/other.ts: |
+          export function foo() { return 1; }
+        src/a.ts: |
+          function foo() { return 1; }
+
+          export { foo } from "./other";
+    when:
+      - setExport: { file: src/a.ts, symbolName: foo, exported: false }
+    then:
+      response:
+        status: success
+        filesModified: []
+        filesSkipped: []
+        symbolName: foo
+      files:
+        unchanged: [tsconfig.json, src/other.ts, src/a.ts]
+
+  - name: refuses a file that does not exist, leaving the workspace alone
+    given: a-non-exported-function
+    when:
+      - setExport: { file: src/missing.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: error
+        error: FILE_NOT_FOUND
+        message: "File not found: src/missing.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts]

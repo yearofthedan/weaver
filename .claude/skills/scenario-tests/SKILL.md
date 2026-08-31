@@ -53,6 +53,8 @@ A single-step scenario **must** state a response; a multi-step scenario **must n
 
 Write a scenario for observable behaviour. Keep a focused test when the case needs an input the format refuses to build — the current examples are a symlinked workspace root, a git index holding a path a prior move deleted, a file written between project load and the call, and a direct engine call with no operation around it.
 
+Also keep a focused test when the format *can* build the input but only at a cost that buries what the case is for: eleven near-identical fixture files to prove a ten-item cap say less than a loop that writes eleven importers. The test still goes through `dispatchRequest` — only the setup moves into code, so the layer is unchanged.
+
 **Mutation parity is not a deletion criterion.** Those focused tests read as redundant because their mutants die to other tests. They are still the only place those inputs exist. Delete a test because a named scenario now covers the same input, not because the score held.
 
 When retiring tests in favour of scenarios:
@@ -65,5 +67,5 @@ Note that `src/ts-engine/**` and `src/operations/**` are commented out of `mutat
 
 ## Gotchas
 
-- **`resolveParams` resolves every relative string as a path.** It mirrors the CLI's own resolution, but the CLI resolves only the params a method declares as paths. That is correct while every adopting method takes paths; a method taking a literal string needs the contract settled before it adopts the format.
+- **The runner resolves only the params a method declares as paths.** `pathParamsFor` in the dispatcher is the source of truth, shared with the CLI, so a method taking a literal string — a search pattern, a symbol name — receives it unjoined. Adding or removing a path param in a method's `OPERATIONS` entry changes what its scenarios resolve.
 - **A scenario's `description` reaches a failure message, nothing else.** Use it to say why the expectation is what it is — most valuable on a case pinning behaviour known to be wrong, where the expected content looks like a bug and the next reader needs to know it is deliberate.

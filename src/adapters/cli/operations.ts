@@ -3,6 +3,7 @@ import type { Command, CommanderError } from "commander";
 import { z } from "zod";
 import { callDaemon, ensureDaemon } from "../../daemon/ensure-daemon.js";
 import { socketPath } from "../../daemon/paths.js";
+import { resolveRelativePaths } from "../../utils/resolve-path-params.js";
 import {
   DeleteFileArgsSchema,
   ExtractFunctionArgsSchema,
@@ -16,6 +17,7 @@ import {
   RenameArgsSchema,
   ReplaceTextBaseSchema,
   SearchTextArgsSchema,
+  SetExportArgsSchema,
 } from "../schema.js";
 import { classifyDaemonError } from "./classify-error.js";
 
@@ -43,6 +45,11 @@ const SUBCOMMANDS: Record<
     method: "extractFunction",
     pathParams: ["file"],
     schema: ExtractFunctionArgsSchema,
+  },
+  "set-export": {
+    method: "setExport",
+    pathParams: ["file"],
+    schema: SetExportArgsSchema,
   },
   "find-importers": {
     method: "findImporters",
@@ -151,23 +158,6 @@ export function registerOperationSubcommands(
         process.exit(1);
       }
     });
-  }
-}
-
-/**
- * Resolve path parameters in-place: any path param that is a relative string
- * is joined to workspace to produce an absolute path.
- */
-export function resolveRelativePaths(
-  params: Record<string, unknown>,
-  pathParams: string[],
-  workspace: string,
-): void {
-  for (const key of pathParams) {
-    const val = params[key];
-    if (typeof val === "string" && !path.isAbsolute(val)) {
-      params[key] = path.resolve(workspace, val);
-    }
   }
 }
 

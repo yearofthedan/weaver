@@ -211,6 +211,25 @@ export const ExtractFunctionArgsSchema = z.object({
     .describe("When false, skip the post-write type check; defaults to on"),
 });
 
+export const SetExportArgsSchema = z.object({
+  file: z
+    .string()
+    .min(1, "file path is required")
+    .describe("Absolute path to the .ts or .tsx file containing the declaration"),
+  symbolName: z
+    .string()
+    .min(1, "symbolName is required")
+    .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*$/, "symbolName must be a valid identifier")
+    .describe("Name of the top-level declaration whose visibility changes"),
+  exported: z
+    .boolean()
+    .describe("True adds the export keyword to the declaration; false removes it"),
+  checkTypeErrors: z
+    .boolean()
+    .optional()
+    .describe("When false, skip the post-write type check; defaults to on"),
+});
+
 export const ReplaceTextArgsSchema = ReplaceTextBaseSchema.refine(
   (d) => {
     const hasPattern = d.pattern !== undefined && d.replacement !== undefined;
@@ -257,3 +276,4 @@ export type GetDefinitionArgs = z.infer<typeof GetDefinitionArgsSchema>;
 export type SearchTextArgs = z.infer<typeof SearchTextArgsSchema>;
 export type ReplaceTextArgs = z.infer<typeof ReplaceTextArgsSchema>;
 export type ExtractFunctionArgs = z.infer<typeof ExtractFunctionArgsSchema>;
+export type SetExportArgs = z.infer<typeof SetExportArgsSchema>;

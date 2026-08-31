@@ -1,7 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { parse as parseYaml } from "yaml";
-import { type DispatchResponse, dispatchRequest } from "../../daemon/dispatcher.js";
+import { type DispatchResponse, dispatchRequest, pathParamsFor } from "../../daemon/dispatcher.js";
+import { resolveRelativePaths } from "../../utils/resolve-path-params.js";
 import {
   assertEffects,
   assertResponseMatches,
@@ -42,20 +43,6 @@ function seed(root: string, files: Record<string, string>): void {
   }
 }
 
-/**
- * Mirrors the CLI's own relative-path resolution. It resolves every relative string
- * param, where the CLI resolves only those a method declares as paths — good enough
- * while moveFile is the only method here, wrong for a method taking a literal string.
- */
-function resolveParams(root: string, params: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(params).map(([key, value]) => [
-      key,
-      typeof value === "string" && !path.isAbsolute(value) ? path.join(root, value) : value,
-    ]),
-  );
-}
-
 /** Rewrite the temp root out of every path the response carries, at any depth. */
 function scrubRoot(root: string, value: DispatchResponse): unknown {
   return JSON.parse(JSON.stringify(value).split(`${root}/`).join(""));
@@ -73,7 +60,10 @@ export async function executeScenario(
   let last!: DispatchResponse;
   for (const step of scenario.when) {
     const [method, rawParams] = Object.entries(step)[0];
-    const params = resolveParams(root, rawParams);
+    // Copy before resolving: the helper mutates in place, and `rawParams` belongs to the
+    // parsed scenario file shared by every test in the suite.
+    const params = { ...rawParams };
+    resolveRelativePaths(params, pathParamsFor(method), root);
     last = await dispatchRequest({ method, params }, root);
     // A stated response says what to expect, failure included; a sequence has no such claim.
     if (scenario.then.response === undefined) {

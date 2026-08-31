@@ -92,16 +92,12 @@ export function updateVueImportsAfterSymbolMove(
   for (const vueFile of walkFiles(searchRoot, [".vue"])) {
     if (alreadyModified.has(vueFile)) continue;
 
-    const fileContent = scope.fs.readFile(vueFile);
-    const { descriptor } = parse(fileContent);
-    const block = descriptor.script ?? descriptor.scriptSetup;
-    if (!block) continue;
+    const script = readVueScript(vueFile, scope);
+    if (!script) continue;
 
-    const { start, end } = block.loc;
-    const scriptContent = fileContent.slice(start.offset, end.offset);
     const rewritten = rewriter.rewriteScript(
       vueFile,
-      scriptContent,
+      script.scriptContent,
       symbolName,
       sourceFile,
       destFile,
@@ -110,10 +106,65 @@ export function updateVueImportsAfterSymbolMove(
     if (rewritten !== null) {
       scope.writeFile(
         vueFile,
-        fileContent.slice(0, start.offset) + rewritten + fileContent.slice(end.offset),
+        script.fileContent.slice(0, script.start) +
+          rewritten +
+          script.fileContent.slice(script.end),
       );
     }
   }
+}
+
+interface VueScript {
+  fileContent: string;
+  scriptContent: string;
+  /** Offsets of the script block's content within the whole SFC. */
+  start: number;
+  end: number;
+}
+
+/** The `<script>` or `<script setup>` block of a .vue file, or null when it has neither. */
+function readVueScript(vueFile: string, scope: WorkspaceScope): VueScript | null {
+  const fileContent = scope.fs.readFile(vueFile);
+  const { descriptor } = parse(fileContent);
+  const block = descriptor.script ?? descriptor.scriptSetup;
+  if (!block) return null;
+
+  const { start, end } = block.loc;
+  return {
+    fileContent,
+    scriptContent: fileContent.slice(start.offset, end.offset),
+    start: start.offset,
+    end: end.offset,
+  };
+}
+
+/**
+ * Scan all .vue files under searchRoot for scripts that import or re-export
+ * `symbolName` from `sourceFile`, and return their paths.
+ *
+ * The TypeScript language service cannot see inside SFC script blocks, so
+ * without this scan un-exporting a symbol a component uses would look safe.
+ */
+export function vueScriptsReferencingSymbol(
+  symbolName: string,
+  sourceFile: string,
+  searchRoot: string,
+  scope: WorkspaceScope,
+): string[] {
+  const rewriter = new ImportRewriter();
+  const referencing: string[] = [];
+
+  for (const vueFile of walkFiles(searchRoot, [".vue"])) {
+    const script = readVueScript(vueFile, scope);
+    if (!script) continue;
+
+    if (
+      rewriter.scriptReferencesSymbol(vueFile, script.scriptContent, symbolName, sourceFile, scope)
+    ) {
+      referencing.push(vueFile);
+    }
+  }
+  return referencing;
 }
 
 /**
