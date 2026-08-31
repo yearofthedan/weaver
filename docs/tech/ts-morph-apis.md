@@ -125,7 +125,7 @@ All `import ... from "ts-morph"` statements are confined to `src/compilers/`. No
 | Concern | Approach |
 |---------|----------|
 | Raw TS language service access | `getLanguageServiceForFile(path)` / `getLanguageServiceForDirectory(path)` return `ts.LanguageService` (from the `typescript` package, not ts-morph) |
-| Source file refresh | `refreshSourceFile(path)` wraps `sf.refreshFromFileSystemSync()` |
+| Source file refresh | `refreshFile(path)` wraps `sf.refreshFromFileSystemSync()`; a no-op for a file the project does not already track, which `ensureProject` adds on the next lookup anyway |
 | Project source file iteration | `getProjectSourceFilePaths(workspace)` returns `string[]` |
 | Function metadata | `getFunction(file, name)` returns `{ name, parameters: { name }[] }` — no ts-morph types leak |
 | One-off AST parsing | `createThrowawaySourceFile(path, content)` in `compilers/throwaway-project.ts` — domain files call this instead of `new Project()` directly. Returns a ts-morph `SourceFile`, so domain files still use ts-morph's AST API through it, but they don't import `Project`. |

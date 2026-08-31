@@ -232,3 +232,109 @@ out of scope and deliberately not logged.
 - [ ] Tech debt discovered during investigation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+---
+
+## Outcome
+
+Shipped 2026-08-31 across eight commits (`d7b6ae3`..`81fa5b7`).
+
+### Verification
+
+Driven through the real CLI against a project built fresh for the purpose, with
+a component name (`Zarfblat`) chosen so no cached state could make a check pass
+by coincidence.
+
+```
+$ weaver get-type-errors '{"file":".../src/main.ts"}'   # aliased + relative SFC imports
+{"status":"success","diagnostics":[],"errorCount":0,"truncated":false}
+
+$ weaver get-type-errors '{}'                            # project-wide
+{"status":"success","diagnostics":[],"errorCount":0,"truncated":false}
+```
+
+Negative control, on a file holding one valid SFC import, one missing SFC import
+and one real type error — the fix must remove only the first:
+
+```
+line 2 code 2307 : Cannot find module '@/components/NeverExisted.vue' …
+line 5 code 2322 : Type '{ value: () => number; }' is not assignable to type 'string'.
+```
+
+Post-write path, both directions: a correct move returns `status: success`
+(`typeErrorCount: 0`), and a move leaving a genuinely broken SFC import still
+returns `status: warn` with the TS2307.
+
+`pnpm check` green: 95 files / 1283 tests, plus 23 / 531 in the eval lane.
+
+### Two regressions this spec caused, found in review
+
+Both were specified here and neither was caught by the tests written alongside
+the implementation — the tests pinned the wrong behaviour as correct.
+
+**The project-wide file set narrowed.** The Fix instructed constraining Volar's
+iteration to the tsconfig file list "so the reported file set stays what it is
+today". That reasoning was wrong: `TsMorphEngine.addWorkspaceFiles` walks the
+whole workspace and reports errors in files outside `tsconfig.include`, so the
+previous merged result already covered them. Constraining to the tsconfig
+*dropped* files a Vue project used to see. Measured on a project whose tsconfig
+excludes `tests/`: the plain TS workspace reported the error there, the Vue
+workspace did not. Fixed by iterating the full set the service serves, which
+restores parity. A test had been written asserting the narrowed behaviour, and a
+second one pinned it at the service level; both were inverted.
+
+**Post-write diagnostics rebuilt the Volar project once per modified file.**
+`VolarEngine` has no per-file refresh — `refreshFile` maps to `invalidateService`,
+which drops the whole cached service — so interleaving refresh and query
+rebuilt everything N times. Isolated by stubbing `refreshFile` alone: eight
+files went from eight service builds and 1163ms to one build and 224ms. Fixed by
+refreshing every file before querying any of them.
+
+### Deviation from the Fix as written
+
+The Fix said `TsMorphEngine` would map `refreshFile` onto `refreshSourceFile`.
+`TsMorphEngine` already had a `refreshFile` with the needed signature, so the
+implementation used it and left `refreshSourceFile` orphaned. Its narrower
+semantics (it does not add an untracked file) are sufficient because
+`ensureProject` adds one on the next lookup. `refreshSourceFile` was removed, as
+was `EngineRegistry.tsEngine()`, which this change left with no production
+caller.
+
+### Tests and mutation
+
+Ten tests added net. `src/ts-engine/get-type-errors.ts` 43 killed / 0 survived;
+`src/daemon/post-write-diagnostics.ts` 21 killed / 0 survived;
+`src/plugins/vue/get-type-errors.ts` 55 killed / 3 survived, all three in
+`translateVirtualOffset`'s pre-existing guards on Volar internals.
+
+One mutation survivor was misread twice before being killed: the report showed
+it surviving while hand-applying it failed three tests. The cause was reading a
+stale report after an errored run, and then misreading the mutant — Stryker
+replaces each *operand* of `a && b` with `true`, not the whole condition, so
+killing it needed a diagnostic with a file but no offset, and one with an offset
+but no file.
+
+### Reflection
+
+**What went well.** The investigation's isolation discipline paid off twice: the
+routing flip settled the cause before any design happened, and the same
+technique — stub one method, re-measure — settled the performance regression in
+minutes.
+
+**What did not.** The two regressions were mine, specified in the Fix and
+approved on reasoning I had not checked. I asserted that ts-morph's project-wide
+set was narrower than Volar's without reading `addWorkspaceFiles`, which is
+exactly the "before writing 'as X already does', open X" rule. Reading one
+function would have prevented both the wrong instruction and the tests written
+to match it.
+
+**What took longer than it should have.** The execution agent ran a mutation
+suite it had been told not to run, then parked waiting on it. Stopping the agent
+killed that run at 50% — a consequence worth knowing: `TaskStop` takes the
+agent's child processes with it.
+
+**For the next agent.** A test written in the same pass as the behaviour it
+describes cannot catch a wrong premise, because it encodes the premise. When a
+change claims to preserve behaviour, verify that claim against the *other*
+implementation directly — run both engines over the same input and diff the
+answers — rather than reasoning about what each one covers.

@@ -192,7 +192,7 @@ interface Engine {
 
 All mutating operations are action methods that own the full workflow. `TsMorphEngine` delegates to standalone functions (`tsDeleteFile`, `tsMoveFile`, `tsMoveSymbol`, `tsMoveDirectory`, `tsRename`) in `src/ts-engine/`. `getRenameLocations` and `notifyFileWritten` have been removed from the interface — they were intermediate steps used by operations before the migration completed. The engine layer migration is complete: the `Engine` interface now contains only queries and full-workflow actions.
 
-`TsMorphEngine` delegates to standalone action functions in `src/ts-engine/` (e.g. `tsDeleteFile()` for the delete action). `VolarEngine` delegates to `TsMorphEngine` for TS/JS work, then adds Vue-specific scanning (e.g. scanning `.vue` SFCs for imports of deleted files).
+`TsMorphEngine` delegates to standalone action functions in `src/ts-engine/` (e.g. `tsDeleteFile()` for the delete action). `VolarEngine` delegates to `TsMorphEngine` for TS/JS refactoring work, then adds Vue-specific scanning (e.g. scanning `.vue` SFCs for imports of deleted files). Diagnostics are the exception: `getTypeErrors` answers from the Volar service for every file kind, since only Volar resolves `.vue` specifiers.
 
 ---
 
@@ -282,7 +282,7 @@ Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and on
 |-----------|---------------|-------|
 | `findReferences` | `projectCompiler` | Does not take `workspace` — returns all references, including outside the workspace |
 | `getDefinition` | `projectCompiler` | Same — workspace boundary is only enforced on inputs (the query file), not outputs |
-| `getTypeErrors` | `projectCompiler` | Returns semantic diagnostics for a single file or all files in the project; errors-only, capped at 100. `.ts`/`.tsx` via the TS engine; `.vue` SFCs via Volar in Vue projects. |
+| `getTypeErrors` | `projectCompiler` | Returns semantic diagnostics for a single file or all files in the project; errors-only, capped at 100. In a Vue project every file is answered by Volar, `.ts`/`.tsx` included — the ts-morph project cannot resolve a `.vue` specifier and reports a false TS2307 for every import of one. |
 
 ### Filesystem-only (no compiler)
 
