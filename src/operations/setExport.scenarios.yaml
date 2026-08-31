@@ -753,3 +753,15 @@ scenarios:
         symbolName: foo
       files:
         unchanged: [tsconfig.json, src/other.ts, src/a.ts]
+
+  - name: refuses a file that does not exist, leaving the workspace alone
+    given: a-non-exported-function
+    when:
+      - setExport: { file: src/missing.ts, symbolName: foo, exported: true }
+    then:
+      response:
+        status: error
+        error: FILE_NOT_FOUND
+        message: "File not found: src/missing.ts"
+      files:
+        unchanged: [tsconfig.json, src/a.ts]
