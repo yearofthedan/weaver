@@ -36,6 +36,7 @@ export function makeMockCompiler(overrides: Partial<Engine> = {}): Engine {
       errorCount: 0,
       truncated: false,
     }),
+    refreshFile: vi.fn(),
     ...overrides,
   };
 }

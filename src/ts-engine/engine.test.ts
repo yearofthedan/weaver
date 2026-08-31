@@ -87,16 +87,17 @@ describe("TsMorphEngine", () => {
     expect(() => p.refreshFile("/nonexistent/path.ts")).not.toThrow();
   });
 
-  test("refreshFile does not throw after a project has been loaded", async ({
+  test("refreshFile re-reads a tracked file from disk after content changes", async ({
     seedNamedFixture,
   }) => {
     const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const p = new TsMorphEngine();
     const file = path.join(dir, "src/utils.ts");
-    // Force project load.
-    p.resolveOffset(file, 1, 1);
-    // Modify file on disk then refresh — must not throw.
-    expect(() => p.refreshFile(file)).not.toThrow();
+    const ls = p.getLanguageServiceForFile(file);
+    fs.writeFileSync(file, "export const x: number = 'not-a-number';\n");
+    p.refreshFile(file);
+    const diags = ls.getSemanticDiagnostics(file);
+    expect(diags.length).toBeGreaterThan(0);
   });
 
   test("getRenameLocations throws RENAME_NOT_ALLOWED for a non-renameable token", async ({

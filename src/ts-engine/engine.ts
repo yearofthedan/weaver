@@ -242,7 +242,9 @@ export class TsMorphEngine implements Engine {
 
   /**
    * Refresh a single source file from disk without rebuilding the whole project.
-   * Called by the watcher on `change` events; cheaper than full invalidation.
+   * Called by the watcher on `change` events (cheaper than full invalidation) and
+   * satisfies the `Engine` interface's post-write freshness guarantee — a no-op
+   * when the file isn't tracked yet, since the next lookup adds it from disk anyway.
    */
   refreshFile(filePath: string): void {
     const key = findTsConfigForFile(filePath) ?? "__no_tsconfig__";

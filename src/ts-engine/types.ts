@@ -127,6 +127,14 @@ export interface Engine {
   getTypeErrors(file: string | undefined, scope: WorkspaceScope): Promise<GetTypeErrorsResult>;
 
   /**
+   * Ensure the engine's cached state for `path` reflects its current on-disk
+   * content — called after a write so an immediately following read (e.g. a
+   * post-write diagnostics check) is not answered from a stale cache. No-op
+   * when the engine has not loaded `path` yet.
+   */
+  refreshFile(path: string): void;
+
+  /**
    * Add or remove the `export` keyword on the top-level declaration named
    * `symbolName` in `file`. Returns empty `filesModified` when the declaration
    * is already in the asked-for state.

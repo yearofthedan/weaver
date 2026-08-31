@@ -106,6 +106,24 @@ describe("VolarEngine", () => {
     expect(() => p.notifyFileWritten(file, "export const x = 1;\n")).not.toThrow();
   });
 
+  test("refreshFile delegates to invalidateService — readFile falls back to disk instead of a stale cache", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine());
+    const file = path.join(dir, "src/composables/useCounter.ts");
+    // Load and cache the service.
+    const offset = p.resolveOffset(file, 1, 17);
+    await p.getRenameLocations(file, offset);
+    // Change the file directly on disk — the cached service's fileContents map does not see this.
+    const updatedContent = "export function renamedFn() {}\n";
+    fs.writeFileSync(file, updatedContent);
+    expect(p.readFile(file)).not.toBe(updatedContent);
+    p.refreshFile(file);
+    // With the cached service gone, readFile falls back to a fresh disk read.
+    expect(p.readFile(file)).toBe(updatedContent);
+  });
+
   test("moveFile moves the file and records it as modified", async ({ seedNamedFixture }) => {
     const dir = await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());

@@ -79,6 +79,11 @@ export class VolarEngine implements Engine {
     this.services.delete(this.cacheKey(tsConfigPath, filePath));
   }
 
+  /** `Engine` interface seam — delegates to the Volar-specific `invalidateService`. */
+  refreshFile(filePath: string): void {
+    this.invalidateService(filePath);
+  }
+
   // ─── Virtual ↔ real path helpers ──────────────────────────────────────────
 
   private toVirtualLocation(
