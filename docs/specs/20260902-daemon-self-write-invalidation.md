@@ -200,8 +200,15 @@ consequence is one `stat` per watcher event, on a path already doing file I/O.
       baseline, then the two queries following a write, before and after the change. Record the
       numbers in the Outcome.
 - [ ] Docs updated if public surface changed:
-      - `docs/internals/daemon.md` — how the watcher tells the daemon's own writes from external
-        ones, and why (this is the non-obvious part a later reader will not infer)
+      - `docs/internals/watcher.md` — owns the invalidation strategy, so it owns this. Three things
+        are wrong there once this ships: the Problem section frames the watcher as detecting
+        "out-of-band file changes" when the defect is that it cannot tell those from the daemon's
+        own; the event-flow diagram and the invalidation-strategy table describe every event
+        reaching a callback; and the table's last row claims a Volar "service rebuild is fast",
+        measured here at 330–490ms on a real project. Add how a self-write is recognised, and why
+        mtime rather than a time window (a later reader will not infer that).
+      - `docs/internals/daemon.md:68` — one line, currently pointing at watcher.md for the full
+        invalidation strategy. Check it still reads correctly.
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
