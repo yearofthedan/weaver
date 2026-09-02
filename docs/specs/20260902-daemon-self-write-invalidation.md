@@ -133,6 +133,14 @@ export interface SelfWriteLedger {
   entries of a path string and a number. `shouldSuppress` deletes the entry it matches, so the
   map drains as the events arrive; entries for events that never arrive are capped by size, oldest
   evicted first.
+- **Directory renames must be recorded per file, not per directory.** `move-directory` calls
+  `rename` once on the directory, but the watcher reports one `unlink` per child at the old path
+  and one `add` per child at the new one — it never reports the directory itself. A ledger holding
+  only the two directory paths would therefore suppress nothing on the operation with the largest
+  burst. The recorder expands a directory rename into its files: a removal per old child path and
+  a write per new child path. It can enumerate the subtree at the destination after the rename
+  (`walkRecursive` from `src/utils/file-walk.ts` already does this over a `FileSystem`) and derive
+  each source path by prefix substitution.
 - **Zero/empty:** an unknown path returns `false` — never suppress what was not recorded.
 - **Adversarial:** concurrent operations. The daemon serialises requests through the socket queue
   (`daemon.ts:199`), so writes from two operations cannot interleave.
