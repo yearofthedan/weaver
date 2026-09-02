@@ -34,6 +34,20 @@ describe("InMemoryFileSystem", () => {
       vfs.mkdir("/project/dist/");
       expect(vfs.stat("/project/dist/").isDirectory()).toBe(true);
     });
+
+    it("does not report a stale mtimeMs for a path removed by rename", () => {
+      const vfs = new InMemoryFileSystem();
+      vfs.writeFile("/project/stale-src.txt", "content");
+      vfs.rename("/project/stale-src.txt", "/project/stale-dst.txt");
+      expect(vfs.stat("/project/stale-src.txt").mtimeMs).toBe(0);
+    });
+
+    it("does not report a stale mtimeMs for a path removed by unlink", () => {
+      const vfs = new InMemoryFileSystem();
+      vfs.writeFile("/project/stale-unlink.txt", "content");
+      vfs.unlink("/project/stale-unlink.txt");
+      expect(vfs.stat("/project/stale-unlink.txt").mtimeMs).toBe(0);
+    });
   });
 
   describe("mkdir", () => {
@@ -41,6 +55,12 @@ describe("InMemoryFileSystem", () => {
       const vfs = new InMemoryFileSystem();
       vfs.mkdir("/project/logs");
       expect(vfs.exists("/project/logs")).toBe(true);
+    });
+
+    it("stamps the created directory with a positive mtimeMs, queryable without a trailing slash", () => {
+      const vfs = new InMemoryFileSystem();
+      vfs.mkdir("/project/logs");
+      expect(vfs.stat("/project/logs").mtimeMs).toBeGreaterThan(0);
     });
   });
 
@@ -65,6 +85,14 @@ describe("InMemoryFileSystem", () => {
     it("throws when the source path does not exist", () => {
       const vfs = new InMemoryFileSystem();
       expect(() => vfs.rename("/no/such/file.ts", "/dst.ts")).toThrow();
+    });
+
+    it("stamps the destination with a fresh mtimeMs greater than the source's original stamp", () => {
+      const vfs = new InMemoryFileSystem();
+      vfs.writeFile("/project/src.ts", "content");
+      const before = vfs.stat("/project/src.ts").mtimeMs;
+      vfs.rename("/project/src.ts", "/project/dst.ts");
+      expect(vfs.stat("/project/dst.ts").mtimeMs).toBeGreaterThan(before);
     });
   });
 });
