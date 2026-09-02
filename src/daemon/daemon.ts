@@ -5,7 +5,12 @@ import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { VUE_EXTENSIONS } from "../utils/extensions.js";
 import { readBuildId } from "./build-id.js";
 import type { DispatchResponse } from "./dispatcher.js";
-import { dispatchRequest, invalidateAll, invalidateFile } from "./dispatcher.js";
+import {
+  dispatchRequest,
+  invalidateAll,
+  invalidateFile,
+  shouldSuppressSelfWrite,
+} from "./dispatcher.js";
 import type { DaemonHost } from "./lifecycle.js";
 import { runLifecycle } from "./lifecycle.js";
 import type { DaemonLogger } from "./logger.js";
@@ -13,6 +18,7 @@ import { createLogger } from "./logger.js";
 import { ensureCacheDir, lockfilePath, socketPath } from "./paths.js";
 import { serialiseResponse } from "./serialise-response.js";
 import { validateWorkspace } from "./validate-workspace.js";
+import type { WatcherCallbacks } from "./watcher.js";
 import { startWatcher } from "./watcher.js";
 
 /**
@@ -147,6 +153,34 @@ export async function runStop(opts: { workspace: string }): Promise<void> {
   process.stdout.write(`${JSON.stringify({ status: "success", stopped: true })}\n`);
 }
 
+/**
+ * Wraps the registry's invalidation callbacks so a watcher event first
+ * checks whether it's the daemon's own write — recorded by the self-write
+ * ledger when the operation made it — before dropping any compiler state.
+ * An external edit still invalidates; only the daemon's own writes are
+ * skipped.
+ */
+export function buildWatcherCallbacks(deps: {
+  shouldSuppress: (filePath: string) => boolean;
+  invalidateFile: (filePath: string) => void;
+  invalidateAll: () => void;
+}): WatcherCallbacks {
+  return {
+    onFileChanged: (filePath) => {
+      if (deps.shouldSuppress(filePath)) return;
+      deps.invalidateFile(filePath);
+    },
+    onFileAdded: (filePath) => {
+      if (deps.shouldSuppress(filePath)) return;
+      deps.invalidateAll();
+    },
+    onFileRemoved: (filePath) => {
+      if (deps.shouldSuppress(filePath)) return;
+      deps.invalidateAll();
+    },
+  };
+}
+
 function resolveVerbose(opts: { verbose?: boolean }): boolean {
   if (opts.verbose !== undefined) return opts.verbose;
   return process.env.WEAVER_VERBOSE === "1";
@@ -223,11 +257,15 @@ export async function runDaemon(opts: { workspace: string; verbose?: boolean }):
       // .vue file mid-session needs edits to that file observed too, and engine
       // selection (see resetDiscoveryCaches) is already re-evaluated per dispatch
       // regardless of what the watcher reports.
-      return startWatcher(absWorkspace, VUE_EXTENSIONS, {
-        onFileChanged: invalidateFile,
-        onFileAdded: invalidateAll,
-        onFileRemoved: invalidateAll,
-      });
+      return startWatcher(
+        absWorkspace,
+        VUE_EXTENSIONS,
+        buildWatcherCallbacks({
+          shouldSuppress: shouldSuppressSelfWrite,
+          invalidateFile,
+          invalidateAll,
+        }),
+      );
     },
     signalReady: () => {
       process.stderr.write(`${JSON.stringify({ status: "ready", workspace: absWorkspace })}\n`);

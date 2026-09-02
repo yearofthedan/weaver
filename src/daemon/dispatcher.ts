@@ -50,6 +50,7 @@ export {
   makeRegistry,
   registerLanguagePlugin,
 } from "./language-plugin-registry.js";
+export { shouldSuppressSelfWrite } from "./self-write-state.js";
 
 // ─── Operation descriptor table ───────────────────────────────────────────
 
