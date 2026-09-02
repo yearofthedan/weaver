@@ -77,6 +77,19 @@ export function conformanceSuite(
         expect(vfs.exists(src)).toBe(false);
         expect(vfs.readFile(dst)).toBe("move me");
       });
+
+      it("moves a directory's whole subtree, nested files included", () => {
+        vfs.mkdir(`${root}/movedir/nested`, { recursive: true });
+        vfs.writeFile(`${root}/movedir/top.txt`, "top");
+        vfs.writeFile(`${root}/movedir/nested/deep.txt`, "deep");
+
+        vfs.rename(`${root}/movedir`, `${root}/moved-elsewhere`);
+
+        expect(vfs.readFile(`${root}/moved-elsewhere/top.txt`)).toBe("top");
+        expect(vfs.readFile(`${root}/moved-elsewhere/nested/deep.txt`)).toBe("deep");
+        expect(vfs.exists(`${root}/movedir/top.txt`)).toBe(false);
+        expect(vfs.exists(`${root}/movedir/nested/deep.txt`)).toBe(false);
+      });
     });
 
     describe("unlink", () => {

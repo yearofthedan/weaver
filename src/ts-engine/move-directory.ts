@@ -70,6 +70,13 @@ export async function tsMoveDirectory(
   return { filesMoved };
 }
 
+/**
+ * Deliberately walks recursively rather than via `walkFiles`, which would drop
+ * gitignored files: a generated-but-ignored source file inside the moved
+ * directory still imports its neighbours, and those imports still need
+ * rewriting. Untracked files are not the difference — `git ls-files --others`
+ * reports those either way.
+ */
 function enumerateSourceFiles(dir: string, fs: FileSystem): string[] {
   return walkRecursive(dir, fs).filter((f) => TS_EXTENSIONS.has(path.extname(f)));
 }

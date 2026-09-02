@@ -43,14 +43,41 @@ export class InMemoryFileSystem implements FileSystem {
   }
 
   rename(oldPath: string, newPath: string): void {
-    if (!this.store.has(oldPath)) {
-      throw new Error(`ENOENT: no such file or directory: '${oldPath}'`);
+    if (this.store.has(oldPath)) {
+      const content = this.store.get(oldPath) as string;
+      this.store.delete(oldPath);
+      this.mtimes.delete(oldPath);
+      this.store.set(newPath, content);
+      this.touch(newPath);
+      return;
     }
-    const content = this.store.get(oldPath) as string;
-    this.store.delete(oldPath);
-    this.mtimes.delete(oldPath);
-    this.store.set(newPath, content);
-    this.touch(newPath);
+    if (this.isDirectory(oldPath)) {
+      this.renameDirectory(oldPath, newPath);
+      return;
+    }
+    throw new Error(`ENOENT: no such file or directory: '${oldPath}'`);
+  }
+
+  /**
+   * `node:fs.renameSync` relocates a whole subtree, and operations that move a
+   * directory depend on that. Keys are flat here, so the subtree has to be
+   * rewritten prefix by prefix — the directory marker included, since a
+   * directory that was only ever inferred from a child's path has none.
+   */
+  private renameDirectory(oldPath: string, newPath: string): void {
+    const oldPrefix = oldPath.endsWith("/") ? oldPath : `${oldPath}/`;
+    const newPrefix = newPath.endsWith("/") ? newPath : `${newPath}/`;
+
+    for (const key of [...this.store.keys()]) {
+      if (!key.startsWith(oldPrefix)) continue;
+      const moved = newPrefix + key.slice(oldPrefix.length);
+      this.store.set(moved, this.store.get(key) as string);
+      this.store.delete(key);
+      this.mtimes.delete(key);
+      this.touch(moved);
+    }
+    this.store.set(newPrefix, "");
+    this.touch(newPrefix);
   }
 
   unlink(path: string): void {

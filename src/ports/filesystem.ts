@@ -20,6 +20,7 @@ export interface FileSystem {
   writeFile(path: string, content: string): void;
   exists(path: string): boolean;
   mkdir(path: string, options?: { recursive?: boolean }): void;
+  /** Moves a file, or a directory together with everything under it. */
   rename(oldPath: string, newPath: string): void;
   unlink(path: string): void;
   realpath(path: string): string;
