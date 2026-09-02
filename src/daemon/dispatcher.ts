@@ -27,11 +27,19 @@ import { rename } from "../operations/rename.js";
 import { replaceText } from "../operations/replaceText.js";
 import { searchText } from "../operations/searchText.js";
 import { setExport } from "../operations/setExport.js";
-import { NodeFileSystem } from "../ports/node-filesystem.js";
 import type { EngineRegistry } from "../ts-engine/types.js";
 import { resetDiscoveryCaches } from "../utils/ts-project.js";
 import { makeRegistry } from "./language-plugin-registry.js";
 import { getTypeErrorsForFiles } from "./post-write-diagnostics.js";
+import { getSharedFileSystem } from "./self-write-state.js";
+
+/**
+ * Every dispatched operation shares this instance rather than constructing
+ * its own, so a write one operation makes is visible — through the same
+ * object — to every `WorkspaceScope` built for the requests that follow.
+ * Mirrors the `defaultFs` precedent in `daemon.ts`.
+ */
+const defaultFs = getSharedFileSystem();
 
 export { createVueLanguagePlugin } from "../plugins/vue/plugin.js";
 export type { LanguagePlugin } from "../ts-engine/types.js";
@@ -82,7 +90,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         newName: string;
       };
       const engine = await registry.projectEngine();
-      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      const scope = new WorkspaceScope(workspace, defaultFs);
       return rename(engine, file, line, col, newName, scope);
     },
   },
@@ -93,7 +101,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params, workspace) {
       const { oldPath, newPath } = params as { oldPath: string; newPath: string };
       const engine = await registry.projectEngine();
-      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      const scope = new WorkspaceScope(workspace, defaultFs);
       return moveFile(engine, oldPath, newPath, scope);
     },
   },
@@ -104,7 +112,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params, workspace) {
       const { oldPath, newPath } = params as { oldPath: string; newPath: string };
       const engine = await registry.projectEngine();
-      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      const scope = new WorkspaceScope(workspace, defaultFs);
       return moveDirectory(engine, oldPath, newPath, scope);
     },
   },
@@ -120,7 +128,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         force?: boolean;
       };
       const engine = await registry.projectEngine();
-      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      const scope = new WorkspaceScope(workspace, defaultFs);
       const { moveSymbol } = await import("../operations/moveSymbol.js");
       return moveSymbol(engine, sourceFile, symbolName, destFile, scope, { force });
     },
@@ -139,7 +147,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         functionName: string;
       };
       const engine = await registry.projectEngine();
-      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      const scope = new WorkspaceScope(workspace, defaultFs);
       return extractFunction(
         engine,
         file,
@@ -163,7 +171,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         exported: boolean;
       };
       const engine = await registry.projectEngine();
-      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      const scope = new WorkspaceScope(workspace, defaultFs);
       return setExport(engine, file, symbolName, exported, scope);
     },
   },
@@ -174,7 +182,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params) {
       const { file } = params as { file: string };
       const engine = await registry.projectEngine();
-      return findImporters(engine, file, new NodeFileSystem());
+      return findImporters(engine, file, defaultFs);
     },
   },
 
@@ -184,7 +192,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params) {
       const { file, line, col } = params as { file: string; line: number; col: number };
       const engine = await registry.projectEngine();
-      return findReferences(engine, file, line, col, new NodeFileSystem());
+      return findReferences(engine, file, line, col, defaultFs);
     },
   },
 
@@ -194,7 +202,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params) {
       const { file, line, col } = params as { file: string; line: number; col: number };
       const engine = await registry.projectEngine();
-      return getDefinition(engine, file, line, col, new NodeFileSystem());
+      return getDefinition(engine, file, line, col, defaultFs);
     },
   },
 
@@ -205,7 +213,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params, workspace) {
       const { file } = params as { file?: string };
       const engine = await registry.projectEngine();
-      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      const scope = new WorkspaceScope(workspace, defaultFs);
       return getTypeErrors(engine, file, scope);
     },
   },
@@ -221,7 +229,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
         context?: number;
         maxResults?: number;
       };
-      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      const scope = new WorkspaceScope(workspace, defaultFs);
       return searchText(pattern, scope, { glob, excludeGlob, context, maxResults });
     },
   },
@@ -232,7 +240,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
     async invoke(registry, params, workspace) {
       const { file } = params as { file: string };
       const engine = await registry.projectEngine();
-      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      const scope = new WorkspaceScope(workspace, defaultFs);
       const { deleteFile } = await import("../operations/deleteFile.js");
       return deleteFile(engine, file, scope);
     },
@@ -255,7 +263,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
           newText: string;
         }>;
       };
-      const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+      const scope = new WorkspaceScope(workspace, defaultFs);
       return replaceText(scope, { pattern, replacement, glob, excludeGlob, edits });
     },
   },
@@ -354,7 +362,7 @@ export async function dispatchRequest(
               : `path contains URI fragment or query character: ${paramKey}`,
         };
       }
-      if (!new WorkspaceScope(workspace, new NodeFileSystem()).contains(value)) {
+      if (!new WorkspaceScope(workspace, defaultFs).contains(value)) {
         return {
           status: "error" as const,
           error: "WORKSPACE_VIOLATION",
@@ -387,7 +395,7 @@ export async function dispatchRequest(
       const diagnostics = await getTypeErrorsForFiles(
         engine,
         result.filesModified as string[],
-        new WorkspaceScope(workspace, new NodeFileSystem()),
+        new WorkspaceScope(workspace, defaultFs),
       );
       result.typeErrors = diagnostics.typeErrors;
       result.typeErrorCount = diagnostics.typeErrorCount;
