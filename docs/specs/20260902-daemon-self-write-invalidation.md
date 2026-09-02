@@ -168,6 +168,27 @@ trading a latency bug for a correctness one. Comparing mtime instead means a sta
 cannot swallow a later edit, because that edit moves the file's mtime past the stamp. The
 consequence is one `stat` per watcher event, on a path already doing file I/O.
 
+**Writes that bypass the port.** Resolved: migrate them, in this spec.
+
+Found during implementation. `src/ts-engine/move-symbol.ts:135` and
+`src/ts-engine/remove-importers.ts:75` persist edits with ts-morph's `sf.save()`, which writes to
+disk without going through the `FileSystem` port — so the recorder never sees them and
+`move-symbol` and `delete-file` would keep paying the full cold-rebuild cost. That makes the first
+acceptance criterion false for two of the seven write operations, which is why this is closed here
+rather than deferred.
+
+Both call sites move to `scope.writeFile(fp, sf.getFullText())`, matching
+`src/ts-engine/apply-rename-edits.ts:22`, which already persists through the port. The text written
+is identical. The consequence to watch is that ts-morph still marks those files dirty afterwards,
+since nothing clears its internal saved flag; `isSaved()` has exactly one reader in the codebase —
+the loop guard in `remove-importers.ts:74` — and each source file is visited once per pass, so the
+flag going stale changes nothing today. A second reader of `isSaved()` would need to account for it.
+
+The alternative considered and rejected as too large for this spec: backing the ts-morph `Project`
+with a `FileSystemHost` derived from the port, so `save()` routes through the recorder by
+construction and no call site needs migrating. Nothing constructs a `Project` with a custom host
+today. That remains the cleaner end state if a third bypass ever appears.
+
 ## Security
 
 - **Workspace boundary:** No new paths are written. The ledger only records paths the operations
