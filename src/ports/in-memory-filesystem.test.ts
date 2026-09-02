@@ -39,14 +39,14 @@ describe("InMemoryFileSystem", () => {
       const vfs = new InMemoryFileSystem();
       vfs.writeFile("/project/stale-src.txt", "content");
       vfs.rename("/project/stale-src.txt", "/project/stale-dst.txt");
-      expect(vfs.stat("/project/stale-src.txt").mtimeMs).toBe(0);
+      expect(() => vfs.stat("/project/stale-src.txt")).toThrow();
     });
 
     it("does not report a stale mtimeMs for a path removed by unlink", () => {
       const vfs = new InMemoryFileSystem();
       vfs.writeFile("/project/stale-unlink.txt", "content");
       vfs.unlink("/project/stale-unlink.txt");
-      expect(vfs.stat("/project/stale-unlink.txt").mtimeMs).toBe(0);
+      expect(() => vfs.stat("/project/stale-unlink.txt")).toThrow();
     });
   });
 

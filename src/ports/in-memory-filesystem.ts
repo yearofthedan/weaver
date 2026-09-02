@@ -97,6 +97,9 @@ export class InMemoryFileSystem implements FileSystem {
   }
 
   stat(path: string): { isDirectory(): boolean; mtimeMs: number } {
+    if (!this.exists(path)) {
+      throw new Error(`ENOENT: no such file or directory, stat '${path}'`);
+    }
     const isDir = this.isDirectory(path);
     const marker = path.endsWith("/") ? path : `${path}/`;
     const mtimeMs = this.mtimes.get(path) ?? this.mtimes.get(marker) ?? 0;

@@ -158,6 +158,10 @@ export function conformanceSuite(
         const after = vfs.stat(p).mtimeMs;
         expect(after).toBeGreaterThan(before);
       });
+
+      it("throws when statting a path that does not exist", () => {
+        expect(() => vfs.stat(`${root}/stat-missing.txt`)).toThrow();
+      });
     });
 
     describe("readdir", () => {
