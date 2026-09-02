@@ -24,7 +24,7 @@ export interface FileSystem {
   unlink(path: string): void;
   realpath(path: string): string;
   resolve(...segments: string[]): string;
-  stat(path: string): { isDirectory(): boolean };
+  stat(path: string): { isDirectory(): boolean; mtimeMs: number };
   /** Immediate child entries (basenames + no-follow type). Throws on a missing path or a file. */
   readdir(path: string): DirEntry[];
 }

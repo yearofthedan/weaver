@@ -128,6 +128,23 @@ export function conformanceSuite(
         vfs.writeFile(p, "");
         expect(vfs.stat(p).isDirectory()).toBe(false);
       });
+
+      it("reports a finite positive mtimeMs for a freshly written path", () => {
+        const p = `${root}/stat-mtime.txt`;
+        vfs.writeFile(p, "content");
+        const { mtimeMs } = vfs.stat(p);
+        expect(Number.isFinite(mtimeMs)).toBe(true);
+        expect(mtimeMs).toBeGreaterThan(0);
+      });
+
+      it("reports a strictly greater mtimeMs after rewriting the same path", () => {
+        const p = `${root}/stat-mtime-rewrite.txt`;
+        vfs.writeFile(p, "first");
+        const before = vfs.stat(p).mtimeMs;
+        vfs.writeFile(p, "second");
+        const after = vfs.stat(p).mtimeMs;
+        expect(after).toBeGreaterThan(before);
+      });
     });
 
     describe("readdir", () => {

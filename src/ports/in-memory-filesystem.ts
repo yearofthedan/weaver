@@ -12,6 +12,8 @@ import type { DirEntry, FileSystem } from "./filesystem.js";
  */
 export class InMemoryFileSystem implements FileSystem {
   private readonly store = new Map<string, string>();
+  private readonly mtimes = new Map<string, number>();
+  private mtimeCounter = 0;
 
   readFile(path: string): string {
     if (!this.store.has(path)) {
@@ -22,6 +24,7 @@ export class InMemoryFileSystem implements FileSystem {
 
   writeFile(path: string, content: string): void {
     this.store.set(path, content);
+    this.touch(path);
   }
 
   exists(path: string): boolean {
@@ -36,6 +39,7 @@ export class InMemoryFileSystem implements FileSystem {
   mkdir(path: string, _options?: { recursive?: boolean }): void {
     const marker = path.endsWith("/") ? path : `${path}/`;
     this.store.set(marker, "");
+    this.touch(marker);
   }
 
   rename(oldPath: string, newPath: string): void {
@@ -44,7 +48,9 @@ export class InMemoryFileSystem implements FileSystem {
     }
     const content = this.store.get(oldPath) as string;
     this.store.delete(oldPath);
+    this.mtimes.delete(oldPath);
     this.store.set(newPath, content);
+    this.touch(newPath);
   }
 
   unlink(path: string): void {
@@ -52,6 +58,7 @@ export class InMemoryFileSystem implements FileSystem {
       throw new Error(`ENOENT: no such file or directory: '${path}'`);
     }
     this.store.delete(path);
+    this.mtimes.delete(path);
   }
 
   realpath(path: string): string {
@@ -62,9 +69,21 @@ export class InMemoryFileSystem implements FileSystem {
     return nodePath.resolve(...segments);
   }
 
-  stat(path: string): { isDirectory(): boolean } {
+  stat(path: string): { isDirectory(): boolean; mtimeMs: number } {
     const isDir = this.isDirectory(path);
-    return { isDirectory: () => isDir };
+    const marker = path.endsWith("/") ? path : `${path}/`;
+    const mtimeMs = this.mtimes.get(path) ?? this.mtimes.get(marker) ?? 0;
+    return { isDirectory: () => isDir, mtimeMs };
+  }
+
+  /**
+   * Bumps the path's stamp using a monotonic counter rather than a real
+   * clock — every mutation is a distinct tick, so callers only ever need to
+   * compare stamps for ordering, never their magnitude.
+   */
+  private touch(path: string): void {
+    this.mtimeCounter += 1;
+    this.mtimes.set(path, this.mtimeCounter);
   }
 
   readdir(path: string): DirEntry[] {

@@ -42,7 +42,7 @@ export class NodeFileSystem implements FileSystem {
     return nodePath.resolve(...segments);
   }
 
-  stat(path: string): { isDirectory(): boolean } {
+  stat(path: string): { isDirectory(): boolean; mtimeMs: number } {
     return nodeFs.statSync(path);
   }
 
