@@ -1,8 +1,8 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
+import type { FileSystem } from "../ports/filesystem.js";
 import { TS_EXTENSIONS } from "../utils/extensions.js";
-import { SKIP_DIRS } from "../utils/file-walk.js";
+import { walkRecursive } from "../utils/file-walk.js";
 import { tsAfterFileRename } from "./after-file-rename.js";
 import { applyRenameEdits, mergeFileEdits } from "./apply-rename-edits.js";
 import type { TsMorphEngine } from "./engine.js";
@@ -28,7 +28,7 @@ export async function tsMoveDirectory(
   const absNew = path.resolve(newPath);
   const project = engine.getProjectForDirectory(absOld);
 
-  const sourceFiles = enumerateSourceFiles(absOld);
+  const sourceFiles = enumerateSourceFiles(absOld, scope.fs);
   for (const filePath of sourceFiles) {
     if (!project.getSourceFile(filePath)) {
       project.addSourceFileAtPath(filePath);
@@ -53,8 +53,8 @@ export async function tsMoveDirectory(
   );
   applyRenameEdits(engine, externalEdits, scope);
 
-  fs.mkdirSync(path.dirname(absNew), { recursive: true });
-  fs.renameSync(absOld, absNew);
+  scope.fs.mkdir(path.dirname(absNew), { recursive: true });
+  scope.fs.rename(absOld, absNew);
 
   for (const { oldFilePath, newFilePath } of mappings) {
     await tsAfterFileRename(engine, oldFilePath, newFilePath, scope);
@@ -62,7 +62,7 @@ export async function tsMoveDirectory(
 
   // Enumerate all files now at absNew (source + non-source, skipping SKIP_DIRS)
   const filesMoved: string[] = [];
-  for (const newFilePath of enumerateAllFiles(absNew)) {
+  for (const newFilePath of walkRecursive(absNew, scope.fs)) {
     scope.recordModified(newFilePath);
     filesMoved.push(newFilePath);
   }
@@ -70,42 +70,6 @@ export async function tsMoveDirectory(
   return { filesMoved };
 }
 
-function enumerateSourceFiles(dir: string): string[] {
-  const results: string[] = [];
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return results;
-  }
-  for (const entry of entries) {
-    if (SKIP_DIRS.has(entry.name)) continue;
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...enumerateSourceFiles(full));
-    } else if (entry.isFile() && TS_EXTENSIONS.has(path.extname(entry.name))) {
-      results.push(full);
-    }
-  }
-  return results;
-}
-
-function enumerateAllFiles(dir: string): string[] {
-  const results: string[] = [];
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return results;
-  }
-  for (const entry of entries) {
-    if (SKIP_DIRS.has(entry.name)) continue;
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...enumerateAllFiles(full));
-    } else if (entry.isFile()) {
-      results.push(full);
-    }
-  }
-  return results;
+function enumerateSourceFiles(dir: string, fs: FileSystem): string[] {
+  return walkRecursive(dir, fs).filter((f) => TS_EXTENSIONS.has(path.extname(f)));
 }

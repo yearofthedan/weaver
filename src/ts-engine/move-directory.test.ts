@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { fileURLToPath } from "node:url";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { FIXTURES, fileExists, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
@@ -165,6 +166,35 @@ describe("tsMoveDirectory", () => {
       expect(movedBasenames).not.toContain("dep.ts");
       expect(movedBasenames).toContain("a.ts");
       expect(movedBasenames).toContain("b.ts");
+    });
+  });
+
+  describe("writes through the injected FileSystem port", () => {
+    it("does not import node:fs directly", () => {
+      const sourcePath = fileURLToPath(new URL("./move-directory.ts", import.meta.url));
+      const source = fs.readFileSync(sourcePath, "utf8");
+      expect(source).not.toMatch(/from ["']node:fs["']/);
+    });
+
+    test("moves the directory and enumerates its contents through scope.fs", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.moveDirTs.name);
+      const engine = new TsMorphEngine();
+      const nodeFs = new NodeFileSystem();
+      const mkdirSpy = vi.spyOn(nodeFs, "mkdir");
+      const renameSpy = vi.spyOn(nodeFs, "rename");
+      const readdirSpy = vi.spyOn(nodeFs, "readdir");
+      const scope = new WorkspaceScope(dir, nodeFs);
+
+      const oldPath = `${dir}/src/utils`;
+      const newPath = `${dir}/src/lib/helpers`;
+      const result = await tsMoveDirectory(engine, oldPath, newPath, scope);
+
+      expect(renameSpy).toHaveBeenCalledWith(oldPath, newPath);
+      expect(mkdirSpy).toHaveBeenCalledWith(path.dirname(newPath), { recursive: true });
+      expect(readdirSpy).toHaveBeenCalled();
+      expect(result.filesMoved).toContain(`${dir}/src/lib/helpers/a.ts`);
     });
   });
 });
