@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.1.11](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.10...weaver-v0.1.11) (2026-09-03)
+
+
+### Features
+
+* **daemon:** add a RecordingFileSystem decorator over FileSystem ([5971751](https://github.com/yearofthedan/weaver/commit/597175168e76e28f24f0d45f2b072ddea4ee20d4))
+* **daemon:** add a self-write ledger to distinguish daemon writes from external edits ([ae5eec6](https://github.com/yearofthedan/weaver/commit/ae5eec632ef7a73d8f3b359f5e3ad91a18acba6c))
+* **daemon:** stop invalidating compilers on the daemon's own writes ([37120ce](https://github.com/yearofthedan/weaver/commit/37120cedff27e13cbe6383889586ff5c433a7d11))
+* **ports:** expose mtimeMs from FileSystem.stat ([f1683ee](https://github.com/yearofthedan/weaver/commit/f1683eec971cf0a0c10a987fe63f7792ff814936))
+* **ts-engine:** add refreshFile to the Engine interface ([efef711](https://github.com/yearofthedan/weaver/commit/efef711bfd0f02264f4f2ca365cea60dcf90fef9))
+* **ts-engine:** add set-export for declaration visibility ([aa93372](https://github.com/yearofthedan/weaver/commit/aa93372c50d0b7bb8a2b632b9f475d7533f6f73c))
+
+
+### Bug Fixes
+
+* **daemon:** route post-write diagnostics through the project engine ([32692a8](https://github.com/yearofthedan/weaver/commit/32692a877a9948e2e7008e353146191e56097119))
+* **deps:** update dependency @vue/language-core to v3.3.11 ([867c692](https://github.com/yearofthedan/weaver/commit/867c6927af695fd9409b524002dda17ae5c6599e))
+* **deps:** update dependency zod to v4.5.2 ([8ef6119](https://github.com/yearofthedan/weaver/commit/8ef6119b4ae56c40d3b5c5dbc8a0acb097f7846b))
+* **deps:** update dependency zod to v4.5.4 ([0e221c2](https://github.com/yearofthedan/weaver/commit/0e221c2d4aee41649817da8984ff4e030ddc5669))
+* **ports:** move a directory's whole subtree on rename ([ab8dcaa](https://github.com/yearofthedan/weaver/commit/ab8dcaa8fb5e170fb18386331ba3d2c61151586b))
+* **scenarios:** give a move target one shape so the harness typechecks ([7f83306](https://github.com/yearofthedan/weaver/commit/7f833062f78c7ab3f1b6d55b0de0da34c20ce18e))
+* **test:** let Stryker reach tests that live beside test helpers ([a199a5e](https://github.com/yearofthedan/weaver/commit/a199a5e01054add1c5094a6ef101b0d179f22ee5))
+* **test:** reach the tests the Stryker lane's exclude was hiding ([6bef13c](https://github.com/yearofthedan/weaver/commit/6bef13c6422557e8128789e05141dbc7e2753f91))
+* **test:** run the mutation lane with the same per-test cleanup ([d21011d](https://github.com/yearofthedan/weaver/commit/d21011d4932a7c6e3a217363bde0f5b35eb07230))
+* **ts-engine:** keep a byte-order mark at byte 0 when move-symbol adds an import ([aa6cda5](https://github.com/yearofthedan/weaver/commit/aa6cda53e4f7bc20b40f2d93b679a8afad34f193))
+* **ts-engine:** route move-symbol and remove-importers writes through the FileSystem port ([6cafcb9](https://github.com/yearofthedan/weaver/commit/6cafcb9612e8943ef295ea202f7eb9e324da88b4))
+* **ts-engine:** skip program-excluded files in project-wide type check ([e59e37f](https://github.com/yearofthedan/weaver/commit/e59e37f9807bebac697bcc3dcdb54cc3685c2f5f))
+* **vue-engine:** follow aliased SFC imports through a moved file ([324e033](https://github.com/yearofthedan/weaver/commit/324e033a32ebf2fea8b1df7cf1063fd97b50c9ff))
+* **vue:** apply the TypeScript path's specifier rule instead of a copy ([ad16042](https://github.com/yearofthedan/weaver/commit/ad160427b772cb0cee2674a79bd89096083d3a29))
+* **vue:** report the same project-wide file set whichever engine answers ([f9a5cd8](https://github.com/yearofthedan/weaver/commit/f9a5cd8b034d739b32ff6062d0681197fa835e02))
+* **vue:** route project-wide getTypeErrors through Volar for .ts too ([574ec65](https://github.com/yearofthedan/weaver/commit/574ec65f62938216ffaf68538925c39a5d1c2d0a))
+* **vue:** route single-file .ts/.tsx getTypeErrors through Volar ([2c992cb](https://github.com/yearofthedan/weaver/commit/2c992cb1377a66ef30966735e8bb46d749c17ff4))
+* **vue:** stop the SFC scan repointing imports it should leave alone ([7eb660f](https://github.com/yearofthedan/weaver/commit/7eb660faf26c228a7c2b6138429488d9cc748d76))
+
+
+### Performance Improvements
+
+* **daemon:** refresh every modified file before querying any of them ([f292219](https://github.com/yearofthedan/weaver/commit/f292219a331716b594b74259e5345f3308f2d1fe))
+
 ## [0.1.10](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.9...weaver-v0.1.10) (2026-08-27)
 
 
