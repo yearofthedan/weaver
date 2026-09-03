@@ -128,5 +128,31 @@ describe("self-write ledger", () => {
       expect(ledger.shouldSuppress(pathFor(0))).toBe(false);
       expect(ledger.shouldSuppress(pathFor(entryCount - 1))).toBe(true);
     });
+
+    it("treats a re-recorded path as the newest, so eviction does not reclaim it", () => {
+      const fs = new InMemoryFileSystem();
+      const ledger = createSelfWriteLedger(fs);
+      const pathFor = (i: number) => `/workspace/bulk-${i}.ts`;
+      const veteran = "/workspace/written-twice.ts";
+
+      const recordBulk = (i: number) => {
+        fs.writeFile(pathFor(i), `content-${i}`);
+        ledger.recordWrite(pathFor(i));
+      };
+
+      fs.writeFile(veteran, "first");
+      ledger.recordWrite(veteran);
+      for (let i = 0; i < 999; i++) recordBulk(i); // fills the ledger exactly to its cap
+
+      // Rewriting moves it back to the newest position. Without that it stays
+      // the oldest entry, and the write below evicts it instead of bulk-0.
+      fs.writeFile(veteran, "second");
+      ledger.recordWrite(veteran);
+
+      recordBulk(999); // one past the cap, so exactly one entry is evicted
+
+      expect(ledger.shouldSuppress(pathFor(0))).toBe(false);
+      expect(ledger.shouldSuppress(veteran)).toBe(true);
+    });
   });
 });

@@ -60,9 +60,10 @@ export class InMemoryFileSystem implements FileSystem {
 
   /**
    * `node:fs.renameSync` relocates a whole subtree, and operations that move a
-   * directory depend on that. Keys are flat here, so the subtree has to be
-   * rewritten prefix by prefix — the directory marker included, since a
-   * directory that was only ever inferred from a child's path has none.
+   * directory depend on that. Keys are flat here, so the subtree is rewritten
+   * prefix by prefix. A directory marker is just another key under the prefix,
+   * so it moves with everything else; a directory inferred from its children
+   * has no marker and needs none, because the moved children still imply it.
    */
   private renameDirectory(oldPath: string, newPath: string): void {
     const oldPrefix = oldPath.endsWith("/") ? oldPath : `${oldPath}/`;
@@ -76,8 +77,6 @@ export class InMemoryFileSystem implements FileSystem {
       this.mtimes.delete(key);
       this.touch(moved);
     }
-    this.store.set(newPrefix, "");
-    this.touch(newPrefix);
   }
 
   unlink(path: string): void {

@@ -94,5 +94,38 @@ describe("InMemoryFileSystem", () => {
       vfs.rename("/project/src.ts", "/project/dst.ts");
       expect(vfs.stat("/project/dst.ts").mtimeMs).toBeGreaterThan(before);
     });
+
+    it("moves only the renamed directory's own subtree, leaving a sibling alone", () => {
+      const vfs = new InMemoryFileSystem();
+      vfs.writeFile("/project/utils/a.ts", "a");
+      vfs.writeFile("/project/other/b.ts", "b");
+
+      vfs.rename("/project/utils", "/project/lib");
+
+      expect(vfs.readFile("/project/lib/a.ts")).toBe("a");
+      expect(vfs.readFile("/project/other/b.ts")).toBe("b");
+      expect(vfs.exists("/project/lib/b.ts")).toBe(false);
+    });
+
+    it("stamps each file carried along by a directory rename", () => {
+      const vfs = new InMemoryFileSystem();
+      vfs.writeFile("/project/utils/a.ts", "a");
+      const before = vfs.stat("/project/utils/a.ts").mtimeMs;
+
+      vfs.rename("/project/utils", "/project/lib");
+
+      expect(vfs.stat("/project/lib/a.ts").mtimeMs).toBeGreaterThan(before);
+    });
+
+    it("renames a directory that has no children, which exists only as its own marker", () => {
+      const vfs = new InMemoryFileSystem();
+      vfs.mkdir("/project/empty");
+
+      vfs.rename("/project/empty", "/project/moved");
+
+      expect(vfs.exists("/project/moved")).toBe(true);
+      expect(vfs.stat("/project/moved").isDirectory()).toBe(true);
+      expect(vfs.stat("/project/moved").mtimeMs).toBeGreaterThan(0);
+    });
   });
 });
