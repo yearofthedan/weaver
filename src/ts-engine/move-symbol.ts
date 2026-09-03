@@ -6,6 +6,7 @@ import { computeRelativeImportPath } from "../utils/relative-path.js";
 import type { TsMorphEngine } from "./engine.js";
 import { ImportRewriter } from "./import-rewriter.js";
 import { findNonExportedDeclaration } from "./non-exported-declaration.js";
+import { persistSourceFile } from "./persist-source-file.js";
 import { hasRefsOutsideDeclaration } from "./refs-outside-declaration.js";
 import { SymbolRef } from "./symbol-ref.js";
 import { collectTransitiveImports } from "./transitive-imports.js";
@@ -132,8 +133,7 @@ export async function tsMoveSymbol(
   for (const sf of [srcSF, dstSF]) {
     const fp = sf.getFilePath() as string;
     if (scope.contains(fp)) {
-      await sf.save();
-      scope.recordModified(fp);
+      persistSourceFile(sf, scope);
     } else {
       scope.recordSkipped(fp);
     }

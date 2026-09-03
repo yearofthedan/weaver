@@ -5,6 +5,7 @@ import type {
 } from "ts-morph";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { TsMorphEngine } from "./engine.js";
+import { persistSourceFile } from "./persist-source-file.js";
 
 /**
  * Removes all import and export declarations that reference `targetFile` from
@@ -72,8 +73,7 @@ async function removeInProjectImporters(
   for (const sf of project.getSourceFiles()) {
     const filePath = sf.getFilePath() as string;
     if (!sf.isSaved() && scope.contains(filePath)) {
-      await sf.save();
-      scope.recordModified(filePath);
+      persistSourceFile(sf, scope);
     }
   }
 
