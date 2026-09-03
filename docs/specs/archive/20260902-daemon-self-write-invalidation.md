@@ -69,18 +69,18 @@ per event type.
 
 ## Behaviour
 
-- [ ] Given the daemon runs a write operation, then the watcher reports the resulting `change`,
+- [x] Given the daemon runs a write operation, then the watcher reports the resulting `change`,
       `add` and `unlink` events, `invalidateFile` and `invalidateAll` are not called for any path
       the operation wrote. Observed at the registry: the counts stay at zero across the whole
       event burst.
-- [ ] Given a `.ts` file edited by something other than the daemon, a `change` event for it still
+- [x] Given a `.ts` file edited by something other than the daemon, a `change` event for it still
       calls `invalidateFile`, and the next query reflects the new content. Same for a `.vue` file
       — the watcher covers `VUE_EXTENSIONS` and `invalidateAll` drops both engines, so neither
       extension may be suppressed by extension alone.
-- [ ] Given the daemon wrote a file and an external editor then writes it again before the
+- [x] Given the daemon wrote a file and an external editor then writes it again before the
       watcher event arrives, the event is *not* suppressed: the file's `mtimeMs` no longer matches
       the recorded stamp, so `invalidateFile` runs and the external content is picked up.
-- [ ] Given the daemon deleted a file (a move's source path), the `unlink` event for it does not
+- [x] Given the daemon deleted a file (a move's source path), the `unlink` event for it does not
       call `invalidateAll`; given a file deleted externally, the `unlink` event does.
 
 Type matrix: `.ts` and `.vue` as inputs, across all three event types (`change`, `add`, `unlink`),
@@ -88,8 +88,8 @@ against both callbacks (`invalidateFile` for change, `invalidateAll` for add/unl
 
 ## Structural criteria
 
-- [ ] `src/ts-engine/move-directory.ts` contains no `node:fs` import.
-- [ ] `src/daemon/dispatcher.ts` contains no `new NodeFileSystem()`.
+- [x] `src/ts-engine/move-directory.ts` contains no `node:fs` import.
+- [x] `src/daemon/dispatcher.ts` contains no `new NodeFileSystem()`.
 
 ## Interface
 
@@ -220,15 +220,15 @@ today. That remains the cleaner end state if a third bypass ever appears.
 
 ## Done-when
 
-- [ ] All ACs verified by tests
-- [ ] Mutation score ≥ threshold for touched files
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] `/review-changes` run over the whole change and its findings applied — a green `pnpm check` does not stand in for it
-- [ ] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`. If implementation pushes a file past threshold, extract per the test refactoring hierarchy (push down to units → decompose source) before marking this item done.
-- [ ] The latency claim is re-measured on a real Vue workspace through the real daemon: warm
+- [x] All ACs verified by tests
+- [x] Mutation score ≥ threshold for touched files
+- [x] `pnpm check` passes (lint + build + test)
+- [x] `/review-changes` run over the whole change and its findings applied — a green `pnpm check` does not stand in for it
+- [x] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`. If implementation pushes a file past threshold, extract per the test refactoring hierarchy (push down to units → decompose source) before marking this item done.
+- [x] The latency claim is re-measured on a real Vue workspace through the real daemon: warm
       baseline, then the two queries following a write, before and after the change. Record the
       numbers in the Outcome.
-- [ ] Docs updated if public surface changed:
+- [x] Docs updated if public surface changed:
       - `docs/internals/watcher.md` — owns the invalidation strategy, so it owns this. Three things
         are wrong there once this ships: the Problem section frames the watcher as detecting
         "out-of-band file changes" when the defect is that it cannot tell those from the daemon's
@@ -238,6 +238,126 @@ today. That remains the cleaner end state if a third bypass ever appears.
         mtime rather than a time window (a later reader will not infer that).
       - `docs/internals/daemon.md:68` — one line, currently pointing at watcher.md for the full
         invalidation strategy. Check it still reads correctly.
-- [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Tech debt discovered during implementation added to handoff.md as [needs design]
+- [x] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+---
+
+## Outcome
+
+Shipped 2026-09-03 across 17 commits (`895fff3`..`7bc530e`).
+
+### Verification
+
+Driven through the real daemon and real watcher against a `cp -Rc` clone of a real Vue app
+(29 SFCs, 141 TS files, its own `node_modules`, type-clean under `vue-tsc`). The app's root
+tsconfig is solution-style, which disables the Vue plugin entirely — a separate known defect — so
+the clone gets a flattened `tsconfig.json` to make the plugin engage. The same
+`get-type-errors` on `App.vue` throughout; the write is one `move-file`.
+
+The baseline arm was built from `7e1c955` in its own worktree and confirmed not to contain the
+suppression code, then the two arms were run alternately on fresh clones to control for machine
+drift.
+
+| | Before | After |
+|---|---|---|
+| Warm | ~275ms | ~264ms |
+| 1st query after a write | 1515 / 1676 / 1600ms | 596 / 639 / 637ms |
+| 2nd query after a write | 1419 / 273 / 1520ms | 273 / 259 / 259ms |
+
+Re-confirmed against the final build after the review and mutation work: warm 249/243ms,
+post-write 595ms then 247/245ms.
+
+The second cold rebuild is gone entirely. The ~620ms that remains on the first query is the
+operation's own invalidation doing real work — the file moved, so the project graph genuinely
+changed. Honest figure: **~1.0s saved per write reliably, ~2.2s when the timing was unlucky
+before.** The baseline was variable — in one rep of three only one query was cold, which fits the
+two-wave shape: whether you pay once or twice depends on where your queries land relative to the
+`unlink` and `add` waves.
+
+### Tests and mutation
+
+78 tests added net (1283 → 1361).
+
+| File | Score | Survivors |
+|---|---|---|
+| `daemon/recording-filesystem.ts` | 100% | 0 |
+| `daemon/self-write-state.ts` | 100% | 0 |
+| `ts-engine/persist-source-file.ts` | 100% | 0 |
+| `ports/in-memory-filesystem.ts` | 97.4% | 3 |
+| `daemon/self-write-ledger.ts` | 90.7% | 4 |
+| `ts-engine/move-directory.ts` | 75.8% | 8 |
+
+Three survivors were real and are now covered: dropping the subtree prefix filter let a directory
+rename move every key in the store; dropping the stamp on a carried file left it reporting mtime 0,
+which matters precisely because the ledger compares mtimes; dropping the ledger's re-insert stopped
+eviction tracking recency. Two more were dead code — the marker write after the rename loop is
+unreachable, since a marker is itself a key under the prefix and an inferred directory needs none.
+
+The rest are noise with reasons: `mtimes.delete` for a path that no longer exists (stat throws, so
+a stale entry is unobservable, but the delete still bounds the map); `catch { return }` → `catch {}`
+in both ledger branches (observably identical — one records an undefined stamp that never matches,
+the other compares against undefined and returns false anyway); the `oldest !== undefined` guard
+(the map is non-empty whenever size exceeds the cap; the check exists only because
+`.keys().next().value` is typed `string | undefined`); and `move-directory`'s extension filter,
+verified by probe — ts-morph accepts `.json` and `.css` without throwing, so filtering changes
+nothing observable. Seven of `move-directory`'s eight are on lines this change never touched.
+
+### What the measurement changed about the design
+
+**The handoff entry's premise was wrong, and the spec exists because that was checked first.** The
+entry attributed the cost to `VolarEngine` lacking a per-file refresh, with N changed files causing
+N service builds, and proposed either a per-file refresh or coalescing the burst. Measured, one
+`move-directory` produced 14 `change`, 8 `unlink` and 8 `add` events and cost **two** extra service
+builds — 13 of the 14 `invalidateService` calls hit an already-empty cache. Invalidation is a
+`Map.delete` and the rebuild is lazy, so a burst coalesces for free. The entry's own 8-builds figure
+came from the post-write diagnostics path, which interleaved refresh and query and had already been
+fixed.
+
+Both proposed fixes were therefore aimed at the wrong path. A per-file Volar refresh would have
+optimised the `change` path, which costs almost nothing; a debounce wide enough to merge the `add`
+and `unlink` waves would have had to exceed 1.2s and would delay genuine external edits by the same
+amount.
+
+**Suppression was checked for safety before it was designed.** Running with watcher invalidation
+disabled entirely produced diagnostics identical to the control (297 → 300 in both arms), and a
+second operation in the same daemon session — a rename across the moved layout — modified the
+identical 6 files in both arms. That established the operation already leaves the engines correct,
+which is the premise the whole design rests on.
+
+**Two things the spec got wrong and the work corrected.** The Interface section asserted `stat`
+already threw for a missing path; `InMemoryFileSystem` did not, and was fixed to match. The
+singleton was justified by citing `daemon.ts`'s `defaultFs` as precedent without reading it —
+`defaultFs` is an overridable default *parameter*, so callers can still substitute
+`InMemoryFileSystem`, and the new module had no such seam until review caught it.
+
+### Reflection
+
+**What went well.** Measuring before writing the spec. The entry was specific, confident and
+carried a number, which is exactly the shape that gets designed against rather than checked; one
+probe against the real daemon disproved it in a few minutes and redirected the whole change. The
+four-lens review earned its cost three times over — it found a pre-existing BOM defect, a layering
+weakness in a module I had specified, and a coverage gap that made the first acceptance criterion
+unverified at the layer it describes.
+
+**What did not go well.** Three failures were mine and all are already-written rules I did not
+follow: I cited `defaultFs` as precedent without opening it, bundled unrelated review fixes into a
+commit with `git add -A`, and wrote changelog content — dated clauses, before/after timings — into
+living docs. The last needed the user to catch it.
+
+**What took longer than it should have.** Building a trustworthy reproduction. The obvious
+candidate app has a solution-style root tsconfig, so the Vue plugin never engages there; the first
+synthetic workspace symlinked `node_modules` and had degraded type resolution, which produced a
+`find-importers` result I nearly reported as staleness caused by the missing invalidation. A
+control run with the watcher *enabled* returned the same wrong answer, which is what caught it. Two
+probes were spent before the workspace could answer anything.
+
+**For the next agent.** The `.claude/agent-notes/` and `.claude/agent-memory/` paths are not
+git-tracked and this repo runs in a container, so anything left there is gone on rebuild — the
+harvest step is not optional bookkeeping. Two of this task's most useful findings (ts-morph's BOM
+behaviour, the coverage table collapsing two files to one row) reached a durable doc only because
+that step ran. Also: `handoff.md` held **two** entries for this one defect in different tiers,
+describing it from different angles, which is part of how a wrong causal story survived long enough
+to reach a spec. When picking up an entry, grep the queue for the same subsystem before trusting
+the framing in front of you.
