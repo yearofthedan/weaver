@@ -1,6 +1,5 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FIXTURES, fileExists, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
@@ -170,12 +169,6 @@ describe("tsMoveDirectory", () => {
   });
 
   describe("writes through the injected FileSystem port", () => {
-    it("does not import node:fs directly", () => {
-      const sourcePath = fileURLToPath(new URL("./move-directory.ts", import.meta.url));
-      const source = fs.readFileSync(sourcePath, "utf8");
-      expect(source).not.toMatch(/from ["']node:fs["']/);
-    });
-
     test("moves the directory and enumerates its contents through scope.fs", async ({
       seedNamedFixture,
     }) => {

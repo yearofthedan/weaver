@@ -3,9 +3,27 @@ import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { RecordingFileSystem } from "./recording-filesystem.js";
 import { createSelfWriteLedger } from "./self-write-ledger.js";
 
-const innerFs = new NodeFileSystem();
-const selfWriteLedger = createSelfWriteLedger(innerFs);
-const sharedFs: FileSystem = new RecordingFileSystem(innerFs, selfWriteLedger);
+/**
+ * A recording filesystem paired with the ledger it reports into. The two are
+ * only useful together — a write recorded in one ledger tells another nothing
+ * — so they are built and handed out as a unit.
+ */
+export interface SelfWriteState {
+  /** Write through this and the mutation is recorded. */
+  fileSystem: FileSystem;
+  /** True when `path`'s watcher event came from a write through `fileSystem`. */
+  shouldSuppress(path: string): boolean;
+}
+
+export function createSelfWriteState(inner: FileSystem): SelfWriteState {
+  const ledger = createSelfWriteLedger(inner);
+  return {
+    fileSystem: new RecordingFileSystem(inner, ledger),
+    shouldSuppress: (path) => ledger.shouldSuppress(path),
+  };
+}
+
+const daemonState = createSelfWriteState(new NodeFileSystem());
 
 /**
  * The one `FileSystem` every dispatcher operation writes through. Wrapping a
@@ -14,7 +32,7 @@ const sharedFs: FileSystem = new RecordingFileSystem(innerFs, selfWriteLedger);
  * makes, so the watcher can tell those apart from a genuine external edit.
  */
 export function getSharedFileSystem(): FileSystem {
-  return sharedFs;
+  return daemonState.fileSystem;
 }
 
 /**
@@ -22,5 +40,5 @@ export function getSharedFileSystem(): FileSystem {
  * the caller should skip invalidating.
  */
 export function shouldSuppressSelfWrite(path: string): boolean {
-  return selfWriteLedger.shouldSuppress(path);
+  return daemonState.shouldSuppress(path);
 }
