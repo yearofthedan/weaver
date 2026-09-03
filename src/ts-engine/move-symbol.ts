@@ -6,7 +6,7 @@ import { computeRelativeImportPath } from "../utils/relative-path.js";
 import type { TsMorphEngine } from "./engine.js";
 import { ImportRewriter } from "./import-rewriter.js";
 import { findNonExportedDeclaration } from "./non-exported-declaration.js";
-import { persistSourceFile } from "./persist-source-file.js";
+import { persistSourceFile, splitLeadingBom } from "./persist-source-file.js";
 import { hasRefsOutsideDeclaration } from "./refs-outside-declaration.js";
 import { SymbolRef } from "./symbol-ref.js";
 import { collectTransitiveImports } from "./transitive-imports.js";
@@ -141,8 +141,8 @@ export async function tsMoveSymbol(
 
   if (sourceHasRemainingRefs && scope.contains(absSource)) {
     const relPath = computeRelativeImportPath(absSource, absDest);
-    const currentSrc = scope.fs.readFile(absSource);
-    scope.writeFile(absSource, `import { ${symbolName} } from "${relPath}";\n${currentSrc}`);
+    const { bom, body } = splitLeadingBom(scope.fs.readFile(absSource));
+    scope.writeFile(absSource, `${bom}import { ${symbolName} } from "${relPath}";\n${body}`);
   }
 
   // ImportRewriter reads from disk (files already saved above) and writes back via scope.

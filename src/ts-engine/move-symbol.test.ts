@@ -251,6 +251,28 @@ describe("tsMoveSymbol", () => {
       expect(srcContent).not.toContain("export function Foo");
       expect(scope.modified).toContain(srcPath);
     });
+
+    test("keeps a byte-order mark at the start of the file when prepending that import", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": TSCONFIG,
+        "src/a.ts":
+          "﻿export function Foo(): string { return 'foo'; }\nexport function Bar(): string { return Foo(); }\n",
+        "src/dest.ts": "",
+      });
+      const srcPath = path.join(dir, "src/a.ts");
+      const scope = makeScope(dir);
+
+      await tsMoveSymbol(new TsMorphEngine(), srcPath, "Foo", path.join(dir, "src/dest.ts"), scope);
+
+      // Asserted on bytes: a string comparison passes whether the mark sits at
+      // byte 0 or has been pushed behind the new import line, and a mark that
+      // has drifted off byte 0 is a stray character rather than an encoding hint.
+      const bytes = fs.readFileSync(srcPath);
+      expect(bytes.subarray(0, 3)).toEqual(Buffer.from([0xef, 0xbb, 0xbf]));
+      expect(bytes.indexOf(Buffer.from([0xef, 0xbb, 0xbf]), 1)).toBe(-1);
+    });
   });
 
   describe("transitive import carry", () => {
