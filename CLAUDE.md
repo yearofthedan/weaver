@@ -84,6 +84,8 @@ Never put agent policy or procedure into a shipped `weaver-*` skill — those ar
 
 A `[needs investigation]` or `[needs design]` task cannot be downgraded to a direct fix by *claiming* you already know the cause or the design — the tag is lowered only by running the discipline (`/investigate` or `/spec`) and recording its result.
 
+**A queued entry's stated cause is a claim you inherit, not a finding you can build on.** A `[needs design]` entry describes a problem someone already diagnosed, often with a mechanism and a measurement attached, and the tag says the *solution* is unsettled — never that the diagnosis was confirmed. Re-measure it before designing against it, because a spec inherits whatever the entry got wrong and turns it into ACs: the fix gets aimed at the path named in the entry rather than the one that costs anything. The tell is an entry that reasons from code structure to a cost ("N files means N rebuilds") without a measurement of the whole path, and the check is usually one probe. When the measurement contradicts the entry, rewrite the entry before writing the spec — leaving a disproven causal story in the queue means the next agent designs from it too.
+
 Before writing a spec, ask: (1) does planning add safety? (real architectural choices, multiple code paths, meaningful risk) and (2) will an archived spec be a useful future reference? (the "why" isn't visible in the output itself). If neither is true, use `[chore]`.
 
 Do not add ACs to command or internals docs (`docs/commands/*.md`, `docs/internals/*.md`) — those are reference docs for shipped behaviour, not task tracking. ACs live in spec files and are archived (with an Outcome section) when the task ships. Specs are **changesets**, not features: they describe a unit of work to deliver, then get archived.
@@ -119,6 +121,7 @@ Use conventional commits, imperative style — `type(scope): short description`:
 - `test(vue-engine): add cross-boundary rename cases`
 
 - **The body explains WHY, not WHAT.** Split commits at logical boundaries and commit at every logical milestone — don't let changes accumulate.
+- **Stage by path, not with `git add -A`.** Applying several review findings in one pass leaves unrelated edits sitting in the tree together, and `-A` sweeps them under whichever message you happened to be writing — so the log claims one change and contains two, which is worse than a large commit because the extra work is now hidden rather than merely bundled. Name the paths for each commit. Run `git show --stat` afterwards when the pass touched more than one area, since the message is what a future reader trusts.
 
 ### Long-running commands
 

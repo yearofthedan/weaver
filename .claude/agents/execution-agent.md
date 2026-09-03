@@ -61,6 +61,8 @@ You receive **one or more ACs** from the orchestrator, grouped because they touc
    d. Run `pnpm check` — must pass (see "Running commands" below)
    e. Commit when you've reached a coherent stopping point — this could be after one AC or after several tightly related ones. Use your judgment: if two ACs are so intertwined that splitting the commit would leave one half incomplete, commit them together. If an AC stands alone, commit it alone.
 8. After the last AC: run `pnpm test:mutate` scoped to the source files you changed — if below threshold, add tests until it passes. When you add tests, re-run scoped with `--force` (`pnpm test:mutate:file <path> --force`) so the cache rebuilds those files' mutants against the new tests — scoped, so not a full run. Then commit the updated `reports/stryker-incremental.json` (git-tracked, so the next run starts from this baseline). See `docs/tech/mutation-testing.md` for flags and survivor triage.
+
+   **Skip this step when your dispatch says the orchestrator owns mutation testing.** An orchestrator running a multi-batch slice mutation-tests the finished set of files once, so a per-batch run duplicates minutes of compute and writes a `reports/stryker-incremental.json` baseline that the orchestrator's own run then has to reconcile. A specific instruction in the dispatch always beats this step; if the two appear to conflict, the dispatch wins and you say so in your notes rather than running it to be safe.
 9. Stop and return your result
 
 ## Running commands

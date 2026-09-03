@@ -135,3 +135,29 @@ All `import ... from "ts-morph"` statements are confined to `src/compilers/`. No
 ### What this means for a ts-morph version bump
 
 A ts-morph major version bump now touches files in `src/compilers/` only. Domain and operation files depend on project-owned interfaces (`Compiler`, `WorkspaceScope`) and the TypeScript package's `ts.LanguageService` type — neither changes when ts-morph updates.
+
+## `SourceFile#save()` carries a byte-order mark that `getFullText()` drops (2026-09-03)
+
+Verified against ts-morph 28.0.0. When ts-morph reads a file that begins with a UTF-8 BOM it
+strips the mark from the in-memory text and remembers it privately. `getFullText()` therefore
+never includes the BOM, while `save()` re-adds it on the way out. The two are not interchangeable:
+
+| | starts with BOM |
+|---|---|
+| on disk, before | yes |
+| `getFullText()` | **no** |
+| after `save()` | yes |
+| after `writeFile(getFullText())` | **no** |
+
+So replacing `await sf.save()` with a write through the `FileSystem` port silently strips the BOM
+unless the caller puts it back. There is no public accessor to ask a `SourceFile` whether it had
+one — the flag is a private own-property, and `compilerNode.hasBOM` is undefined — so the only
+supported way to detect it is to read the file's existing bytes before overwriting them. That is
+what `persistSourceFile` (`src/ts-engine/persist-source-file.ts`) does, and why it reads a file it
+is about to replace.
+
+The related trap is not the write itself but anything that *prefixes* content afterwards. A BOM is
+only an encoding hint at byte 0; pushed anywhere else it becomes a stray U+FEFF in the source.
+`move-symbol` prepends an import to the source file when the moved symbol still has references
+behind it, and did exactly this until it was fixed to split the mark off first — so any new code
+that prepends to a file's existing text needs `splitLeadingBom` rather than plain concatenation.

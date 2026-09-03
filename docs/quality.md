@@ -54,6 +54,8 @@ Two areas read low for structural reasons rather than missing tests. Their integ
 - **`adapters/cli`** — the CLI is exercised end-to-end through a spawned process.
 - **`daemon`** — `handleSocketRequest` and the watcher only run inside the spawned daemon.
 
+The terminal table truncates long paths from the left, so two files whose names end alike collapse to the same display row — `ports/in-memory-filesystem.ts` and `daemon/recording-filesystem.ts` both print as `...filesystem.ts`, and only one row appears. A new file can therefore look untested when it is fully covered. Read `coverage/lcov.info` for the specific path before concluding a file was missed; a file absent from the table is a display artefact until lcov agrees.
+
 Above roughly 80%, mutation score is the better signal: line coverage says a line ran, not that any assertion would notice if it were wrong. See [mutation testing](tech/mutation-testing.md).
 
 ### Mutation testing
