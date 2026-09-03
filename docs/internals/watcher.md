@@ -77,25 +77,23 @@ Extension constants are shared with the file-walk module, which also owns `SKIP_
 
 The daemon's own operations write files to disk, and those writes come back as watcher events ~200ms later — indistinguishable, at the filesystem, from someone editing in an editor. The operation has already refreshed the engines with the content it wrote, so acting on those events throws away correct state.
 
-Since 2026-09-03 the daemon recognises its own writes and skips invalidating for them. Every dispatcher operation writes through one shared `RecordingFileSystem` (`src/daemon/self-write-state.ts`), which reports each mutation to a `SelfWriteLedger`; `buildWatcherCallbacks` consults that ledger before calling `invalidateFile` or `invalidateAll`.
+The daemon recognises its own writes and skips invalidating for them. Every dispatcher operation writes through one shared `RecordingFileSystem` (`src/daemon/self-write-state.ts`), which reports each mutation to a `SelfWriteLedger`; `buildWatcherCallbacks` consults that ledger before calling `invalidateFile` or `invalidateAll`.
 
-**Recognition is by mtime, not by a time window.** The ledger stamps each path with its `mtimeMs` immediately after the daemon writes it, and suppresses an event only while the file's current mtime still matches. A window would have to exceed the ~1.2s the events actually take to arrive, and any genuine external edit landing inside it would be dropped, leaving a stale compiler serving wrong answers — trading a latency cost for a correctness one. With mtime, an edit that lands on top of the daemon's write moves the file past the stamp and is never swallowed. A matched entry is consumed, so a *second* event for the same untouched path invalidates normally.
+**Recognition is by mtime, not by a time window.** The ledger stamps each path with its `mtimeMs` immediately after the daemon writes it, and suppresses an event only while the file's current mtime still matches. A window would have to exceed the ~1.2s these events take to arrive, and a genuine external edit landing inside it would be dropped, leaving a stale compiler serving wrong answers. With mtime, an edit landing on top of the daemon's write moves the file past the stamp and is never swallowed. A matched entry is consumed, so a *second* event for the same untouched path invalidates normally.
 
-**A directory rename is ledgered per file.** The watcher never reports a directory — it reports one `unlink` per child at the old path and one `add` per child at the new one — so `RecordingFileSystem` expands a directory rename into its constituent files. Recording only the two directory paths would suppress nothing on the operation with the largest event burst.
+**A directory rename is ledgered per file.** The watcher never reports a directory — it reports one `unlink` per child at the old path and one `add` per child at the new one — so `RecordingFileSystem` expands a directory rename into its constituent files. Recording only the two directory paths suppresses nothing on the operation with the largest event burst.
 
-Two properties make this safe, and both predate the change:
+Two properties keep this safe:
 
 1. **Mutex serialisation** — the daemon processes one request at a time via a promise-chain mutex declared once in `runDaemon`, so it is global across connections, not per socket. Watcher callbacks are synchronous and can only fire *between* requests, never mid-operation.
 
 2. **Drop affects the next call only** — `invalidateAll()` sets the engine singletons to `undefined`. An executing request holds its engine in local scope, so a drop only affects the next `getEngine()`.
 
-### Why a burst of events was never N rebuilds
+### A burst of events is not N rebuilds
 
-Worth knowing before optimising anything here: invalidation is a `Map.delete`, and the rebuild is lazy. A burst of events therefore coalesces on its own — the deletes are free, and the next query pays for one rebuild however many events preceded it. Measured on a real 170-file Vue app, one `move-directory` produced 14 `change`, 8 `unlink` and 8 `add` events and cost **two** extra service builds, not thirty; 13 of the 14 `invalidateService` calls hit an already-empty cache.
+Invalidation is a `Map.delete` and the rebuild is lazy, so a burst coalesces on its own: the deletes are free, and the next query pays for one rebuild however many events preceded it. Most invalidations in a burst hit an already-empty cache.
 
-The cost came from the `add` and `unlink` waves arriving ~1.2s apart. They are different paths, so the per-path debounce never merges them, and each wave discarded the rebuild the previous one had forced. That is why the fix is suppression rather than a per-file Volar refresh: the `change` path a per-file refresh would optimise was already costing almost nothing.
-
-Measured effect, same query throughout: warm ~265ms; the first query after a `move-file` went from ~1600ms to ~620ms, and the second from ~1450ms to warm. The ~620ms that remains is the operation's own invalidation doing real work — the file genuinely moved.
+What costs time is a burst *separated* by a query. `add` and `unlink` for a moved file are different paths, so the per-path debounce never merges them and they arrive as two waves; each wave discards whatever the query between them rebuilt. Suppression is aimed at that, which is why a per-file Volar refresh would not help — the `change` path it would optimise is the one already costing almost nothing.
 
 ## Shutdown
 

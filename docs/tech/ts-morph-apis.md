@@ -136,7 +136,7 @@ All `import ... from "ts-morph"` statements are confined to `src/compilers/`. No
 
 A ts-morph major version bump now touches files in `src/compilers/` only. Domain and operation files depend on project-owned interfaces (`Compiler`, `WorkspaceScope`) and the TypeScript package's `ts.LanguageService` type — neither changes when ts-morph updates.
 
-## `SourceFile#save()` carries a byte-order mark that `getFullText()` drops (2026-09-03)
+## `SourceFile#save()` carries a byte-order mark that `getFullText()` drops
 
 Verified against ts-morph 28.0.0. When ts-morph reads a file that begins with a UTF-8 BOM it
 strips the mark from the in-memory text and remembers it privately. `getFullText()` therefore
@@ -159,5 +159,5 @@ is about to replace.
 The related trap is not the write itself but anything that *prefixes* content afterwards. A BOM is
 only an encoding hint at byte 0; pushed anywhere else it becomes a stray U+FEFF in the source.
 `move-symbol` prepends an import to the source file when the moved symbol still has references
-behind it, and did exactly this until it was fixed to split the mark off first — so any new code
-that prepends to a file's existing text needs `splitLeadingBom` rather than plain concatenation.
+behind it, so it splits the mark off first. Any code that prepends to a file's existing text needs
+`splitLeadingBom` rather than plain concatenation.

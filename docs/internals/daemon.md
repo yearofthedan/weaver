@@ -60,8 +60,9 @@ The daemon processes one request at a time using a promise-chain mutex in `daemo
 Implemented in `src/daemon/watcher.ts` using chokidar.
 
 - Watches the workspace root.
-- Filters to project-relevant extensions (`.ts`, `.tsx`, `.js`, `.jsx`, and `.vue` for Vue projects).
+- Filters to `.ts`, `.tsx`, `.js`, `.jsx` and `.vue` — always all five, whatever the project type.
 - Debounces file events (200ms) to avoid thrash during save bursts.
+- Skips events for writes the daemon made itself, which are already reflected in the engines.
 - Calls `invalidateFile(path)` on content changes.
 - Calls `invalidateAll()` on add/remove events.
 
