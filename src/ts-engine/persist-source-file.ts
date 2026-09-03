@@ -1,7 +1,7 @@
 import type { SourceFile } from "ts-morph";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 
-const BOM = "﻿";
+const BOM = "\uFEFF";
 
 /**
  * Persist a ts-morph `SourceFile` to disk through the workspace's `FileSystem`
