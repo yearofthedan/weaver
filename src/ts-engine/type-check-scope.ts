@@ -90,6 +90,9 @@ export interface CheckedScope {
  */
 function isOwnWorkspaceFile(filePath: string, workspaceRoot: string): boolean {
   const relative = path.relative(path.resolve(workspaceRoot), path.resolve(filePath));
+  // `path.relative` only returns an absolute path when the two inputs share no common
+  // base (e.g. different drive letters on Windows) — unreachable on POSIX, where both
+  // sides are always resolved under `/`.
   const underRoot = relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
   return underRoot && !filePath.includes("/node_modules/");
 }
