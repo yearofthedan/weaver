@@ -431,3 +431,19 @@ scenarios:
         errorCount: 0
         diagnostics: []
         truncated: false
+
+  - name: a project-wide check with a named tsconfig that doesn't exist reports FILE_NOT_FOUND
+    description: >
+      A missing tsconfig can't answer for anything — engine selection reads it directly
+      rather than tolerating a miss the way discovery does, so this must fail before
+      either engine is ever chosen.
+    given: a-scoped-ts-project
+    when:
+      - getTypeErrors: { tsconfig: does-not-exist.json }
+    then:
+      response:
+        status: error
+        error: FILE_NOT_FOUND
+        message: "tsconfig not found: does-not-exist.json"
+      files:
+        unchanged: [tsconfig.json, src/ok.ts, tests/broken.test.ts]
