@@ -34,12 +34,19 @@ function closeOverImports(roots: Iterable<string>, program: ts.Program): Set<str
   while (pending.length > 0) {
     // biome-ignore lint/style/noNonNullAssertion: guarded by the length check above
     const filePath = pending.pop()!;
+    // Saves reprocessing only: one file importing the same module twice pushes it twice
+    // before either copy is popped. The push below independently refuses anything already
+    // closed, so dropping this changes no output — which is why no black-box test can
+    // pin it, and why it is not the thing keeping a cycle from looping forever.
     if (closed.has(filePath)) continue;
     closed.add(filePath);
     const sourceFile = program.getSourceFile(filePath) as SourceFileWithImports | undefined;
     if (!sourceFile) continue;
     for (const specifier of sourceFile.imports) {
       const mode = program.getModeForUsageLocation(sourceFile, specifier);
+      // The first `?.` is belt-and-braces: for a specifier taken from this file's own
+      // `imports`, the call always returns an object, carrying `resolvedModule: undefined`
+      // when resolution failed. The second is the one that does the work.
       const resolvedFileName = resolvingProgram.getResolvedModule(sourceFile, specifier.text, mode)
         ?.resolvedModule?.resolvedFileName;
       if (resolvedFileName !== undefined && !closed.has(resolvedFileName)) {
