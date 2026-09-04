@@ -72,9 +72,22 @@ weaver get-type-errors '{"file": "/abs/path/src/a.ts"}'
 
 # Project-wide (capped at 100)
 weaver get-type-errors '{}'
+
+# Under a specific tsconfig
+weaver get-type-errors '{"tsconfig": "tsconfig.test.json"}'
 ```
 
 Use to check the project baseline before a refactor, or to verify a specific file after manual edits. Works for `.ts`/`.tsx` and, in Vue projects, `.vue` SFCs. Errors only — no warnings or suggestions.
+
+Project-wide covers one tsconfig — the same files `tsc -p` would compile. The response says what that left out:
+
+```json
+"checked":   { "files": 86,  "tsconfig": "/repo/tsconfig.json" },
+"unchecked": { "files": 200, "reason": "outside /repo/tsconfig.json",
+               "otherConfigs": ["/repo/tsconfig.test.json"] }
+```
+
+**`errorCount: 0` means the checked scope is clean, not the workspace.** When `unchecked.files` is non-zero those files were never examined — typically tests or scripts under a sibling config. Pass each path in `otherConfigs` as `tsconfig` to cover them.
 
 **Instead of:**
 ```bash
