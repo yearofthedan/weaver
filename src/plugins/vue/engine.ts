@@ -422,7 +422,11 @@ export class VolarEngine implements Engine {
     // Project-wide, answered entirely by the Volar service (both file kinds).
     // Root comes from the request's scope, not this.workspaceRoot — see
     // getService's doc comment for why that distinction matters.
-    return vueGetTypeErrorsForProject((f) => this.getService(f, scope.root));
+    return vueGetTypeErrorsForProject(
+      (f) => this.getService(f, scope.root),
+      findTsConfig(scope.root),
+      scope.root,
+    );
   }
 
   async rename(

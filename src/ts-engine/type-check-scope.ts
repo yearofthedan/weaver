@@ -1,4 +1,7 @@
+import * as path from "node:path";
 import type ts from "typescript";
+import type { FileSystem } from "../ports/filesystem.js";
+import { NodeFileSystem } from "../ports/node-filesystem.js";
 
 /**
  * `SourceFile.imports` and `Program.getResolvedModule` are how the compiler
@@ -67,4 +70,75 @@ export function typeCheckedFiles(
   program: ts.Program,
 ): Set<string> {
   return seedFiles === null ? new Set(walkedFiles) : closeOverImports(seedFiles, program);
+}
+
+const MAX_OTHER_CONFIGS = 10;
+const defaultFs = new NodeFileSystem();
+
+export interface CheckedScope {
+  checked: { files: number; tsconfig: string | null };
+  unchecked: { files: number; reason: string; otherConfigs: string[] };
+}
+
+/**
+ * A file counts toward `checked`/`unchecked` when it's the caller's own code — under the
+ * workspace root, and not a dependency in `node_modules`. Both TypeScript's own default
+ * library files and third-party packages live inside the checked set too (see
+ * `typeCheckedFiles`'s doc comment) — a real npm install of TypeScript ships its lib files
+ * from inside some `node_modules` directory, so this one check excludes both — but a caller
+ * asking "how much of my code did you look at" isn't asking about either.
+ */
+function isOwnWorkspaceFile(filePath: string, workspaceRoot: string): boolean {
+  const relative = path.relative(path.resolve(workspaceRoot), path.resolve(filePath));
+  const underRoot = relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+  return underRoot && !filePath.includes("/node_modules/");
+}
+
+/** Other `tsconfig*.json` files at `workspaceRoot` itself, excluding `usedConfigPath`. Non-recursive. */
+function findOtherConfigs(
+  workspaceRoot: string,
+  usedConfigPath: string | null,
+  fs: FileSystem,
+): string[] {
+  const usedResolved = usedConfigPath ? path.resolve(usedConfigPath) : null;
+  let entries: ReturnType<FileSystem["readdir"]>;
+  try {
+    entries = fs.readdir(workspaceRoot);
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => entry.isFile() && /^tsconfig.*\.json$/.test(entry.name))
+    .map((entry) => path.resolve(workspaceRoot, entry.name))
+    .filter((abs) => abs !== usedResolved)
+    .sort()
+    .slice(0, MAX_OTHER_CONFIGS);
+}
+
+/**
+ * Describes how much of the caller's own code `checkedFiles` covers, for a project-wide
+ * type check's `checked`/`unchecked` response fields. `walkedFiles` is each engine's full
+ * workspace file set (see `TsMorphEngine.getProjectSourceFilePaths` / `CachedService.scriptFileNames`)
+ * — `checkedFiles` minus `walkedFiles` is empty by construction, so subtracting the other way
+ * is what finds the files a tsconfig-scoped check left out.
+ */
+export function describeCheckedScope(
+  checkedFiles: ReadonlySet<string>,
+  walkedFiles: Iterable<string>,
+  tsConfigPath: string | null,
+  workspaceRoot: string,
+  fs: FileSystem = defaultFs,
+): CheckedScope {
+  const checkedCount = [...checkedFiles].filter((f) => isOwnWorkspaceFile(f, workspaceRoot)).length;
+  const uncheckedCount = [...walkedFiles].filter(
+    (f) => isOwnWorkspaceFile(f, workspaceRoot) && !checkedFiles.has(f),
+  ).length;
+  return {
+    checked: { files: checkedCount, tsconfig: tsConfigPath },
+    unchecked: {
+      files: uncheckedCount,
+      reason: tsConfigPath ? `outside ${tsConfigPath}` : "no tsconfig",
+      otherConfigs: findOtherConfigs(workspaceRoot, tsConfigPath, fs),
+    },
+  };
 }

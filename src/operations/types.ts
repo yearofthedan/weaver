@@ -134,6 +134,13 @@ export interface GetTypeErrorsResult {
   errorCount: number;
   /** True when the result was capped at the internal limit. */
   truncated: boolean;
+  /**
+   * How much of the caller's own code a project-wide check covered — absent on a
+   * single-file result, where scope isn't in question. See `describeCheckedScope`.
+   */
+  checked?: { files: number; tsconfig: string | null };
+  /** What a project-wide check left out, and why — absent on a single-file result. */
+  unchecked?: { files: number; reason: string; otherConfigs: string[] };
 }
 
 export interface PostWriteDiagnostics {

@@ -45,6 +45,13 @@ scenarios:
         errorCount: 0
         diagnostics: []
         truncated: false
+        checked:
+          files: 1
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 1
+          reason: "outside tsconfig.json"
+          otherConfigs: []
 
   - name: a project-wide check still reports an error in a file outside include that an included file imports
     description: >
@@ -74,6 +81,13 @@ scenarios:
             col: 14
             code: 2322
             message: "Type 'string' is not assignable to type 'number'."
+        checked:
+          files: 3
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 1
+          reason: "outside tsconfig.json"
+          otherConfigs: []
 
   - name: a project-wide check on a workspace with no tsconfig still reports a walked file's error
     description: >
@@ -97,6 +111,13 @@ scenarios:
             col: 7
             code: 2322
             message: "Type 'string' is not assignable to type 'number'."
+        checked:
+          files: 1
+          tsconfig: null
+        unchecked:
+          files: 0
+          reason: "no tsconfig"
+          otherConfigs: []
 
   - name: a Vue project-wide check still reports an error in a file outside include that an included file imports
     description: >
@@ -136,6 +157,13 @@ scenarios:
             col: 14
             code: 2322
             message: "Type 'string' is not assignable to type 'number'."
+        checked:
+          files: 3
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
 
   - name: a project-wide check reports an error in a dependency's own type declarations when skipLibCheck is off
     description: >
@@ -180,6 +208,13 @@ scenarios:
             col: 47
             code: 1039
             message: "Initializers are not allowed in ambient contexts."
+        checked:
+          files: 1
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
 
   - name: a Vue project-wide check reports an error in a dependency's own type declarations when skipLibCheck is off
     description: >
@@ -225,6 +260,13 @@ scenarios:
             col: 47
             code: 1039
             message: "Initializers are not allowed in ambient contexts."
+        checked:
+          files: 2
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
 
   - name: a project-wide check on a Vue workspace reports only the SFC error, not one outside include
     given:
@@ -266,3 +308,51 @@ scenarios:
             col: 7
             code: 2322
             message: "Type 'string' is not assignable to type 'number'."
+        checked:
+          files: 1
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 1
+          reason: "outside tsconfig.json"
+          otherConfigs: []
+
+  - name: a project-wide check names the sibling tsconfig covering an excluded file
+    description: >
+      tsconfig.test.json covers tests/, but get-type-errors with no tsconfig argument answers
+      for tsconfig.json alone — the excluded file's own config is named in otherConfigs rather
+      than silently checked too.
+    given:
+      description: >
+        a tsconfig scoping to src, a sibling tsconfig scoping to tests, a clean file inside
+        src, and a type error in the file the sibling config covers
+      files:
+        tsconfig.json: |
+          {
+            "compilerOptions": { "strict": true },
+            "include": ["src"]
+          }
+        tsconfig.test.json: |
+          {
+            "compilerOptions": { "strict": true },
+            "include": ["tests"]
+          }
+        src/ok.ts: |
+          export const value: number = 1;
+        tests/broken.test.ts: |
+          const broken: number = "not a number";
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 0
+        diagnostics: []
+        truncated: false
+        checked:
+          files: 1
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 1
+          reason: "outside tsconfig.json"
+          otherConfigs:
+            - tsconfig.test.json

@@ -2,8 +2,9 @@ import ts from "typescript";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { GetTypeErrorsResult, TypeDiagnostic } from "../operations/types.js";
 import { MAX_DIAGNOSTICS } from "../operations/types.js";
+import { findTsConfig } from "../utils/ts-project.js";
 import type { TsMorphEngine } from "./engine.js";
-import { typeCheckedFiles } from "./type-check-scope.js";
+import { describeCheckedScope, typeCheckedFiles } from "./type-check-scope.js";
 
 export function extractDiagnosticMessage(messageText: string | ts.DiagnosticMessageChain): string {
   return typeof messageText === "string" ? messageText : messageText.messageText;
@@ -57,13 +58,10 @@ function tsGetTypeErrorsForProject(
   // Only a syntax-only service returns undefined here, and ts-morph never builds one.
   const program = ls.getProgram() as ts.Program;
   const seed = compiler.getSeedFilePaths(workspace);
-  // Only computed when there's no tsconfig to seed from — getProjectSourceFilePaths
-  // is O(project files) and typeCheckedFiles ignores it on the seeded branch.
-  const checked = typeCheckedFiles(
-    seed,
-    seed === null ? compiler.getProjectSourceFilePaths(workspace) : [],
-    program,
-  );
+  // The full walked set is needed regardless of seed now — describeCheckedScope compares
+  // it against the closure to report what a tsconfig-scoped check left out.
+  const walked = compiler.getProjectSourceFilePaths(workspace);
+  const checked = typeCheckedFiles(seed, seed === null ? walked : [], program);
   const allErrors: ts.Diagnostic[] = [];
   for (const filePath of checked) {
     // getSemanticDiagnostics throws for a path outside the compiled program, and
@@ -72,7 +70,10 @@ function tsGetTypeErrorsForProject(
     if (!program.getSourceFile(filePath)) continue;
     allErrors.push(...semanticErrors(ls, filePath));
   }
-  return capDiagnostics(allErrors);
+  return {
+    ...capDiagnostics(allErrors),
+    ...describeCheckedScope(checked, walked, findTsConfig(workspace), workspace),
+  };
 }
 
 export function tsGetTypeErrors(

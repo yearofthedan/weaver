@@ -6,7 +6,7 @@ import {
   extractDiagnosticMessage,
   semanticErrors,
 } from "../../ts-engine/get-type-errors.js";
-import { typeCheckedFiles } from "../../ts-engine/type-check-scope.js";
+import { describeCheckedScope, typeCheckedFiles } from "../../ts-engine/type-check-scope.js";
 import { offsetToLineCol } from "../../utils/text-utils.js";
 import type { CachedService } from "./service.js";
 
@@ -118,19 +118,21 @@ export async function vueGetTypeErrorsForTsFile(
  * closure are skipped here: every `.vue` entry the service knows about already
  * came from the tsconfig program or the on-disk SFC scan, and is handled by
  * `vueGetTypeErrorsFromService` instead.
+ *
+ * `tsConfigPath`/`workspaceRoot` default to values that report an empty scope: production
+ * always supplies the request's own values (`VolarEngine.getTypeErrors`), and the defaults
+ * only matter to a caller that doesn't care about the `checked`/`unchecked` fields at all.
  */
 export async function vueGetTypeErrorsForProject(
   getService: (file: undefined) => Promise<CachedService>,
+  tsConfigPath: string | null = null,
+  workspaceRoot = "",
 ): Promise<GetTypeErrorsResult> {
   const service = await getService(undefined);
 
   // Only a syntax-only service returns undefined here, and Volar never builds one.
   const program = service.baseService.getProgram() as ts.Program;
-  const checked = typeCheckedFiles(
-    service.seedFileNames,
-    service.seedFileNames === null ? service.scriptFileNames : [],
-    program,
-  );
+  const checked = typeCheckedFiles(service.seedFileNames, service.scriptFileNames, program);
 
   const errors: ts.Diagnostic[] = [];
   for (const fileName of checked) {
@@ -151,5 +153,10 @@ export async function vueGetTypeErrorsForProject(
   const totalCount = tsResult.errorCount + vueDiagnostics.length;
   const truncated = totalCount > MAX_DIAGNOSTICS;
   const diagnostics = allDiagnostics.slice(0, MAX_DIAGNOSTICS);
-  return { diagnostics, errorCount: totalCount, truncated };
+  return {
+    diagnostics,
+    errorCount: totalCount,
+    truncated,
+    ...describeCheckedScope(checked, service.scriptFileNames, tsConfigPath, workspaceRoot),
+  };
 }

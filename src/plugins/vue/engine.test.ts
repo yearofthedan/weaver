@@ -489,7 +489,14 @@ describe("VolarEngine", () => {
 
       const result = await p.getTypeErrors(undefined, makeScope(dir));
 
-      expect(result).toEqual({ diagnostics: [], errorCount: 0, truncated: false });
+      const tsconfigPath = path.join(dir, "tsconfig.json");
+      expect(result).toEqual({
+        diagnostics: [],
+        errorCount: 0,
+        truncated: false,
+        checked: { files: 2, tsconfig: tsconfigPath },
+        unchecked: { files: 0, reason: `outside ${tsconfigPath}`, otherConfigs: [] },
+      });
     }, 30_000);
 
     test("project-wide: still reports TS2307 when the SFC does not exist", async ({
