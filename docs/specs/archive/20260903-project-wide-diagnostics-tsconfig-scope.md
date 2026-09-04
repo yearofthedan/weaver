@@ -133,3 +133,58 @@ The reason these fields exist rather than a documentation note: an agent is a li
 - [ ] Tech debt discovered during implementation added to handoff.md as `[needs design]`
 - [ ] Non-obvious gotchas added to `docs/internals/get-type-errors.md`
 - [ ] Spec moved to `docs/specs/archive/` with Outcome section appended
+
+---
+
+## Outcome
+
+**Shipped 2026-09-04.** 18 commits, `69442f0..HEAD`.
+
+### Verification
+
+Exercised through the built CLI against real workspaces, one command per input type:
+
+| Case | Engine | Result |
+|---|---|---|
+| Excluded file, not imported | ts-morph | `errorCount: 0` — matches `tsc` exit 0 |
+| Excluded file, imported by an included one | ts-morph | `1`, names the file — matches `tsc` |
+| Excluded file, imported by an included one | Volar | `1`, names the file |
+| Dependency `.d.ts` error, `skipLibCheck: false` | ts-morph | `2` — matches `tsc` exactly |
+| Dependency `.d.ts` error, `skipLibCheck: false` | Volar | `2` |
+| Workspace with no tsconfig | ts-morph | `1`, `checked.tsconfig: null`, `unchecked.files: 0` |
+| `{"tsconfig": "tsconfig.test.json"}` | ts-morph | `1`, `checked.tsconfig` names the sibling |
+| `{"tsconfig": "tsconfig.app.json"}` over a `.vue` config | Volar | SFC error at the real `.vue` line/col — engine selection followed the named config |
+| `{"tsconfig": "does-not-exist.json"}` | — | `FILE_NOT_FOUND` |
+| `{"file": …, "tsconfig": …}` | — | `VALIDATION_ERROR` |
+| `{"tsconfig": "../outside/tsconfig.json"}` | — | `WORKSPACE_VIOLATION` |
+
+On this repository, with `pnpm check` green throughout: **251 errors truncated at 100 → 2**. The two survivors are TS1470 in `src/daemon/build-id.ts` and `src/adapters/cli/cli.ts`, a separate ts-morph/host-compiler discrepancy logged to handoff and recorded in Edges as the expected residue. `'{"tsconfig": "tsconfig.eval.json"}'` returns the eval lane's own verdict (7) rather than the main config's — the capability the design existed to provide.
+
+Tests: **1366 → 1394** (+28). Mutation: `type-check-scope.ts` **97.22%** (80.56% before triage), `ts-engine/get-type-errors.ts` 100%, `dispatcher.ts` 93.85%, `plugins/vue/get-type-errors.ts` 94.64%. Two survivors remain in `type-check-scope.ts`, both classified in comments at the line: a dedup guard whose effect is invisible in output, and an outer `?.` on a call that never returns `undefined` for a specifier drawn from the file's own `imports`.
+
+### What went wrong, and why it is worth recording
+
+**The same defect shipped three times, in the same shape, and the spec caused it.** Each was the Volar engine silently reporting fewer errors than ts-morph — a false green, the worst failure mode for a caller that reads `errorCount` literally.
+
+The root cause was a spec error, not an implementation one. The Structural criterion read "a single module exports the file-set rule used by both engines". An executor satisfied that exactly: `typeCheckedFiles(hasTsConfig, seedFiles, walkedFiles)` selected between two sets **its callers computed**. ts-morph passes a set ts-morph has already closed transitively, so it was correct by accident of the library's behaviour; Volar passes `parseJsonConfigFileContent`'s raw `fileNames`, which has no closure. A behavioural guarantee — *the two engines give the same answer* — was expressed in the one section that can only be checked by inspecting the tree.
+
+Worse, the asymmetry was known before a line was written. It appears in the spec twice, at Relevant files ("Unlike ts-morph it does **not** pre-resolve the transitive closure") and in the engine-parity decision ("Volar seeds from raw `fileNames` with no closure, so it would drop an excluded-but-imported file that ts-morph keeps. The engines would then disagree"). Both are prose. **Prose in a spec is read and agreed with; only ACs are executed.** The executor read the second sentence, agreed with it, and shipped the thing it describes.
+
+The Behaviour section had two behaviours across two engines — four cells — and covered three. The uncovered cell is precisely where all three defects landed. AC12 was added mid-slice to close it.
+
+The third instance was subtler and only a probe found it: the Volar path used the closure as a *filter* over its walked file list rather than iterating it, so `node_modules` paths in the closure were never visited. Two of the four review agents recommended fixing this by making ts-morph filter the same way — which would have stopped ts-morph reporting dependency errors `tsc` itself reports, trading engine disagreement for disagreement with the tool this command is defined against. A reviewer's finding is a claim; both were verified against `tsc` before acting, and the fix ran the other way.
+
+### Recommendations for the next agent
+
+- **The excluded-but-imported scenarios on *both* engines are load-bearing.** They are the only thing that turns a TypeScript upgrade breaking `SourceFile.imports` or `Program.getResolvedModule` — neither in the public `.d.ts` — from a silent under-report into a red run. They look redundant. They are not.
+- **`typeCheckedFiles` must compute the closure, not receive it.** If a refactor makes it take a prepared set again, this defect returns. The Structural criteria say so explicitly for that reason.
+- **The Volar seed is deliberately wider than the tsconfig**: `buildVolarService` adds `.vue` files found on disk that the tsconfig does not list, for bundler-only setups. Those must keep getting diagnostics.
+- **Verify per input type, not once.** The 251→2 measurement on the ts engine was dramatic enough to feel like proof, and it was reported as such while the Vue half was broken.
+
+### Discoveries logged elsewhere
+
+- ts-morph's bundled compiler reports TS1470 on files the host `tsc` compiles cleanly — isolated as independent of this change (reproduces with the walk disabled), now a `[needs investigation]` entry.
+- Single-file `get-type-errors` still judges a file against a tsconfig that excludes it, producing the same fabricated errors this change removed from project-wide. Deliberately out of scope; now a `[needs design]` entry.
+- The scenario runner did not scrub the realpath'd temp root, so macOS's `/var` → `/private/var` symlink leaked absolute paths into assertions. Pre-existing; only visible once a scenario reached into `node_modules`. Fixed here.
+- `usesFileForRegistry` on the dispatcher had exactly one user and was removed once `get-type-errors` declared real path params.
+- The `^`-anchor regex mutant is genuinely killable in `type-check-scope.ts`, which suggests the unexplained anchor survivor recorded against `schema.ts` is specific to how Zod schemas construct under static mutants rather than a general property of anchor mutants.
