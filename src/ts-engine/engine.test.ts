@@ -357,6 +357,48 @@ describe("TsMorphEngine", () => {
     });
   });
 
+  describe("getSeedFilePaths", () => {
+    test("returns the tsconfig program's own files, excluding walk-only files", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      const p = new TsMorphEngine(dir);
+      const seed = p.getSeedFilePaths(dir);
+      expect(seed).not.toBeNull();
+      const utils = path.join(dir, "src/utils.ts");
+      expect(seed?.some((fp) => fp === utils || fp.endsWith("/src/utils.ts"))).toBe(true);
+      // tests/utils.test.ts sits outside tsconfig's include — only the workspace
+      // walk adds it, so it must not be part of the seed.
+      expect(seed?.some((fp) => fp.endsWith("/tests/utils.test.ts"))).toBe(false);
+    });
+
+    it("returns null when the directory has no tsconfig", () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-noconfig-seed-"));
+      try {
+        const p = new TsMorphEngine(tmpDir);
+        expect(p.getSeedFilePaths(tmpDir)).toBeNull();
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    test("reflects current disk state after invalidateProject, not a stale cached seed", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      const p = new TsMorphEngine(dir);
+      const before = p.getSeedFilePaths(dir);
+      expect(before?.some((fp) => fp.endsWith("/src/extra.ts"))).toBe(false);
+
+      const extraFile = path.join(dir, "src/extra.ts");
+      fs.writeFileSync(extraFile, "export const extra = 1;\n");
+      p.invalidateProject(path.join(dir, "src/utils.ts"));
+
+      const after = p.getSeedFilePaths(dir);
+      expect(after?.some((fp) => fp === extraFile || fp.endsWith("/src/extra.ts"))).toBe(true);
+    });
+  });
+
   describe("removeImportersOf", () => {
     test("delegates to tsRemoveImportersOf with workspace-expanded project graph", async ({
       seedNamedFixture,

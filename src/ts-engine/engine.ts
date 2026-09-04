@@ -27,31 +27,43 @@ import type {
   SpanLocation,
 } from "./types.js";
 
+/** Cache key for the project covering files with no tsconfig above them. */
+const NO_TSCONFIG_CACHE_KEY = "__no_tsconfig__";
+
+/** A cached project together with its tsconfig program's own file set (see `typeCheckedFiles`). */
+interface ProjectEntry {
+  project: Project;
+  seed: Set<string>;
+}
+
 export class TsMorphEngine implements Engine {
-  private projects = new Map<string, Project>();
-  private seedFilesByCacheKey = new Map<string, Set<string>>();
+  private projectEntries = new Map<string, ProjectEntry>();
   private workspaceRoot: string;
 
   constructor(workspaceRoot = "") {
     this.workspaceRoot = workspaceRoot;
   }
 
+  private cacheKey(tsConfigPath: string | null): string {
+    return tsConfigPath ?? NO_TSCONFIG_CACHE_KEY;
+  }
+
   /**
    * Adds every workspace TS/JS file to `project` so cross-file operations
-   * (rename, find-references) reach files the tsconfig excludes. Records the
-   * project's file set *before* this addition under `cacheKey` — that's the
-   * tsconfig program's own scope, which `typeCheckedFiles` uses to keep
-   * project-wide diagnostics from following the walk.
+   * (rename, find-references) reach files the tsconfig excludes. Returns the
+   * project's file set from *before* this addition — that's the tsconfig
+   * program's own scope, which `typeCheckedFiles` uses to keep project-wide
+   * diagnostics from following the walk.
    */
-  private addWorkspaceFiles(project: Project, cacheKey: string): void {
-    const existing = new Set(project.getSourceFiles().map((sf) => sf.getFilePath() as string));
-    this.seedFilesByCacheKey.set(cacheKey, existing);
-    if (!this.workspaceRoot) return;
+  private addWorkspaceFiles(project: Project): Set<string> {
+    const seed = new Set(project.getSourceFiles().map((sf) => sf.getFilePath() as string));
+    if (!this.workspaceRoot) return seed;
     for (const file of walkFiles(this.workspaceRoot, [...TS_EXTENSIONS])) {
-      if (!existing.has(file)) {
+      if (!seed.has(file)) {
         project.addSourceFileAtPath(file);
       }
     }
+    return seed;
   }
 
   private ensureProject(filePath: string): {
@@ -64,23 +76,23 @@ export class TsMorphEngine implements Engine {
     return { project, languageService: project.getLanguageService().compilerObject, sourceFile };
   }
 
-  private getProject(filePath: string): Project {
-    const tsConfigPath = findTsConfigForFile(filePath);
-    const cacheKey = tsConfigPath ?? "__no_tsconfig__";
-    let project = this.projects.get(cacheKey);
-    if (!project) {
-      if (tsConfigPath) {
-        project = new Project({
-          tsConfigFilePath: tsConfigPath,
-          skipAddingFilesFromTsConfig: false,
-        });
-      } else {
-        project = new Project({ useInMemoryFileSystem: false });
-      }
-      this.addWorkspaceFiles(project, cacheKey);
-      this.projects.set(cacheKey, project);
+  /** Loads (or returns the cached) project entry for `tsConfigPath`, creating one if needed. */
+  private loadProjectEntry(tsConfigPath: string | null): ProjectEntry {
+    const cacheKey = this.cacheKey(tsConfigPath);
+    let entry = this.projectEntries.get(cacheKey);
+    if (!entry) {
+      const project = tsConfigPath
+        ? new Project({ tsConfigFilePath: tsConfigPath, skipAddingFilesFromTsConfig: false })
+        : new Project({ useInMemoryFileSystem: false });
+      const seed = this.addWorkspaceFiles(project);
+      entry = { project, seed };
+      this.projectEntries.set(cacheKey, entry);
     }
-    return project;
+    return entry;
+  }
+
+  private getProject(filePath: string): Project {
+    return this.loadProjectEntry(findTsConfigForFile(filePath)).project;
   }
 
   /** For operations that need direct AST access (e.g. moveSymbol). */
@@ -94,27 +106,11 @@ export class TsMorphEngine implements Engine {
    * rather than from its parent — correct when the caller has a directory, not a file.
    */
   getProjectForDirectory(dirPath: string): Project {
-    const tsConfigPath = findTsConfig(dirPath);
-    const cacheKey = tsConfigPath ?? "__no_tsconfig__";
-    let project = this.projects.get(cacheKey);
-    if (!project) {
-      if (tsConfigPath) {
-        project = new Project({
-          tsConfigFilePath: tsConfigPath,
-          skipAddingFilesFromTsConfig: false,
-        });
-      } else {
-        project = new Project({ useInMemoryFileSystem: false });
-      }
-      this.addWorkspaceFiles(project, cacheKey);
-      this.projects.set(cacheKey, project);
-    }
-    return project;
+    return this.loadProjectEntry(findTsConfig(dirPath)).project;
   }
 
   invalidateProject(filePath: string): void {
-    const tsConfigPath = findTsConfigForFile(filePath);
-    this.projects.delete(tsConfigPath ?? "__no_tsconfig__");
+    this.projectEntries.delete(this.cacheKey(findTsConfigForFile(filePath)));
   }
 
   /**
@@ -123,8 +119,7 @@ export class TsMorphEngine implements Engine {
    * new project — use `getProject` for that.
    */
   getCachedProjectForFile(filePath: string): import("ts-morph").Project | undefined {
-    const tsConfigPath = findTsConfigForFile(filePath);
-    return this.projects.get(tsConfigPath ?? "__no_tsconfig__");
+    return this.projectEntries.get(this.cacheKey(findTsConfigForFile(filePath)))?.project;
   }
 
   /**
@@ -205,8 +200,7 @@ export class TsMorphEngine implements Engine {
   getSeedFilePaths(workspace: string): string[] | null {
     const tsConfigPath = findTsConfig(workspace);
     if (tsConfigPath === null) return null;
-    this.getProjectForDirectory(workspace); // ensures the project (and its seed) is populated
-    return [...(this.seedFilesByCacheKey.get(tsConfigPath) ?? [])];
+    return [...this.loadProjectEntry(tsConfigPath).seed];
   }
 
   /**
@@ -252,10 +246,9 @@ export class TsMorphEngine implements Engine {
    * when the file isn't tracked yet, since the next lookup adds it from disk anyway.
    */
   refreshFile(filePath: string): void {
-    const key = findTsConfigForFile(filePath) ?? "__no_tsconfig__";
-    const project = this.projects.get(key);
-    if (!project) return; // project not loaded yet — nothing to refresh
-    project.getSourceFile(filePath)?.refreshFromFileSystemSync();
+    const entry = this.projectEntries.get(this.cacheKey(findTsConfigForFile(filePath)));
+    if (!entry) return; // project not loaded yet — nothing to refresh
+    entry.project.getSourceFile(filePath)?.refreshFromFileSystemSync();
   }
 
   resolveOffset(file: string, line: number, col: number): number {
