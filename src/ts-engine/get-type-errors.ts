@@ -62,6 +62,7 @@ function tsGetTypeErrorsForProject(
     hasTsConfig,
     compiler.getSeedFilePaths(workspace),
     compiler.getProjectSourceFilePaths(workspace),
+    program,
   );
   const allErrors: ts.Diagnostic[] = [];
   for (const filePath of checked) {

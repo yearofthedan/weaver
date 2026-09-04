@@ -1,18 +1,68 @@
+import type ts from "typescript";
+
+/**
+ * `SourceFile.imports` and `Program.getResolvedModule` are how the compiler
+ * itself walks module specifiers to resolved files. Neither is part of the
+ * public TypeScript API surface (verified against the installed
+ * typescript@6.0.3 by reading its compiled source) — these narrow just the
+ * members `closeOverImports` needs from them.
+ */
+interface SourceFileWithImports extends ts.SourceFile {
+  readonly imports: readonly ts.StringLiteralLike[];
+}
+
+interface ProgramWithResolvedModule extends ts.Program {
+  getResolvedModule(
+    containingFile: ts.SourceFile,
+    moduleName: string,
+    mode: ts.ResolutionMode,
+  ): { resolvedModule?: ts.ResolvedModuleFull } | undefined;
+}
+
+/**
+ * Starting from `roots`, follows every file's resolved module specifiers and
+ * returns everything reached — the transitive closure a real build judges,
+ * whether or not each file individually matches the tsconfig's `include`.
+ */
+function closeOverImports(roots: Iterable<string>, program: ts.Program): Set<string> {
+  const resolvingProgram = program as ProgramWithResolvedModule;
+  const closed = new Set<string>();
+  const pending = [...roots];
+  while (pending.length > 0) {
+    const filePath = pending.pop() as string;
+    if (closed.has(filePath)) continue;
+    closed.add(filePath);
+    const sourceFile = program.getSourceFile(filePath) as SourceFileWithImports | undefined;
+    if (!sourceFile) continue;
+    for (const specifier of sourceFile.imports) {
+      const mode = program.getModeForUsageLocation(sourceFile, specifier);
+      const resolvedFileName = resolvingProgram.getResolvedModule(sourceFile, specifier.text, mode)
+        ?.resolvedModule?.resolvedFileName;
+      if (resolvedFileName !== undefined && !closed.has(resolvedFileName)) {
+        pending.push(resolvedFileName);
+      }
+    }
+  }
+  return closed;
+}
+
 /**
  * Decides which files a project-wide type check should cover.
  *
- * A tsconfig's own program — its `include`/`exclude` plus whatever those files
- * transitively import — is what a caller's build judges their code against.
- * Both engines also walk the whole workspace to widen the reference graph for
- * operations like rename; that walk is not a wider type check, so `seedFiles`
- * (the tsconfig program's own file set, resolved by the caller before its walk
- * runs) is what gets checked when a tsconfig exists. With no tsconfig there is
- * no program to defer to, so the walk is the only file set there is.
+ * A tsconfig's own program — its `include`/`exclude` roots plus whatever
+ * those files transitively import — is what a caller's build judges their
+ * code against, so this closes `seedFiles` (the tsconfig program's roots,
+ * resolved by the caller before its workspace walk runs) over `program`'s own
+ * module resolution. Both engines also walk the whole workspace to widen the
+ * reference graph for operations like rename; that walk is not a wider type
+ * check. With no tsconfig there is no program to defer to, so the walk is the
+ * only file set there is.
  */
 export function typeCheckedFiles(
   hasTsConfig: boolean,
   seedFiles: Iterable<string>,
   walkedFiles: Iterable<string>,
+  program: ts.Program,
 ): Set<string> {
-  return hasTsConfig ? new Set(seedFiles) : new Set(walkedFiles);
+  return hasTsConfig ? closeOverImports(seedFiles, program) : new Set(walkedFiles);
 }

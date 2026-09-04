@@ -128,6 +128,7 @@ export async function vueGetTypeErrorsForProject(
     service.hasTsConfig,
     service.seedFileNames,
     service.scriptFileNames,
+    program,
   );
 
   const errors: ts.Diagnostic[] = [];

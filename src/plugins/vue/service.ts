@@ -29,9 +29,9 @@ export interface CachedService {
    */
   scriptFileNames: string[];
   /**
-   * `scriptFileNames` restricted to the tsconfig program's own scope — before the
-   * workspace walk widened it for cross-file operations like rename. See
-   * `typeCheckedFiles` for how this is used.
+   * The tsconfig program's own roots — `scriptFileNames` before the workspace
+   * walk widened it for cross-file operations like rename. `typeCheckedFiles`
+   * closes this over the program's own module resolution.
    */
   seedFileNames: string[];
   /** Whether a tsconfig was found for this service's project. */
