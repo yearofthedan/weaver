@@ -416,3 +416,18 @@ scenarios:
           reason: "outside config/tsconfig.nested.json"
           otherConfigs:
             - tsconfig.json
+
+  - name: get-type-errors resolves a relative file argument against the workspace root
+    description: >
+      file, like tsconfig, must join against the workspace root rather than being read as-is
+      — an unresolved relative path here previously reported FILE_NOT_FOUND for a file that
+      does exist, once the caller's own working directory wasn't the workspace.
+    given: a-scoped-ts-project
+    when:
+      - getTypeErrors: { file: src/ok.ts }
+    then:
+      response:
+        status: success
+        errorCount: 0
+        diagnostics: []
+        truncated: false
