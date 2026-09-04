@@ -28,6 +28,14 @@ export interface CachedService {
    * answers.
    */
   scriptFileNames: string[];
+  /**
+   * `scriptFileNames` restricted to the tsconfig program's own scope — before the
+   * workspace walk widened it for cross-file operations like rename. See
+   * `typeCheckedFiles` for how this is used.
+   */
+  seedFileNames: string[];
+  /** Whether a tsconfig was found for this service's project. */
+  hasTsConfig: boolean;
 }
 
 function parseTsConfig(
@@ -173,6 +181,11 @@ export async function buildVolarService(
     if (!projectFiles.includes(f)) projectFiles.push(f);
   }
 
+  // Snapshot before the workspace walk below widens `projectFiles` — this is
+  // the tsconfig program's own scope, which `typeCheckedFiles` uses to keep
+  // project-wide diagnostics from following the walk.
+  const seedFiles = [...projectFiles];
+
   // Include all workspace TS/JS files so test files and scripts outside
   // tsconfig.include are visible to the Volar language service.
   if (workspaceRoot) {
@@ -227,6 +240,7 @@ export async function buildVolarService(
 
   // Replace .vue entries with their virtual .vue.ts equivalents.
   const scriptFileNames = projectFiles.map((f) => (f.endsWith(".vue") ? `${f}.ts` : f));
+  const seedFileNames = seedFiles.map((f) => (f.endsWith(".vue") ? `${f}.ts` : f));
 
   const host = buildLanguageServiceHost({
     compilerOptions,
@@ -251,5 +265,7 @@ export async function buildVolarService(
     language,
     vueVirtualToReal,
     scriptFileNames,
+    seedFileNames,
+    hasTsConfig: tsConfigPath !== null,
   };
 }

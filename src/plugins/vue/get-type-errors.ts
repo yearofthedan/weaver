@@ -6,6 +6,7 @@ import {
   extractDiagnosticMessage,
   semanticErrors,
 } from "../../ts-engine/get-type-errors.js";
+import { typeCheckedFiles } from "../../ts-engine/type-check-scope.js";
 import { offsetToLineCol } from "../../utils/text-utils.js";
 import type { CachedService } from "./service.js";
 
@@ -109,9 +110,12 @@ export async function vueGetTypeErrorsForTsFile(
  * Project-wide type errors for a Vue project, answered entirely by the Volar
  * service: `.vue` files through `vueGetTypeErrorsFromService`, everything else
  * through `baseService` directly (no source-map translation needed — see
- * `vueGetTypeErrorsForTsFile`). Iterates the full set the service serves, which
- * is the set `TsMorphEngine` builds for the same workspace — so a project-wide
- * check reports the same files whichever engine answers it.
+ * `vueGetTypeErrorsForTsFile`). `.vue` files need no scope filtering here — the
+ * workspace walk only ever adds TS/JS files, so every `.vue` entry the service
+ * knows about already came from the tsconfig program or the on-disk SFC scan,
+ * never from the walk. The plain-`.ts`/`.js` set does need filtering: it
+ * follows the same `typeCheckedFiles` rule `TsMorphEngine` uses, so a
+ * project-wide check reports the same files whichever engine answers it.
  */
 export async function vueGetTypeErrorsForProject(
   getService: (file: undefined) => Promise<CachedService>,
@@ -120,12 +124,18 @@ export async function vueGetTypeErrorsForProject(
 
   // Only a syntax-only service returns undefined here, and Volar never builds one.
   const program = service.baseService.getProgram() as ts.Program;
+  const checked = typeCheckedFiles(
+    service.hasTsConfig,
+    service.seedFileNames,
+    service.scriptFileNames,
+  );
 
   const errors: ts.Diagnostic[] = [];
   for (const fileName of service.scriptFileNames) {
     // .vue entries are virtual (`Foo.vue.ts`) and handled below, where their
     // offsets are mapped back through the source map to the real .vue file.
     if (service.vueVirtualToReal.has(fileName)) continue;
+    if (!checked.has(fileName)) continue;
     // getSemanticDiagnostics throws for a path outside the compiled program, and the
     // workspace walk deliberately adds files the program excludes (.js with allowJs
     // unset) so that a move can still repoint their imports.

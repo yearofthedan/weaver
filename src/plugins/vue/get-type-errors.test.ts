@@ -49,6 +49,8 @@ function makeMinimalService(
     } as unknown as CachedService["language"],
     vueVirtualToReal: new Map([[virtualPath, realVuePath]]),
     scriptFileNames: [virtualPath],
+    seedFileNames: [virtualPath],
+    hasTsConfig: false,
   };
 }
 
@@ -105,6 +107,8 @@ function makeServiceWithSourceMap(
     } as unknown as CachedService["language"],
     vueVirtualToReal: new Map([[virtualPath, realVuePath]]),
     scriptFileNames: [virtualPath],
+    seedFileNames: [virtualPath],
+    hasTsConfig: false,
   };
 }
 
@@ -150,6 +154,8 @@ function makeGreedyService(
     } as unknown as CachedService["language"],
     vueVirtualToReal: new Map([[virtualPath, realVuePath]]),
     scriptFileNames: [virtualPath],
+    seedFileNames: [virtualPath],
+    hasTsConfig: false,
   };
 }
 

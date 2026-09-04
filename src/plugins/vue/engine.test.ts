@@ -613,19 +613,20 @@ describe("VolarEngine", () => {
       expect(refInTest).toBeDefined();
     }, 30_000);
 
-    test("project-wide getTypeErrors reports a type error in a file outside tsconfig.include", async ({
+    test("project-wide getTypeErrors does not report a type error in a file outside tsconfig.include", async ({
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.vueProject.name);
       const outsideFile = path.join(dir, "tests/unit/counter.test.ts");
-      // TsMorphEngine reports this file for a plain TS project, because its own
-      // workspace walk adds it. A Vue project must not report less for the same input.
+      // The workspace walk still adds this file to the language service, so the sibling tests
+      // above still find it for rename and find-references. A project-wide type check judges
+      // only the tsconfig's own scope, and nothing inside include imports this file.
       fs.writeFileSync(outsideFile, "export const bad: number = 'not-a-number';\n");
       const p = new VolarEngine(new TsMorphEngine(dir), dir);
 
       const result = await p.getTypeErrors(undefined, makeScope(dir));
 
-      expect(result.diagnostics.some((d) => d.file === outsideFile)).toBe(true);
+      expect(result.diagnostics.some((d) => d.file === outsideFile)).toBe(false);
     }, 30_000);
   });
 });
