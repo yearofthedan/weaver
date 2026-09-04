@@ -15,7 +15,7 @@ tool call
   │
   ├─ TsMorphEngine path (TS-only projects)
   │   ├─ single-file: tsLS.getSemanticDiagnostics(file)
-  │   └─ project-wide: iterate tsconfig source files, getSemanticDiagnostics per file
+  │   └─ project-wide: typeCheckedFiles(seed, program) → closure; getSemanticDiagnostics per member
   │
   └─ VolarEngine path (Vue projects) — every file kind answered by Volar
       ├─ single non-.vue file:
@@ -28,7 +28,8 @@ tool call
       │     offsetToLineCol(realContent, offset) → 1-based line/col
       │     exclude diagnostics with no source map entry (Volar glue code)
       └─ project-wide:
-            iterate service.scriptFileNames, skipping virtual .vue.ts entries
+            typeCheckedFiles(seed, program) → the same closure the ts path uses,
+            iterated directly, skipping virtual .vue.ts entries
             and anything absent from the compiled program
             + vueGetTypeErrorsFromService() for all .vue files in the Volar service
             merged under a single 100-error cap
@@ -71,3 +72,15 @@ Post-write diagnostics would otherwise see content cached from before the write.
 
 **Project-wide mode must therefore filter to program members before asking for diagnostics.**
 `getSemanticDiagnostics` throws (`Could not find source file`) for any path the program does not contain, so `tsGetTypeErrorsForProject` skips anything `program.getSourceFile(filePath)` does not resolve. Filter on program membership, never on the file extension: a project with `allowJs: true` has its `.js` files *in* the program and their errors must still be reported.
+
+**Diagnostics do not follow the workspace walk — but the answer is not the tsconfig's file list either.**
+`typeCheckedFiles` (`src/ts-engine/type-check-scope.ts`) closes the tsconfig's roots over the program's own module resolution and reports only what that reaches. Both halves matter. Following the walk means judging test files and scripts under compiler options meant for other files: measured on this repo, 251 reported errors against 2, with `pnpm check` green — 99% of them artefacts, and the 100-diagnostic cap entirely consumed by them. But filtering to `parseJsonConfigFileContent`'s raw `fileNames` under-reports instead: a file outside `include` that an included file imports is part of the program and `tsc` does report it. The closure is what makes both true at once.
+
+**Both engines must call the shared rule, and it must compute rather than select.**
+An earlier shape took two prepared file sets and picked one. That satisfied "both engines call the same module" while leaving each caller to get the closure right alone — and they did not: ts-morph resolves dependencies when it builds a project, so its set was already closed, while Volar seeds from raw `fileNames` and its set was not. The Vue engine silently under-reported exactly the imported-but-excluded files the rule exists to keep. If a change makes the shared module take a set instead of computing one, this defect comes back.
+
+**The closure walks `SourceFile.imports` and `Program.getResolvedModule`, neither of which is in TypeScript's public `.d.ts`.**
+Both exist at runtime and are what the compiler itself uses. The public alternative — `ts.preProcessFile` plus `ts.resolveModuleName` — reimplements module resolution and can disagree with what the program actually did, which would be a subtler wrong answer than depending on an internal. The failure mode to watch is silent: if an upgrade made `getResolvedModule` return `undefined` rather than throw, the closure would quietly shrink and project-wide would go back to under-reporting. The scenarios covering an excluded-but-imported file on *both* engines are what turn that into a red run instead.
+
+**A `tsconfig` argument selects the engine, not just the project.**
+Engine selection reads the first declared path param, which is `file`; a `tsconfig`-only call has none, so selection would otherwise fall back to the workspace root and hand a Vue config to `TsMorphEngine`. `isVueProject` takes a tsconfig path directly, so the named config decides. Declaring both `file` and `tsconfig` as path params also retired `usesFileForRegistry`, whose only user this was.
