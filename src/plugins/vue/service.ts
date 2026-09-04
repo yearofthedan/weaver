@@ -30,12 +30,11 @@ export interface CachedService {
   scriptFileNames: string[];
   /**
    * The tsconfig program's own roots — `scriptFileNames` before the workspace
-   * walk widened it for cross-file operations like rename. `typeCheckedFiles`
-   * closes this over the program's own module resolution.
+   * walk widened it for cross-file operations like rename — or `null` when
+   * there's no tsconfig. `typeCheckedFiles` closes this over the program's
+   * own module resolution.
    */
-  seedFileNames: string[];
-  /** Whether a tsconfig was found for this service's project. */
-  hasTsConfig: boolean;
+  seedFileNames: string[] | null;
 }
 
 function parseTsConfig(
@@ -240,7 +239,8 @@ export async function buildVolarService(
 
   // Replace .vue entries with their virtual .vue.ts equivalents.
   const scriptFileNames = projectFiles.map((f) => (f.endsWith(".vue") ? `${f}.ts` : f));
-  const seedFileNames = seedFiles.map((f) => (f.endsWith(".vue") ? `${f}.ts` : f));
+  const seedFileNames =
+    tsConfigPath === null ? null : seedFiles.map((f) => (f.endsWith(".vue") ? `${f}.ts` : f));
 
   const host = buildLanguageServiceHost({
     compilerOptions,
@@ -266,6 +266,5 @@ export async function buildVolarService(
     vueVirtualToReal,
     scriptFileNames,
     seedFileNames,
-    hasTsConfig: tsConfigPath !== null,
   };
 }

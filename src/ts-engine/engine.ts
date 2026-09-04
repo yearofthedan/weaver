@@ -199,13 +199,14 @@ export class TsMorphEngine implements Engine {
   /**
    * Returns the tsconfig program's own file set for `workspace` — the files
    * present before `addWorkspaceFiles` widened the project for cross-file
-   * operations. See `typeCheckedFiles` for how this is used.
+   * operations — or `null` when there's no tsconfig. See `typeCheckedFiles`
+   * for how this is used.
    */
-  getSeedFilePaths(workspace: string): string[] {
+  getSeedFilePaths(workspace: string): string[] | null {
     const tsConfigPath = findTsConfig(workspace);
-    const cacheKey = tsConfigPath ?? "__no_tsconfig__";
+    if (tsConfigPath === null) return null;
     this.getProjectForDirectory(workspace); // ensures the project (and its seed) is populated
-    return [...(this.seedFilesByCacheKey.get(cacheKey) ?? [])];
+    return [...(this.seedFilesByCacheKey.get(tsConfigPath) ?? [])];
   }
 
   /**

@@ -55,14 +55,13 @@ function closeOverImports(roots: Iterable<string>, program: ts.Program): Set<str
  * resolved by the caller before its workspace walk runs) over `program`'s own
  * module resolution. Both engines also walk the whole workspace to widen the
  * reference graph for operations like rename; that walk is not a wider type
- * check. With no tsconfig there is no program to defer to, so the walk is the
- * only file set there is.
+ * check. `seedFiles` is `null` when there is no tsconfig — no program to defer
+ * to, so `walkedFiles` is the only file set there is.
  */
 export function typeCheckedFiles(
-  hasTsConfig: boolean,
-  seedFiles: Iterable<string>,
+  seedFiles: Iterable<string> | null,
   walkedFiles: Iterable<string>,
   program: ts.Program,
 ): Set<string> {
-  return hasTsConfig ? closeOverImports(seedFiles, program) : new Set(walkedFiles);
+  return seedFiles === null ? new Set(walkedFiles) : closeOverImports(seedFiles, program);
 }

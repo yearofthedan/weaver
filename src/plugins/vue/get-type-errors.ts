@@ -127,9 +127,8 @@ export async function vueGetTypeErrorsForProject(
   // Only a syntax-only service returns undefined here, and Volar never builds one.
   const program = service.baseService.getProgram() as ts.Program;
   const checked = typeCheckedFiles(
-    service.hasTsConfig,
     service.seedFileNames,
-    service.scriptFileNames,
+    service.seedFileNames === null ? service.scriptFileNames : [],
     program,
   );
 

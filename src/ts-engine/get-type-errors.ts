@@ -2,7 +2,6 @@ import ts from "typescript";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { GetTypeErrorsResult, TypeDiagnostic } from "../operations/types.js";
 import { MAX_DIAGNOSTICS } from "../operations/types.js";
-import { findTsConfig } from "../utils/ts-project.js";
 import type { TsMorphEngine } from "./engine.js";
 import { typeCheckedFiles } from "./type-check-scope.js";
 
@@ -57,11 +56,12 @@ function tsGetTypeErrorsForProject(
   const ls = compiler.getLanguageServiceForDirectory(workspace);
   // Only a syntax-only service returns undefined here, and ts-morph never builds one.
   const program = ls.getProgram() as ts.Program;
-  const hasTsConfig = findTsConfig(workspace) !== null;
+  const seed = compiler.getSeedFilePaths(workspace);
+  // Only computed when there's no tsconfig to seed from — getProjectSourceFilePaths
+  // is O(project files) and typeCheckedFiles ignores it on the seeded branch.
   const checked = typeCheckedFiles(
-    hasTsConfig,
-    compiler.getSeedFilePaths(workspace),
-    compiler.getProjectSourceFilePaths(workspace),
+    seed,
+    seed === null ? compiler.getProjectSourceFilePaths(workspace) : [],
     program,
   );
   const allErrors: ts.Diagnostic[] = [];

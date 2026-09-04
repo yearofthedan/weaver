@@ -31,27 +31,40 @@ function makeTsFileDiagnostic(
   return { category, code, messageText, start, length: 1, file: sourceFile };
 }
 
-function makeMinimalService(
-  virtualPath: string,
-  realVuePath: string,
-  diagnostics: ts.Diagnostic[],
-): CachedService {
+/**
+ * Defaults every `CachedService` field to an inert, no-tsconfig shape so each
+ * call site only states what makes it different — a field neither state
+ * pastes into every factory nor a later override can silently drift from.
+ */
+function makeBaseCachedService(overrides: Partial<CachedService> = {}): CachedService {
   return {
-    baseService: {
-      getSemanticDiagnostics: () => diagnostics,
-      getProgram: () => ({ getSourceFile: () => ({}) }),
-    } as unknown as ts.LanguageService,
+    baseService: {} as unknown as ts.LanguageService,
     languageService: {} as unknown as CachedService["languageService"],
     fileContents: new Map(),
     language: {
       scripts: { get: () => undefined },
       maps: {} as unknown,
     } as unknown as CachedService["language"],
+    vueVirtualToReal: new Map(),
+    scriptFileNames: [],
+    seedFileNames: null,
+    ...overrides,
+  };
+}
+
+function makeMinimalService(
+  virtualPath: string,
+  realVuePath: string,
+  diagnostics: ts.Diagnostic[],
+): CachedService {
+  return makeBaseCachedService({
+    baseService: {
+      getSemanticDiagnostics: () => diagnostics,
+      getProgram: () => ({ getSourceFile: () => ({}) }),
+    } as unknown as ts.LanguageService,
     vueVirtualToReal: new Map([[virtualPath, realVuePath]]),
     scriptFileNames: [virtualPath],
-    seedFileNames: [virtualPath],
-    hasTsConfig: false,
-  };
+  });
 }
 
 /**
@@ -95,11 +108,10 @@ function makeServiceWithSourceMap(
     },
   };
 
-  return {
+  return makeBaseCachedService({
     baseService: {
       getSemanticDiagnostics: () => diagnostics,
     } as unknown as ts.LanguageService,
-    languageService: {} as unknown as CachedService["languageService"],
     fileContents: new Map([[realVuePath, realContent]]),
     language: {
       scripts: { get: (p: string) => (p === realVuePath ? sourceScript : undefined) },
@@ -107,9 +119,7 @@ function makeServiceWithSourceMap(
     } as unknown as CachedService["language"],
     vueVirtualToReal: new Map([[virtualPath, realVuePath]]),
     scriptFileNames: [virtualPath],
-    seedFileNames: [virtualPath],
-    hasTsConfig: false,
-  };
+  });
 }
 
 /**
@@ -144,9 +154,8 @@ function makeGreedyService(
       root: {},
     },
   };
-  return {
+  return makeBaseCachedService({
     baseService: { getSemanticDiagnostics: () => diagnostics } as unknown as ts.LanguageService,
-    languageService: {} as unknown as CachedService["languageService"],
     fileContents: new Map([[realVuePath, realContent]]),
     language: {
       scripts: { get: (p: string) => (p === realVuePath ? sourceScript : undefined) },
@@ -154,9 +163,7 @@ function makeGreedyService(
     } as unknown as CachedService["language"],
     vueVirtualToReal: new Map([[virtualPath, realVuePath]]),
     scriptFileNames: [virtualPath],
-    seedFileNames: [virtualPath],
-    hasTsConfig: false,
-  };
+  });
 }
 
 describe("vueGetTypeErrorsFromService", () => {
@@ -411,6 +418,9 @@ describe("vueGetTypeErrorsForProject", () => {
         getProgram: () => ({ getSourceFile: () => ({}) }),
       } as unknown as ts.LanguageService,
       scriptFileNames: [...Object.keys(tsDiagnosticsByFile), vue.virtualPath],
+      // No tsconfig: the checked set is the whole scriptFileNames walk, which must
+      // agree with the override above rather than the seed makeServiceWithSourceMap set.
+      seedFileNames: null,
     };
   }
 
