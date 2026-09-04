@@ -30,7 +30,7 @@ import type {
 /** Cache key for the project covering files with no tsconfig above them. */
 const NO_TSCONFIG_CACHE_KEY = "__no_tsconfig__";
 
-/** A cached project together with its tsconfig program's own file set (see `typeCheckedFiles`). */
+/** A cached project together with its seed — see `typeCheckedFiles` for the seed's contract. */
 interface ProjectEntry {
   project: Project;
   seed: Set<string>;
@@ -50,10 +50,9 @@ export class TsMorphEngine implements Engine {
 
   /**
    * Adds every workspace TS/JS file to `project` so cross-file operations
-   * (rename, find-references) reach files the tsconfig excludes. Returns the
-   * project's file set from *before* this addition — that's the tsconfig
-   * program's own scope, which `typeCheckedFiles` uses to keep project-wide
-   * diagnostics from following the walk.
+   * (rename, find-references) reach files the tsconfig excludes. Returns
+   * `project`'s file set from *before* this addition — the seed
+   * `typeCheckedFiles` closes over module resolution.
    */
   private addWorkspaceFiles(project: Project): Set<string> {
     const seed = new Set(project.getSourceFiles().map((sf) => sf.getFilePath() as string));
@@ -191,12 +190,7 @@ export class TsMorphEngine implements Engine {
     return project.getSourceFiles().map((sf) => sf.getFilePath() as string);
   }
 
-  /**
-   * Returns the tsconfig program's own file set for `workspace` — the files
-   * present before `addWorkspaceFiles` widened the project for cross-file
-   * operations — or `null` when there's no tsconfig. See `typeCheckedFiles`
-   * for how this is used.
-   */
+  /** Public accessor for the seed `addWorkspaceFiles` computed — `null` when there's no tsconfig. */
   getSeedFilePaths(workspace: string): string[] | null {
     const tsConfigPath = findTsConfig(workspace);
     if (tsConfigPath === null) return null;

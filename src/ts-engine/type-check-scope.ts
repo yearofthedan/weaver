@@ -51,12 +51,14 @@ function closeOverImports(roots: Iterable<string>, program: ts.Program): Set<str
  *
  * A tsconfig's own program — its `include`/`exclude` roots plus whatever
  * those files transitively import — is what a caller's build judges their
- * code against, so this closes `seedFiles` (the tsconfig program's roots,
- * resolved by the caller before its workspace walk runs) over `program`'s own
- * module resolution. Both engines also walk the whole workspace to widen the
- * reference graph for operations like rename; that walk is not a wider type
- * check. `seedFiles` is `null` when there is no tsconfig — no program to defer
- * to, so `walkedFiles` is the only file set there is.
+ * code against, so this closes `seedFiles` over `program`'s own module
+ * resolution. `seedFiles` is each caller's own snapshot of the files its
+ * build would type-check, taken before that caller's workspace walk widens
+ * the project for cross-file operations like rename — what exactly the
+ * snapshot holds is the caller's own contract (see `TsMorphEngine`'s
+ * `ProjectEntry.seed` and `CachedService.seedFileNames`). That walk is not a
+ * wider type check. `seedFiles` is `null` when there is no tsconfig — no
+ * program to defer to, so `walkedFiles` is the only file set there is.
  */
 export function typeCheckedFiles(
   seedFiles: Iterable<string> | null,

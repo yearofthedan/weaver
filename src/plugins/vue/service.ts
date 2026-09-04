@@ -29,10 +29,11 @@ export interface CachedService {
    */
   scriptFileNames: string[];
   /**
-   * The tsconfig program's own roots — `scriptFileNames` before the workspace
-   * walk widened it for cross-file operations like rename — or `null` when
-   * there's no tsconfig. `typeCheckedFiles` closes this over the program's
-   * own module resolution.
+   * The tsconfig's own files plus the on-disk `.vue` files `buildVolarService`
+   * adds even when the tsconfig doesn't list them (e.g. bundler-only Vue
+   * setups) — `scriptFileNames` before the workspace walk further widens it
+   * for cross-file operations like rename. `null` when there's no tsconfig.
+   * See `typeCheckedFiles` for the seed's general contract.
    */
   seedFileNames: string[] | null;
 }
@@ -180,9 +181,8 @@ export async function buildVolarService(
     if (!projectFiles.includes(f)) projectFiles.push(f);
   }
 
-  // Snapshot before the workspace walk below widens `projectFiles` — this is
-  // the tsconfig program's own scope, which `typeCheckedFiles` uses to keep
-  // project-wide diagnostics from following the walk.
+  // Snapshot before the workspace walk below widens `projectFiles` further —
+  // see `CachedService.seedFileNames` for what this snapshot holds.
   const seedFiles = [...projectFiles];
 
   // Include all workspace TS/JS files so test files and scripts outside

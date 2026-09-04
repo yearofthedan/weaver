@@ -619,8 +619,10 @@ describe("VolarEngine", () => {
       const dir = await seedNamedFixture(FIXTURES.vueProject.name);
       const outsideFile = path.join(dir, "tests/unit/counter.test.ts");
       // The workspace walk still adds this file to the language service, so the sibling tests
-      // above still find it for rename and find-references. A project-wide type check judges
-      // only the tsconfig's own scope, and nothing inside include imports this file.
+      // above still find it for rename and find-references. A project-wide type check follows
+      // the tsconfig program's own closure instead, and nothing inside include imports this
+      // file, so it's never pulled in — see the closure scenario in getTypeErrors.scenarios.yaml
+      // for a file that *is* imported from outside include and does get reported.
       fs.writeFileSync(outsideFile, "export const bad: number = 'not-a-number';\n");
       const p = new VolarEngine(new TsMorphEngine(dir), dir);
 
