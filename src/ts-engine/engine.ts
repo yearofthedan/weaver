@@ -164,8 +164,17 @@ export class TsMorphEngine implements Engine {
    * a directory rather than a file.
    */
   getLanguageServiceForDirectory(dirPath: string): ts.LanguageService {
-    const project = this.getProjectForDirectory(dirPath);
-    return project.getLanguageService().compilerObject;
+    return this.getLanguageServiceForConfig(findTsConfig(dirPath));
+  }
+
+  /**
+   * Same as `getLanguageServiceForDirectory`, but for a tsconfig path the caller already
+   * has (e.g. an explicit `tsconfig` request param) rather than one to discover — `null`
+   * for the no-tsconfig project. `loadProjectEntry` already caches by tsconfig path, so
+   * this needs no cache shape of its own.
+   */
+  getLanguageServiceForConfig(tsConfigPath: string | null): ts.LanguageService {
+    return this.loadProjectEntry(tsConfigPath).project.getLanguageService().compilerObject;
   }
 
   /**
@@ -176,8 +185,9 @@ export class TsMorphEngine implements Engine {
   async getTypeErrors(
     file: string | undefined,
     scope: WorkspaceScope,
+    tsConfigPath?: string,
   ): Promise<GetTypeErrorsResult> {
-    return tsGetTypeErrors(this, file, scope);
+    return tsGetTypeErrors(this, file, scope, tsConfigPath ?? null);
   }
 
   /**
@@ -186,13 +196,22 @@ export class TsMorphEngine implements Engine {
    * without holding a `Project` reference.
    */
   getProjectSourceFilePaths(workspace: string): string[] {
-    const project = this.getProjectForDirectory(workspace);
+    return this.getProjectSourceFilePathsForConfig(findTsConfig(workspace));
+  }
+
+  /** Same as `getProjectSourceFilePaths`, but for an explicit tsconfig path rather than a directory to discover one from. */
+  getProjectSourceFilePathsForConfig(tsConfigPath: string | null): string[] {
+    const project = this.loadProjectEntry(tsConfigPath).project;
     return project.getSourceFiles().map((sf) => sf.getFilePath() as string);
   }
 
   /** Public accessor for the seed `addWorkspaceFiles` computed — `null` when there's no tsconfig. */
   getSeedFilePaths(workspace: string): string[] | null {
-    const tsConfigPath = findTsConfig(workspace);
+    return this.getSeedFilePathsForConfig(findTsConfig(workspace));
+  }
+
+  /** Same as `getSeedFilePaths`, but for an explicit tsconfig path rather than a directory to discover one from. */
+  getSeedFilePathsForConfig(tsConfigPath: string | null): string[] | null {
     if (tsConfigPath === null) return null;
     return [...this.loadProjectEntry(tsConfigPath).seed];
   }

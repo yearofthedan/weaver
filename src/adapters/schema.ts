@@ -154,13 +154,25 @@ export const ReplaceTextBaseSchema = z.object({
     .describe("When false, skip the post-write type check; defaults to on"),
 });
 
-export const GetTypeErrorsArgsSchema = z.object({
+export const GetTypeErrorsBaseSchema = z.object({
   file: z
     .string()
     .min(1, "file path must not be empty")
     .optional()
     .describe("Absolute path to a single .ts/.tsx file to check (omit to check the whole project)"),
+  tsconfig: z
+    .string()
+    .min(1, "tsconfig path must not be empty")
+    .optional()
+    .describe(
+      "Absolute path, or a path relative to the workspace root, of the tsconfig.json to answer for (omit to use the tsconfig discovered from the workspace root). Mutually exclusive with file.",
+    ),
 });
+
+export const GetTypeErrorsArgsSchema = GetTypeErrorsBaseSchema.refine(
+  (d) => !(d.file !== undefined && d.tsconfig !== undefined),
+  { message: "Provide either 'file' or 'tsconfig', not both" },
+);
 
 export const DeleteFileArgsSchema = z.object({
   file: z

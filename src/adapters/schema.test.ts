@@ -6,6 +6,7 @@ import {
   FindReferencesArgsSchema,
   GetDefinitionArgsSchema,
   GetTypeErrorsArgsSchema,
+  GetTypeErrorsBaseSchema,
   MoveArgsSchema,
   MoveDirectoryArgsSchema,
   MoveSymbolArgsSchema,
@@ -165,10 +166,16 @@ describe("schema parameter descriptions", () => {
     });
   });
 
-  describe("GetTypeErrorsArgsSchema", () => {
+  describe("GetTypeErrorsBaseSchema", () => {
     it("file optional field carries its description", () => {
-      expect(GetTypeErrorsArgsSchema.shape.file.description).toContain(
+      expect(GetTypeErrorsBaseSchema.shape.file.description).toContain(
         "Absolute path to a single .ts/.tsx file",
+      );
+    });
+
+    it("tsconfig optional field carries its description", () => {
+      expect(GetTypeErrorsBaseSchema.shape.tsconfig.description).toContain(
+        "Absolute path, or a path relative to the workspace root, of the tsconfig.json",
       );
     });
   });
@@ -394,6 +401,33 @@ describe("schema validation", () => {
         excludeGlob: "docs/**",
       });
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe("GetTypeErrorsArgsSchema (file/tsconfig mutual exclusion)", () => {
+    it("accepts neither file nor tsconfig", () => {
+      expect(GetTypeErrorsArgsSchema.safeParse({}).success).toBe(true);
+    });
+
+    it("accepts file alone", () => {
+      expect(GetTypeErrorsArgsSchema.safeParse({ file: "/a.ts" }).success).toBe(true);
+    });
+
+    it("accepts tsconfig alone", () => {
+      expect(GetTypeErrorsArgsSchema.safeParse({ tsconfig: "tsconfig.json" }).success).toBe(true);
+    });
+
+    it("rejects file and tsconfig together, naming both in the issue", () => {
+      const result = GetTypeErrorsArgsSchema.safeParse({
+        file: "/a.ts",
+        tsconfig: "tsconfig.json",
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toBe(
+          "Provide either 'file' or 'tsconfig', not both",
+        );
+      }
     });
   });
 });

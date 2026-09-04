@@ -53,14 +53,16 @@ function tsGetTypeErrorsForFile(compiler: TsMorphEngine, absPath: string): GetTy
 function tsGetTypeErrorsForProject(
   compiler: TsMorphEngine,
   workspace: string,
+  explicitTsConfig: string | null,
 ): GetTypeErrorsResult {
-  const ls = compiler.getLanguageServiceForDirectory(workspace);
+  const tsConfigPath = explicitTsConfig ?? findTsConfig(workspace);
+  const ls = compiler.getLanguageServiceForConfig(tsConfigPath);
   // Only a syntax-only service returns undefined here, and ts-morph never builds one.
   const program = ls.getProgram() as ts.Program;
-  const seed = compiler.getSeedFilePaths(workspace);
+  const seed = compiler.getSeedFilePathsForConfig(tsConfigPath);
   // The full walked set is needed regardless of seed now — describeCheckedScope compares
   // it against the closure to report what a tsconfig-scoped check left out.
-  const walked = compiler.getProjectSourceFilePaths(workspace);
+  const walked = compiler.getProjectSourceFilePathsForConfig(tsConfigPath);
   const checked = typeCheckedFiles(seed, seed === null ? walked : [], program);
   const allErrors: ts.Diagnostic[] = [];
   for (const filePath of checked) {
@@ -72,7 +74,7 @@ function tsGetTypeErrorsForProject(
   }
   return {
     ...capDiagnostics(allErrors),
-    ...describeCheckedScope(checked, walked, findTsConfig(workspace), workspace),
+    ...describeCheckedScope(checked, walked, tsConfigPath, workspace),
   };
 }
 
@@ -80,9 +82,10 @@ export function tsGetTypeErrors(
   compiler: TsMorphEngine,
   file: string | undefined,
   scope: WorkspaceScope,
+  explicitTsConfig: string | null = null,
 ): GetTypeErrorsResult {
   if (file !== undefined) {
     return tsGetTypeErrorsForFile(compiler, file);
   }
-  return tsGetTypeErrorsForProject(compiler, scope.root);
+  return tsGetTypeErrorsForProject(compiler, scope.root, explicitTsConfig);
 }

@@ -58,11 +58,13 @@ interface OperationDescriptor {
   /** Param keys that hold file paths requiring workspace validation. */
   pathParams: string[];
   /**
-   * When `pathParams` is empty, use `params.file` (if present) to select the compiler
-   * engine/project instead of the workspace root. Only operations with an optional `file`
-   * param that isn't itself a path param need this.
+   * Name of a param that, when present, names a tsconfig directly rather than a file to
+   * discover one from — engine selection must consult it as-is instead of walking up from
+   * `pathParams[0]`. Only `getTypeErrors`'s `tsconfig` needs this today; it also must exist
+   * (and not be a directory) before it's handed to engine selection, since that's a raw
+   * filesystem read rather than a discovery walk that tolerates a miss.
    */
-  usesFileForRegistry?: boolean;
+  tsConfigParam?: string;
   /** Zod schema used to validate incoming params at the socket boundary. */
   schema: {
     safeParse(
@@ -208,14 +210,14 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
   },
 
   getTypeErrors: {
-    pathParams: [],
-    usesFileForRegistry: true,
+    pathParams: ["file", "tsconfig"],
+    tsConfigParam: "tsconfig",
     schema: GetTypeErrorsArgsSchema,
     async invoke(registry, params, workspace) {
-      const { file } = params as { file?: string };
+      const { file, tsconfig } = params as { file?: string; tsconfig?: string };
       const engine = await registry.projectEngine();
       const scope = new WorkspaceScope(workspace, defaultFs);
-      return getTypeErrors(engine, file, scope);
+      return getTypeErrors(engine, file, scope, tsconfig);
     },
   },
 
@@ -351,7 +353,11 @@ export async function dispatchRequest(
     }
 
     for (const paramKey of descriptor.pathParams) {
-      const value = req.params[paramKey] as string;
+      const value = req.params[paramKey] as string | undefined;
+      // Every current caller of this operation supplies every pathParam it declares, except
+      // getTypeErrors's `file`/`tsconfig` — both optional, and mutually exclusive with each
+      // other, so either (or neither) can be absent from a given request.
+      if (value === undefined) continue;
       const pathResult = validateFilePath(value);
       if (!pathResult.ok) {
         return {
@@ -372,15 +378,29 @@ export async function dispatchRequest(
       }
     }
 
+    const explicitTsConfig =
+      descriptor.tsConfigParam && typeof req.params[descriptor.tsConfigParam] === "string"
+        ? (req.params[descriptor.tsConfigParam] as string)
+        : undefined;
+
+    if (explicitTsConfig !== undefined) {
+      // Engine selection reads this path directly (isVueProject), unlike the discovery
+      // routes above it doesn't tolerate a miss — checked here, before that read, so a
+      // missing or directory tsconfig comes back as FILE_NOT_FOUND rather than whatever
+      // ts-morph/TypeScript does when handed a path that isn't a file.
+      if (!defaultFs.exists(explicitTsConfig) || defaultFs.stat(explicitTsConfig).isDirectory()) {
+        return {
+          status: "error" as const,
+          error: "FILE_NOT_FOUND",
+          message: `tsconfig not found: ${explicitTsConfig}`,
+        };
+      }
+    }
+
     const registry =
       descriptor.pathParams.length > 0
-        ? makeRegistry(req.params[descriptor.pathParams[0]] as string, workspace)
-        : makeRegistry(
-            descriptor.usesFileForRegistry && typeof req.params.file === "string"
-              ? req.params.file
-              : undefined,
-            workspace,
-          );
+        ? makeRegistry(req.params[descriptor.pathParams[0]] as string, workspace, explicitTsConfig)
+        : makeRegistry(undefined, workspace, explicitTsConfig);
 
     const result = (await descriptor.invoke(registry, parsed.data, workspace)) as Record<
       string,

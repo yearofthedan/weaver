@@ -47,11 +47,22 @@ export function clearLanguagePlugins(): void {
  * `workspaceRoot` itself via `findTsConfig` — `findTsConfigForFile` assumes its argument
  * is a file and strips a directory level, so passing it a directory (or the workspace root
  * standing in for "no file") searches one level too high and can miss the tsconfig.
+ *
+ * `explicitTsConfig`, when given, names the tsconfig to select the engine for directly —
+ * it wins over both the `filePath` and `workspaceRoot` discovery routes, since a caller
+ * that named a tsconfig (e.g. `getTypeErrors`'s `tsconfig` param) wants *that* config's
+ * engine, not whatever the workspace root happens to discover.
  */
-export function makeRegistry(filePath: string | undefined, workspaceRoot: string): EngineRegistry {
+export function makeRegistry(
+  filePath: string | undefined,
+  workspaceRoot: string,
+  explicitTsConfig?: string,
+): EngineRegistry {
   return {
     async projectEngine(): Promise<Engine> {
-      const tsConfigPath = filePath ? findTsConfigForFile(filePath) : findTsConfig(workspaceRoot);
+      const tsConfigPath =
+        explicitTsConfig ??
+        (filePath ? findTsConfigForFile(filePath) : findTsConfig(workspaceRoot));
       if (tsConfigPath) {
         for (const plugin of languagePlugins) {
           if (plugin.supportsProject(tsConfigPath)) {

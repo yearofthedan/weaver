@@ -8,6 +8,7 @@ export async function getTypeErrors(
   engine: Engine,
   file: string | undefined,
   scope: WorkspaceScope,
+  tsconfig?: string,
 ): Promise<GetTypeErrorsResult> {
   if (file !== undefined) {
     const absPath = path.resolve(file);
@@ -19,5 +20,8 @@ export async function getTypeErrors(
     }
     return engine.getTypeErrors(absPath, scope);
   }
-  return engine.getTypeErrors(undefined, scope);
+  // tsconfig's own existence and workspace boundary are validated by the dispatcher
+  // before engine selection (see dispatchRequest's tsConfigParam handling) — engine
+  // selection reads the path directly, so it can't tolerate a miss the way discovery can.
+  return engine.getTypeErrors(undefined, scope, tsconfig ? path.resolve(tsconfig) : undefined);
 }

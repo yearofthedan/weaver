@@ -120,11 +120,17 @@ export interface Engine {
    *
    * When `file` is provided it must be an absolute path that already exists and
    * is within the workspace (validated by the operation layer). When `file` is
-   * `undefined` all files in the project graph are checked.
+   * `undefined` all files in the project graph are checked, scoped to `tsConfigPath`
+   * when given (an absolute path, already validated by the dispatcher) or otherwise
+   * to the tsconfig discovered from `scope.root`.
    *
    * Results are capped at `MAX_DIAGNOSTICS`; `errorCount` reflects the true total.
    */
-  getTypeErrors(file: string | undefined, scope: WorkspaceScope): Promise<GetTypeErrorsResult>;
+  getTypeErrors(
+    file: string | undefined,
+    scope: WorkspaceScope,
+    tsConfigPath?: string,
+  ): Promise<GetTypeErrorsResult>;
 
   /**
    * Ensure the engine's cached state for `path` reflects its current on-disk

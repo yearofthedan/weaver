@@ -63,11 +63,18 @@ export class VolarEngine implements Engine {
   // daemon process, so `this.workspaceRoot` reflects whatever workspace first constructed it.
   // In production that never differs (one daemon per workspace), but the two are not the same
   // thing, and only `root` is guaranteed current.
+  //
+  // `explicitTsConfig`, when given, names the tsconfig to build the service for directly —
+  // it wins over both discovery routes, for the same reason as `makeRegistry`'s parameter of
+  // the same name: a caller that named a tsconfig (e.g. `getTypeErrors`'s `tsconfig` param)
+  // wants that config's own service, not whichever one discovery would have found.
   private async getService(
     filePath: string | undefined,
     root: string = this.workspaceRoot,
+    explicitTsConfig?: string,
   ): Promise<CachedService> {
-    const tsConfigPath = filePath ? findTsConfigForFile(filePath) : findTsConfig(root);
+    const tsConfigPath =
+      explicitTsConfig ?? (filePath ? findTsConfigForFile(filePath) : findTsConfig(root));
     const cacheKey = this.cacheKey(tsConfigPath, filePath, root);
 
     let cached = this.services.get(cacheKey);
@@ -410,6 +417,7 @@ export class VolarEngine implements Engine {
   async getTypeErrors(
     file: string | undefined,
     scope: WorkspaceScope,
+    tsConfigPath?: string,
   ): Promise<GetTypeErrorsResult> {
     if (file !== undefined) {
       if (file.endsWith(".vue")) {
@@ -421,10 +429,13 @@ export class VolarEngine implements Engine {
     }
     // Project-wide, answered entirely by the Volar service (both file kinds).
     // Root comes from the request's scope, not this.workspaceRoot — see
-    // getService's doc comment for why that distinction matters.
+    // getService's doc comment for why that distinction matters. tsConfigPath, when
+    // given, is the caller's own named config — see getService's doc comment on
+    // explicitTsConfig for why it wins over discovery from scope.root.
+    const resolvedTsConfig = tsConfigPath ?? findTsConfig(scope.root);
     return vueGetTypeErrorsForProject(
-      (f) => this.getService(f, scope.root),
-      findTsConfig(scope.root),
+      (f) => this.getService(f, scope.root, tsConfigPath),
+      resolvedTsConfig,
       scope.root,
     );
   }
