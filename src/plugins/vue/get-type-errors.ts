@@ -110,12 +110,14 @@ export async function vueGetTypeErrorsForTsFile(
  * Project-wide type errors for a Vue project, answered entirely by the Volar
  * service: `.vue` files through `vueGetTypeErrorsFromService`, everything else
  * through `baseService` directly (no source-map translation needed — see
- * `vueGetTypeErrorsForTsFile`). `.vue` files need no scope filtering here — the
- * workspace walk only ever adds TS/JS files, so every `.vue` entry the service
- * knows about already came from the tsconfig program or the on-disk SFC scan,
- * never from the walk. The plain-`.ts`/`.js` set does need filtering: it
- * follows the same `typeCheckedFiles` rule `TsMorphEngine` uses, so a
- * project-wide check reports the same files whichever engine answers it.
+ * `vueGetTypeErrorsForTsFile`). The plain-`.ts`/`.js` set walks `typeCheckedFiles`'
+ * closure directly rather than filtering `service.scriptFileNames` — the closure
+ * can reach a file the workspace walk never added (e.g. a `node_modules`
+ * dependency's own `.d.ts`, when `skipLibCheck` is off), and filtering a set that
+ * never contained it would silently drop it. `.vue` entries surfaced by the
+ * closure are skipped here: every `.vue` entry the service knows about already
+ * came from the tsconfig program or the on-disk SFC scan, and is handled by
+ * `vueGetTypeErrorsFromService` instead.
  */
 export async function vueGetTypeErrorsForProject(
   getService: (file: undefined) => Promise<CachedService>,
@@ -132,11 +134,10 @@ export async function vueGetTypeErrorsForProject(
   );
 
   const errors: ts.Diagnostic[] = [];
-  for (const fileName of service.scriptFileNames) {
+  for (const fileName of checked) {
     // .vue entries are virtual (`Foo.vue.ts`) and handled below, where their
     // offsets are mapped back through the source map to the real .vue file.
     if (service.vueVirtualToReal.has(fileName)) continue;
-    if (!checked.has(fileName)) continue;
     // getSemanticDiagnostics throws for a path outside the compiled program, and the
     // workspace walk deliberately adds files the program excludes (.js with allowJs
     // unset) so that a move can still repoint their imports.

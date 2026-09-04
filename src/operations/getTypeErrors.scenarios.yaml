@@ -133,6 +133,106 @@ scenarios:
             code: 2322
             message: "Type 'string' is not assignable to type 'number'."
 
+  - name: a project-wide check reports an error in a dependency's own type declarations when skipLibCheck is off
+    description: >
+      badpkg ships a .d.ts with its own type error. tsc -p tsconfig.json checks it because
+      skipLibCheck is false, and the closure walk reaches it through main.ts's import even
+      though node_modules sits outside the workspace walk that widens the project for
+      rename/find-references — pins that project-wide diagnostics follow the compiler's own
+      module resolution, not the walk.
+    given:
+      description: >
+        a tsconfig with skipLibCheck off, and a workspace file importing a dependency whose
+        own .d.ts has a type error
+      files:
+        tsconfig.json: |
+          {
+            "compilerOptions": { "strict": true, "skipLibCheck": false },
+            "include": ["src"]
+          }
+        node_modules/badpkg/package.json: |
+          {"name":"badpkg","version":"1.0.0","types":"index.d.ts"}
+        node_modules/badpkg/index.d.ts: |
+          export declare const fromDependency: number = "SENTINEL";
+        src/main.ts: |
+          import { fromDependency } from "badpkg";
+
+          console.log(fromDependency);
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 2
+        truncated: false
+        diagnostics:
+          - file: node_modules/badpkg/index.d.ts
+            line: 1
+            col: 22
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+          - file: node_modules/badpkg/index.d.ts
+            line: 1
+            col: 47
+            code: 1039
+            message: "Initializers are not allowed in ambient contexts."
+
+  - name: a Vue project-wide check reports an error in a dependency's own type declarations when skipLibCheck is off
+    description: >
+      Same shape as the ts-morph dependency scenario above, but on a Vue project — pins that
+      the Vue engine's closure walk reaches node_modules the same way the ts-morph engine's
+      does, rather than only visiting the files the workspace walk already found.
+    given:
+      description: >
+        a Vue tsconfig with skipLibCheck off, and a workspace file importing a dependency
+        whose own .d.ts has a type error
+      files:
+        tsconfig.json: |
+          {
+            "compilerOptions": {
+              "strict": true,
+              "skipLibCheck": false,
+              "target": "ESNext",
+              "module": "ESNext",
+              "moduleResolution": "bundler",
+              "jsx": "preserve"
+            },
+            "include": ["src/**/*.ts", "src/**/*.vue"]
+          }
+        node_modules/badpkg/package.json: |
+          {"name":"badpkg","version":"1.0.0","types":"index.d.ts"}
+        node_modules/badpkg/index.d.ts: |
+          export declare const fromDependency: number = "SENTINEL";
+        src/App.vue: |
+          <script setup lang="ts">
+          </script>
+
+          <template>
+            <div>App</div>
+          </template>
+        src/main.ts: |
+          import { fromDependency } from "badpkg";
+
+          console.log(fromDependency);
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 2
+        truncated: false
+        diagnostics:
+          - file: node_modules/badpkg/index.d.ts
+            line: 1
+            col: 22
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+          - file: node_modules/badpkg/index.d.ts
+            line: 1
+            col: 47
+            code: 1039
+            message: "Initializers are not allowed in ambient contexts."
+
   - name: a project-wide check on a Vue workspace reports only the SFC error, not one outside include
     given:
       description: >

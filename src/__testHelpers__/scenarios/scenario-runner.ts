@@ -43,9 +43,22 @@ function seed(root: string, files: Record<string, string>): void {
   }
 }
 
-/** Rewrite the temp root out of every path the response carries, at any depth. */
+/**
+ * Rewrite the temp root out of every path the response carries, at any depth.
+ *
+ * A resolved module path (e.g. a `node_modules` package reached through TypeScript's own
+ * module resolution, which realpaths what it finds) can come back under the *resolved* form
+ * of a symlinked temp dir — `/private/var/folders/...` rather than the `/var/folders/...`
+ * `os.tmpdir()` hands back on macOS — so both forms of the root are stripped.
+ */
 function scrubRoot(root: string, value: DispatchResponse): unknown {
-  return JSON.parse(JSON.stringify(value).split(`${root}/`).join(""));
+  const realRoot = fs.realpathSync(root);
+  // Strip the resolved form first: it contains the unresolved form as a substring
+  // whenever the two differ, so stripping in the other order leaves a dangling
+  // "/private" (or equivalent) prefix behind instead of removing it.
+  return JSON.parse(
+    JSON.stringify(value).split(`${realRoot}/`).join("").split(`${root}/`).join(""),
+  );
 }
 
 export async function executeScenario(
