@@ -2,7 +2,9 @@ import ts from "typescript";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { GetTypeErrorsResult, TypeDiagnostic } from "../operations/types.js";
 import { MAX_DIAGNOSTICS } from "../operations/types.js";
+import { findTsConfig } from "../utils/ts-project.js";
 import type { TsMorphEngine } from "./engine.js";
+import { typeCheckedFiles } from "./type-check-scope.js";
 
 export function extractDiagnosticMessage(messageText: string | ts.DiagnosticMessageChain): string {
   return typeof messageText === "string" ? messageText : messageText.messageText;
@@ -55,8 +57,14 @@ function tsGetTypeErrorsForProject(
   const ls = compiler.getLanguageServiceForDirectory(workspace);
   // Only a syntax-only service returns undefined here, and ts-morph never builds one.
   const program = ls.getProgram() as ts.Program;
+  const hasTsConfig = findTsConfig(workspace) !== null;
+  const checked = typeCheckedFiles(
+    hasTsConfig,
+    compiler.getSeedFilePaths(workspace),
+    compiler.getProjectSourceFilePaths(workspace),
+  );
   const allErrors: ts.Diagnostic[] = [];
-  for (const filePath of compiler.getProjectSourceFilePaths(workspace)) {
+  for (const filePath of checked) {
     // getSemanticDiagnostics throws for a path outside the compiled program, and
     // addWorkspaceFiles deliberately adds files the program excludes (.js with allowJs unset)
     // so that a move can still repoint their imports.

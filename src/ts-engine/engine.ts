@@ -29,15 +29,24 @@ import type {
 
 export class TsMorphEngine implements Engine {
   private projects = new Map<string, Project>();
+  private seedFilesByCacheKey = new Map<string, Set<string>>();
   private workspaceRoot: string;
 
   constructor(workspaceRoot = "") {
     this.workspaceRoot = workspaceRoot;
   }
 
-  private addWorkspaceFiles(project: Project): void {
-    if (!this.workspaceRoot) return;
+  /**
+   * Adds every workspace TS/JS file to `project` so cross-file operations
+   * (rename, find-references) reach files the tsconfig excludes. Records the
+   * project's file set *before* this addition under `cacheKey` — that's the
+   * tsconfig program's own scope, which `typeCheckedFiles` uses to keep
+   * project-wide diagnostics from following the walk.
+   */
+  private addWorkspaceFiles(project: Project, cacheKey: string): void {
     const existing = new Set(project.getSourceFiles().map((sf) => sf.getFilePath() as string));
+    this.seedFilesByCacheKey.set(cacheKey, existing);
+    if (!this.workspaceRoot) return;
     for (const file of walkFiles(this.workspaceRoot, [...TS_EXTENSIONS])) {
       if (!existing.has(file)) {
         project.addSourceFileAtPath(file);
@@ -68,7 +77,7 @@ export class TsMorphEngine implements Engine {
       } else {
         project = new Project({ useInMemoryFileSystem: false });
       }
-      this.addWorkspaceFiles(project);
+      this.addWorkspaceFiles(project, cacheKey);
       this.projects.set(cacheKey, project);
     }
     return project;
@@ -97,7 +106,7 @@ export class TsMorphEngine implements Engine {
       } else {
         project = new Project({ useInMemoryFileSystem: false });
       }
-      this.addWorkspaceFiles(project);
+      this.addWorkspaceFiles(project, cacheKey);
       this.projects.set(cacheKey, project);
     }
     return project;
@@ -185,6 +194,18 @@ export class TsMorphEngine implements Engine {
   getProjectSourceFilePaths(workspace: string): string[] {
     const project = this.getProjectForDirectory(workspace);
     return project.getSourceFiles().map((sf) => sf.getFilePath() as string);
+  }
+
+  /**
+   * Returns the tsconfig program's own file set for `workspace` — the files
+   * present before `addWorkspaceFiles` widened the project for cross-file
+   * operations. See `typeCheckedFiles` for how this is used.
+   */
+  getSeedFilePaths(workspace: string): string[] {
+    const tsConfigPath = findTsConfig(workspace);
+    const cacheKey = tsConfigPath ?? "__no_tsconfig__";
+    this.getProjectForDirectory(workspace); // ensures the project (and its seed) is populated
+    return [...(this.seedFilesByCacheKey.get(cacheKey) ?? [])];
   }
 
   /**

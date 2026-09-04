@@ -1,0 +1,29 @@
+# Fixtures name the one axis each scenario turns on: which files a tsconfig's
+# include/exclude puts in or out of a project-wide type check.
+fixtures:
+  a-scoped-ts-project:
+    description: >
+      A tsconfig scoping to src, a clean file inside it, and a type error in a test file
+      the tsconfig excludes.
+    files:
+      tsconfig.json: |
+        {
+          "compilerOptions": { "strict": true },
+          "include": ["src"]
+        }
+      src/ok.ts: |
+        export const value: number = 1;
+      tests/broken.test.ts: |
+        const broken: number = "not a number";
+
+scenarios:
+  - name: a project-wide check reports nothing for an error outside the tsconfig's include
+    given: a-scoped-ts-project
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 0
+        diagnostics: []
+        truncated: false
