@@ -119,14 +119,15 @@ export async function vueGetTypeErrorsForTsFile(
  * came from the tsconfig program or the on-disk SFC scan, and is handled by
  * `vueGetTypeErrorsFromService` instead.
  *
- * `tsConfigPath`/`workspaceRoot` default to values that report an empty scope: production
- * always supplies the request's own values (`VolarEngine.getTypeErrors`), and the defaults
- * only matter to a caller that doesn't care about the `checked`/`unchecked` fields at all.
+ * `tsConfigPath`/`workspaceRoot` are always the request's own values (`VolarEngine.getTypeErrors`
+ * supplies both) — `tsConfigPath: null` is how the response reports "this workspace has no
+ * tsconfig", so a default here would be indistinguishable from that real state and a caller
+ * that omitted the argument would get a plausible wrong answer instead of a compile error.
  */
 export async function vueGetTypeErrorsForProject(
   getService: (file: undefined) => Promise<CachedService>,
-  tsConfigPath: string | null = null,
-  workspaceRoot = "",
+  tsConfigPath: string | null,
+  workspaceRoot: string,
 ): Promise<GetTypeErrorsResult> {
   const service = await getService(undefined);
 

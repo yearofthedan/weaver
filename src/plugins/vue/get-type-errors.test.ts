@@ -459,7 +459,7 @@ describe("vueGetTypeErrorsForProject", () => {
         realContent: "x".repeat(vueCount + 1),
       });
 
-      const result = await vueGetTypeErrorsForProject(async () => service);
+      const result = await vueGetTypeErrorsForProject(async () => service, null, "/project");
 
       expect(result.truncated).toBe(truncated);
       expect(result.diagnostics).toHaveLength(Math.min(total, MAX_DIAGNOSTICS));
@@ -492,7 +492,7 @@ describe("vueGetTypeErrorsForProject", () => {
       },
     );
 
-    const result = await vueGetTypeErrorsForProject(async () => service);
+    const result = await vueGetTypeErrorsForProject(async () => service, null, "/project");
 
     expect(result.errorCount).toBe(2);
     expect(result.diagnostics).toHaveLength(2);
@@ -504,7 +504,7 @@ describe("vueGetTypeErrorsForProject", () => {
     const service = makeMinimalService("/project/Unused.vue.ts", "/project/Unused.vue", []);
     const getService = vi.fn().mockResolvedValue({ ...service, scriptFileNames: [] });
 
-    await vueGetTypeErrorsForProject(getService);
+    await vueGetTypeErrorsForProject(getService, null, "/project");
 
     expect(getService).toHaveBeenCalledWith(undefined);
   });
