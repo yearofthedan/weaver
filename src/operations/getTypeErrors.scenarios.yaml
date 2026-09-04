@@ -16,6 +16,24 @@ fixtures:
       tests/broken.test.ts: |
         const broken: number = "not a number";
 
+  a-vue-scoped-project:
+    description: >
+      A Vue tsconfig scoping to src (.ts and .vue), with skipLibCheck off so a dependency's
+      own type declarations get checked the way tsc checks them.
+    files:
+      tsconfig.json: |
+        {
+          "compilerOptions": {
+            "strict": true,
+            "skipLibCheck": false,
+            "target": "ESNext",
+            "module": "ESNext",
+            "moduleResolution": "bundler",
+            "jsx": "preserve"
+          },
+          "include": ["src/**/*.ts", "src/**/*.vue"]
+        }
+
 scenarios:
   - name: a project-wide check reports nothing for an error outside the tsconfig's include
     given: a-scoped-ts-project
@@ -35,12 +53,8 @@ scenarios:
       resolution rather than a plain filter to include's raw file list, which would silently miss it.
     given:
       description: a tsconfig scoping to src, whose only file imports a broken sibling outside that scope
+      extends: a-scoped-ts-project
       files:
-        tsconfig.json: |
-          {
-            "compilerOptions": { "strict": true },
-            "include": ["src"]
-          }
         src/main.ts: |
           import { broken } from "../lib/helper";
 
@@ -94,18 +108,8 @@ scenarios:
       description: >
         a Vue tsconfig scoping to src, with an SFC, and a .ts file that imports a broken sibling
         outside that scope
+      extends: a-vue-scoped-project
       files:
-        tsconfig.json: |
-          {
-            "compilerOptions": {
-              "strict": true,
-              "target": "ESNext",
-              "module": "ESNext",
-              "moduleResolution": "bundler",
-              "jsx": "preserve"
-            },
-            "include": ["src/**/*.ts", "src/**/*.vue"]
-          }
         src/App.vue: |
           <script setup lang="ts">
           </script>
@@ -186,19 +190,8 @@ scenarios:
       description: >
         a Vue tsconfig with skipLibCheck off, and a workspace file importing a dependency
         whose own .d.ts has a type error
+      extends: a-vue-scoped-project
       files:
-        tsconfig.json: |
-          {
-            "compilerOptions": {
-              "strict": true,
-              "skipLibCheck": false,
-              "target": "ESNext",
-              "module": "ESNext",
-              "moduleResolution": "bundler",
-              "jsx": "preserve"
-            },
-            "include": ["src/**/*.ts", "src/**/*.vue"]
-          }
         node_modules/badpkg/package.json: |
           {"name":"badpkg","version":"1.0.0","types":"index.d.ts"}
         node_modules/badpkg/index.d.ts: |

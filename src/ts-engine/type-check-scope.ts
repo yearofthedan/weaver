@@ -29,7 +29,8 @@ function closeOverImports(roots: Iterable<string>, program: ts.Program): Set<str
   const closed = new Set<string>();
   const pending = [...roots];
   while (pending.length > 0) {
-    const filePath = pending.pop() as string;
+    // biome-ignore lint/style/noNonNullAssertion: guarded by the length check above
+    const filePath = pending.pop()!;
     if (closed.has(filePath)) continue;
     closed.add(filePath);
     const sourceFile = program.getSourceFile(filePath) as SourceFileWithImports | undefined;

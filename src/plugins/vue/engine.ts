@@ -36,7 +36,7 @@ import {
   updateVueImportsAfterSymbolMove,
   vueScriptsReferencingSymbol,
 } from "./scan.js";
-import { buildVolarService, type CachedService } from "./service.js";
+import { buildVolarService, type CachedService, toVirtualVuePath } from "./service.js";
 
 export class VolarEngine implements Engine {
   private services = new Map<string, CachedService>();
@@ -191,7 +191,7 @@ export class VolarEngine implements Engine {
 
     // For .vue targets, query the virtual .vue.ts path so the TS language
     // service can find references to it in both .ts and .vue files.
-    const queryPath = file.endsWith(".vue") ? `${file}.ts` : file;
+    const queryPath = toVirtualVuePath(file);
 
     const refs = service.baseService.getFileReferences(queryPath);
     if (!refs || refs.length === 0) return null;

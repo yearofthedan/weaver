@@ -13,6 +13,11 @@ type VolarLanguageService = Pick<
   | "getEditsForFileRename"
 >;
 
+/** A `.vue` file's virtual name in the language service — every other path is unchanged. */
+export function toVirtualVuePath(filePath: string): string {
+  return filePath.endsWith(".vue") ? `${filePath}.ts` : filePath;
+}
+
 export interface CachedService {
   languageService: VolarLanguageService;
   /** The raw TypeScript language service (pre-Volar proxy). Use for APIs not exposed by the proxy (e.g. getFileReferences). */
@@ -238,9 +243,8 @@ export async function buildVolarService(
   }
 
   // Replace .vue entries with their virtual .vue.ts equivalents.
-  const scriptFileNames = projectFiles.map((f) => (f.endsWith(".vue") ? `${f}.ts` : f));
-  const seedFileNames =
-    tsConfigPath === null ? null : seedFiles.map((f) => (f.endsWith(".vue") ? `${f}.ts` : f));
+  const scriptFileNames = projectFiles.map(toVirtualVuePath);
+  const seedFileNames = tsConfigPath === null ? null : seedFiles.map(toVirtualVuePath);
 
   const host = buildLanguageServiceHost({
     compilerOptions,
