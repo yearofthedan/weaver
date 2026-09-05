@@ -46,20 +46,26 @@ depending on whether a `.vue` file happens to exist in the workspace.
 
 ## Value / Effort
 
-- **Value:** A false clean is the worst output this command has. An agent reads
-  `errorCount: 0` as "my change is type-safe" and there is nothing in the
-  response to contradict it — the same reasoning that put `checked`/`unchecked`
-  into the response shape. It reaches every diagnostic path in a non-Vue
-  project: project-wide `get-type-errors`, single-file `get-type-errors`, and
-  the post-write check `getTypeErrorsForFiles` runs over `filesModified` after
-  every refactor. `"type": "module"` with `module: NodeNext` is the default
-  shape for a modern Node TypeScript package, so this is the common case, not
-  an exotic one. There is no workaround from the caller's side — no parameter
-  changes it.
-- **Effort:** The cause is pinned to a single line in a dependency weaver does
-  not control, and `ProjectOptions` exposes no hook to override it (see Root
-  cause). Every route is therefore either a workaround inside weaver or an
-  upstream change, with materially different risk. This needs design.
+- **Value:** The defect reaches every diagnostic path in a non-Vue project, but
+  the three are not worth the same. Standalone `get-type-errors` competes with
+  `npx tsc --noEmit`, which is free, universal and correct by definition — a
+  wrong answer there is weaker than an alternative the caller already has.
+  **The post-write check is where this costs something.** `getTypeErrorsForFiles`
+  runs over `filesModified` after every refactor and reports whether the files
+  weaver just rewrote still typecheck; the caller has no substitute for it,
+  because its value is that it is attached to the operation and scoped to what
+  changed. A false clean there means weaver rewrote a project's imports and
+  reported that nothing broke, wrongly — a lie about the one thing weaver
+  exists to do. `"type": "module"` with `module: NodeNext` is the default shape
+  for a modern Node TypeScript package, so this is the common case. No caller
+  parameter changes it.
+- **Effort:** Contained. The two diagnostic accessors are already documented as
+  returning a raw `ts.LanguageService` with "no ts-morph coupling at the call
+  site", and `getLanguageServiceForConfig` has exactly one caller. Everything
+  downstream (`semanticErrors`, `capDiagnostics`, `toDiagnostic`) is typed
+  against `ts.LanguageService` and `ts.Diagnostic` and does not change. The new
+  work is one module and a second cache entry on the existing invalidation
+  paths.
 
 ## Expected
 
@@ -122,6 +128,33 @@ One variable, both directions.
 language service, which computes `impliedNodeFormat` for its own files. It never
 goes through ts-morph's `DocumentRegistry`.
 
+**Resolution is affected too, not only checking.** Given a dual-published
+dependency whose `exports` map names different type declarations per condition,
+against the same tsconfig:
+
+```
+[host tsc ] resolved: dualpkg/esm.d.ts   diags= none
+[ts-morph ] resolved: dualpkg/cjs.d.ts   diags= 2305
+```
+
+ts-morph follows the `require` condition where `tsc` follows `import`, so the
+module graph itself points at the wrong declaration file. This reaches every
+consumer of the ts-morph project, including find-references and rename — a wider
+blast radius than diagnostics. It is deliberately **not** fixed here (see Edges).
+
+**Patching `impliedNodeFormat` after creation does not work.** Setting the field
+on each compiler source file before the program is first requested:
+
+```
+[unpatched]             format= undefined  resolved= cjs.d.ts  diags= 2305
+[patched pre-program]   format= 99         resolved= cjs.d.ts  diags= 2307
+[after refreshFile]     format= 99         resolved= cjs.d.ts  diags= 2307
+```
+
+The format field changes but resolution does not, and the resulting mismatch
+turns a wrong-member error (TS2305) into "cannot find module" (TS2307). The
+route trades one wrong answer for a worse one and is closed.
+
 **No supported override exists.** `ProjectOptions` (`ts-morph@28.0.0`,
 `lib/ts-morph.d.ts:723-763`) exposes `compilerOptions`, `fileSystem`, and
 `resolutionHost`, and nothing that reaches source-file creation. The document
@@ -129,22 +162,80 @@ registry is private to `@ts-morph/common` and is not injectable.
 
 ## Fix
 
-*Blank by design — routed to `/spec`.* The cause is confirmed, but every route
-is a different trade of correctness against risk, and none is a local patch:
+Serve the diagnostic paths from a host-TypeScript language service. ts-morph
+keeps serving manipulation, where its AST APIs are doing real work; for querying
+it contributes only project construction, which is the thing it gets wrong.
 
-- build a plain `ts.Program` from the host `typescript` (already a direct
-  dependency at 6.0.3) for the diagnostic paths, leaving ts-morph to serve
-  rename and find-references;
-- set `impliedNodeFormat` on each compiler source file after ts-morph creates it
-  and before diagnostics are requested — reaching past the public API of a
-  dependency, and needing to hold across every recreation ts-morph performs on
-  edit;
-- fix it upstream and pin;
-- accept it and make the limit visible in the response.
+- **New `src/ts-engine/diagnostic-service.ts`.** Builds and caches one
+  `ts.LanguageService` per tsconfig path — plus one for the no-tsconfig case,
+  matching the existing `NO_TSCONFIG_CACHE_KEY` shape — from the host
+  `typescript` (already a direct dependency at 6.0.3). Its
+  `ts.LanguageServiceHost` reads through the `FileSystem` port rather than
+  `node:fs`, per `docs/design-principles.md`. The behaviour that matters is that
+  source files are created from the `CreateSourceFileOptions` the host supplies,
+  so `impliedNodeFormat` is computed rather than dropped.
+- **`TsMorphEngine` gains `getDiagnosticServiceForFile` and
+  `getDiagnosticServiceForConfig`**, alongside the existing accessors rather
+  than replacing them. The two are not a wrapper and its target: the by-file
+  accessor must *add the file to the service's file set if the tsconfig does not
+  already cover it*, which is what `ensureProject` does for the ts-morph side
+  today. Collapsing it into `getDiagnosticServiceForConfig(findTsConfigForFile(p))`
+  drops that, and single-file checks on an excluded file would silently return
+  clean — the same false-clean failure this spec exists to remove. `invalidateProject` (`engine.ts:111`) and `refreshFile`
+  (`:261`) drop the cached diagnostic service under the same cache key they
+  already use for the ts-morph project, so freshness has one rule, not two.
+- **`src/ts-engine/get-type-errors.ts` switches its three lookups** — `:49`
+  (single-file), `:59` (project-wide), and `:65`
+  (`getProjectSourceFilePathsForConfig`, which feeds `typeCheckedFiles`). A raw
+  program exposes its own file list, which is what `type-check-scope.ts` needs
+  to compute the closure. `semanticErrors`, `capDiagnostics` and `toDiagnostic`
+  are typed against `ts.LanguageService` and `ts.Diagnostic` and do not change.
+- **`extract-function.ts:43` keeps `getLanguageServiceForFile`.** It applies
+  edits through the ts-morph project, so it stays on ts-morph's service. This is
+  the reason the new accessors are added beside the old ones.
+- **The Volar path is untouched.** It already drives a real language service and
+  already answers correctly, which is the parity target.
 
-They differ in whether the two engines converge, what a `refreshFile` cycle
-costs, and how much of ts-morph's internals weaver takes on. That is a design
-decision, not an implementation detail.
+**Adjacent inputs** — the fix must not be narrowed to the reported symptom:
+
+- `"type": "module"` + NodeNext + `import.meta` → **no** TS1470 *(this repo)*
+- `"type": "module"` + NodeNext + extensionless relative import → TS2835 **is**
+  reported *(the false clean; the case that matters)*
+- A CommonJS package (`"type"` absent or `"commonjs"`) + `import.meta` → TS1470
+  **is still** reported, so the fix does not overcorrect
+- `.mts` / `.cts` files, which pin the format by extension regardless of
+  `package.json`
+- A workspace with no `tsconfig.json`, which the existing no-tsconfig cache key
+  covers and which must keep working
+
+### Coverage
+
+Every cell holds a case or a written reason it is empty. An empty unexplained
+cell is where this defect returns.
+
+| Input | Project-wide | Single-file | Post-write | Volar |
+|---|---|---|---|---|
+| ESM + `import.meta` → no TS1470 | ✓ | ✓ | ✓ | ✓ |
+| ESM + extensionless import → TS2835 **reported** | ✓ | ✓ | ✓ | ✓ (passes today — pins that the fix does not regress the correct engine) |
+| CJS + `import.meta` → TS1470 **kept** | ✓ | ✓ | ✓ | ✓ |
+| `.mts` / `.cts` pin format by extension | ✓ | ✓ | — same lookup as single-file, no separate path | ✓ |
+| No `tsconfig.json` in the workspace | ✓ | ✓ | — as above | N/A — `buildVolarService` without a tsconfig is the separate solution-style-config entry |
+
+**Test placement.** All of the above land in the existing
+`src/operations/getTypeErrors.scenarios.yaml`. They must **not** go in
+`src/operations/getTypeErrors.test.ts` (484 lines) or
+`src/plugins/vue/get-type-errors.test.ts` (513 lines) — both are past the point
+`docs/code-standards.md` calls out, and the archived project-wide-diagnostics
+spec already ruled them out for this operation's coverage. The scenario runner
+deep-equals the whole response, which is the stronger assertion here anyway.
+
+**Layer-fit.** Every case above needs a real workspace — a `package.json` whose
+`type` field is the variable under test, a tsconfig, and a resolved program — so
+they are scenarios, not unit tests; none is a pure function of its inputs. The
+one exception is `diagnostic-service.ts`'s cache and invalidation behaviour
+(same tsconfig returns the same service; `refreshFile` and `invalidateProject`
+drop it), which is a pure function of its inputs given a `FileSystem` port and
+gets focused unit tests against `InMemoryFileSystem`.
 
 ## Security
 
@@ -169,18 +260,23 @@ decision, not an implementation detail.
   gates TS1471 (import attributes), TS1479 (importing ESM from CJS), and
   `verbatimModuleSyntax` checks. A fix that corrects TS1470 and TS2835 by
   special-casing either code has not fixed the defect.
-- **The inverse package shape.** A workspace with no `"type": "module"` (or
-  `"type": "commonjs"`) under NodeNext should still be judged as CommonJS —
-  `import.meta` there is a real TS1470 that must survive the fix. `.mts`/`.cts`
-  files pin the format by extension and are a third case.
-- **The other two diagnostic paths.** Single-file `get-type-errors` and the
-  post-write check over `filesModified` share the ts-morph language service and
-  are confirmed to carry the defect (both return `errorCount: 0` on the
-  fixture). A fix scoped to the project-wide path leaves them wrong.
+- **Deliberately out of scope: the ts-morph project's own resolution.** The
+  dual-package finding in Root cause is the same cause reaching a different set
+  of consumers — find-references, get-definition and rename walk the ts-morph
+  module graph, and it resolves the wrong export condition. Folding it in would
+  put two behaviour changes behind one fix, and it needs its own design (a
+  `resolutionHost` override, moving those reads onto the host service too, or
+  neither). Logged as a separate `[needs design]` entry.
+- **Two compilers become resident.** ts-morph's bundled TypeScript 6.0.2 serves
+  manipulation while the host 6.0.3 serves diagnostics, so version skew between
+  them stops being invisible and becomes observable in output. The Vue path
+  already runs host TypeScript beside ts-morph, so the precedent exists, but the
+  memory cost of a second program per tsconfig on a long-lived daemon is real
+  and should be checked rather than assumed.
 - **Engine parity.** The archived project-wide-diagnostics spec records the same
   defect shape shipping three times as a Volar/ts-morph disagreement. This is
-  the same disagreement with the engines' roles reversed, so the fix needs a
-  case on both engines, not one.
+  the same disagreement with the roles reversed, so the regression cases run on
+  both engines, not one.
 - **Not a regression of the tsconfig-scope change.** It reproduces on a plain
   `new Project({ tsConfigFilePath })` with no workspace walk, which is how the
   archived spec's Edges section already recorded these two errors as expected
@@ -189,6 +285,15 @@ decision, not an implementation detail.
 ## Done-when
 
 - [ ] Reproduction case now produces expected output
+- [ ] Verified on the real path: **every** case in the Coverage table, run through the
+      built CLI, each matching `tsc -p <tsconfig> --noEmit` on the same workspace
+- [ ] The three core cases verified on the **Volar** engine too, confirming the fix brings
+      ts-morph to the answer Volar already gives rather than moving both
+- [ ] No service accessor changed outside `src/ts-engine/get-type-errors.ts` — confirmed by
+      diff. `extract-function.ts:43` must still call `getLanguageServiceForFile`, and its
+      existing tests must pass unchanged
+- [ ] Memory of a long-lived daemon holding both programs measured on this repository, and
+      the figure recorded in the Outcome — the Edges note calls this unverified
 - [ ] Regression test covers the exact failing case
 - [ ] Mutation score ≥ threshold for touched files
 - [ ] `pnpm check` passes (lint + build + test)
