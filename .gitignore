@@ -18,4 +18,4 @@ reports/*
 # Stryker incremental cache — committed so local/CI runs reuse prior results
 !reports/stryker-incremental.json
 !reports/stryker-eval-incremental.json
-.stryker-tmp/
+.stryker-tmp/.worktrees/
