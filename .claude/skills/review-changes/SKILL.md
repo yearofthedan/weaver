@@ -97,3 +97,18 @@ Review the same changes against `docs/design-principles.md`:
 Wait for all four agents to complete. Aggregate their findings and fix each issue directly. If a finding is a false positive or not worth addressing, note it and move on.
 
 When done, briefly summarize what was fixed (or confirm the code was already clean).
+
+## Phase 4: Tear down the worktrees
+
+The `git checkout <head-sha>` in Phase 2 is what stops these auto-cleaning, so this step exists because that one does. Skipping it leaks a worktree and a branch per agent, every review, forever — one session that skipped it left 18 stale worktrees and 16 dead branches behind.
+
+Do this only once the findings are applied, and never while an agent is still listed as running (`ListAgents`) — a completed agent can be resumed and will write into its worktree.
+
+For each worktree the review created, remove it only when **both** are true, checked in that worktree:
+
+- `git status --porcelain` is empty — nothing uncommitted
+- `git log --oneline main..<branch>` is empty — nothing committed that `main` lacks
+
+Then `git worktree remove <path>` and `git branch -d <branch>`. Use `-d`, never `-D`: if it refuses, the branch holds something the checks missed, so stop and report rather than forcing. Leave any worktree that fails either check in place and say which and why — an unreviewed leftover is cheaper than deleted work.
+
+`git worktree prune` is separate and always safe: it only clears metadata for directories that are already gone. Run it first to clear earlier sessions' leftovers.
