@@ -67,27 +67,25 @@ describe("runAgenticLoop", () => {
         hardFails: undefined,
         expected: undefined,
       },
-    ])("carries the final step's finish_reason $name", async ({
-      responses,
-      matches,
-      hardFails,
-      expected,
-    }) => {
-      const { step } = scriptedModel(responses);
+    ])(
+      "carries the final step's finish_reason $name",
+      async ({ responses, matches, hardFails, expected }) => {
+        const { step } = scriptedModel(responses);
 
-      const result = await runAgenticLoop({
-        messages: [],
-        tools: [],
-        matches,
-        hardFails,
-        isSkillMdRead: () => false,
-        maxSteps: 3,
-        step,
-        cannedResultFor: () => "result",
-      });
+        const result = await runAgenticLoop({
+          messages: [],
+          tools: [],
+          matches,
+          hardFails,
+          isSkillMdRead: () => false,
+          maxSteps: 3,
+          step,
+          cannedResultFor: () => "result",
+        });
 
-      expect(result.finishReason).toBe(expected);
-    });
+        expect(result.finishReason).toBe(expected);
+      },
+    );
 
     it("carries the last step's finish_reason when the budget is exhausted, not an earlier turn's", async () => {
       let calls = 0;

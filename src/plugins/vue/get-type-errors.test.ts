@@ -411,47 +411,45 @@ describe("vueGetTypeErrorsForProject", () => {
   it.each([
     { tsCount: 60, vueCount: 41, truncated: true, total: 101 },
     { tsCount: 60, vueCount: 40, truncated: false, total: 100 },
-  ])("truncated=$truncated when $tsCount TS + $vueCount Vue = $total", async ({
-    tsCount,
-    vueCount,
-    truncated,
-    total,
-  }) => {
-    const REAL_VUE = "/project/Test.vue";
-    const VIRTUAL_PATH = `${REAL_VUE}.ts`;
-    const vueDiagnostics = Array.from({ length: vueCount }, (_, i) =>
-      makeDiagnostic(ts.DiagnosticCategory.Error, 2322, `vue error ${i}`, i),
-    );
-    const tsFileContent = "const x: number = 'not-a-number';\n";
-    const tsDiagnosticsByFile = Object.fromEntries(
-      Array.from({ length: tsCount }, (_, i) => [
-        `/project/file${i}.ts`,
-        [
-          makeTsFileDiagnostic(
-            ts.DiagnosticCategory.Error,
-            2322,
-            `ts error ${i}`,
-            `/project/file${i}.ts`,
-            tsFileContent,
-            0,
-          ),
-        ],
-      ]),
-    );
-    const service = makeProjectService(tsDiagnosticsByFile, {
-      virtualPath: VIRTUAL_PATH,
-      realVuePath: REAL_VUE,
-      diagnostics: vueDiagnostics,
-      offsets: vueDiagnostics.map((_, i) => [i, 0] as [number, number]),
-      realContent: "x".repeat(vueCount + 1),
-    });
+  ])(
+    "truncated=$truncated when $tsCount TS + $vueCount Vue = $total",
+    async ({ tsCount, vueCount, truncated, total }) => {
+      const REAL_VUE = "/project/Test.vue";
+      const VIRTUAL_PATH = `${REAL_VUE}.ts`;
+      const vueDiagnostics = Array.from({ length: vueCount }, (_, i) =>
+        makeDiagnostic(ts.DiagnosticCategory.Error, 2322, `vue error ${i}`, i),
+      );
+      const tsFileContent = "const x: number = 'not-a-number';\n";
+      const tsDiagnosticsByFile = Object.fromEntries(
+        Array.from({ length: tsCount }, (_, i) => [
+          `/project/file${i}.ts`,
+          [
+            makeTsFileDiagnostic(
+              ts.DiagnosticCategory.Error,
+              2322,
+              `ts error ${i}`,
+              `/project/file${i}.ts`,
+              tsFileContent,
+              0,
+            ),
+          ],
+        ]),
+      );
+      const service = makeProjectService(tsDiagnosticsByFile, {
+        virtualPath: VIRTUAL_PATH,
+        realVuePath: REAL_VUE,
+        diagnostics: vueDiagnostics,
+        offsets: vueDiagnostics.map((_, i) => [i, 0] as [number, number]),
+        realContent: "x".repeat(vueCount + 1),
+      });
 
-    const result = await vueGetTypeErrorsForProject(async () => service);
+      const result = await vueGetTypeErrorsForProject(async () => service);
 
-    expect(result.truncated).toBe(truncated);
-    expect(result.diagnostics).toHaveLength(Math.min(total, MAX_DIAGNOSTICS));
-    expect(result.errorCount).toBe(total);
-  });
+      expect(result.truncated).toBe(truncated);
+      expect(result.diagnostics).toHaveLength(Math.min(total, MAX_DIAGNOSTICS));
+      expect(result.errorCount).toBe(total);
+    },
+  );
 
   it("attributes ts and vue diagnostics to their own files without double-counting the vue virtual entry", async () => {
     const REAL_VUE = "/project/Test.vue";
