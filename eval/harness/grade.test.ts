@@ -8,15 +8,16 @@ const bashCall = (command: string): ToolCall => ({ name: "bash", arguments: { co
 const tc = (name: string): ToolCall => ({ name, arguments: {} });
 
 describe("SUBCOMMAND_MUTABILITY", () => {
-  it.each(
-    OPERATION_NAMES,
-  )("classifies %s's subcommand as mutating or read-only", (operationName) => {
-    const subcommand = operationToSubcommand(operationName);
-    expect(
-      SUBCOMMAND_MUTABILITY[subcommand],
-      `Operation "${operationName}" (subcommand "${subcommand}") has no mutability classification in SUBCOMMAND_MUTABILITY. Add one to eval/harness/grade.ts.`,
-    ).toBeDefined();
-  });
+  it.each(OPERATION_NAMES)(
+    "classifies %s's subcommand as mutating or read-only",
+    (operationName) => {
+      const subcommand = operationToSubcommand(operationName);
+      expect(
+        SUBCOMMAND_MUTABILITY[subcommand],
+        `Operation "${operationName}" (subcommand "${subcommand}") has no mutability classification in SUBCOMMAND_MUTABILITY. Add one to eval/harness/grade.ts.`,
+      ).toBeDefined();
+    },
+  );
 
   it.each([
     "rename",

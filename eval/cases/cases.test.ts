@@ -142,21 +142,21 @@ describe("case table", () => {
     // even while cases remain. Asserted by mutability rather than by naming
     // specific commands, so retiring one case does not silently drop a whole
     // side of the rung.
-    it.each([
-      "mutating",
-      "read-only",
-    ] as const)("keeps a deep, gating trigger case for a %s op", (mutability) => {
-      const deepCases = CASES.filter(isProgressiveOpCase).filter(
-        (c) =>
-          c.momentumTurns !== undefined &&
-          c.momentumTurns >= 3 &&
-          SUBCOMMAND_MUTABILITY[c.expect.command] === mutability,
-      );
-      expect(
-        deepCases.length,
-        `Expected a pressured buried trigger case for a ${mutability} op`,
-      ).toBeGreaterThanOrEqual(1);
-    });
+    it.each(["mutating", "read-only"] as const)(
+      "keeps a deep, gating trigger case for a %s op",
+      (mutability) => {
+        const deepCases = CASES.filter(isProgressiveOpCase).filter(
+          (c) =>
+            c.momentumTurns !== undefined &&
+            c.momentumTurns >= 3 &&
+            SUBCOMMAND_MUTABILITY[c.expect.command] === mutability,
+        );
+        expect(
+          deepCases.length,
+          `Expected a pressured buried trigger case for a ${mutability} op`,
+        ).toBeGreaterThanOrEqual(1);
+      },
+    );
   });
 
   describe("cannedResults", () => {

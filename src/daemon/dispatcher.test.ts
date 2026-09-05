@@ -429,18 +429,21 @@ describe("dispatchRequest path character validation", () => {
     ["null byte", "/tmp/workspace/foo\x00bar.ts"],
     ["newline", "/tmp/workspace/foo\nbar.ts"],
     ["unit separator (\\x1f)", "/tmp/workspace/foo\x1fbar.ts"],
-  ])("returns INVALID_PATH and does not invoke the operation when file contains a control character — %s", async (_label, filePath) => {
-    const result = (await dispatchRequest(
-      {
-        method: "rename",
-        params: { file: filePath, line: 1, col: 1, newName: "x" },
-      },
-      "/tmp/workspace",
-    )) as Record<string, unknown>;
-    expect(result.status).toBe("error");
-    expect(result.error).toBe("INVALID_PATH");
-    expect(result.message).toBe("path contains control characters: file");
-  });
+  ])(
+    "returns INVALID_PATH and does not invoke the operation when file contains a control character — %s",
+    async (_label, filePath) => {
+      const result = (await dispatchRequest(
+        {
+          method: "rename",
+          params: { file: filePath, line: 1, col: 1, newName: "x" },
+        },
+        "/tmp/workspace",
+      )) as Record<string, unknown>;
+      expect(result.status).toBe("error");
+      expect(result.error).toBe("INVALID_PATH");
+      expect(result.message).toBe("path contains control characters: file");
+    },
+  );
 
   it.each([
     ["question mark (?)", "/tmp/workspace/src/foo.ts?v=1"],

@@ -9,15 +9,16 @@ const commandSubcommands = new Set(commandCases.map((c) => c.expect.command));
 
 describe("eval case coverage", () => {
   describe("operation coverage", () => {
-    it.each(
-      OPERATION_NAMES,
-    )("operation %s has at least one command-stage case", (operationName) => {
-      const expectedSubcommand = operationToSubcommand(operationName);
-      expect(
-        commandSubcommands.has(expectedSubcommand),
-        `No command-stage case for operation "${operationName}" (subcommand: "${expectedSubcommand}"). Add a case to eval/cases/cases.ts.`,
-      ).toBe(true);
-    });
+    it.each(OPERATION_NAMES)(
+      "operation %s has at least one command-stage case",
+      (operationName) => {
+        const expectedSubcommand = operationToSubcommand(operationName);
+        expect(
+          commandSubcommands.has(expectedSubcommand),
+          `No command-stage case for operation "${operationName}" (subcommand: "${expectedSubcommand}"). Add a case to eval/cases/cases.ts.`,
+        ).toBe(true);
+      },
+    );
   });
 
   describe("fixture coverage", () => {
@@ -36,14 +37,15 @@ describe("eval case coverage", () => {
       ).toContain(operationName);
     });
 
-    it.each(
-      fixtureOperations,
-    )("fixture %s.json corresponds to a registered operation", (fixtureName) => {
-      expect(
-        fixtureCorrespondsToOperation(fixtureName),
-        `Fixture ${fixtureName}.json has no registered operation and is not a focused variant of one (an "<operation>-<detail>" name). Remove the fixture or register the operation.`,
-      ).toBe(true);
-    });
+    it.each(fixtureOperations)(
+      "fixture %s.json corresponds to a registered operation",
+      (fixtureName) => {
+        expect(
+          fixtureCorrespondsToOperation(fixtureName),
+          `Fixture ${fixtureName}.json has no registered operation and is not a focused variant of one (an "<operation>-<detail>" name). Remove the fixture or register the operation.`,
+        ).toBe(true);
+      },
+    );
 
     it("accepts an exact operation name", () => {
       expect(fixtureCorrespondsToOperation("rename")).toBe(true);

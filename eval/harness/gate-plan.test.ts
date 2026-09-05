@@ -35,16 +35,14 @@ describe("buildGatePlans", () => {
     expect(plans.map((p) => p.trials)).toEqual([1, 1]);
   });
 
-  it.each([
-    "abc",
-    "0",
-    "-1",
-    "2.5",
-  ])("rejects a WEAVER_EVAL_TRIALS override of %s rather than passing it to the child", (override) => {
-    expect(() => buildGatePlans(ROSTER, { trialsOverride: override })).toThrow(
-      /WEAVER_EVAL_TRIALS/,
-    );
-  });
+  it.each(["abc", "0", "-1", "2.5"])(
+    "rejects a WEAVER_EVAL_TRIALS override of %s rather than passing it to the child",
+    (override) => {
+      expect(() => buildGatePlans(ROSTER, { trialsOverride: override })).toThrow(
+        /WEAVER_EVAL_TRIALS/,
+      );
+    },
+  );
 
   it("always includes --disable-console-intercept in argv", () => {
     const plans = buildGatePlans(ROSTER);
