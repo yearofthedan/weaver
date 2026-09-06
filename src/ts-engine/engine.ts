@@ -8,6 +8,12 @@ import { TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
 import { tsDeleteFile } from "./delete-file.js";
+import {
+  buildDiagnosticService,
+  type DiagnosticLanguageService,
+  type DiagnosticService,
+  DiagnosticServiceCache,
+} from "./diagnostic-service.js";
 import { tsExtractFunction } from "./extract-function.js";
 import { tsGetTypeErrors } from "./get-type-errors.js";
 import { tsMoveDirectory } from "./move-directory.js";
@@ -38,6 +44,7 @@ interface ProjectEntry {
 
 export class TsMorphEngine implements Engine {
   private projectEntries = new Map<string, ProjectEntry>();
+  private diagnosticServices = new DiagnosticServiceCache();
   private workspaceRoot: string;
 
   constructor(workspaceRoot = "") {
@@ -109,7 +116,9 @@ export class TsMorphEngine implements Engine {
   }
 
   invalidateProject(filePath: string): void {
-    this.projectEntries.delete(this.cacheKey(findTsConfigForFile(filePath)));
+    const tsConfigPath = findTsConfigForFile(filePath);
+    this.projectEntries.delete(this.cacheKey(tsConfigPath));
+    this.diagnosticServices.invalidate(tsConfigPath);
   }
 
   /**
@@ -175,6 +184,50 @@ export class TsMorphEngine implements Engine {
    */
   getLanguageServiceForConfig(tsConfigPath: string | null): ts.LanguageService {
     return this.loadProjectEntry(tsConfigPath).project.getLanguageService().compilerObject;
+  }
+
+  /**
+   * Loads (or returns the cached) diagnostic service for `tsConfigPath` — a
+   * program built from the host `typescript`, not ts-morph's. `compilerOptions`
+   * and the root file list come from the already-loaded ts-morph project
+   * entry: tsconfig resolution is not what ts-morph gets wrong, so there is
+   * no need to parse it a second time.
+   */
+  private loadDiagnosticServiceEntry(tsConfigPath: string | null): DiagnosticService {
+    return this.diagnosticServices.get(tsConfigPath, () => {
+      const projectEntry = this.loadProjectEntry(tsConfigPath);
+      const compilerOptions = projectEntry.project.getCompilerOptions();
+      const scriptFileNames = projectEntry.project
+        .getSourceFiles()
+        .map((sf) => sf.getFilePath() as string);
+      return buildDiagnosticService(compilerOptions, scriptFileNames, tsConfigPath);
+    });
+  }
+
+  /**
+   * Same as `getLanguageServiceForConfig`, but backed by a host-TypeScript
+   * program rather than ts-morph's — see `diagnostic-service.ts` for why
+   * ts-morph's own diagnostics are unreliable under `module: NodeNext`.
+   */
+  getDiagnosticServiceForConfig(tsConfigPath: string | null): DiagnosticLanguageService {
+    return this.loadDiagnosticServiceEntry(tsConfigPath).languageService;
+  }
+
+  /**
+   * Same as `getDiagnosticServiceForConfig`, but for a single file whose
+   * tsconfig is discovered from its own path — and, like `ensureProject` on
+   * the ts-morph side, adds the file to the service's file set when the
+   * tsconfig doesn't already cover it. Without this, a single-file check on
+   * a file the tsconfig excludes would silently see zero script files and
+   * report a clean result no matter what the file contains.
+   */
+  getDiagnosticServiceForFile(filePath: string): DiagnosticLanguageService {
+    const tsConfigPath = findTsConfigForFile(filePath);
+    const entry = this.loadDiagnosticServiceEntry(tsConfigPath);
+    if (!entry.scriptFileNames.includes(filePath)) {
+      entry.scriptFileNames.push(filePath);
+    }
+    return entry.languageService;
   }
 
   /**
@@ -259,9 +312,11 @@ export class TsMorphEngine implements Engine {
    * when the file isn't tracked yet, since the next lookup adds it from disk anyway.
    */
   refreshFile(filePath: string): void {
-    const entry = this.projectEntries.get(this.cacheKey(findTsConfigForFile(filePath)));
-    if (!entry) return; // project not loaded yet — nothing to refresh
-    entry.project.getSourceFile(filePath)?.refreshFromFileSystemSync();
+    const tsConfigPath = findTsConfigForFile(filePath);
+    const entry = this.projectEntries.get(this.cacheKey(tsConfigPath));
+    entry?.project.getSourceFile(filePath)?.refreshFromFileSystemSync();
+    // Dropped wholesale rather than refreshed in place — see `DiagnosticServiceCache`.
+    this.diagnosticServices.invalidate(tsConfigPath);
   }
 
   resolveOffset(file: string, line: number, col: number): number {

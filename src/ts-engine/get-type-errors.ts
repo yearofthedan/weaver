@@ -25,8 +25,16 @@ export function toDiagnostic(
   return { file, line, col, code: d.code, message: extractDiagnosticMessage(d.messageText) };
 }
 
-/** Errors only, from one file's semantic diagnostics. */
-export function semanticErrors(ls: ts.LanguageService, fileName: string): ts.Diagnostic[] {
+/**
+ * Errors only, from one file's semantic diagnostics. Takes just the one
+ * method it calls, not a full `ts.LanguageService` — both the ts-morph
+ * engine's diagnostic service (whose `getProgram` never returns `undefined`)
+ * and the Vue engine's real language service satisfy this shape.
+ */
+export function semanticErrors(
+  ls: Pick<ts.LanguageService, "getSemanticDiagnostics">,
+  fileName: string,
+): ts.Diagnostic[] {
   return ls
     .getSemanticDiagnostics(fileName)
     .filter((d) => d.category === ts.DiagnosticCategory.Error);
@@ -46,7 +54,7 @@ export function capDiagnostics(errors: ts.Diagnostic[]): GetTypeErrorsResult {
 }
 
 function tsGetTypeErrorsForFile(compiler: TsMorphEngine, absPath: string): GetTypeErrorsResult {
-  const ls = compiler.getLanguageServiceForFile(absPath);
+  const ls = compiler.getDiagnosticServiceForFile(absPath);
   return capDiagnostics(semanticErrors(ls, absPath));
 }
 
@@ -56,13 +64,14 @@ function tsGetTypeErrorsForProject(
   explicitTsConfig: string | null,
 ): GetTypeErrorsResult {
   const tsConfigPath = explicitTsConfig ?? findTsConfig(workspace);
-  const ls = compiler.getLanguageServiceForConfig(tsConfigPath);
-  // Only a syntax-only service returns undefined here, and ts-morph never builds one.
-  const program = ls.getProgram() as ts.Program;
+  const ls = compiler.getDiagnosticServiceForConfig(tsConfigPath);
+  const program = ls.getProgram();
   const seed = compiler.getSeedFilePathsForConfig(tsConfigPath);
   // The full walked set is needed regardless of seed now — describeCheckedScope compares
-  // it against the closure to report what a tsconfig-scoped check left out.
-  const walked = compiler.getProjectSourceFilePathsForConfig(tsConfigPath);
+  // it against the closure to report what a tsconfig-scoped check left out. Read straight
+  // off the diagnostic program rather than ts-morph's project, since that's the file list
+  // `checked` is about to be compared against for this same program's module resolution.
+  const walked = program.getSourceFiles().map((sf) => sf.fileName);
   const checked = typeCheckedFiles(seed, seed === null ? walked : [], program);
   const allErrors: ts.Diagnostic[] = [];
   for (const filePath of checked) {
