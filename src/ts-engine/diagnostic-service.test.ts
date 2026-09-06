@@ -1,6 +1,8 @@
+import type ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
+import type { FileSystem } from "../ports/filesystem.js";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
-import { buildDiagnosticService, DiagnosticServiceCache } from "./diagnostic-service.js";
+import { type DiagnosticService, DiagnosticServiceCache } from "./diagnostic-service.js";
 
 const OPTIONS = { noLib: true };
 
@@ -12,11 +14,25 @@ function fsWith(files: Record<string, string>): InMemoryFileSystem {
   return fs;
 }
 
-describe("buildDiagnosticService", () => {
+/** Builds a service the way production does — through the cache, which owns construction. */
+function serviceFor(
+  compilerOptions: ts.CompilerOptions,
+  rootNames: string[],
+  tsConfigPath: string | null,
+  fs: FileSystem,
+): DiagnosticService {
+  return new DiagnosticServiceCache().get(tsConfigPath, () => ({
+    compilerOptions,
+    rootNames,
+    fs,
+  }));
+}
+
+describe("the diagnostic service", () => {
   it("computes semantic diagnostics from file content read through the given FileSystem", () => {
     const fs = fsWith({ "/proj/a.ts": "const x: number = 'oops';" });
 
-    const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
+    const service = serviceFor(OPTIONS, ["/proj/a.ts"], null, fs);
 
     expect(service.getSemanticDiagnostics("/proj/a.ts").map((d) => d.code)).toContain(2322);
   });
@@ -24,7 +40,7 @@ describe("buildDiagnosticService", () => {
   it("reports no diagnostics for content that type-checks cleanly", () => {
     const fs = fsWith({ "/proj/a.ts": "const x: number = 1;" });
 
-    const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
+    const service = serviceFor(OPTIONS, ["/proj/a.ts"], null, fs);
 
     expect(service.getSemanticDiagnostics("/proj/a.ts")).toEqual([]);
   });
@@ -33,7 +49,7 @@ describe("buildDiagnosticService", () => {
     const fs = fsWith({ "/proj/a.ts": "const x: number = 1;", "/proj/b.ts": "const y = 1;" });
     const given = ["/proj/a.ts"];
 
-    const service = buildDiagnosticService(OPTIONS, given, null, fs);
+    const service = serviceFor(OPTIONS, given, null, fs);
     given.push("/proj/b.ts");
 
     expect(service.getProgram().getSourceFile("/proj/b.ts")).toBeUndefined();
@@ -42,12 +58,7 @@ describe("buildDiagnosticService", () => {
   it("type-checks a file nested below the tsconfig", () => {
     const fs = fsWith({ "/proj/nested/a.ts": "const x: number = 1;" });
 
-    const service = buildDiagnosticService(
-      OPTIONS,
-      ["/proj/nested/a.ts"],
-      "/proj/nested/tsconfig.json",
-      fs,
-    );
+    const service = serviceFor(OPTIONS, ["/proj/nested/a.ts"], "/proj/nested/tsconfig.json", fs);
 
     expect(service.getSemanticDiagnostics("/proj/nested/a.ts")).toEqual([]);
   });
@@ -55,7 +66,7 @@ describe("buildDiagnosticService", () => {
   it("throws naming the file when asked about one the program does not contain", () => {
     const fs = fsWith({ "/proj/a.ts": "const x: number = 1;" });
 
-    const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
+    const service = serviceFor(OPTIONS, ["/proj/a.ts"], null, fs);
 
     expect(() => service.getSemanticDiagnostics("/proj/absent.ts")).toThrow("/proj/absent.ts");
   });
@@ -66,7 +77,7 @@ describe("buildDiagnosticService", () => {
       throw new Error("EACCES");
     };
 
-    const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
+    const service = serviceFor(OPTIONS, ["/proj/a.ts"], null, fs);
 
     expect(service.getProgram().getSourceFile("/proj/a.ts")).toBeUndefined();
   });
@@ -77,7 +88,7 @@ describe("buildDiagnosticService", () => {
       "/proj/b.ts": "export const y = 'not a number';",
     });
 
-    const service = buildDiagnosticService(
+    const service = serviceFor(
       { noLib: true, module: 99, moduleResolution: 99 },
       ["/proj/a.ts", "/proj/b.ts"],
       "/proj/tsconfig.json",
@@ -89,7 +100,7 @@ describe("buildDiagnosticService", () => {
 
   it("reuses the parse of a file already read when another root is added", () => {
     const fs = fsWith({ "/proj/a.ts": "const x = 1;", "/proj/b.ts": "const y = 2;" });
-    const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
+    const service = serviceFor(OPTIONS, ["/proj/a.ts"], null, fs);
     const firstParse = service.getProgram().getSourceFile("/proj/a.ts");
 
     service.addScriptFile("/proj/b.ts");
@@ -100,7 +111,7 @@ describe("buildDiagnosticService", () => {
   it("matches file names case-sensitively", () => {
     const fs = fsWith({ "/proj/a.ts": "const x: number = 1;" });
 
-    const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
+    const service = serviceFor(OPTIONS, ["/proj/a.ts"], null, fs);
 
     expect(service.getProgram().getSourceFile("/proj/A.ts")).toBeUndefined();
   });
@@ -111,7 +122,7 @@ describe("buildDiagnosticService", () => {
         "/proj/a.ts": "const x: number = 1;",
         "/proj/b.ts": "const y: number = 'oops';",
       });
-      const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
+      const service = serviceFor(OPTIONS, ["/proj/a.ts"], null, fs);
 
       service.addScriptFile("/proj/b.ts");
 
@@ -123,7 +134,7 @@ describe("buildDiagnosticService", () => {
         "/proj/a.ts": "const x: number = 1;",
         "/proj/b.ts": "const y: number = 'oops';",
       });
-      const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
+      const service = serviceFor(OPTIONS, ["/proj/a.ts"], null, fs);
       service.getProgram();
 
       service.addScriptFile("/proj/b.ts");
@@ -133,7 +144,7 @@ describe("buildDiagnosticService", () => {
 
     it("does not rebuild when the same added file is offered twice", () => {
       const fs = fsWith({ "/proj/a.ts": "const x = 1;", "/proj/b.ts": "const y = 2;" });
-      const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
+      const service = serviceFor(OPTIONS, ["/proj/a.ts"], null, fs);
       service.addScriptFile("/proj/b.ts");
       const afterFirstAdd = service.getProgram();
 
@@ -144,7 +155,7 @@ describe("buildDiagnosticService", () => {
 
     it("does not rebuild the program when the file is already a root", () => {
       const fs = fsWith({ "/proj/a.ts": "const x: number = 1;" });
-      const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
+      const service = serviceFor(OPTIONS, ["/proj/a.ts"], null, fs);
       const before = service.getProgram();
 
       service.addScriptFile("/proj/a.ts");
@@ -219,9 +230,9 @@ describe("DiagnosticServiceCache", () => {
     const TSCONFIG = "/proj/tsconfig.json";
     const ROOTS = ["/proj/a.ts", "/proj/b.ts", "/proj/c.ts"];
 
-    function arrange(a = "const x: number = 1;") {
+    function arrange() {
       const fs = fsWith({
-        "/proj/a.ts": a,
+        "/proj/a.ts": "const x: number = 1;",
         "/proj/b.ts": "const y = 2;",
         "/proj/c.ts": "const z = 3;",
       });
@@ -257,7 +268,7 @@ describe("DiagnosticServiceCache", () => {
         evict: (cache: DiagnosticServiceCache) => cache.invalidate(TSCONFIG),
         expected: ROOTS,
       },
-    ])("re-parses $expected.length of the three roots after $signal", ({ evict, expected }) => {
+    ])("re-parses only what $signal evicted", ({ evict, expected }) => {
       const { fs, cache, load } = arrange();
       const readSpy = vi.spyOn(fs, "readFile");
 

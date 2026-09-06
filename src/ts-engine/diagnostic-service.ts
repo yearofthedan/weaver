@@ -162,34 +162,11 @@ function createDiagnosticService(
 }
 
 /**
- * Builds a diagnostic service from an already-resolved tsconfig —
+ * What `DiagnosticServiceCache` needs to build a service it does not yet hold.
  * `compilerOptions` and `rootNames` are exactly what ts-morph's own project
  * loading already computed, since tsconfig resolution (include, exclude,
  * extends) is not what ts-morph gets wrong.
- *
- * What it gets wrong is source-file *creation*: `@ts-morph/common`'s
- * `DocumentRegistry` always passes a bare `ScriptTarget` into
- * `ts.createLanguageServiceSourceFile`, so `impliedNodeFormat` is never
- * computed and every file resolves as CommonJS under `module: NodeNext`.
- * The host built here reads through `fs` instead of `node:fs` — which also
- * makes it driveable against `InMemoryFileSystem` in a test — and hands
- * `ts.createSourceFile` the `CreateSourceFileOptions` the compiler itself
- * resolves per file, so `impliedNodeFormat` is computed rather than dropped.
  */
-export function buildDiagnosticService(
-  compilerOptions: ts.CompilerOptions,
-  rootNames: string[],
-  tsConfigPath: string | null,
-  fs: FileSystem = new NodeFileSystem(),
-): DiagnosticService {
-  return createDiagnosticService(
-    compilerOptions,
-    rootNames,
-    buildCompilerHost(tsConfigPath, fs, new Map()),
-  );
-}
-
-/** What `DiagnosticServiceCache` needs from its caller to build a service it does not yet hold. */
 export interface DiagnosticProjectSource {
   compilerOptions: ts.CompilerOptions;
   rootNames: string[];
@@ -213,7 +190,20 @@ export class DiagnosticServiceCache {
     { parsed: Map<string, ts.SourceFile>; service?: DiagnosticService }
   >();
 
-  /** Returns the cached service for `tsConfigPath`, building it from `load()` on a cache miss. */
+  /**
+   * Returns the cached service for `tsConfigPath`, building it from `load()` on
+   * a cache miss.
+   *
+   * The service is built on a host of this module's own rather than ts-morph's,
+   * because what ts-morph gets wrong is source-file *creation*:
+   * `@ts-morph/common`'s `DocumentRegistry` always passes a bare `ScriptTarget`
+   * into `ts.createLanguageServiceSourceFile`, so `impliedNodeFormat` is never
+   * computed and every file resolves as CommonJS under `module: NodeNext`. The
+   * host built here reads through `fs` instead of `node:fs` — which also makes
+   * it driveable against `InMemoryFileSystem` in a test — and hands
+   * `ts.createSourceFile` the `CreateSourceFileOptions` the compiler itself
+   * resolves per file, so `impliedNodeFormat` is computed rather than dropped.
+   */
   get(tsConfigPath: string | null, load: () => DiagnosticProjectSource): DiagnosticService {
     const key = tsConfigCacheKey(tsConfigPath);
     let entry = this.entries.get(key);
@@ -243,7 +233,8 @@ export class DiagnosticServiceCache {
    */
   refreshFile(tsConfigPath: string | null, filePath: string): void {
     const entry = this.entries.get(tsConfigCacheKey(tsConfigPath));
-    entry?.parsed.delete(filePath);
-    if (entry) entry.service = undefined;
+    if (!entry) return;
+    entry.parsed.delete(filePath);
+    entry.service = undefined;
   }
 }
