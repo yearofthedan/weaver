@@ -83,6 +83,9 @@ at the operation layer.
       *(focused test, `move-file.test.ts`)*
 - [ ] Given `invalidateProject` is called for a tsconfig, the next check re-reads **every** file
       through the `FileSystem` port. *(unit, counting `FileSystem` wrapper)*
+- [ ] Given any operation rewrites a file's contents — a `rename`'s edits, a move's importer
+      rewrites — a later check reflects what is on disk, whether or not the caller asked for
+      diagnostics. *(regression test at `dispatchRequest`, plus a unit test at the port seam)*
 
 **Type matrix.** The diagnostic service serves the ts-morph path only, so `.ts`/`.tsx` are the
 input types. `.vue` is out of scope with a reason rather than a case: SFCs are answered by
@@ -166,6 +169,34 @@ Two internal seams move:
 - **Consequences:** the `moveFile` scenario *two out-of-project files move in turn*, which goes
   red when `oldProgram` is passed, stays green and keeps guarding this.
 
+**Decision (resolved): where does a write's eviction come from?**
+
+- **Options:** (A) split `dispatchRequest`'s post-write block so it always refreshes `filesModified`
+  and only *reports* under `checkTypeErrors`; (B) evict where the write is observed; (C) validate
+  each cached parse against mtime+size on read.
+- **Chosen:** B, at the `FileSystem` port — extend the existing self-write decorator
+  (`src/daemon/self-write-state.ts`, `recording-filesystem.ts`) so the observations already feeding
+  `SelfWriteLedger` also evict the diagnostic parse. `dispatcher.ts` builds every scope over the one
+  `getSharedFileSystem()` instance, so the seam already sees every write.
+- **Reasoning:** A leaves an engine invariant to a transport adapter, which `design-principles.md`
+  rules out, and it does not even close the default path: `post-write-diagnostics.ts` filters to
+  `.ts`/`.tsx` while importer rewrites cover `.js`/`.jsx`, so a rewritten `.js` importer under
+  `allowJs` is never evicted. C costs little (~1.4 ms per rebuild for 753 files, measured) but fixes
+  only the diagnostic half — ts-morph's `Project` stays stale — and turns every future
+  missing-eviction bug from deterministic into intermittent, which is the wrong failure mode for a
+  tool whose value is that its check cannot lie.
+- **Consequences.** `after-file-rename.ts`'s hand-rolled `engine.refreshFile(oldPath)` is deleted
+  along with the class of bug it patched. Two constraints hold the shape:
+  - **The write path evicts the diagnostic parse only — it must not call `TsMorphEngine.refreshFile`.**
+    That calls `refreshFromFileSystemSync()`, replacing ts-morph's node tree, and operations hold
+    ts-morph node references across `scope.writeFile` calls (`persistSourceFile`, `move-symbol`).
+    An eviction is a `Map.delete` and cannot disturb anything in flight. `post-write-diagnostics`'s
+    refresh loop stays where it is as the ts-morph-side signal.
+  - **Dropping the cached service is guarded on a parse actually being evicted**, or every
+    `.md`/`.json` write in the workspace throws away a program for nothing.
+  If `FileSystem` grows a fifth mutating verb, the decorator fails to compile rather than silently
+  going stale — that asymmetry is why the port is the seam rather than the dispatcher.
+
 ## Security
 
 - **Workspace boundary:** N/A — no new file reads or writes. The compiler host reads the same
@@ -183,8 +214,16 @@ Two internal seams move:
 
 - Retention makes correctness depend on every content change producing a signal. The watcher's
   `add`/`unlink` path calls `invalidateAll`, which sets `tsMorphEngineSingleton = undefined` and
-  takes the cache with it, so structural changes on disk are already covered. The exposure is an
-  edit that produces no watcher event and no weaver write.
+  takes the cache with it, so structural changes on disk are already covered.
+  **Corrected during implementation — this bullet originally read "the exposure is an edit that
+  produces no watcher event *and no weaver write*", which assumed weaver's own writes emit a
+  signal. Most do not.** `rename.ts` emits none; `applyRenameEdits`,
+  `rewriteImportersOfMovedFile`, `rewriteMovedFileOwnImports` and `persistSourceFile` all write
+  through `scope.writeFile` and evict nothing. Only `set-export`, `delete-file`,
+  `extract-function` and `move-symbol` signal at all, and they use the blunt `invalidateProject`.
+  With parses retained, that gap produces a **fabricated diagnostic**: after a move, an importer
+  is served from its pre-move parse and reports `TS2307` against a specifier the file no longer
+  contains. Weaver's own write is the exposure, not the thing that closes it.
 - `refreshFile` must keep refreshing the ts-morph source file as it does now
   (`engine.ts:272-273`); this change only alters what happens to the diagnostic half after it.
 - One write must still cost at most one program rebuild. `post-write-diagnostics.ts` refreshes
@@ -198,6 +237,9 @@ Two internal seams move:
       baseline, observed on the real CLI path rather than in a test
 - [ ] `move-file` calls the eviction signal for the source path, and the third criterion's test
       fails without it
+- [ ] A rewritten importer is not served from its pre-move parse — verified by the `TS2307`
+      reproduction failing before the change and passing after, on the `checkTypeErrors: false` path
+- [ ] The `.js`-importer gap is measured at HEAD and either closed or recorded as out of scope
 - [ ] The `moveFile` scenario *two out-of-project files move in turn* still passes
 - [ ] The stale-cache comment at `diagnostic-service.ts:22-26` is rewritten — its stated invariant
       ("the only thing that invalidates a file is `invalidateProject`") is no longer true
