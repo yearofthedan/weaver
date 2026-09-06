@@ -79,7 +79,36 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: "/mutate-triage"
+          prompt: |
+            /mutate-triage
+
+            Scope: every survivor in reports/mutation/mutation.json. This run
+            fell below the break threshold, which is why you were started — do
+            not re-check the score, and do not stop because the project total
+            looks acceptable.
+
+            Record a noise survivor as a GitHub issue, one per group of
+            survivors sharing a cause:
+
+              gh issue create --title "Mutation survivors: <file> — <cause>" --body "<body>"
+
+            Body: a table of line, operator, replacement and rationale, then
+            "Suggested action: add to the Accepted / low-risk table in
+            docs/quality.md".
+
+            Deliver fixable work on a branch, never on main:
+
+              1. Branch fix/mutation-$(date +%Y%m%d)-<slug>, where <slug> is the
+                 most-affected source file's basename. Append -2, -3 if taken.
+              2. Commit as "test: kill surviving mutants in <slug>".
+              3. Push, then open a draft PR titled
+                 "fix: kill surviving mutants — <slug>", whose body carries the
+                 score before, the break threshold, and a table of the survivors
+                 addressed with the test added for each.
+
+            If you run out of turns before finishing, commit what you have, push,
+            open the PR, and list the survivors you did not reach under a
+            "Not addressed in this run" heading.
           claude_args: >-
             --model claude-opus-4-6
             --max-turns 50
