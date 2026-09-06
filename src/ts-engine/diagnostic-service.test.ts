@@ -1,13 +1,6 @@
-import type ts from "typescript";
-import { describe, expect, it } from "vitest";
-import { CountingFileSystem } from "../ports/__testHelpers__/counting-filesystem.js";
-import type { FileSystem } from "../ports/filesystem.js";
+import { describe, expect, it, vi } from "vitest";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
-import {
-  buildDiagnosticService,
-  type DiagnosticService,
-  DiagnosticServiceCache,
-} from "./diagnostic-service.js";
+import { buildDiagnosticService, DiagnosticServiceCache } from "./diagnostic-service.js";
 
 const OPTIONS = { noLib: true };
 
@@ -162,50 +155,44 @@ describe("buildDiagnosticService", () => {
 });
 
 describe("DiagnosticServiceCache", () => {
-  function fakeService(): DiagnosticService {
-    return {
-      getSemanticDiagnostics: () => [],
-      getProgram: () => {
-        throw new Error("not implemented in this fake");
-      },
-      addScriptFile: () => {},
-    };
-  }
+  // An empty root set keeps `get`'s real service construction cheap; these cases
+  // are about which entry comes back, not what it reports.
+  const emptyProject = () => ({ compilerOptions: OPTIONS, rootNames: [], fs: fsWith({}) });
 
   it("returns the same entry for the same tsconfig path without rebuilding", () => {
     const cache = new DiagnosticServiceCache();
-    let buildCount = 0;
-    const build = () => {
-      buildCount += 1;
-      return fakeService();
+    let loadCount = 0;
+    const load = () => {
+      loadCount += 1;
+      return emptyProject();
     };
 
-    const first = cache.get("/proj/tsconfig.json", build);
-    const second = cache.get("/proj/tsconfig.json", build);
+    const first = cache.get("/proj/tsconfig.json", load);
+    const second = cache.get("/proj/tsconfig.json", load);
 
     expect(second).toBe(first);
-    expect(buildCount).toBe(1);
+    expect(loadCount).toBe(1);
   });
 
   it("keeps separate entries for different tsconfig paths, including no-tsconfig", () => {
     const cache = new DiagnosticServiceCache();
 
-    const forConfig = cache.get("/proj/tsconfig.json", fakeService);
-    const forOtherConfig = cache.get("/other/tsconfig.json", fakeService);
-    const forNoConfig = cache.get(null, fakeService);
+    const forConfig = cache.get("/proj/tsconfig.json", emptyProject);
+    const forOtherConfig = cache.get("/other/tsconfig.json", emptyProject);
+    const forNoConfig = cache.get(null, emptyProject);
 
     expect(forConfig).not.toBe(forOtherConfig);
     expect(forConfig).not.toBe(forNoConfig);
-    expect(cache.get(null, fakeService)).toBe(forNoConfig);
+    expect(cache.get(null, emptyProject)).toBe(forNoConfig);
   });
 
   it("rebuilds on the next get after invalidate", () => {
     const cache = new DiagnosticServiceCache();
-    const first = cache.get("/proj/tsconfig.json", fakeService);
+    const first = cache.get("/proj/tsconfig.json", emptyProject);
 
     cache.invalidate("/proj/tsconfig.json");
 
-    expect(cache.get("/proj/tsconfig.json", fakeService)).not.toBe(first);
+    expect(cache.get("/proj/tsconfig.json", emptyProject)).not.toBe(first);
   });
 
   it("invalidating an unbuilt tsconfig path is a no-op", () => {
@@ -213,84 +200,74 @@ describe("DiagnosticServiceCache", () => {
     expect(() => cache.invalidate("/never/built/tsconfig.json")).not.toThrow();
   });
 
+  it("refreshing an unbuilt tsconfig path is a no-op", () => {
+    const cache = new DiagnosticServiceCache();
+    expect(() => cache.refreshFile("/never/built/tsconfig.json", "/a.ts")).not.toThrow();
+  });
+
   it("invalidating one tsconfig path leaves other cached entries untouched", () => {
     const cache = new DiagnosticServiceCache();
-    const untouched = cache.get("/other/tsconfig.json", fakeService);
-    cache.get("/proj/tsconfig.json", fakeService);
+    const untouched = cache.get("/other/tsconfig.json", emptyProject);
+    cache.get("/proj/tsconfig.json", emptyProject);
 
     cache.invalidate("/proj/tsconfig.json");
 
-    expect(cache.get("/other/tsconfig.json", fakeService)).toBe(untouched);
+    expect(cache.get("/other/tsconfig.json", emptyProject)).toBe(untouched);
   });
 
   describe("retained parse cache", () => {
     const TSCONFIG = "/proj/tsconfig.json";
     const ROOTS = ["/proj/a.ts", "/proj/b.ts", "/proj/c.ts"];
 
-    function buildWith(fsForBuild: FileSystem) {
-      return (parsed: Map<string, ts.SourceFile>) =>
-        buildDiagnosticService(OPTIONS, ROOTS, TSCONFIG, fsForBuild, parsed);
-    }
-
-    it("reports a newly introduced type error after refreshFile evicts the changed file", () => {
+    function arrange(a = "const x: number = 1;") {
       const fs = fsWith({
-        "/proj/a.ts": "const x: number = 1;",
+        "/proj/a.ts": a,
         "/proj/b.ts": "const y = 2;",
         "/proj/c.ts": "const z = 3;",
       });
       const cache = new DiagnosticServiceCache();
-      const build = buildWith(fs);
+      const load = () => ({ compilerOptions: OPTIONS, rootNames: ROOTS, fs });
+      return { fs, cache, load };
+    }
 
-      const first = cache.get(TSCONFIG, build);
-      expect(first.getSemanticDiagnostics("/proj/a.ts")).toEqual([]);
+    it("reports a newly introduced type error after refreshFile evicts the changed file", () => {
+      const { fs, cache, load } = arrange();
+
+      expect(cache.get(TSCONFIG, load).getSemanticDiagnostics("/proj/a.ts")).toEqual([]);
 
       fs.writeFile("/proj/a.ts", "const x: number = 'oops';");
       cache.refreshFile(TSCONFIG, "/proj/a.ts");
 
-      const second = cache.get(TSCONFIG, build);
-      expect(second.getSemanticDiagnostics("/proj/a.ts").map((d) => d.code)).toContain(2322);
+      expect(
+        cache
+          .get(TSCONFIG, load)
+          .getSemanticDiagnostics("/proj/a.ts")
+          .map((d) => d.code),
+      ).toContain(2322);
     });
 
-    it("re-reads only the refreshed file when checking again", () => {
-      const delegate = fsWith({
-        "/proj/a.ts": "const x = 1;",
-        "/proj/b.ts": "const y = 2;",
-        "/proj/c.ts": "const z = 3;",
-      });
-      const counting = new CountingFileSystem(delegate);
-      const cache = new DiagnosticServiceCache();
-      const build = buildWith(counting);
+    it.each([
+      {
+        signal: "refreshFile",
+        evict: (cache: DiagnosticServiceCache) => cache.refreshFile(TSCONFIG, "/proj/a.ts"),
+        expected: ["/proj/a.ts"],
+      },
+      {
+        signal: "invalidate",
+        evict: (cache: DiagnosticServiceCache) => cache.invalidate(TSCONFIG),
+        expected: ROOTS,
+      },
+    ])("re-parses $expected.length of the three roots after $signal", ({ evict, expected }) => {
+      const { fs, cache, load } = arrange();
+      const readSpy = vi.spyOn(fs, "readFile");
 
-      const first = cache.get(TSCONFIG, build);
-      first.getProgram();
-      counting.resetReads();
+      cache.get(TSCONFIG, load).getProgram();
+      readSpy.mockClear();
 
-      cache.refreshFile(TSCONFIG, "/proj/a.ts");
-      const second = cache.get(TSCONFIG, build);
-      second.getProgram();
+      evict(cache);
+      cache.get(TSCONFIG, load).getProgram();
 
-      expect(counting.readPaths).toEqual(["/proj/a.ts"]);
-    });
-
-    it("re-reads every file after invalidate, not only the one that changed", () => {
-      const delegate = fsWith({
-        "/proj/a.ts": "const x = 1;",
-        "/proj/b.ts": "const y = 2;",
-        "/proj/c.ts": "const z = 3;",
-      });
-      const counting = new CountingFileSystem(delegate);
-      const cache = new DiagnosticServiceCache();
-      const build = buildWith(counting);
-
-      const first = cache.get(TSCONFIG, build);
-      first.getProgram();
-      counting.resetReads();
-
-      cache.invalidate(TSCONFIG);
-      const second = cache.get(TSCONFIG, build);
-      second.getProgram();
-
-      expect(new Set(counting.readPaths)).toEqual(new Set(ROOTS));
+      expect(readSpy.mock.calls.map(([path]) => path).sort()).toEqual([...expected].sort());
     });
   });
 });

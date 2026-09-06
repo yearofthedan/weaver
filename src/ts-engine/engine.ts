@@ -8,11 +8,7 @@ import { TS_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile, tsConfigCacheKey } from "../utils/ts-project.js";
 import { tsDeleteFile } from "./delete-file.js";
-import {
-  buildDiagnosticService,
-  type DiagnosticService,
-  DiagnosticServiceCache,
-} from "./diagnostic-service.js";
+import { type DiagnosticService, DiagnosticServiceCache } from "./diagnostic-service.js";
 import { tsExtractFunction } from "./extract-function.js";
 import { tsGetTypeErrors } from "./get-type-errors.js";
 import { tsMoveDirectory } from "./move-directory.js";
@@ -167,19 +163,12 @@ export class TsMorphEngine implements Engine {
    * no need to parse it a second time.
    */
   private loadDiagnosticServiceEntry(tsConfigPath: string | null): DiagnosticService {
-    return this.diagnosticServices.get(tsConfigPath, (parsed) => {
+    return this.diagnosticServices.get(tsConfigPath, () => {
       const projectEntry = this.loadProjectEntry(tsConfigPath);
-      const compilerOptions = projectEntry.project.getCompilerOptions();
-      const scriptFileNames = projectEntry.project
-        .getSourceFiles()
-        .map((sf) => sf.getFilePath() as string);
-      return buildDiagnosticService(
-        compilerOptions,
-        scriptFileNames,
-        tsConfigPath,
-        undefined,
-        parsed,
-      );
+      return {
+        compilerOptions: projectEntry.project.getCompilerOptions(),
+        rootNames: projectEntry.project.getSourceFiles().map((sf) => sf.getFilePath() as string),
+      };
     });
   }
 
@@ -277,9 +266,6 @@ export class TsMorphEngine implements Engine {
     const tsConfigPath = findTsConfigForFile(filePath);
     const entry = this.projectEntries.get(tsConfigCacheKey(tsConfigPath));
     entry?.project.getSourceFile(filePath)?.refreshFromFileSystemSync();
-    // Evicts only this file's parse and the cached service, so the next check
-    // rebuilds the program against a parse cache that is still warm for every
-    // other file — one file changed, so only that file is re-read.
     this.diagnosticServices.refreshFile(tsConfigPath, filePath);
   }
 
