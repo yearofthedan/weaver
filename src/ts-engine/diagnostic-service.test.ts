@@ -1,7 +1,10 @@
-import type ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
-import { buildDiagnosticService, DiagnosticServiceCache } from "./diagnostic-service.js";
+import {
+  buildDiagnosticService,
+  type DiagnosticService,
+  DiagnosticServiceCache,
+} from "./diagnostic-service.js";
 
 describe("buildDiagnosticService", () => {
   it("computes semantic diagnostics from file content read through the given FileSystem", () => {
@@ -62,8 +65,16 @@ describe("buildDiagnosticService", () => {
 });
 
 describe("DiagnosticServiceCache", () => {
-  function fakeService(): { languageService: ts.LanguageService; scriptFileNames: string[] } {
-    return { languageService: {} as ts.LanguageService, scriptFileNames: [] };
+  function fakeService(): DiagnosticService {
+    return {
+      languageService: {
+        getSemanticDiagnostics: () => [],
+        getProgram: () => {
+          throw new Error("not implemented in this fake");
+        },
+      },
+      scriptFileNames: [],
+    };
   }
 
   it("returns the same entry for the same tsconfig path without rebuilding", () => {
