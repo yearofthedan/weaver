@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Node.js 22+
-- pnpm 11+ (via corepack)
+- pnpm 12+ (via corepack)
 
 ## Setup
 

@@ -1,7 +1,7 @@
 {
   "name": "@yearofthedan/weaver",
   "version": "0.1.11",
-  "packageManager": "pnpm@11.25.0",
+  "packageManager": "pnpm@12.3.4",
   "repository": {
     "type": "git",
     "url": "https://github.com/yearofthedan/weaver.git"
@@ -37,7 +37,7 @@
   },
   "engines": {
     "node": ">=22",
-    "pnpm": ">=11"
+    "pnpm": ">=12"
   },
   "scripts": {
     "build": "rm -rf dist && tsc && chmod +x dist/adapters/cli/cli.js",
