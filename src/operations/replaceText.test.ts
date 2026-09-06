@@ -258,7 +258,7 @@ describe("replaceText operation", () => {
       expect(result.replacementCount).toBe(2);
       const after = readFile(dir, "src/utils.ts");
       expect(after).toBe(
-        "export function hi(name: string): string {\n  return `Hey, ${name}`;\n}\n",
+        `export function hi(name: string): string {\n  return \`Hey, \${name}\`;\n}\n`,
       );
     });
 
