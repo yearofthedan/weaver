@@ -1,4 +1,7 @@
+import type ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { CountingFileSystem } from "../ports/__testHelpers__/counting-filesystem.js";
+import type { FileSystem } from "../ports/filesystem.js";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
 import {
   buildDiagnosticService,
@@ -218,5 +221,76 @@ describe("DiagnosticServiceCache", () => {
     cache.invalidate("/proj/tsconfig.json");
 
     expect(cache.get("/other/tsconfig.json", fakeService)).toBe(untouched);
+  });
+
+  describe("retained parse cache", () => {
+    const TSCONFIG = "/proj/tsconfig.json";
+    const ROOTS = ["/proj/a.ts", "/proj/b.ts", "/proj/c.ts"];
+
+    function buildWith(fsForBuild: FileSystem) {
+      return (parsed: Map<string, ts.SourceFile>) =>
+        buildDiagnosticService(OPTIONS, ROOTS, TSCONFIG, fsForBuild, parsed);
+    }
+
+    it("reports a newly introduced type error after refreshFile evicts the changed file", () => {
+      const fs = fsWith({
+        "/proj/a.ts": "const x: number = 1;",
+        "/proj/b.ts": "const y = 2;",
+        "/proj/c.ts": "const z = 3;",
+      });
+      const cache = new DiagnosticServiceCache();
+      const build = buildWith(fs);
+
+      const first = cache.get(TSCONFIG, build);
+      expect(first.getSemanticDiagnostics("/proj/a.ts")).toEqual([]);
+
+      fs.writeFile("/proj/a.ts", "const x: number = 'oops';");
+      cache.refreshFile(TSCONFIG, "/proj/a.ts");
+
+      const second = cache.get(TSCONFIG, build);
+      expect(second.getSemanticDiagnostics("/proj/a.ts").map((d) => d.code)).toContain(2322);
+    });
+
+    it("re-reads only the refreshed file when checking again", () => {
+      const delegate = fsWith({
+        "/proj/a.ts": "const x = 1;",
+        "/proj/b.ts": "const y = 2;",
+        "/proj/c.ts": "const z = 3;",
+      });
+      const counting = new CountingFileSystem(delegate);
+      const cache = new DiagnosticServiceCache();
+      const build = buildWith(counting);
+
+      const first = cache.get(TSCONFIG, build);
+      first.getProgram();
+      counting.resetReads();
+
+      cache.refreshFile(TSCONFIG, "/proj/a.ts");
+      const second = cache.get(TSCONFIG, build);
+      second.getProgram();
+
+      expect(counting.readPaths).toEqual(["/proj/a.ts"]);
+    });
+
+    it("re-reads every file after invalidate, not only the one that changed", () => {
+      const delegate = fsWith({
+        "/proj/a.ts": "const x = 1;",
+        "/proj/b.ts": "const y = 2;",
+        "/proj/c.ts": "const z = 3;",
+      });
+      const counting = new CountingFileSystem(delegate);
+      const cache = new DiagnosticServiceCache();
+      const build = buildWith(counting);
+
+      const first = cache.get(TSCONFIG, build);
+      first.getProgram();
+      counting.resetReads();
+
+      cache.invalidate(TSCONFIG);
+      const second = cache.get(TSCONFIG, build);
+      second.getProgram();
+
+      expect(new Set(counting.readPaths)).toEqual(new Set(ROOTS));
+    });
   });
 });

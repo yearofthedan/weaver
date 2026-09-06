@@ -19,15 +19,19 @@ export interface DiagnosticService {
 }
 
 /**
- * A compiler host that caches each `ts.SourceFile` it parses, for the lifetime of
- * the service that owns it. `addScriptFile` rebuilds the program, and without
- * this every rebuild would re-parse every root to add one file. The cache cannot
- * go stale: the only thing that invalidates a file is `invalidateProject`, which
- * drops the whole service and this host with it.
+ * A compiler host that caches each `ts.SourceFile` it parses into `parsed` — a
+ * map owned by `DiagnosticServiceCache` for the tsconfig's whole lifetime, not
+ * by this host's closure. `addScriptFile` rebuilds the program, and without
+ * this cache every rebuild would re-parse every root to add one file. Two
+ * signals evict from it: `refreshFile` deletes the one path that changed,
+ * keeping every other parse; `invalidateProject` drops the map entirely,
+ * since it can no longer tell "unwritten" apart from "moved away".
  */
-function buildCompilerHost(tsConfigPath: string | null, fs: FileSystem): ts.CompilerHost {
-  const parsed = new Map<string, ts.SourceFile>();
-
+function buildCompilerHost(
+  tsConfigPath: string | null,
+  fs: FileSystem,
+  parsed: Map<string, ts.SourceFile>,
+): ts.CompilerHost {
   // An unreadable file is reported as absent, which is what a compiler host
   // expects; the error itself carries nothing a caller could act on.
   const readFile = (fileName: string): string | undefined => {
@@ -179,31 +183,74 @@ export function buildDiagnosticService(
   rootNames: string[],
   tsConfigPath: string | null,
   fs: FileSystem = new NodeFileSystem(),
+  parsed: Map<string, ts.SourceFile> = new Map(),
 ): DiagnosticService {
-  return createDiagnosticService(compilerOptions, rootNames, buildCompilerHost(tsConfigPath, fs));
+  return createDiagnosticService(
+    compilerOptions,
+    rootNames,
+    buildCompilerHost(tsConfigPath, fs, parsed),
+  );
 }
 
 /**
  * Caches one `DiagnosticService` per tsconfig path (plus one for the
  * no-tsconfig case), so repeated lookups for the same config reuse the same
  * program instead of rebuilding one on every call.
+ *
+ * Each tsconfig also gets its own parse cache (see `buildCompilerHost`), kept
+ * in a separate map from the service itself so the two can be evicted on
+ * different signals: `refreshFile` drops only the service, forcing a rebuild
+ * against a parse cache that is still warm except for the one file that
+ * changed; `invalidate` drops both, since a structural change (a file added,
+ * removed, or moved) can make any retained parse point at content or a path
+ * that no longer exists.
  */
 export class DiagnosticServiceCache {
   private entries = new Map<string, DiagnosticService>();
+  private parsedCaches = new Map<string, Map<string, ts.SourceFile>>();
 
-  /** Returns the cached entry for `tsConfigPath`, building it via `build` on a cache miss. */
-  get(tsConfigPath: string | null, build: () => DiagnosticService): DiagnosticService {
+  /**
+   * Returns the cached entry for `tsConfigPath`, building it via `build` on a
+   * cache miss. `build` receives the tsconfig's parse cache — reused across
+   * rebuilds triggered by `refreshFile`, fresh after `invalidate`.
+   */
+  get(
+    tsConfigPath: string | null,
+    build: (parsed: Map<string, ts.SourceFile>) => DiagnosticService,
+  ): DiagnosticService {
     const key = tsConfigCacheKey(tsConfigPath);
     let entry = this.entries.get(key);
     if (!entry) {
-      entry = build();
+      let parsed = this.parsedCaches.get(key);
+      if (!parsed) {
+        parsed = new Map();
+        this.parsedCaches.set(key, parsed);
+      }
+      entry = build(parsed);
       this.entries.set(key, entry);
     }
     return entry;
   }
 
-  /** Drops the cached entry for `tsConfigPath`, if any. The next `get` rebuilds it. */
+  /**
+   * Drops the cached entry and its whole parse cache for `tsConfigPath`, if
+   * any. The next `get` rebuilds both from disk.
+   */
   invalidate(tsConfigPath: string | null): void {
-    this.entries.delete(tsConfigCacheKey(tsConfigPath));
+    const key = tsConfigCacheKey(tsConfigPath);
+    this.entries.delete(key);
+    this.parsedCaches.delete(key);
+  }
+
+  /**
+   * Evicts `filePath` from `tsConfigPath`'s parse cache and drops the cached
+   * service so the next `get` rebuilds the program — against a parse cache
+   * that still holds every other file, so the rebuild re-reads only the one
+   * file that changed.
+   */
+  refreshFile(tsConfigPath: string | null, filePath: string): void {
+    const key = tsConfigCacheKey(tsConfigPath);
+    this.parsedCaches.get(key)?.delete(filePath);
+    this.entries.delete(key);
   }
 }

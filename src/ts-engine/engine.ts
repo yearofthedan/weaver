@@ -167,13 +167,19 @@ export class TsMorphEngine implements Engine {
    * no need to parse it a second time.
    */
   private loadDiagnosticServiceEntry(tsConfigPath: string | null): DiagnosticService {
-    return this.diagnosticServices.get(tsConfigPath, () => {
+    return this.diagnosticServices.get(tsConfigPath, (parsed) => {
       const projectEntry = this.loadProjectEntry(tsConfigPath);
       const compilerOptions = projectEntry.project.getCompilerOptions();
       const scriptFileNames = projectEntry.project
         .getSourceFiles()
         .map((sf) => sf.getFilePath() as string);
-      return buildDiagnosticService(compilerOptions, scriptFileNames, tsConfigPath);
+      return buildDiagnosticService(
+        compilerOptions,
+        scriptFileNames,
+        tsConfigPath,
+        undefined,
+        parsed,
+      );
     });
   }
 
@@ -271,9 +277,10 @@ export class TsMorphEngine implements Engine {
     const tsConfigPath = findTsConfigForFile(filePath);
     const entry = this.projectEntries.get(tsConfigCacheKey(tsConfigPath));
     entry?.project.getSourceFile(filePath)?.refreshFromFileSystemSync();
-    // No per-file refresh: nothing signals a deletion to the diagnostic program,
-    // so a surviving entry would keep serving a file that has moved away.
-    this.diagnosticServices.invalidate(tsConfigPath);
+    // Evicts only this file's parse and the cached service, so the next check
+    // rebuilds the program against a parse cache that is still warm for every
+    // other file — one file changed, so only that file is re-read.
+    this.diagnosticServices.refreshFile(tsConfigPath, filePath);
   }
 
   resolveOffset(file: string, line: number, col: number): number {
