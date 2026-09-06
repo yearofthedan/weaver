@@ -56,9 +56,6 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
 
       await tsMoveFile(engine, oldPath, newPath, scope);
 
-      // The file at oldPath is gone. Asking about it again must not be answered from
-      // the parse taken before the move — that would report a clean result for a file
-      // that no longer exists on disk.
       await expect(engine.getTypeErrors(oldPath, scope)).rejects.toThrow(
         /Could not find source file/,
       );

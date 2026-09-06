@@ -28,12 +28,6 @@ export async function tsMoveFile(
 
   await tsAfterFileRename(engine, oldPath, newPath, scope);
 
-  // The diagnostic parse cache is keyed by absolute path and outlives this call, so a
-  // later check for `oldPath` could otherwise be answered from the parse taken before
-  // the rename. Called after `tsAfterFileRename`, once ts-morph's own project has
-  // already dropped `oldPath` as a source file.
-  engine.refreshFile(oldPath);
-
   scope.recordModified(newPath);
 
   return { oldPath, newPath };

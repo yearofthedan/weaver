@@ -10,8 +10,8 @@ import { rewriteMovedFileOwnImports } from "./rewrite-own-imports.js";
  *
  * Incrementally updates the project graph so subsequent operations see the
  * file at its new location, rewrites the moved file's own relative imports,
- * and walks all workspace files to rewrite any import/export specifier still
- * pointing at the old path.
+ * walks all workspace files to rewrite any import/export specifier still
+ * pointing at the old path, and drops the old path's retained diagnostic parse.
  */
 export async function tsAfterFileRename(
   engine: TsMorphEngine,
@@ -35,4 +35,9 @@ export async function tsAfterFileRename(
   rewriteMovedFileOwnImports(oldPath, newPath, scope);
 
   rewriteImportersOfMovedFile(oldPath, newPath, scope, walkFiles(scope.root, [...TS_EXTENSIONS]));
+
+  // The diagnostic parse cache is keyed by absolute path and outlives this call, so
+  // without this a later check for `oldPath` is answered from the parse taken before
+  // the rename — reporting a clean result for a file that is no longer on disk.
+  engine.refreshFile(oldPath);
 }

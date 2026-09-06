@@ -18,6 +18,27 @@ describe("tsMoveDirectory", () => {
     for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
   });
 
+  describe("stale diagnostic parse cache (moved-away path checked again)", () => {
+    test("does not answer a check on a moved file's old path from the parse taken before the move", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.moveDirTs.name);
+      const engine = new TsMorphEngine();
+      const scope = makeScope(dir);
+      const oldFile = path.join(dir, "src", "utils", "a.ts");
+
+      // Checking a sibling parses every root under the tsconfig, so the files about
+      // to move are retained in the parse cache before they leave disk.
+      await engine.getTypeErrors(path.join(dir, "src", "app.ts"), scope);
+
+      await tsMoveDirectory(engine, `${dir}/src/utils`, `${dir}/src/helpers`, scope);
+
+      await expect(engine.getTypeErrors(oldFile, scope)).rejects.toThrow(
+        /Could not find source file/,
+      );
+    });
+  });
+
   describe("source file handling", () => {
     test("physically moves source files and rewrites external imports", async ({
       seedNamedFixture,
