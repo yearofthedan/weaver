@@ -2,42 +2,49 @@ import * as path from "node:path";
 import ts from "typescript";
 import type { FileSystem } from "../ports/filesystem.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
-
-/** Cache key for the diagnostic service covering files with no tsconfig above them. */
-const NO_TSCONFIG_CACHE_KEY = "__no_tsconfig__";
+import { tsConfigCacheKey } from "../utils/ts-project.js";
 
 /**
- * The subset of `ts.LanguageService` that `get-type-errors.ts` actually calls.
- * Deliberately its own interface, not `Pick<ts.LanguageService, ...>` — unlike
- * the real API, `getProgram` here is never `undefined`, since this service has
- * no syntax-only mode to fall back to.
+ * The diagnostic half of a `ts.LanguageService`, plus the two mutations the
+ * engine performs on it. `getSemanticDiagnostics` and `getProgram` match the
+ * real API's shape so `get-type-errors.ts` can narrow to a `Pick` of it, but
+ * `getProgram` here is never `undefined` — this service has no syntax-only
+ * mode to fall back to.
  */
-export interface DiagnosticLanguageService {
+export interface DiagnosticService {
   getSemanticDiagnostics(fileName: string): ts.Diagnostic[];
   getProgram(): ts.Program;
+  /** Adds a root the tsconfig does not cover. A no-op if it is already a root. */
+  addScriptFile(fileName: string): void;
 }
 
-export interface DiagnosticService {
-  languageService: DiagnosticLanguageService;
-  /**
-   * Root files the program is built from. Mutated in place (never
-   * reassigned) so `createDiagnosticLanguageService`'s length check — read on
-   * every call — sees an addition immediately. Mirrors `ensureProject`'s
-   * single-file add on the ts-morph side.
-   */
-  scriptFileNames: string[];
-}
-
+/**
+ * A compiler host that caches each `ts.SourceFile` it parses, for the lifetime of
+ * the service that owns it. `addScriptFile` rebuilds the program, and without
+ * this every rebuild would re-parse every root to add one file. The cache cannot
+ * go stale: the only thing that invalidates a file is `invalidateProject`, which
+ * drops the whole service and this host with it.
+ */
 function buildCompilerHost(tsConfigPath: string | null, fs: FileSystem): ts.CompilerHost {
+  const parsed = new Map<string, ts.SourceFile>();
+
+  const readFile = (fileName: string): string | undefined => {
+    try {
+      return fs.readFile(fileName);
+    } catch {
+      return undefined;
+    }
+  };
+
   return {
     getSourceFile: (fileName, languageVersionOrOptions) => {
-      let content: string | undefined;
-      try {
-        content = fs.readFile(fileName);
-      } catch {
-        return undefined;
-      }
-      return ts.createSourceFile(fileName, content, languageVersionOrOptions, true);
+      const cached = parsed.get(fileName);
+      if (cached) return cached;
+      const content = readFile(fileName);
+      if (content === undefined) return undefined;
+      const sourceFile = ts.createSourceFile(fileName, content, languageVersionOrOptions, true);
+      parsed.set(fileName, sourceFile);
+      return sourceFile;
     },
     getDefaultLibFileName: ts.getDefaultLibFilePath,
     writeFile: () => {
@@ -54,13 +61,7 @@ function buildCompilerHost(tsConfigPath: string | null, fs: FileSystem): ts.Comp
         return false;
       }
     },
-    readFile: (fileName) => {
-      try {
-        return fs.readFile(fileName);
-      } catch {
-        return undefined;
-      }
-    },
+    readFile,
     directoryExists: (dirPath) => {
       try {
         return fs.exists(dirPath) && fs.stat(dirPath).isDirectory();
@@ -89,36 +90,37 @@ function buildCompilerHost(tsConfigPath: string | null, fs: FileSystem): ts.Comp
 }
 
 /**
- * Wraps a lazily (re)built `ts.Program` behind the two methods
- * `get-type-errors.ts` needs. Rebuilds only when `scriptFileNames`'s length
- * has grown since the last build — the only way it changes, since
- * `getDiagnosticServiceForFile` only ever pushes — reusing `oldProgram` so an
- * added file doesn't force re-parsing everything already checked.
+ * Wraps a lazily (re)built `ts.Program`, rebuilt only when `addScriptFile` adds a
+ * root the tsconfig did not cover. `oldProgram` is deliberately NOT passed: with
+ * a changed root set TypeScript can hand back a reused structure that omits the
+ * new root, which surfaces as `getSemanticDiagnostics` failing to find a file it
+ * was just given. The host's parse cache is what keeps the rebuild cheap instead.
  *
- * Built on `ts.createProgram`, not `ts.createLanguageService`: driving the
- * same compiler options and file list through each produces different
- * semantic diagnostics for this codebase's own use of ts-morph's heavily
- * overloaded, conditionally-typed API (confirmed by holding both fixed and
- * switching only the API) — `createProgram` is the one that agrees with
- * `tsc`, which is the actual target this module exists to match.
+ * Built on `ts.createProgram`, not `ts.createLanguageService`: driving the same
+ * compiler options and file list through each produces different semantic
+ * diagnostics for this codebase's own use of ts-morph's heavily overloaded,
+ * conditionally-typed API (confirmed by holding both fixed and switching only
+ * the API) — `createProgram` is the one that agrees with `tsc`, which is the
+ * target this module exists to match.
  */
-function createDiagnosticLanguageService(
+function createDiagnosticService(
   compilerOptions: ts.CompilerOptions,
-  scriptFileNames: string[],
+  rootNames: string[],
   host: ts.CompilerHost,
-): DiagnosticLanguageService {
+): DiagnosticService {
+  const roots = [...rootNames];
+  const rootSet = new Set(roots);
   let program: ts.Program | undefined;
-  let builtForLength = -1;
+  let stale = true;
 
   const getProgram = (): ts.Program => {
-    if (!program || builtForLength !== scriptFileNames.length) {
+    if (!program || stale) {
       program = ts.createProgram({
-        rootNames: scriptFileNames,
+        rootNames: roots,
         options: compilerOptions,
-        oldProgram: program,
         host,
       });
-      builtForLength = scriptFileNames.length;
+      stale = false;
     }
     return program;
   };
@@ -133,14 +135,20 @@ function createDiagnosticLanguageService(
       }
       return [...prog.getSemanticDiagnostics(sourceFile)];
     },
+    addScriptFile: (fileName) => {
+      if (rootSet.has(fileName)) return;
+      rootSet.add(fileName);
+      roots.push(fileName);
+      stale = true;
+    },
   };
 }
 
 /**
  * Builds a diagnostic service from an already-resolved tsconfig —
- * `compilerOptions` and `scriptFileNames` are exactly what ts-morph's own
- * project loading already computed, since tsconfig resolution (include,
- * exclude, extends) is not what ts-morph gets wrong.
+ * `compilerOptions` and `rootNames` are exactly what ts-morph's own project
+ * loading already computed, since tsconfig resolution (include, exclude,
+ * extends) is not what ts-morph gets wrong.
  *
  * What it gets wrong is source-file *creation*: `@ts-morph/common`'s
  * `DocumentRegistry` always passes a bare `ScriptTarget` into
@@ -153,33 +161,24 @@ function createDiagnosticLanguageService(
  */
 export function buildDiagnosticService(
   compilerOptions: ts.CompilerOptions,
-  scriptFileNames: string[],
+  rootNames: string[],
   tsConfigPath: string | null,
   fs: FileSystem = new NodeFileSystem(),
 ): DiagnosticService {
-  const mutableFileNames = [...scriptFileNames];
-  const host = buildCompilerHost(tsConfigPath, fs);
-  return {
-    languageService: createDiagnosticLanguageService(compilerOptions, mutableFileNames, host),
-    scriptFileNames: mutableFileNames,
-  };
+  return createDiagnosticService(compilerOptions, rootNames, buildCompilerHost(tsConfigPath, fs));
 }
 
 /**
  * Caches one `DiagnosticService` per tsconfig path (plus one for the
  * no-tsconfig case), so repeated lookups for the same config reuse the same
- * service instead of rebuilding a program on every call.
+ * program instead of rebuilding one on every call.
  */
 export class DiagnosticServiceCache {
   private entries = new Map<string, DiagnosticService>();
 
-  private cacheKey(tsConfigPath: string | null): string {
-    return tsConfigPath ?? NO_TSCONFIG_CACHE_KEY;
-  }
-
   /** Returns the cached entry for `tsConfigPath`, building it via `build` on a cache miss. */
   get(tsConfigPath: string | null, build: () => DiagnosticService): DiagnosticService {
-    const key = this.cacheKey(tsConfigPath);
+    const key = tsConfigCacheKey(tsConfigPath);
     let entry = this.entries.get(key);
     if (!entry) {
       entry = build();
@@ -190,6 +189,6 @@ export class DiagnosticServiceCache {
 
   /** Drops the cached entry for `tsConfigPath`, if any. The next `get` rebuilds it. */
   invalidate(tsConfigPath: string | null): void {
-    this.entries.delete(this.cacheKey(tsConfigPath));
+    this.entries.delete(tsConfigCacheKey(tsConfigPath));
   }
 }

@@ -36,6 +36,18 @@ export function findTsConfig(startDir: string): string | null {
   }
 }
 
+/** Cache key standing in for "no tsconfig above this file", which is not a path. */
+const NO_TSCONFIG_CACHE_KEY = "__no_tsconfig__";
+
+/**
+ * Key for anything cached per tsconfig. Shared so the ts-morph project cache and
+ * the diagnostic-service cache cannot drift apart on what "no tsconfig" means —
+ * `TsMorphEngine.refreshFile` looks both up under the key this returns.
+ */
+export function tsConfigCacheKey(tsConfigPath: string | null): string {
+  return tsConfigPath ?? NO_TSCONFIG_CACHE_KEY;
+}
+
 /**
  * Find tsconfig.json starting from the directory containing the given file.
  */

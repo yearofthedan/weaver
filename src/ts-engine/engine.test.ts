@@ -304,59 +304,6 @@ describe("TsMorphEngine", () => {
     });
   });
 
-  describe("getLanguageServiceForDirectory", () => {
-    test("returns a language service for the project covering the directory", async ({
-      seedNamedFixture,
-    }) => {
-      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
-      const p = new TsMorphEngine();
-      const ls = p.getLanguageServiceForDirectory(dir);
-      expect(typeof ls.getSemanticDiagnostics).toBe("function");
-    });
-
-    test("returns a language service that can check files in the project", async ({
-      seedNamedFixture,
-    }) => {
-      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
-      const p = new TsMorphEngine();
-      const ls = p.getLanguageServiceForDirectory(dir);
-      const file = path.join(dir, "src/utils.ts");
-      const diags = ls.getSemanticDiagnostics(file);
-      expect(Array.isArray(diags)).toBe(true);
-    });
-  });
-
-  describe("getProjectSourceFilePaths", () => {
-    test("returns file paths as strings", async ({ seedNamedFixture }) => {
-      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
-      const p = new TsMorphEngine();
-      const paths = p.getProjectSourceFilePaths(dir);
-      expect(Array.isArray(paths)).toBe(true);
-      for (const fp of paths) {
-        expect(typeof fp).toBe("string");
-      }
-    });
-
-    test("includes source files from the project", async ({ seedNamedFixture }) => {
-      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
-      const p = new TsMorphEngine();
-      const paths = p.getProjectSourceFilePaths(dir);
-      const utils = path.join(dir, "src/utils.ts");
-      expect(paths.some((fp) => fp === utils || fp.endsWith("/src/utils.ts"))).toBe(true);
-    });
-
-    it("returns an empty array when the directory has no tsconfig and no source files", () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ts-empty-"));
-      try {
-        const p = new TsMorphEngine();
-        const paths = p.getProjectSourceFilePaths(tmpDir);
-        expect(Array.isArray(paths)).toBe(true);
-      } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-      }
-    });
-  });
-
   describe("getSeedFilePaths", () => {
     test("returns the tsconfig program's own files, excluding walk-only files", async ({
       seedNamedFixture,
