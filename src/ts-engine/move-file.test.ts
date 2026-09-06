@@ -39,6 +39,32 @@ function makeGitRepo(dir: string): void {
 }
 
 describe("tsMoveFile - TsMorphEngine integration", () => {
+  describe("stale diagnostic parse cache (source path checked again after the move)", () => {
+    test("does not answer a check on the old path from the parse taken before the move", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      const oldPath = path.join(dir, "src", "utils.ts");
+      const newPath = path.join(dir, "lib", "utils.ts");
+      const engine = new TsMorphEngine();
+      const scope = makeScope(dir);
+
+      // Prime the diagnostic parse cache: checking main.ts builds a program whose
+      // rootNames include every file under the tsconfig, so utils.ts (about to move)
+      // gets parsed and retained as a side effect of checking a sibling file.
+      await engine.getTypeErrors(path.join(dir, "src", "main.ts"), scope);
+
+      await tsMoveFile(engine, oldPath, newPath, scope);
+
+      // The file at oldPath is gone. Asking about it again must not be answered from
+      // the parse taken before the move — that would report a clean result for a file
+      // that no longer exists on disk.
+      await expect(engine.getTypeErrors(oldPath, scope)).rejects.toThrow(
+        /Could not find source file/,
+      );
+    });
+  });
+
   describe("stale project cache (file added after project load)", () => {
     test("rewrites import in a file created after the project was loaded", async ({
       seedNamedFixture,
