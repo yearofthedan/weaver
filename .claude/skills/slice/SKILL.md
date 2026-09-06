@@ -21,6 +21,8 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
    - **`[needs design]` (no spec)** → switch to the `/spec` workflow: create a spec file from the appropriate template, walk through ACs with the user, update handoff.md with the spec link. After the spec is created, **commit the spec file and updated handoff.md** with message `docs(specs): add spec for [short-title]`. Do not begin implementation with an uncommitted spec. Then continue to step 2.
    - **Legacy inline ACs (no spec file, no `[needs design]` tag)** → ask the user: create a spec first, or proceed with inline ACs?
 
+   **State the problem to the user, then stop.** Before routing the task anywhere, say plainly what is broken — what it costs, in real units, with every internal name grounded to a file. What before how. The handoff entry is not this statement: it was written mid-code by whoever queued it, so relaying it forwards their framing rather than stating the problem. This ends the turn. Wait for the user's response before spiking, speccing, investigating, or implementing.
+
    **Reclassification guard.** A `[needs investigation]` or `[needs design]` task cannot be downgraded to a direct fix because you *believe* you already know the root cause or the design. The tag is lowered only by running the discipline (`/investigate` or `/spec`) and recording its result — never by asserting the answer to skip the step.
 
 2. **Read the spec.** Open the linked spec file. Confirm the task and its ACs with the user BEFORE writing any code.
