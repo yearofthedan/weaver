@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect } from "vitest";
 import { FIXTURES, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { createSelfWriteState } from "../daemon/self-write-state.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
@@ -38,7 +39,37 @@ function makeGitRepo(dir: string): void {
   execSync("git commit -m init", { cwd: dir, env: gitEnv, stdio: "pipe" });
 }
 
+/**
+ * A scope wired the way the daemon wires one: writes go through the recording
+ * decorator, which is what evicts the retained diagnostic parse. A scope built
+ * over a bare `NodeFileSystem` skips that, so these cases would pass for the
+ * wrong reason.
+ */
+function makeDaemonScope(dir: string, engine: TsMorphEngine): WorkspaceScope {
+  const state = createSelfWriteState(new NodeFileSystem(), (p) => engine.evictDiagnosticParse(p));
+  return new WorkspaceScope(dir, state.fileSystem);
+}
+
 describe("tsMoveFile - TsMorphEngine integration", () => {
+  describe("writes through the daemon's filesystem", () => {
+    test("a later check reflects content written after the cache was warmed", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      const engine = new TsMorphEngine();
+      const scope = makeDaemonScope(dir, engine);
+      const utils = path.join(dir, "src", "utils.ts");
+
+      const before = await engine.getTypeErrors(utils, scope);
+      expect(before.errorCount).toBe(0);
+
+      scope.writeFile(utils, "export const broken: number = 'not a number';\n");
+
+      const after = await engine.getTypeErrors(utils, scope);
+      expect(after.diagnostics.map((d) => d.code)).toContain(2322);
+    });
+  });
+
   describe("stale diagnostic parse cache (source path checked again after the move)", () => {
     test("does not answer a check on the old path from the parse taken before the move", async ({
       seedNamedFixture,
@@ -47,7 +78,7 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
       const oldPath = path.join(dir, "src", "utils.ts");
       const newPath = path.join(dir, "lib", "utils.ts");
       const engine = new TsMorphEngine();
-      const scope = makeScope(dir);
+      const scope = makeDaemonScope(dir, engine);
 
       // Prime the diagnostic parse cache: checking main.ts builds a program whose
       // rootNames include every file under the tsconfig, so utils.ts (about to move)

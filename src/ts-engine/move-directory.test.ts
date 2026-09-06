@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FIXTURES, fileExists, readFile, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { createSelfWriteState } from "../daemon/self-write-state.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "./engine.js";
@@ -9,6 +10,17 @@ import { tsMoveDirectory } from "./move-directory.js";
 
 function makeScope(dir: string): WorkspaceScope {
   return new WorkspaceScope(dir, new NodeFileSystem());
+}
+
+/**
+ * A scope wired the way the daemon wires one: writes go through the recording
+ * decorator, which is what evicts the retained diagnostic parse. A scope built
+ * over a bare `NodeFileSystem` skips that, so these cases would pass for the
+ * wrong reason.
+ */
+function makeDaemonScope(dir: string, engine: TsMorphEngine): WorkspaceScope {
+  const state = createSelfWriteState(new NodeFileSystem(), (p) => engine.evictDiagnosticParse(p));
+  return new WorkspaceScope(dir, state.fileSystem);
 }
 
 describe("tsMoveDirectory", () => {
@@ -24,7 +36,7 @@ describe("tsMoveDirectory", () => {
     }) => {
       const dir = await seedNamedFixture(FIXTURES.moveDirTs.name);
       const engine = new TsMorphEngine();
-      const scope = makeScope(dir);
+      const scope = makeDaemonScope(dir, engine);
       const oldFile = path.join(dir, "src", "utils", "a.ts");
 
       // Checking a sibling parses every root under the tsconfig, so the files about

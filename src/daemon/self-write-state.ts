@@ -1,5 +1,8 @@
+import * as nodePath from "node:path";
 import type { FileSystem } from "../ports/filesystem.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
+import { TS_EXTENSIONS } from "../utils/extensions.js";
+import { evictDiagnosticParse } from "./language-plugin-registry.js";
 import { RecordingFileSystem } from "./recording-filesystem.js";
 import { createSelfWriteLedger } from "./self-write-ledger.js";
 
@@ -15,15 +18,32 @@ export interface SelfWriteState {
   shouldSuppress(path: string): boolean;
 }
 
-export function createSelfWriteState(inner: FileSystem): SelfWriteState {
+export function createSelfWriteState(
+  inner: FileSystem,
+  onMutated: (path: string) => void = () => {},
+): SelfWriteState {
   const ledger = createSelfWriteLedger(inner);
   return {
-    fileSystem: new RecordingFileSystem(inner, ledger),
+    fileSystem: new RecordingFileSystem(inner, ledger, onMutated),
     shouldSuppress: (path) => ledger.shouldSuppress(path),
   };
 }
 
-const daemonState = createSelfWriteState(new NodeFileSystem());
+/**
+ * A retained diagnostic parse is only correct while it matches disk, and the
+ * daemon's own writes are the main thing that moves disk. Evicting here rather
+ * than at each call site means an operation cannot forget: every write the
+ * daemon makes goes through this one instance.
+ *
+ * Only source files carry a parse, so a `.md` or `.json` write costs nothing.
+ * The extension set matches the one the importer rewrites use, so a rewritten
+ * `.js` importer under `allowJs` is evicted along with the `.ts` ones.
+ */
+function evictParseIfSource(path: string): void {
+  if (TS_EXTENSIONS.has(nodePath.extname(path))) evictDiagnosticParse(path);
+}
+
+const daemonState = createSelfWriteState(new NodeFileSystem(), evictParseIfSource);
 
 /**
  * The one `FileSystem` every dispatcher operation writes through. Wrapping a

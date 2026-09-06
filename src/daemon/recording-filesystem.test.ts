@@ -6,8 +6,9 @@ import { createSelfWriteLedger } from "./self-write-ledger.js";
 function setup() {
   const innerFs = new InMemoryFileSystem();
   const ledger = createSelfWriteLedger(innerFs);
-  const recordingFs = new RecordingFileSystem(innerFs, ledger);
-  return { innerFs, ledger, recordingFs };
+  const mutated: string[] = [];
+  const recordingFs = new RecordingFileSystem(innerFs, ledger, (p) => mutated.push(p));
+  return { innerFs, ledger, recordingFs, mutated };
 }
 
 describe("RecordingFileSystem", () => {
@@ -135,6 +136,49 @@ describe("RecordingFileSystem", () => {
       recordingFs.rename("/workspace/olddir", "/workspace/newdir");
 
       expect(ledger.shouldSuppress("/workspace/untouched.ts")).toBe(false);
+    });
+  });
+
+  describe("reporting mutations to the observer", () => {
+    it("reports a written path", () => {
+      const { recordingFs, mutated } = setup();
+
+      recordingFs.writeFile("/workspace/a.ts", "content");
+
+      expect(mutated).toEqual(["/workspace/a.ts"]);
+    });
+
+    it("reports an unlinked path", () => {
+      const { innerFs, recordingFs, mutated } = setup();
+      innerFs.writeFile("/workspace/a.ts", "content");
+
+      recordingFs.unlink("/workspace/a.ts");
+
+      expect(mutated).toEqual(["/workspace/a.ts"]);
+    });
+
+    it("reports both ends of a file rename", () => {
+      const { innerFs, recordingFs, mutated } = setup();
+      innerFs.writeFile("/workspace/a.ts", "content");
+
+      recordingFs.rename("/workspace/a.ts", "/workspace/b.ts");
+
+      expect(mutated).toEqual(["/workspace/a.ts", "/workspace/b.ts"]);
+    });
+
+    it("reports both ends of every file in a renamed directory", () => {
+      const { innerFs, recordingFs, mutated } = setup();
+      innerFs.writeFile("/workspace/src/a.ts", "content");
+      innerFs.writeFile("/workspace/src/b.ts", "content");
+
+      recordingFs.rename("/workspace/src", "/workspace/lib");
+
+      expect(mutated.sort()).toEqual([
+        "/workspace/lib/a.ts",
+        "/workspace/lib/b.ts",
+        "/workspace/src/a.ts",
+        "/workspace/src/b.ts",
+      ]);
     });
   });
 });

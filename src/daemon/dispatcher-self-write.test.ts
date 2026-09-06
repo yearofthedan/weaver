@@ -52,4 +52,36 @@ describe("a write dispatched through the daemon", () => {
 
     expect(shouldSuppressSelfWrite(path.join(dir, "src/untouched.ts"))).toBe(false);
   });
+
+  /**
+   * The retained diagnostic parse is only correct while it matches disk. This
+   * drives the production wiring — a test that builds its own recording
+   * filesystem would pass even if the daemon's shared instance stopped
+   * evicting. `checkTypeErrors: false` skips the post-write refresh, so the
+   * eviction at the write is the only thing that can keep the answer honest.
+   */
+  test("does not answer a later check from the text it replaced", async ({ seedInlineFixture }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true }, include: ["src"] }),
+      "src/value.ts": "export const value: number = 1;\n",
+    });
+    const file = path.join(dir, "src/value.ts");
+
+    const warm = await dispatchRequest({ method: "getTypeErrors", params: { file } }, dir);
+    expect(warm).toMatchObject({ status: "success", errorCount: 0 });
+
+    const written = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: { pattern: "1", replacement: "'not a number'", checkTypeErrors: false },
+      },
+      dir,
+    );
+    expect(written.status).not.toBe("error");
+
+    const after = await dispatchRequest({ method: "getTypeErrors", params: { file } }, dir);
+    expect(after).toMatchObject({
+      diagnostics: expect.arrayContaining([expect.objectContaining({ code: 2322 })]),
+    });
+  });
 });

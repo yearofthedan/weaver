@@ -269,6 +269,17 @@ export class TsMorphEngine implements Engine {
     this.diagnosticServices.refreshFile(tsConfigPath, filePath);
   }
 
+  /**
+   * Drops `filePath`'s retained diagnostic parse, so the next check reads it
+   * from disk. Unlike `refreshFile` this leaves ts-morph's own source file
+   * alone: it is called while an operation is mid-write, and
+   * `refreshFromFileSystemSync` would replace a node tree the caller may still
+   * hold references into.
+   */
+  evictDiagnosticParse(filePath: string): void {
+    this.diagnosticServices.refreshFile(findTsConfigForFile(filePath), filePath);
+  }
+
   resolveOffset(file: string, line: number, col: number): number {
     const { sourceFile } = this.ensureProject(file);
     try {

@@ -92,6 +92,15 @@ export function invalidateFile(filePath: string): void {
 }
 
 /**
+ * Drop one file's retained diagnostic parse in the ts-morph engine, if it is
+ * loaded. Called for every source file the daemon writes, so a later check
+ * cannot be answered from the text that was there before the write.
+ */
+export function evictDiagnosticParse(filePath: string): void {
+  tsMorphEngineSingleton?.evictDiagnosticParse(filePath);
+}
+
+/**
  * Drop all loaded compilers so they rebuild lazily on the next request.
  * Called by the watcher on `add` and `unlink` events — structural changes
  * that require the full project graph to be refreshed.

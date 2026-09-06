@@ -5,13 +5,15 @@ import type { SelfWriteLedger } from "./self-write-ledger.js";
 
 /**
  * Decorates a `FileSystem` so every mutation the daemon performs is reported
- * to a `SelfWriteLedger`, keeping the port itself free of daemon-specific
- * policy.
+ * to a `SelfWriteLedger` and to `onMutated`, keeping the port itself free of
+ * daemon-specific policy. Every mutating verb reports; a new one added to
+ * `FileSystem` fails to compile here rather than silently going unobserved.
  */
 export class RecordingFileSystem implements FileSystem {
   constructor(
     private readonly inner: FileSystem,
     private readonly ledger: SelfWriteLedger,
+    private readonly onMutated: (path: string) => void = () => {},
   ) {}
 
   readFile(path: string): string {
@@ -21,6 +23,7 @@ export class RecordingFileSystem implements FileSystem {
   writeFile(path: string, content: string): void {
     this.inner.writeFile(path, content);
     this.ledger.recordWrite(path);
+    this.onMutated(path);
   }
 
   exists(path: string): boolean {
@@ -39,12 +42,15 @@ export class RecordingFileSystem implements FileSystem {
     } else {
       this.ledger.recordRemoval(oldPath);
       this.ledger.recordWrite(newPath);
+      this.onMutated(oldPath);
+      this.onMutated(newPath);
     }
   }
 
   unlink(path: string): void {
     this.inner.unlink(path);
     this.ledger.recordRemoval(path);
+    this.onMutated(path);
   }
 
   realpath(path: string): string {
@@ -77,6 +83,8 @@ export class RecordingFileSystem implements FileSystem {
       const oldFile = nodePath.join(oldPath, relative);
       this.ledger.recordRemoval(oldFile);
       this.ledger.recordWrite(newFile);
+      this.onMutated(oldFile);
+      this.onMutated(newFile);
     }
   }
 }
