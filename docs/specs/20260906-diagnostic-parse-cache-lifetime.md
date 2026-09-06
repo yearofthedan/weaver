@@ -55,8 +55,9 @@ of learning to avoid the operations that run it.*
 
 **Layer-fit:** AC1, AC2 and AC4 are pure functions of file content and call sequence — unit
 tests against `InMemoryFileSystem`, driving `DiagnosticServiceCache` directly. AC3 needs the
-real move path (physical rename plus importer rewrite), so it is one scenario in
-`moveFile.scenarios.yaml`.
+real move path (physical rename plus importer rewrite) against a warmed cache, so it is a
+focused test calling the engine directly — see the note under Behaviour for why it cannot sit
+at the operation layer.
 
 ## Value / Effort
 
@@ -77,9 +78,9 @@ real move path (physical rename plus importer rewrite), so it is one scenario in
 - [ ] Given a project of N files checked once, then one file passed to `refreshFile` and checked
       again — exactly **one** file's content is read through the `FileSystem` port during the
       second check. *(unit, counting `FileSystem` wrapper)*
-- [ ] Given `move-file` moves `a.ts` → `b.ts` while another file still imports `a.ts`, the
-      post-write check reports the unresolved module rather than resolving `a.ts` from a
-      retained parse. *(scenario, `moveFile.scenarios.yaml`)*
+- [ ] Given a check has parsed `a.ts`, and `move-file` then moves it to `b.ts`, a later check
+      on the old path is not answered from the parse taken before the move.
+      *(focused test, `move-file.test.ts`)*
 - [ ] Given `invalidateProject` is called for a tsconfig, the next check re-reads **every** file
       through the `FileSystem` port. *(unit, counting `FileSystem` wrapper)*
 
@@ -90,6 +91,23 @@ input types. `.vue` is out of scope with a reason rather than a case: SFCs are a
 
 The second criterion is what makes the caching claim falsifiable. An implementation that keeps
 dropping everything satisfies the first, third and fourth and fails only that one.
+
+**The third criterion was rewritten during implementation.** It first read: *"`move-file` moves
+`a.ts` → `b.ts` while another file still imports `a.ts`, the post-write check reports the
+unresolved module"*, pinned by a scenario. That failure cannot occur, and the reason is
+structural. `getTypeErrorsForFiles` (`src/daemon/post-write-diagnostics.ts`) only checks paths
+in `filesModified`: an importer that *was* rewritten is in that array and resolves against the
+new path, and one that was *not* rewritten never enters it and is never asked about. Neither
+branch produces an unresolved module.
+
+The retained parse is real, but no operation-layer route reaches it — `getTypeErrors`
+(`src/operations/getTypeErrors.ts:15`) throws `FILE_NOT_FOUND` on its own existence check
+before the engine is consulted, and post-write diagnostics filters on `scope.fs.exists` the
+same way. So the guard, not the cache, is what answers for a moved-away path today, and the
+criterion is observable only through a direct engine call — the exemption the `scenario-tests`
+skill names. The fix still belongs in `move-file`: not serving a file that is gone is the
+engine's own invariant, and resting it on a caller's existence check is what left `move-file`
+with no invalidation call in the first place.
 
 ## Structural criteria
 
@@ -178,8 +196,8 @@ Two internal seams move:
 - [ ] All four criteria above verified by tests — three unit, one scenario
 - [ ] A post-write check on this repository is measurably faster than the recorded 747–831 ms
       baseline, observed on the real CLI path rather than in a test
-- [ ] `move-file` calls the eviction signal for the source path, and the scenario in the third
-      criterion fails without it
+- [ ] `move-file` calls the eviction signal for the source path, and the third criterion's test
+      fails without it
 - [ ] The `moveFile` scenario *two out-of-project files move in turn* still passes
 - [ ] The stale-cache comment at `diagnostic-service.ts:22-26` is rewritten — its stated invariant
       ("the only thing that invalidates a file is `invalidateProject`") is no longer true
