@@ -28,8 +28,8 @@ export interface DiagnosticService {
 function buildCompilerHost(tsConfigPath: string | null, fs: FileSystem): ts.CompilerHost {
   const parsed = new Map<string, ts.SourceFile>();
 
-  // The explicit `return undefined` reads as the intent; an empty catch would
-  // behave identically, so a mutant that empties it survives by equivalence.
+  // An unreadable file is reported as absent, which is what a compiler host
+  // expects; the error itself carries nothing a caller could act on.
   const readFile = (fileName: string): string | undefined => {
     try {
       return fs.readFile(fileName);
@@ -44,9 +44,8 @@ function buildCompilerHost(tsConfigPath: string | null, fs: FileSystem): ts.Comp
       if (cached) return cached;
       const content = readFile(fileName);
       if (content === undefined) return undefined;
-      // `setParentNodes` costs a parent pointer per node and nothing here reads
-      // one — diagnostics do not — so flipping it is unobservable. Kept true
-      // because `getProgram` is public and AST consumers of it would expect them.
+      // `setParentNodes` is for consumers of the public `getProgram`, which may
+      // walk upwards; diagnostics themselves never read a parent.
       const sourceFile = ts.createSourceFile(fileName, content, languageVersionOrOptions, true);
       parsed.set(fileName, sourceFile);
       return sourceFile;
@@ -73,12 +72,9 @@ function buildCompilerHost(tsConfigPath: string | null, fs: FileSystem): ts.Comp
       }
     },
     readFile,
-    // `directoryExists` and `getDirectories` below are only ever called by
-    // TypeScript's `@types` and node_modules discovery. No fixture in the test
-    // suite ships a node_modules tree, so both — and their fallbacks — are
-    // unreachable from tests while being required for a real project. Their
-    // surviving mutants are classified here rather than chased with a fixture
-    // that would exist only to execute them.
+    // TypeScript calls `directoryExists` and `getDirectories` only while
+    // discovering `@types` and node_modules, which no fixture in the test suite
+    // has — they are required for a real project and unreachable from a test.
     directoryExists: (dirPath) => {
       try {
         return fs.exists(dirPath) && fs.stat(dirPath).isDirectory();
@@ -108,10 +104,13 @@ function buildCompilerHost(tsConfigPath: string | null, fs: FileSystem): ts.Comp
 
 /**
  * Wraps a lazily (re)built `ts.Program`, rebuilt only when `addScriptFile` adds a
- * root the tsconfig did not cover. `oldProgram` is deliberately NOT passed: with
- * a changed root set TypeScript can hand back a reused structure that omits the
- * new root, which surfaces as `getSemanticDiagnostics` failing to find a file it
- * was just given. The host's parse cache is what keeps the rebuild cheap instead.
+ * root the tsconfig did not cover. `oldProgram` is deliberately NOT passed:
+ * passing it makes a moved file fail to resolve — the `moveFile` scenario *two
+ * out-of-project files move in turn* goes red, and green again with `oldProgram`
+ * removed and nothing else changed. What the compiler does internally to cause
+ * that was not isolated, so treat the reproduction as the evidence rather than
+ * reasoning from an assumed mechanism. The host's parse cache is what keeps the
+ * rebuild cheap instead.
  *
  * Built on `ts.createProgram`, not `ts.createLanguageService`: driving the same
  * compiler options and file list through each produces different semantic
@@ -125,17 +124,15 @@ function createDiagnosticService(
   rootNames: string[],
   host: ts.CompilerHost,
 ): DiagnosticService {
-  const roots = [...rootNames];
-  const rootSet = new Set(roots);
+  const roots = new Set(rootNames);
   let program: ts.Program | undefined;
-  // Only ever observed after the first build: `!program` is what forces that one,
-  // so this initial value is unobservable and a mutant flipping it survives.
+  // `!program` is what forces the first build, so this only governs rebuilds.
   let stale = false;
 
   const getProgram = (): ts.Program => {
     if (!program || stale) {
       program = ts.createProgram({
-        rootNames: roots,
+        rootNames: [...roots],
         options: compilerOptions,
         host,
       });
@@ -155,9 +152,8 @@ function createDiagnosticService(
       return [...prog.getSemanticDiagnostics(sourceFile)];
     },
     addScriptFile: (fileName) => {
-      if (rootSet.has(fileName)) return;
-      rootSet.add(fileName);
-      roots.push(fileName);
+      if (roots.has(fileName)) return;
+      roots.add(fileName);
       stale = true;
     },
   };

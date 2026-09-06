@@ -178,9 +178,10 @@ export class TsMorphEngine implements Engine {
   }
 
   /**
-   * Same as `getLanguageServiceForConfig`, but backed by a host-TypeScript
-   * program rather than ts-morph's — see `diagnostic-service.ts` for why
-   * ts-morph's own diagnostics are unreliable under `module: NodeNext`.
+   * The diagnostic service for a tsconfig the caller already has — `null` for
+   * the no-tsconfig project. Backed by a host-TypeScript program rather than
+   * ts-morph's; see `diagnostic-service.ts` for why ts-morph's own diagnostics
+   * are unreliable under `module: NodeNext`.
    */
   getDiagnosticServiceForConfig(tsConfigPath: string | null): DiagnosticService {
     return this.loadDiagnosticServiceEntry(tsConfigPath);

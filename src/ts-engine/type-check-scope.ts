@@ -128,7 +128,8 @@ function findOtherConfigs(
 /**
  * Describes how much of the caller's own code `checkedFiles` covers, for a project-wide
  * type check's `checked`/`unchecked` response fields. `walkedFiles` is each engine's full
- * workspace file set (see `TsMorphEngine.getProjectSourceFilePaths` / `CachedService.scriptFileNames`)
+ * workspace file set (the diagnostic program's own source files on the ts-morph side,
+ * `CachedService.scriptFileNames` on the Volar side)
  * — `checkedFiles` minus `walkedFiles` is empty by construction, so subtracting the other way
  * is what finds the files a tsconfig-scoped check left out.
  */

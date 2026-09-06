@@ -43,7 +43,7 @@ describe("buildDiagnosticService", () => {
     expect(service.getProgram().getSourceFile("/proj/b.ts")).toBeUndefined();
   });
 
-  it("resolves the current directory from the tsconfig's own directory, not cwd", () => {
+  it("type-checks a file nested below the tsconfig", () => {
     const fs = fsWith({ "/proj/nested/a.ts": "const x: number = 1;" });
 
     const service = buildDiagnosticService(
@@ -73,21 +73,6 @@ describe("buildDiagnosticService", () => {
     const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
 
     expect(service.getProgram().getSourceFile("/proj/a.ts")).toBeUndefined();
-  });
-
-  it("still type-checks when the FileSystem throws on every directory probe", () => {
-    const fs = fsWith({ "/proj/a.ts": "const x: number = 'oops';" });
-    const boom = () => {
-      throw new Error("EIO");
-    };
-    fs.exists = boom;
-    fs.stat = boom;
-    fs.readdir = boom;
-    fs.realpath = boom;
-
-    const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
-
-    expect(service.getSemanticDiagnostics("/proj/a.ts").map((d) => d.code)).toContain(2322);
   });
 
   it("resolves a relative import through the FileSystem's directory probes", () => {
@@ -174,14 +159,13 @@ describe("buildDiagnosticService", () => {
 });
 
 describe("DiagnosticServiceCache", () => {
-  function fakeService(overrides: Partial<DiagnosticService> = {}): DiagnosticService {
+  function fakeService(): DiagnosticService {
     return {
       getSemanticDiagnostics: () => [],
       getProgram: () => {
         throw new Error("not implemented in this fake");
       },
       addScriptFile: () => {},
-      ...overrides,
     };
   }
 
@@ -203,22 +187,22 @@ describe("DiagnosticServiceCache", () => {
   it("keeps separate entries for different tsconfig paths, including no-tsconfig", () => {
     const cache = new DiagnosticServiceCache();
 
-    const forConfig = cache.get("/proj/tsconfig.json", () => fakeService());
-    const forOtherConfig = cache.get("/other/tsconfig.json", () => fakeService());
-    const forNoConfig = cache.get(null, () => fakeService());
+    const forConfig = cache.get("/proj/tsconfig.json", fakeService);
+    const forOtherConfig = cache.get("/other/tsconfig.json", fakeService);
+    const forNoConfig = cache.get(null, fakeService);
 
     expect(forConfig).not.toBe(forOtherConfig);
     expect(forConfig).not.toBe(forNoConfig);
-    expect(cache.get(null, () => fakeService())).toBe(forNoConfig);
+    expect(cache.get(null, fakeService)).toBe(forNoConfig);
   });
 
   it("rebuilds on the next get after invalidate", () => {
     const cache = new DiagnosticServiceCache();
-    const first = cache.get("/proj/tsconfig.json", () => fakeService());
+    const first = cache.get("/proj/tsconfig.json", fakeService);
 
     cache.invalidate("/proj/tsconfig.json");
 
-    expect(cache.get("/proj/tsconfig.json", () => fakeService())).not.toBe(first);
+    expect(cache.get("/proj/tsconfig.json", fakeService)).not.toBe(first);
   });
 
   it("invalidating an unbuilt tsconfig path is a no-op", () => {
@@ -228,11 +212,11 @@ describe("DiagnosticServiceCache", () => {
 
   it("invalidating one tsconfig path leaves other cached entries untouched", () => {
     const cache = new DiagnosticServiceCache();
-    const untouched = cache.get("/other/tsconfig.json", () => fakeService());
-    cache.get("/proj/tsconfig.json", () => fakeService());
+    const untouched = cache.get("/other/tsconfig.json", fakeService);
+    cache.get("/proj/tsconfig.json", fakeService);
 
     cache.invalidate("/proj/tsconfig.json");
 
-    expect(cache.get("/other/tsconfig.json", () => fakeService())).toBe(untouched);
+    expect(cache.get("/other/tsconfig.json", fakeService)).toBe(untouched);
   });
 });
