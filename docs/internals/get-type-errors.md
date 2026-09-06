@@ -93,8 +93,11 @@ Two constraints on the write-path signal:
   `refreshFromFileSystemSync()`, which replaces a node tree that operations hold references into
   while they are mid-write (`persistSourceFile`, `move-symbol`). Calling it from the write path
   trades this bug for a worse one. `getTypeErrorsForFiles` remains the ts-morph-side signal.
-- **It filters on source extension**, using the same set the importer rewrites use — so a `.js`
-  importer under `allowJs` is evicted, and a `.md` or `.json` write costs nothing.
+- **It offers every mutation and lets the cache decide.** `DiagnosticServiceCache.refreshFile`
+  drops the cached service only when a parse was actually evicted, so a `.md` or `.json` write
+  costs a map lookup. An extension whitelist in the daemon was tried first and was wrong twice
+  over: it is engine knowledge in the wrong layer, and it silently missed `.mts`/`.cts`, which
+  the program parses but the importer-rewrite extension set does not name.
 
 Because the eviction lives in the daemon's decorated filesystem, an engine driven over a bare
 `NodeFileSystem` does not get it. Tests that need the real behaviour must build their scope over

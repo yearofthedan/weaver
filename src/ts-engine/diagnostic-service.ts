@@ -228,13 +228,16 @@ export class DiagnosticServiceCache {
   }
 
   /**
-   * Evicts `filePath`'s parse and the cached service, so the next `get`
-   * rebuilds the program while every other file's parse survives.
+   * Evicts `filePath`'s parse, and the cached service with it so the next `get`
+   * rebuilds the program while every other file's parse survives. A path the
+   * program never parsed is a no-op.
    */
   refreshFile(tsConfigPath: string | null, filePath: string): void {
     const entry = this.entries.get(tsConfigCacheKey(tsConfigPath));
-    if (!entry) return;
-    entry.parsed.delete(filePath);
-    entry.service = undefined;
+    // Only a file the program actually parsed can go stale, and rebuilding for
+    // one it never held would discard a whole program for nothing. This is what
+    // lets a caller evict on every write without knowing which paths carry a
+    // parse — a `.md` write costs a lookup, a `.mts` write is not missed.
+    if (entry?.parsed.delete(filePath)) entry.service = undefined;
   }
 }

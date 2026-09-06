@@ -6,14 +6,16 @@ import type { SelfWriteLedger } from "./self-write-ledger.js";
 /**
  * Decorates a `FileSystem` so every mutation the daemon performs is reported
  * to a `SelfWriteLedger` and to `onMutated`, keeping the port itself free of
- * daemon-specific policy. Every mutating verb reports; a new one added to
- * `FileSystem` fails to compile here rather than silently going unobserved.
+ * daemon-specific policy.
+ *
+ * `mkdir` reports to the ledger only: a directory carries no parsed content,
+ * so there is nothing for `onMutated` to evict.
  */
 export class RecordingFileSystem implements FileSystem {
   constructor(
     private readonly inner: FileSystem,
     private readonly ledger: SelfWriteLedger,
-    private readonly onMutated: (path: string) => void = () => {},
+    private readonly onMutated: (path: string) => void,
   ) {}
 
   readFile(path: string): string {

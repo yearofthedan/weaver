@@ -257,6 +257,17 @@ describe("DiagnosticServiceCache", () => {
       ).toContain(2322);
     });
 
+    it("keeps the built service when the evicted path was never parsed", () => {
+      const { cache, load } = arrange();
+
+      const first = cache.get(TSCONFIG, load);
+      first.getProgram();
+
+      cache.refreshFile(TSCONFIG, "/proj/not-a-source-file.md");
+
+      expect(cache.get(TSCONFIG, load)).toBe(first);
+    });
+
     it.each([
       {
         signal: "refreshFile",

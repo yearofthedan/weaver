@@ -193,7 +193,11 @@ Two internal seams move:
     An eviction is a `Map.delete` and cannot disturb anything in flight. `post-write-diagnostics`'s
     refresh loop stays where it is as the ts-morph-side signal.
   - **Dropping the cached service is guarded on a parse actually being evicted**, or every
-    `.md`/`.json` write in the workspace throws away a program for nothing.
+    `.md`/`.json` write in the workspace throws away a program for nothing. The guard belongs in
+    `DiagnosticServiceCache`, not in an extension filter at the write site: an earlier attempt
+    put it in the daemon and missed `.mts`/`.cts`, which the program parses but the
+    importer-rewrite extension set does not name. Which paths carry a parse is the cache's to
+    know.
   If `FileSystem` grows a fifth mutating verb, the decorator fails to compile rather than silently
   going stale — that asymmetry is why the port is the seam rather than the dispatcher.
 

@@ -84,4 +84,34 @@ describe("a write dispatched through the daemon", () => {
       diagnostics: expect.arrayContaining([expect.objectContaining({ code: 2322 })]),
     });
   });
+
+  test("does not answer a later check from replaced text in a .mts file", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: { strict: true, module: "NodeNext", moduleResolution: "NodeNext" },
+        include: ["src"],
+      }),
+      "src/value.mts": "export const value: number = 1;\n",
+    });
+    const file = path.join(dir, "src/value.mts");
+
+    const warm = await dispatchRequest({ method: "getTypeErrors", params: { file } }, dir);
+    expect(warm).toMatchObject({ status: "success", errorCount: 0 });
+
+    const written = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: { pattern: "1", replacement: "'not a number'", checkTypeErrors: false },
+      },
+      dir,
+    );
+    expect(written.status).not.toBe("error");
+
+    const after = await dispatchRequest({ method: "getTypeErrors", params: { file } }, dir);
+    expect(after).toMatchObject({
+      diagnostics: expect.arrayContaining([expect.objectContaining({ code: 2322 })]),
+    });
+  });
 });
