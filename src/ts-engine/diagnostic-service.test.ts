@@ -108,6 +108,15 @@ describe("the diagnostic service", () => {
     expect(service.getProgram().getSourceFile("/proj/a.ts")).toBe(firstParse);
   });
 
+  it("parses with parent pointers, which a consumer of getProgram may walk", () => {
+    const fs = fsWith({ "/proj/a.ts": "const x: number = 1;" });
+
+    const service = serviceFor(OPTIONS, ["/proj/a.ts"], null, fs);
+
+    const statement = service.getProgram().getSourceFile("/proj/a.ts")?.statements[0];
+    expect(statement?.parent).toBeDefined();
+  });
+
   it("matches file names case-sensitively", () => {
     const fs = fsWith({ "/proj/a.ts": "const x: number = 1;" });
 

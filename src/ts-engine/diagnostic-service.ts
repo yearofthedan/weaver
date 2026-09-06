@@ -58,13 +58,15 @@ function buildCompilerHost(
     },
     // Every path the engine hands this host is already absolute, so the current
     // directory is never consulted to resolve one; it is supplied because the
-    // host contract requires it.
+    // host contract requires it. That is also why mutating it survives: no
+    // fixture reaches a lookup that needs it.
     getCurrentDirectory: () => (tsConfigPath ? path.dirname(tsConfigPath) : process.cwd()),
     getCanonicalFileName: (fileName) => fileName,
     // Inert while `getCanonicalFileName` is identity — that already makes every
     // comparison case-sensitive — but both must agree, so it states the same rule.
     useCaseSensitiveFileNames: () => true,
-    // Never observed: this host answers diagnostics and never emits.
+    // Never observed: this host answers diagnostics and never emits, so nothing
+    // in the suite can distinguish what this returns.
     getNewLine: () => "\n",
     fileExists: (fileName) => {
       try {
@@ -74,9 +76,12 @@ function buildCompilerHost(
       }
     },
     readFile,
-    // TypeScript calls `directoryExists` and `getDirectories` only while
-    // discovering `@types` and node_modules, which no fixture in the test suite
-    // has — they are required for a real project and unreachable from a test.
+    // TypeScript calls these only while discovering `@types` and node_modules,
+    // which no fixture in the suite has. `directoryExists` is reached during a
+    // run but its answer changes nothing without those directories to find, and
+    // `getDirectories` is never called at all — both are required for a real
+    // project and neither can be pinned from here. The `catch` arms need a
+    // failing real filesystem, which the in-memory double cannot produce.
     directoryExists: (dirPath) => {
       try {
         return fs.exists(dirPath) && fs.stat(dirPath).isDirectory();
@@ -94,6 +99,8 @@ function buildCompilerHost(
         return [];
       }
     },
+    // Only consulted while resolving through symlinks, which no fixture uses;
+    // the fallback matters for a real workspace reached through one.
     realpath: (fileName) => {
       try {
         return fs.realpath(fileName);
