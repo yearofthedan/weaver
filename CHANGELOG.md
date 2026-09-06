@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.12](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.11...weaver-v0.1.12) (2026-09-06)
+
+
+### Features
+
+* **get-type-errors:** let a project-wide check answer for a named tsconfig ([703c6bb](https://github.com/yearofthedan/weaver/commit/703c6bb6588019174e9643822b0a2c752c18e6e7))
+* **get-type-errors:** report how much of the caller's code a project-wide check covered ([53e6c5d](https://github.com/yearofthedan/weaver/commit/53e6c5da6c768cacab156c100c0a70a0caf7c3ed))
+* **ts-engine:** add a host-TypeScript diagnostic service ([78400ed](https://github.com/yearofthedan/weaver/commit/78400edb79d358cbe6ae7fefb69e0eb1dfb5561d))
+
+
+### Bug Fixes
+
+* **plugins/vue:** follow the type-check closure past the workspace walk ([f63ac9c](https://github.com/yearofthedan/weaver/commit/f63ac9c2049889cb06e66042c5ccf123b5daf92b))
+* **plugins/vue:** require real tsConfigPath/workspaceRoot for project-wide diagnostics ([95dbab1](https://github.com/yearofthedan/weaver/commit/95dbab1c54638c962bb123e326f3937fd49a7619))
+* **ts-engine:** compute the type-check closure in the shared module ([f251950](https://github.com/yearofthedan/weaver/commit/f2519506fea0a5f6e0ac5c333dd690bef4be362a))
+* **ts-engine:** drop the unused compilerOptions param on buildCompilerHost ([5c7e93d](https://github.com/yearofthedan/weaver/commit/5c7e93dd3f5a8d7721396c5d56142ca8ca4cf107))
+* **ts-engine:** fix diagnostic-service test fake after Program-based rewrite ([28114f3](https://github.com/yearofthedan/weaver/commit/28114f3ffde83c89a6c22eee813214b837f3c5ee))
+* **ts-engine:** route get-type-errors through the host diagnostic service ([a9f1478](https://github.com/yearofthedan/weaver/commit/a9f14789f82311bd9a36ad5c55aafe113d36ae96))
+* **ts-engine:** scope project-wide diagnostics to the tsconfig program ([c35ca49](https://github.com/yearofthedan/weaver/commit/c35ca4991ecc654848bfaef9fd81c26e878cf75b))
+* **vue:** scope project-wide diagnostics to the tsconfig program ([52b3160](https://github.com/yearofthedan/weaver/commit/52b3160ee1b6059da6f61829ddd0732387bdac70))
+
 ## [0.1.11](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.10...weaver-v0.1.11) (2026-09-03)
 
 
