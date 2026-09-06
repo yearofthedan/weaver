@@ -43,8 +43,8 @@ of learning to avoid the operations that run it.*
 - `src/daemon/post-write-diagnostics.ts` — the hot path; already refreshes every file before
   querying any, so one write costs one rebuild rather than one per file.
 - `src/ports/in-memory-filesystem.ts`, `src/ports/__testHelpers__/throwing-filesystem.ts` —
-  `buildDiagnosticService` takes an injectable `fs: FileSystem`, and the throwing helper is the
-  precedent for a wrapper that observes port calls.
+  the diagnostic service is built over an injectable `fs: FileSystem`, and the throwing helper
+  is the precedent for a wrapper that observes port calls.
 
 ### Red flags
 
@@ -54,7 +54,7 @@ of learning to avoid the operations that run it.*
 - No prep refactor needed.
 
 **Layer-fit:** AC1, AC2 and AC4 are pure functions of file content and call sequence — unit
-tests against `InMemoryFileSystem`, driving `buildDiagnosticService` directly. AC3 needs the
+tests against `InMemoryFileSystem`, driving `DiagnosticServiceCache` directly. AC3 needs the
 real move path (physical rename plus importer rewrite), so it is one scenario in
 `moveFile.scenarios.yaml`.
 
@@ -102,14 +102,21 @@ change is behind `Engine`, whose `refreshFile(path: string): void` signature is 
 
 Two internal seams move:
 
-- The parse cache becomes a per-tsconfig `Map<string, ts.SourceFile>` owned alongside
+- The parse cache becomes a per-tsconfig `Map<string, ts.SourceFile>` owned by
   `DiagnosticServiceCache` rather than captured in `buildCompilerHost`'s closure. Contents:
   one entry per source file the compiler has asked for, keyed by absolute path. Bounds: the
   project's file count — 753 here, ~130 MB. Empty case: a cold cache, which is exactly today's
   behaviour on every check. Adversarial case: a workspace large enough that retention matters,
   which is the resident-memory tradeoff recorded under Open decisions.
-- `buildDiagnosticService` takes that cache instead of creating one. It already accepts an
-  injectable `fs: FileSystem`, so no new parameter is needed to make the criteria testable.
+- `DiagnosticServiceCache` holds the service and its parses in one entry and builds the
+  service itself, taking a `DiagnosticProjectSource` (`compilerOptions`, `rootNames`, and an
+  injectable `fs: FileSystem`) from the caller. **Revised during implementation:** the spec
+  first had `buildDiagnosticService` take the cache as a parameter and the engine thread it
+  through. That shipped and was reverted in review — it put a `Map<string, ts.SourceFile>`
+  the engine never reads into an exported signature, and forced a positional `undefined` at
+  the call site to skip `fs` and reach it. Keeping construction inside the cache leaves the
+  parse map private to the module, and `buildDiagnosticService` is gone rather than surviving
+  as an export only its own tests called.
 
 ## Open decisions
 
