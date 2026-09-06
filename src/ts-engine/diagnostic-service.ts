@@ -28,6 +28,8 @@ export interface DiagnosticService {
 function buildCompilerHost(tsConfigPath: string | null, fs: FileSystem): ts.CompilerHost {
   const parsed = new Map<string, ts.SourceFile>();
 
+  // The explicit `return undefined` reads as the intent; an empty catch would
+  // behave identically, so a mutant that empties it survives by equivalence.
   const readFile = (fileName: string): string | undefined => {
     try {
       return fs.readFile(fileName);
@@ -42,6 +44,9 @@ function buildCompilerHost(tsConfigPath: string | null, fs: FileSystem): ts.Comp
       if (cached) return cached;
       const content = readFile(fileName);
       if (content === undefined) return undefined;
+      // `setParentNodes` costs a parent pointer per node and nothing here reads
+      // one — diagnostics do not — so flipping it is unobservable. Kept true
+      // because `getProgram` is public and AST consumers of it would expect them.
       const sourceFile = ts.createSourceFile(fileName, content, languageVersionOrOptions, true);
       parsed.set(fileName, sourceFile);
       return sourceFile;
@@ -50,9 +55,15 @@ function buildCompilerHost(tsConfigPath: string | null, fs: FileSystem): ts.Comp
     writeFile: () => {
       // Diagnostics only — this host never emits.
     },
+    // Every path the engine hands this host is already absolute, so the current
+    // directory is never consulted to resolve one; it is supplied because the
+    // host contract requires it.
     getCurrentDirectory: () => (tsConfigPath ? path.dirname(tsConfigPath) : process.cwd()),
     getCanonicalFileName: (fileName) => fileName,
+    // Inert while `getCanonicalFileName` is identity — that already makes every
+    // comparison case-sensitive — but both must agree, so it states the same rule.
     useCaseSensitiveFileNames: () => true,
+    // Never observed: this host answers diagnostics and never emits.
     getNewLine: () => "\n",
     fileExists: (fileName) => {
       try {
@@ -62,6 +73,12 @@ function buildCompilerHost(tsConfigPath: string | null, fs: FileSystem): ts.Comp
       }
     },
     readFile,
+    // `directoryExists` and `getDirectories` below are only ever called by
+    // TypeScript's `@types` and node_modules discovery. No fixture in the test
+    // suite ships a node_modules tree, so both — and their fallbacks — are
+    // unreachable from tests while being required for a real project. Their
+    // surviving mutants are classified here rather than chased with a fixture
+    // that would exist only to execute them.
     directoryExists: (dirPath) => {
       try {
         return fs.exists(dirPath) && fs.stat(dirPath).isDirectory();
@@ -111,7 +128,9 @@ function createDiagnosticService(
   const roots = [...rootNames];
   const rootSet = new Set(roots);
   let program: ts.Program | undefined;
-  let stale = true;
+  // Only ever observed after the first build: `!program` is what forces that one,
+  // so this initial value is unobservable and a mutant flipping it survives.
+  let stale = false;
 
   const getProgram = (): ts.Program => {
     if (!program || stale) {

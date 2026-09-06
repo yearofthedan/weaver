@@ -90,6 +90,40 @@ describe("buildDiagnosticService", () => {
     expect(service.getSemanticDiagnostics("/proj/a.ts").map((d) => d.code)).toContain(2322);
   });
 
+  it("resolves a relative import through the FileSystem's directory probes", () => {
+    const fs = fsWith({
+      "/proj/a.ts": 'import { y } from "./b.js";\nconst x: number = y;',
+      "/proj/b.ts": "export const y = 'not a number';",
+    });
+
+    const service = buildDiagnosticService(
+      { noLib: true, module: 99, moduleResolution: 99 },
+      ["/proj/a.ts", "/proj/b.ts"],
+      "/proj/tsconfig.json",
+      fs,
+    );
+
+    expect(service.getSemanticDiagnostics("/proj/a.ts").map((d) => d.code)).toContain(2322);
+  });
+
+  it("reuses the parse of a file already read when another root is added", () => {
+    const fs = fsWith({ "/proj/a.ts": "const x = 1;", "/proj/b.ts": "const y = 2;" });
+    const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
+    const firstParse = service.getProgram().getSourceFile("/proj/a.ts");
+
+    service.addScriptFile("/proj/b.ts");
+
+    expect(service.getProgram().getSourceFile("/proj/a.ts")).toBe(firstParse);
+  });
+
+  it("matches file names case-sensitively", () => {
+    const fs = fsWith({ "/proj/a.ts": "const x: number = 1;" });
+
+    const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
+
+    expect(service.getProgram().getSourceFile("/proj/A.ts")).toBeUndefined();
+  });
+
   describe("addScriptFile", () => {
     it("brings a file the tsconfig does not cover into the program", () => {
       const fs = fsWith({
@@ -101,6 +135,30 @@ describe("buildDiagnosticService", () => {
       service.addScriptFile("/proj/b.ts");
 
       expect(service.getSemanticDiagnostics("/proj/b.ts").map((d) => d.code)).toContain(2322);
+    });
+
+    it("adds the file to a program that was already built", () => {
+      const fs = fsWith({
+        "/proj/a.ts": "const x: number = 1;",
+        "/proj/b.ts": "const y: number = 'oops';",
+      });
+      const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
+      service.getProgram();
+
+      service.addScriptFile("/proj/b.ts");
+
+      expect(service.getSemanticDiagnostics("/proj/b.ts").map((d) => d.code)).toContain(2322);
+    });
+
+    it("does not rebuild when the same added file is offered twice", () => {
+      const fs = fsWith({ "/proj/a.ts": "const x = 1;", "/proj/b.ts": "const y = 2;" });
+      const service = buildDiagnosticService(OPTIONS, ["/proj/a.ts"], null, fs);
+      service.addScriptFile("/proj/b.ts");
+      const afterFirstAdd = service.getProgram();
+
+      service.addScriptFile("/proj/b.ts");
+
+      expect(service.getProgram()).toBe(afterFirstAdd);
     });
 
     it("does not rebuild the program when the file is already a root", () => {
