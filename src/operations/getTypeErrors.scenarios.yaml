@@ -46,6 +46,156 @@ fixtures:
           "include": ["src/**/*.ts", "src/**/*.vue"]
         }
 
+  an-esm-nodenext-import-meta-project:
+    description: >
+      An ESM package (package.json "type": "module") under module/moduleResolution NodeNext,
+      whose only file uses import.meta.
+    files:
+      package.json: '{ "name": "meta-project", "type": "module" }'
+      tsconfig.json: |
+        {
+          "compilerOptions": {
+            "target": "ES2022",
+            "module": "NodeNext",
+            "moduleResolution": "NodeNext",
+            "strict": true,
+            "noEmit": true
+          },
+          "include": ["src/**/*"]
+        }
+      src/main.ts: |
+        export const metaValue = import.meta;
+
+  a-cjs-nodenext-import-meta-project:
+    description: >
+      Same tsconfig and source as an-esm-nodenext-import-meta-project, but no package.json
+      "type" field — the file resolves as CommonJS, so import.meta stays an error.
+    extends: an-esm-nodenext-import-meta-project
+    files:
+      package.json: '{ "name": "meta-project" }'
+
+  an-esm-nodenext-extensionless-import-project:
+    description: >
+      An ESM package under NodeNext where main.ts imports a sibling without a file extension —
+      the case a real build rejects, which ts-morph's own diagnostics used to miss entirely.
+    files:
+      package.json: '{ "name": "ext-project", "type": "module" }'
+      tsconfig.json: |
+        {
+          "compilerOptions": {
+            "target": "ES2022",
+            "module": "NodeNext",
+            "moduleResolution": "NodeNext",
+            "strict": true,
+            "noEmit": true
+          },
+          "include": ["src/**/*"]
+        }
+      src/helper.ts: |
+        export const value = 1;
+      src/main.ts: |
+        import { value } from "./helper";
+        export const doubled = value * 2;
+
+  a-mixed-extension-nodenext-project:
+    description: >
+      No package.json "type" field (so CommonJS is the default), with one .mts file and one
+      .cts file — the file extension pins each file's format regardless of that default.
+    files:
+      package.json: '{ "name": "mixed" }'
+      tsconfig.json: |
+        {
+          "compilerOptions": {
+            "target": "ES2022",
+            "module": "NodeNext",
+            "moduleResolution": "NodeNext",
+            "strict": true,
+            "noEmit": true
+          },
+          "include": ["src/**/*"]
+        }
+      src/esm.mts: |
+        export const x = import.meta;
+      src/cjs.cts: |
+        export const y = import.meta;
+
+  a-vue-nodenext-import-meta-project:
+    description: A Vue project under NodeNext, in an ESM package, whose SFC uses import.meta.
+    files:
+      package.json: '{ "name": "vue-meta", "type": "module" }'
+      tsconfig.json: |
+        {
+          "compilerOptions": {
+            "target": "ES2022",
+            "module": "NodeNext",
+            "moduleResolution": "NodeNext",
+            "strict": true,
+            "jsx": "preserve",
+            "noEmit": true
+          },
+          "include": ["src/**/*.ts", "src/**/*.vue"]
+        }
+      src/App.vue: |
+        <script setup lang="ts">
+        const x = import.meta;
+        </script>
+        <template><div>App</div></template>
+
+  a-vue-nodenext-extensionless-import-project:
+    description: >
+      A Vue project under NodeNext, in an ESM package, where both a .ts file and an SFC import
+      the same sibling without a file extension.
+    files:
+      package.json: '{ "name": "vue-ext", "type": "module" }'
+      tsconfig.json: |
+        {
+          "compilerOptions": {
+            "target": "ES2022",
+            "module": "NodeNext",
+            "moduleResolution": "NodeNext",
+            "strict": true,
+            "jsx": "preserve",
+            "noEmit": true
+          },
+          "include": ["src/**/*.ts", "src/**/*.vue"]
+        }
+      src/helper.ts: |
+        export const value = 1;
+      src/main.ts: |
+        import { value } from "./helper";
+        export const doubled = value * 2;
+      src/App.vue: |
+        <script setup lang="ts">
+        import { value } from "./helper";
+        const doubled = value * 2;
+        </script>
+        <template><div>{{ doubled }}</div></template>
+
+  a-vue-nodenext-mts-project:
+    description: >
+      A Vue project with no package.json "type" field, containing an .mts file whose extension
+      pins it to ESM despite the CommonJS default, alongside an unrelated SFC.
+    files:
+      package.json: '{ "name": "vue-mts" }'
+      tsconfig.json: |
+        {
+          "compilerOptions": {
+            "target": "ES2022",
+            "module": "NodeNext",
+            "moduleResolution": "NodeNext",
+            "strict": true,
+            "jsx": "preserve",
+            "noEmit": true
+          },
+          "include": ["src/**/*.ts", "src/**/*.mts", "src/**/*.vue"]
+        }
+      src/main.mts: |
+        export const x = import.meta;
+      src/App.vue: |
+        <script setup lang="ts">
+        </script>
+        <template><div>App</div></template>
+
 scenarios:
   - name: a project-wide check reports nothing for an error outside the tsconfig's include
     given: a-scoped-ts-project
@@ -504,3 +654,370 @@ scenarios:
           reason: "outside tsconfig.app.json"
           otherConfigs:
             - tsconfig.json
+
+  - name: a project-wide check under NodeNext does not report import.meta as an error in an ESM package
+    given: an-esm-nodenext-import-meta-project
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 0
+        diagnostics: []
+        truncated: false
+        checked:
+          files: 1
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
+
+  - name: a single-file check under NodeNext does not report import.meta as an error in an ESM package
+    given: an-esm-nodenext-import-meta-project
+    when:
+      - getTypeErrors: { file: src/main.ts }
+    then:
+      response:
+        status: success
+        errorCount: 0
+        diagnostics: []
+        truncated: false
+
+  - name: renaming a symbol in an ESM NodeNext file leaves the post-write check clean of import.meta errors
+    given: an-esm-nodenext-import-meta-project
+    when:
+      - rename: { file: src/main.ts, line: 1, col: 14, newName: renamedMeta }
+    then:
+      response:
+        status: success
+        filesModified: [src/main.ts]
+        filesSkipped: []
+        symbolName: metaValue
+        newName: renamedMeta
+        locationCount: 1
+        nameMatches: []
+        typeErrors: none
+      files:
+        changed:
+          src/main.ts: |
+            export const renamedMeta = import.meta;
+        unchanged: [tsconfig.json, package.json]
+
+  - name: a Vue project-wide check under NodeNext does not report import.meta as an error in an ESM package
+    description: >
+      Pins that the fix brings the ts-morph engine to the same import.meta verdict the Volar
+      engine already gives, on a Vue project under the same NodeNext settings.
+    given: a-vue-nodenext-import-meta-project
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 0
+        diagnostics: []
+        truncated: false
+        checked:
+          files: 1
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
+
+  - name: a project-wide check under NodeNext still reports import.meta as an error in a CommonJS package
+    description: >
+      Pins that the fix does not overcorrect — a package with no "type" field (or "commonjs")
+      still resolves as CommonJS, so import.meta stays an error.
+    given: a-cjs-nodenext-import-meta-project
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: src/main.ts
+            line: 1
+            col: 26
+            code: 1470
+            message: "The 'import.meta' meta-property is not allowed in files which will build into CommonJS output."
+        checked:
+          files: 1
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
+
+  - name: a single-file check under NodeNext still reports import.meta as an error in a CommonJS package
+    given: a-cjs-nodenext-import-meta-project
+    when:
+      - getTypeErrors: { file: src/main.ts }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: src/main.ts
+            line: 1
+            col: 26
+            code: 1470
+            message: "The 'import.meta' meta-property is not allowed in files which will build into CommonJS output."
+
+  - name: renaming a symbol in a CommonJS NodeNext file still reports import.meta in the post-write check
+    given: a-cjs-nodenext-import-meta-project
+    when:
+      - rename: { file: src/main.ts, line: 1, col: 14, newName: renamedMeta }
+    then:
+      response:
+        status: warn
+        filesModified: [src/main.ts]
+        filesSkipped: []
+        symbolName: metaValue
+        newName: renamedMeta
+        locationCount: 1
+        nameMatches: []
+        typeErrorCount: 1
+        typeErrorsTruncated: false
+        typeErrors:
+          - file: src/main.ts
+            line: 1
+            col: 28
+            code: 1470
+            message: "The 'import.meta' meta-property is not allowed in files which will build into CommonJS output."
+      files:
+        changed:
+          src/main.ts: |
+            export const renamedMeta = import.meta;
+        unchanged: [tsconfig.json, package.json]
+
+  - name: a Vue project-wide check under NodeNext still reports import.meta as an error in a CommonJS package
+    given:
+      description: a-vue-nodenext-import-meta-project's tsconfig and SFC, but no package.json "type" field
+      extends: a-vue-nodenext-import-meta-project
+      files:
+        package.json: '{ "name": "vue-meta" }'
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: src/App.vue
+            line: 2
+            col: 11
+            code: 1470
+            message: "The 'import.meta' meta-property is not allowed in files which will build into CommonJS output."
+        checked:
+          files: 1
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
+
+  - name: a project-wide check under NodeNext reports an extensionless relative import as an error in an ESM package
+    description: >
+      This is the false clean the fix exists to remove — ts-morph's own diagnostics used to
+      answer errorCount 0 here, where a real build (and the Volar engine, on the same input)
+      reports TS2835.
+    given: an-esm-nodenext-extensionless-import-project
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: src/main.ts
+            line: 1
+            col: 23
+            code: 2835
+            message: "Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './helper.js'?"
+        checked:
+          files: 2
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
+
+  - name: a single-file check under NodeNext reports an extensionless relative import as an error in an ESM package
+    given: an-esm-nodenext-extensionless-import-project
+    when:
+      - getTypeErrors: { file: src/main.ts }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: src/main.ts
+            line: 1
+            col: 23
+            code: 2835
+            message: "Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './helper.js'?"
+
+  - name: renaming an unrelated symbol still reports the extensionless import in the post-write check
+    given: an-esm-nodenext-extensionless-import-project
+    when:
+      - rename: { file: src/helper.ts, line: 1, col: 14, newName: renamedValue }
+    then:
+      response:
+        status: warn
+        filesModified: [src/helper.ts, src/main.ts]
+        filesSkipped: []
+        symbolName: value
+        newName: renamedValue
+        locationCount: 3
+        nameMatches: []
+        typeErrorCount: 1
+        typeErrorsTruncated: false
+        typeErrors:
+          - file: src/main.ts
+            line: 1
+            col: 30
+            code: 2835
+            message: "Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './helper.js'?"
+      files:
+        changed:
+          src/helper.ts: |
+            export const renamedValue = 1;
+          src/main.ts: |
+            import { renamedValue } from "./helper";
+            export const doubled = renamedValue * 2;
+        unchanged: [tsconfig.json, package.json]
+
+  - name: a Vue project-wide check under NodeNext reports an extensionless relative import in both a .ts file and an SFC
+    description: >
+      Same shape as the root-cause example that motivated this fix — adding an SFC importing the
+      same extensionless sibling routes the project to the Volar engine, which already answers
+      correctly for both files. Pins that the ts-morph-engine fix does not move this engine's answer.
+    given: a-vue-nodenext-extensionless-import-project
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 2
+        truncated: false
+        diagnostics:
+          - file: src/main.ts
+            line: 1
+            col: 23
+            code: 2835
+            message: "Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './helper.js'?"
+          - file: src/App.vue
+            line: 2
+            col: 23
+            code: 2835
+            message: "Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './helper.js'?"
+        checked:
+          files: 3
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
+
+  - name: a project-wide check under NodeNext pins format by file extension rather than package.json "type"
+    description: >
+      Same package (no "type" field, so CommonJS is the default) holds one .mts file and one
+      .cts file — the .mts file resolves as ESM (no import.meta error) and the .cts file
+      resolves as CommonJS (import.meta is an error), regardless of that shared default.
+    given: a-mixed-extension-nodenext-project
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: src/cjs.cts
+            line: 1
+            col: 18
+            code: 1470
+            message: "The 'import.meta' meta-property is not allowed in files which will build into CommonJS output."
+        checked:
+          files: 2
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
+
+  - name: a single-file check under NodeNext treats an .mts file as ESM regardless of package.json "type"
+    given: a-mixed-extension-nodenext-project
+    when:
+      - getTypeErrors: { file: src/esm.mts }
+    then:
+      response:
+        status: success
+        errorCount: 0
+        diagnostics: []
+        truncated: false
+
+  - name: a single-file check under NodeNext treats a .cts file as CommonJS regardless of package.json "type"
+    given: a-mixed-extension-nodenext-project
+    when:
+      - getTypeErrors: { file: src/cjs.cts }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: src/cjs.cts
+            line: 1
+            col: 18
+            code: 1470
+            message: "The 'import.meta' meta-property is not allowed in files which will build into CommonJS output."
+
+  - name: a Vue project-wide check under NodeNext treats an .mts file as ESM regardless of package.json "type"
+    given: a-vue-nodenext-mts-project
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 0
+        diagnostics: []
+        truncated: false
+        checked:
+          files: 2
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
+
+  - name: a single-file check with no tsconfig.json in the workspace still reports the file's own error
+    description: >
+      Companion to the existing project-wide no-tsconfig scenario above — pins that switching
+      the single-file lookup to the diagnostic service does not regress the no-tsconfig case,
+      which the existing NO_TSCONFIG_CACHE_KEY shape covers.
+    given:
+      description: a workspace with a type error and no tsconfig.json anywhere in it
+      files:
+        broken.ts: |
+          const broken: number = "not a number";
+    when:
+      - getTypeErrors: { file: broken.ts }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: broken.ts
+            line: 1
+            col: 7
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
