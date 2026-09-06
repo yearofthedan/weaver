@@ -228,6 +228,18 @@ export class DiagnosticServiceCache {
   }
 
   /**
+   * Evicts `filePath`'s parse from every tsconfig that parsed it. A file can be
+   * a root of more than one program — a nested config including `../shared`, say
+   * — and evicting only the config nearest the file leaves the other answering
+   * from the text that was there before the write.
+   */
+  evictFile(filePath: string): void {
+    for (const entry of this.entries.values()) {
+      if (entry.parsed.delete(filePath)) entry.service = undefined;
+    }
+  }
+
+  /**
    * Evicts `filePath`'s parse, and the cached service with it so the next `get`
    * rebuilds the program while every other file's parse survives. A path the
    * program never parsed is a no-op.

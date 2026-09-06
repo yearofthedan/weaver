@@ -277,7 +277,7 @@ export class TsMorphEngine implements Engine {
    * hold references into.
    */
   evictDiagnosticParse(filePath: string): void {
-    this.diagnosticServices.refreshFile(findTsConfigForFile(filePath), filePath);
+    this.diagnosticServices.evictFile(filePath);
   }
 
   resolveOffset(file: string, line: number, col: number): number {

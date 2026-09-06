@@ -257,6 +257,21 @@ describe("DiagnosticServiceCache", () => {
       ).toContain(2322);
     });
 
+    it("evicts a shared file from every tsconfig that parsed it", () => {
+      const { cache, load } = arrange();
+      const OTHER = "/proj/other/tsconfig.json";
+
+      const first = cache.get(TSCONFIG, load);
+      first.getProgram();
+      const otherFirst = cache.get(OTHER, load);
+      otherFirst.getProgram();
+
+      cache.evictFile("/proj/a.ts");
+
+      expect(cache.get(TSCONFIG, load)).not.toBe(first);
+      expect(cache.get(OTHER, load)).not.toBe(otherFirst);
+    });
+
     it("keeps the built service when the evicted path was never parsed", () => {
       const { cache, load } = arrange();
 
