@@ -98,6 +98,19 @@ Wait for all four agents to complete. Aggregate their findings and fix each issu
 
 When done, briefly summarize what was fixed (or confirm the code was already clean).
 
+## Phase 3b: Review the fixes
+
+The fixes are unreviewed code. They were written by whoever just read the findings — under momentum, against a diff they now feel they understand — and they are the one part of the change no reviewer has seen. A review pass that ends at Phase 3 leaves its own output as the least examined code in the range.
+
+So when Phase 3 changed anything beyond a typo, run Phase 2 again over the fixes alone (`<the-sha-the-review-started-from>..HEAD`), then apply what comes back. Judge this by what the fixes *did*, never by their size or by how confident you feel: reverting a hunk, deleting a test, renaming a symbol and rewriting a comment are all edits a reviewer should see. A fix that reverts something is not exempt for being a revert.
+
+Two failure shapes are specific to fix passes and worth briefing a reviewer on explicitly:
+
+- **A deletion that removes the only coverage of a behaviour.** Fixes delete more than features do — dead methods, redundant tests, reverted hunks — and each one needs someone to check nothing still depends on it.
+- **A test that does not execute the path it names.** Fixes often add tests aimed at a specific gap, and a test aimed at a gap can miss it while still passing. Ask the reviewer to verify by running, not reading.
+
+Stop when a pass returns nothing that changes code. Two rounds is normal; a third means the fixes are creating work rather than closing it, and the remainder belongs in a handoff entry.
+
 ## Phase 4: Tear down the worktrees
 
 The `git checkout <head-sha>` in Phase 2 is what stops these auto-cleaning, so this step exists because that one does. Skipping it leaks a worktree and a branch per agent, every review, forever — one session that skipped it left 18 stale worktrees and 16 dead branches behind.

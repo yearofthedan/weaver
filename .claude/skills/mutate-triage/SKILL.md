@@ -93,6 +93,8 @@ If there are fixable survivors:
 5. For each fixable survivor, read the source file around the surviving line to understand what the code does. Write new tests in the corresponding test file that exercise the mutated code path and would fail if the mutant were introduced.
    - Follow the test patterns established in `docs/quality.md` (the "Test design patterns" section).
    - One test per survivor is the minimum — add boundary cases where relevant.
+   - **Verify the kill, don't assume it.** A test written against a survivor has no red phase — the code it targets already works, so it goes green the moment you write it and tells you nothing. Before counting a survivor closed, make it fail: apply the mutant by hand, or revert the line it targets, and confirm *that specific test* reds. One that stays green is not reaching the line.
+   - **If the re-run still shows the mutant, the report is right.** When a survivor or `NoCoverage` entry persists after you added a test claiming to exercise it, that contradiction *is* the finding. Resolve it by fixing or deleting the test — never by reclassifying the mutant as unreachable. A test asserting it drives a path, sitting beside a report saying nothing does, is precisely the shape of coverage that isn't there.
 6. Run `pnpm check`. If it fails, read the error output, fix the issue, and re-run. Iterate until it passes. Do not open a PR with failing tests.
 7. Once `pnpm check` passes, commit: `git add -A && git commit -m "test: kill surviving mutants in <slug>"`
 8. Push: `git push -u origin <branch-name>`
