@@ -167,13 +167,36 @@ keeps serving manipulation, where its AST APIs are doing real work; for querying
 it contributes only project construction, which is the thing it gets wrong.
 
 - **New `src/ts-engine/diagnostic-service.ts`.** Builds and caches one
-  `ts.LanguageService` per tsconfig path — plus one for the no-tsconfig case,
+  diagnostic service per tsconfig path — plus one for the no-tsconfig case,
   matching the existing `NO_TSCONFIG_CACHE_KEY` shape — from the host
-  `typescript` (already a direct dependency at 6.0.3). Its
-  `ts.LanguageServiceHost` reads through the `FileSystem` port rather than
-  `node:fs`, per `docs/design-principles.md`. The behaviour that matters is that
-  source files are created from the `CreateSourceFileOptions` the host supplies,
-  so `impliedNodeFormat` is computed rather than dropped.
+  `typescript` (already a direct dependency at 6.0.3). Its compiler host reads
+  through the `FileSystem` port rather than `node:fs`, per
+  `docs/design-principles.md`. The behaviour that matters is that source files
+  are created from the `CreateSourceFileOptions` the host supplies, so
+  `impliedNodeFormat` is computed rather than dropped.
+
+  **Amended during implementation: `ts.createProgram`, not
+  `ts.createLanguageService`.** This section originally specified a
+  `ts.LanguageService`. Built that way it fixed both reported faces, but it
+  reported 15 errors on *this* repository that `tsc` does not (TS7006, TS2532,
+  concentrated in files using ts-morph's own conditionally-typed API). Isolated
+  by holding `compilerOptions` and the root file list fixed and swapping only
+  the driving API, on a vanilla `ts.sys`-backed host:
+
+  ```
+  createProgram         : 0 errors   (matches `tsc -p tsconfig.json --noEmit`)
+  createLanguageService : 15 errors
+  ```
+
+  The two APIs genuinely disagree, for reasons not chased into the checker
+  internals. Since the target is the verdict `tsc` gives, the module builds on
+  `ts.createProgram`, rebuilt lazily via `oldProgram` reuse when the file set
+  grows. The exported type is a hand-written two-method
+  `DiagnosticLanguageService`, not `ts.LanguageService`; `semanticErrors` in
+  `get-type-errors.ts` narrows to `Pick<ts.LanguageService,
+  "getSemanticDiagnostics">` so the Vue engine's real `ts.LanguageService` still
+  satisfies it unchanged. Cache keys, invalidation, and the accessor pair are as
+  specified above.
 - **`TsMorphEngine` gains `getDiagnosticServiceForFile` and
   `getDiagnosticServiceForConfig`**, alongside the existing accessors rather
   than replacing them. The two are not a wrapper and its target: the by-file
@@ -302,3 +325,90 @@ gets focused unit tests against `InMemoryFileSystem`.
 - [ ] Tech debt discovered during investigation added to handoff.md as [needs design]
 - [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule (skip if nothing worth recording)
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+---
+
+## Outcome
+
+**Shipped 2026-09-06.** 8 commits, `a4ffa75..HEAD`.
+
+### Verification
+
+Driven through the built CLI against real workspaces, each compared to
+`tsc -p <tsconfig> --noEmit` on the same input:
+
+| Workspace | weaver | `tsc` |
+|---|---|---|
+| This repository | `errorCount: 0` | exit 0 |
+| ESM + extensionless relative import, project-wide | `1` — TS2835 | TS2835 |
+| Same, single-file | `1` — TS2835 | — |
+| Same + an `App.vue` (Volar) | `2` — TS2835 on both files | — |
+| Dual-published `exports` fixture | `0` | 0 |
+| CommonJS package + `import.meta` | TS1470 still reported | TS1470 |
+
+Before the fix the first reported 2 spurious TS1470 and the second reported
+`errorCount: 0` against `tsc`'s TS2835 — both faces closed, in both directions.
+
+The dual-package fixture is worth noting: project-wide diagnostics now resolve
+the `import` condition, so the *diagnostics* half of the resolution defect went
+with this change. The reference-graph half did not — find-references and rename
+still walk ts-morph's module graph.
+
+Tests: 1394 → 1425. Mutation on `diagnostic-service.ts`: **54.69% → 71.43%**
+(84.75% over covered mutants). Every survivor is classified in a comment at its
+line; two groups remain, both equivalent rather than untested, plus one
+uncovered group (`directoryExists`/`getDirectories`) that TypeScript reaches
+only through `@types`/node_modules discovery, which no fixture in the suite has.
+
+### Architecture changed during implementation
+
+The Fix section originally specified a `ts.LanguageService`. Built that way it
+fixed both reported faces but reported 15 errors on this repository that `tsc`
+does not. Holding compiler options and the root list fixed and swapping only the
+driving API showed `createProgram` at 0 and `createLanguageService` at 15 — a
+TypeScript-level divergence, verified independently before the deviation was
+accepted. The Fix section records the amendment.
+
+### What the review caught that the implementation did not
+
+Four review lenses ran over the diff. Beyond duplication and dead code, the
+efficiency lens found that `refreshFile` dropped the whole diagnostic service,
+making every write pay a cold full-project rebuild on the daemon's hot path.
+
+Attempting to fix it surfaced two things neither the spec nor the review knew:
+passing `oldProgram` makes a moved file report "not found", and
+`moveFile` never calls `invalidateProject`, so an entry that survives a refresh
+serves a file that has moved away. The first was narrowed by removing `oldProgram`
+alone and watching a `moveFile` scenario go green — but only to *that flag*, not
+to a mechanism inside the compiler, which a later probe under minimal options
+could not reproduce. Recorded as an observation, not an explanation. Both are now
+handoff entries; the incremental rebuild was **not** shipped, because it needs an
+invalidation contract that does not exist yet.
+
+The memory question the spec flagged as unverified is now measured: **524 MB**
+ts-morph alone, **876 MB** with both programs, **1342 MB** with a second tsconfig.
+That is a real cost and its own handoff entry.
+
+### Reflection
+
+**What went well.** Using `tsc` as an oracle made both the diagnosis and the
+verification cheap — the false-clean face, which is the one that mattered, was
+found by diffing against it rather than by reasoning. Every claim that drove a
+decision was reproduced independently before being acted on: the bundled-compiler
+hypothesis (killed), the LanguageService divergence (confirmed), the `oldProgram`
+regression (isolated to one variable).
+
+**What did not.** The spec said `ts.LanguageService` because I designed it from
+the failing symptom without checking that the API I named actually matched `tsc`
+on this codebase. One probe at spec time would have caught it. The mutation score
+also came in at 54.69% on a brand-new module — the tests exercised a single-root
+program with no imports, which is the shape that makes most of the module
+unreachable.
+
+**For the next agent.** The `refreshFile` behaviour is a deliberate,
+documented regression: it drops the whole program rather than risk serving a
+moved-away file. Do not "optimise" it back without reading the two handoff
+entries first — the caching is easy and the invalidation contract is the actual
+work. And `getDiagnosticServiceForFile` must keep adding the file to the
+service's roots; collapsing it into the by-config accessor reintroduces the
+false clean this spec exists to remove.
