@@ -28,11 +28,7 @@ export interface DiagnosticService {
   scriptFileNames: string[];
 }
 
-function buildCompilerHost(
-  compilerOptions: ts.CompilerOptions,
-  tsConfigPath: string | null,
-  fs: FileSystem,
-): ts.CompilerHost {
+function buildCompilerHost(tsConfigPath: string | null, fs: FileSystem): ts.CompilerHost {
   return {
     getSourceFile: (fileName, languageVersionOrOptions) => {
       let content: string | undefined;
@@ -162,7 +158,7 @@ export function buildDiagnosticService(
   fs: FileSystem = new NodeFileSystem(),
 ): DiagnosticService {
   const mutableFileNames = [...scriptFileNames];
-  const host = buildCompilerHost(compilerOptions, tsConfigPath, fs);
+  const host = buildCompilerHost(tsConfigPath, fs);
   return {
     languageService: createDiagnosticLanguageService(compilerOptions, mutableFileNames, host),
     scriptFileNames: mutableFileNames,
