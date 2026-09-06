@@ -67,6 +67,39 @@ The ts-morph project has no `.vue` language support, so it cannot resolve a `.vu
 **`getTypeErrorsForFiles` refreshes every file before querying any of them.**
 Post-write diagnostics would otherwise see content cached from before the write. The refreshes are hoisted out of the query loop deliberately: `Engine.refreshFile` is a per-file contract, but `VolarEngine` can only satisfy it by dropping the whole cached service for the tsconfig, so interleaving refresh and query rebuilds the entire Volar project once per modified file. Eight files cost eight builds and 1163ms interleaved, against one build and 224ms hoisted.
 
+**Parsed source files outlive the service that read them, and are evicted per file.**
+`DiagnosticServiceCache` (`src/ts-engine/diagnostic-service.ts`) holds one entry per tsconfig
+carrying both the `DiagnosticService` and the `Map<string, ts.SourceFile>` its compiler host
+parses into. The parse map is what makes a rebuild cheap: dropping the service alone re-reads
+one file, dropping the entry re-reads all of them. Measured on this repo (753 source files),
+the post-write check went from ~540 ms to ~45 ms on the CLI path.
+
+Retention is only correct while every change to a file evicts its parse, and there are three
+signals, not two:
+
+- `TsMorphEngine.invalidateProject` drops the whole entry — parses included.
+- `TsMorphEngine.refreshFile` drops one parse and the service, keeping the rest. The watcher's
+  `change` path uses it for external edits.
+- `TsMorphEngine.evictDiagnosticParse`, called for **every source file the daemon writes**, via
+  the `onMutated` observer on `RecordingFileSystem` (`src/daemon/self-write-state.ts`). This is
+  the one that is easy to lose: most operations emit no invalidation of their own. `rename`
+  emits none, and the importer rewrites behind every move go through `scope.writeFile` and emit
+  none, so before this existed a move left every rewritten importer serving pre-move text — a
+  fabricated TS2307 naming a specifier the file no longer contained.
+
+Two constraints on the write-path signal:
+
+- **It evicts the diagnostic parse only.** `refreshFile` additionally calls ts-morph's
+  `refreshFromFileSystemSync()`, which replaces a node tree that operations hold references into
+  while they are mid-write (`persistSourceFile`, `move-symbol`). Calling it from the write path
+  trades this bug for a worse one. `getTypeErrorsForFiles` remains the ts-morph-side signal.
+- **It filters on source extension**, using the same set the importer rewrites use — so a `.js`
+  importer under `allowJs` is evicted, and a `.md` or `.json` write costs nothing.
+
+Because the eviction lives in the daemon's decorated filesystem, an engine driven over a bare
+`NodeFileSystem` does not get it. Tests that need the real behaviour must build their scope over
+`createSelfWriteState`, as the `moveFile`/`moveDirectory` cases do.
+
 **The workspace file set is deliberately wider than the compiled program.**
 `TsMorphEngine.addWorkspaceFiles` adds every `.ts`/`.tsx`/`.js`/`.jsx` file under the workspace to the ts-morph project regardless of `allowJs`, so a `.js` file that is never type-checked still gets navigation and import rewriting — that is what lets a `moveFile` repoint a `.js` importer. Editors draw the same distinction: a `.js` file in a TS project with `allowJs` off gets language features but no diagnostics.
 
