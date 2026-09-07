@@ -638,4 +638,31 @@ describe("VolarEngine", () => {
       expect(result.diagnostics.some((d) => d.file === outsideFile)).toBe(false);
     }, 30_000);
   });
+
+  describe("invalidateService", () => {
+    it("drops the project-wide no-tsconfig cache entry so the next query rebuilds", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vue-invalidate-service-"));
+      try {
+        fs.mkdirSync(path.join(tmpDir, "src"), { recursive: true });
+        const vueFile = path.join(tmpDir, "src/Component.vue");
+        const original =
+          '<script setup lang="ts">\nconst msg = "hi";\n</script>\n<template><div>{{ msg }}</div></template>\n';
+        fs.writeFileSync(vueFile, original);
+        const p = new VolarEngine(new TsMorphEngine());
+        // Prime the project-wide cache (no tsconfig → __no_tsconfig__:<tmpDir> key).
+        await p.getTypeErrors(undefined, makeScope(tmpDir));
+        expect(p.readFile(vueFile)).toBe(original);
+        // Simulate a disk change the cache does not yet know about.
+        const updated =
+          '<script setup lang="ts">\nconst msg = "bye";\n</script>\n<template><div>{{ msg }}</div></template>\n';
+        fs.writeFileSync(vueFile, updated);
+        // Invalidate — must drop every __no_tsconfig__: entry, not just the
+        // per-directory key derived from the file path.
+        p.invalidateService(vueFile);
+        expect(p.readFile(vueFile)).toBe(updated);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }, 30_000);
+  });
 });

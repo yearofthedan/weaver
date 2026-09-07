@@ -87,6 +87,12 @@ export class VolarEngine implements Engine {
 
   invalidateService(filePath: string): void {
     const tsConfigPath = findTsConfigForFile(filePath);
+    if (tsConfigPath === null) {
+      for (const key of this.services.keys()) {
+        if (key.startsWith("__no_tsconfig__:")) this.services.delete(key);
+      }
+      return;
+    }
     this.services.delete(this.cacheKey(tsConfigPath, filePath));
   }
 
