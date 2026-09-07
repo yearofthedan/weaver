@@ -257,3 +257,97 @@ Two internal seams move:
       first candidate for idle eviction
 - [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+---
+
+## Outcome
+
+**Shipped** in 13 commits, `222348b..d431fb9`. 14 files, +603/-125.
+
+### Verification
+
+Driven on the real CLI path against this repository, timing `weaver rename` with and
+without `checkTypeErrors` and taking the difference as the cost of the post-write check.
+The same command, before and after, with the daemon warm:
+
+| | check off | check on | cost of the check |
+|---|---|---|---|
+| Retention removed (the old behaviour) | 333 ms | 873 ms | **~540 ms** |
+| Shipped | 331 ms | 379 ms | **~45 ms** |
+
+The correctness half was verified by comparing the program's parse against disk after a move.
+A warm cache also returns a clean result, so the parse text is what separates the two:
+
+```
+eviction OFF | parse: "import { helper } from './utils.js';"     | disk: "…'../lib/utils.js';" | match: false
+eviction ON  | parse: "import { helper } from '../lib/utils.js';" | disk: "…'../lib/utils.js';" | match: true
+```
+
+Tests: 1439 unit/integration + 531 eval, `pnpm check` green. Mutation on touched files —
+`recording-filesystem.ts` 100%, `self-write-state.ts` 100%, `diagnostic-service.ts` 76.54%
+(from 74.36; the remaining survivors are compiler-host arms recorded at the line, needing
+a failing real filesystem or a `node_modules` tree the harness has neither of).
+
+### What this cost, and why
+
+**Three correctness regressions came out of the change**, all surfaced by review passes, and all
+of one shape: retention converts an unsignalled write into a confidently wrong answer.
+
+1. `move-directory` emitted no eviction at all — a check on a moved-away path returned clean.
+2. Importers rewritten during a move kept their pre-move parses, producing a **fabricated
+   TS2307** naming a specifier the file no longer contained. The check exists so a caller can
+   trust the workspace after a refactor, and this made it report a fault that was not there.
+3. The first fix for (2) filtered on an extension set borrowed from the importer rewrites,
+   which silently missed `.mts`/`.cts`.
+
+(3) repeated the mistake it was fixing: a whitelist kept in step with something it did not own.
+The shape to distrust is any place that answers "which files matter here?" away from the thing
+that knows.
+
+### Decisions worth keeping
+
+**The eviction belongs at the `FileSystem` port, not the dispatcher and not a freshness
+check.** `RecordingFileSystem` already observed every daemon mutation, to tell weaver's own
+writes apart from external ones; the seam existed and only needed a second observer. Two
+alternatives were priced and rejected:
+
+- *Split the dispatcher's post-write block.* Puts an engine invariant in a transport adapter,
+  and would not have closed it anyway — `post-write-diagnostics` filters to `.ts`/`.tsx`
+  while importer rewrites cover `.js`/`.jsx`.
+- *Validate each parse against mtime+size on read.* Costs almost nothing (~1.4 ms per rebuild
+  for 753 files, measured) and closes external edits too, which the port seam does not. Rejected
+  because it turns a missed eviction from a deterministic bug into an intermittent one, which
+  costs more to find and leaves less confidence once fixed.
+
+**Which paths carry a parse is the cache's question.** `DiagnosticServiceCache` drops a
+service only when a parse was actually evicted, so callers can offer every mutation without
+knowing anything about extensions. That one guard fixed the `.mts` gap and deleted the filter.
+
+**Eviction spans every tsconfig.** A file can be a root of two programs; resolving the nearest
+config left the other stale.
+
+### Reflection
+
+**What worked.** Every claim in this document is a before/after on the same command, and
+insisting on the red half caught two false greens. One was mine — a probe that came back clean because *nothing was evicting*, so it
+returned a warm pre-move answer. A green result whose mechanism you have not confirmed is not
+evidence.
+
+**What did not.** Two failures of process, both mine:
+
+- I wrote a scenario requirement into an execution agent's prompt straight from the spec,
+  without reading `scenario-tests`, which owns test-layer decisions. The spec's stated layer
+  was wrong — its criterion described a failure no caller can produce — and discovering that
+  empirically cost a 197k-token agent run. The rule this produced lives in `CLAUDE.md` under
+  *Delegating to subagents*.
+- I then wrote an end-to-end test that asserted nothing, because `getTypeErrors` throws
+  `FILE_NOT_FOUND` on its own existence check before the engine is consulted. It passed with
+  the fix reverted. Caught only because the deviation had already made me suspicious, which is
+  not a reliable trigger.
+
+**For the next agent.** Retention is a hazardous change class: each surviving cache is a new
+staleness surface, and the failure mode is a plausible wrong answer rather than a crash. Budget
+for review on this kind of change — all three regressions above came from review passes, while
+the tests written alongside the change stayed green. Four further staleness gaps were reproduced
+and queued in handoff.md; all four predate this work, and the ts-morph one (read operations
+answering from pre-write text after a `checkTypeErrors: false` write) is the most user-visible.

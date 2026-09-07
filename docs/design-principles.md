@@ -51,3 +51,21 @@ An artifact that gets archived and outlives its surroundings — a spec, a templ
 ---
 
 How these apply concretely to weaver's engine, operation, and plugin layers — and the structural facts specific to this system — are in [architecture.md](architecture.md). How code that already follows them is written — naming, comments, casts, test structure — is in [code-standards.md](code-standards.md).
+
+## A cache that survives is a new staleness surface
+
+Making something outlive the operation that built it converts every unsignalled change into a
+plausible wrong answer that reads as correct. Before retaining anything, enumerate every writer,
+including the ones the change is not about.
+
+Put the eviction where the mutation is *observed*. A chokepoint every writer already passes
+through, such as a decorated port, keeps holding as the code grows, and adding a writer that
+misses it becomes a compile error rather than a silent gap.
+
+Let the owner answer "does this need invalidating?". A whitelist maintained away from the cache
+has to be kept in step with something it does not own, and drifts silently as either side
+changes.
+
+Prefer a deterministic staleness bug to an intermittent one. A freshness check on read
+(mtime, size) looks stricter and costs little, but it converts a missed eviction into something
+that reproduces occasionally, which is harder to find and harder to trust once fixed.
