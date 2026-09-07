@@ -71,7 +71,45 @@ export function isVueProject(tsConfigPath: string): boolean {
     // biome-ignore lint/style/noNonNullAssertion: guarded by .has() above
     return vueProjectCache.get(projectRoot)!;
   }
+
   const configJson = ts.readConfigFile(tsConfigPath, ts.sys.readFile);
+  const extraExtensions = [
+    { extension: ".vue", isMixedContent: true, scriptKind: ts.ScriptKind.Deferred },
+  ];
+
+  const filesIsEmpty = !configJson.config?.files || configJson.config.files.length === 0;
+  const hasReferences = configJson.config?.references && configJson.config.references.length > 0;
+  if (filesIsEmpty && hasReferences) {
+    const parsed = ts.parseJsonConfigFileContent(
+      configJson.config,
+      ts.sys,
+      projectRoot,
+      undefined,
+      tsConfigPath,
+      undefined,
+      extraExtensions,
+    );
+    for (const ref of parsed.projectReferences ?? []) {
+      const refConfigJson = ts.readConfigFile(ref.path, ts.sys.readFile);
+      if (refConfigJson.error) continue;
+      const refParsed = ts.parseJsonConfigFileContent(
+        refConfigJson.config,
+        ts.sys,
+        path.dirname(ref.path),
+        undefined,
+        ref.path,
+        undefined,
+        extraExtensions,
+      );
+      if (refParsed.fileNames.some((f) => f.endsWith(".vue"))) {
+        vueProjectCache.set(projectRoot, true);
+        return true;
+      }
+    }
+    vueProjectCache.set(projectRoot, false);
+    return false;
+  }
+
   const parsed = ts.parseJsonConfigFileContent(
     configJson.config,
     ts.sys,
@@ -79,7 +117,7 @@ export function isVueProject(tsConfigPath: string): boolean {
     undefined,
     tsConfigPath,
     undefined,
-    [{ extension: ".vue", isMixedContent: true, scriptKind: ts.ScriptKind.Deferred }],
+    extraExtensions,
   );
   const hasVue = parsed.fileNames.some((f) => f.endsWith(".vue"));
   vueProjectCache.set(projectRoot, hasVue);

@@ -110,6 +110,40 @@ describe("dispatchRequest getTypeErrors engine routing in a Vue project", () => 
     expect(diagnostics.length).toBeGreaterThan(0);
     expect(diagnostics.every((d) => d.file === file)).toBe(true);
   }, 15_000);
+
+  test("routes through VolarEngine when the root tsconfig delegates via references", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        files: [],
+        references: [{ path: "./tsconfig.app.json" }],
+      }),
+      "tsconfig.app.json": JSON.stringify({
+        compilerOptions: {
+          strict: true,
+          target: "ESNext",
+          module: "ESNext",
+          moduleResolution: "bundler",
+          jsx: "preserve",
+        },
+        include: ["src/**/*.ts", "src/**/*.vue"],
+      }),
+      "src/Broken.vue":
+        '<script setup lang="ts">\nconst x: number = "hello";\n</script>\n<template><div>{{ x }}</div></template>\n',
+    });
+    const file = path.join(dir, "src/Broken.vue");
+
+    const result = (await dispatchRequest(
+      { method: "getTypeErrors", params: { file } },
+      dir,
+    )) as Record<string, unknown>;
+
+    expect(result.status).toBe("success");
+    const diagnostics = result.diagnostics as Array<{ file: string; code: number }>;
+    expect(diagnostics.length).toBeGreaterThan(0);
+    expect(diagnostics.every((d) => d.file === file)).toBe(true);
+  }, 30_000);
 });
 
 describe("dispatchRequest engine routing for path-param operations", () => {
