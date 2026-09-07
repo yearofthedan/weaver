@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import { describe, expect } from "vitest";
 import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
+import { VolarEngine } from "../plugins/vue/engine.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import { getTypeErrorsForFiles } from "./post-write-diagnostics.js";
@@ -22,20 +23,28 @@ describe("getTypeErrorsForFiles", () => {
     expect(result.typeErrorsTruncated).toBe(false);
   });
 
-  test("silently skips non-.ts files and returns empty", async ({ seedNamedFixture }) => {
-    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
-    const compiler = new TsMorphEngine();
+  test("returns .vue diagnostics via VolarEngine", async ({ seedInlineFixture }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: {
+          strict: true,
+          target: "ESNext",
+          module: "ESNext",
+          moduleResolution: "bundler",
+          jsx: "preserve",
+        },
+        include: ["src/**/*.ts", "src/**/*.vue"],
+      }),
+      "src/Broken.vue":
+        '<script setup lang="ts">\nconst x: number = "hello";\n</script>\n<template><div>{{ x }}</div></template>\n',
+    });
+    const engine = new VolarEngine(new TsMorphEngine(dir), dir);
 
-    const result = await getTypeErrorsForFiles(
-      compiler,
-      [`${dir}/some-component.vue`, `${dir}/config.json`],
-      makeScope(dir),
-    );
+    const result = await getTypeErrorsForFiles(engine, [`${dir}/src/Broken.vue`], makeScope(dir));
 
-    expect(result.typeErrors).toEqual([]);
-    expect(result.typeErrorCount).toBe(0);
-    expect(result.typeErrorsTruncated).toBe(false);
-  });
+    expect(result.typeErrorCount).toBeGreaterThan(0);
+    expect(result.typeErrors.some((d) => d.file === `${dir}/src/Broken.vue`)).toBe(true);
+  }, 30_000);
 
   test("returns type errors with correct shape for a .ts file with errors", async ({
     seedNamedFixture,
@@ -126,7 +135,31 @@ describe("getTypeErrorsForFiles", () => {
     expect(result.typeErrorCount).toBe(105);
   });
 
-  test("skips a non-TS file that exists, not merely one that is absent", async ({
+  test("returns empty for a clean .vue file with no errors", async ({ seedInlineFixture }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: {
+          strict: true,
+          target: "ESNext",
+          module: "ESNext",
+          moduleResolution: "bundler",
+          jsx: "preserve",
+        },
+        include: ["src/**/*.ts", "src/**/*.vue"],
+      }),
+      "src/Clean.vue":
+        '<script setup lang="ts">\nconst msg: string = "hello";\n</script>\n<template><div>{{ msg }}</div></template>\n',
+    });
+    const engine = new VolarEngine(new TsMorphEngine(dir), dir);
+
+    const result = await getTypeErrorsForFiles(engine, [`${dir}/src/Clean.vue`], makeScope(dir));
+
+    expect(result.typeErrors).toEqual([]);
+    expect(result.typeErrorCount).toBe(0);
+    expect(result.typeErrorsTruncated).toBe(false);
+  }, 30_000);
+
+  test("returns empty for a file not in the ts-morph program instead of throwing", async ({
     seedInlineFixture,
   }) => {
     const dir = await seedInlineFixture({
@@ -135,15 +168,19 @@ describe("getTypeErrorsForFiles", () => {
         include: ["src/**/*.ts"],
       }),
       "src/ok.ts": "export const a: number = 1;\n",
-      // Real file, real type error, but not a TS extension — must never be checked.
-      "src/Broken.vue": "<script lang='ts'>const bad: number = 'no';</script>\n",
+      "src/NotInProgram.vue": "<script lang='ts'>const bad: number = 'no';</script>\n",
     });
     const compiler = new TsMorphEngine();
 
-    const result = await getTypeErrorsForFiles(compiler, [`${dir}/src/Broken.vue`], makeScope(dir));
+    const result = await getTypeErrorsForFiles(
+      compiler,
+      [`${dir}/src/NotInProgram.vue`],
+      makeScope(dir),
+    );
 
     expect(result.typeErrors).toEqual([]);
     expect(result.typeErrorCount).toBe(0);
+    expect(result.typeErrorsTruncated).toBe(false);
   });
 
   test("does not flag truncation when the total across files is exactly the cap", async ({

@@ -4,12 +4,13 @@ import type { PostWriteDiagnostics, TypeDiagnostic } from "../operations/types.j
 import { MAX_DIAGNOSTICS } from "../operations/types.js";
 import type { Engine } from "../ts-engine/types.js";
 
-const TS_FILE_EXTENSIONS = new Set([".ts", ".tsx"]);
+const TS_FILE_EXTENSIONS = new Set([".ts", ".tsx", ".vue"]);
 
 /**
  * Check type errors only in the given files and return the three post-write
- * diagnostic fields. Non-TS files are silently skipped. Results are capped at
- * MAX_DIAGNOSTICS total across all files; typeErrorCount reflects the true total.
+ * diagnostic fields. Non-TS/.vue files are silently skipped. Results are capped
+ * at MAX_DIAGNOSTICS total across all files; typeErrorCount reflects the true
+ * total.
  *
  * Takes the project's own `Engine` (ts-morph or, in a Vue project, Volar) so a
  * write that touches a `.ts` file importing an SFC is answered by whichever

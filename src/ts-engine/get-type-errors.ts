@@ -55,6 +55,10 @@ export function capDiagnostics(errors: ts.Diagnostic[]): GetTypeErrorsResult {
 
 function tsGetTypeErrorsForFile(compiler: TsMorphEngine, absPath: string): GetTypeErrorsResult {
   const ls = compiler.getDiagnosticServiceForFile(absPath);
+  const program = ls.getProgram();
+  if (!program.getSourceFile(absPath)) {
+    return { diagnostics: [], errorCount: 0, truncated: false };
+  }
   return capDiagnostics(semanticErrors(ls, absPath));
 }
 

@@ -39,9 +39,11 @@ describe("tsMoveDirectory", () => {
 
       await tsMoveDirectory(engine, `${dir}/src/utils`, `${dir}/src/helpers`, scope);
 
-      await expect(engine.getTypeErrors(oldFile, scope)).rejects.toThrow(
-        /Could not find source file/,
-      );
+      await expect(engine.getTypeErrors(oldFile, scope)).resolves.toEqual({
+        diagnostics: [],
+        errorCount: 0,
+        truncated: false,
+      });
     });
   });
 
