@@ -4,8 +4,6 @@ import type { PostWriteDiagnostics, TypeDiagnostic } from "../operations/types.j
 import { MAX_DIAGNOSTICS } from "../operations/types.js";
 import type { Engine } from "../ts-engine/types.js";
 
-const TS_FILE_EXTENSIONS = new Set([".ts", ".tsx"]);
-
 /**
  * Check type errors only in the given files and return the three post-write
  * diagnostic fields. Files outside the engine's supported extensions are
@@ -22,10 +20,7 @@ export async function getTypeErrorsForFiles(
   scope: WorkspaceScope,
 ): Promise<PostWriteDiagnostics> {
   const tsFiles = files
-    .filter(
-      (f) =>
-        TS_FILE_EXTENSIONS.has(path.extname(f)) || engine.handlesFileExtension(path.extname(f)),
-    )
+    .filter((f) => engine.handlesFileExtension(path.extname(f)))
     .filter((f) => scope.fs.exists(f));
 
   // Refresh every file before asking about any of them. An engine is free to
