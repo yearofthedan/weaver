@@ -37,6 +37,7 @@ export function makeMockCompiler(overrides: Partial<Engine> = {}): Engine {
       truncated: false,
     }),
     refreshFile: vi.fn(),
+    handlesFileExtension: vi.fn().mockReturnValue(false),
     ...overrides,
   };
 }

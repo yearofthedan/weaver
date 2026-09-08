@@ -77,32 +77,34 @@ export function isVueProject(tsConfigPath: string): boolean {
     { extension: ".vue", isMixedContent: true, scriptKind: ts.ScriptKind.Deferred },
   ];
 
+  function anyVueFiles(config: unknown, baseDir: string, configPath: string): boolean {
+    const parsed = ts.parseJsonConfigFileContent(
+      config,
+      ts.sys,
+      baseDir,
+      undefined,
+      configPath,
+      undefined,
+      extraExtensions,
+    );
+    return parsed.fileNames.some((f) => f.endsWith(".vue"));
+  }
+
   const filesIsEmpty = !configJson.config?.files || configJson.config.files.length === 0;
   const hasReferences = configJson.config?.references && configJson.config.references.length > 0;
   if (filesIsEmpty && hasReferences) {
-    const parsed = ts.parseJsonConfigFileContent(
+    const resolvedRoot = ts.parseJsonConfigFileContent(
       configJson.config,
       ts.sys,
       projectRoot,
       undefined,
       tsConfigPath,
-      undefined,
-      extraExtensions,
     );
-    for (const ref of parsed.projectReferences ?? []) {
+    for (const ref of resolvedRoot.projectReferences ?? []) {
       const refConfigJson = ts.readConfigFile(ref.path, ts.sys.readFile);
       if (refConfigJson.error) continue;
-      const refParsed = ts.parseJsonConfigFileContent(
-        refConfigJson.config,
-        ts.sys,
-        path.dirname(ref.path),
-        undefined,
-        ref.path,
-        undefined,
-        extraExtensions,
-      );
-      if (refParsed.fileNames.some((f) => f.endsWith(".vue"))) {
-        vueProjectCache.set(projectRoot, true);
+      if (anyVueFiles(refConfigJson.config, path.dirname(ref.path), ref.path)) {
+        vueProjectCache.set(projectRoot, true); // [noise] cache write unreachable from harness — return immediately after; both branches of the set+return pair are covered by dispatchRequest-level tests
         return true;
       }
     }
@@ -110,16 +112,7 @@ export function isVueProject(tsConfigPath: string): boolean {
     return false;
   }
 
-  const parsed = ts.parseJsonConfigFileContent(
-    configJson.config,
-    ts.sys,
-    projectRoot,
-    undefined,
-    tsConfigPath,
-    undefined,
-    extraExtensions,
-  );
-  const hasVue = parsed.fileNames.some((f) => f.endsWith(".vue"));
+  const hasVue = anyVueFiles(configJson.config, projectRoot, tsConfigPath);
   vueProjectCache.set(projectRoot, hasVue);
   return hasVue;
 }

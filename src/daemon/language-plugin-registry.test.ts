@@ -45,6 +45,7 @@ function stubCompiler(tag = "stub"): Engine {
       parameterCount: 0,
     }),
     refreshFile: () => {},
+    handlesFileExtension: () => false,
     _tag: tag,
   } as Engine & { _tag: string };
 }

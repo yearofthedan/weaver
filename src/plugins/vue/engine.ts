@@ -446,6 +446,10 @@ export class VolarEngine implements Engine {
     );
   }
 
+  handlesFileExtension(ext: string): boolean {
+    return ext === ".ts" || ext === ".tsx" || ext === ".vue";
+  }
+
   async rename(
     file: string,
     line: number,
