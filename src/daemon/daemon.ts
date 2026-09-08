@@ -9,8 +9,11 @@ import {
   dispatchRequest,
   invalidateAll,
   invalidateFile,
+  setActivityCallback,
   shouldSuppressSelfWrite,
 } from "./dispatcher.js";
+import { startIdleTimer } from "./idle-eviction.js";
+import { evictAllDiagnosticParses } from "./language-plugin-registry.js";
 import type { DaemonHost } from "./lifecycle.js";
 import { runLifecycle } from "./lifecycle.js";
 import type { DaemonLogger } from "./logger.js";
@@ -215,12 +218,22 @@ export async function runDaemon(opts: { workspace: string; verbose?: boolean }):
   // concurrent connections never interleave file writes.
   let queue: Promise<void> = Promise.resolve();
 
+  const idleTimer = startIdleTimer({
+    now: () => Date.now(),
+    evict: evictAllDiagnosticParses,
+  });
+  setActivityCallback(() => idleTimer.reset());
+
   await runLifecycle({
     sockPath,
     pidPath,
     pid: process.pid,
     fs: nodeFs,
     host,
+    onIdle: () => {
+      idleTimer.stop();
+      setActivityCallback(undefined);
+    },
     startServer: () => {
       const server = net.createServer((socket) => {
         let buf = "";

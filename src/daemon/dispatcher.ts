@@ -34,6 +34,16 @@ import { getTypeErrorsForFiles } from "./post-write-diagnostics.js";
 import { getSharedFileSystem } from "./self-write-state.js";
 
 /**
+ * Called on every operation dispatch to signal activity for idle detection.
+ * Set by `runDaemon` to the timer's `reset`; unset on shutdown.
+ */
+let onActivity: (() => void) | undefined;
+
+export function setActivityCallback(cb: (() => void) | undefined): void {
+  onActivity = cb;
+}
+
+/**
  * Every dispatched operation shares this instance rather than constructing
  * its own, so a write one operation makes is visible — through the same
  * object — to every `WorkspaceScope` built for the requests that follow.
@@ -332,6 +342,8 @@ export async function dispatchRequest(
   req: { method: string; params: Record<string, unknown> },
   workspace: string,
 ): Promise<DispatchResponse> {
+  onActivity?.();
+
   try {
     // Fresh per dispatch so a tsconfig.json or the workspace's first .vue file added
     // since the last request is picked up before engine selection or project discovery.

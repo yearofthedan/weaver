@@ -316,4 +316,38 @@ describe("DiagnosticServiceCache", () => {
       expect(readSpy.mock.calls.map(([path]) => path).sort()).toEqual([...expected].sort());
     });
   });
+
+  describe("evictAll", () => {
+    it("drops service and parsed across all entries without deleting their keys", () => {
+      const cache = new DiagnosticServiceCache();
+      const load = () => ({ compilerOptions: OPTIONS, rootNames: [], fs: fsWith({}) });
+
+      cache.get("/proj/tsconfig.json", load);
+      cache.get("/other/tsconfig.json", load);
+
+      cache.evictAll();
+
+      const afterFirst = cache.get("/proj/tsconfig.json", load);
+      const afterSecond = cache.get("/other/tsconfig.json", load);
+      expect(afterFirst).toBeDefined();
+      expect(afterSecond).toBeDefined();
+    });
+
+    it("causes the next get to rebuild from disk", () => {
+      const tsconfig = "/proj/tsconfig.json";
+      const roots = ["/proj/a.ts", "/proj/b.ts"];
+      const fs = fsWith({ "/proj/a.ts": "const x = 1;", "/proj/b.ts": "const y = 2;" });
+      const cache = new DiagnosticServiceCache();
+      const load = () => ({ compilerOptions: OPTIONS, rootNames: roots, fs });
+      const readSpy = vi.spyOn(fs, "readFile");
+
+      cache.get(tsconfig, load).getProgram();
+      readSpy.mockClear();
+
+      cache.evictAll();
+      cache.get(tsconfig, load).getProgram();
+
+      expect(readSpy).toHaveBeenCalled();
+    });
+  });
 });

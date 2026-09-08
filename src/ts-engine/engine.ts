@@ -284,6 +284,14 @@ export class TsMorphEngine implements Engine {
     this.diagnosticServices.evictFile(filePath);
   }
 
+  /**
+   * Drops every diagnostic service and parse across all tsconfigs, so the next
+   * diagnostic check rebuilds from disk. Ts-morph projects are left untouched.
+   */
+  evictAllDiagnosticParses(): void {
+    this.diagnosticServices.evictAll();
+  }
+
   resolveOffset(file: string, line: number, col: number): number {
     const { sourceFile } = this.ensureProject(file);
     try {

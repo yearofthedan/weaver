@@ -24,10 +24,22 @@ export interface DaemonLifecycleOpts {
   startWatcher: () => DaemonWatcher;
   signalReady: () => void;
   logger?: { cleanup(): void };
+  onIdle?: () => void;
 }
 
 export async function runLifecycle(opts: DaemonLifecycleOpts): Promise<void> {
-  const { sockPath, pidPath, pid, fs, host, startServer, startWatcher, signalReady, logger } = opts;
+  const {
+    sockPath,
+    pidPath,
+    pid,
+    fs,
+    host,
+    startServer,
+    startWatcher,
+    signalReady,
+    logger,
+    onIdle,
+  } = opts;
 
   let server: DaemonServer | undefined;
   let watcher: DaemonWatcher | undefined;
@@ -36,6 +48,7 @@ export async function runLifecycle(opts: DaemonLifecycleOpts): Promise<void> {
     void watcher?.stop();
     server?.close();
     logger?.cleanup();
+    onIdle?.();
     try {
       fs.unlink(sockPath);
     } catch {

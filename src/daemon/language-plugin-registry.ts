@@ -101,6 +101,14 @@ export function evictDiagnosticParse(filePath: string): void {
 }
 
 /**
+ * Drop every diagnostic service and parse in the ts-morph engine, if it is
+ * loaded. Plugin engines are not touched — only `tsMorphEngineSingleton`.
+ */
+export function evictAllDiagnosticParses(): void {
+  tsMorphEngineSingleton?.evictAllDiagnosticParses();
+}
+
+/**
  * Drop all loaded compilers so they rebuild lazily on the next request.
  * Called by the watcher on `add` and `unlink` events — structural changes
  * that require the full project graph to be refreshed.
