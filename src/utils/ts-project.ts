@@ -104,7 +104,7 @@ export function isVueProject(tsConfigPath: string): boolean {
       const refConfigJson = ts.readConfigFile(ref.path, ts.sys.readFile);
       if (refConfigJson.error) continue;
       if (anyVueFiles(refConfigJson.config, path.dirname(ref.path), ref.path)) {
-        vueProjectCache.set(projectRoot, true);
+        vueProjectCache.set(projectRoot, true); // [noise] cache write unreachable from harness — return immediately after; both branches of the set+return pair are covered by dispatchRequest-level tests
         return true;
       }
     }
