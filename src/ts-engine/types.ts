@@ -116,6 +116,13 @@ export interface Engine {
   deleteFile(targetFile: string, scope: WorkspaceScope): Promise<DeleteFileActionResult>;
 
   /**
+   * Whether this engine can produce meaningful diagnostics for the given file extension
+   * (leading dot, e.g. ".vue"). Called by post-write diagnostics to decide which files
+   * in `filesModified` to query.
+   */
+  handlesFileExtension(ext: string): boolean;
+
+  /**
    * Return type errors for a single file or the whole project.
    *
    * When `file` is provided it must be an absolute path that already exists and

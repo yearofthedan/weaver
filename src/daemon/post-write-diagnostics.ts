@@ -4,13 +4,13 @@ import type { PostWriteDiagnostics, TypeDiagnostic } from "../operations/types.j
 import { MAX_DIAGNOSTICS } from "../operations/types.js";
 import type { Engine } from "../ts-engine/types.js";
 
-const TS_FILE_EXTENSIONS = new Set([".ts", ".tsx", ".vue"]);
+const TS_FILE_EXTENSIONS = new Set([".ts", ".tsx"]);
 
 /**
  * Check type errors only in the given files and return the three post-write
- * diagnostic fields. Non-TS/.vue files are silently skipped. Results are capped
- * at MAX_DIAGNOSTICS total across all files; typeErrorCount reflects the true
- * total.
+ * diagnostic fields. Files outside the engine's supported extensions are
+ * silently skipped. Results are capped at MAX_DIAGNOSTICS total across all files;
+ * typeErrorCount reflects the true total.
  *
  * Takes the project's own `Engine` (ts-morph or, in a Vue project, Volar) so a
  * write that touches a `.ts` file importing an SFC is answered by whichever
@@ -22,7 +22,10 @@ export async function getTypeErrorsForFiles(
   scope: WorkspaceScope,
 ): Promise<PostWriteDiagnostics> {
   const tsFiles = files
-    .filter((f) => TS_FILE_EXTENSIONS.has(path.extname(f)))
+    .filter(
+      (f) =>
+        TS_FILE_EXTENSIONS.has(path.extname(f)) || engine.handlesFileExtension(path.extname(f)),
+    )
     .filter((f) => scope.fs.exists(f));
 
   // Refresh every file before asking about any of them. An engine is free to

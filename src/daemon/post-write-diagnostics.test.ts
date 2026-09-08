@@ -159,7 +159,7 @@ describe("getTypeErrorsForFiles", () => {
     expect(result.typeErrorsTruncated).toBe(false);
   }, 30_000);
 
-  test("returns empty for a file not in the ts-morph program instead of throwing", async ({
+  test("returns empty for a .vue file when the engine does not handle .vue, without throwing", async ({
     seedInlineFixture,
   }) => {
     const dir = await seedInlineFixture({

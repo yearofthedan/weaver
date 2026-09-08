@@ -209,6 +209,10 @@ export class TsMorphEngine implements Engine {
     return tsGetTypeErrors(this, file, scope, tsConfigPath ?? null);
   }
 
+  handlesFileExtension(ext: string): boolean {
+    return ext === ".ts" || ext === ".tsx";
+  }
+
   /** Public accessor for the seed `addWorkspaceFiles` computed — `null` when there's no tsconfig. */
   getSeedFilePaths(workspace: string): string[] | null {
     return this.getSeedFilePathsForConfig(findTsConfig(workspace));

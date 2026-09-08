@@ -61,11 +61,9 @@ describe("tsMoveFile - TsMorphEngine integration", () => {
 
       await tsMoveFile(engine, oldPath, newPath, scope);
 
-      await expect(engine.getTypeErrors(oldPath, scope)).resolves.toEqual({
-        diagnostics: [],
-        errorCount: 0,
-        truncated: false,
-      });
+      await expect(engine.getTypeErrors(oldPath, scope)).rejects.toThrow(
+        /Could not find source file/,
+      );
     });
   });
 
