@@ -180,6 +180,8 @@ interface Engine {
   getReferencesAtPosition(file, offset): Promise<SpanLocation[] | null>
   getDefinitionAtPosition(file, offset): Promise<DefinitionLocation[] | null>
   readFile(path): string
+  getTypeErrors(file: string | undefined, scope: WorkspaceScope, tsConfigPath?): Promise<GetTypeErrorsResult>
+  handlesFileExtension(ext): boolean
 
   // Actions (own the full workflow)
   deleteFile(targetFile, scope: WorkspaceScope): Promise<{ importRefsRemoved: number }>
