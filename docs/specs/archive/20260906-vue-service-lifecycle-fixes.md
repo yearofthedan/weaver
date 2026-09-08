@@ -132,3 +132,18 @@ The handoff entry posed this cost question directly. A move that touches N `.vue
 - [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc, or `CLAUDE.md` if a cross-cutting process rule
 - [ ] handoff.md entries for the three bugs removed
 - [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+**Verification:** `pnpm check` — lint, build, 1442 unit tests, 531 eval tests, both typecheck projects — all green. Targeted mutation on `get-type-errors.ts` scored 98.18% (pre-existing survivor at line 79). `ts-project.ts` scored 95.65% (cache set+return at line 107 marked noise — unobservable after the immediate return).
+
+**Reflection:** Good: the three ACs split cleanly. The decisions moved from prose assertions to probes — `projectReferences` resolved, TsMorphEngine throw confirmed, engine reachability traced. Bad: the initial AC2 implementation shipped a false-clean on the public `get-type-errors` command and killed two regression tests for the parse-cache eviction. The `handlesFileExtension` capability was the correct fix — gate the filter, not the engine contract.
+
+**Implementation notes:**
+- AC1 closes a latent mismatch (VolarEngine unreachable without tsconfig through dispatcher). The test drives VolarEngine directly.
+- AC3 follows project references; directory-style references (`{"path": "./packages/app"}`) are not handled — `readConfigFile(ref.path)` fails on a directory. `ts.resolveProjectReferencePath` is the fix. Deferred to handoff.
+- AC3 skips the reference walk when `files` is non-empty alongside `references`. Running the normal check first then references as fallback would cover that shape too. Deferred.
+
+**Tests added:** 8 (4 source, 4 test files touched)
+**Mutation score:** get-type-errors.ts 98.18%, ts-project.ts 95.65%
+**Commits:** ea5d3ba (AC1), 422fcec/08bc1c8 (AC2), e982bc8 (AC3)
