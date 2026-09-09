@@ -412,4 +412,21 @@ describe("TsMorphEngine", () => {
       }
     });
   });
+
+  test("ts-morph project survives evictAllDiagnosticParses", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
+    const engine = new TsMorphEngine(dir);
+    const file = path.join(dir, "src/clean.ts");
+
+    const refsBefore = await engine.getReferencesAtPosition(
+      file,
+      engine.resolveOffset(file, 1, 17),
+    );
+
+    engine.evictAllDiagnosticParses();
+
+    const refsAfter = await engine.getReferencesAtPosition(file, engine.resolveOffset(file, 1, 17));
+
+    expect(refsAfter).toEqual(refsBefore);
+  }, 15_000);
 });

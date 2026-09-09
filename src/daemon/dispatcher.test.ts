@@ -2,7 +2,7 @@ import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
-import { dispatchRequest, makeRegistry } from "./dispatcher.js";
+import { dispatchRequest, makeRegistry, setActivityCallback } from "./dispatcher.js";
 
 const mockMoveFile = vi.hoisted(() =>
   vi.fn<typeof import("../operations/moveFile.js")["moveFile"]>(),
@@ -457,5 +457,30 @@ describe("dispatchRequest path character validation", () => {
     expect(result.error).toBe("INVALID_PATH");
     expect(result.message).toContain("URI fragment or query character");
     expect(result.message).toContain("file");
+  });
+});
+
+describe("idle activity signal", () => {
+  it("calls the activity callback on every dispatch", async () => {
+    const activity = vi.fn();
+    setActivityCallback(activity);
+
+    await dispatchRequest(
+      { method: "searchText", params: { pattern: "__nonexistent_pattern_xyz__" } },
+      "/tmp",
+    );
+
+    expect(activity).toHaveBeenCalledOnce();
+
+    setActivityCallback(undefined);
+  });
+
+  it("does not call the callback when none is set", async () => {
+    const result = await dispatchRequest(
+      { method: "searchText", params: { pattern: "__nonexistent_pattern_xyz__" } },
+      "/tmp",
+    );
+
+    expect(result.status).toBe("success");
   });
 });

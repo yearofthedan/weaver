@@ -4,6 +4,7 @@ import { TsMorphEngine } from "../ts-engine/engine.js";
 import type { Engine, LanguagePlugin } from "../ts-engine/types.js";
 import {
   clearLanguagePlugins,
+  evictAllDiagnosticParses,
   invalidateAll,
   invalidateFile,
   makeRegistry,
@@ -297,6 +298,25 @@ describe("LanguagePluginRegistry", () => {
       // Should not throw — TS compiler invalidation + plugin invalidation both run
       expect(() => invalidateFile("/some/file.ts")).not.toThrow();
       expect(pluginInvalidate).toHaveBeenCalledWith("/some/file.ts");
+    });
+  });
+
+  describe("evictAllDiagnosticParses", () => {
+    it("does not clear plugin compiler caches", async () => {
+      const factory = vi.fn(async (_tsEngine: TsMorphEngine) => stubCompiler("plugin"));
+      registerLanguagePlugin({
+        id: "eviction-scope-test",
+        supportsProject: () => true,
+        createEngine: factory,
+      });
+
+      await makeRegistry(PROJECT_FILE, WORKSPACE_ROOT).projectEngine();
+
+      evictAllDiagnosticParses();
+
+      await makeRegistry(PROJECT_FILE, WORKSPACE_ROOT).projectEngine();
+
+      expect(factory).toHaveBeenCalledTimes(1);
     });
   });
 });
