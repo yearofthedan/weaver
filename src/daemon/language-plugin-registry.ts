@@ -92,16 +92,17 @@ export function invalidateFile(filePath: string): void {
 }
 
 /**
- * Refresh one file in the ts-morph engine, if it is loaded. Called at the end
- * of a dispatch that wrote with the type check off, which skips the post-write
- * check that would otherwise repair the project from disk.
+ * Re-read one file into the loaded ts-morph engine's project, if it is loaded.
+ * Called for every path a dispatch wrote, once that operation has returned and
+ * holds no nodes into the project.
  *
- * Unlike `invalidateFile` this reaches `tsMorphEngineSingleton` only: a Vue
- * plugin's invalidation drops its whole service, a measured ~1035 ms rebuild
- * the caller who opted out of the check did not ask to pay.
+ * Reaches `tsMorphEngineSingleton` only, unlike `invalidateFile`. A Vue plugin's
+ * invalidation drops its whole service — a measured ~1035 ms rebuild — and this
+ * runs for every path a dispatch wrote, whether or not a `.vue` file could have
+ * moved with it.
  */
 export function refreshProjectFile(filePath: string): void {
-  tsMorphEngineSingleton?.refreshFile(filePath);
+  tsMorphEngineSingleton?.refreshProjectFile(filePath);
 }
 
 /**

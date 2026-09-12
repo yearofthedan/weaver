@@ -100,6 +100,33 @@ describe("TsMorphEngine", () => {
     expect(diags.length).toBeGreaterThan(0);
   });
 
+  test("refreshProjectFile re-reads the project and keeps the program the check built", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+    const p = new TsMorphEngine();
+    const file = path.join(dir, "src/utils.ts");
+    const scope = makeScope(dir);
+    expect((await p.getTypeErrors(file, scope)).errorCount).toBe(0);
+
+    fs.writeFileSync(file, "// banner\nexport const x: number = 'not-a-number';\n");
+    p.refreshProjectFile(file);
+
+    // The project answers from disk: `x` has moved to line 2, col 14.
+    expect(p.resolveOffset(file, 2, 14)).toBe(23);
+
+    // The diagnostic program survives, so the check that follows pays no rebuild.
+    // Its caller is the write path, which evicted this file's parse before the
+    // check read it back, so the program here is built from the current text —
+    // evicting it again would only discard a good program. `refreshFile` is the
+    // call that does evict it, for a caller refreshing an external edit.
+    expect((await p.getTypeErrors(file, scope)).errorCount).toBe(0);
+
+    p.refreshFile(file);
+
+    expect((await p.getTypeErrors(file, scope)).errorCount).toBe(1);
+  });
+
   test("getRenameLocations throws RENAME_NOT_ALLOWED for a non-renameable token", async ({
     seedNamedFixture,
   }) => {

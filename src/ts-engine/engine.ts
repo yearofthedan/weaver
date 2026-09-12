@@ -267,10 +267,21 @@ export class TsMorphEngine implements Engine {
    * when the file isn't tracked yet, since the next lookup adds it from disk anyway.
    */
   refreshFile(filePath: string): void {
-    const tsConfigPath = findTsConfigForFile(filePath);
-    const entry = this.projectEntries.get(tsConfigCacheKey(tsConfigPath));
+    this.refreshProjectFile(filePath);
+    this.diagnosticServices.refreshFile(findTsConfigForFile(filePath), filePath);
+  }
+
+  /**
+   * The ts-morph half of `refreshFile`: re-read `filePath` into the cached project
+   * and leave the diagnostic cache alone. Separable because a caller that observes
+   * the daemon's own writes needs only this half. The write has already evicted the
+   * file's diagnostic parse, and the post-write check rebuilding that program reads
+   * the file from disk, so evicting it a second time discards a program built from
+   * the current text and makes the next check rebuild it for nothing.
+   */
+  refreshProjectFile(filePath: string): void {
+    const entry = this.projectEntries.get(tsConfigCacheKey(findTsConfigForFile(filePath)));
     entry?.project.getSourceFile(filePath)?.refreshFromFileSystemSync();
-    this.diagnosticServices.refreshFile(tsConfigPath, filePath);
   }
 
   /**
