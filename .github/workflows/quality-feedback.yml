@@ -1,19 +1,23 @@
 name: Quality Feedback
 
 on:
-  schedule:
-    # Run weekly on Monday at 06:00 UTC
-    - cron: "0 6 * * 1"
+  push:
+    branches: [main]
   workflow_dispatch:
+
+# Runs share one incremental cache per lane. Without a group, two pushes close
+# together both restore the same baseline and the later save discards the
+# other's results. Queue instead of cancelling: a cancelled run never reaches
+# its save step, losing everything it computed.
+concurrency:
+  group: quality-feedback
+  cancel-in-progress: false
 
 jobs:
   mutation:
     name: Mutation Testing
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    permissions:
-      id-token: write
-      contents: write
     steps:
       - uses: actions/checkout@v6
 
@@ -28,9 +32,9 @@ jobs:
 
       - run: pnpm build
 
-      # Restore the most recent Stryker incremental cache. Save uses a
-      # unique key (with run_id) so partial-progress runs always persist
-      # their results for the next run to pick up.
+      # Caches saved on a branch are invisible to sibling branches, but every
+      # branch can read the default branch's. Running on push to main is what
+      # makes this baseline shared rather than per-ref.
       - name: Restore Stryker incremental cache
         uses: actions/cache/restore@v5
         with:
@@ -51,6 +55,16 @@ jobs:
           path: reports/stryker-incremental.json
           key: stryker-incremental-${{ github.run_id }}
 
+      # Published separately from the report so `scripts/pull-mutation-cache.sh`
+      # can fetch the baseline alone. Short retention: only the newest is useful.
+      - name: Upload incremental cache artifact
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: stryker-incremental
+          path: reports/stryker-incremental.json
+          retention-days: 7
+
       - name: Upload mutation report
         uses: actions/upload-artifact@v7
         if: always()
@@ -62,57 +76,15 @@ jobs:
 
       - name: Post summary
         if: always()
-        run: |
-          if [ "${{ steps.mutate.outcome }}" == "success" ]; then
-            echo "## Mutation score: above threshold" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## Mutation score: below threshold ⚠️" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Full report: download the \`mutation-report\` artifact." >> $GITHUB_STEP_SUMMARY
+        run: node scripts/mutation-summary.mjs reports/mutation/mutation.json "Src lane" >> "$GITHUB_STEP_SUMMARY"
 
-      # Triggered only when score drops below the break threshold (75).
-      # Uses claude-opus-4-6 — classification and test-writing require strong code reasoning.
-      # Required secrets: ANTHROPIC_API_KEY
-      - name: Triage surviving mutants
-        if: steps.mutate.outcome == 'failure'
-        uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            /mutate-triage
-
-            Scope: every survivor in reports/mutation/mutation.json. This run
-            fell below the break threshold, which is why you were started — do
-            not re-check the score, and do not stop because the project total
-            looks acceptable.
-
-            Record a noise survivor as a GitHub issue, one per group of
-            survivors sharing a cause:
-
-              gh issue create --title "Mutation survivors: <file> — <cause>" --body "<body>"
-
-            Body: a table of line, operator, replacement and rationale, then
-            "Suggested action: add to the Accepted / low-risk table in
-            docs/quality.md".
-
-            Deliver fixable work on a branch, never on main:
-
-              1. Branch fix/mutation-$(date +%Y%m%d)-<slug>, where <slug> is the
-                 most-affected source file's basename. Append -2, -3 if taken.
-              2. Commit as "test: kill surviving mutants in <slug>".
-              3. Push, then open a draft PR titled
-                 "fix: kill surviving mutants — <slug>", whose body carries the
-                 score before, the break threshold, and a table of the survivors
-                 addressed with the test added for each.
-
-            If you run out of turns before finishing, commit what you have, push,
-            open the PR, and list the survivors you did not reach under a
-            "Not addressed in this run" heading.
-          claude_args: >-
-            --model claude-opus-4-6
-            --max-turns 50
-            --allowedTools "Bash,Read,Edit,Write,Glob,Grep"
+      # The score itself does not gate: an incremental run scores only the
+      # mutants the cache did not cover, so comparing that subset to a
+      # project-wide threshold is meaningless. A run that produced no report at
+      # all is a real breakage and does fail the job.
+      - name: Fail if the run produced no report
+        if: always()
+        run: test -f reports/mutation/mutation.json
 
   mutation-eval:
     name: Mutation Testing (eval harness)
@@ -132,10 +104,6 @@ jobs:
 
       - run: pnpm build
 
-      # Restore the most recent Stryker eval incremental cache. Save uses a
-      # unique key (with run_id) so partial-progress runs always persist
-      # their results for the next run to pick up. Kept separate from the
-      # src lane's cache so neither run clobbers the other's baseline.
       - name: Restore Stryker eval incremental cache
         uses: actions/cache/restore@v5
         with:
@@ -156,6 +124,14 @@ jobs:
           path: reports/stryker-eval-incremental.json
           key: stryker-eval-incremental-${{ github.run_id }}
 
+      - name: Upload eval incremental cache artifact
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: stryker-eval-incremental
+          path: reports/stryker-eval-incremental.json
+          retention-days: 7
+
       - name: Upload eval mutation report
         uses: actions/upload-artifact@v7
         if: always()
@@ -167,11 +143,8 @@ jobs:
 
       - name: Post summary
         if: always()
-        run: |
-          if [ "${{ steps.mutate-eval.outcome }}" == "success" ]; then
-            echo "## Eval harness mutation score: above threshold" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## Eval harness mutation score: below threshold ⚠️" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Full report: download the \`mutation-eval-report\` artifact." >> $GITHUB_STEP_SUMMARY
+        run: node scripts/mutation-summary.mjs reports/mutation-eval/mutation.json "Eval harness" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if the run produced no report
+        if: always()
+        run: test -f reports/mutation-eval/mutation.json
