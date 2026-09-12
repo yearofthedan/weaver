@@ -68,6 +68,16 @@ Implemented in `src/daemon/watcher.ts` using chokidar.
 
 The watcher keeps provider state fresh when files are edited outside weaver (editor saves, generators, branch switches). Full behavior and invalidation strategy are documented in [watcher.md](watcher.md).
 
+## Memory
+
+The daemon holds two compilers per tsconfig: a ts-morph project for navigation and refactors, and a `ts.Program` in `DiagnosticServiceCache` (`src/ts-engine/diagnostic-service.ts`) for `get-type-errors`, each with a retained `parsed: Map<string, ts.SourceFile>`. Measured on this repo after cold start: 524 MB after a ts-morph-only `find-references`, 876 MB once a project-wide check has built the diagnostic program, 1342 MB with a second tsconfig — the diagnostic half is roughly 350 MB per tsconfig.
+
+`startIdleTimer` (`src/daemon/idle-eviction.ts`) drops that diagnostic half after 5 minutes with no dispatch: the registry's `evictAllDiagnosticParses` reaches `TsMorphEngine.evictAllDiagnosticParses` → `DiagnosticServiceCache.evictAll`, which clears each entry's `service` and `parsed`. Only `service` and `parsed` are dropped; the ts-morph project stays warm, so `find-references`, `rename` and `get-definition` do not reload. The next check pays one rebuild (~540 ms on this repo).
+
+Two boundaries. Plugin engines are not evicted — the idle path inherits the restriction `evictDiagnosticParse` already has on the write path, so Volar's memory is untouched. And the timer is reset by `dispatchRequest`, so any operation request holds the parses in memory; `ping` never reaches the dispatcher and therefore does not.
+
+The check polls every 60 s and `unref()`s its interval, so eviction can land up to a minute after the 5-minute mark, and the timer alone never keeps the process alive. RSS is a weak observation of any of this — V8 does not reliably return freed heap to the OS — so verify a rebuild (the next check re-reads from disk), not a memory figure.
+
 ## Implementation notes
 
 **The daemon routes through `VolarCompiler` only when the tsconfig includes `.vue` files.**
