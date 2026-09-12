@@ -270,6 +270,8 @@ The eval items lead. The instrument drifts faster than the skill text changes ([
 
 - **Consolidate `WEAVER_VERBOSE` env var into flag-only** `[needs design]` — the daemon has both a `--verbose` CLI flag and a `WEAVER_VERBOSE` env var that do the same thing. The env var exists because auto-spawn can't pass CLI flags, but `ensureDaemon` could forward `--verbose` to `spawnDaemon` directly. Consolidate to flag-only and remove the env var.
 
+- **Nothing reaps a daemon for a workspace that is never addressed again** `[needs design]` — observed 2026-09-12: 37 daemons from scratchpad fixtures, 5–7 days old, holding sockets and lockfiles against directories long deleted. Reaping is demand-driven: `stopDaemon` fires on an explicit stop, on a signal, or from `ensureDaemon`'s build-id mismatch (`ensure-daemon.ts:53-59`) — all of which need a *next call for that same workspace*. `startIdleTimer`'s `onIdle` (`daemon.ts:233`) evicts diagnostic parses and deliberately keeps the process up, so it does not cover this. Same shape in `~/.cache/weaver`, where 8 workspace hashes' sockets and pidfiles from unclean deaths go back to 21 Jun. Developing weaver is the heaviest producer, since fixture workspaces are disposable by construction. Design: whether a daemon should exit when its workspace root no longer resolves, whether a process-level idle ceiling belongs alongside the parse-eviction timer, and whether startup should sweep `~/.cache/weaver` for hashes with no live PID.
+
 ---
 
 ### Could — features & speculative (pull when demanded)
