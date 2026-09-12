@@ -87,6 +87,18 @@ signals, not two:
   none, so before this existed a move left every rewritten importer serving pre-move text — a
   fabricated TS2307 naming a specifier the file no longer contained.
 
+The write path has a second signal, on the ts-morph side of the same observer:
+`dispatchRequest`'s `finally` drains the paths that dispatch wrote — the pending set the
+`onMutated` hook also feeds — into the registry's `refreshProjectFile`, which re-reads each one
+into the ts-morph project. It calls `TsMorphEngine.refreshProjectFile`, the ts-morph half of
+`refreshFile` without the diagnostic eviction, and that split is what keeps it cheap: the
+eviction above has already run for these paths, and the post-write check rebuilt the program
+from the current text, so evicting the parse again would discard a good program and make the
+next check rebuild it for nothing. The drain runs at the end of the dispatch because
+`refreshFromFileSystemSync` replaces a node tree the in-flight operation still holds references
+into (see the constraint below); a file the operation deleted reaches it too, and
+`refreshFromFileSystemSync` returns `Deleted` and forgets the source file rather than throwing.
+
 Two constraints on the write-path signal:
 
 - **It evicts the diagnostic parse only.** `refreshFile` additionally calls ts-morph's

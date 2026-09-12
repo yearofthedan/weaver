@@ -75,7 +75,7 @@ Extension constants are shared with the file-walk module, which also owns `SKIP_
 
 ## Daemon own-writes
 
-The daemon's own operations write files to disk, and those writes come back as watcher events ~200ms later — indistinguishable, at the filesystem, from someone editing in an editor. The operation has already refreshed the engines with the content it wrote, so acting on those events throws away correct state.
+The daemon's own operations write files to disk, and those writes come back as watcher events ~200ms later — indistinguishable, at the filesystem, from someone editing in an editor. Acting on them would discard state the daemon has already made match disk: `RecordingFileSystem`'s `onMutated` observer evicts the file's retained diagnostic parse as the write lands, and `dispatchRequest`'s `finally` drains that observer's pending paths into a ts-morph refresh once the operation has returned and holds no nodes. Both run whatever `checkTypeErrors` says, so suppressing the post-write check does not leave the engines behind the file.
 
 The daemon recognises its own writes and skips invalidating for them. Every dispatcher operation writes through one shared `RecordingFileSystem` (`src/daemon/self-write-state.ts`), which reports each mutation to a `SelfWriteLedger`; `buildWatcherCallbacks` consults that ledger before calling `invalidateFile` or `invalidateAll`.
 
