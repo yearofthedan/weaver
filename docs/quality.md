@@ -101,6 +101,9 @@ Each test calls `seedNamedFixture(FIXTURES.x.name)` (or `seedInlineFixture`) at 
 **Vertical slice tests assert before and after.**
 Always read fixture files before the operation to confirm original state, then assert both that the old string is gone and the new string is present. This catches false positives where an assertion passes because the fixture never had the expected content.
 
+**A comparison against an empty result cannot verify a rebuild.**
+When the property is that a cache, program or project was dropped and recomputed, assert against an input that makes the recomputation observable — write a change to disk behind the layer's back and require it to be reported afterwards. Two empty answers are identical whether the layer rebuilt or did nothing, so a fixture with no diagnostics passes against a no-op eviction exactly as it does against a working one.
+
 ---
 
 ## Performance
