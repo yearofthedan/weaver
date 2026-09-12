@@ -14,6 +14,12 @@ export interface SelfWriteState {
   fileSystem: FileSystem;
   /** True when `path`'s watcher event came from a write through `fileSystem`. */
   shouldSuppress(path: string): boolean;
+  /**
+   * The paths mutated through `fileSystem` since the last drain, each once, and
+   * clear the record. A caller that repairs cached state after a write takes
+   * them here rather than at each call site, so an operation cannot forget.
+   */
+  drainPending(): string[];
 }
 
 export function createSelfWriteState(
@@ -21,9 +27,18 @@ export function createSelfWriteState(
   onMutated: (path: string) => void = () => {},
 ): SelfWriteState {
   const ledger = createSelfWriteLedger(inner);
+  const pending = new Set<string>();
   return {
-    fileSystem: new RecordingFileSystem(inner, ledger, onMutated),
+    fileSystem: new RecordingFileSystem(inner, ledger, (path) => {
+      pending.add(path);
+      onMutated(path);
+    }),
     shouldSuppress: (path) => ledger.shouldSuppress(path),
+    drainPending: () => {
+      const paths = [...pending];
+      pending.clear();
+      return paths;
+    },
   };
 }
 
@@ -53,4 +68,14 @@ export function getSharedFileSystem(): FileSystem {
  */
 export function shouldSuppressSelfWrite(path: string): boolean {
   return daemonState.shouldSuppress(path);
+}
+
+/**
+ * Take the paths the daemon has mutated since the last call, each once, and
+ * clear the record. The dispatcher drains this once an operation has returned,
+ * when it holds no nodes of its own, so it can repair ts-morph's project from
+ * disk — a write made with `checkTypeErrors: false` has no other refresh.
+ */
+export function drainPendingMutations(): string[] {
+  return daemonState.drainPending();
 }

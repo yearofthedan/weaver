@@ -1,6 +1,13 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { InMemoryFileSystem } from "../ports/in-memory-filesystem.js";
-import { createSelfWriteState, getSharedFileSystem } from "./self-write-state.js";
+import {
+  createSelfWriteState,
+  drainPendingMutations,
+  getSharedFileSystem,
+} from "./self-write-state.js";
 
 describe("createSelfWriteState", () => {
   it("suppresses exactly the next event for a path written through its filesystem", () => {
@@ -44,5 +51,24 @@ describe("createSelfWriteState", () => {
 describe("the daemon's shared filesystem", () => {
   it("is one instance, so every dispatched operation records into the same ledger", () => {
     expect(getSharedFileSystem()).toBe(getSharedFileSystem());
+  });
+
+  /**
+   * The shared instance is the one every dispatched operation writes through,
+   * so its drain is what a later operation's refresh is built from.
+   */
+  it("hands back the paths its last writes touched, once each, and then forgets them", () => {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "weaver-drain-")), "written.ts");
+    drainPendingMutations();
+
+    const shared = getSharedFileSystem();
+    shared.writeFile(file, "export const a = 1;\n");
+    shared.writeFile(file, "export const a = 2;\n");
+
+    expect(drainPendingMutations()).toEqual([file]);
+    // Empty on the next call: the set cannot grow for the life of the daemon.
+    expect(drainPendingMutations()).toEqual([]);
+
+    fs.rmSync(path.dirname(file), { recursive: true, force: true });
   });
 });
