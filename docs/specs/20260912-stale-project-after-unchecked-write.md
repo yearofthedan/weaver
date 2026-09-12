@@ -106,18 +106,26 @@ argument: the default path already refreshes there, at `post-write-diagnostics.t
    through the existing `createSelfWriteState(inner, onMutated)` seam.
 2. **`src/daemon/language-plugin-registry.ts`** — add `refreshProjectFile(filePath)`,
    reaching `tsMorphEngineSingleton` only, mirroring `evictDiagnosticParse`'s existing shape
-   (`language-plugin-registry.ts:99-101`). It calls the existing
-   `TsMorphEngine.refreshFile`; no new engine method. Deliberately **not** the existing
+   (`language-plugin-registry.ts:99-101`). Deliberately **not** the existing
    `invalidateFile`, which fans out to plugins — Vue's `invalidateFile` drops the whole
    Volar service, a measured ~1035 ms rebuild, which a caller who opted out of the check has
    not asked to pay.
+   > **Amended 2026-09-12, during review.** The first implementation called the existing
+   > `TsMorphEngine.refreshFile`. Its second half — `DiagnosticServiceCache.refreshFile` —
+   > evicts the file's parse *and the cached program with it*, and by the time the drain ran
+   > the post-write check had just rebuilt that program from the text on disk. So the drain
+   > discarded a good program and made the next check rebuild the whole thing, on every
+   > checked write: the cost the parse cache exists to avoid. `TsMorphEngine.refreshFile` was
+   > split into `refreshFile` (both halves — the watcher path and the check) and
+   > `refreshProjectFile` (ts-morph only), and the drain calls the latter. The original "no
+   > new engine method" note was an effort estimate, and the evidence above contradicts it.
 3. **`src/daemon/dispatcher.ts`** — drain in the existing `finally` beside `onActivity?.()`,
    so a partially-applied failed operation is covered too. A read-only dispatch drains an
    empty set.
 
-The drain's diagnostic half costs nothing extra: `DiagnosticServiceCache.refreshFile` is a
-map lookup and delete, and the write-time `evictFile` has already dropped the service for any
-path that carried a parse.
+The drain takes the ts-morph half only, so it costs nothing on the diagnostic side: the
+write-time `evictFile` has already dropped any parse or service for a path that carried one,
+and anything the check rebuilt since is built from the text on disk.
 
 **Measured cost** (this repo, 88-file project, 2026-09-12): `refreshFromFileSystemSync` is
 0.05 ms on an unchanged file, 1.6–5 ms on a genuinely changed 400-declaration file, 1.1 ms

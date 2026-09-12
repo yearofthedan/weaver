@@ -280,8 +280,7 @@ export class TsMorphEngine implements Engine {
    * the current text and makes the next check rebuild it for nothing.
    */
   refreshProjectFile(filePath: string): void {
-    const entry = this.projectEntries.get(tsConfigCacheKey(findTsConfigForFile(filePath)));
-    entry?.project.getSourceFile(filePath)?.refreshFromFileSystemSync();
+    this.getCachedProjectForFile(filePath)?.getSourceFile(filePath)?.refreshFromFileSystemSync();
   }
 
   /**

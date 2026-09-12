@@ -112,14 +112,10 @@ describe("TsMorphEngine", () => {
     fs.writeFileSync(file, "// banner\nexport const x: number = 'not-a-number';\n");
     p.refreshProjectFile(file);
 
-    // The project answers from disk: `x` has moved to line 2, col 14.
+    // `x` sits at offset 23 of the new text: 10 of banner, 13 of "export const ".
     expect(p.resolveOffset(file, 2, 14)).toBe(23);
-
-    // The diagnostic program survives, so the check that follows pays no rebuild.
-    // Its caller is the write path, which evicted this file's parse before the
-    // check read it back, so the program here is built from the current text —
-    // evicting it again would only discard a good program. `refreshFile` is the
-    // call that does evict it, for a caller refreshing an external edit.
+    // The program survives rather than being rebuilt from the file that now fails
+    // to compile — this method is the ts-morph half alone.
     expect((await p.getTypeErrors(file, scope)).errorCount).toBe(0);
 
     p.refreshFile(file);
