@@ -1,0 +1,47 @@
+fixtures:
+  a-greeter-with-callers:
+    description: an exported function at src/lib.ts, called twice from src/a.ts
+    files:
+      tsconfig.json: |
+        {
+          "compilerOptions": { "strict": true },
+          "include": ["src/**/*.ts"]
+        }
+      src/lib.ts: |
+        export function greet(name: string): string {
+          return `hi ${name}`;
+        }
+      src/a.ts: |
+        import { greet } from "./lib";
+
+        console.log(greet("one"));
+        console.log(greet("two"));
+
+scenarios:
+  - name: renames against the text on disk after an unchecked write moved the symbol's line
+    description: >
+      The middle step opts out of the post-write type check, which is the only thing that
+      refreshes ts-morph's cached copy of the file. The rename that follows names the
+      symbol's true on-disk position, so its edits must land on `greet`.
+    given: a-greeter-with-callers
+    when:
+      - findReferences: { file: src/lib.ts, line: 1, col: 17 }
+      - replaceText:
+          pattern: export function
+          replacement: "// banner\nexport function"
+          checkTypeErrors: false
+      - rename: { file: src/lib.ts, line: 2, col: 17, newName: salute }
+    then:
+      files:
+        changed:
+          src/lib.ts: |
+            // banner
+            export function salute(name: string): string {
+              return `hi ${name}`;
+            }
+          src/a.ts: |
+            import { salute } from "./lib";
+
+            console.log(salute("one"));
+            console.log(salute("two"));
+        unchanged: [tsconfig.json]

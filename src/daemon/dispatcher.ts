@@ -29,9 +29,9 @@ import { searchText } from "../operations/searchText.js";
 import { setExport } from "../operations/setExport.js";
 import type { EngineRegistry } from "../ts-engine/types.js";
 import { resetDiscoveryCaches } from "../utils/ts-project.js";
-import { makeRegistry } from "./language-plugin-registry.js";
+import { makeRegistry, refreshProjectFile } from "./language-plugin-registry.js";
 import { getTypeErrorsForFiles } from "./post-write-diagnostics.js";
-import { getSharedFileSystem } from "./self-write-state.js";
+import { drainPendingMutations, getSharedFileSystem } from "./self-write-state.js";
 
 /**
  * Every dispatched operation shares this instance rather than constructing
@@ -437,6 +437,15 @@ export async function dispatchRequest(
   } catch (err) {
     return toDispatchError(err, req.method, workspace);
   } finally {
+    // Everything this dispatch wrote is refreshed here, once the operation has
+    // returned and no longer holds nodes into the project. A write made with
+    // `checkTypeErrors: false` is the case that needs it: the post-write check
+    // that would otherwise repair the project never runs, and the watcher
+    // suppresses the daemon's own write, so every later read or edit would be
+    // computed against the text from before it.
+    for (const filePath of drainPendingMutations()) {
+      refreshProjectFile(filePath);
+    }
     onActivity?.();
   }
 }

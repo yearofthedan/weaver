@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { describe, expect } from "vitest";
-import { fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { dispatchRequest } from "./dispatcher.js";
 import { shouldSuppressSelfWrite } from "./self-write-state.js";
 
@@ -113,5 +113,198 @@ describe("a write dispatched through the daemon", () => {
     expect(after).toMatchObject({
       diagnostics: expect.arrayContaining([expect.objectContaining({ code: 2322 })]),
     });
+  });
+});
+
+/**
+ * With `checkTypeErrors: false` nothing else repairs ts-morph's cached copy of
+ * a written file, so these reads are only correct if the dispatch that wrote
+ * refreshed the project before returning. Each warms the project first, since
+ * a project that was never loaded has nothing stale to answer from.
+ */
+describe("a read dispatched after a write that skipped the type check", () => {
+  test("answers from the text on disk once an inserted line has moved the symbol", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true }, include: ["src"] }),
+      "src/lib.ts": "export function greet(name: string): string {\n  return name;\n}\n",
+      "src/a.ts":
+        'import { greet } from "./lib";\n\nconsole.log(greet("one"));\nconsole.log(greet("two"));\n',
+    });
+    const lib = path.join(dir, "src/lib.ts");
+    const caller = path.join(dir, "src/a.ts");
+
+    const warm = await dispatchRequest(
+      { method: "findReferences", params: { file: lib, line: 1, col: 17 } },
+      dir,
+    );
+    expect(warm).toMatchObject({ status: "success", symbolName: "greet" });
+
+    const written = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          pattern: "export function",
+          replacement: "// banner\nexport function",
+          checkTypeErrors: false,
+        },
+      },
+      dir,
+    );
+    expect(written.status).not.toBe("error");
+
+    const after = (await dispatchRequest(
+      { method: "findReferences", params: { file: lib, line: 2, col: 17 } },
+      dir,
+    )) as Record<string, unknown>;
+    expect(after).toMatchObject({ status: "success", symbolName: "greet" });
+    expect(after.references).toEqual(
+      expect.arrayContaining([
+        { file: lib, line: 2, col: 17, length: 5 },
+        { file: caller, line: 1, col: 10, length: 5 },
+        { file: caller, line: 3, col: 13, length: 5 },
+        { file: caller, line: 4, col: 13, length: 5 },
+      ]),
+    );
+  });
+
+  test("answers from disk for a .mts source, which the engine tracks too", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: { strict: true, module: "NodeNext", moduleResolution: "NodeNext" },
+        include: ["src/**/*.mts"],
+      }),
+      "src/lib.mts": "export function greet(name: string): string {\n  return name;\n}\n",
+    });
+    const lib = path.join(dir, "src/lib.mts");
+
+    const warm = await dispatchRequest(
+      { method: "findReferences", params: { file: lib, line: 1, col: 17 } },
+      dir,
+    );
+    expect(warm).toMatchObject({ status: "success", symbolName: "greet" });
+
+    const written = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          pattern: "export function",
+          replacement: "// banner\nexport function",
+          checkTypeErrors: false,
+        },
+      },
+      dir,
+    );
+    expect(written.status).not.toBe("error");
+
+    const after = await dispatchRequest(
+      { method: "findReferences", params: { file: lib, line: 2, col: 17 } },
+      dir,
+    );
+    expect(after).toMatchObject({ status: "success", symbolName: "greet" });
+  });
+
+  test("completes a read of a surviving file after an unchecked deleteFile", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true }, include: ["src"] }),
+      "src/keep.ts": "export function keep(): number {\n  return 1;\n}\n",
+      "src/gone.ts": "export function gone(): number {\n  return 2;\n}\n",
+    });
+    const keep = path.join(dir, "src/keep.ts");
+    const gone = path.join(dir, "src/gone.ts");
+
+    const warm = await dispatchRequest(
+      { method: "findReferences", params: { file: gone, line: 1, col: 17 } },
+      dir,
+    );
+    expect(warm).toMatchObject({ status: "success", symbolName: "gone" });
+
+    const deleted = await dispatchRequest(
+      { method: "deleteFile", params: { file: gone, checkTypeErrors: false } },
+      dir,
+    );
+    expect(deleted.status).not.toBe("error");
+
+    const after = await dispatchRequest(
+      { method: "findReferences", params: { file: keep, line: 1, col: 17 } },
+      dir,
+    );
+    expect(after).toMatchObject({ status: "success", symbolName: "keep" });
+  });
+
+  test("completes a read after an unchecked write in a Vue project", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const file = path.join(dir, "src/composables/useCounter.ts");
+
+    const written = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          pattern: "initialValue = 0",
+          replacement: "initialValue: number = 0",
+          glob: "src/composables/useCounter.ts",
+          checkTypeErrors: false,
+        },
+      },
+      dir,
+    );
+    expect(written.status).not.toBe("error");
+
+    const after = await dispatchRequest({ method: "getTypeErrors", params: { file } }, dir);
+    expect(after).toMatchObject({ status: "success", errorCount: 0 });
+  });
+
+  test("drains nothing on a read-only dispatch, before any project is loaded", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({ include: ["src"] }),
+      "src/a.ts": "export const marker = 'needle';\n",
+    });
+
+    const result = (await dispatchRequest(
+      { method: "searchText", params: { pattern: "needle" } },
+      dir,
+    )) as Record<string, unknown>;
+
+    expect(result.status).toBe("success");
+    expect(result.matches).toHaveLength(1);
+  });
+
+  test("still answers from disk when the post-write check ran and refreshed", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true }, include: ["src"] }),
+      "src/lib.ts": "export function greet(name: string): string {\n  return name;\n}\n",
+    });
+    const lib = path.join(dir, "src/lib.ts");
+
+    await dispatchRequest(
+      { method: "findReferences", params: { file: lib, line: 1, col: 17 } },
+      dir,
+    );
+
+    const written = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: { pattern: "export function", replacement: "// banner\nexport function" },
+      },
+      dir,
+    );
+    expect(written).toMatchObject({ status: "success", typeErrorCount: 0 });
+
+    const after = await dispatchRequest(
+      { method: "findReferences", params: { file: lib, line: 2, col: 17 } },
+      dir,
+    );
+    expect(after).toMatchObject({ status: "success", symbolName: "greet" });
   });
 });
