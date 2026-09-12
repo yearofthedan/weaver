@@ -12,6 +12,7 @@ import {
   invalidateAll,
   invalidateFile,
   makeRegistry,
+  refreshProjectFile,
   registerLanguagePlugin,
 } from "./language-plugin-registry.js";
 
@@ -351,6 +352,54 @@ describe("LanguagePluginRegistry", () => {
 
       fs.writeFileSync(file, 'export const value: number = "not a number";\n');
       evictAllDiagnosticParses();
+
+      expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(1);
+    });
+  });
+
+  describe("refreshProjectFile", () => {
+    it("does nothing when no engine has been loaded", () => {
+      expect(() => refreshProjectFile("/some/file.ts")).not.toThrow();
+    });
+
+    it("does not reach plugin engines, which would rebuild Vue's whole service", () => {
+      const pluginInvalidate = vi.fn();
+      registerLanguagePlugin({
+        id: "not-refreshed",
+        supportsProject: () => true,
+        createEngine: async (_tsEngine) => stubCompiler(),
+        invalidateFile: pluginInvalidate,
+      });
+
+      refreshProjectFile("/some/file.ts");
+
+      expect(pluginInvalidate).not.toHaveBeenCalled();
+    });
+
+    test("makes the loaded engine's next read of the file answer from disk", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: {
+            target: "ES2022",
+            module: "NodeNext",
+            moduleResolution: "NodeNext",
+            strict: true,
+            noEmit: true,
+          },
+          include: ["src"],
+        }),
+        "src/a.ts": "export const value: number = 1;\n",
+      });
+      const file = path.join(dir, "src/a.ts");
+      const engine = await makeRegistry(file, dir).projectEngine();
+      const scope = new WorkspaceScope(dir, new NodeFileSystem());
+
+      expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(0);
+
+      fs.writeFileSync(file, 'export const value: number = "not a number";\n');
+      refreshProjectFile(file);
 
       expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(1);
     });
