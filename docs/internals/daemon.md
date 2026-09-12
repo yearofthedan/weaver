@@ -62,7 +62,7 @@ Implemented in `src/daemon/watcher.ts` using chokidar.
 - Watches the workspace root.
 - Filters to `.ts`, `.tsx`, `.js`, `.jsx` and `.vue` — always all five, whatever the project type.
 - Debounces file events (200ms) to avoid thrash during save bursts.
-- Skips events for writes the daemon made itself. Those writes are observed twice: the retained diagnostic parse is evicted as the write lands, and ts-morph's copy of the file is refreshed at the end of the dispatch that wrote. Neither is gated on the post-write type check, so a write that suppresses it is still reflected in the ts-morph engine. Plugin engines are not refreshed on the write path — Vue's Volar service is the known gap.
+- Skips events for writes the daemon made itself. Those writes are observed twice: the retained diagnostic parse is evicted as the write lands, and ts-morph's copy of the file is refreshed at the end of the dispatch that wrote. Neither is gated on the post-write type check, so a write that suppresses it is still reflected in the ts-morph engine. Plugin engines are not refreshed by either signal; a Vue project's Volar service is refreshed only by the post-write check, so that service is the known gap when the check is suppressed.
 - Calls `invalidateFile(path)` on content changes.
 - Calls `invalidateAll()` on add/remove events.
 

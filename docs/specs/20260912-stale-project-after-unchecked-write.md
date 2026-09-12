@@ -112,10 +112,11 @@ argument: the default path already refreshes there, at `post-write-diagnostics.t
    not asked to pay.
    > **Amended 2026-09-12, during review.** The first implementation called the existing
    > `TsMorphEngine.refreshFile`. Its second half — `DiagnosticServiceCache.refreshFile` —
-   > evicts the file's parse *and the cached program with it*, and by the time the drain ran
-   > the post-write check had just rebuilt that program from the text on disk. So the drain
-   > discarded a good program and made the next check rebuild the whole thing, on every
-   > checked write: the cost the parse cache exists to avoid. `TsMorphEngine.refreshFile` was
+   > deletes the file's parse and clears `entry.service`, so by the time the drain ran it
+   > discarded the diagnostic program the post-write check had just built from the text on
+   > disk, and the next check paid a program rebuild it had no reason to pay — parses
+   > retained, so the ~45 ms post-write path rather than the ~540 ms full re-read measured in
+   > `get-type-errors.md`, but paid on every checked write. `TsMorphEngine.refreshFile` was
    > split into `refreshFile` (both halves — the watcher path and the check) and
    > `refreshProjectFile` (ts-morph only), and the drain calls the latter. The original "no
    > new engine method" note was an effort estimate, and the evidence above contradicts it.
