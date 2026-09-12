@@ -11,7 +11,6 @@ const [reportPath, lane] = process.argv.slice(2);
 
 /** Mutant statuses that represent a real verdict, and so belong in the denominator. */
 const SCORED = new Set(["Killed", "Survived", "NoCoverage", "Timeout"]);
-/** Stryker scores a timeout as killed, so the denominator treats it the same way. */
 const KILLED = new Set(["Killed", "Timeout"]);
 
 function render() {

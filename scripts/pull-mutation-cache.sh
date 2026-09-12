@@ -2,15 +2,12 @@
 # Fetches the Stryker incremental caches published by the Quality Feedback
 # workflow, so a local run starts from CI's baseline instead of from nothing.
 #
-# The caches are not in git: CI's copy is the shared one, and a tracked file
-# would drift against it (see docs/tech/mutation-testing.md). Requires `gh`
+# Why they are not in git: docs/tech/mutation-testing.md. Requires `gh`
 # authenticated against the repo's remote.
 #
-# A miss is not fatal — a full rebuild is slower, not wrong — so this reports
-# what it got and exits 0 either way. It always prints the age of what it
-# fetched, because a silently stale baseline looks identical to a fresh one,
-# and it prints the underlying error on a miss rather than implying the
-# artifact was absent.
+# A miss is not fatal, so this exits 0 either way. It always prints the age of
+# what it fetched, because a silently stale baseline looks identical to a fresh
+# one.
 set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 1

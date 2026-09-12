@@ -28,12 +28,7 @@ const config = {
     // "src/daemon/**/*.ts",
     // Global exclusions
     "!src/**/__testHelpers__/**",
-    // Test files are not production code, and mutating them measures nothing:
-    // a mutant inside a test's own assertions has no other test covering it, so
-    // it survives by construction and drags the score down. They are also where
-    // almost every static mutant lives — a `describe` body runs at import time,
-    // so anything built there is module-load code, and Stryker must reload the
-    // module and rerun the whole suite for each one.
+    // Mutating a test measures nothing — see docs/tech/mutation-testing.md.
     "!src/**/*.test.ts",
   ],
   mutator: {
