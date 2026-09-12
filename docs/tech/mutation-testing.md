@@ -31,8 +31,24 @@ This overrides the `mutate` array from the config. Useful when checking mutation
 
 **Commit `reports/stryker-incremental.json` after a run.** It is git-tracked so every developer and agent starts from the last known baseline. Targeted runs accumulate — run a few files at a time and the cache builds up. (The execution agent commits it as part of its post-implementation mutation step.)
 
-**`vitest.related: true` doesn't meaningfully speed up an integration-heavy run.**
-When most tests transitively import most of `src/` (as in weaver's integration tests), Vitest's import-graph filter barely narrows the per-mutant test set. `related: true` is harmless and may help slightly for isolated utilities.
+**`vitest.related: true` hangs the dry run — do not enable it.**
+Measured 2026-09-12 against a fixed 394-mutant, four-file scope: with `related: false` the initial test run completes in 108s, and with `related: true` it never completes — `DryRunExecutor` gave up after 16m40s with `Initial test run timed out!`, so the run produced no score at all. This supersedes an earlier note calling it "harmless and may help slightly"; it is not harmless. The cause was not isolated, so treat the timeout as the observed behaviour rather than a known mechanism.
+
+**The incremental cache is keyed on source text alone — a config or Stryker upgrade does not invalidate it.**
+`incremental-differ.js` compares only the source of each source and test file (`performFileDiff(oldFile.source, currentFileSource, ...)`). There is no Stryker version check and no config hash, and the `schemaVersion` field the reporter writes is never read back. So narrowing the `mutate` array or bumping Stryker leaves every prior verdict in place: observed 2026-09-12, the tracked cache still held `src/daemon/*` and `src/ts-engine/*` entries from a broader scope that is now commented out, across a v9 to v10 upgrade. Delete the incremental file after either kind of change — a stale entry reports a cached verdict as if it were fresh, which is the one case where the cache gives you an unearned green.
+
+**Concurrency is a weak lever; the dry run is the fixed cost.**
+Measured 2026-09-12 on the same 394-mutant scope (8 performance cores, 16 GB):
+
+| `concurrency` | Dry run | Mutation phase | Total | Peak RSS |
+|---|---|---|---|---|
+| 2 | 109s | 189s | 300s | 2.7 GB |
+| 4 | 108s | 146s | 257s | 4.4 GB |
+| 6 | 108s | 137s | 248s | 6.0 GB |
+
+The dry run runs the full suite (1401 tests) to build the `perTest` coverage map and does not parallelise, so it is flat regardless of `concurrency` and is paid once per invocation. The mutation phase scales only 1.38x for 3x the workers. A worker peaks around 1.4 GB, so concurrency above 4 approaches the memory ceiling on a 16 GB machine with an editor open, and the CI runner's 4 vCPUs cap it there anyway.
+
+**Batch files into one `--mutate` — it beats any concurrency change.** Because the dry run is per-invocation, three files run one at a time cost 3 x 108s of dry run before a single mutant is tested; the same three comma-separated in one run cost it once.
 
 **Stryker `testFiles` negation patterns (`!`) are silently broken.**
 `FileMatcher` calls `path.resolve(pattern)`, turning `!tests/foo.test.ts` into `/abs/path/!tests/foo.test.ts` — the `!` becomes a literal filename character, so the exclusion never fires. Use a separate vitest config (`vitest.stryker.config.ts`) with `exclude:` arrays instead. Vitest's glob processing handles negation correctly.
