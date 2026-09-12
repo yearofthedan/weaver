@@ -11,6 +11,7 @@ const [reportPath, lane] = process.argv.slice(2);
 
 /** Mutant statuses that represent a real verdict, and so belong in the denominator. */
 const SCORED = new Set(["Killed", "Survived", "NoCoverage", "Timeout"]);
+/** Stryker scores a timeout as killed, so the denominator treats it the same way. */
 const KILLED = new Set(["Killed", "Timeout"]);
 
 function render() {
@@ -34,20 +35,34 @@ function render() {
   }
 
   const killed = scored.filter((m) => KILLED.has(m.status)).length;
+  const timedOut = scored.filter((m) => m.status === "Timeout").length;
   const survived = scored.filter((m) => m.status === "Survived").length;
   const noCoverage = scored.filter((m) => m.status === "NoCoverage").length;
   const score = ((killed / scored.length) * 100).toFixed(2);
 
-  return [
+  const lines = [
     `## ${lane} mutation score: ${score}%`,
     "",
-    "| Killed | Survived | No coverage | Scored |",
-    "|---|---|---|---|",
-    `| ${killed} | ${survived} | ${noCoverage} | ${scored.length} |`,
+    "| Killed | of which timed out | Survived | No coverage | Scored |",
+    "|---|---|---|---|---|",
+    `| ${killed} | ${timedOut} | ${survived} | ${noCoverage} | ${scored.length} |`,
     "",
     "Scored against whatever the incremental cache did not already cover, so this is",
     "not comparable to a full-scope run. Download the report artifact for detail.",
-  ].join("\n");
+  ];
+
+  // A timeout counts as killed, so a run full of them reports a healthy score
+  // while having evaluated far less than it appears to. Say so rather than
+  // letting the headline number flatter the run.
+  if (timedOut > killed / 4) {
+    lines.push(
+      "",
+      `> ${timedOut} of ${killed} kills were timeouts. Those mutants were not`,
+      "> meaningfully tested — treat the score as an upper bound.",
+    );
+  }
+
+  return lines.join("\n");
 }
 
 console.log(render());
