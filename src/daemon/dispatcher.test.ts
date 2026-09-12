@@ -1,8 +1,8 @@
 import * as path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
-import { dispatchRequest, makeRegistry, setActivityCallback } from "./dispatcher.js";
+import { dispatchRequest, makeRegistry } from "./dispatcher.js";
 
 const mockMoveFile = vi.hoisted(() =>
   vi.fn<typeof import("../operations/moveFile.js")["moveFile"]>(),
@@ -461,28 +461,26 @@ describe("dispatchRequest path character validation", () => {
 });
 
 describe("idle activity signal", () => {
-  afterEach(() => {
-    setActivityCallback(undefined);
-  });
-
-  test("calls the activity callback on every dispatch", async ({ seedNamedFixture }) => {
+  test("reports activity after a request has been dispatched", async ({ seedNamedFixture }) => {
     const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
     const activity = vi.fn();
-    setActivityCallback(activity);
 
-    await dispatchRequest({ method: "searchText", params: { pattern: "greetUser" } }, dir);
+    await dispatchRequest(
+      { method: "searchText", params: { pattern: "greetUser" } },
+      dir,
+      activity,
+    );
 
     expect(activity).toHaveBeenCalledOnce();
   });
 
-  test("dispatches with no activity callback registered", async ({ seedNamedFixture }) => {
+  test("reports activity for a request that fails", async ({ seedNamedFixture }) => {
     const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+    const activity = vi.fn();
 
-    const result = await dispatchRequest(
-      { method: "searchText", params: { pattern: "greetUser" } },
-      dir,
-    );
+    const result = await dispatchRequest({ method: "noSuchMethod", params: {} }, dir, activity);
 
-    expect(result.status).toBe("success");
+    expect(result.status).toBe("error");
+    expect(activity).toHaveBeenCalledOnce();
   });
 });

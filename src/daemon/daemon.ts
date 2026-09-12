@@ -9,7 +9,6 @@ import {
   dispatchRequest,
   invalidateAll,
   invalidateFile,
-  setActivityCallback,
   shouldSuppressSelfWrite,
 } from "./dispatcher.js";
 import { startIdleTimer } from "./idle-eviction.js";
@@ -219,13 +218,11 @@ export async function runDaemon(opts: { workspace: string; verbose?: boolean }):
   let queue: Promise<void> = Promise.resolve();
 
   // Only ever runs inside a spawned daemon, so the whole of `runDaemon` is outside the
-  // mutation lane's reach (it excludes subprocess-spawning tests). The idle eviction is
-  // verified end to end against a live daemon instead.
+  // mutation lane's reach (it excludes subprocess-spawning tests).
   const idleTimer = startIdleTimer({
     now: Date.now,
     evict: evictAllDiagnosticParses,
   });
-  setActivityCallback(idleTimer.reset);
 
   await runLifecycle({
     sockPath,
@@ -235,7 +232,6 @@ export async function runDaemon(opts: { workspace: string; verbose?: boolean }):
     host,
     onShutdown: () => {
       idleTimer.stop();
-      setActivityCallback(undefined);
     },
     startServer: () => {
       const server = net.createServer((socket) => {
@@ -247,7 +243,9 @@ export async function runDaemon(opts: { workspace: string; verbose?: boolean }):
           for (const line of lines) {
             if (line.trim()) {
               const trimmed = line.trim();
-              queue = queue.then(() => handleSocketRequest(socket, trimmed, absWorkspace, logger));
+              queue = queue.then(() =>
+                handleSocketRequest(socket, trimmed, absWorkspace, logger, idleTimer.reset),
+              );
             }
           }
         });
@@ -320,6 +318,7 @@ async function handleSocketRequest(
   line: string,
   workspace: string,
   logger: DaemonLogger | null,
+  onActivity: () => void,
 ): Promise<void> {
   const start = Date.now();
   let method = "unknown";
@@ -338,7 +337,7 @@ async function handleSocketRequest(
       response =
         method === "ping"
           ? { status: "success", buildId: RUNNING_BUILD_ID }
-          : await dispatchRequest(envelope.data, workspace);
+          : await dispatchRequest(envelope.data, workspace, onActivity);
     }
   }
 
