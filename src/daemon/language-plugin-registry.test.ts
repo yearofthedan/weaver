@@ -174,6 +174,16 @@ describe("LanguagePluginRegistry", () => {
 
       expect(receivedEngine).toBeInstanceOf(TsMorphEngine);
     });
+
+    it("answers two registries for the same project from one engine", async () => {
+      // The daemon's caches — the write-path drain, the watcher, idle eviction — reach
+      // the singleton, so a second engine would leave every read rebuilding the project
+      // and none of those repairs applying to what it reads.
+      const first = await makeRegistry(PROJECT_FILE, WORKSPACE_ROOT).projectEngine();
+      const second = await makeRegistry(PROJECT_FILE, WORKSPACE_ROOT).projectEngine();
+
+      expect(second).toBe(first);
+    });
   });
 
   describe("invalidation fan-out", () => {
@@ -354,6 +364,26 @@ describe("LanguagePluginRegistry", () => {
       evictAllDiagnosticParses();
 
       expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(1);
+    });
+  });
+
+  describe("clearLanguagePlugins", () => {
+    it("drops the cached plugin engine, so the next resolution builds a new one", async () => {
+      const factory = vi.fn(async (_tsEngine: TsMorphEngine) => stubCompiler("plugin"));
+      const plugin: LanguagePlugin = {
+        id: "clear-test",
+        supportsProject: () => true,
+        createEngine: factory,
+      };
+
+      registerLanguagePlugin(plugin);
+      await makeRegistry(PROJECT_FILE, WORKSPACE_ROOT).projectEngine();
+
+      clearLanguagePlugins();
+      registerLanguagePlugin(plugin);
+      await makeRegistry(PROJECT_FILE, WORKSPACE_ROOT).projectEngine();
+
+      expect(factory).toHaveBeenCalledTimes(2);
     });
   });
 
