@@ -262,14 +262,9 @@ export class DiagnosticServiceCache {
 
   /**
    * Evicts the diagnostic service and every parse across all tsconfigs, so the
-   * next `get` rebuilds from disk. Entry keys survive so which tsconfigs the
-   * daemon has seen is not lost; only the retained program and its source files
-   * are dropped.
+   * next `get` rebuilds from disk.
    */
   evictAll(): void {
-    for (const entry of this.entries.values()) {
-      entry.service = undefined;
-      entry.parsed.clear();
-    }
+    this.entries.clear();
   }
 }

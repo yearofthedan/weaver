@@ -318,19 +318,36 @@ describe("DiagnosticServiceCache", () => {
   });
 
   describe("evictAll", () => {
-    it("drops service and parsed across all entries without deleting their keys", () => {
+    it("rebuilds every tsconfig's program on the next get", () => {
+      const firstConfig = "/proj/tsconfig.json";
+      const secondConfig = "/other/tsconfig.json";
+      const firstFs = fsWith({ "/proj/a.ts": "const a = 1;" });
+      const secondFs = fsWith({ "/other/b.ts": "const b = 1;" });
+      const loadFirst = () => ({
+        compilerOptions: OPTIONS,
+        rootNames: ["/proj/a.ts"],
+        fs: firstFs,
+      });
+      const loadSecond = () => ({
+        compilerOptions: OPTIONS,
+        rootNames: ["/other/b.ts"],
+        fs: secondFs,
+      });
       const cache = new DiagnosticServiceCache();
-      const load = () => ({ compilerOptions: OPTIONS, rootNames: [], fs: fsWith({}) });
+      const firstRead = vi.spyOn(firstFs, "readFile");
+      const secondRead = vi.spyOn(secondFs, "readFile");
 
-      cache.get("/proj/tsconfig.json", load);
-      cache.get("/other/tsconfig.json", load);
+      cache.get(firstConfig, loadFirst).getProgram();
+      cache.get(secondConfig, loadSecond).getProgram();
+      firstRead.mockClear();
+      secondRead.mockClear();
 
       cache.evictAll();
+      cache.get(firstConfig, loadFirst).getProgram();
+      cache.get(secondConfig, loadSecond).getProgram();
 
-      const afterFirst = cache.get("/proj/tsconfig.json", load);
-      const afterSecond = cache.get("/other/tsconfig.json", load);
-      expect(afterFirst).toBeDefined();
-      expect(afterSecond).toBeDefined();
+      expect(firstRead).toHaveBeenCalled();
+      expect(secondRead).toHaveBeenCalled();
     });
 
     it("causes the next get to rebuild from disk", () => {
