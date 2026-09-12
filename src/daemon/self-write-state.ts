@@ -70,12 +70,7 @@ export function shouldSuppressSelfWrite(path: string): boolean {
   return daemonState.shouldSuppress(path);
 }
 
-/**
- * Take the paths the daemon has mutated since the last call, each once, and
- * clear the record. The dispatcher drains this once an operation has returned,
- * when it holds no nodes of its own, so it can repair ts-morph's project from
- * disk — a write made with `checkTypeErrors: false` has no other refresh.
- */
+/** The shared instance's pending mutations. */
 export function drainPendingMutations(): string[] {
   return daemonState.drainPending();
 }
