@@ -192,33 +192,131 @@ The mechanism is identical either way; only the call site differs.
 
 ## Done-when
 
-- [ ] The reproduction returns `symbolName: "greet"` and four references, driven through the
+- [x] The reproduction returns `symbolName: "greet"` and four references, driven through the
       `weaver` CLI against a real daemon (not only vitest)
-- [ ] `src/operations/rename.scenarios.yaml` — three-step scenario (warm read, unchecked
+- [x] `src/operations/rename.scenarios.yaml` — three-step scenario (warm read, unchecked
       write, rename) passes; it is red before the fix (verified 2026-09-12)
-- [ ] `dispatcher-self-write.test.ts` covers: unchecked write then `findReferences` returns
+- [x] `dispatcher-self-write.test.ts` covers: unchecked write then `findReferences` returns
       the correct symbol and lines; the same with a `.mts` source; an unchecked `deleteFile`
       followed by a read
-- [ ] `self-write-state.test.ts` covers that `drainPending` returns the paths written
+- [x] `self-write-state.test.ts` covers that `drainPending` returns the paths written
       through the shared filesystem and is empty on the next call, so the set cannot grow
       for the life of the daemon
-- [ ] `language-plugin-registry.test.ts` covers that `refreshProjectFile` before any engine
+- [x] `language-plugin-registry.test.ts` covers that `refreshProjectFile` before any engine
       is loaded does not throw, matching the existing `invalidateFile` case
-- [ ] A Vue-project smoke case: an unchecked write followed by a read completes without
+- [x] A Vue-project smoke case: an unchecked write followed by a read completes without
       error. This fix does not repair Volar's own staleness (`handoff.md:185`), so the case
       pins that the drain does not break the Vue path rather than that it fixes it
-- [ ] Mutation score ≥ threshold for `src/daemon/self-write-state.ts` and
+- [x] Mutation score ≥ threshold for `src/daemon/self-write-state.ts` and
       `src/daemon/language-plugin-registry.ts`
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] `/review-changes` run over the whole change and its findings applied — a green
+- [x] `pnpm check` passes (lint + build + test)
+- [x] `/review-changes` run over the whole change and its findings applied — a green
       `pnpm check` does not stand in for it
-- [ ] `docs/internals/get-type-errors.md:82-90` — the list of what invalidates what gains the
+- [x] `docs/internals/get-type-errors.md:82-90` — the list of what invalidates what gains the
       deferred ts-morph refresh, since that list is where the next reader looks
-- [ ] `docs/internals/daemon.md` — the write-observation description states that the parse
+- [x] `docs/internals/daemon.md` — the write-observation description states that the parse
       eviction happens at the write and the ts-morph refresh at the end of the dispatch
-- [ ] handoff.md gains a `[needs design]` entry: a scenario step cannot use surgical
+- [x] handoff.md gains a `[needs design]` entry: a scenario step cannot use surgical
       `replaceText`, because `resolveRelativePaths` resolves only the params
       `pathParamsFor` declares, so a nested `edits[].file` stays relative and the step fails
       with `WORKSPACE_VIOLATION`
-- [ ] Non-obvious gotchas added to the relevant `docs/internals/` doc
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Non-obvious gotchas added to the relevant `docs/internals/` doc
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+---
+
+## Outcome
+
+**Verification.** Driven through a freshly built `weaver` CLI against a real daemon on a two-file
+project (`src/lib.ts` exporting `greet`, `src/a.ts` calling it twice), the same three commands
+before and after. Pre-fix build (`12a786b`, built in a worktree):
+
+```
+--- 2. unchecked write: insert banner before export, checkTypeErrors:false ---
+{"status":"success","filesModified":["/tmp/…/src/lib.ts"],"replacementCount":1}
+--- 3. find-references at src/lib.ts:2:17 (true on-disk position) ---
+{"status":"success","symbolName":"ion ","references":[{"file":"…/src/lib.ts","line":2,"col":13,"length":4},{"file":"…/src/lib.ts","line":3,"col":6,"length":4}]}
+```
+
+At `HEAD` after the fix, the identical commands:
+
+```
+--- 3. find-references at src/lib.ts:2:17 (true on-disk position) ---
+{"status":"success","symbolName":"greet","references":[{"file":"…/src/lib.ts","line":2,"col":17,"length":5},{"file":"…/src/a.ts","line":1,"col":10,"length":5},{"file":"…/src/a.ts","line":3,"col":13,"length":5},{"file":"…/src/a.ts","line":4,"col":13,"length":5}]}
+```
+
+`rename.scenarios.test.ts` went from `export functsalutegreet(name: string)` / `retsalute` to the
+expected rename; `pnpm check` green; the two touched files' scores below.
+
+**Tests added:** 12 (11 main-lane tests across four files, one of them a scenario case; the
+scenario YAML was pre-written for this fix and committed with it).
+
+**Mutation score for touched files:**
+
+| File | Before | After |
+|---|---|---|
+| `src/daemon/self-write-state.ts` | not measured | **100%** (11 mutants) |
+| `src/daemon/language-plugin-registry.ts` | 90.70% (44 mutants) | **95.35%** (41 killed, 2 survived) |
+
+Both survivors are the `OptionalChaining` on the optional plugin hooks, recorded at the line:
+the `catch` around each loop already absorbs a plugin that omits the hook, so the optional call
+and its removal are the same behaviour to any caller. Triage also killed two real gaps the
+scoped run exposed — the ts-morph singleton reuse guard and the plugin-compiler reset in
+`clearLanguagePlugins`, both of which were survivors before this slice.
+
+### Architectural decisions and discoveries
+
+- **The drain takes the ts-morph half only.** The first implementation called
+  `TsMorphEngine.refreshFile`, whose second half clears the diagnostic program. Because the
+  post-write check has just rebuilt that program from the text on disk, this discard cost a
+  program rebuild on *every checked write* — the spec's "the default path does not regress" edge
+  was wrong, and only a reviewer reading `DiagnosticServiceCache.refreshFile` caught it.
+  `refreshFile` was split into `refreshFile` (both halves — the watcher path and the check) and
+  `refreshProjectFile` (ts-morph only), and the drain calls the latter. This amends the Fix
+  section's "no new engine method" note.
+- **The write-time observer evicts the parse; the end-of-dispatch drain refreshes ts-morph.**
+  The two halves are deliberately at different moments because `refreshFromFileSystemSync`
+  replaces a node tree an in-flight operation still holds references into.
+- **Plugin engines are refreshed by the post-write check and nothing else.** `VolarEngine`'s
+  per-file refresh drops the whole service (~1035 ms), which is why the drain does not fan out
+  to plugins — so a write with `checkTypeErrors: false` in a Vue project still leaves Volar
+  behind disk. That boundary is now written into both internals docs and the handoff entry.
+- `refreshFromFileSystemSync` on a deleted path returns `Deleted` and forgets the source file
+  rather than throwing, so the pending set needs no liveness filter — which is why offering
+  every mutation (no extension allowlist) is both correct and the cheapest shape.
+
+### Reflection
+
+**What went well.** The spec's root cause and fix site were right: the three-part shape
+(self-write-state → registry → dispatcher) survived three review rounds unchanged, and the
+scenario written before the fix supplied a red-to-green artefact from the start. Dispatching the
+batch kept the daemon's file output out of the orchestrator's context, and the per-batch review
+caught the cost regression while the fix was still one commit deep rather than after archiving.
+
+**What did not go well.** The spec's Edges asserted the default path was a no-op "on unchanged
+content" without checking what the refresh's second half did — an efficiency reviewer reading the
+cache settled it in minutes, and the fix had to be amended mid-slice (`refreshFile` split, new
+engine method). Two sentences the orchestrator wrote into the internals docs claimed "the
+engines" are brought to disk on every write when only ts-morph is; both needed narrowing to the
+suppressed-check case, and the second narrowing was only found by asking a reviewer to check the
+new sentence against `post-write-diagnostics.ts`. Tractable but avoidable: the rule is to name
+*which* engine a freshness claim covers as it is written, not after review.
+
+**What took longer than it should have.** Mutation triage ran twice for the registry — the first
+run died part-way because four review agents held the machine at the same time, and Stryker
+reports that as a partial incremental write rather than an error. The scoping of the run cost
+another cycle: `--mutate a.ts b.ts` makes the second path a config file (`Invalid config file
+"b.ts"`), which reads like a broken source file. Both are now in
+`docs/tech/mutation-testing.md`.
+
+**For the next agent.**
+- When a fix adds a refresh call to a path that already refreshes elsewhere, read the *existing*
+  call's whole body first. "It already happens on the other path" is not evidence that adding it
+  is free — here the existing call did two things and the second threw away the first's work.
+- A dispatched agent can leave `HEAD` detached: this session's four orchestrator commits landed
+  off `main` and needed a forced branch update. Check `git branch --show-current` after any
+  hand-off (now in `CLAUDE.md`'s commit hygiene).
+- A freshness claim in a doc must name the engine it covers. "The engines" reads as a guarantee
+  that no single-engine write path can give.
+- An `OptionalChaining` survivor inside a `try`/`catch` may be unkillable — check where the
+  mutated call's throw goes before writing a test for it.

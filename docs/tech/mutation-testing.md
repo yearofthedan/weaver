@@ -235,7 +235,13 @@ Each mutant's `killedBy` records only the *first* test that killed it (always le
 
 Patterns that recur across mutation rounds — read before writing tests intended to kill surviving mutants.
 
-**`strict: true` does not kill mutants — TypeScript provides no mutation coverage.**
+**An optional call inside a `try`/`catch` can be unkillable — check what receives the throw.**
+`plugin.invalidateFile?.(path)` mutated to the non-optional form throws a TypeError for a plugin that omits the hook, and the `catch` around the loop swallows it: same behaviour, so no test can tell the two apart. Observed 2026-09-12 on `language-plugin-registry.ts` (both plugin hooks). Before writing a test for an `OptionalChaining` survivor, find out where the mutated call's throw goes; if a catch absorbs it, the survivor is noise — record the reason at the line in behavioural terms ("a plugin that omits the hook is handled either way") rather than chasing a kill that does not exist.
+
+**Passing two paths space-separated to `--mutate` fails as a config error, not a flag error.**
+`stryker run --mutate a.ts b.ts` reads `b.ts` as the config path and dies with `Invalid config file "b.ts"` plus a module-resolution stack, which reads like a broken source file rather than a misused flag. Use the comma form (`--mutate 'a.ts,b.ts'`) for more than one file.
+
+
 `disableTypeChecks: false` only prevents the `// @ts-nocheck` line-shift; it does not run `tsc --noEmit` on mutated files. vitest uses esbuild for transpilation (strips types, no type checking). Confirmed by 0 CompileErrors across all modules. Two practical implications:
 - **Null-guard survivors** (`if (!locs || locs.length === 0)` etc.) — the return type is `SpanLocation[] | null`. TypeScript *requires* these guards; they are not dead code. They survive because the TS LS never returns null for in-range positions at runtime, not because TypeScript covers the null case.
 - **Arithmetic / sort survivors** (`offset + len → offset - len`, sort comparators) — both variants are type-valid `number` expressions; TypeScript cannot distinguish semantic direction. Only tests can kill these.
