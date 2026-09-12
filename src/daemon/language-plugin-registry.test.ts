@@ -176,9 +176,8 @@ describe("LanguagePluginRegistry", () => {
     });
 
     it("answers two registries for the same project from one engine", async () => {
-      // The daemon's caches — the write-path drain, the watcher, idle eviction — reach
-      // the singleton, so a second engine would leave every read rebuilding the project
-      // and none of those repairs applying to what it reads.
+      // One engine per daemon: the drain, the watcher and idle eviction all reach the
+      // singleton, so a second engine would leave every read reloading the project.
       const first = await makeRegistry(PROJECT_FILE, WORKSPACE_ROOT).projectEngine();
       const second = await makeRegistry(PROJECT_FILE, WORKSPACE_ROOT).projectEngine();
 

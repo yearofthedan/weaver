@@ -272,12 +272,9 @@ export class TsMorphEngine implements Engine {
   }
 
   /**
-   * The ts-morph half of `refreshFile`: re-read `filePath` into the cached project
-   * and leave the diagnostic cache alone. Separable because a caller that observes
-   * the daemon's own writes needs only this half. The write has already evicted the
-   * file's diagnostic parse, and the post-write check rebuilding that program reads
-   * the file from disk, so evicting it a second time discards a program built from
-   * the current text and makes the next check rebuild it for nothing.
+   * The ts-morph half of `refreshFile`: re-read `filePath` into the cached project, leaving
+   * the diagnostic cache alone. The write path needs only this half — a second eviction
+   * would discard the program the post-write check had just rebuilt from disk.
    */
   refreshProjectFile(filePath: string): void {
     this.getCachedProjectForFile(filePath)?.getSourceFile(filePath)?.refreshFromFileSystemSync();

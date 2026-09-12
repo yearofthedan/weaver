@@ -257,8 +257,8 @@ describe("a read dispatched after a write that skipped the type check", () => {
     );
     expect(written.status).not.toBe("error");
 
-    // Only non-breakage: the read is answered by Volar, which the drain does not
-    // reach, and this write leaves the project error-free either way.
+    // This pins that the drain does not break the Vue path. Freshness cannot be pinned
+    // here: Volar answers the read, and the drain does not reach it.
     const after = await dispatchRequest({ method: "getTypeErrors", params: { file } }, dir);
     expect(after).toMatchObject({ status: "success", errorCount: 0 });
   });

@@ -443,11 +443,9 @@ export async function dispatchRequest(
 }
 
 /**
- * Re-read everything this dispatch wrote into the ts-morph project, once the operation
- * has returned and holds no nodes into it. A write made with `checkTypeErrors: false` has
- * no other refresh — the post-write check that would repair the project never runs, and the
- * watcher suppresses the daemon's own write — so every later read or edit would otherwise
- * be computed against the text from before it.
+ * Re-read everything this dispatch wrote into the ts-morph project, after the operation has
+ * returned and holds no nodes into it. A write made with `checkTypeErrors: false` has no
+ * other refresh: the post-write check never runs, and the watcher suppresses the write.
  */
 function refreshWrittenFiles(): void {
   for (const filePath of drainPendingMutations()) {

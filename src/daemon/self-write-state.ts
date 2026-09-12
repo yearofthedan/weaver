@@ -15,9 +15,8 @@ export interface SelfWriteState {
   /** True when `path`'s watcher event came from a write through `fileSystem`. */
   shouldSuppress(path: string): boolean;
   /**
-   * The paths mutated through `fileSystem` since the last drain, each once, and
-   * clear the record. A caller that repairs cached state after a write takes
-   * them here rather than at each call site, so an operation cannot forget.
+   * The paths mutated through `fileSystem` since the last call, each once. Draining clears the
+   * record, so a repair driven from here follows every write the daemon makes.
    */
   drainPending(): string[];
 }
