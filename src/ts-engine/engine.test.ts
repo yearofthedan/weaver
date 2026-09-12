@@ -114,8 +114,7 @@ describe("TsMorphEngine", () => {
 
     // `x` sits at offset 23 of the new text: 10 of banner, 13 of "export const ".
     expect(p.resolveOffset(file, 2, 14)).toBe(23);
-    // The program survives rather than being rebuilt from the file that now fails
-    // to compile — this method is the ts-morph half alone.
+    // Still the program built from the text on disk: this method is the ts-morph half alone.
     expect((await p.getTypeErrors(file, scope)).errorCount).toBe(0);
 
     p.refreshFile(file);
@@ -467,6 +466,31 @@ describe("TsMorphEngine", () => {
     engine.evictAllDiagnosticParses();
 
     expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(1);
+  });
+
+  test("invalidateProject makes the next check read from disk too", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+    const engine = new TsMorphEngine(dir);
+    const file = path.join(dir, "src/utils.ts");
+    const scope = makeScope(dir);
+
+    expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(0);
+
+    fs.writeFileSync(file, 'export const greetUser: number = "not a number";\n');
+    engine.invalidateProject(file);
+
+    expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(1);
+  });
+
+  it("handles .ts and .tsx, and no other extension", () => {
+    const engine = new TsMorphEngine();
+
+    expect(engine.handlesFileExtension(".ts")).toBe(true);
+    expect(engine.handlesFileExtension(".tsx")).toBe(true);
+    expect(engine.handlesFileExtension(".js")).toBe(false);
+    expect(engine.handlesFileExtension(".vue")).toBe(false);
   });
 
   test("evictAllDiagnosticParses leaves a project-wide check unchanged", async ({
