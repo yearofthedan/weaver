@@ -61,7 +61,9 @@
     "check": "biome check . && pnpm build && pnpm coverage && pnpm test:eval && pnpm typecheck:eval && pnpm typecheck:test",
     "setup:dev": "bash scripts/setup-dev.sh",
     "prepare": "husky",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "mutate:cache": "bash scripts/pull-mutation-cache.sh",
+    "session:start": "bash scripts/session-start.sh"
   },
   "dependencies": {
     "@volar/typescript": "2.4.28",
