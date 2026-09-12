@@ -445,4 +445,20 @@ describe("TsMorphEngine", () => {
 
     expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(1);
   });
+
+  test("evictAllDiagnosticParses leaves a project-wide check unchanged", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.tsErrors.name);
+    const engine = new TsMorphEngine(dir);
+    const scope = makeScope(dir);
+
+    const before = await engine.getTypeErrors(undefined, scope);
+    engine.evictAllDiagnosticParses();
+    const after = await engine.getTypeErrors(undefined, scope);
+
+    expect(after.diagnostics).toEqual(before.diagnostics);
+    expect(after.errorCount).toBe(before.errorCount);
+    expect(after.checked).toEqual(before.checked);
+  });
 });
