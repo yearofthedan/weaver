@@ -95,4 +95,4 @@ State any survivor you could not classify, and why. An unclassified survivor is 
 
 - Never create issues or records for `"Killed"`, `"Timeout"` or `"CompileError"` mutants.
 - Do not modify `docs/quality.md` directly — the record you create is the signal that a human should update it.
-- After any mutation run, commit the updated incremental cache (`reports/stryker-incremental.json`, or `reports/stryker-eval-incremental.json` for the eval lane). It is committed so later runs reuse results for unchanged mutants. `pnpm test:mutate:file <path>` gives targeted runs whose results accumulate.
+- The incremental caches (`reports/stryker-incremental.json`, `reports/stryker-eval-incremental.json`) are not tracked and need no commit — CI publishes them and `pnpm mutate:cache` fetches them. `pnpm test:mutate:file <path>` gives targeted runs whose results accumulate locally.

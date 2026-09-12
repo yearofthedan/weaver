@@ -75,7 +75,7 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
    - **Record noise as a comment at the line** it survives on, saying why the path is unreachable from the harness — not a GitHub issue, which is the CI sweep's form.
    - **Deliver fixable work as a commit on the current branch** — no branch, no PR.
 
-   The threshold is an alarm that quality is failing, not a target to coast to. Every survivor gets a classification; "we hit 75%" is not one. Commit the updated `reports/stryker-incremental.json` after the run.
+   The threshold is an alarm that quality is failing, not a target to coast to. Every survivor gets a classification; "we hit 75%" is not one.
 
 6. **Verify the behaviour — the gate before anything else.** Not "unit tests pass" and not "`pnpm check` is green": drive the change on its real path (CLI, daemon, live-model eval, host) and observe it does what the spec says. If that path can't run in-session (missing credential, unavailable service), the task is **BLOCKED** — it stays in the queue, nothing is archived, no Outcome is written, you surface the blocker. Verification is yours; never delegate it to a human "later". No step past here runs until this passes.
 
