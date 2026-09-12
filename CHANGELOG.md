@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.1.12](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.11...weaver-v0.1.12) (2026-09-12)
+
+
+### Features
+
+* **daemon:** add idle diagnostic service eviction ([8568637](https://github.com/yearofthedan/weaver/commit/85686379170383bda5788551f2910d7ae60e5a18))
+* **daemon:** refresh one project file in the loaded ts-morph engine ([3db99d3](https://github.com/yearofthedan/weaver/commit/3db99d378c7eb71b7d020a3ad45f10ca5bd715dc))
+* **daemon:** track the paths each self-write mutates ([f6621cc](https://github.com/yearofthedan/weaver/commit/f6621cc26a988c7a824282919b01fb5ef1e73b6c))
+* **get-type-errors:** let a project-wide check answer for a named tsconfig ([703c6bb](https://github.com/yearofthedan/weaver/commit/703c6bb6588019174e9643822b0a2c752c18e6e7))
+* **get-type-errors:** report how much of the caller's code a project-wide check covered ([53e6c5d](https://github.com/yearofthedan/weaver/commit/53e6c5da6c768cacab156c100c0a70a0caf7c3ed))
+* **scripts:** fetch the mutation caches from CI instead of tracking them ([48fe4dd](https://github.com/yearofthedan/weaver/commit/48fe4dddd05ccd4b4856aee76280cfe1b2bfdc3c))
+* **scripts:** surface timeouts in the mutation summary ([50c9f74](https://github.com/yearofthedan/weaver/commit/50c9f74c92daf280418c26394c358e5af7d0d5d9))
+* **ts-engine:** add a host-TypeScript diagnostic service ([78400ed](https://github.com/yearofthedan/weaver/commit/78400edb79d358cbe6ae7fefb69e0eb1dfb5561d))
+* **vue:** fix VolarEngine service lifecycle — invalidation, .vue post-write diagnostics, solution-style tsconfig gate ([3570474](https://github.com/yearofthedan/weaver/commit/3570474b4209446f3372e72570eacf7756fb9636))
+
+
+### Bug Fixes
+
+* **daemon:** keep the ts-morph project fresh after an unchecked write ([e9125f0](https://github.com/yearofthedan/weaver/commit/e9125f00596730a37514073176cbe1e9d97c9fde))
+* **daemon:** refresh written files without discarding the diagnostic program ([a96ed5e](https://github.com/yearofthedan/weaver/commit/a96ed5e7d2dc456417a120cb14107bd5f87aa184))
+* **engine:** check .vue files in post-write diagnostics ([422fcec](https://github.com/yearofthedan/weaver/commit/422fcecd6f3bc1b424081e1f9b60e27beb751c59))
+* **engine:** gate .vue post-write check on engine capability, not unconditional filter ([08bc1c8](https://github.com/yearofthedan/weaver/commit/08bc1c885971d3903c824fe24e091a6122f3f0c5))
+* **mutation:** stop mutating test files ([440a17f](https://github.com/yearofthedan/weaver/commit/440a17f1a5628ca4ee4380191b4dae9b3cbf6d31))
+* **plugins/vue:** follow the type-check closure past the workspace walk ([f63ac9c](https://github.com/yearofthedan/weaver/commit/f63ac9c2049889cb06e66042c5ccf123b5daf92b))
+* **plugins/vue:** require real tsConfigPath/workspaceRoot for project-wide diagnostics ([95dbab1](https://github.com/yearofthedan/weaver/commit/95dbab1c54638c962bb123e326f3937fd49a7619))
+* restore the .stryker-tmp ignore rule ([99ee50c](https://github.com/yearofthedan/weaver/commit/99ee50cb1c703b42c8eff4387b04265617b4a0d4))
+* **scripts:** stage cache downloads through a temp dir ([0259f4d](https://github.com/yearofthedan/weaver/commit/0259f4d4750e7d3f6b16059116d5162d96e689dc))
+* **ts-engine:** compute the type-check closure in the shared module ([f251950](https://github.com/yearofthedan/weaver/commit/f2519506fea0a5f6e0ac5c333dd690bef4be362a))
+* **ts-engine:** drop the unused compilerOptions param on buildCompilerHost ([5c7e93d](https://github.com/yearofthedan/weaver/commit/5c7e93dd3f5a8d7721396c5d56142ca8ca4cf107))
+* **ts-engine:** evict a retained parse where the write is observed ([408d66a](https://github.com/yearofthedan/weaver/commit/408d66a3a40f568ad4043b9b120f82338d467318))
+* **ts-engine:** evict a written file from every program that parsed it ([dff5687](https://github.com/yearofthedan/weaver/commit/dff568735a57184dce28dcb9b991d2c689eec2bc))
+* **ts-engine:** evict the moved file's retained diagnostic parse ([dc28291](https://github.com/yearofthedan/weaver/commit/dc28291ab9268a9fe70984001b20c9b4d929d5c7))
+* **ts-engine:** evict the moved parse for directory moves too ([7547083](https://github.com/yearofthedan/weaver/commit/7547083c60d16adaf269683d7af118a065dea107))
+* **ts-engine:** fix diagnostic-service test fake after Program-based rewrite ([28114f3](https://github.com/yearofthedan/weaver/commit/28114f3ffde83c89a6c22eee813214b837f3c5ee))
+* **ts-engine:** give the diagnostic parse cache its own lifetime ([222348b](https://github.com/yearofthedan/weaver/commit/222348b25a4cae9a72bb7790b0d2de33eebfdd44))
+* **ts-engine:** let the parse cache decide what a write invalidates ([41dcfac](https://github.com/yearofthedan/weaver/commit/41dcfac453e6ff5caa6d749c8ca4fdfaf1f9cf16))
+* **ts-engine:** route get-type-errors through the host diagnostic service ([a9f1478](https://github.com/yearofthedan/weaver/commit/a9f14789f82311bd9a36ad5c55aafe113d36ae96))
+* **ts-engine:** scope project-wide diagnostics to the tsconfig program ([c35ca49](https://github.com/yearofthedan/weaver/commit/c35ca4991ecc654848bfaef9fd81c26e878cf75b))
+* **ts-project:** detect Vue projects behind solution-style root tsconfigs ([e982bc8](https://github.com/yearofthedan/weaver/commit/e982bc8ce932376d6df34b0125b5688d8af8fb41))
+* **vue-engine:** delete all no-tsconfig cache entries on invalidateService ([ea5d3ba](https://github.com/yearofthedan/weaver/commit/ea5d3ba8cb53d58bf5fe5fc59084bc11760557c8))
+* **vue:** declare case-sensitive file names on the Volar host ([7f1212f](https://github.com/yearofthedan/weaver/commit/7f1212f70d4f6889870e98b4373dfa407e5f9e63))
+* **vue:** scope project-wide diagnostics to the tsconfig program ([52b3160](https://github.com/yearofthedan/weaver/commit/52b3160ee1b6059da6f61829ddd0732387bdac70))
+
+
+### Performance Improvements
+
+* **mutation:** raise the src lane concurrency to 4 ([e39e142](https://github.com/yearofthedan/weaver/commit/e39e1427206e2d766e48d6bdc236d52447461123))
+
 ## [0.1.11](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.10...weaver-v0.1.11) (2026-09-03)
 
 
