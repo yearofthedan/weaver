@@ -248,7 +248,7 @@ At `HEAD` after the fix, the identical commands:
 `rename.scenarios.test.ts` went from `export functsalutegreet(name: string)` / `retsalute` to the
 expected rename; `pnpm check` green; the two touched files' scores below.
 
-**Tests added:** 12 (11 main-lane tests across four files, one of them a scenario case; the
+**Tests added:** 14 (13 main-lane tests across four test files, plus the scenario case; the
 scenario YAML was pre-written for this fix and committed with it).
 
 **Mutation score for touched files:**
@@ -257,12 +257,16 @@ scenario YAML was pre-written for this fix and committed with it).
 |---|---|---|
 | `src/daemon/self-write-state.ts` | not measured | **100%** (11 mutants) |
 | `src/daemon/language-plugin-registry.ts` | 90.70% (44 mutants) | **95.35%** (41 killed, 2 survived) |
+| `src/ts-engine/engine.ts` | 85.54% (166 mutants) | **86.75%** (144 killed, 22 survived) |
 
-Both survivors are the `OptionalChaining` on the optional plugin hooks, recorded at the line:
-the `catch` around each loop already absorbs a plugin that omits the hook, so the optional call
-and its removal are the same behaviour to any caller. Triage also killed two real gaps the
-scoped run exposed — the ts-morph singleton reuse guard and the plugin-compiler reset in
-`clearLanguagePlugins`, both of which were survivors before this slice.
+The two registry survivors are the `OptionalChaining` on the optional plugin hooks, recorded at
+the line: the `catch` around each loop already absorbs a plugin that omits the hook, so the
+optional call and its removal are the same behaviour to any caller. The engine's survivors are
+the pre-existing classes catalogued in [`docs/tech/mutation-testing.md`](../../tech/mutation-testing.md)
+— engine-caching and idempotence guards, the TS LS null/empty guards, and the unexercised rename
+options. Triage killed three real gaps the scoped runs exposed: the ts-morph singleton reuse
+guard, the plugin-compiler reset in `clearLanguagePlugins`, and the engine's two —
+`invalidateProject` dropping the diagnostic entry, and `handlesFileExtension` covering `.tsx`.
 
 ### Architectural decisions and discoveries
 

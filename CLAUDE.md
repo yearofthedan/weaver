@@ -127,7 +127,7 @@ Use conventional commits, imperative style — `type(scope): short description`:
 
 - **Read the `-` side of your own diff, not just the `+` side.** An edit that means to add can land on an existing line — appending to a file whose last line has no terminating newline fuses the two — and the result reads as a modification while the message still says "add". A line you deleted without intending to is invisible in the commit message and in review; the diff is the only place it shows.
 
-- **Confirm the branch before committing.** A dispatched agent can leave `HEAD` detached — observed 2026-09-12, where the slice's execution agent committed to `main` and then checked that commit out, so the orchestrator's next four commits landed off-branch while `main` stayed behind. Check `git branch --show-current` before the first commit of a session and after any agent hand-off; an empty answer means the branch is detached, and the already-made commits need `git branch -f <name> HEAD` plus a re-checkout before the next one.
+- **Confirm the branch before committing.** `HEAD` can be detached — a dispatched agent leaves it that way when it commits and then checks out the commit it made — so run `git branch --show-current` before the first commit of a session and after any agent hand-off. An empty answer means the branch is detached: reattach with `git branch -f <name> HEAD` and check out the branch again before the next commit.
 
 ### Long-running commands
 
