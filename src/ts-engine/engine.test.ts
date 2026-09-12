@@ -429,4 +429,20 @@ describe("TsMorphEngine", () => {
 
     expect(refsAfter).toEqual(refsBefore);
   }, 15_000);
+
+  test("evictAllDiagnosticParses makes the next check read from disk", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+    const engine = new TsMorphEngine(dir);
+    const file = path.join(dir, "src/utils.ts");
+    const scope = makeScope(dir);
+
+    expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(0);
+
+    fs.writeFileSync(file, 'export const greetUser: number = "not a number";\n');
+    engine.evictAllDiagnosticParses();
+
+    expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(1);
+  });
 });

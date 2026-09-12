@@ -336,4 +336,27 @@ describe("daemon lifecycle", () => {
       ).resolves.toBeUndefined();
     });
   });
+
+  describe("shutdown hook", () => {
+    it("calls onShutdown on shutdown", async () => {
+      const fs = new InMemoryFileSystem();
+      const host = makeFakeHost();
+      const onShutdown = vi.fn();
+
+      await runLifecycle(
+        makeOpts({
+          fs,
+          host,
+          startServer: () => makeFakeServer(),
+          startWatcher: () => makeFakeWatcher(),
+          signalReady: () => {},
+          onShutdown,
+        }),
+      );
+
+      host.capturedHandlers.get("SIGTERM")?.();
+
+      expect(onShutdown).toHaveBeenCalledOnce();
+    });
+  });
 });

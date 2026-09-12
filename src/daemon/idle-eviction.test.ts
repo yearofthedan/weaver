@@ -42,6 +42,15 @@ describe("startIdleTimer", () => {
     expect(evict).not.toHaveBeenCalled();
   });
 
+  it("calls evict when the idle time reaches the timeout exactly", () => {
+    const evict = vi.fn();
+    startIdleTimer({ now: fakeNow, evict, timeoutMs: 100, intervalMs: 10 });
+
+    advance(100);
+
+    expect(evict).toHaveBeenCalledOnce();
+  });
+
   it("resets the idle countdown when reset is called", () => {
     const evict = vi.fn();
     const timer = startIdleTimer({ now: fakeNow, evict, timeoutMs: 100, intervalMs: 10 });

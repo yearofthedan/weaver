@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import { dispatchRequest, makeRegistry, setActivityCallback } from "./dispatcher.js";
@@ -461,24 +461,26 @@ describe("dispatchRequest path character validation", () => {
 });
 
 describe("idle activity signal", () => {
-  it("calls the activity callback on every dispatch", async () => {
-    const activity = vi.fn();
-    setActivityCallback(activity);
-
-    await dispatchRequest(
-      { method: "searchText", params: { pattern: "__nonexistent_pattern_xyz__" } },
-      "/tmp",
-    );
-
-    expect(activity).toHaveBeenCalledOnce();
-
+  afterEach(() => {
     setActivityCallback(undefined);
   });
 
-  it("does not call the callback when none is set", async () => {
+  test("calls the activity callback on every dispatch", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+    const activity = vi.fn();
+    setActivityCallback(activity);
+
+    await dispatchRequest({ method: "searchText", params: { pattern: "greetUser" } }, dir);
+
+    expect(activity).toHaveBeenCalledOnce();
+  });
+
+  test("dispatches with no activity callback registered", async ({ seedNamedFixture }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+
     const result = await dispatchRequest(
-      { method: "searchText", params: { pattern: "__nonexistent_pattern_xyz__" } },
-      "/tmp",
+      { method: "searchText", params: { pattern: "greetUser" } },
+      dir,
     );
 
     expect(result.status).toBe("success");

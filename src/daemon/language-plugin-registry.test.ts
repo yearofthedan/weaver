@@ -1,5 +1,9 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { WorkspaceScope } from "../domain/workspace-scope.js";
+import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import type { Engine, LanguagePlugin } from "../ts-engine/types.js";
 import {
@@ -302,6 +306,10 @@ describe("LanguagePluginRegistry", () => {
   });
 
   describe("evictAllDiagnosticParses", () => {
+    it("does nothing when no engine has been loaded", () => {
+      expect(() => evictAllDiagnosticParses()).not.toThrow();
+    });
+
     it("does not clear plugin compiler caches", async () => {
       const factory = vi.fn(async (_tsEngine: TsMorphEngine) => stubCompiler("plugin"));
       registerLanguagePlugin({
@@ -317,6 +325,34 @@ describe("LanguagePluginRegistry", () => {
       await makeRegistry(PROJECT_FILE, WORKSPACE_ROOT).projectEngine();
 
       expect(factory).toHaveBeenCalledTimes(1);
+    });
+
+    test("makes the loaded engine's next diagnostic check read from disk", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: {
+            target: "ES2022",
+            module: "NodeNext",
+            moduleResolution: "NodeNext",
+            strict: true,
+            noEmit: true,
+          },
+          include: ["src"],
+        }),
+        "src/a.ts": "export const value: number = 1;\n",
+      });
+      const file = path.join(dir, "src/a.ts");
+      const engine = await makeRegistry(file, dir).projectEngine();
+      const scope = new WorkspaceScope(dir, new NodeFileSystem());
+
+      expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(0);
+
+      fs.writeFileSync(file, 'export const value: number = "not a number";\n');
+      evictAllDiagnosticParses();
+
+      expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(1);
     });
   });
 });
