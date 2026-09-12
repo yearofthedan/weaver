@@ -51,7 +51,7 @@ const config = {
   incremental: true,
   coverageAnalysis: "perTest",
   timeoutMS: 120_000,
-  concurrency: 2,
+  concurrency: 4,
 };
 
 export default config;
