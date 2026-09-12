@@ -24,7 +24,7 @@ export interface DaemonLifecycleOpts {
   startWatcher: () => DaemonWatcher;
   signalReady: () => void;
   logger?: { cleanup(): void };
-  onIdle?: () => void;
+  onShutdown?: () => void;
 }
 
 export async function runLifecycle(opts: DaemonLifecycleOpts): Promise<void> {
@@ -38,7 +38,7 @@ export async function runLifecycle(opts: DaemonLifecycleOpts): Promise<void> {
     startWatcher,
     signalReady,
     logger,
-    onIdle,
+    onShutdown,
   } = opts;
 
   let server: DaemonServer | undefined;
@@ -48,7 +48,7 @@ export async function runLifecycle(opts: DaemonLifecycleOpts): Promise<void> {
     void watcher?.stop();
     server?.close();
     logger?.cleanup();
-    onIdle?.();
+    onShutdown?.();
     try {
       fs.unlink(sockPath);
     } catch {

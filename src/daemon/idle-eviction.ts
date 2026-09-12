@@ -33,6 +33,8 @@ export function startIdleTimer(opts: IdleTimerOpts): IdleTimer {
     }
   }, intervalMs);
 
+  // `unref` only decides whether this timer alone keeps the event loop alive, which no
+  // in-process assertion can observe — an accepted equivalent survivor.
   handle.unref();
 
   return {

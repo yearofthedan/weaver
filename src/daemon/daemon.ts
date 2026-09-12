@@ -218,11 +218,14 @@ export async function runDaemon(opts: { workspace: string; verbose?: boolean }):
   // concurrent connections never interleave file writes.
   let queue: Promise<void> = Promise.resolve();
 
+  // Only ever runs inside a spawned daemon, so the whole of `runDaemon` is outside the
+  // mutation lane's reach (it excludes subprocess-spawning tests). The idle eviction is
+  // verified end to end against a live daemon instead.
   const idleTimer = startIdleTimer({
-    now: () => Date.now(),
+    now: Date.now,
     evict: evictAllDiagnosticParses,
   });
-  setActivityCallback(() => idleTimer.reset());
+  setActivityCallback(idleTimer.reset);
 
   await runLifecycle({
     sockPath,
@@ -230,7 +233,7 @@ export async function runDaemon(opts: { workspace: string; verbose?: boolean }):
     pid: process.pid,
     fs: nodeFs,
     host,
-    onIdle: () => {
+    onShutdown: () => {
       idleTimer.stop();
       setActivityCallback(undefined);
     },
