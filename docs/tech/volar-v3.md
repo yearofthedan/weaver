@@ -117,6 +117,9 @@ A `.vue` file with only a `<template>` block has `sourceScript.generated.languag
 **`VolarCompiler.translateLocations` is the shared virtual→real mapping helper.**
 Extracted from the inline loop in `rename`; reused by `findReferences` and `getDefinition`. Any future operation that reads positions from a Vue project should call this method rather than duplicating the source-map traversal.
 
+**The language service host must declare `useCaseSensitiveFileNames`.**
+TypeScript derives its canonical path form from it and treats a host that omits it as case-insensitive, which lowercases every `SourceFile.path`. Module resolution reads the original-case `fileName` and is unaffected, so only the places the checker uses a canonical path directly are wrong — among them the `fileExists` probe that decides whether an extensionless relative import gets a "Did you mean './x.js'?" suggestion (TS 2835) or the bare "Consider adding an extension" (TS 2834). A lowercased probe still hits on a case-insensitive filesystem, so a wrong answer here is invisible on macOS and fails on Linux CI; fixture directories from `fs.mkdtempSync` carry a random suffix drawn from `[a-zA-Z0-9]`, which is what makes it land. `buildLanguageServiceHost` declares `() => true`, matching the identity `getCanonicalFileName` on the `TsMorphEngine` host so both engines answer alike.
+
 **`dist/` and other build dirs must be excluded from `readDirectory`.**
 The Vue service calls `ts.sys.readDirectory()` to find `.vue` files. Without filtering, it picks up files under `dist/`, `node_modules/`, etc., which breaks type resolution. `SKIP_DIRS` is exported from `src/utils/file-walk.ts` and applied in `buildVolarService()`.
 

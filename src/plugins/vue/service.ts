@@ -103,6 +103,8 @@ function buildLanguageServiceHost(params: {
     },
     getCurrentDirectory: () => (tsConfigPath ? path.dirname(tsConfigPath) : process.cwd()),
     getDefaultLibFileName: ts.getDefaultLibFilePath,
+    // Why identity canonicalisation: docs/tech/volar-v3.md.
+    useCaseSensitiveFileNames: () => true,
     fileExists: (filePath) => {
       if (vueVirtualToReal.has(filePath)) return true;
       return ts.sys.fileExists(filePath);

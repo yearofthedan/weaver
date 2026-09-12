@@ -171,6 +171,33 @@ fixtures:
         </script>
         <template><div>{{ doubled }}</div></template>
 
+  a-vue-nodenext-mixed-case-dir-project:
+    description: >
+      A Vue project under NodeNext whose extensionless import names a sibling inside a
+      mixed-case directory, so the suggested extension can only be found by probing the
+      path with its casing intact.
+    files:
+      package.json: '{ "name": "vue-case", "type": "module" }'
+      tsconfig.json: |
+        {
+          "compilerOptions": {
+            "target": "ES2022",
+            "module": "NodeNext",
+            "moduleResolution": "NodeNext",
+            "strict": true,
+            "jsx": "preserve",
+            "noEmit": true
+          },
+          "include": ["src/**/*.ts", "src/**/*.vue"]
+        }
+      src/Nested/helper.ts: |
+        export const value = 1;
+      src/main.ts: |
+        import { value } from "./Nested/helper";
+        export const doubled = value * 2;
+      src/App.vue: |
+        <template><div>App</div></template>
+
   a-vue-nodenext-mts-project:
     description: >
       A Vue project with no package.json "type" field, containing an .mts file whose extension
@@ -918,6 +945,34 @@ scenarios:
             col: 23
             code: 2835
             message: "Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './helper.js'?"
+        checked:
+          files: 3
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
+
+  - name: a Vue project-wide check keeps path casing when suggesting an extension for a relative import
+    description: >
+      The Volar host must canonicalise paths verbatim. Lowercased canonical paths still resolve
+      on a case-insensitive filesystem, so only a mixed-case directory in the import path makes
+      the loss visible everywhere: the checker probes the canonical path for the file it would
+      suggest, and a lowercased probe misses it and drops the "Did you mean" suggestion (2834).
+    given: a-vue-nodenext-mixed-case-dir-project
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: src/main.ts
+            line: 1
+            col: 23
+            code: 2835
+            message: "Relative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean './Nested/helper.js'?"
         checked:
           files: 3
           tsconfig: tsconfig.json
