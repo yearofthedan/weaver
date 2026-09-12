@@ -84,9 +84,8 @@ export function invalidateFile(filePath: string): void {
   tsMorphEngineSingleton?.refreshFile(filePath);
   for (const plugin of languagePlugins) {
     try {
-      // `invalidateFile` is optional on `LanguagePlugin`, and both this optional call
-      // and the catch below absorb a plugin that omits it — which is why no test can
-      // tell this apart from the non-optional form.
+      // Optional hook: a plugin that omits it is absorbed by the catch below, so this
+      // and the non-optional form are indistinguishable to any test.
       plugin.invalidateFile?.(filePath);
     } catch {
       // Isolation: continue to other plugins even if one throws

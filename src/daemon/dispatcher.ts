@@ -437,15 +437,20 @@ export async function dispatchRequest(
   } catch (err) {
     return toDispatchError(err, req.method, workspace);
   } finally {
-    // Everything this dispatch wrote is refreshed here, once the operation has
-    // returned and no longer holds nodes into the project. A write made with
-    // `checkTypeErrors: false` is the case that needs it: the post-write check
-    // that would otherwise repair the project never runs, and the watcher
-    // suppresses the daemon's own write, so every later read or edit would be
-    // computed against the text from before it.
-    for (const filePath of drainPendingMutations()) {
-      refreshProjectFile(filePath);
-    }
+    refreshWrittenFiles();
     onActivity?.();
+  }
+}
+
+/**
+ * Re-read everything this dispatch wrote into the ts-morph project, once the operation
+ * has returned and holds no nodes into it. A write made with `checkTypeErrors: false` has
+ * no other refresh — the post-write check that would repair the project never runs, and the
+ * watcher suppresses the daemon's own write — so every later read or edit would otherwise
+ * be computed against the text from before it.
+ */
+function refreshWrittenFiles(): void {
+  for (const filePath of drainPendingMutations()) {
+    refreshProjectFile(filePath);
   }
 }
