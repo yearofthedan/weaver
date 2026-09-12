@@ -101,10 +101,11 @@ into (see the constraint below); a file the operation deleted reaches it too, an
 
 Two constraints on the write-path signal:
 
-- **It evicts the diagnostic parse only.** `refreshFile` additionally calls ts-morph's
-  `refreshFromFileSystemSync()`, which replaces a node tree that operations hold references into
-  while they are mid-write (`persistSourceFile`, `move-symbol`). Calling it from the write path
-  trades this bug for a worse one. `getTypeErrorsForFiles` remains the ts-morph-side signal.
+- **The write-time observer evicts the diagnostic parse only.** `refreshFile` additionally calls
+  ts-morph's `refreshFromFileSystemSync()`, which replaces a node tree that operations hold
+  references into while they are mid-write (`persistSourceFile`, `move-symbol`). Calling it from
+  that observer trades this bug for a worse one — which is why the ts-morph refresh is deferred
+  to the end-of-dispatch drain above, once the operation has returned.
 - **It offers every mutation and lets the cache decide.** `DiagnosticServiceCache.refreshFile`
   drops the cached service only when a parse was actually evicted, so a `.md` or `.json` write
   costs a map lookup. An extension whitelist in the daemon was tried first and was wrong twice
