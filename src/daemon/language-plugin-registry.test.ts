@@ -404,5 +404,24 @@ describe("LanguagePluginRegistry", () => {
 
       expect(pluginInvalidate).not.toHaveBeenCalled();
     });
+    test("keeps the diagnostic program the post-write check built", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true }, include: ["src"] }),
+        "src/a.ts": "export const value: number = 1;\n",
+      });
+      const file = path.join(dir, "src/a.ts");
+      const engine = await makeRegistry(file, dir).projectEngine();
+      const scope = new WorkspaceScope(dir, new NodeFileSystem());
+      expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(0);
+
+      fs.writeFileSync(file, 'export const value: number = "not a number";\n');
+      refreshProjectFile(file);
+
+      // Still the program built from the text on disk: evicting it here would make the next
+      // check rebuild a program the write had no reason to invalidate.
+      expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(0);
+    });
   });
 });
