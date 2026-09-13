@@ -8,10 +8,9 @@ coverage/
 .claude/*
 !.claude/MEMORY.md
 !.claude/agents/
-# The commit-standards gate is project tooling, not personal config: tracked so
-# clones and worktrees get it. settings.local.json stays ignored — it holds a
-# personal permission allowlist — so the hooks block lives in settings.json.
-!.claude/hooks/
+# settings.local.json stays ignored — it holds a personal permission allowlist —
+# so the hooks block lives in settings.json, which is project tooling and tracked
+# so clones and worktrees get the gate.
 !.claude/settings.json
 !.claude/skills/
 .claude/skills/*

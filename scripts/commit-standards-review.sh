@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# PreToolUse(Bash) gate: critiques the prose in a staged commit — the commit
-# message, added markdown, and added code comments — against
-# docs/communication-standards.md, using a nested `claude -p` call.
+# Pre-commit gate shared by both harnesses: critiques the prose in a staged
+# commit — the commit message, added markdown, and added code comments —
+# against docs/communication-standards.md. The caller supplies the reviewer
+# through COMMIT_REVIEW_CMD and reads a Claude-Code-shaped decision on stdout;
+# Claude Code runs this directly as a PreToolUse(Bash) hook, and OMP's
+# .omp/hooks/pre/commit-standards.ts adapts the same contract.
 #
 # Findings block the attempt and record a hash of what was reviewed. Repeating
 # that exact attempt — same command, same staged prose — is the override: the
 # hash matches and it goes through. Change either, and it is reviewed afresh.
-# A successful commit clears the record (see the PostToolUse hook in
-# settings.local.json).
+# A successful commit clears the record.
 #
 # Written for bash 3.2 (macOS): no heredoc inside $( ), no arrays, no ${x^^}.
 set -uo pipefail
@@ -15,8 +17,7 @@ set -uo pipefail
 REPO="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 [ -n "$REPO" ] || exit 0
 STANDARDS="$REPO/docs/communication-standards.md"
-FLAG="$REPO/.claude/hooks/.commit-review-blocked"   # holds the hash of the last rejected attempt
-REVIEW_MODEL="${COMMIT_REVIEW_MODEL:-sonnet}"
+FLAG="$REPO/.git/commit-review-blocked"   # holds the hash of the last rejected attempt
 
 allow() { exit 0; }
 
@@ -48,6 +49,13 @@ PROSE=$(git diff --cached -U0 | awk '
 # Repeating a rejected attempt verbatim is the override.
 HASH=$(printf '%s\n%s' "$CMD" "$PROSE" | shasum | cut -d' ' -f1)
 [ -f "$FLAG" ] && [ "$(cat "$FLAG")" = "$HASH" ] && allow
+
+# The reviewer is whichever harness invoked this script, and it must say so.
+# There is no default: defaulting to one harness's CLI makes the other depend on
+# it. Checked here rather than at the top so an unset variable blocks a commit
+# under review instead of every bash call, and fails loudly rather than waving
+# the commit through.
+: "${COMMIT_REVIEW_CMD:?set it to a non-interactive reviewer, e.g. claude -p --allowedTools \"\" or omp -p --no-tools --no-session}"
 
 PROMPT_FILE=$(mktemp -t commit-review)
 trap 'rm -f "$PROMPT_FILE"' EXIT
@@ -86,7 +94,9 @@ Otherwise reply with up to 5 findings, one line each, in the form:
 No preamble. No praise. Do not suggest rewrites.
 PROMPTEOF
 
-REVIEW=$(claude -p --model "$REVIEW_MODEL" --allowedTools "" < "$PROMPT_FILE" 2>/dev/null)
+# Unquoted on purpose: the variable carries a command and its flags, and this
+# script targets bash 3.2, where arrays are unavailable.
+REVIEW=$($COMMIT_REVIEW_CMD < "$PROMPT_FILE" 2>/dev/null)
 
 [ -n "$REVIEW" ] || allow                                   # reviewer failed: fail open
 printf '%s' "$REVIEW" | head -1 | grep -q '^PASS' && allow

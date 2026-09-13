@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/commit-standards-review.sh",
+            "command": "COMMIT_REVIEW_CMD='claude -p --model sonnet --allowedTools \"\"' \"$CLAUDE_PROJECT_DIR\"/scripts/commit-standards-review.sh",
             "timeout": 120,
             "statusMessage": "Reviewing commit against communication standards..."
           }
@@ -20,7 +20,7 @@
           {
             "type": "command",
             "if": "Bash(git commit:*)",
-            "command": "rm -f \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/.commit-review-blocked"
+            "command": "rm -f \"$CLAUDE_PROJECT_DIR\"/.git/commit-review-blocked"
           }
         ]
       }
