@@ -172,7 +172,7 @@ So the per-file refresh costs nothing measurable against a warm read, where fann
 - **`.cts` alongside `.mts`** — same filter, same answer (`false`), no separate mechanism.
 - **`.js`/`.jsx` are deliberately excluded.** Whether a `.js` file is checkable depends on
   `allowJs`, and asking anyway is a known throw
-  ([archived spec](archive/20260829-get-type-errors-throws-on-untyped-js.md)). Out of
+  ([archived spec](20260829-get-type-errors-throws-on-untyped-js.md)). Out of
   scope.
 - **An unchecked `deleteFile`, and the old path of a `moveFile`** — both reach the drain as
   paths that no longer exist. The prototype's unreadable-path branch returned cleanly and a
@@ -223,22 +223,22 @@ So the per-file refresh costs nothing measurable against a warm read, where fann
 
 ## Done-when
 
-- [ ] Both reproductions produce the expected output, driven through the built `weaver`
+- [x] Both reproductions produce the expected output, driven through the built `weaver`
       CLI against a real daemon (not only vitest): the unchecked SFC write followed by a
       check reports TS2322, and the `.mts` write with the check on reports
       `typeErrorCount: 1`
-- [ ] `dispatcher-self-write.test.ts` — the existing Vue case at :246 ("completes a read
+- [x] `dispatcher-self-write.test.ts` — the existing Vue case at :246 ("completes a read
       after an unchecked write in a Vue project") is upgraded from "does not throw" to
       asserting the correct answer, and gains: the false-positive direction (unchecked
       revert of a reported error → `errorCount: 0`), and a `.ts`-file-in-a-Vue-project case
-- [ ] `dispatcher-self-write.test.ts` — an unchecked `deleteFile` in a Vue project
+- [x] `dispatcher-self-write.test.ts` — an unchecked `deleteFile` in a Vue project
       followed by a read of a surviving file, mirroring the existing TS case at :216
-- [ ] A dispatcher-level case for a `.mts` write with the check **on** reporting its
+- [x] A dispatcher-level case for a `.mts` write with the check **on** reporting its
       errors, and one for `.cts`; plus a `.mts` write in a Vue project whose tsconfig omits
       the file, and a `.js` write in a Vue project whose next read answers from disk
-- [ ] `engine.test.ts` (both engines) — `handlesFileExtension` accepts `.mts`/`.cts` and
+- [x] `engine.test.ts` (both engines) — `handlesFileExtension` accepts `.mts`/`.cts` and
       still declines `.js`
-- [ ] `engine.test.ts` (Volar) — refreshing a served file leaves the *same* `CachedService`
+- [x] `engine.test.ts` (Volar) — refreshing a served file leaves the *same* `CachedService`
       instance in the cache and a subsequent read answers from the new text, including for
       a `.js` file; a write to the tsconfig, or to a path the service read as a dependency,
       drops the service; a write to a path it has read nothing about leaves it in place.
@@ -246,15 +246,15 @@ So the per-file refresh costs nothing measurable against a warm read, where fann
       path that can no longer be read. (The engine-level assertions live in the engine's
       own test file: the cache is the engine's, and `service.test.ts` drives
       `buildVolarService`.)
-- [ ] The checked-path control: a checked write that introduces an error still returns
+- [x] The checked-path control: a checked write that introduces an error still returns
       `status: warn` with the diagnostics
-- [ ] Mutation score ≥ threshold for `src/plugins/vue/service.ts` and the changed part of
+- [x] Mutation score ≥ threshold for `src/plugins/vue/service.ts` and the changed part of
       `src/plugins/vue/engine.ts`. `service.ts` measured 54.5% on 2026-08-31 and its
       pre-existing survivors are their own queued entry — score the lines this fix adds
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] `/review-changes` run over the whole change and its findings applied — a green
+- [x] `pnpm check` passes (lint + build + test)
+- [x] `/review-changes` run over the whole change and its findings applied — a green
       `pnpm check` does not stand in for it
-- [ ] Docs updated:
+- [x] Docs updated:
       - `docs/reference/response-format.md:52` — drop the Vue caveat on the flag
       - `docs/internals/daemon.md:65` — the write-observation description states that the
         end-of-dispatch refresh now reaches every loaded engine, and drops the "known gap"
@@ -267,13 +267,104 @@ So the per-file refresh costs nothing measurable against a warm read, where fann
         (`refreshFile` drops the service for the check; `refreshWrittenFile` is the
         per-file repair the drain uses) and record that the post-write check covers
         `.mts`/`.cts`
-- [ ] handoff.md gains a `[needs design]` entry: in a Vue project the *checked* write path
+- [x] handoff.md gains a `[needs design]` entry: in a Vue project the *checked* write path
       still pays a full service rebuild — measured 949 ms against ~230 ms warm on the
       four-file fixture — because `getTypeErrorsForFiles` calls `refreshFile`; decide
       whether it can route through `refreshWrittenFile` for a tracked path, which is the
       same question `get-type-errors.md:68`'s hoisting note answers for today's contract
-- [ ] Tech debt discovered during implementation added to handoff.md as `[needs design]`
-- [ ] Non-obvious gotchas added to the relevant `docs/internals/` doc — at minimum that a
+- [x] Tech debt discovered during implementation added to handoff.md as `[needs design]`
+- [x] Non-obvious gotchas added to the relevant `docs/internals/` doc — at minimum that a
       Volar per-file refresh needs all three of content, version, and script
       re-registration, since any two of them silently leave a read stale
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+### Verification
+
+Three reproductions driven through the built `weaver` CLI against a real daemon — a copy of the
+`vue-project` fixture and a `nodenext` TypeScript-only project. Each daemon was warm from the first
+call in its session and was stopped afterwards.
+
+```
+get-type-errors  src/App.vue                                → {"status":"success","errorCount":0}
+replace-text     "_counter = useCounter" → "_counter: number = useCounter", checkTypeErrors:false
+                                                            → {"status":"success","filesModified":["…/src/App.vue"],"replacementCount":1}
+get-type-errors  src/App.vue                                → {"status":"success","errorCount":1}
+                                                              TS2322 at 4:7, "Type '{ count: … }' is not assignable to type 'number'."
+                                                              (0 before the fix)
+replace-text     "_counter: number = useCounter" → "_counter: string = useCounter" (checked)
+                                                            → {"status":"warn","typeErrorCount":1, TS2322 at 4:7}
+replace-text     revert, checkTypeErrors:false              → {"status":"success"}
+get-type-errors  src/App.vue                                → {"status":"success","errorCount":0}
+                                                              (2 stale errors before the fix)
+replace-text     src/lib.mts "return name;" → "return 42;" (checked, "module": "nodenext")
+                                                            → {"status":"warn","typeErrorCount":1, TS2322 at 2:3}
+```
+
+The false-positive direction was driven as a pair in one daemon session: the checked write reported
+the error, and the unchecked revert that removed it was reflected by the later read.
+
+### Test count
+
+Main lane 1506 (108 files), eval lane 531. Two duplicated engine-level cases were deleted from
+`service.test.ts`; `engine.test.ts` already covered the same branches.
+
+### Mutation score, scoped runs
+
+| File | Score | Notes |
+| --- | --- | --- |
+| `src/plugins/vue/service.ts` | 64.2% (54.5% on 2026-08-31) | No fixable survivor on the lines this fix adds; the pre-existing survivors are their own handoff entry. |
+| `src/plugins/vue/engine.ts` | 79.7% | No survivor on the added lines. |
+| `src/plugins/vue/get-type-errors.ts` | 93.8% | The guard's optional chain was a defensive branch and is gone. |
+| `src/daemon/language-plugin-registry.ts` | 93.8% | The fan-out loop's guard is observable in one direction. |
+| `src/ts-engine/engine.ts` | 85.5% | No survivor on the renamed method. |
+| `src/utils/extensions.ts` | 100% | `stripExt`'s anchor had no test; one file of cases closed it. |
+
+Two survivors are equivalent mutants, recorded in
+[`docs/tech/mutation-testing.md`](../../tech/mutation-testing.md) under "Known surviving mutants":
+the version counter's direction, and the fan-out's loaded-engine guard, where the isolation `catch`
+absorbs the deref. Both were confirmed by hand — the version test reds on `?? → &&`, and the
+dispatcher self-write cases red on `if (tsMorphEngineSingleton) → if (false)`.
+
+### Where the shipped behaviour differs from this spec's Fix section
+
+- The untracked-path guard's scope. The draft dropped the service for any path outside
+  `scriptFileNames`, reasoning from operations that create a path. Operations that write an
+  existing one reach the same branch: the Volar cache key is the tsconfig, so a `replaceText` on a
+  `.md` file dropped the whole service and put a rebuild on the next read. The shipped guard
+  distinguishes a served path, a path the service read as a dependency or the tsconfig, and a path
+  it has read nothing about.
+- Claiming `.mts`/`.cts` needed the walk that seeds `scriptFileNames` widened as well: without it
+  `getSemanticDiagnostics` threw `INTERNAL_ERROR` for a landed write. `TS_EXTENSIONS` gained those
+  extensions, and the single-file check now skips on program membership the way the project-wide
+  check already did.
+- A narrowing that gated the drain's plugin fan-out on `handlesFileExtension` was built and then
+  reverted. That predicate answers whether an engine can report diagnostics, while the drain asks
+  whether an engine holds a path: the Volar service holds `.js`/`.jsx` and the tsconfig, so writes
+  to them left later reads — and `rename`, which builds new text from the service it holds —
+  answering from the pre-write snapshot.
+
+### Reflection
+
+The prototype's measurements decided the shape of the change: the per-file refresh costs ~233 ms
+against ~885 ms for dropping the service, so the drain's contract needed no re-derivation.
+
+Each deviation above was refuted by a reproduction rather than by reading, and the two that shipped
+in the first pass were caught by review rather than by the test suite.
+
+Two test-design facts: `replaceText`'s `pattern` is a regex, so a pattern
+containing `useCounter(0)` is a capture group that matches nothing; and an SFC write through a
+`: number` annotation produces one diagnostic, not the two the bug report's prose implied.
+
+One review claim did not reproduce: deleting a `.vue` file that another file still imports was said
+to leave the SFC in the retained service and answer 0 errors. Driving an unchecked `deleteFile`
+through a warm daemon and reading the importer returns TS2307 "Cannot find module './App.vue'".
+
+### Follow-ups
+
+The three `[needs design]` entries this slice added to `handoff.md`: the checked path's full service
+rebuild, a written file outside the engine's program reporting clean, and the double rebuild for a
+dependency or tsconfig write. `docs/internals/get-type-errors.md` names the two refresh contracts,
+and `docs/tech/volar-v3.md` records why a per-file refresh needs content, version and script
+registration together.

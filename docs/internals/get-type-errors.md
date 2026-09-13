@@ -136,6 +136,9 @@ Because the eviction lives in the daemon's decorated filesystem, an engine drive
 
 **Project-wide mode must therefore filter to program members before asking for diagnostics.**
 `getSemanticDiagnostics` throws (`Could not find source file`) for any path the program does not contain, so `tsGetTypeErrorsForProject` skips anything `program.getSourceFile(filePath)` does not resolve. Filter on program membership, never on the file extension: a project with `allowJs: true` has its `.js` files *in* the program and their errors must still be reported.
+An engine's extension claim is backed by the set that seeds its program: `.mts`/`.cts` joined
+`TYPECHECK_EXTENSIONS` and the walk that feeds Volar's `scriptFileNames` together, and a file outside
+the tsconfig's `include` is the case that exercises both.
 
 **Diagnostics do not follow the workspace walk — but the answer is not the tsconfig's file list either.**
 `typeCheckedFiles` (`src/ts-engine/type-check-scope.ts`) closes the tsconfig's roots over the program's own module resolution and reports only what that reaches. Both halves matter. Following the walk means judging test files and scripts under compiler options meant for other files: measured on this repo, 251 reported errors against 2, with `pnpm check` green — 99% of them artefacts, and the 100-diagnostic cap entirely consumed by them. But filtering to `parseJsonConfigFileContent`'s raw `fileNames` under-reports instead: a file outside `include` that an included file imports is part of the program and `tsc` does report it. The closure is what makes both true at once.
