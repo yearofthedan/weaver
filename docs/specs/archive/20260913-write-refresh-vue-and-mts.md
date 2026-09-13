@@ -240,8 +240,9 @@ So the per-file refresh costs nothing measurable against a warm read, where fann
       still declines `.js`
 - [x] `engine.test.ts` (Volar) — refreshing a served file leaves the *same* `CachedService`
       instance in the cache and a subsequent read answers from the new text, including for
-      a `.js` file; a write to the tsconfig, or to a path the service read as a dependency,
-      drops the service; a write to a path it has read nothing about leaves it in place.
+      a `.js` file; a write to the tsconfig, or to a path the service read as a dependency
+      ("refreshWrittenFile rebuilds the service for a path it read as a dependency"), drops the
+      service; a write to a path it has read nothing about leaves it in place.
       `service.test.ts` — `rereadFile` serves the new text, and drops the cached text for a
       path that can no longer be read. (The engine-level assertions live in the engine's
       own test file: the cache is the engine's, and `service.test.ts` drives
@@ -339,6 +340,16 @@ dispatcher self-write cases red on `if (tsMorphEngineSingleton) → if (false)`.
   `getSemanticDiagnostics` threw `INTERNAL_ERROR` for a landed write. `TS_EXTENSIONS` gained those
   extensions, and the single-file check now skips on program membership the way the project-wide
   check already did.
+- Deleting a `.vue` file was an uncovered case of `## Expected`. `rereadFile` dropped the deleted
+  file's cached text but kept its `language.scripts` registration, and the host serves an SFC's
+  virtual TypeScript from that registration, so the importer kept resolving a file that was gone
+  while the project retained another `.vue` file. `language.scripts.delete` closes it
+  (`dispatcher-self-write.test.ts`, "answers from disk after an unchecked deleteFile of an imported
+  .vue file").
+- `VolarEngine.refreshWrittenFile` repairs one cached service, where `## Fix` §3 said "across its
+  cached services". A workspace with two Vue tsconfigs has a sibling service that also lists the
+  written path, and it keeps pre-write text. Recorded in `handoff.md`; `invalidateService` has the
+  same single-key scope, so the property is inherited from the check's refresh.
 - A narrowing that gated the drain's plugin fan-out on `handlesFileExtension` was built and then
   reverted. That predicate answers whether an engine can report diagnostics, while the drain asks
   whether an engine holds a path: the Volar service holds `.js`/`.jsx` and the tsconfig, so writes
@@ -355,8 +366,11 @@ Each deviation above was confirmed by a reproduction.
 `replaceText`'s `pattern` is a regex, so a pattern containing `useCounter(0)` is a capture group that
 matches nothing. An SFC write that annotates a `ref` value produces one TS2322.
 
-After an unchecked `deleteFile` of a `.vue` file that another file imports, a read of the importer
-returns TS2307 "Cannot find module './App.vue'".
+Deleting a `.vue` file that another file imports answered `status: success, errorCount: 0` for the
+importer while the project kept another `.vue` file. A project whose deleted SFC is its only `.vue`
+file answers correctly for an unrelated reason: the next dispatch's `isVueProject` is false, and the
+read routes to ts-morph. Verification found the defect; the fixture that hid it was the one this
+slice's own probe used.
 
 ### Follow-ups
 

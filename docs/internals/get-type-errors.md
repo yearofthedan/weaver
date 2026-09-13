@@ -105,9 +105,12 @@ path it read as a resolved dependency.
 
 The check covers `.ts`, `.tsx`, `.mts` and `.cts` — one set, `TYPECHECK_EXTENSIONS`, that both
 engines report from — plus `.vue` in a Vue project, whose SFC diagnostics come back through the
-source map. `.js`/`.jsx` are outside it because whether they are checkable depends on `allowJs`. A
-path the answering engine's program does not hold is skipped rather than throwing, on the principle
-below.
+source map. `.js`/`.jsx` are outside it because whether they are checkable depends on `allowJs`. The
+Volar engine skips a path its program does not hold (a gitignored file, or one under `SKIP_DIRS`)
+rather than throwing, on the principle below; the ts-morph engine answers the same file, since
+`getDiagnosticServiceForFile` adds it to the program on demand. The two engines therefore disagree
+about that file, and the handoff entry on it carries the question of whether a Vue project should
+route it to ts-morph instead.
 
 The drain runs at the end of the dispatch because `refreshFromFileSystemSync` replaces a node
 tree the in-flight operation still holds references into (see the constraint below). A file the
