@@ -449,6 +449,12 @@ export async function dispatchRequest(
  */
 function refreshWrittenFiles(): void {
   for (const filePath of drainPendingMutations()) {
-    refreshProjectFile(filePath);
+    try {
+      refreshProjectFile(filePath);
+    } catch {
+      // A refresh prepares later requests, so losing it for one path leaves that path stale.
+      // It must not fail the dispatch: the write is already on disk, and the caller still
+      // needs its response.
+    }
   }
 }

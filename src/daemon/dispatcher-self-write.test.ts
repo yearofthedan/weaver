@@ -1,8 +1,14 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
-import { describe, expect } from "vitest";
+import { afterEach, describe, expect, vi } from "vitest";
 import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { TsMorphEngine } from "../ts-engine/engine.js";
 import { dispatchRequest } from "./dispatcher.js";
 import { shouldSuppressSelfWrite } from "./self-write-state.js";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 /**
  * The ledger only sees a write that went through the shared filesystem, so
@@ -261,6 +267,36 @@ describe("a read dispatched after a write that skipped the type check", () => {
     // here: Volar answers the read, and the drain does not reach it.
     const after = await dispatchRequest({ method: "getTypeErrors", params: { file } }, dir);
     expect(after).toMatchObject({ status: "success", errorCount: 0 });
+  });
+
+  test("returns the operation's response when a refresh throws", async ({ seedInlineFixture }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true }, include: ["src"] }),
+      "src/lib.ts": "export function greet(name: string): string {\n  return name;\n}\n",
+    });
+    const lib = path.join(dir, "src/lib.ts");
+    await dispatchRequest(
+      { method: "findReferences", params: { file: lib, line: 1, col: 17 } },
+      dir,
+    );
+    vi.spyOn(TsMorphEngine.prototype, "refreshProjectFile").mockImplementation(() => {
+      throw new Error("EACCES: permission denied");
+    });
+
+    const written = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          pattern: "export function",
+          replacement: "// banner\nexport function",
+          checkTypeErrors: false,
+        },
+      },
+      dir,
+    );
+
+    expect(written.status).toBe("success");
+    expect(fs.readFileSync(lib, "utf8")).toContain("// banner");
   });
 
   test("still answers from disk when the post-write check ran and refreshed", async ({
