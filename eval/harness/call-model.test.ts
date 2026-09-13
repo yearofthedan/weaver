@@ -561,11 +561,19 @@ describe("callModel", () => {
     });
 
     it("propagates a persistent timeout after the single retry", async () => {
-      mockFetch.mockRejectedValue(timeoutError());
+      // Two rejections then a reply. The reply is the tripwire for the retry
+      // bound: a run that retries a third time gets a response back, so the
+      // assertion below fails. An endlessly rejecting mock would instead leave
+      // such a run looping until Stryker's hit limit, where the assertion never
+      // runs and the mutant is reported Timeout rather than Killed.
+      const timedOut = timeoutError();
+      mockFetch.mockRejectedValueOnce(timedOut);
+      mockFetch.mockRejectedValueOnce(timedOut);
+      mockTextReply("retried past the bound");
 
       await expect(
         callModel([{ role: "user", content: "go" }], oneTool, explicitConfig()),
-      ).rejects.toSatisfy((err: unknown) => (err as { name?: string }).name === "TimeoutError");
+      ).rejects.toBe(timedOut);
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
