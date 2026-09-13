@@ -84,13 +84,13 @@
     "@stryker-mutator/vitest-runner": "10.0.0",
     "@types/node": "24.13.4",
     "@types/tmp": "0.2.6",
-    "@vitest/coverage-v8": "5.0.0",
+    "@vitest/coverage-v8": "4.1.11",
     "@volar/language-core": "2.4.28",
     "@yearofthedan/weaver": "link:.",
     "husky": "9.1.7",
     "tmp": "0.2.7",
     "tsx": "4.23.13",
-    "vitest": "5.0.0",
+    "vitest": "4.1.11",
     "yaml": "2.9.0"
   }
 }

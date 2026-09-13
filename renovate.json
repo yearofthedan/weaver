@@ -22,6 +22,11 @@
       "matchDepNames": ["typescript"],
       "allowedVersions": "<7.0.0",
       "description": "TS 7 removed the classic Compiler API that Volar's LanguageServiceHost and weaver's own diagnostics code depend on. Revisit when Volar ships TS7 support."
+    },
+    {
+      "matchDepNames": ["vitest", "@vitest/coverage-v8"],
+      "allowedVersions": "<5.0.0",
+      "description": "Vitest 5 matches testNamePattern against the suite chain joined with ' > ', while @stryker-mutator/vitest-runner 10.0.0 builds its filter from space-joined names. No mutant then selects a test to run, so every covered mutant is reported Survived. Unpin when stryker-mutator/stryker-js#6214 ships (issue #6210)."
     }
   ],
   "enabledManagers": ["npm", "dockerfile", "devcontainer"]
