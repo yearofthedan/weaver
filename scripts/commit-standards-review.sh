@@ -99,7 +99,7 @@ Judge ONLY against the standards above. Ignore code correctness, naming, and
 formatting.
 
 If nothing meaningfully violates the standards, reply with exactly: PASS
-Otherwise reply with up to 5 findings, one line each, in the form:
+Otherwise report every finding, one line each, in the form:
   <file or "subject"> - "<the offending phrase>" - <which rule it breaks>
 No preamble. No praise. Do not suggest rewrites.
 PROMPTEOF
