@@ -243,19 +243,22 @@ describe("a read dispatched after a write that skipped the type check", () => {
     expect(after).toMatchObject({ status: "success", symbolName: "keep" });
   });
 
-  test("completes a read after an unchecked write in a Vue project", async ({
+  test("answers from disk after an unchecked write into a Vue SFC's script", async ({
     seedNamedFixture,
   }) => {
     const dir = await seedNamedFixture(FIXTURES.vueProject.name);
-    const file = path.join(dir, "src/composables/useCounter.ts");
+    const file = path.join(dir, "src/App.vue");
+
+    const warm = await dispatchRequest({ method: "getTypeErrors", params: { file } }, dir);
+    expect(warm).toMatchObject({ status: "success", errorCount: 0 });
 
     const written = await dispatchRequest(
       {
         method: "replaceText",
         params: {
-          pattern: "initialValue = 0",
-          replacement: "initialValue: number = 0",
-          glob: "src/composables/useCounter.ts",
+          pattern: "_counter = useCounter",
+          replacement: "_counter: number = useCounter",
+          glob: "src/App.vue",
           checkTypeErrors: false,
         },
       },
@@ -263,8 +266,51 @@ describe("a read dispatched after a write that skipped the type check", () => {
     );
     expect(written.status).not.toBe("error");
 
-    // This pins that the drain does not break the Vue path. Freshness cannot be pinned
-    // here: Volar answers the read, and the drain does not reach it.
+    const after = await dispatchRequest({ method: "getTypeErrors", params: { file } }, dir);
+    expect(after).toMatchObject({
+      status: "success",
+      errorCount: 1,
+      diagnostics: [expect.objectContaining({ file, line: 4, col: 7, code: 2322 })],
+    });
+  });
+
+  test("answers from disk after an unchecked write reverts a reported Vue SFC error", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const file = path.join(dir, "src/App.vue");
+
+    const written = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          pattern: "_counter = useCounter",
+          replacement: "_counter: number = useCounter",
+          glob: "src/App.vue",
+        },
+      },
+      dir,
+    );
+    expect(written).toMatchObject({
+      status: "warn",
+      typeErrorCount: 1,
+      typeErrors: [expect.objectContaining({ file, line: 4, col: 7, code: 2322 })],
+    });
+
+    const reverted = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          pattern: "_counter: number = useCounter",
+          replacement: "_counter = useCounter",
+          glob: "src/App.vue",
+          checkTypeErrors: false,
+        },
+      },
+      dir,
+    );
+    expect(reverted.status).not.toBe("error");
+
     const after = await dispatchRequest({ method: "getTypeErrors", params: { file } }, dir);
     expect(after).toMatchObject({ status: "success", errorCount: 0 });
   });
