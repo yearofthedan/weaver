@@ -448,6 +448,33 @@ describe("a read dispatched after a write that skipped the type check", () => {
     expect(after).toMatchObject({ status: "success", errorCount: 1 });
   });
 
+  test("reports a .cts write's type errors with the check left on", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: { strict: true, module: "NodeNext", moduleResolution: "NodeNext" },
+        include: ["src"],
+      }),
+      "src/lib.cts": "export function greet(): string {\n  return 'hi';\n}\n",
+    });
+    const file = path.join(dir, "src/lib.cts");
+
+    const written = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: { pattern: "return 'hi';", replacement: "return 42;", glob: "src/lib.cts" },
+      },
+      dir,
+    );
+
+    expect(written).toMatchObject({
+      status: "warn",
+      typeErrorCount: 1,
+      typeErrors: [expect.objectContaining({ file, line: 2, col: 3, code: 2322 })],
+    });
+  });
+
   test("returns the operation's response when a refresh throws", async ({ seedInlineFixture }) => {
     const dir = await seedInlineFixture({
       "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true }, include: ["src"] }),
