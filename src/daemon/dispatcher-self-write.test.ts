@@ -279,7 +279,7 @@ describe("a read dispatched after a write that skipped the type check", () => {
       { method: "findReferences", params: { file: lib, line: 1, col: 17 } },
       dir,
     );
-    vi.spyOn(TsMorphEngine.prototype, "refreshProjectFile").mockImplementation(() => {
+    vi.spyOn(TsMorphEngine.prototype, "refreshWrittenFile").mockImplementation(() => {
       throw new Error("EACCES: permission denied");
     });
 

@@ -12,7 +12,7 @@ import {
   invalidateAll,
   invalidateFile,
   makeRegistry,
-  refreshProjectFile,
+  refreshWrittenFile,
   registerLanguagePlugin,
 } from "./language-plugin-registry.js";
 
@@ -51,6 +51,7 @@ function stubCompiler(tag = "stub"): Engine {
       parameterCount: 0,
     }),
     refreshFile: () => {},
+    refreshWrittenFile: () => {},
     handlesFileExtension: () => false,
     _tag: tag,
   } as Engine & { _tag: string };
@@ -386,23 +387,36 @@ describe("LanguagePluginRegistry", () => {
     });
   });
 
-  describe("refreshProjectFile", () => {
+  describe("refreshWrittenFile", () => {
     it("does nothing when no engine has been loaded", () => {
-      expect(() => refreshProjectFile("/some/file.ts")).not.toThrow();
+      expect(() => refreshWrittenFile("/some/file.ts")).not.toThrow();
     });
 
-    it("does not reach plugin engines, which would rebuild Vue's whole service", () => {
-      const pluginInvalidate = vi.fn();
+    it("reaches a plugin engine that is already loaded", async () => {
+      const refresh = vi.fn();
       registerLanguagePlugin({
-        id: "not-refreshed",
+        id: "refreshed",
         supportsProject: () => true,
-        createEngine: async (_tsEngine) => stubCompiler(),
-        invalidateFile: pluginInvalidate,
+        createEngine: async () => ({ ...stubCompiler(), refreshWrittenFile: refresh }),
+      });
+      await makeRegistry(PROJECT_FILE, WORKSPACE_ROOT).projectEngine();
+
+      refreshWrittenFile("/some/file.ts");
+
+      expect(refresh).toHaveBeenCalledWith("/some/file.ts");
+    });
+
+    it("does not build a plugin engine that has not been loaded", () => {
+      const factory = vi.fn(async (_tsEngine: TsMorphEngine) => stubCompiler());
+      registerLanguagePlugin({
+        id: "never-loaded",
+        supportsProject: () => true,
+        createEngine: factory,
       });
 
-      refreshProjectFile("/some/file.ts");
+      refreshWrittenFile("/some/file.ts");
 
-      expect(pluginInvalidate).not.toHaveBeenCalled();
+      expect(factory).not.toHaveBeenCalled();
     });
     test("keeps the diagnostic program the post-write check built", async ({
       seedInlineFixture,
@@ -417,7 +431,7 @@ describe("LanguagePluginRegistry", () => {
       expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(0);
 
       fs.writeFileSync(file, 'export const value: number = "not a number";\n');
-      refreshProjectFile(file);
+      refreshWrittenFile(file);
 
       // Still the program built from the text on disk: evicting it here would make the next
       // check rebuild a program the write had no reason to invalidate.

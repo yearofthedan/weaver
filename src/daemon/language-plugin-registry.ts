@@ -93,17 +93,23 @@ export function invalidateFile(filePath: string): void {
 }
 
 /**
- * Re-read one file into the loaded ts-morph engine's project, if it is loaded.
- * Called for every path a dispatch wrote, once that operation has returned and
- * holds no nodes into the project.
+ * Re-read one file into every loaded engine, without discarding what that engine
+ * holds around it. Called for every path a dispatch wrote, once that operation
+ * has returned and holds no nodes into the project.
  *
- * Reaches `tsMorphEngineSingleton` only, unlike `invalidateFile`. A Vue plugin's
- * invalidation drops its whole service — a measured ~1035 ms rebuild — and this
- * runs for every path a dispatch wrote, whether or not a `.vue` file could have
- * moved with it.
+ * An engine repairs only what it can — ts-morph re-reads one source file, Volar
+ * re-registers one file's snapshot — and a plugin engine that was never loaded is
+ * left alone, so a read-only dispatch builds no service it did not need.
  */
-export function refreshProjectFile(filePath: string): void {
-  tsMorphEngineSingleton?.refreshProjectFile(filePath);
+export function refreshWrittenFile(filePath: string): void {
+  tsMorphEngineSingleton?.refreshWrittenFile(filePath);
+  for (const engine of pluginCompilers.values()) {
+    try {
+      engine.refreshWrittenFile(filePath);
+    } catch {
+      // Isolation: continue to other engines even if one throws
+    }
+  }
 }
 
 /**

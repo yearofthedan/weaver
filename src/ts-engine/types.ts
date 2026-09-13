@@ -144,8 +144,20 @@ export interface Engine {
    * content — called after a write so an immediately following read (e.g. a
    * post-write diagnostics check) is not answered from a stale cache. No-op
    * when the engine has not loaded `path` yet.
+   *
+   * The check's refresh: the engine is free to drop whatever it holds for
+   * `path` and pay for it on the next query, which is why callers refresh every
+   * path before querying any of them.
    */
   refreshFile(path: string): void;
+
+  /**
+   * Re-read `path` into the compiler state the engine already holds for it,
+   * without discarding that state — the per-path repair a dispatch applies to
+   * everything it wrote. No-op when the engine has not loaded `path`; an engine
+   * that cannot repair the path in place may fall back to `refreshFile`.
+   */
+  refreshWrittenFile(path: string): void;
 
   /**
    * Add or remove the `export` keyword on the top-level declaration named

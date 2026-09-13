@@ -29,7 +29,7 @@ import { searchText } from "../operations/searchText.js";
 import { setExport } from "../operations/setExport.js";
 import type { EngineRegistry } from "../ts-engine/types.js";
 import { resetDiscoveryCaches } from "../utils/ts-project.js";
-import { makeRegistry, refreshProjectFile } from "./language-plugin-registry.js";
+import { makeRegistry, refreshWrittenFile } from "./language-plugin-registry.js";
 import { getTypeErrorsForFiles } from "./post-write-diagnostics.js";
 import { drainPendingMutations, getSharedFileSystem } from "./self-write-state.js";
 
@@ -443,14 +443,15 @@ export async function dispatchRequest(
 }
 
 /**
- * Re-read everything this dispatch wrote into the ts-morph project, after the operation has
- * returned and holds no nodes into it. A write made with `checkTypeErrors: false` has no
- * other refresh: the post-write check never runs, and the watcher suppresses the write.
+ * Re-read everything this dispatch wrote into whichever engines are loaded, after the
+ * operation has returned and holds no nodes into the project. A write made with
+ * `checkTypeErrors: false` has no other refresh: the post-write check never runs, and the
+ * watcher suppresses the write.
  */
 function refreshWrittenFiles(): void {
   for (const filePath of drainPendingMutations()) {
     try {
-      refreshProjectFile(filePath);
+      refreshWrittenFile(filePath);
     } catch {
       // A refresh prepares later requests, so losing it for one path leaves that path stale.
       // It must not fail the dispatch: the write is already on disk, and the caller still

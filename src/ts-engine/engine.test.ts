@@ -100,7 +100,7 @@ describe("TsMorphEngine", () => {
     expect(diags.length).toBeGreaterThan(0);
   });
 
-  test("refreshProjectFile re-reads the project and keeps the program the check built", async ({
+  test("refreshWrittenFile re-reads the project and keeps the program the check built", async ({
     seedNamedFixture,
   }) => {
     const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
@@ -110,7 +110,7 @@ describe("TsMorphEngine", () => {
     expect((await p.getTypeErrors(file, scope)).errorCount).toBe(0);
 
     fs.writeFileSync(file, "// banner\nexport const x: number = 'not-a-number';\n");
-    p.refreshProjectFile(file);
+    p.refreshWrittenFile(file);
 
     // `x` sits at offset 23 of the new text: 10 of banner, 13 of "export const ".
     expect(p.resolveOffset(file, 2, 14)).toBe(23);

@@ -37,6 +37,7 @@ export function makeMockCompiler(overrides: Partial<Engine> = {}): Engine {
       truncated: false,
     }),
     refreshFile: vi.fn(),
+    refreshWrittenFile: vi.fn(),
     handlesFileExtension: vi.fn((ext: string) => ext === ".ts" || ext === ".tsx"),
     ...overrides,
   };

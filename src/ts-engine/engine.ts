@@ -267,7 +267,7 @@ export class TsMorphEngine implements Engine {
    * when the file isn't tracked yet, since the next lookup adds it from disk anyway.
    */
   refreshFile(filePath: string): void {
-    this.refreshProjectFile(filePath);
+    this.refreshWrittenFile(filePath);
     this.diagnosticServices.refreshFile(findTsConfigForFile(filePath), filePath);
   }
 
@@ -276,7 +276,7 @@ export class TsMorphEngine implements Engine {
    * the diagnostic cache alone. The write path needs only this half — a second eviction
    * would discard the program the post-write check had just rebuilt from disk.
    */
-  refreshProjectFile(filePath: string): void {
+  refreshWrittenFile(filePath: string): void {
     this.getCachedProjectForFile(filePath)?.getSourceFile(filePath)?.refreshFromFileSystemSync();
   }
 
