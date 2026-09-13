@@ -347,19 +347,16 @@ dispatcher self-write cases red on `if (tsMorphEngineSingleton) → if (false)`.
 
 ### Reflection
 
-The prototype's measurements decided the shape of the change: the per-file refresh costs ~233 ms
-against ~885 ms for dropping the service, so the drain's contract needed no re-derivation.
+A per-file refresh costs ~233 ms against ~885 ms for dropping the whole service, which is what the
+drain was built around.
 
-Each deviation above was refuted by a reproduction rather than by reading, and the two that shipped
-in the first pass were caught by review rather than by the test suite.
+Each deviation above was confirmed by a reproduction.
 
-Two test-design facts: `replaceText`'s `pattern` is a regex, so a pattern
-containing `useCounter(0)` is a capture group that matches nothing; and an SFC write through a
-`: number` annotation produces one diagnostic, not the two the bug report's prose implied.
+`replaceText`'s `pattern` is a regex, so a pattern containing `useCounter(0)` is a capture group that
+matches nothing. An SFC write that annotates a `ref` value produces one TS2322.
 
-One review claim did not reproduce: deleting a `.vue` file that another file still imports was said
-to leave the SFC in the retained service and answer 0 errors. Driving an unchecked `deleteFile`
-through a warm daemon and reading the importer returns TS2307 "Cannot find module './App.vue'".
+After an unchecked `deleteFile` of a `.vue` file that another file imports, a read of the importer
+returns TS2307 "Cannot find module './App.vue'".
 
 ### Follow-ups
 
