@@ -107,6 +107,26 @@ describe("buildVolarService", () => {
       expect(codesAfter.length).toBe(codesBefore.length + 1);
     });
 
+    test("re-reads a file again after it changes a second time", async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true, moduleResolution: "bundler" },
+          include: ["src/**/*.ts"],
+        }),
+        "src/main.ts": "export const count: number = 1;\n",
+      });
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
+      const file = path.join(dir, "src/main.ts");
+
+      fs.writeFileSync(file, "export const count: number = 2;\n");
+      service.rereadFile(file);
+      expect(service.baseService.getSemanticDiagnostics(file)).toEqual([]);
+
+      fs.writeFileSync(file, 'export const count: number = "not a number";\n');
+      service.rereadFile(file);
+      expect(service.baseService.getSemanticDiagnostics(file)).toHaveLength(1);
+    });
+
     test("stops serving a path that can no longer be read", async ({ seedInlineFixture }) => {
       const dir = await seedInlineFixture({
         "tsconfig.json": JSON.stringify({

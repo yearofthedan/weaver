@@ -158,7 +158,8 @@ export async function buildVolarService(
 
   const fileContents = new Map<string, string>();
   // Versioned per file so `rereadFile` can make the language service take a
-  // fresh snapshot of a file whose text changed on disk.
+  // fresh snapshot of a file whose text changed on disk. The language service
+  // compares versions for change, so each refresh moves the value to a new one.
   const versions = new Map<string, number>();
 
   const readFileFromDisk = (filePath: string): string | undefined => {
