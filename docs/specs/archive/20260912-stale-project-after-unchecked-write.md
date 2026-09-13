@@ -281,10 +281,12 @@ guard, the plugin-compiler reset in `clearLanguagePlugins`, and the engine's two
 - **The write-time observer evicts the parse; the end-of-dispatch drain refreshes ts-morph.**
   The two halves are deliberately at different moments because `refreshFromFileSystemSync`
   replaces a node tree an in-flight operation still holds references into.
-- **Plugin engines are refreshed by the post-write check and nothing else.** `VolarEngine`'s
-  per-file refresh drops the whole service (~1035 ms), which is why the drain does not fan out
-  to plugins — so a write with `checkTypeErrors: false` in a Vue project still leaves Volar
-  behind disk. That boundary is now written into both internals docs and the handoff entry.
+- **On the write path, a Vue project's Volar service is refreshed by the post-write check and
+  nothing else.** `VolarEngine`'s per-file refresh drops the whole service (~1035 ms), which is
+  why the drain does not fan out to plugins — so a write with `checkTypeErrors: false` in a Vue
+  project still leaves Volar behind disk. External edits do reach plugins, through the watcher's
+  `invalidateFile` fan-out. That boundary is now written into both internals docs and the handoff
+  entry.
 - `refreshFromFileSystemSync` on a deleted path returns `Deleted` and forgets the source file
   rather than throwing, so the pending set needs no liveness filter — which is why offering
   every mutation (no extension allowlist) is both correct and the cheapest shape.

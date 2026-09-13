@@ -49,7 +49,7 @@ With type errors after the write:
 | `typeErrorCount` | True total even when capped. |
 | `typeErrorsTruncated` | `true` when the cap was hit. |
 
-`checkTypeErrors: false` on the input suppresses post-write diagnostics — `typeErrors` and friends are omitted, and `status` stays `success`.
+`checkTypeErrors: false` on the input suppresses post-write diagnostics — `typeErrors` and friends are omitted, and `status` stays `success`. In a Vue project the flag also leaves the SFC compiler's cached view of the file behind the write, so a later read can answer from the pre-write text.
 
 ## Read-only operations
 
