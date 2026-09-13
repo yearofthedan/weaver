@@ -315,6 +315,37 @@ describe("a read dispatched after a write that skipped the type check", () => {
     expect(after).toMatchObject({ status: "success", errorCount: 0 });
   });
 
+  test("answers from disk after an unchecked write to a .ts file in a Vue project", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const file = path.join(dir, "src/composables/useCounter.ts");
+
+    const warm = await dispatchRequest({ method: "getTypeErrors", params: { file } }, dir);
+    expect(warm).toMatchObject({ status: "success", errorCount: 0 });
+
+    const written = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          pattern: "\\(\\) => count,",
+          replacement: "(): string => count,",
+          glob: "src/composables/useCounter.ts",
+          checkTypeErrors: false,
+        },
+      },
+      dir,
+    );
+    expect(written.status).not.toBe("error");
+
+    const after = await dispatchRequest({ method: "getTypeErrors", params: { file } }, dir);
+    expect(after).toMatchObject({
+      status: "success",
+      errorCount: 1,
+      diagnostics: [expect.objectContaining({ file, line: 4, col: 26, code: 2322 })],
+    });
+  });
+
   test("answers from disk after a write to a .js file in a Vue project", async ({
     seedInlineFixture,
   }) => {
