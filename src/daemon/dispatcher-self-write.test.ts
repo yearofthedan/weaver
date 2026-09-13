@@ -266,6 +266,8 @@ describe("a read dispatched after a write that skipped the type check", () => {
     );
     expect(deleted.status).not.toBe("error");
 
+    // deleteFile invalidates the project engine itself, so this case pins that the
+    // drain handles a vanished path without breaking the dispatch.
     const after = await dispatchRequest(
       { method: "findReferences", params: { file: keep, line: 1, col: 17 } },
       dir,
