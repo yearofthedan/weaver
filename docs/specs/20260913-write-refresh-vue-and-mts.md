@@ -116,14 +116,23 @@ prototype of this fix, since reverted.
    and the `language.scripts` registration is what makes Volar regenerate an SFC's virtual
    TypeScript. A path that can no longer be read drops its `fileContents` entry and bumps
    its version.
-2. **Untracked-path guard.** The refresh can only repair files the service already serves:
-   `scriptFileNames` is fixed when the service is built, so re-registering a path that is
-   not in it leaves the language service unable to serve it. When the path (via
-   `toVirtualVuePath`) is not among `scriptFileNames`, fall back to `invalidateService`.
-   No current operation reaches this — every operation that creates a path
-   (`moveFile`, `moveSymbol`, `extractFunction`, `deleteFile`) invalidates the service
-   itself, confirmed by a `moveFile` whose next read cost 870 ms — so the guard runs on a
-   path no current caller takes, and holds the refresh to files it can actually repair.
+2. **What the refresh does with a path the service does not serve.** The refresh can only
+   repair files the service already serves: `scriptFileNames` is fixed when the service is
+   built, so re-registering a path outside it leaves the language service unable to serve
+   that path. Three cases:
+   - **In `scriptFileNames`** → re-read it in place.
+   - **Absent from `scriptFileNames`, but read into `fileContents` (a resolved dependency),
+     or the tsconfig the program was configured from** → `invalidateService`. The tsconfig
+     is how changed compiler options and a changed file list reach a retained service, and
+     a resolved dependency has no per-file repair because it is not a script file.
+   - **A path the service has read nothing about** → leave it alone. The drain runs for
+     every path a dispatch wrote and the cache key is the tsconfig, so dropping on every
+     unserved path puts a full rebuild on the next read after a `.md`/`.css` write.
+
+   The fan-out at the registry asks every loaded engine. A plugin engine answers for the
+   paths it holds: an extension-keyed filter there would have to be kept in step with the
+   service's file set, and `handlesFileExtension` answers whether an engine can report
+   diagnostics for an extension.
 3. **`src/plugins/vue/engine.ts`** — `VolarEngine` applies that refresh across its cached
    services. `refreshFile` keeps its current meaning (drop the service): the checked
    path's cost is a separate entry, not this fix.
@@ -135,7 +144,16 @@ prototype of this fix, since reverted.
    exported function takes the same name, matching the dispatcher's `refreshWrittenFiles`
    that drives it.
 5. **`src/ts-engine/engine.ts:212` and `src/plugins/vue/engine.ts:449`** —
-   `handlesFileExtension` accepts `.mts` and `.cts`.
+   `handlesFileExtension` accepts `.mts` and `.cts`, through one exported set
+   (`TYPECHECK_EXTENSIONS`) that both engines, the registry's test stub and the test mock
+   consult.
+
+   The Volar service's `scriptFileNames` is the tsconfig's own files plus a workspace walk
+   over `TS_EXTENSIONS`, so an extension the walk omits is one the service cannot serve:
+   `getSemanticDiagnostics` throws for a path outside the program, which the post-write
+   check turns into `INTERNAL_ERROR` for a write that has already landed. `TS_EXTENSIONS`
+   therefore gains `.mts`/`.cts` too, and `VUE_EXTENSIONS` derives from it, so the superset
+   relation holds by construction and the watcher observes those extensions as well.
 
 **Measured, on the Vue fixture project through the real CLI and daemon:**
 
@@ -195,6 +213,14 @@ So the per-file refresh costs nothing measurable against a warm read, where fann
 - **Volar's memory behaviour is unchanged** — the service is retained, not rebuilt, so the
   idle-eviction boundary in `docs/internals/daemon.md:77` (plugin engines untouched) still
   holds.
+- **`.js`/`.jsx` writes reach the service.** The workspace walk over `TS_EXTENSIONS` puts
+  them in `scriptFileNames`, while `handlesFileExtension` declines them, since whether they
+  are checkable depends on `allowJs`; a `.js` write takes the same per-file re-read as a
+  `.ts` one (pinned in `dispatcher-self-write.test.ts`).
+- **A write to the tsconfig drops the service**, since changed compiler options and a
+  changed file list both need a rebuild.
+- **A write to a path the service has read nothing about leaves it in place**: the compiler
+  holds no state about that path, and a rebuild would be paid by the next read.
 
 ## Done-when
 
@@ -209,13 +235,18 @@ So the per-file refresh costs nothing measurable against a warm read, where fann
 - [ ] `dispatcher-self-write.test.ts` — an unchecked `deleteFile` in a Vue project
       followed by a read of a surviving file, mirroring the existing TS case at :216
 - [ ] A dispatcher-level case for a `.mts` write with the check **on** reporting its
-      errors, and one for `.cts`
+      errors, and one for `.cts`; plus a `.mts` write in a Vue project whose tsconfig omits
+      the file, and a `.js` write in a Vue project whose next read answers from disk
 - [ ] `engine.test.ts` (both engines) — `handlesFileExtension` accepts `.mts`/`.cts` and
       still declines `.js`
-- [ ] `service.test.ts` — refreshing a tracked file leaves the *same* `CachedService`
-      instance in the cache (a dropped service would be a new object), and a subsequent
-      read answers from the new text; refreshing a path the service does not serve drops
-      the service instead
+- [ ] `engine.test.ts` (Volar) — refreshing a served file leaves the *same* `CachedService`
+      instance in the cache and a subsequent read answers from the new text, including for
+      a `.js` file; a write to the tsconfig, or to a path the service read as a dependency,
+      drops the service; a write to a path it has read nothing about leaves it in place.
+      `service.test.ts` — `rereadFile` serves the new text, and drops the cached text for a
+      path that can no longer be read. (The engine-level assertions live in the engine's
+      own test file: the cache is the engine's, and `service.test.ts` drives
+      `buildVolarService`.)
 - [ ] The checked-path control: a checked write that introduces an error still returns
       `status: warn` with the diagnostics
 - [ ] Mutation score ≥ threshold for `src/plugins/vue/service.ts` and the changed part of
@@ -229,7 +260,10 @@ So the per-file refresh costs nothing measurable against a warm read, where fann
       - `docs/internals/daemon.md:65` — the write-observation description states that the
         end-of-dispatch refresh now reaches every loaded engine, and drops the "known gap"
         sentence
-      - `docs/internals/watcher.md:78` — same correction to its closing sentence
+      - `docs/internals/watcher.md:78` — same correction to its closing sentence, and its
+        "Extension selection" section lists the extensions the watcher now observes
+        (`.mts`/`.cts` joined the set)
+      - `docs/internals/daemon.md` — the watcher bullet names the same extension set
       - `docs/internals/get-type-errors.md:68` — name the two refresh contracts
         (`refreshFile` drops the service for the check; `refreshWrittenFile` is the
         per-file repair the drain uses) and record that the post-write check covers
