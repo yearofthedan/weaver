@@ -308,14 +308,14 @@ the error, and the unchecked revert that removed it was reflected by the later r
 
 ### Test count
 
-Main lane 1506 (108 files), eval lane 531. Two duplicated engine-level cases were deleted from
+The main lane holds 1510 tests across 108 files; the eval lane holds 531. Two duplicated engine-level cases were deleted from
 `service.test.ts`; `engine.test.ts` already covered the same branches.
 
 ### Mutation score, scoped runs
 
 | File | Score | Notes |
 | --- | --- | --- |
-| `src/plugins/vue/service.ts` | 64.2% (54.5% on 2026-08-31) | No fixable survivor on the lines this fix adds; the pre-existing survivors are their own handoff entry. |
+| `src/plugins/vue/service.ts` | 66.2% (54.5% on 2026-08-31) | No survivor on the lines this fix adds, after the deleted-SFC fix and its tests. |
 | `src/plugins/vue/engine.ts` | 79.7% | No survivor on the added lines. |
 | `src/plugins/vue/get-type-errors.ts` | 93.8% | The guard's optional chain was a defensive branch and is gone. |
 | `src/daemon/language-plugin-registry.ts` | 93.8% | The fan-out loop's guard is observable in one direction. |
@@ -326,7 +326,9 @@ Two survivors are equivalent mutants, recorded in
 [`docs/tech/mutation-testing.md`](../../tech/mutation-testing.md) under "Known surviving mutants":
 the version counter's direction, and the fan-out's loaded-engine guard, where the isolation `catch`
 absorbs the deref. Both were confirmed by hand — the version test reds on `?? → &&`, and the
-dispatcher self-write cases red on `if (tsMorphEngineSingleton) → if (false)`.
+dispatcher self-write cases red on `if (tsMorphEngineSingleton) → if (false)`. Four further hand-mutations
+check the rest: removing `language.scripts.delete`, the `fileContents` disjunct and the fan-out's
+`try` each red their own case.
 
 ### Where the shipped behaviour differs from this spec's Fix section
 
