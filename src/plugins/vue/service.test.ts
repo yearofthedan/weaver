@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect } from "vitest";
 import { fixtureTest as test } from "../../__testHelpers__/helpers.js";
@@ -40,6 +41,90 @@ describe("buildVolarService", () => {
       const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
 
       expect(service.scriptFileNames).not.toContain(path.join(dir, "src/App.vue"));
+    });
+  });
+
+  describe("refreshFile", () => {
+    test("re-reads a tracked .ts file so the language service answers from the new text", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true, moduleResolution: "bundler" },
+          include: ["src/**/*.ts"],
+        }),
+        "src/main.ts": "export const count: number = 1;\n",
+      });
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
+      const file = path.join(dir, "src/main.ts");
+      expect(service.baseService.getSemanticDiagnostics(file)).toEqual([]);
+
+      fs.writeFileSync(file, 'export const count: number = "not a number";\n');
+      service.refreshFile(file);
+
+      const diagnostics = service.baseService.getSemanticDiagnostics(file);
+      expect(diagnostics.length).toBe(1);
+    });
+
+    test("re-registers a .vue file's virtual TypeScript so the SFC's new text is checked", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true, moduleResolution: "bundler" },
+          include: ["src/**/*.ts", "src/**/*.vue"],
+        }),
+        "src/App.vue": [
+          '<script setup lang="ts">',
+          "const count: number = 1;",
+          "</script>",
+          "<template><div>{{ count }}</div></template>",
+          "",
+        ].join("\n"),
+      });
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
+      const file = path.join(dir, "src/App.vue");
+      const virtualPath = `${file}.ts`;
+      const codesBefore = service.baseService
+        .getSemanticDiagnostics(virtualPath)
+        .map((d) => d.code);
+      expect(codesBefore).not.toContain(2322);
+
+      fs.writeFileSync(
+        file,
+        [
+          '<script setup lang="ts">',
+          'const count: number = "not a number";',
+          "</script>",
+          "<template><div>{{ count }}</div></template>",
+          "",
+        ].join("\n"),
+      );
+      service.refreshFile(file);
+
+      const codesAfter = service.baseService.getSemanticDiagnostics(virtualPath).map((d) => d.code);
+      expect(codesAfter.filter((code) => code === 2322).length).toBe(1);
+      expect(codesAfter.length).toBe(codesBefore.length + 1);
+    });
+
+    test("stops serving a path that can no longer be read", async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true, moduleResolution: "bundler" },
+          include: ["src/**/*.ts"],
+        }),
+        "src/main.ts": "export const count: number = 1;\n",
+      });
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
+      const file = path.join(dir, "src/main.ts");
+      expect(service.fileContents.has(file)).toBe(true);
+      expect(service.baseService.getProgram()?.getSourceFile(file)).toBeDefined();
+
+      fs.unlinkSync(file);
+      service.refreshFile(file);
+
+      expect(service.fileContents.has(file)).toBe(false);
+      expect(service.baseService.getProgram()?.getSourceFile(file)).toBeUndefined();
     });
   });
 });

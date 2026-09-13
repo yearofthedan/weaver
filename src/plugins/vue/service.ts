@@ -41,6 +41,18 @@ export interface CachedService {
    * See `typeCheckedFiles` for the seed's general contract.
    */
   seedFileNames: string[] | null;
+  /**
+   * Re-read `filePath` from disk into the retained language service, so a later
+   * query is answered from the text on disk rather than the snapshot taken when
+   * the service was built.
+   *
+   * All three steps are needed: the new text replaces what the host serves, the
+   * version makes the TypeScript language service take a fresh snapshot, and the
+   * `scripts` registration is what makes Volar regenerate a `.vue` file's virtual
+   * TypeScript. A path that can no longer be read loses its cached text and still
+   * bumps its version, so the service stops serving the text that was there.
+   */
+  refreshFile(filePath: string): void;
 }
 
 function parseTsConfig(
@@ -65,6 +77,7 @@ function buildLanguageServiceHost(params: {
   languageRef: { current: Language<string> | undefined };
   tsConfigPath: string | null;
   readFile: (filePath: string) => string | undefined;
+  versions: Map<string, number>;
   ts: typeof import("typescript");
 }): import("typescript").LanguageServiceHost {
   const {
@@ -74,9 +87,9 @@ function buildLanguageServiceHost(params: {
     languageRef,
     tsConfigPath,
     readFile,
+    versions,
     ts,
   } = params;
-  const versions = new Map<string, number>();
   const getVersion = (filePath: string) => String(versions.get(filePath) ?? 0);
 
   return {
@@ -144,16 +157,24 @@ export async function buildVolarService(
   const { createLanguage } = await import("@vue/language-core");
 
   const fileContents = new Map<string, string>();
+  // Versioned per file so `refreshFile` can make the language service take a
+  // fresh snapshot of a file whose text changed on disk.
+  const versions = new Map<string, number>();
 
-  const readFile = (filePath: string): string | undefined => {
-    if (fileContents.has(filePath)) return fileContents.get(filePath);
+  const readFileFromDisk = (filePath: string): string | undefined => {
     try {
-      const content = fs.readFileSync(filePath, "utf8");
-      fileContents.set(filePath, content);
-      return content;
+      return fs.readFileSync(filePath, "utf8");
     } catch {
       return undefined;
     }
+  };
+
+  const readFile = (filePath: string): string | undefined => {
+    const cached = fileContents.get(filePath);
+    if (cached !== undefined) return cached;
+    const content = readFileFromDisk(filePath);
+    if (content !== undefined) fileContents.set(filePath, content);
+    return content;
   };
 
   const { compilerOptions, fileNames: tsConfigFileNames } = parseTsConfig(tsConfigPath, ts);
@@ -255,6 +276,7 @@ export async function buildVolarService(
     languageRef,
     tsConfigPath,
     readFile,
+    versions,
     ts,
   });
 
@@ -272,5 +294,19 @@ export async function buildVolarService(
     vueVirtualToReal,
     scriptFileNames,
     seedFileNames,
+    refreshFile: (filePath) => {
+      const content = readFileFromDisk(filePath);
+      if (content === undefined) {
+        fileContents.delete(filePath);
+      } else {
+        fileContents.set(filePath, content);
+        language.scripts.set(
+          filePath,
+          ts.ScriptSnapshot.fromString(content),
+          filePath.endsWith(".vue") ? "vue" : "typescript",
+        );
+      }
+      versions.set(filePath, (versions.get(filePath) ?? 0) + 1);
+    },
   };
 }
