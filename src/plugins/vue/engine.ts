@@ -466,7 +466,7 @@ export class VolarEngine implements Engine {
   }
 
   handlesFileExtension(ext: string): boolean {
-    return ext === ".ts" || ext === ".tsx" || ext === ".vue";
+    return ext === ".ts" || ext === ".tsx" || ext === ".mts" || ext === ".cts" || ext === ".vue";
   }
 
   async rename(

@@ -210,7 +210,7 @@ export class TsMorphEngine implements Engine {
   }
 
   handlesFileExtension(ext: string): boolean {
-    return ext === ".ts" || ext === ".tsx";
+    return ext === ".ts" || ext === ".tsx" || ext === ".mts" || ext === ".cts";
   }
 
   /** Public accessor for the seed `addWorkspaceFiles` computed — `null` when there's no tsconfig. */
