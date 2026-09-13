@@ -1,7 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect } from "vitest";
-import { fixtureTest as test } from "../../__testHelpers__/helpers.js";
+import { FIXTURES, fixtureTest as test } from "../../__testHelpers__/helpers.js";
+import { TsMorphEngine } from "../../ts-engine/engine.js";
+import { VolarEngine } from "./engine.js";
 import { buildVolarService } from "./service.js";
 
 describe("buildVolarService", () => {
@@ -125,6 +127,46 @@ describe("buildVolarService", () => {
 
       expect(service.fileContents.has(file)).toBe(false);
       expect(service.baseService.getProgram()?.getSourceFile(file)).toBeUndefined();
+    });
+  });
+
+  describe("refreshWrittenFile", () => {
+    test("keeps the cached service for a tracked file and reads it back from the new text", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+      const engine = new VolarEngine(new TsMorphEngine());
+      const file = path.join(dir, "src/composables/useCounter.ts");
+      await engine.getRenameLocations(file, engine.resolveOffset(file, 1, 17));
+
+      const refreshed = "export function useCounter(): number {\n  return 1;\n}\n";
+      fs.writeFileSync(file, refreshed);
+      engine.refreshWrittenFile(file);
+
+      // Only the retained service holds this text; a dropped one would fall back
+      // to whichever content is on disk at the time of the read.
+      fs.writeFileSync(file, "export const movedOn = true;\n");
+      expect(engine.readFile(file)).toBe(refreshed);
+    });
+
+    test("drops the cached service for a path the service does not serve", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+      const engine = new VolarEngine(new TsMorphEngine());
+      const tracked = path.join(dir, "src/composables/useCounter.ts");
+      await engine.getRenameLocations(tracked, engine.resolveOffset(tracked, 1, 17));
+
+      // Created after the service was built, so it is not among scriptFileNames.
+      const late = path.join(dir, "src/Late.ts");
+      fs.writeFileSync(late, "export const late: number = 1;\n");
+      engine.refreshWrittenFile(late);
+
+      // With the service gone from the cache, the engine has nowhere to hold this
+      // and falls back to the file on disk.
+      const held = "export const held = 1;\n";
+      engine.notifyFileWritten(tracked, held);
+      expect(engine.readFile(tracked)).not.toBe(held);
     });
   });
 });
