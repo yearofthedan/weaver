@@ -101,10 +101,9 @@ export function invalidateFile(filePath: string): void {
  * has not been loaded is skipped, so a read-only dispatch builds no service.
  */
 export function refreshWrittenFile(filePath: string): void {
-  tsMorphEngineSingleton?.refreshWrittenFile(filePath);
-  for (const engine of pluginCompilers.values()) {
+  for (const engine of [tsMorphEngineSingleton, ...pluginCompilers.values()]) {
     try {
-      engine.refreshWrittenFile(filePath);
+      engine?.refreshWrittenFile(filePath);
     } catch {
       // Isolation: continue to other engines even if one throws
     }
