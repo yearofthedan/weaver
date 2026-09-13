@@ -8,6 +8,7 @@ import { resolveDeclarationStatement } from "../../ts-engine/move-symbol.js";
 import { hasRefsOutsideDeclaration } from "../../ts-engine/refs-outside-declaration.js";
 import { SymbolRef } from "../../ts-engine/symbol-ref.js";
 import { createThrowawaySourceFile } from "../../ts-engine/throwaway-project.js";
+import { TS_EXTENSIONS } from "../../utils/extensions.js";
 import { walkFiles } from "../../utils/file-walk.js";
 import { computeRelativeImportPath } from "../../utils/relative-path.js";
 import { findTsConfigForFile } from "../../utils/ts-project.js";
@@ -96,7 +97,7 @@ function rewriteImporters(
 
   const rewriter = new ImportRewriter();
   const alreadyModified = new Set(scope.modified);
-  for (const file of walkFiles(searchRoot, [".ts", ".tsx"])) {
+  for (const file of walkFiles(searchRoot, [...TS_EXTENSIONS])) {
     if (alreadyModified.has(file)) continue;
     const content = scope.fs.readFile(file);
     const rewritten = rewriter.rewriteScript(
