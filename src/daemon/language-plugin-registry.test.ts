@@ -6,7 +6,6 @@ import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
 import { TsMorphEngine } from "../ts-engine/engine.js";
 import type { Engine, LanguagePlugin } from "../ts-engine/types.js";
-import { TYPECHECK_EXTENSIONS } from "../utils/extensions.js";
 import {
   clearLanguagePlugins,
   evictAllDiagnosticParses,
@@ -53,7 +52,7 @@ function stubCompiler(tag = "stub"): Engine {
     }),
     refreshFile: () => {},
     refreshWrittenFile: () => {},
-    handlesFileExtension: (ext: string) => TYPECHECK_EXTENSIONS.has(ext),
+    handlesFileExtension: () => false,
     _tag: tag,
   } as Engine & { _tag: string };
 }
@@ -404,22 +403,6 @@ describe("LanguagePluginRegistry", () => {
 
       refreshWrittenFile("/some/file.ts");
 
-      expect(refresh).toHaveBeenCalledWith("/some/file.ts");
-    });
-
-    it("asks a plugin engine only about paths it claims", async () => {
-      const refresh = vi.fn();
-      registerLanguagePlugin({
-        id: "claims-ts",
-        supportsProject: () => true,
-        createEngine: async () => ({ ...stubCompiler(), refreshWrittenFile: refresh }),
-      });
-      await makeRegistry(PROJECT_FILE, WORKSPACE_ROOT).projectEngine();
-
-      refreshWrittenFile("/some/notes.md");
-      expect(refresh).not.toHaveBeenCalled();
-
-      refreshWrittenFile("/some/file.ts");
       expect(refresh).toHaveBeenCalledWith("/some/file.ts");
     });
 

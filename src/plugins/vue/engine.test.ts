@@ -154,21 +154,58 @@ describe("VolarEngine", () => {
     expect((await p.getTypeErrors(file, scope)).errorCount).toBe(1);
   });
 
-  test("refreshWrittenFile rebuilds the service for a path it does not serve", async ({
+  test("refreshWrittenFile re-reads a .js file the service serves", async ({
     seedNamedFixture,
   }) => {
     const dir = await seedNamedFixture(FIXTURES.vueProject.name);
-    const p = new VolarEngine(new TsMorphEngine());
+    const p = new VolarEngine(new TsMorphEngine(), dir);
+    const js = path.join(dir, "src/helper.js");
+    fs.writeFileSync(js, "export const value = 1;\n");
     const tracked = path.join(dir, "src/composables/useCounter.ts");
-    // Build and cache the service before the second file exists.
     await p.getRenameLocations(tracked, p.resolveOffset(tracked, 1, 17));
-    const late = path.join(dir, "src/Late.ts");
-    fs.writeFileSync(late, "export const late: number = 1;\n");
+
+    const refreshed = "export const value = 2;\n";
+    fs.writeFileSync(js, refreshed);
+    p.refreshWrittenFile(js);
+
+    // The retained service holds this text; the file on disk holds different text
+    // by now.
+    fs.writeFileSync(js, "export const movedOn = true;\n");
+    expect(p.readFile(js)).toBe(refreshed);
+  });
+
+  test("refreshWrittenFile rebuilds the service when the tsconfig itself was written", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine(), dir);
+    const tracked = path.join(dir, "src/composables/useCounter.ts");
+    await p.getRenameLocations(tracked, p.resolveOffset(tracked, 1, 17));
+    const tsConfig = path.join(dir, "tsconfig.json");
 
     const invalidate = vi.spyOn(p, "invalidateService");
-    p.refreshWrittenFile(late);
+    p.refreshWrittenFile(tsConfig);
 
-    expect(invalidate).toHaveBeenCalledWith(late);
+    // The program's compiler options and file list both come from this file.
+    expect(invalidate).toHaveBeenCalledWith(tsConfig);
+  });
+
+  test("refreshWrittenFile leaves the service alone for a path it holds nothing about", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine(), dir);
+    const tracked = path.join(dir, "src/composables/useCounter.ts");
+    await p.getRenameLocations(tracked, p.resolveOffset(tracked, 1, 17));
+    const doc = path.join(dir, "README.md");
+    fs.writeFileSync(doc, "# readme\n");
+
+    const invalidate = vi.spyOn(p, "invalidateService");
+    p.refreshWrittenFile(doc);
+
+    // The service has read nothing at this path, so the cache it holds stays in
+    // place.
+    expect(invalidate).not.toHaveBeenCalled();
   });
 
   test("refreshWrittenFile is a no-op when the service has not been loaded", async ({

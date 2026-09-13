@@ -269,6 +269,43 @@ describe("a read dispatched after a write that skipped the type check", () => {
     expect(after).toMatchObject({ status: "success", errorCount: 0 });
   });
 
+  test("answers from disk after a write to a .js file in a Vue project", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: { strict: true, allowJs: true, moduleResolution: "bundler" },
+        include: ["src"],
+      }),
+      "src/App.vue": '<script setup lang="ts">\nconst n: number = 1;\n</script>\n',
+      "src/util.js": "/** @type {number} */\nexport const val = 1;\n",
+      "src/use.ts": 'import { val } from "./util.js";\nexport const s: string = val;\n',
+    });
+    const use = path.join(dir, "src/use.ts");
+
+    const warm = await dispatchRequest({ method: "getTypeErrors", params: { file: use } }, dir);
+    expect(warm).toMatchObject({ status: "success", errorCount: 1 });
+
+    const written = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          pattern: "@type {number}",
+          replacement: "@type {string}",
+          glob: "src/util.js",
+          checkTypeErrors: false,
+        },
+      },
+      dir,
+    );
+    expect(written.status).not.toBe("error");
+
+    // The service serves .js files from the snapshot it holds, so this read
+    // follows the drain's refresh rather than the file.
+    const after = await dispatchRequest({ method: "getTypeErrors", params: { file: use } }, dir);
+    expect(after).toMatchObject({ status: "success", errorCount: 0 });
+  });
+
   test("checks a .mts write in a Vue project whose tsconfig does not list the file", async ({
     seedInlineFixture,
   }) => {
