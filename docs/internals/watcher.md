@@ -59,13 +59,13 @@ Next tool call arriving at the daemon socket
 | `change` | file content edited | Selective (ts-morph single-file refresh) | Project graph structure unchanged; cheap to update one node |
 | `add` | new file created | Full engine drop | New file may be included by tsconfig; project graph is structurally stale |
 | `unlink` | file deleted | Full engine drop | Source file node must be removed; no ts-morph API for single-file removal |
-| any | Vue project | Full Volar service drop | Volar has no incremental file refresh API. The rebuild is not cheap — 330–490ms on a real 170-file project — but it is lazy, so a burst of events costs one rebuild, not one per event |
+| any | Vue project | Full Volar service drop | External edits resolve to a rebuild; the daemon's own writes repair one file in place instead (`CachedService.rereadFile`). The rebuild costs 330–490ms on a real 170-file project, and it is lazy, so a burst of events costs one rebuild, not one per event |
 
 Lazy rebuild: the engine is not rebuilt immediately on invalidation. The cost is paid on the next incoming tool call. This keeps watcher latency near zero — the same model most LSP servers use.
 
 ## Extension selection
 
-The watcher always watches `VUE_EXTENSIONS` — `.ts` `.tsx` `.js` `.jsx` `.vue` — regardless of project type.
+The watcher always watches `VUE_EXTENSIONS` — `.ts` `.tsx` `.mts` `.cts` `.js` `.jsx` `.vue` — regardless of project type.
 
 Choosing the set at startup from the project type is self-defeating: in a workspace with no `.vue` files, the watcher would filter out `.vue` events, so the daemon never observes edits to a `.vue` file added after it started. Engine *selection* is unaffected either way, since `dispatchRequest` re-runs discovery every dispatch (see `resetDiscoveryCaches` in [`daemon.md`](daemon.md)) — this is only about observing later edits to files the daemon did not know about at startup.
 
@@ -75,7 +75,7 @@ Extension constants are shared with the file-walk module, which also owns `SKIP_
 
 ## Daemon own-writes
 
-The daemon's own operations write files to disk, and those writes come back as watcher events ~200ms later — indistinguishable, at the filesystem, from someone editing in an editor. By then the daemon has already brought the ts-morph engine to the text it wrote, whatever `checkTypeErrors` says, so acting on those events would discard correct state; the two signals that do it are in [get-type-errors.md](get-type-errors.md), under "Implementation notes". A write with the check suppressed leaves a Vue project's Volar service behind disk, because the drain reaches the ts-morph engine only and the watcher event that would refresh Volar is the one being suppressed. With the check on, `getTypeErrorsForFiles` refreshes the project engine itself, which in a Vue project is Volar.
+The daemon's own operations write files to disk, and those writes come back as watcher events ~200ms later — indistinguishable, at the filesystem, from someone editing in an editor. By then the daemon has already brought every loaded engine to the text it wrote, whatever `checkTypeErrors` says, so acting on those events would discard correct state; the signals that do it are in [get-type-errors.md](get-type-errors.md), under "Implementation notes". A write with the check suppressed is covered by the end-of-dispatch drain, which re-reads each written path into every loaded engine — for a Vue project, into the cached service that serves it. With the check on, `getTypeErrorsForFiles` refreshes the project engine itself, which in a Vue project is Volar.
 
 The daemon recognises its own writes and skips invalidating for them. Every dispatcher operation writes through one shared `RecordingFileSystem` (`src/daemon/self-write-state.ts`), which reports each mutation to a `SelfWriteLedger`; `buildWatcherCallbacks` consults that ledger before calling `invalidateFile` or `invalidateAll`.
 

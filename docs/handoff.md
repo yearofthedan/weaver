@@ -143,7 +143,8 @@ src/
     *.test.ts             ← colocated unit tests
   utils/
     text-utils.ts      ← applyTextEdits(), offsetToLineCol()
-    file-walk.ts       ← walkFiles() + walkWorkspaceFiles() + SKIP_DIRS + TS_EXTENSIONS + VUE_EXTENSIONS
+    extensions.ts      ← TS_EXTENSIONS / VUE_EXTENSIONS / TYPECHECK_EXTENSIONS / JS_TS_PAIRS + stripExt() — the one home for "what files matter"
+    file-walk.ts       ← walkFiles() + walkWorkspaceFiles() + walkRecursive() + SKIP_DIRS (the extension sets come from extensions.ts)
     globs.ts           ← compileGlob() — validate + brace-expand a glob into a path predicate; globToRegex() per-pattern translation
     ts-project.ts      ← findTsConfig, findTsConfigForFile, isVueProject, resetDiscoveryCaches (per-dispatch memo reset)
     *.test.ts          ← colocated unit tests
@@ -180,7 +181,11 @@ Something else is waiting on it, or a user is hitting the failure now.
 
 These came from using weaver on real work, where a gap costs a user something.
 
-- **A write's refresh misses the Vue service, and the check skips `.mts`** → [spec](specs/20260913-write-refresh-vue-and-mts.md) — an unchecked write leaves a Vue project's Volar service behind disk, so a later check answers from the pre-write text in both directions, and the post-write check declines `.mts`/`.cts` even with the check on.
+- **A checked write in a Vue project rebuilds the whole Volar service** `[needs design]` — measured 2026-09-13: 949 ms against ~230 ms warm on the four-file fixture, because the post-write check calls `Engine.refreshFile`, which `VolarEngine` implements as `invalidateService` — the tsconfig's entire cached service goes, and the next read rebuilds it. The end-of-dispatch drain has the cheaper contract (`refreshWrittenFile` repairs one file in place), and the check cannot use it as written because it must see the text the write produced and it refreshes every path before querying any. Decide whether the check can route a path the service *serves* through `refreshWrittenFile`, which is the question `docs/internals/get-type-errors.md` answers for today's contract.
+
+- **The post-write check reports a written file outside the engine's program as clean** `[needs design]` — found 2026-09-13 while widening the check to `.mts`/`.cts`. `getSemanticDiagnostics` throws `Could not find source file` for a path the program does not hold, and a Vue project's Volar program holds only the tsconfig's files plus the workspace walk — which skips gitignored paths and `SKIP_DIRS`. The throw reached the dispatcher and turned a landed write into `INTERNAL_ERROR`; it now skips the path instead, so a surgical `replaceText` on `dist/gen.mts` reports `errorCount: 0`. A `.ts`/`.tsx` file under those directories takes the same skip. Decide whether such a file routes to the ts-morph engine (whose `addScriptFile` can take it) or is reported as unchecked rather than clean.
+
+- **A checked write to a resolved dependency or the tsconfig rebuilds the Volar service twice** `[needs design]` — measured 2026-09-13: for a written path the service read but does not serve, the check drops and rebuilds the service, and the end-of-dispatch drain drops that rebuild, so the next read pays a second one (3 service builds where keeping the check's rebuild makes 2). ts-morph's `refreshWrittenFile` avoids the same waste by leaving the diagnostic parse alone; Volar has no way to tell a service rebuilt after the write from one built before it.
 
 - **`recordDirectoryRename` inherits `walkRecursive`'s `SKIP_DIRS`, so part of a moved tree is never observed** `[needs design]` — found 2026-09-06. `RecordingFileSystem.recordDirectoryRename` walks the moved subtree with `walkRecursive`, which skips `node_modules`, `.git`, `dist`, `.nuxt`, `.output`, `.vite` and any symlink. Driving a rename over a tree containing `src/dist/b.ts` reports only the non-skipped files to the ledger and to the parse eviction. Not currently user-visible — the dispatcher rejects a check on the vanished old path with `FILE_NOT_FOUND` before the engine is consulted — but the ledger's watcher-suppression is built on the same walk, so the blind spot is shared by both consumers. Decide whether a rename's observation should use an unfiltered walk while the file *set* stays filtered.
 

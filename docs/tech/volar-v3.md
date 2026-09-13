@@ -103,6 +103,19 @@ It patches `getScriptSnapshot` and `getScriptKind` so that when TypeScript asks 
 
 **It does NOT modify `getScriptFileNames`.** That is why the virtual `.vue.ts` trick is necessary — the decorator alone does not make TypeScript include Vue files in its program.
 
+**A per-file refresh needs the content, the version, and the script registration together.**
+`CachedService.rereadFile` (`src/plugins/vue/service.ts`) repairs one written file inside a cached
+service. All three parts are needed, and any two of them leave a read answered from the text
+before the write:
+
+- the host's `readFile`/`fileContents` entry is what `getScriptSnapshot` serves for a plain file;
+- the version bump is what makes the TypeScript language service take a fresh snapshot — the
+  decorator above wraps `getScriptSnapshot` and `getScriptKind`, and leaves `getScriptVersion` to
+  the host, whose map starts empty and returns `"0"` for everything;
+- `language.scripts.set(path, snapshot, kind)` is what makes Volar regenerate an SFC's virtual
+  TypeScript: the script registry compares snapshot object identity, so replacing the snapshot is
+  what invalidates `getServiceScript`'s cached output.
+
 ## Implementation notes
 
 **`@volar/language-core` is a direct `devDependency`.**

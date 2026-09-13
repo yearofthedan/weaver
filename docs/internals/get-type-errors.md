@@ -87,13 +87,27 @@ signals, not two:
   none, so before this existed a move left every rewritten importer serving pre-move text — a
   fabricated TS2307 naming a specifier the file no longer contained.
 
-The write path has a second signal, on the ts-morph side of the same observer:
-`dispatchRequest`'s `finally` drains the paths that dispatch wrote — the pending set the
-`onMutated` hook also feeds — into the registry's `refreshProjectFile`, which re-reads each one
-into the ts-morph project. It calls `TsMorphEngine.refreshProjectFile`, the ts-morph half of
-`refreshFile`, and that split is what keeps it cheap: the eviction above has already run for
-these paths, and the post-write check has rebuilt the diagnostic program from the current text,
-so evicting the parse again would discard a program that is already correct.
+The write path has a second signal, on the compiler side of the same observer: `dispatchRequest`'s
+`finally` drains the paths that dispatch wrote — the pending set the `onMutated` hook also feeds —
+into the registry's `refreshWrittenFile`, which re-reads each one into every loaded engine:
+`TsMorphEngine.refreshWrittenFile` re-reads the file into the cached project, and
+`VolarEngine.refreshWrittenFile` re-reads it into the cached service that serves it and leaves the
+service in place. The ts-morph split is what keeps it cheap: the eviction above has already run for
+these paths, and the post-write check has rebuilt the diagnostic program from the current text, so
+evicting the parse again would discard a program that is already correct.
+
+`refreshFile` and `refreshWrittenFile` are two contracts. `refreshFile` is the check's refresh and
+drops whatever the engine holds for the path, which is why the check refreshes every path before
+querying any of them. `refreshWrittenFile` is the per-path repair the drain applies to everything a
+dispatch wrote, and keeps the rest of the engine's state. `VolarEngine.refreshWrittenFile` drops the
+service for a path it cannot repair in place — the tsconfig its program was configured from, or a
+path it read as a resolved dependency.
+
+The check covers `.ts`, `.tsx`, `.mts` and `.cts` — one set, `TYPECHECK_EXTENSIONS`, that both
+engines report from — plus `.vue` in a Vue project, whose SFC diagnostics come back through the
+source map. `.js`/`.jsx` are outside it because whether they are checkable depends on `allowJs`. A
+path the answering engine's program does not hold is skipped rather than throwing, on the principle
+below.
 
 The drain runs at the end of the dispatch because `refreshFromFileSystemSync` replaces a node
 tree the in-flight operation still holds references into (see the constraint below). A file the

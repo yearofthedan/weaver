@@ -45,11 +45,11 @@ With type errors after the write:
 | --- | --- |
 | `filesModified` | Absolute paths of files written. |
 | `filesSkipped` | Files the operation would have written but skipped because they fell outside the workspace boundary. Agents should surface this to the user. |
-| `typeErrors` | Diagnostics for `filesModified`. Up to 100 entries. Capped to TS/TSX files; `.vue` files in `filesModified` are not type-checked here. |
+| `typeErrors` | Diagnostics for `filesModified`. Up to 100 entries; the answering engine reports for the extensions it handles and the paths its program holds. |
 | `typeErrorCount` | True total even when capped. |
 | `typeErrorsTruncated` | `true` when the cap was hit. |
 
-`checkTypeErrors: false` on the input suppresses post-write diagnostics — `typeErrors` and friends are omitted, and `status` stays `success`. In a Vue project the flag also leaves the SFC compiler's cached view of the file behind the write, so a later read can answer from the pre-write text.
+`checkTypeErrors: false` on the input suppresses post-write diagnostics — `typeErrors` and friends are omitted, and `status` stays `success`.
 
 ## Read-only operations
 

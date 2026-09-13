@@ -145,8 +145,7 @@ prototype of this fix, since reverted.
    that drives it.
 5. **`src/ts-engine/engine.ts:212` and `src/plugins/vue/engine.ts:449`** —
    `handlesFileExtension` accepts `.mts` and `.cts`, through one exported set
-   (`TYPECHECK_EXTENSIONS`) that both engines, the registry's test stub and the test mock
-   consult.
+   (`TYPECHECK_EXTENSIONS`) that both engines and the test mock consult.
 
    The Volar service's `scriptFileNames` is the tsconfig's own files plus a workspace walk
    over `TS_EXTENSIONS`, so an extension the walk omits is one the service cannot serve:
