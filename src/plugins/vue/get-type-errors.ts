@@ -106,7 +106,9 @@ export async function vueGetTypeErrorsForTsFile(
   // getSemanticDiagnostics throws for a path outside the compiled program, and a
   // written path can be one: the walk that seeds `scriptFileNames` skips ignored and
   // generated directories. The project-wide check skips those files the same way.
-  if (!service.baseService.getProgram()?.getSourceFile(file)) {
+  // Only a syntax-only service returns undefined here, and Volar never builds one.
+  const program = service.baseService.getProgram() as ts.Program;
+  if (!program.getSourceFile(file)) {
     return { diagnostics: [], errorCount: 0, truncated: false };
   }
   return capDiagnostics(semanticErrors(service.baseService, file));
