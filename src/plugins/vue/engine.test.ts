@@ -190,6 +190,29 @@ describe("VolarEngine", () => {
     expect(invalidate).toHaveBeenCalledWith(tsConfig);
   });
 
+  test("refreshWrittenFile rebuilds the service for a path it read as a dependency", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine(), dir);
+    const uses = path.join(dir, "src/uses-dep.ts");
+    const dep = path.join(dir, "dist/dep.ts");
+    fs.mkdirSync(path.dirname(dep), { recursive: true });
+    fs.writeFileSync(dep, "export const dep: number = 1;\n");
+    fs.writeFileSync(uses, 'import { dep } from "../dist/dep";\nexport const d: number = dep;\n');
+
+    // Resolving the import reads the dependency, so the service holds its content while
+    // the workspace walk leaves it out of `scriptFileNames`.
+    expect((await p.getTypeErrors(uses, makeScope(dir))).errorCount).toBe(0);
+
+    const updated = "export const dep: string = 'changed';\n";
+    fs.writeFileSync(dep, updated);
+    p.refreshWrittenFile(dep);
+
+    // A dropped service falls through to disk; a retained one answers with the text it read.
+    expect(p.readFile(dep)).toBe(updated);
+  });
+
   test("refreshWrittenFile leaves the service alone for a path it holds nothing about", async ({
     seedNamedFixture,
   }) => {

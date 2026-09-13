@@ -406,6 +406,26 @@ describe("LanguagePluginRegistry", () => {
       expect(refresh).toHaveBeenCalledWith("/some/file.ts");
     });
 
+    it("continues to a plugin engine when the ts-morph refresh throws", async () => {
+      const refresh = vi.fn();
+      registerLanguagePlugin({
+        id: "plugin-refresh",
+        supportsProject: () => true,
+        createEngine: async () => ({ ...stubCompiler(), refreshWrittenFile: refresh }),
+      });
+      await makeRegistry(PROJECT_FILE, WORKSPACE_ROOT).projectEngine();
+      const throwing = vi
+        .spyOn(TsMorphEngine.prototype, "refreshWrittenFile")
+        .mockImplementation(() => {
+          throw new Error("EACCES: permission denied");
+        });
+
+      refreshWrittenFile("/some/file.ts");
+      throwing.mockRestore();
+
+      expect(refresh).toHaveBeenCalledWith("/some/file.ts");
+    });
+
     it("does not build a plugin engine that has not been loaded", () => {
       const factory = vi.fn(async (_tsEngine: TsMorphEngine) => stubCompiler());
       registerLanguagePlugin({
