@@ -383,6 +383,22 @@ describe("vueGetTypeErrorsForTsFile", () => {
     await vueGetTypeErrorsForTsFile("/project/main.ts", getService);
     expect(getService).toHaveBeenCalledWith("/project/main.ts");
   });
+
+  it("returns empty for a path the program does not hold, instead of throwing", async () => {
+    const FILE = "/project/dist/gen.ts";
+    const service = makeTsFileService([
+      makeTsFileDiagnostic(ts.DiagnosticCategory.Error, 2322, "unreachable", FILE, "", 0),
+    ]);
+    service.baseService = {
+      getSemanticDiagnostics: () => {
+        throw new Error(`Could not find source file: '${FILE}'.`);
+      },
+      getProgram: () => ({ getSourceFile: () => undefined }),
+    } as unknown as ts.LanguageService;
+
+    const result = await vueGetTypeErrorsForTsFile(FILE, async () => service);
+    expect(result).toEqual({ diagnostics: [], errorCount: 0, truncated: false });
+  });
 });
 
 describe("vueGetTypeErrorsForProject", () => {

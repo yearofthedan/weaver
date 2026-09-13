@@ -475,6 +475,33 @@ describe("a read dispatched after a write that skipped the type check", () => {
     });
   });
 
+  test("completes a write to a .mts file the project's file walk skips", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: { strict: true, module: "NodeNext", moduleResolution: "NodeNext" },
+        include: ["src"],
+      }),
+      "src/App.vue": '<script setup lang="ts">\nconst n: number = 1;\n</script>\n',
+      // Under a directory the workspace walk skips — reachable by a surgical edit's
+      // explicit path.
+      "dist/gen.mts": "export function greet(): string {\n  return 'hi';\n}\n",
+    });
+    const gen = path.join(dir, "dist/gen.mts");
+
+    const written = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: { edits: [{ file: gen, line: 2, col: 10, oldText: "'hi'", newText: "42" }] },
+      },
+      dir,
+    );
+
+    expect(written).toMatchObject({ status: "success", filesModified: [gen], typeErrorCount: 0 });
+    expect(fs.readFileSync(gen, "utf8")).toContain("return 42;");
+  });
+
   test("returns the operation's response when a refresh throws", async ({ seedInlineFixture }) => {
     const dir = await seedInlineFixture({
       "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true }, include: ["src"] }),
