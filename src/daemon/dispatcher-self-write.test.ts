@@ -243,6 +243,36 @@ describe("a read dispatched after a write that skipped the type check", () => {
     expect(after).toMatchObject({ status: "success", symbolName: "keep" });
   });
 
+  test("completes a read of a surviving file after an unchecked deleteFile in a Vue project", async ({
+    seedNamedFixture,
+    seedInlineFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    await seedInlineFixture({
+      "src/standalone.ts": "export function standalone(): number {\n  return 7;\n}\n",
+    });
+    const gone = path.join(dir, "src/composables/useCounter.ts");
+    const keep = path.join(dir, "src/standalone.ts");
+
+    const warm = await dispatchRequest(
+      { method: "findReferences", params: { file: gone, line: 1, col: 17 } },
+      dir,
+    );
+    expect(warm).toMatchObject({ status: "success", symbolName: "useCounter" });
+
+    const deleted = await dispatchRequest(
+      { method: "deleteFile", params: { file: gone, checkTypeErrors: false } },
+      dir,
+    );
+    expect(deleted.status).not.toBe("error");
+
+    const after = await dispatchRequest(
+      { method: "findReferences", params: { file: keep, line: 1, col: 17 } },
+      dir,
+    );
+    expect(after).toMatchObject({ status: "success", symbolName: "standalone" });
+  });
+
   test("answers from disk after an unchecked write into a Vue SFC's script", async ({
     seedNamedFixture,
   }) => {
