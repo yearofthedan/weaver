@@ -31,9 +31,11 @@ allow() { rm -f "$FLAG"; exit 0; }
 cd "$REPO" || allow
 git diff --cached --quiet && allow   # nothing staged (e.g. a bare --amend)
 
-# The message as it will be committed: comment lines and trailing blanks removed.
-MSG=$(git stripspace --strip-comments < "$MSG_FILE")
-[ -n "$MSG" ] || allow
+# Only the subject line. The body is a dated record whose job is to restate
+# context a future reader lacks, which the living-doc rules for placement and
+# relevance read as a fault.
+SUBJECT=$(git stripspace --strip-comments < "$MSG_FILE" | head -1)
+[ -n "$SUBJECT" ] || allow
 
 # Prose under review: added markdown lines and added code comments.
 PROSE=$(git diff --cached -U0 | awk '
@@ -48,7 +50,7 @@ PROSE=$(git diff --cached -U0 | awk '
   }
 ' | head -c 40000)
 
-HASH=$(printf '%s\n%s' "$MSG" "$PROSE" | shasum | cut -d' ' -f1)
+HASH=$(printf '%s\n%s' "$SUBJECT" "$PROSE" | shasum | cut -d' ' -f1)
 [ -f "$FLAG" ] && [ "$(cat "$FLAG")" = "$HASH" ] && allow
 
 command -v "${COMMIT_REVIEW_CMD%% *}" >/dev/null 2>&1 || {
@@ -67,13 +69,19 @@ communication standards.
 $(cat "$STANDARDS")
 </standards>
 
-Review two things.
+Review two things, by different rules.
 
-1. The commit message:
+1. The commit subject line:
 
-<commit-message>
-$MSG
-</commit-message>
+<subject>
+$SUBJECT
+</subject>
+
+A subject follows conventional commits in the imperative: reading it as
+"after I apply this commit it will <subject>" should make sense. It is a short
+label, so sentence form, grammatical completeness, length, and how much detail
+it carries are all correct as they are. Judge it only for hype, dramatic
+framing, editorialising lead-ins, and banned phrases.
 
 2. The prose this commit adds — markdown and code comments:
 
@@ -81,15 +89,18 @@ $MSG
 $PROSE
 </prose>
 
-Judge ONLY against the standards above. Ignore code correctness, naming, and formatting.
-Be strict about: walk-up paragraphs and dramatic framing, hype, "not just A but B",
-affirm-then-justify openers, editorialising lead-ins, describing negative space,
-hidden assumptions stated as fact, and content that mattered to the conversation
-but not to a future reader.
+This prose is durable documentation, so the full standards apply. Be strict
+about walk-up paragraphs and dramatic framing, hype, "not just A but B",
+affirm-then-justify openers, editorialising lead-ins, describing negative
+space, hidden assumptions stated as fact, and content that mattered to the
+conversation but not to a future reader.
+
+Judge ONLY against the standards above. Ignore code correctness, naming, and
+formatting.
 
 If nothing meaningfully violates the standards, reply with exactly: PASS
 Otherwise reply with up to 5 findings, one line each, in the form:
-  <file or "commit message"> - "<the offending phrase>" - <which rule it breaks>
+  <file or "subject"> - "<the offending phrase>" - <which rule it breaks>
 No preamble. No praise. Do not suggest rewrites.
 PROMPTEOF
 
