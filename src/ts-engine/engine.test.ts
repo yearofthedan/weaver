@@ -484,11 +484,13 @@ describe("TsMorphEngine", () => {
     expect((await engine.getTypeErrors(file, scope)).errorCount).toBe(1);
   });
 
-  it("handles .ts and .tsx, and no other extension", () => {
+  it("handles the TypeScript module flavours, and not .js or .vue", () => {
     const engine = new TsMorphEngine();
 
     expect(engine.handlesFileExtension(".ts")).toBe(true);
     expect(engine.handlesFileExtension(".tsx")).toBe(true);
+    expect(engine.handlesFileExtension(".mts")).toBe(true);
+    expect(engine.handlesFileExtension(".cts")).toBe(true);
     expect(engine.handlesFileExtension(".js")).toBe(false);
     expect(engine.handlesFileExtension(".vue")).toBe(false);
   });

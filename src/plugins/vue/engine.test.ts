@@ -26,6 +26,17 @@ describe("VolarEngine", () => {
     expect(typeof p.deleteFile).toBe("function");
   });
 
+  it("handles .ts, .tsx, .mts, .cts and .vue, and not .js", () => {
+    const p = new VolarEngine(new TsMorphEngine());
+
+    expect(p.handlesFileExtension(".ts")).toBe(true);
+    expect(p.handlesFileExtension(".tsx")).toBe(true);
+    expect(p.handlesFileExtension(".mts")).toBe(true);
+    expect(p.handlesFileExtension(".cts")).toBe(true);
+    expect(p.handlesFileExtension(".vue")).toBe(true);
+    expect(p.handlesFileExtension(".js")).toBe(false);
+  });
+
   test("resolveOffset converts 1-based line/col to 0-based offset", async ({
     seedNamedFixture,
   }) => {
