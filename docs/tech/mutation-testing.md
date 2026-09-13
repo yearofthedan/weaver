@@ -260,8 +260,15 @@ Patterns that recur across mutation rounds — read before writing tests intende
 **TypeScript LS never returns empty/null for in-range positions.**
 `getRenameLocations`, `getReferencesAtPosition`, and `getDefinitionAtPosition` all guard against null/empty results. In practice the TS LS navigates contextually to the nearest symbol for any position within a declaration. The `if (!locs || locs.length === 0)` guards are defensive dead code; accept them as survivors.
 
-**Mutation timeouts from infinite-loop mutations count as kills.**
-`if (parent === dir) → if (false)` turns `findTsConfig`'s walk-up loop into an infinite loop. Stryker treats these as `Timeout` (not `Survived`), so they count toward the kill score and do not need separate test coverage.
+**Mutation timeouts from infinite-loop mutations count as kills — prefer a loop bounded by construction.**
+`if (parent === dir) → if (false)` turns `findTsConfig`'s walk-up loop into an infinite loop. Stryker treats these as `Timeout` (not `Survived`), so they count toward the kill score and do not need separate test coverage. Two loop shapes behave differently under mutation, and the difference decides whether a test can do anything about it:
+
+- **Termination discovered inside the loop** (`while (true)` with the exit in a guard inside) hangs when that guard is mutated. No assertion can change that — an assertion cannot run while the call never returns.
+- **Bounded by construction** (`for (let i = 1; i <= MAX; i++)`) answers wrongly when its bound is mutated, so an ordinary assertion catches it.
+
+Where the loop body calls something a test controls, a bounded mock converts the first shape into the second: queue a reply — or a distinguishable error — past the bound, so a run that iterates too far gets a wrong answer instead of looping. `eval/harness/call-model.test.ts`'s persistent-timeout test does this for `callModel`'s retry loop; the reply queued behind the two rejections is what lets `toHaveBeenCalledTimes(2)` fire, and the three mutants in that file that used to spin to the hit limit now fail in 6ms. Where the body touches nothing a test controls — or only a module-level import, which has no seam — the timeout stands.
+
+Cost is proportional to how hot the line is, not a fixed penalty. The abort fires once the mutant is hit `dry-run hits for that mutant × 100` times (`HIT_LIMIT_FACTOR`), so the same `i--` mutation measured 6.5s on a hot loop in `src/utils/text-utils.ts` (limit 237,300) and ~0.5s in the eval lane (limits in the hundreds), against ~2s for a normal src-lane mutant in the same file. The expensive timeout is the other kind: an empty `statusReason` means the wall-clock timer fired instead, so the worker burns `timeoutFactor × netTime + timeoutMS + dry-run overhead` (~150–250s at this project's test sizes). Those appear where a mutation makes a test hang rather than a loop spin.
 
 **Offset 0 maps to the function name, not the `export` keyword.**
 `getRenameInfo(file, 0)` on `export function greetUser(...)` returns `greetUser` as the rename target (TS contextually resolves). To test `RENAME_NOT_ALLOWED`, use an import path string (e.g. `"./utils"` in `import ... from "./utils"`) with `allowRenameOfImportPath: false` — this reliably triggers `canRename: false`.
