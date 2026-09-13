@@ -127,6 +127,29 @@ describe("buildVolarService", () => {
       expect(service.baseService.getSemanticDiagnostics(file)).toHaveLength(1);
     });
 
+    test("stops serving a deleted .vue file's virtual TypeScript", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true, moduleResolution: "bundler" },
+          include: ["src/**/*.ts", "src/**/*.vue"],
+        }),
+        "src/App.vue": '<script setup lang="ts">\nconst n: number = 1;\n</script>\n',
+        "src/uses.ts": 'import App from "./App.vue";\nexport const app = App;\n',
+      });
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
+      const file = path.join(dir, "src/App.vue");
+      const virtualPath = `${file}.ts`;
+      expect(service.baseService.getProgram()?.getSourceFile(virtualPath)).toBeDefined();
+
+      fs.unlinkSync(file);
+      service.rereadFile(file);
+
+      expect(service.language.scripts.get(file)).toBeUndefined();
+      expect(service.baseService.getProgram()?.getSourceFile(virtualPath)).toBeUndefined();
+    });
+
     test("stops serving a path that can no longer be read", async ({ seedInlineFixture }) => {
       const dir = await seedInlineFixture({
         "tsconfig.json": JSON.stringify({

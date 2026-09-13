@@ -49,8 +49,9 @@ export interface CachedService {
    * All three steps are needed: the new text replaces what the host serves, the
    * version makes the TypeScript language service take a fresh snapshot, and the
    * `scripts` registration is what makes Volar regenerate a `.vue` file's virtual
-   * TypeScript. A path that can no longer be read loses its cached text and still
-   * bumps its version, so the service stops serving the text that was there.
+   * TypeScript. A path that can no longer be read loses its cached text and its script
+   * registration and still bumps its version, so the service stops serving the text
+   * that was there and a deleted SFC stops resolving for its importers.
    */
   rereadFile(filePath: string): void;
 }
@@ -304,6 +305,10 @@ export async function buildVolarService(
       const content = readFileFromDisk(filePath);
       if (content === undefined) {
         fileContents.delete(filePath);
+        // A `.vue` file's virtual TypeScript comes from the registered script, which the
+        // host serves in preference to disk, so a deleted SFC keeps resolving for its
+        // importers until the registration goes.
+        language.scripts.delete(filePath);
       } else {
         fileContents.set(filePath, content);
         registerScript(language.scripts, filePath, content);

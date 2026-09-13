@@ -275,6 +275,40 @@ describe("a read dispatched after a write that skipped the type check", () => {
     expect(after).toMatchObject({ status: "success", symbolName: "standalone" });
   });
 
+  test("answers from disk after an unchecked deleteFile of an imported .vue file", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: { strict: true, moduleResolution: "bundler" },
+        include: ["src"],
+      }),
+      "src/App.vue": '<script setup lang="ts">\nconst n: number = 1;\n</script>\n',
+      "src/Child.vue": '<script setup lang="ts">\nconst m: number = 2;\n</script>\n',
+      "src/uses-child.ts": 'import Child from "./Child.vue";\nexport const child = Child;\n',
+    });
+    const uses = path.join(dir, "src/uses-child.ts");
+    const child = path.join(dir, "src/Child.vue");
+
+    const warm = await dispatchRequest({ method: "getTypeErrors", params: { file: uses } }, dir);
+    expect(warm).toMatchObject({ status: "success", errorCount: 0 });
+
+    const deleted = await dispatchRequest(
+      { method: "deleteFile", params: { file: child, checkTypeErrors: false } },
+      dir,
+    );
+    expect(deleted.status).not.toBe("error");
+
+    // App.vue keeps the project a Vue project, so the read routes through the service
+    // that still holds the deleted SFC's generated TypeScript.
+    const after = await dispatchRequest({ method: "getTypeErrors", params: { file: uses } }, dir);
+    expect(after).toMatchObject({
+      status: "success",
+      errorCount: 1,
+      diagnostics: [expect.objectContaining({ code: 2307 })],
+    });
+  });
+
   test("answers from disk after an unchecked write into a Vue SFC's script", async ({
     seedNamedFixture,
   }) => {
