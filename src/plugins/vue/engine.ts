@@ -96,10 +96,29 @@ export class VolarEngine implements Engine {
     this.services.delete(this.cacheKey(tsConfigPath, filePath));
   }
 
-  // Volar has no per-file refresh: the cached service is rebuilt whole, so callers
-  // that refresh several files should do so before querying any of them.
+  // The check's refresh: drop the whole cached service, so the query that
+  // follows rebuilds it from disk. Callers that refresh several files should do
+  // so before querying any of them, since each drop is paid for by that rebuild.
   refreshFile(filePath: string): void {
     this.invalidateService(filePath);
+  }
+
+  /**
+   * Re-read one file into the cached service that serves it, leaving the service
+   * itself in place — the drain's per-path repair, so a dispatch that wrote does
+   * not pay a full rebuild on the next read. `scriptFileNames` is fixed when the
+   * service is built, so a path the service does not serve cannot be repaired and
+   * falls back to dropping the service.
+   */
+  refreshWrittenFile(filePath: string): void {
+    const tsConfigPath = findTsConfigForFile(filePath);
+    const cached = this.services.get(this.cacheKey(tsConfigPath, filePath));
+    if (!cached) return;
+    if (!cached.scriptFileNames.includes(toVirtualVuePath(filePath))) {
+      this.invalidateService(filePath);
+      return;
+    }
+    cached.refreshFile(filePath);
   }
 
   // ─── Virtual ↔ real path helpers ──────────────────────────────────────────

@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { FIXTURES, fixtureTest as test } from "../../__testHelpers__/helpers.js";
 import { WorkspaceScope } from "../../domain/workspace-scope.js";
 import { NodeFileSystem } from "../../ports/node-filesystem.js";
@@ -122,6 +122,52 @@ describe("VolarEngine", () => {
     p.refreshFile(file);
     // With the cached service gone, readFile falls back to a fresh disk read.
     expect(p.readFile(file)).toBe(updatedContent);
+  });
+
+  test("refreshWrittenFile re-reads a tracked file without dropping the service", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine());
+    const file = path.join(dir, "src/composables/useCounter.ts");
+    const scope = makeScope(dir);
+    const offset = p.resolveOffset(file, 1, 17);
+    await p.getRenameLocations(file, offset);
+    expect((await p.getTypeErrors(file, scope)).errorCount).toBe(0);
+
+    fs.writeFileSync(file, 'export const broken: number = "not a number";\n');
+    const invalidate = vi.spyOn(p, "invalidateService");
+    p.refreshWrittenFile(file);
+
+    expect(invalidate).not.toHaveBeenCalled();
+    expect((await p.getTypeErrors(file, scope)).errorCount).toBe(1);
+  });
+
+  test("refreshWrittenFile rebuilds the service for a path it does not serve", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine());
+    const tracked = path.join(dir, "src/composables/useCounter.ts");
+    // Build and cache the service before the second file exists.
+    await p.getRenameLocations(tracked, p.resolveOffset(tracked, 1, 17));
+    const late = path.join(dir, "src/Late.ts");
+    fs.writeFileSync(late, "export const late: number = 1;\n");
+
+    const invalidate = vi.spyOn(p, "invalidateService");
+    p.refreshWrittenFile(late);
+
+    expect(invalidate).toHaveBeenCalledWith(late);
+  });
+
+  test("refreshWrittenFile is a no-op when the service has not been loaded", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine());
+    const file = path.join(dir, "src/composables/useCounter.ts");
+
+    expect(() => p.refreshWrittenFile(file)).not.toThrow();
   });
 
   test("moveFile moves the file and records it as modified", async ({ seedNamedFixture }) => {
