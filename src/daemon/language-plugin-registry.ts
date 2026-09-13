@@ -1,3 +1,4 @@
+import * as path from "node:path";
 import { createVueLanguagePlugin } from "../plugins/vue/plugin.js";
 import type { Engine, EngineRegistry, LanguagePlugin } from "../ts-engine/types.js";
 import { findTsConfig, findTsConfigForFile } from "../utils/ts-project.js";
@@ -97,13 +98,17 @@ export function invalidateFile(filePath: string): void {
  * holds around it. Called for every path a dispatch wrote, once that operation
  * has returned and holds no nodes into the project.
  *
- * An engine repairs only what it can — ts-morph re-reads one source file, Volar
- * re-registers one file's snapshot — and a plugin engine that was never loaded is
- * left alone, so a read-only dispatch builds no service it did not need.
+ * A plugin engine may satisfy the refresh by dropping everything it holds for the
+ * project, so it is only asked about paths it claims by extension; the ts-morph
+ * engine is asked about all of them, since its project holds every `TS_EXTENSIONS`
+ * file including the `.js` files no engine type-checks. An engine that was never
+ * loaded is left alone, so a read-only dispatch builds no service it did not need.
  */
 export function refreshWrittenFile(filePath: string): void {
   tsMorphEngineSingleton?.refreshWrittenFile(filePath);
+  const ext = path.extname(filePath);
   for (const engine of pluginCompilers.values()) {
+    if (!engine.handlesFileExtension(ext)) continue;
     try {
       engine.refreshWrittenFile(filePath);
     } catch {

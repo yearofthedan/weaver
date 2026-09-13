@@ -269,6 +269,41 @@ describe("a read dispatched after a write that skipped the type check", () => {
     expect(after).toMatchObject({ status: "success", errorCount: 0 });
   });
 
+  test("checks a .mts write in a Vue project whose tsconfig does not list the file", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: { strict: true, module: "NodeNext", moduleResolution: "NodeNext" },
+        include: ["src"],
+      }),
+      "src/App.vue": '<script setup lang="ts">\nconst n: number = 1;\n</script>\n',
+      // Outside tsconfig.include, and the Volar service serves .mts only through
+      // the workspace walk — a path it cannot serve throws instead of reporting.
+      "script.mts": "export function greet(): string {\n  return 'hi';\n}\n",
+    });
+
+    const written = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: { pattern: "return 'hi';", replacement: "return 42;", glob: "script.mts" },
+      },
+      dir,
+    );
+
+    expect(written).toMatchObject({
+      status: "warn",
+      typeErrorCount: 1,
+      typeErrors: [expect.objectContaining({ code: 2322 })],
+    });
+
+    const after = await dispatchRequest(
+      { method: "getTypeErrors", params: { file: path.join(dir, "script.mts") } },
+      dir,
+    );
+    expect(after).toMatchObject({ status: "success", errorCount: 1 });
+  });
+
   test("returns the operation's response when a refresh throws", async ({ seedInlineFixture }) => {
     const dir = await seedInlineFixture({
       "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true }, include: ["src"] }),

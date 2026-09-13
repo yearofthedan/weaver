@@ -48,7 +48,7 @@ function makeBaseCachedService(overrides: Partial<CachedService> = {}): CachedSe
     vueVirtualToReal: new Map(),
     scriptFileNames: [],
     seedFileNames: null,
-    refreshFile: () => {},
+    rereadFile: () => {},
     ...overrides,
   };
 }

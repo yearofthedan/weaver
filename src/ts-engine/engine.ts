@@ -4,7 +4,7 @@ import type ts from "typescript";
 import { EngineError } from "../domain/errors.js";
 import type { WorkspaceScope } from "../domain/workspace-scope.js";
 import type { GetTypeErrorsResult, RenameResult, SetExportResult } from "../operations/types.js";
-import { TS_EXTENSIONS } from "../utils/extensions.js";
+import { TS_EXTENSIONS, TYPECHECK_EXTENSIONS } from "../utils/extensions.js";
 import { walkFiles } from "../utils/file-walk.js";
 import { findTsConfig, findTsConfigForFile, tsConfigCacheKey } from "../utils/ts-project.js";
 import { tsDeleteFile } from "./delete-file.js";
@@ -210,7 +210,7 @@ export class TsMorphEngine implements Engine {
   }
 
   handlesFileExtension(ext: string): boolean {
-    return ext === ".ts" || ext === ".tsx" || ext === ".mts" || ext === ".cts";
+    return TYPECHECK_EXTENSIONS.has(ext);
   }
 
   /** Public accessor for the seed `addWorkspaceFiles` computed — `null` when there's no tsconfig. */
@@ -272,9 +272,10 @@ export class TsMorphEngine implements Engine {
   }
 
   /**
-   * The ts-morph half of `refreshFile`: re-read `filePath` into the cached project, leaving
-   * the diagnostic cache alone. The write path needs only this half — a second eviction
-   * would discard the program the post-write check had just rebuilt from disk.
+   * Re-read `filePath` into the cached project, leaving the diagnostic cache alone.
+   * The write path needs only this half: the diagnostic parse was already evicted as
+   * the write landed, and a second eviction would discard the program the post-write
+   * check had just rebuilt from disk.
    */
   refreshWrittenFile(filePath: string): void {
     this.getCachedProjectForFile(filePath)?.getSourceFile(filePath)?.refreshFromFileSystemSync();

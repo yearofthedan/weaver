@@ -17,6 +17,7 @@ import type {
   MoveFileActionResult,
   SpanLocation,
 } from "../../ts-engine/types.js";
+import { TYPECHECK_EXTENSIONS } from "../../utils/extensions.js";
 import { walkRecursive } from "../../utils/file-walk.js";
 import { applyTextEdits, lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfig, findTsConfigForFile } from "../../utils/ts-project.js";
@@ -97,8 +98,7 @@ export class VolarEngine implements Engine {
   }
 
   // The check's refresh: drop the whole cached service, so the query that
-  // follows rebuilds it from disk. Callers that refresh several files should do
-  // so before querying any of them, since each drop is paid for by that rebuild.
+  // follows rebuilds it from disk.
   refreshFile(filePath: string): void {
     this.invalidateService(filePath);
   }
@@ -118,7 +118,7 @@ export class VolarEngine implements Engine {
       this.invalidateService(filePath);
       return;
     }
-    cached.refreshFile(filePath);
+    cached.rereadFile(filePath);
   }
 
   // ─── Virtual ↔ real path helpers ──────────────────────────────────────────
@@ -466,7 +466,7 @@ export class VolarEngine implements Engine {
   }
 
   handlesFileExtension(ext: string): boolean {
-    return ext === ".ts" || ext === ".tsx" || ext === ".mts" || ext === ".cts" || ext === ".vue";
+    return TYPECHECK_EXTENSIONS.has(ext) || ext === ".vue";
   }
 
   async rename(

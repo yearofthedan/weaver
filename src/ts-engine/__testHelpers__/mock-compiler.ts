@@ -1,4 +1,5 @@
 import { vi } from "vitest";
+import { TYPECHECK_EXTENSIONS } from "../../utils/extensions.js";
 import type { Engine } from "../types.js";
 // TODO: replace with a shared TestCompiler class once one exists — a class
 // with injectable stubs would be cleaner than vi.fn() mocks here.
@@ -38,7 +39,7 @@ export function makeMockCompiler(overrides: Partial<Engine> = {}): Engine {
     }),
     refreshFile: vi.fn(),
     refreshWrittenFile: vi.fn(),
-    handlesFileExtension: vi.fn((ext: string) => ext === ".ts" || ext === ".tsx"),
+    handlesFileExtension: vi.fn((ext: string) => TYPECHECK_EXTENSIONS.has(ext)),
     ...overrides,
   };
 }

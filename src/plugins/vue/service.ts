@@ -44,7 +44,7 @@ export interface CachedService {
   /**
    * Re-read `filePath` from disk into the retained language service, so a later
    * query is answered from the text on disk rather than the snapshot taken when
-   * the service was built.
+   * the service was built. The service itself stays cached.
    *
    * All three steps are needed: the new text replaces what the host serves, the
    * version makes the TypeScript language service take a fresh snapshot, and the
@@ -52,7 +52,7 @@ export interface CachedService {
    * TypeScript. A path that can no longer be read loses its cached text and still
    * bumps its version, so the service stops serving the text that was there.
    */
-  refreshFile(filePath: string): void;
+  rereadFile(filePath: string): void;
 }
 
 function parseTsConfig(
@@ -157,7 +157,7 @@ export async function buildVolarService(
   const { createLanguage } = await import("@vue/language-core");
 
   const fileContents = new Map<string, string>();
-  // Versioned per file so `refreshFile` can make the language service take a
+  // Versioned per file so `rereadFile` can make the language service take a
   // fresh snapshot of a file whose text changed on disk.
   const versions = new Map<string, number>();
 
@@ -228,19 +228,27 @@ export async function buildVolarService(
   // The sync callback is only invoked lazily — never during construction.
   const languageRef: { current: Language<string> | undefined } = { current: undefined };
 
+  const registerScript = (
+    scripts: Language<string>["scripts"],
+    fileId: string,
+    content: string,
+  ) => {
+    scripts.set(
+      fileId,
+      ts.ScriptSnapshot.fromString(content),
+      fileId.endsWith(".vue") ? "vue" : "typescript",
+    );
+  };
+
   const language = createLanguage<string>(
     [vuePlugin],
     scriptRegistry,
     (id, _includeFsFiles, shouldRegister) => {
       if (shouldRegister) {
         const content = readFile(id);
-        if (content !== undefined) {
-          const snapshot = ts.ScriptSnapshot.fromString(content);
-          languageRef.current?.scripts.set(
-            id,
-            snapshot,
-            id.endsWith(".vue") ? "vue" : "typescript",
-          );
+        const current = languageRef.current;
+        if (content !== undefined && current !== undefined) {
+          registerScript(current.scripts, id, content);
         }
       }
     },
@@ -251,10 +259,7 @@ export async function buildVolarService(
   // before any language service operation runs.
   for (const fileId of projectFiles) {
     const content = readFile(fileId);
-    if (content !== undefined) {
-      const snapshot = ts.ScriptSnapshot.fromString(content);
-      language.scripts.set(fileId, snapshot, fileId.endsWith(".vue") ? "vue" : "typescript");
-    }
+    if (content !== undefined) registerScript(language.scripts, fileId, content);
   }
 
   // Build virtual filename mapping.
@@ -294,17 +299,13 @@ export async function buildVolarService(
     vueVirtualToReal,
     scriptFileNames,
     seedFileNames,
-    refreshFile: (filePath) => {
+    rereadFile: (filePath) => {
       const content = readFileFromDisk(filePath);
       if (content === undefined) {
         fileContents.delete(filePath);
       } else {
         fileContents.set(filePath, content);
-        language.scripts.set(
-          filePath,
-          ts.ScriptSnapshot.fromString(content),
-          filePath.endsWith(".vue") ? "vue" : "typescript",
-        );
+        registerScript(language.scripts, filePath, content);
       }
       versions.set(filePath, (versions.get(filePath) ?? 0) + 1);
     },

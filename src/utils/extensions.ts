@@ -1,8 +1,21 @@
 /** Source file extensions for a plain TypeScript/JavaScript project. */
-export const TS_EXTENSIONS: ReadonlySet<string> = new Set([".ts", ".tsx", ".js", ".jsx"]);
+export const TS_EXTENSIONS: ReadonlySet<string> = new Set([
+  ".ts",
+  ".tsx",
+  ".mts",
+  ".cts",
+  ".js",
+  ".jsx",
+]);
 
 /** Source file extensions for a Vue project (superset of TS_EXTENSIONS). */
-export const VUE_EXTENSIONS: ReadonlySet<string> = new Set([".ts", ".tsx", ".js", ".jsx", ".vue"]);
+export const VUE_EXTENSIONS: ReadonlySet<string> = new Set([...TS_EXTENSIONS, ".vue"]);
+
+/**
+ * Extensions an engine can answer a type-error query for. `.js`/`.jsx` are
+ * excluded because whether they are checkable depends on `allowJs`.
+ */
+export const TYPECHECK_EXTENSIONS: ReadonlySet<string> = new Set([".ts", ".tsx", ".mts", ".cts"]);
 
 /**
  * Maps each JS-family extension to its TypeScript counterpart.
