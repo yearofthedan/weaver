@@ -29,9 +29,9 @@ You MUST create a task for each of these items and complete them in order:
 2. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
 3. **Propose 2-3 approaches** — with trade-offs and your recommendation
 4. **Present design** — in sections scaled to their complexity, get user approval after each section
-5. **Write spec** — use `/spec` to create the spec file (this project's spec workflow handles location, template, and handoff.md integration)
+5. **Write spec** — use the `spec` workflow to create the spec file (this project's spec workflow handles location, template, and handoff.md integration)
 6. **User reviews written spec** — ask user to review the spec file before proceeding
-7. **Transition to implementation** — use `/slice` to implement the spec
+7. **Transition to implementation** — use the `slice` workflow to implement the spec
 
 ## Process Flow
 
@@ -42,23 +42,23 @@ digraph brainstorming {
     "Propose 2-3 approaches" [shape=box];
     "Present design sections" [shape=box];
     "User approves design?" [shape=diamond];
-    "Write spec via /spec" [shape=box];
+    "Write spec via spec workflow" [shape=box];
     "User reviews spec?" [shape=diamond];
-    "Implement via /slice" [shape=doublecircle];
+    "Implement via slice workflow" [shape=doublecircle];
 
     "Explore project context" -> "Ask clarifying questions";
     "Ask clarifying questions" -> "Propose 2-3 approaches";
     "Propose 2-3 approaches" -> "Present design sections";
     "Present design sections" -> "User approves design?";
     "User approves design?" -> "Present design sections" [label="no, revise"];
-    "User approves design?" -> "Write spec via /spec" [label="yes"];
-    "Write spec via /spec" -> "User reviews spec?";
-    "User reviews spec?" -> "Write spec via /spec" [label="changes requested"];
-    "User reviews spec?" -> "Implement via /slice" [label="approved"];
+    "User approves design?" -> "Write spec via spec workflow" [label="yes"];
+    "Write spec via spec workflow" -> "User reviews spec?";
+    "User reviews spec?" -> "Write spec via spec workflow" [label="changes requested"];
+    "User reviews spec?" -> "Implement via slice workflow" [label="approved"];
 }
 ```
 
-**The terminal state is `/slice`.** This project's workflow is `handoff → /spec → /slice`.
+**The terminal state is the `slice` workflow.** This project's workflow is `handoff → spec → slice`.
 
 ## The Process
 
@@ -103,7 +103,7 @@ digraph brainstorming {
 
 **Spec creation:**
 
-- Use `/spec` to create the spec file. The project's spec workflow handles template selection, location (`docs/specs/`), and handoff.md integration.
+- Use the `spec` workflow to create the spec file. The project's spec workflow handles template selection, location (`docs/specs/`), and handoff.md integration.
 - Commit the spec file to git.
 
 **Spec Self-Review:**
@@ -125,7 +125,7 @@ Wait for the user's response. If they request changes, make them and re-run the 
 
 **Implementation:**
 
-- Use `/slice` to implement the spec.
+- Use the `slice` workflow to implement the spec.
 
 ## Key Principles
 

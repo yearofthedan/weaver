@@ -9,7 +9,7 @@ Review all changed files for reuse, quality, and efficiency. Fix any issues foun
 
 ## Phase 1: Identify Changes
 
-If a commit range was passed as an argument (e.g. `/review-changes abc123..def456`), run `git diff <range>` to get the diff.
+If a commit range was passed as an argument (e.g. `abc123..def456`), run `git diff <range>` to get the diff.
 
 Otherwise run `git diff origin/main...HEAD` to see all changes on this branch. If that returns nothing (branch is at main, or no remote), fall back to `git diff HEAD` for staged changes.
 

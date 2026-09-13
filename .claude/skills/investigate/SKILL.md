@@ -8,9 +8,9 @@ metadata:
 # Investigate Workflow
 
 Find a *confirmed* root cause for a bug — not design or implement the fix.
-Distinct from `/spec` (design discipline) and `/slice` (execution discipline).
+Distinct from the `spec` workflow (design discipline) and `slice` (execution discipline).
 Output: a bug spec with a recorded reproduction and a root cause backed by
-evidence, with the **fix** routed to `/slice` (unambiguous) or `/spec` (needs
+evidence, with the **fix** routed to `slice` (unambiguous) or `spec` (needs
 design).
 
 ## The discipline
@@ -58,9 +58,9 @@ design).
    (`daemon.ts:159` vs `:223`), per-PID logs show `LOCKFILE_WRITTEN` then no
    `SHUTDOWN_ENTER`" — not "the validation is wrong".
 5. **Route the fix.** Unambiguous → complete the spec's **Fix** section, hand to
-   `/slice`. Has architectural forks (multiple viable approaches with different
+   `slice`. Has architectural forks (multiple viable approaches with different
    correctness/risk) → leave Fix blank, re-tag the handoff entry `[needs
-   design]`, hand the populated spec to `/spec`. Don't design the fix here.
+   design]`, hand the populated spec to the `spec` workflow. Don't design the fix here.
 6. **Commit and report.** Commit the spec + handoff (`docs(specs): add spec for
    [short-title]`); tell the caller which route and what runs next. Don't
-   implement the fix — that is `/slice`.
+   implement the fix — that is `slice`.

@@ -9,7 +9,7 @@ metadata:
 
 ## Agent model
 
-Steps 1-2 and 4-10 run in the main conversation (interactive spec and review work). Step 3 dispatches ACs to `execution-agent` (defined in `.claude/agents/`), grouped by neighbourhood — ACs that touch the same files go in one call — and **reviews each batch in the main conversation before dispatching the next**.
+Steps 1-2 and 4-10 run in the main conversation (interactive spec and review work). Step 3 dispatches ACs to `execution-agent`, grouped by neighbourhood — ACs that touch the same files go in one call — and **reviews each batch in the main conversation before dispatching the next**.
 
 **Dispatch is the default.** `execution-agent` exists because mechanical code changes do not need the orchestrator's model, and dispatching keeps the neighbourhood's file output out of this conversation. Implement inline only when dispatching would cost more than it saves — a single-unit bug fix in one file, or a change whose whole context the orchestrator already holds from investigation. Inline execution does not shed any of step 3's obligations, and step 4 runs either way.
 
@@ -17,13 +17,13 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
 
 1. **Find the task.** Read `docs/handoff.md` — identify the first task by priority. Do not skip items or search `docs/specs/` for existing specs; the first item in the queue is the task, whatever its state.
    - **Has a spec link** → go to step 2.
-   - **`[needs investigation]` (no confirmed root cause)** → switch to the `/investigate` workflow: reproduce the failure, observe the mechanism, record a confirmed root cause in a bug spec, then route the fix back here (`/slice`) or to `/spec`. Do not begin implementation until the root cause is confirmed.
-   - **`[needs design]` (no spec)** → switch to the `/spec` workflow: create a spec file from the appropriate template, walk through ACs with the user, update handoff.md with the spec link. After the spec is created, **commit the spec file and updated handoff.md** with message `docs(specs): add spec for [short-title]`. Do not begin implementation with an uncommitted spec. Then continue to step 2.
+   - **`[needs investigation]` (no confirmed root cause)** → switch to the `investigate` workflow: reproduce the failure, observe the mechanism, record a confirmed root cause in a bug spec, then route the fix back to this workflow or to `spec`. Do not begin implementation until the root cause is confirmed.
+   - **`[needs design]` (no spec)** → switch to the `spec` workflow: create a spec file from the appropriate template, walk through ACs with the user, update handoff.md with the spec link. After the spec is created, **commit the spec file and updated handoff.md** with message `docs(specs): add spec for [short-title]`. Do not begin implementation with an uncommitted spec. Then continue to step 2.
    - **Legacy inline ACs (no spec file, no `[needs design]` tag)** → ask the user: create a spec first, or proceed with inline ACs?
 
    **State the problem to the user, then stop.** Before routing the task anywhere, say plainly what is broken — what it costs, in real units, with every internal name grounded to a file. What before how. The handoff entry is not this statement: it was written mid-code by whoever queued it, so relaying it forwards their framing rather than stating the problem. This ends the turn. Wait for the user's response before spiking, speccing, investigating, or implementing.
 
-   **Reclassification guard.** A `[needs investigation]` or `[needs design]` task cannot be downgraded to a direct fix because you *believe* you already know the root cause or the design. The tag is lowered only by running the discipline (`/investigate` or `/spec`) and recording its result — never by asserting the answer to skip the step.
+   **Reclassification guard.** A `[needs investigation]` or `[needs design]` task cannot be downgraded to a direct fix because you *believe* you already know the root cause or the design. The tag is lowered only by running the discipline (the `investigate` or `spec` workflow) and recording its result — never by asserting the answer to skip the step.
 
 2. **Read the spec.** Open the linked spec file. Confirm the task and its ACs with the user BEFORE writing any code.
 
@@ -43,7 +43,7 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
    For each batch, dispatch one `execution-agent` call with:
    - The spec file path
    - Which ACs to implement (quote the AC text for each)
-   - Explicit instruction: "Use `/implementation-context` before writing code. Implement each AC in order — write failing tests, implement, run `pnpm check` (this includes coverage — check that lines touched by this AC are covered before committing), commit, then move to the next AC. Stop after the last AC in this batch. Do not reference AC numbers, spec slugs, or task identifiers in code or comments — describe behaviour, not the changeset. Only add a comment when the code cannot speak for itself; do not narrate what the code obviously does."
+   - Explicit instruction: "Load the `implementation-context` skill before writing code. Implement each AC in order — write failing tests, implement, run `pnpm check` (this includes coverage — check that lines touched by this AC are covered before committing), commit, then move to the next AC. Stop after the last AC in this batch. Do not reference AC numbers, spec slugs, or task identifiers in code or comments — describe behaviour, not the changeset. Only add a comment when the code cannot speak for itself; do not narrate what the code obviously does."
    - Any context from previous batches (e.g. files already created, patterns established)
 
    Each AC still gets its own commit. The agent reads the neighbourhood once and carries context across ACs in the batch.
@@ -55,11 +55,11 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
    After each batch, before dispatching the next:
    - **Read the agent's notes file** from `.claude/agent-notes/` — the file itself, not the completion summary the agent hands back (that summary is lossy and buries self-review catches). It logs deviations, assumptions, surprises, and self-corrections as they happen. Mine it for batch-specific issues *and* generalisable learnings to promote in step 8
    - Verify the batch's commits exist and `pnpm check` passes
-   - **Review the batch.** Run `/review-changes <this-batch-start-sha>..HEAD` on just this batch's commits and apply the fixes before moving on. Reviewing per batch — not once at the end — catches issues while they are cheap: before later batches build on them, and especially before a destructive or irreversible batch (deletions, migrations, dependency removal) runs against a problem the build-up introduced. This is in addition to step 4, never instead of it — the last batch has no "next batch" to protect, which is exactly where skipping feels reasonable and is not. It also surfaces problems through interactive follow-up that a single end-of-slice pass misses. Scrutinise anything the execution agent did beyond the batch's stated scope.
+   - **Review the batch.** Run the `review-changes` skill over `<this-batch-start-sha>..HEAD` — just this batch's commits — and apply the fixes before moving on. Reviewing per batch — not once at the end — catches issues while they are cheap: before later batches build on them, and especially before a destructive or irreversible batch (deletions, migrations, dependency removal) runs against a problem the build-up introduced. This is in addition to step 4, never instead of it — the last batch has no "next batch" to protect, which is exactly where skipping feels reasonable and is not. It also surfaces problems through interactive follow-up that a single end-of-slice pass misses. Scrutinise anything the execution agent did beyond the batch's stated scope.
    - If the agent reported assumptions or spec mismatches, decide whether to adjust the next batch's instructions, fix something, or ask the user
    - **Spec-reality tripwire.** If a batch fails for reasons that require changing an AC's *interface* — the shape it exposes to callers (signature, parameters, return type, error contract), not just how it is implemented — stop. Do not adapt the interface in-flight and carry on. Escalate to the user (or, if unavailable, the `Plan` agent per step 3's rule), record the resolution in the spec, then resume. An interface that drifts mid-slice leaves the spec describing something the code no longer does.
 
-4. **Review the whole change — unconditional.** Run `/review-changes <baseline-sha>..HEAD` over the task, apply any fixes, and commit.
+4. **Review the whole change — unconditional.** Run the `review-changes` skill over `<baseline-sha>..HEAD` for the task, apply any fixes, and commit.
 
    **This step keys off the diff, not off how the code was produced.** It runs whether the work was dispatched in ten batches or written inline in this conversation, and whether there was one batch or six. Step 3's per-batch reviews do not discharge it: they exist to catch problems early, while later batches are still being built on top, and a review that ran mid-task cannot have seen the final state. A green `pnpm check` does not discharge it either — "it passes" and "it is well-shaped" are different claims, and only tests check the first.
 
