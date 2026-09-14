@@ -97,10 +97,31 @@ export class VolarEngine implements Engine {
     this.services.delete(this.cacheKey(tsConfigPath, filePath));
   }
 
-  // The check's refresh: drop the whole cached service, so the query that
-  // follows rebuilds it from disk.
+  /**
+   * Re-read `filePath` into the cached service that serves it, when that service
+   * already holds the path as one of its scripts. Returns whether the repair
+   * happened, so a caller that gets `false` decides what to do instead.
+   *
+   * The tsconfig this program was configured from is excluded: the service's
+   * compiler options and file list both come from it, so re-reading it in place
+   * would keep a service configured from stale options.
+   */
+  private repairInPlace(filePath: string): boolean {
+    const tsConfigPath = findTsConfigForFile(filePath);
+    const cached = this.services.get(this.cacheKey(tsConfigPath, filePath));
+    if (!cached || filePath === tsConfigPath) return false;
+    if (!cached.scriptFileNames.includes(toVirtualVuePath(filePath))) return false;
+    cached.rereadFile(filePath);
+    return true;
+  }
+
+  /**
+   * The check's refresh. A path the service cannot see falls back to dropping the
+   * service, because a rebuild is the only way to pick up a file the service has
+   * never loaded.
+   */
   refreshFile(filePath: string): void {
-    this.invalidateService(filePath);
+    if (!this.repairInPlace(filePath)) this.invalidateService(filePath);
   }
 
   /**

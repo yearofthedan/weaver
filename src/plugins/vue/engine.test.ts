@@ -12,6 +12,17 @@ function makeScope(root: string): WorkspaceScope {
   return new WorkspaceScope(root, new NodeFileSystem());
 }
 
+/**
+ * Return the text `readFile` currently answers with for `filePath`, then replace
+ * that file on disk so the two differ. A service that survives a refresh still
+ * answers with the returned text; a rebuilt one answers with the disk text.
+ */
+function rewriteBehindService(engine: VolarEngine, filePath: string): string {
+  const held = engine.readFile(filePath);
+  fs.writeFileSync(filePath, "export const changedOnDisk = true;\n");
+  return held;
+}
+
 describe("VolarEngine", () => {
   it("implements Engine interface shape", () => {
     const p = new VolarEngine(new TsMorphEngine());
@@ -117,13 +128,12 @@ describe("VolarEngine", () => {
     expect(() => p.notifyFileWritten(file, "export const x = 1;\n")).not.toThrow();
   });
 
-  test("refreshFile delegates to invalidateService — readFile falls back to disk instead of a stale cache", async ({
+  test("refreshFile re-reads a served file, so readFile stops returning the text the service was built from", async ({
     seedNamedFixture,
   }) => {
     const dir = await seedNamedFixture(FIXTURES.vueProject.name);
     const p = new VolarEngine(new TsMorphEngine());
     const file = path.join(dir, "src/composables/useCounter.ts");
-    // Load and cache the service.
     const offset = p.resolveOffset(file, 1, 17);
     await p.getRenameLocations(file, offset);
     // Change the file directly on disk — the cached service's fileContents map does not see this.
@@ -131,8 +141,31 @@ describe("VolarEngine", () => {
     fs.writeFileSync(file, updatedContent);
     expect(p.readFile(file)).not.toBe(updatedContent);
     p.refreshFile(file);
-    // With the cached service gone, readFile falls back to a fresh disk read.
     expect(p.readFile(file)).toBe(updatedContent);
+  });
+
+  test("refreshFile repairs a served .ts file in place, so the service keeps answering for the rest of the project", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine(), dir);
+    const scope = makeScope(dir);
+    const file = path.join(dir, "src/composables/useCounter.ts");
+    const bystander = path.join(dir, "src/main.ts");
+    await p.getRenameLocations(file, p.resolveOffset(file, 1, 17));
+
+    const held = rewriteBehindService(p, bystander);
+    fs.writeFileSync(file, 'export const count: number = "not a number";\n');
+    p.refreshFile(file);
+
+    const result = await p.getTypeErrors(file, scope);
+    expect(result.errorCount).toBe(1);
+    expect(result.diagnostics[0]).toMatchObject({
+      file,
+      code: 2322,
+      message: "Type 'string' is not assignable to type 'number'.",
+    });
+    expect(p.readFile(bystander)).toBe(held);
   });
 
   test("refreshWrittenFile re-reads a tracked file without dropping the service", async ({
