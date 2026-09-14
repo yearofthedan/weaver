@@ -107,9 +107,12 @@ everything a dispatch wrote, and keeps the rest of the engine's state.
 In `VolarEngine` both route through one predicate, `repairInPlace`: a path in the service's
 `fileContents` (everything the host has read, resolved dependencies included) or in its
 `scriptFileNames` (virtual-mapped for `.vue`) is re-read through `CachedService.rereadFile`, which
-reads disk, re-registers the script and bumps the file's entry in `versions` so the language
-service takes a fresh snapshot. Measured on the four-file `vue-errors` fixture, a three-file check
-costs 6 ms repaired in place against 123 ms rebuilt, with identical diagnostics.
+reads disk and, when the text differs from the text it holds, re-registers the script and bumps the
+file's entry in `versions` so the language service takes a fresh snapshot. A read matching the text
+already held returns before either step, so the drain's refresh of a path the check just repaired
+leaves that path's parse in place ([why a bump costs one](../tech/volar-v3.md)). Measured on the
+four-file `vue-errors` fixture, a three-file check costs 6 ms repaired in place against 123 ms
+rebuilt, with identical diagnostics.
 
 The two methods differ in what they do with a path the service holds nothing about:
 
