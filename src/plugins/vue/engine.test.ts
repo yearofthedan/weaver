@@ -195,6 +195,43 @@ describe("VolarEngine", () => {
     expect(p.readFile(bystander)).toBe(held);
   });
 
+  test("refreshFile on a written module reaches the .vue file that imports it", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine(), dir);
+    const scope = makeScope(dir);
+    const file = path.join(dir, "src/composables/useCounter.ts");
+    const importer = path.join(dir, "src/App.vue");
+    expect((await p.getTypeErrors(importer, scope)).errorCount).toBe(0);
+
+    fs.writeFileSync(
+      file,
+      [
+        "export function useCounter(label: string) {",
+        "  let count = 0;",
+        "  return {",
+        "    count: () => count,",
+        "    label: () => label,",
+        "    increment: () => {",
+        "      count++;",
+        "    },",
+        "  };",
+        "}",
+        "",
+      ].join("\n"),
+    );
+    p.refreshFile(file);
+
+    const result = await p.getTypeErrors(importer, scope);
+    expect(result.errorCount).toBe(1);
+    expect(result.diagnostics[0]).toMatchObject({
+      file: importer,
+      code: 2345,
+      message: "Argument of type 'number' is not assignable to parameter of type 'string'.",
+    });
+  });
+
   test("refreshWrittenFile re-reads a tracked file without dropping the service", async ({
     seedNamedFixture,
   }) => {
