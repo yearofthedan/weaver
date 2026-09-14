@@ -293,6 +293,22 @@ describe("VolarEngine", () => {
     });
   });
 
+  test("refreshFile keeps the service for a written path no program can hold", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine(), dir);
+    const tracked = path.join(dir, "src/composables/useCounter.ts");
+    const doc = path.join(dir, "README.md");
+    await p.getRenameLocations(tracked, p.resolveOffset(tracked, 1, 17));
+    fs.writeFileSync(doc, "# readme\n");
+
+    const held = rewriteBehindService(p, tracked);
+    p.refreshFile(doc);
+
+    expect(p.readFile(tracked)).toBe(held);
+  });
+
   test("refreshWrittenFile re-reads a tracked file without dropping the service", async ({
     seedNamedFixture,
   }) => {
@@ -360,9 +376,11 @@ describe("VolarEngine", () => {
     const updated = "export const dep: string = 'changed';\n";
     fs.writeFileSync(dep, updated);
     p.refreshWrittenFile(dep);
-    const held = rewriteBehindService(p, dep);
+    // Diverge disk only after the refresh: a dropped service would answer from
+    // disk, a repaired one answers with the text the refresh read.
+    fs.writeFileSync(dep, "export const movedOn = true;\n");
 
-    expect(held).toBe(updated);
+    expect(p.readFile(dep)).toBe(updated);
   });
 
   test("refreshWrittenFile leaves the service in place for a written dependency the check already queried", async ({

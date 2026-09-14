@@ -17,7 +17,7 @@ import type {
   MoveFileActionResult,
   SpanLocation,
 } from "../../ts-engine/types.js";
-import { TYPECHECK_EXTENSIONS } from "../../utils/extensions.js";
+import { TYPECHECK_EXTENSIONS, VUE_EXTENSIONS } from "../../utils/extensions.js";
 import { walkRecursive } from "../../utils/file-walk.js";
 import { applyTextEdits, lineColToOffset } from "../../utils/text-utils.js";
 import { findTsConfig, findTsConfigForFile } from "../../utils/ts-project.js";
@@ -106,14 +106,13 @@ export class VolarEngine implements Engine {
    * The tsconfig this program was configured from is excluded, because the
    * service takes its compiler options and file list from that file and an
    * in-place re-read would leave both stale.
-   *
-   * The content map is tested before the script list, because it holds every
-   * path the host has read while the script list runs as long as the workspace
-   * walk.
    */
-  private repairInPlace(filePath: string, tsConfigPath: string | null): boolean {
+  private repairInPlace(filePath: string): boolean {
+    const tsConfigPath = findTsConfigForFile(filePath);
     const cached = this.services.get(this.cacheKey(tsConfigPath, filePath));
     if (!cached || filePath === tsConfigPath) return false;
+    // The content map holds every path the host has read; the script list is as
+    // long as the workspace walk.
     if (
       !cached.fileContents.has(filePath) &&
       !cached.scriptFileNames.includes(toVirtualVuePath(filePath))
@@ -125,13 +124,17 @@ export class VolarEngine implements Engine {
   }
 
   /**
-   * Refreshes one path for the post-write check. A path the service cannot repair
-   * in place falls back to dropping the service, because a rebuild is the only
-   * way to pick up a file the service has never loaded.
+   * Refreshes one path for the post-write check. A path the service holds nothing
+   * about is rebuilt only when this program could hold it — the script list is
+   * fixed when the service is built, so a rebuild is the one route to a source
+   * file the service has never loaded. A written `README.md` leaves the cached
+   * service in place.
    */
   refreshFile(filePath: string): void {
-    const tsConfigPath = findTsConfigForFile(filePath);
-    if (!this.repairInPlace(filePath, tsConfigPath)) this.invalidateService(filePath);
+    if (this.repairInPlace(filePath)) return;
+    if (VUE_EXTENSIONS.has(path.extname(filePath)) || filePath === findTsConfigForFile(filePath)) {
+      this.invalidateService(filePath);
+    }
   }
 
   /**
@@ -140,8 +143,7 @@ export class VolarEngine implements Engine {
    * about is left alone, and only the tsconfig is rebuilt.
    */
   refreshWrittenFile(filePath: string): void {
-    const tsConfigPath = findTsConfigForFile(filePath);
-    if (!this.repairInPlace(filePath, tsConfigPath) && filePath === tsConfigPath) {
+    if (!this.repairInPlace(filePath) && filePath === findTsConfigForFile(filePath)) {
       this.invalidateService(filePath);
     }
   }

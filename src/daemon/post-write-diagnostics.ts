@@ -21,8 +21,8 @@ export async function getTypeErrorsForFiles(
 ): Promise<PostWriteDiagnostics> {
   const written = files.filter((f) => scope.fs.exists(f));
 
-  // Refreshes cover every written path, including one the engine answers no query
-  // for: a `.js` module still reaches the program its `.ts` importer is checked
+  // Every written path is offered to the engine, which decides what it holds for
+  // that path: a `.js` module reaches the program its `.ts` importer is checked
   // against, so stale text there reports the importer against content that has
   // since changed on disk.
   //

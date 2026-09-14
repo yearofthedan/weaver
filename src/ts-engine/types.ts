@@ -142,12 +142,15 @@ export interface Engine {
   /**
    * Ensure the engine's cached state for `path` reflects its current on-disk
    * content — called after a write so an immediately following read (e.g. a
-   * post-write diagnostics check) is not answered from a stale cache. No-op
-   * when the engine has not loaded `path` yet.
+   * post-write diagnostics check) is answered from the text the write produced.
    *
    * The check's refresh: the engine is free to drop whatever it holds for
    * `path` and pay for it on the next query, which is why callers refresh every
-   * path before querying any of them.
+   * path before querying any of them. Callers offer every path a dispatch wrote,
+   * whatever its extension, so each engine decides for itself which paths its
+   * programs can hold. An engine whose file list is fixed when a program is built
+   * may rebuild to pick up a source file it has never loaded; for a path outside
+   * its source set it keeps the state it has.
    */
   refreshFile(path: string): void;
 
