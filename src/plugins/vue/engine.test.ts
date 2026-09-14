@@ -168,6 +168,33 @@ describe("VolarEngine", () => {
     expect(p.readFile(bystander)).toBe(held);
   });
 
+  test("refreshFile repairs a served .vue file in place, so the service keeps answering for the rest of the project", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine(), dir);
+    const scope = makeScope(dir);
+    const file = path.join(dir, "src/App.vue");
+    const bystander = path.join(dir, "src/main.ts");
+    expect((await p.getTypeErrors(file, scope)).errorCount).toBe(0);
+
+    const held = rewriteBehindService(p, bystander);
+    fs.writeFileSync(
+      file,
+      '<script setup lang="ts">\nconst label: number = "not a number";\n</script>\n',
+    );
+    p.refreshFile(file);
+
+    const result = await p.getTypeErrors(file, scope);
+    expect(result.errorCount).toBe(1);
+    expect(result.diagnostics[0]).toMatchObject({
+      file,
+      code: 2322,
+      message: "Type 'string' is not assignable to type 'number'.",
+    });
+    expect(p.readFile(bystander)).toBe(held);
+  });
+
   test("refreshWrittenFile re-reads a tracked file without dropping the service", async ({
     seedNamedFixture,
   }) => {
