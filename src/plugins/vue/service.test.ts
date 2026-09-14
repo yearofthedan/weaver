@@ -169,5 +169,27 @@ describe("buildVolarService", () => {
       expect(service.fileContents.has(file)).toBe(false);
       expect(service.baseService.getProgram()?.getSourceFile(file)).toBeUndefined();
     });
+
+    test("keeps the parsed source file when the text on disk matches the text held", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true, moduleResolution: "bundler" },
+          include: ["src/**/*.ts"],
+        }),
+        "src/main.ts": "export const count: number = 1;\n",
+      });
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
+      const file = path.join(dir, "src/main.ts");
+      fs.writeFileSync(file, "export const count: number = 2;\n");
+      service.rereadFile(file);
+      const parsed = service.baseService.getProgram()?.getSourceFile(file);
+      expect(parsed).toBeDefined();
+
+      service.rereadFile(file);
+
+      expect(service.baseService.getProgram()?.getSourceFile(file)).toBe(parsed);
+    });
   });
 });
