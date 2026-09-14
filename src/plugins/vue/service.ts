@@ -303,9 +303,6 @@ export async function buildVolarService(
     seedFileNames,
     rereadFile: (filePath) => {
       const content = readFileFromDisk(filePath);
-      // Bumping the version below makes the language service discard the source files it
-      // parsed from this same text.
-      if (content !== undefined && fileContents.get(filePath) === content) return;
       if (content === undefined) {
         fileContents.delete(filePath);
         // A `.vue` file's virtual TypeScript comes from the registered script, which the
@@ -313,6 +310,9 @@ export async function buildVolarService(
         // importers until the registration goes.
         language.scripts.delete(filePath);
       } else {
+        // Bumping the version below makes the language service discard the source files it
+        // parsed from this same text.
+        if (fileContents.get(filePath) === content) return;
         fileContents.set(filePath, content);
         registerScript(language.scripts, filePath, content);
       }
