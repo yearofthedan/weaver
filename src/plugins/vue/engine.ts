@@ -99,8 +99,9 @@ export class VolarEngine implements Engine {
 
   /**
    * Re-read `filePath` into the cached service that serves it, when that service
-   * already holds the path as one of its scripts. Returns whether the repair
-   * happened, so a caller that gets `false` decides what to do instead.
+   * holds the path — either as a script it serves, or as content it read while
+   * resolving an import. Returns whether the repair happened, so a caller that
+   * gets `false` decides what to do instead.
    *
    * The tsconfig this program was configured from is excluded: the service's
    * compiler options and file list both come from it, so re-reading it in place
@@ -110,7 +111,8 @@ export class VolarEngine implements Engine {
     const tsConfigPath = findTsConfigForFile(filePath);
     const cached = this.services.get(this.cacheKey(tsConfigPath, filePath));
     if (!cached || filePath === tsConfigPath) return false;
-    if (!cached.scriptFileNames.includes(toVirtualVuePath(filePath))) return false;
+    const served = cached.scriptFileNames.includes(toVirtualVuePath(filePath));
+    if (!served && !cached.fileContents.has(filePath)) return false;
     cached.rereadFile(filePath);
     return true;
   }

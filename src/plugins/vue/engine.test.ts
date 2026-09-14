@@ -232,6 +232,37 @@ describe("VolarEngine", () => {
     });
   });
 
+  test("refreshFile repairs a resolved dependency in place, so the service keeps answering for the rest of the project", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine(), dir);
+    const scope = makeScope(dir);
+    const uses = path.join(dir, "src/uses-dep.ts");
+    const dep = path.join(dir, "dist/dep.ts");
+    const bystander = path.join(dir, "src/main.ts");
+    fs.mkdirSync(path.dirname(dep), { recursive: true });
+    fs.writeFileSync(dep, "export const dep: number = 1;\n");
+    fs.writeFileSync(uses, 'import { dep } from "../dist/dep";\nexport const d: number = dep;\n');
+
+    // Resolving the import reads the dependency, so the service holds its content
+    // while the directory it sits in keeps it out of the service's script list.
+    expect((await p.getTypeErrors(uses, scope)).errorCount).toBe(0);
+
+    const held = rewriteBehindService(p, bystander);
+    fs.writeFileSync(dep, 'export const dep: string = "changed";\n');
+    p.refreshFile(dep);
+
+    const result = await p.getTypeErrors(uses, scope);
+    expect(result.errorCount).toBe(1);
+    expect(result.diagnostics[0]).toMatchObject({
+      file: uses,
+      code: 2322,
+      message: "Type 'string' is not assignable to type 'number'.",
+    });
+    expect(p.readFile(bystander)).toBe(held);
+  });
+
   test("refreshWrittenFile re-reads a tracked file without dropping the service", async ({
     seedNamedFixture,
   }) => {
