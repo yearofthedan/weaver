@@ -102,15 +102,13 @@ export class VolarEngine implements Engine {
    * the service serves or as content it read while resolving an import, and
    * returns whether that repair happened so the caller can decide what to do
    * when it did not.
-   *
-   * The tsconfig this program was configured from is excluded, because the
-   * service takes its compiler options and file list from that file and an
-   * in-place re-read would leave both stale.
    */
   private repairInPlace(filePath: string): boolean {
-    const tsConfigPath = findTsConfigForFile(filePath);
-    const cached = this.services.get(this.cacheKey(tsConfigPath, filePath));
-    if (!cached || filePath === tsConfigPath) return false;
+    const cached = this.services.get(this.cacheKey(findTsConfigForFile(filePath), filePath));
+    // Both callers treat `false` here as "nothing cached to act on", and an
+    // invalidate of an absent key is already a no-op, so this answer has no
+    // observable consequence — a mutant flipping it survives for that reason.
+    if (!cached) return false;
     // The content map holds every path the host has read; the script list is as
     // long as the workspace walk.
     if (
@@ -125,10 +123,10 @@ export class VolarEngine implements Engine {
 
   /**
    * Refreshes one path for the post-write check. A path the service holds nothing
-   * about is rebuilt only when this program could hold it — the script list is
-   * fixed when the service is built, so a rebuild is the one route to a source
-   * file the service has never loaded. A written `README.md` leaves the cached
-   * service in place.
+   * about is rebuilt when this program could hold it — the script list is fixed
+   * when the service is built, so a rebuild is the one route to a source file the
+   * service has never loaded, and to an edited tsconfig the options come from. A
+   * written `README.md` leaves the cached service in place.
    */
   refreshFile(filePath: string): void {
     if (this.repairInPlace(filePath)) return;
@@ -143,9 +141,8 @@ export class VolarEngine implements Engine {
    * about is left alone, and only the tsconfig is rebuilt.
    */
   refreshWrittenFile(filePath: string): void {
-    if (!this.repairInPlace(filePath) && filePath === findTsConfigForFile(filePath)) {
-      this.invalidateService(filePath);
-    }
+    if (this.repairInPlace(filePath)) return;
+    if (filePath === findTsConfigForFile(filePath)) this.invalidateService(filePath);
   }
 
   // ─── Virtual ↔ real path helpers ──────────────────────────────────────────

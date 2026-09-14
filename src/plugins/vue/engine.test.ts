@@ -309,6 +309,23 @@ describe("VolarEngine", () => {
     expect(p.readFile(tracked)).toBe(held);
   });
 
+  test("refreshFile rebuilds the service when the tsconfig itself was written", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine(), dir);
+    const tracked = path.join(dir, "src/composables/useCounter.ts");
+    const tsConfig = path.join(dir, "tsconfig.json");
+    await p.getRenameLocations(tracked, p.resolveOffset(tracked, 1, 17));
+
+    const held = rewriteBehindService(p, tracked);
+    p.refreshFile(tsConfig);
+
+    // The program's compiler options and file list both come from this file, so a
+    // dropped service is the only way an edit to it reaches a later read.
+    expect(p.readFile(tracked)).not.toBe(held);
+  });
+
   test("refreshWrittenFile re-reads a tracked file without dropping the service", async ({
     seedNamedFixture,
   }) => {
