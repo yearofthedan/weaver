@@ -98,41 +98,50 @@ export class VolarEngine implements Engine {
   }
 
   /**
-   * Re-read `filePath` into the cached service that serves it, when that service
-   * holds the path — either as a script it serves, or as content it read while
-   * resolving an import. Returns whether the repair happened, so a caller that
-   * gets `false` decides what to do instead.
+   * Re-reads `filePath` into the cached service that holds it, either as a script
+   * the service serves or as content it read while resolving an import, and
+   * returns whether that repair happened so the caller can decide what to do
+   * when it did not.
    *
-   * The tsconfig this program was configured from is excluded: the service's
-   * compiler options and file list both come from it, so re-reading it in place
-   * would keep a service configured from stale options.
+   * The tsconfig this program was configured from is excluded, because the
+   * service takes its compiler options and file list from that file and an
+   * in-place re-read would leave both stale.
+   *
+   * The content map is tested before the script list, because it holds every
+   * path the host has read while the script list runs as long as the workspace
+   * walk.
    */
-  private repairInPlace(filePath: string): boolean {
-    const tsConfigPath = findTsConfigForFile(filePath);
+  private repairInPlace(filePath: string, tsConfigPath: string | null): boolean {
     const cached = this.services.get(this.cacheKey(tsConfigPath, filePath));
     if (!cached || filePath === tsConfigPath) return false;
-    const served = cached.scriptFileNames.includes(toVirtualVuePath(filePath));
-    if (!served && !cached.fileContents.has(filePath)) return false;
+    if (
+      !cached.fileContents.has(filePath) &&
+      !cached.scriptFileNames.includes(toVirtualVuePath(filePath))
+    ) {
+      return false;
+    }
     cached.rereadFile(filePath);
     return true;
   }
 
   /**
-   * The check's refresh. A path the service cannot see falls back to dropping the
-   * service, because a rebuild is the only way to pick up a file the service has
-   * never loaded.
+   * Refreshes one path for the post-write check. A path the service cannot repair
+   * in place falls back to dropping the service, because a rebuild is the only
+   * way to pick up a file the service has never loaded.
    */
   refreshFile(filePath: string): void {
-    if (!this.repairInPlace(filePath)) this.invalidateService(filePath);
+    const tsConfigPath = findTsConfigForFile(filePath);
+    if (!this.repairInPlace(filePath, tsConfigPath)) this.invalidateService(filePath);
   }
 
   /**
-   * The drain's per-path repair, so a dispatch that wrote does not pay a rebuild
-   * on the next read. Only the tsconfig this program was configured from is
-   * rebuilt, since the service takes its compiler options and file list from it.
+   * Repairs one written path once the dispatch that wrote it has returned, so the
+   * next read is answered without a rebuild. A path the service holds nothing
+   * about is left alone, and only the tsconfig is rebuilt.
    */
   refreshWrittenFile(filePath: string): void {
-    if (!this.repairInPlace(filePath) && filePath === findTsConfigForFile(filePath)) {
+    const tsConfigPath = findTsConfigForFile(filePath);
+    if (!this.repairInPlace(filePath, tsConfigPath) && filePath === tsConfigPath) {
       this.invalidateService(filePath);
     }
   }
