@@ -263,6 +263,28 @@ describe("VolarEngine", () => {
     expect(p.readFile(bystander)).toBe(held);
   });
 
+  test("refreshFile rebuilds for a path the service neither serves nor has read", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine(), dir);
+    const scope = makeScope(dir);
+    const tracked = path.join(dir, "src/composables/useCounter.ts");
+    const created = path.join(dir, "src/brand-new.ts");
+    await p.getRenameLocations(tracked, p.resolveOffset(tracked, 1, 17));
+
+    fs.writeFileSync(created, 'export const wrong: number = "nope";\n');
+    p.refreshFile(created);
+
+    const result = await p.getTypeErrors(created, scope);
+    expect(result.errorCount).toBe(1);
+    expect(result.diagnostics[0]).toMatchObject({
+      file: created,
+      code: 2322,
+      message: "Type 'string' is not assignable to type 'number'.",
+    });
+  });
+
   test("refreshWrittenFile re-reads a tracked file without dropping the service", async ({
     seedNamedFixture,
   }) => {
