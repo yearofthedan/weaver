@@ -6,8 +6,8 @@ import type { Engine } from "../ts-engine/types.js";
 
 /**
  * Check type errors only in the given files and return the three post-write
- * diagnostic fields. Files outside the engine's supported extensions are
- * silently skipped. Results are capped at MAX_DIAGNOSTICS total across all files;
+ * diagnostic fields. Queries cover the files whose extension the engine answers
+ * for. Results are capped at MAX_DIAGNOSTICS total across all files;
  * typeErrorCount reflects the true total.
  *
  * Takes the project's own `Engine` (ts-morph or, in a Vue project, Volar) so a
@@ -19,16 +19,21 @@ export async function getTypeErrorsForFiles(
   files: string[],
   scope: WorkspaceScope,
 ): Promise<PostWriteDiagnostics> {
-  const tsFiles = files
-    .filter((f) => engine.handlesFileExtension(path.extname(f)))
-    .filter((f) => scope.fs.exists(f));
+  const written = files.filter((f) => scope.fs.exists(f));
 
-  // Refresh every file before asking about any of them. An engine is free to
-  // implement refreshFile by dropping a whole cached project, so interleaving
-  // refresh and query rebuilds that project once per file.
-  for (const file of tsFiles) {
+  // Refreshes cover every written path, including one the engine answers no query
+  // for: a `.js` module still reaches the program its `.ts` importer is checked
+  // against, so stale text there reports the importer against content that has
+  // since changed on disk.
+  //
+  // Refreshes come before any query. An engine is free to implement refreshFile
+  // by dropping a whole cached project, so interleaving refresh and query
+  // rebuilds that project once per file.
+  for (const file of written) {
     engine.refreshFile(file);
   }
+
+  const tsFiles = written.filter((f) => engine.handlesFileExtension(path.extname(f)));
 
   let totalCount = 0;
   const allDiagnostics: TypeDiagnostic[] = [];

@@ -251,4 +251,34 @@ describe("getTypeErrorsForFiles", () => {
     expect(result.typeErrorCount).toBeGreaterThanOrEqual(1);
     expect(result.typeErrors.some((d) => d.file === file)).toBe(true);
   });
+
+  test("refreshes a written .js module it will not query, so its .ts importer is checked against the new text", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: {
+          strict: true,
+          module: "ESNext",
+          moduleResolution: "bundler",
+          allowJs: true,
+        },
+        include: ["src/**/*.ts", "src/**/*.js"],
+      }),
+      "src/helper.js": "export const value = 1;\n",
+      "src/consumer.ts": 'import { value } from "./helper.js";\nexport const n: number = value;\n',
+    });
+    const engine = new TsMorphEngine(dir);
+    const helper = `${dir}/src/helper.js`;
+    const consumer = `${dir}/src/consumer.ts`;
+    await engine.getTypeErrors(consumer, makeScope(dir));
+
+    // `value` becomes a string, so the importer's `n: number = value` no longer holds.
+    fs.writeFileSync(helper, 'export const value = "now a string";\n');
+
+    const result = await getTypeErrorsForFiles(engine, [helper, consumer], makeScope(dir));
+
+    expect(result.typeErrorCount).toBe(1);
+    expect(result.typeErrors[0]).toMatchObject({ file: consumer, code: 2322 });
+  });
 });
