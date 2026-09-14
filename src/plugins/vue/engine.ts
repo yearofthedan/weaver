@@ -127,24 +127,12 @@ export class VolarEngine implements Engine {
   }
 
   /**
-   * Re-read one file into the cached service that serves it, leaving the service
-   * itself in place — the drain's per-path repair, so a dispatch that wrote does
-   * not pay a full rebuild on the next read.
-   *
-   * A path in `scriptFileNames` is re-read in place. A resolved dependency, whose
-   * content sits in `fileContents` while its name sits outside `scriptFileNames`,
-   * and the tsconfig this program was configured from both go back to disk through
-   * a rebuild. Any other path is left as it is.
+   * The drain's per-path repair, so a dispatch that wrote does not pay a rebuild
+   * on the next read. Only the tsconfig this program was configured from is
+   * rebuilt, since the service takes its compiler options and file list from it.
    */
   refreshWrittenFile(filePath: string): void {
-    const tsConfigPath = findTsConfigForFile(filePath);
-    const cached = this.services.get(this.cacheKey(tsConfigPath, filePath));
-    if (!cached) return;
-    if (cached.scriptFileNames.includes(toVirtualVuePath(filePath))) {
-      cached.rereadFile(filePath);
-      return;
-    }
-    if (cached.fileContents.has(filePath) || filePath === tsConfigPath) {
+    if (!this.repairInPlace(filePath) && filePath === findTsConfigForFile(filePath)) {
       this.invalidateService(filePath);
     }
   }

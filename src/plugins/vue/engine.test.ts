@@ -37,7 +37,7 @@ describe("VolarEngine", () => {
     expect(typeof p.deleteFile).toBe("function");
   });
 
-  it("handles .ts, .tsx, .mts, .cts and .vue, and not .js", () => {
+  it("handles .ts, .tsx, .mts, .cts and .vue, and not .js or .json", () => {
     const p = new VolarEngine(new TsMorphEngine());
 
     expect(p.handlesFileExtension(".ts")).toBe(true);
@@ -46,6 +46,7 @@ describe("VolarEngine", () => {
     expect(p.handlesFileExtension(".cts")).toBe(true);
     expect(p.handlesFileExtension(".vue")).toBe(true);
     expect(p.handlesFileExtension(".js")).toBe(false);
+    expect(p.handlesFileExtension(".json")).toBe(false);
   });
 
   test("resolveOffset converts 1-based line/col to 0-based offset", async ({
@@ -340,7 +341,7 @@ describe("VolarEngine", () => {
     expect(invalidate).toHaveBeenCalledWith(tsConfig);
   });
 
-  test("refreshWrittenFile rebuilds the service for a path it read as a dependency", async ({
+  test("refreshWrittenFile re-reads a path it read as a dependency, leaving the service in place", async ({
     seedNamedFixture,
   }) => {
     const dir = await seedNamedFixture(FIXTURES.vueProject.name);
@@ -358,9 +359,37 @@ describe("VolarEngine", () => {
     const updated = "export const dep: string = 'changed';\n";
     fs.writeFileSync(dep, updated);
     p.refreshWrittenFile(dep);
+    fs.writeFileSync(dep, "export const movedOn = true;\n");
 
-    // A dropped service falls through to disk; a retained one answers with the text it read.
+    // The retained service holds the repaired text; the file on disk now holds
+    // different text.
     expect(p.readFile(dep)).toBe(updated);
+  });
+
+  test("refreshWrittenFile leaves the service in place for a written dependency the check already queried", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.vueProject.name);
+    const p = new VolarEngine(new TsMorphEngine(), dir);
+    const scope = makeScope(dir);
+    const uses = path.join(dir, "src/uses-dep.ts");
+    const dep = path.join(dir, "dist/dep.ts");
+    const bystander = path.join(dir, "src/main.ts");
+    fs.mkdirSync(path.dirname(dep), { recursive: true });
+    fs.writeFileSync(dep, "export const dep: number = 1;\n");
+    fs.writeFileSync(uses, 'import { dep } from "../dist/dep";\nexport const d: number = dep;\n');
+    expect((await p.getTypeErrors(uses, scope)).errorCount).toBe(0);
+
+    // The dispatch writes the dependency, then the check refreshes and queries it.
+    fs.writeFileSync(dep, 'export const dep: string = "changed";\n');
+    p.refreshFile(dep);
+    expect((await p.getTypeErrors(uses, scope)).errorCount).toBe(1);
+
+    const held = rewriteBehindService(p, bystander);
+    p.refreshWrittenFile(dep);
+
+    expect(p.readFile(bystander)).toBe(held);
+    expect((await p.getTypeErrors(uses, scope)).errorCount).toBe(1);
   });
 
   test("refreshWrittenFile leaves the service alone for a path it holds nothing about", async ({
