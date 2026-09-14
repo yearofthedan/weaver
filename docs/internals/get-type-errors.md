@@ -65,7 +65,10 @@ The dispatcher calls `registry.projectEngine()`, which returns `VolarEngine` for
 The ts-morph project has no `.vue` language support, so it cannot resolve a `.vue` specifier and reports a false TS2307 for every import of one — while the Volar service the same engine already holds resolves it. Routing every file kind through Volar removes only that false positive: a genuinely missing SFC and an ordinary type error are still reported.
 
 **`getTypeErrorsForFiles` refreshes every file before querying any of them.**
-Post-write diagnostics would otherwise see content cached from before the write. The refreshes are hoisted out of the query loop deliberately: `Engine.refreshFile` is a per-file contract, but `VolarEngine` can only satisfy it by dropping the whole cached service for the tsconfig, so interleaving refresh and query rebuilds the entire Volar project once per modified file. Eight files cost eight builds and 1163ms interleaved, against one build and 224ms hoisted.
+Post-write diagnostics would otherwise see content cached from before the write. The refreshes are hoisted out of the query loop deliberately: `Engine.refreshFile` is a per-file contract, and an engine may satisfy it by dropping a whole cached project, so interleaving refresh and query rebuilds that project once per modified file. Eight files cost eight builds and 1163ms interleaved, against one build and 224ms hoisted. `VolarEngine` now repairs a path it holds in place, so the paths that still drop a service are the narrow set below — the hoist remains what bounds their cost.
+
+**The check offers every path the dispatch wrote, and each engine decides what it holds.**
+`getTypeErrorsForFiles` filters by extension only when choosing what to *query*. Filtering before the refresh loop as well leaves a written `.js` module stale in a Vue project: the module reaches the program its `.ts` importer is checked against, so the importer is reported against text that has changed on disk, while a cold engine reports the real error. An extension whitelist in the daemon is the wrong layer for this decision (see the constraint further down, which names the other way it fails) — the daemon offers a path and the engine answers for it.
 
 **Parsed source files outlive the service that read them, and are evicted per file.**
 `DiagnosticServiceCache` (`src/ts-engine/diagnostic-service.ts`) holds one entry per tsconfig
@@ -96,12 +99,33 @@ service in place. The ts-morph split is what keeps it cheap: the eviction above 
 these paths, and the post-write check has rebuilt the diagnostic program from the current text, so
 evicting the parse again would discard a program that is already correct.
 
-`refreshFile` and `refreshWrittenFile` are two contracts. `refreshFile` is the check's refresh and
-drops whatever the engine holds for the path, which is why the check refreshes every path before
-querying any of them. `refreshWrittenFile` is the per-path repair the drain applies to everything a
-dispatch wrote, and keeps the rest of the engine's state. `VolarEngine.refreshWrittenFile` drops the
-service for a path it cannot repair in place — the tsconfig its program was configured from, or a
-path it read as a resolved dependency.
+`refreshFile` and `refreshWrittenFile` are two contracts. `refreshFile` is the check's refresh, and
+the engine may drop whatever it holds for the path, which is why the check refreshes every path
+before querying any of them. `refreshWrittenFile` is the per-path repair the drain applies to
+everything a dispatch wrote, and keeps the rest of the engine's state.
+
+In `VolarEngine` both route through one predicate, `repairInPlace`: a path in the service's
+`fileContents` (everything the host has read, resolved dependencies included) or in its
+`scriptFileNames` (virtual-mapped for `.vue`) is re-read through `CachedService.rereadFile`, which
+reads disk, re-registers the script and bumps the file's entry in `versions` so the language
+service takes a fresh snapshot. Measured on the four-file `vue-errors` fixture, a three-file check
+costs 6 ms repaired in place against 123 ms rebuilt, with identical diagnostics.
+
+The two methods differ in what they do with a path the service holds nothing about:
+
+- `refreshFile` rebuilds when a Volar program could hold the path — an extension in
+  `VUE_EXTENSIONS`, or the tsconfig the service takes its options and file list from. A newly
+  created source file is reachable no other way, since `scriptFileNames` is fixed when the service
+  is built; without the rebuild the check reports it as clean.
+- `refreshFile` leaves the service in place for anything else. A pattern-mode `replaceText` or a
+  `moveDirectory` reports `.md`, `.json` and `.css` paths in `filesModified`, and dropping the
+  service for one of those cost a warm check 494–517 ms on this tree against 8–22 ms.
+- `refreshWrittenFile` rebuilds for the tsconfig alone and leaves every other unheld path as it is.
+
+This rests on the tsconfig never appearing in a service's own `fileContents` — the config is parsed
+through `ts.readConfigFile`, not the host's cached `readFile`. If Volar ever reads it through the
+host, `repairInPlace` would repair it in place and both methods would skip the rebuild an edited
+tsconfig needs, so the exclusion would have to come back.
 
 The check covers `.ts`, `.tsx`, `.mts` and `.cts` — one set, `TYPECHECK_EXTENSIONS`, that both
 engines report from — plus `.vue` in a Vue project, whose SFC diagnostics come back through the

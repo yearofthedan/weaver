@@ -101,6 +101,10 @@ Tests follow their subject. A test for an operation lives in the operation's tes
 
 Size doesn't override this. When a test file grows large enough to give pause, that triggers assessment via the refactoring hierarchy above — not a new test file as a workaround. A new test file is only justified after the hierarchy has been applied and the file still warrants splitting along feature boundaries.
 
+**A change whose subject is how one component treats classes of input needs a case at the caller that produces them.** Testing the component directly for each class proves it answers each one correctly and says nothing about which classes it is handed — so a caller that filters, reorders, or skips before it reaches the component is outside every case, and the defect lands in the interaction. That gap survives a full suite in both directions: a class the caller never forwards, and a class it forwards where the component should not see it. When the matrix is behaviours × input classes, add the callers as a third axis, and put at least one case at that layer.
+
+**An assertion that is green before the change is a guard, not a proof.** Its job is to pin behaviour the change must not break, and it cannot stand as the only case for behaviour the change introduces — a suite made of them reports success on an unimplemented feature. Write each new case red first, and when one passes against the pre-change code, say so where the case is recorded rather than counting it as coverage of the new path.
+
 ### Construct the subject the way production constructs it
 
 A test that builds its subject differently from the production wiring is testing a shape no user reaches, and it fails silently: the suite is green because the code path carrying the defect was never switched on.

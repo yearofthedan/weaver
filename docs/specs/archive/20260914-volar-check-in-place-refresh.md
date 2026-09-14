@@ -97,16 +97,90 @@ The alternative considered was leaving `refreshFile` as a full invalidate and gi
 
 ## Done-when
 
-- [ ] All ACs verified by tests
-- [ ] Mutation score ≥ threshold for `src/plugins/vue/engine.ts`
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] `/review-changes` run over the whole change and its findings applied — a green `pnpm check` does not stand in for it
-- [ ] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`
-- [ ] The four preserved cases named in Edges (tsconfig invalidation, path-held-nothing, no-service no-op, ts-morph's own refresh cases) pass unmodified
-- [ ] The extension case asserts `.json` → `false`
-- [ ] Before/after milliseconds for a multi-file checked write re-measured on a Vue fixture and recorded in the Outcome section
-- [ ] `docs/internals/get-type-errors.md:67-104` updated: the hoist rationale, the interleaved-vs-hoisted measurement, and the `refreshFile`/`refreshWrittenFile` contract paragraph all describe the post-change routing
-- [ ] Both handoff entries removed (the whole-service rebuild and the double rebuild)
-- [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to `docs/internals/get-type-errors.md` or `docs/tech/`
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] All ACs verified by tests
+- [x] Mutation score ≥ threshold for `src/plugins/vue/engine.ts` — 90.5% over the changed region
+- [x] `pnpm check` passes (lint + build + test)
+- [x] `/review-changes` run over the whole change and its findings applied — two passes, four lenses each
+- [x] No touched source or test file exceeds the hard flag defined in `docs/code-standards.md`
+- [x] The four preserved cases named in Edges (tsconfig invalidation, path-held-nothing, no-service no-op, ts-morph's own refresh cases) pass unmodified
+- [x] ~~The extension case asserts `.json` → `false`~~ — reversed during review; see Outcome
+- [x] Before/after milliseconds for a multi-file checked write re-measured on a Vue fixture and recorded in the Outcome section
+- [x] `docs/internals/get-type-errors.md` updated: the hoist rationale, the two-contract paragraph, and the per-path-class routing now describe the shipped behaviour
+- [x] Both handoff entries removed (the whole-service rebuild and the double rebuild)
+- [x] Tech debt discovered during implementation added to handoff.md
+- [x] Non-obvious gotchas added to `docs/internals/get-type-errors.md`
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+Shipped 2026-09-14 in `3a9b683..61093c4` (nine commits).
+
+### Verification
+
+Driven on the real CLI against a live daemon in a copied `vue-project` fixture with an added SFC
+consumer, comparing the pre-change build (worktree at `c1559f9`) with the shipped build on the
+same script (`reports/verify-cli-vue-refresh.sh`, since removed):
+
+| CLI call | Before | After |
+|---|---|---|
+| `rename`, cold daemon | 1828 ms | 1278 ms |
+| `rename`, warm daemon | 783 ms | 666 ms |
+| `rename` again, warm | 478 ms | 367 ms |
+| `replace-text` touching `NOTES.md` | 670 ms | 358 ms |
+
+The SFC importer tracked all three renames (`import { useBeat } from "./composables/useCounter"`),
+and a following project-wide `get-type-errors` reported `errorCount: 0`. At the engine layer, a
+three-file check on the four-file `vue-errors` fixture went from 123 ms to 6 ms with identical
+diagnostics; the CLI numbers are smaller because process start and socket round-trip dominate a
+five-file workspace.
+
+Two defects were found by *review*, not by the ACs, and both were reproduced before fixing:
+
+1. **A written `.js` module went stale.** The check filtered by extension before refreshing, so a
+   `.js` path never reached `refreshFile`; the whole-service drop had been hiding it. A Vue project
+   reported `typeErrorCount: 0` for a `.ts` importer a cold engine reported `1` for. Fixed by
+   offering every written path to the engine.
+2. **That fix over-reached.** `VolarEngine.refreshFile` then dropped the whole service for a
+   written `README.md` or `.json`, which pattern-mode `replaceText` and `moveDirectory` both report
+   in `filesModified` — a warm check went from 8–22 ms to 494–517 ms. Fixed by bounding the rebuild
+   fallback to `VUE_EXTENSIONS` plus the tsconfig.
+
+### Reflection
+
+**What went well.** Probing each path class before writing the spec paid for itself twice: it
+disproved the queue entry's stated blocker (the entry claimed the cheap repair could not see
+post-write text; `rereadFile` reads disk at call time), and it caught that the entry's example for
+the double rebuild — a written tsconfig — is unreachable, because `handlesFileExtension` excludes
+`.json`. Designing from the entry's text would have produced ACs aimed at the wrong path. The
+decision to skip a build-generation counter on `CachedService` held up: no path class rebuilds
+twice without it.
+
+**What did not.** The ACs were all satisfiable without noticing either defect above, because every
+one of them drove `VolarEngine` directly and none drove the check that calls it. A spec whose
+subject is "what the check does with each path class" needs at least one case at the
+`getTypeErrorsForFiles` layer; this one had none, and the type matrix in the spec listed path
+classes without listing the callers that produce them. Both defects were in the interaction, which
+is exactly the cell that was empty.
+
+The `.json` assertion the spec's Edges demanded was removed during review as a same-path parameter
+row, and then the design changed underneath it: once the check offers every written path, a written
+tsconfig *does* reach `refreshFile`, so the invariant the assertion was defending no longer holds.
+The replacement is a behavioural case (`refreshFile` on a written tsconfig rebuilds).
+
+**For the next agent.** Mutation testing the region is what forced the final shape: the tsconfig
+comparison survived inside the repair predicate because nothing can put a tsconfig into a service's
+`fileContents`, which two reviewers had independently probed as unreachable. Moving the comparison
+into each caller's rebuild condition made it killable. The surviving mutant left behind — the
+absent-service `return false` — is genuinely unobservable, since an invalidate of an absent key is
+already a no-op; it is recorded at the line.
+
+Watch the assumption now documented in `docs/internals/get-type-errors.md`: the tsconfig stays out
+of `fileContents` only because it is parsed through `ts.readConfigFile` rather than the host's
+cached `readFile`. If Volar ever reads it through the host, `repairInPlace` will repair it in place
+and both refresh methods will skip the rebuild an edited tsconfig needs.
+
+### Numbers
+
+- Tests added: 8 (7 in `src/plugins/vue/engine.test.ts`, 1 in `src/daemon/post-write-diagnostics.test.ts`); suite 1511 → 1519.
+- Assertions removed: 2 (a non-discriminating `errorCount`, a same-path extension row).
+- Mutation: changed region of `src/plugins/vue/engine.ts` 90.5% (38/42), `src/daemon/post-write-diagnostics.ts` 100% (21/21).
