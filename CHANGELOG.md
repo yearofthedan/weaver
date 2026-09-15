@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.1.13](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.12...weaver-v0.1.13) (2026-09-15)
+
+
+### Features
+
+* **agents:** add the Claude Code verifier definition ([4996914](https://github.com/yearofthedan/weaver/commit/499691406050828092ca540bf07a4538a08e106a))
+* **hooks:** run the commit-standards gate under both harnesses ([6a54d8e](https://github.com/yearofthedan/weaver/commit/6a54d8e01c179776d395ca17d86cf8c1a99ad0b2))
+* **vue-engine:** keep the drain from dropping a repaired dependency ([00db181](https://github.com/yearofthedan/weaver/commit/00db181242a4427d1d54b1f9c2fedec4ae933029))
+* **vue-engine:** repair a resolved dependency in place too ([40da362](https://github.com/yearofthedan/weaver/commit/40da362c9501009b49edca2fd2acdfa17b66b43a))
+* **vue-engine:** repair the cached Volar service in place on refreshFile ([30a76b1](https://github.com/yearofthedan/weaver/commit/30a76b1adae168c9cbda99f17e49ec0ff099ecbd))
+
+
+### Bug Fixes
+
+* **daemon:** keep a failing refresh from failing the dispatch ([8d39688](https://github.com/yearofthedan/weaver/commit/8d3968840ec16f4c62598c91745be4e15e3fcc5e))
+* **daemon:** refresh every written path before the post-write check ([fb37603](https://github.com/yearofthedan/weaver/commit/fb376038e654a362cbaf9982150ebbaa76a62e8a))
+* **deps:** hold vitest at v4 while the Stryker runner cannot filter v5 tests ([37449f9](https://github.com/yearofthedan/weaver/commit/37449f972ff592dffcd0fe0bd704ee19035a56e4))
+* **diagnostics:** report .mts and .cts writes in the post-write check ([29cf2c0](https://github.com/yearofthedan/weaver/commit/29cf2c0af8d3d9009c77ad7b740c341fb237f4c1))
+* **hooks:** move the commit-standards gate to commit-msg ([eae7433](https://github.com/yearofthedan/weaver/commit/eae74337196ae7dfa35ce2a8a676da2e6657c037))
+* **hooks:** report every review finding instead of the first five ([7b0129e](https://github.com/yearofthedan/weaver/commit/7b0129e54d1acfce47a9f5e1b282467f09ec4460))
+* **hooks:** review the commit subject line without the body ([b9d73f7](https://github.com/yearofthedan/weaver/commit/b9d73f7ed8f233f0ab2905e7d6747a2908137a7b))
+* **vue-engine:** rebuild only for a path a Volar program can hold ([8bda6eb](https://github.com/yearofthedan/weaver/commit/8bda6eba4265ad196bce81c7db52d917c5e60ff0))
+* **vue:** clear a deleted file's script registration ([721bb01](https://github.com/yearofthedan/weaver/commit/721bb01ba613d995f84450e513f12eed5f560fd3))
+* **vue:** let the engine decide which written paths it holds ([5390b1d](https://github.com/yearofthedan/weaver/commit/5390b1de0240e4a6ecd9456952eac249510bbfa2))
+* **vue:** refresh one file inside Volar's retained service ([cd7c990](https://github.com/yearofthedan/weaver/commit/cd7c990e3a876e6293899060399a63a7d0232aaa))
+* **vue:** repair one written file in Volar's cached service ([b7d8372](https://github.com/yearofthedan/weaver/commit/b7d83721bbc40e84e4f05d347307a5c4206f6e4c))
+* **vue:** serve .mts and .cts to the Volar service, and keep it out of non-source writes ([bce8ddc](https://github.com/yearofthedan/weaver/commit/bce8ddce278828b615d321a81e1f8d192c222b9e))
+* **vue:** skip a written path the Volar program does not hold ([0ef2911](https://github.com/yearofthedan/weaver/commit/0ef2911db24c6f33c79cb9bb534c50b7499fdc49))
+
+
+### Performance Improvements
+
+* **vue:** skip the reread when disk text matches the text held ([218c020](https://github.com/yearofthedan/weaver/commit/218c02052a1241c1c781ed46c6663c01f6e9b810))
+
 ## [0.1.12](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.11...weaver-v0.1.12) (2026-09-12)
 
 
