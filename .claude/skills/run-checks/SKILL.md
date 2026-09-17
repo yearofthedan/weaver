@@ -37,7 +37,7 @@ Only run the full `pnpm check` once, after all code changes are complete and sco
 
 ## A timeout in an unrelated file can be a false red
 
-A loaded machine can time out whole files that have nothing to do with the change — vitest has reported hour-long durations for tests that had just started. Re-run the file on its own and expect it to pass. While the machine is busy, scoped runs are the reliable instrument.
+A loaded machine can time out whole files that have nothing to do with the change. Re-run the file on its own and expect it to pass. While the machine is busy, scoped runs are the reliable instrument.
 
 ## What NOT to do
 
