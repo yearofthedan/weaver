@@ -355,36 +355,7 @@ describe("replaceText operation", () => {
       });
     });
 
-    test("resolves a relative edit path against the scope root, not the process cwd", async ({
-      seedNamedFixture,
-    }) => {
-      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
-
-      const result = await replaceText(makeScope(dir), {
-        edits: [{ file: "src/utils.ts", line: 1, col: 17, oldText: "greetUser", newText: "hi" }],
-      });
-
-      expect(result.filesModified).toEqual([path.join(dir, "src/utils.ts")]);
-      expect(readFile(dir, "src/utils.ts")).toContain("hi");
-    });
-
-    test("collapses two relative edits naming the same file into one write", async ({
-      seedNamedFixture,
-    }) => {
-      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
-
-      const result = await replaceText(makeScope(dir), {
-        edits: [
-          { file: "src/utils.ts", line: 1, col: 17, oldText: "greetUser", newText: "hi" },
-          { file: "src/utils.ts", line: 2, col: 11, oldText: "Hello", newText: "Hey" },
-        ],
-      });
-
-      expect(result.filesModified).toEqual([path.join(dir, "src/utils.ts")]);
-      expect(result.replacementCount).toBe(2);
-    });
-
-    test("resolves a mix of relative and absolute edit paths in one request", async ({
+    test("resolves relative edit paths against the scope root, absolute ones as given", async ({
       seedNamedFixture,
     }) => {
       const dir = await seedNamedFixture(FIXTURES.simpleTs.name);

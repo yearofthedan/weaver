@@ -115,7 +115,11 @@ function applyPatternReplace(
 // ─── Surgical mode ────────────────────────────────────────────────────────────
 
 function applySurgicalEdits(scope: WorkspaceScope, edits: TextEdit[]): ReplaceTextResult {
-  // Validate all inputs up front before touching any file
+  // Resolve each edit's path against the scope, validate it, and group by the resolved file.
+  // Nothing is written until the whole list has passed validation, so a bad edit leaves every
+  // file untouched.
+  const byFile = new Map<string, TextEdit[]>();
+
   for (const edit of edits) {
     const abs = path.resolve(scope.root, edit.file);
     if (!scope.contains(abs)) {
@@ -127,17 +131,13 @@ function applySurgicalEdits(scope: WorkspaceScope, edits: TextEdit[]): ReplaceTe
         "SENSITIVE_FILE",
       );
     }
-  }
 
-  // Group edits by file
-  const byFile = new Map<string, TextEdit[]>();
-  for (const edit of edits) {
-    const abs = path.resolve(scope.root, edit.file);
+    const resolved = { ...edit, file: abs };
     const group = byFile.get(abs);
     if (group) {
-      group.push({ ...edit, file: abs });
+      group.push(resolved);
     } else {
-      byFile.set(abs, [{ ...edit, file: abs }]);
+      byFile.set(abs, [resolved]);
     }
   }
 
