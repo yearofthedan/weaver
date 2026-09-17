@@ -17,6 +17,7 @@ tool call
   │     write changed files
   │
   └─ Surgical mode
+        resolve each edit's `file` against the workspace root (absolute paths pass through)
         validate all edits up front (isWithinWorkspace, isSensitiveFile, oldText match at position)
         if any validation fails: throw immediately — no files are modified
         sort edits within each file descending by position (last-to-first application)
@@ -39,3 +40,6 @@ Position-only edits are brittle — if the file changed between `searchText` and
 
 **Why apply surgical edits last-to-first within a file?**
 Applying an edit shifts all byte offsets after it. Applying the last edit first keeps all earlier offsets valid for subsequent edits in the same file.
+
+**Why is `edits[].file` declared as a nested path param?**
+Path params live in one declaration per operation (`pathParams` in the dispatcher, mirrored in the CLI's `SUBCOMMANDS`), and every consumer reads that declaration: the CLI and the scenario runner resolve the paths it names, and the dispatcher validates them. `edits[].file` names a key inside an array, so the declaration carries that shape — `"edits[].file"` — and each element's `file` is resolved and validated like any other path. Engine discovery is the exception: it seeds from top-level rows only, which name a path on the request directly.

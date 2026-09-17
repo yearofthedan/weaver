@@ -44,7 +44,7 @@ Exactly one mode must be provided — `pattern` + `replacement` *or* `edits`, no
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `edits` | object[] | yes | Each edit: `file`, 1-based `line`, `col`, `oldText`, `newText`. |
+| `edits` | object[] | yes | Each edit: `file`, 1-based `line`, `col`, `oldText`, `newText`. `file` is absolute or relative to the workspace root. |
 | `checkTypeErrors` | boolean | no | Default `true`. |
 
 `oldText` is verified at `(line, col)` before the write. Mismatch → fail atomically.
