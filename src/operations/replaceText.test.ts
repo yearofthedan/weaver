@@ -354,6 +354,55 @@ describe("replaceText operation", () => {
         code: "VALIDATION_ERROR",
       });
     });
+
+    test("resolves a relative edit path against the scope root, not the process cwd", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+
+      const result = await replaceText(makeScope(dir), {
+        edits: [{ file: "src/utils.ts", line: 1, col: 17, oldText: "greetUser", newText: "hi" }],
+      });
+
+      expect(result.filesModified).toEqual([path.join(dir, "src/utils.ts")]);
+      expect(readFile(dir, "src/utils.ts")).toContain("hi");
+    });
+
+    test("collapses two relative edits naming the same file into one write", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+
+      const result = await replaceText(makeScope(dir), {
+        edits: [
+          { file: "src/utils.ts", line: 1, col: 17, oldText: "greetUser", newText: "hi" },
+          { file: "src/utils.ts", line: 2, col: 11, oldText: "Hello", newText: "Hey" },
+        ],
+      });
+
+      expect(result.filesModified).toEqual([path.join(dir, "src/utils.ts")]);
+      expect(result.replacementCount).toBe(2);
+    });
+
+    test("resolves a mix of relative and absolute edit paths in one request", async ({
+      seedNamedFixture,
+    }) => {
+      const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+      const absolute = path.join(dir, "src/utils.ts");
+
+      const result = await replaceText(makeScope(dir), {
+        edits: [
+          { file: "src/utils.ts", line: 1, col: 17, oldText: "greetUser", newText: "hi" },
+          { file: absolute, line: 2, col: 11, oldText: "Hello", newText: "Hey" },
+        ],
+      });
+
+      expect(result.filesModified).toEqual([absolute]);
+      expect(result.replacementCount).toBe(2);
+      expect(readFile(dir, "src/utils.ts")).toBe(
+        `export function hi(name: string): string {\n  return \`Hey, \${name}\`;\n}\n`,
+      );
+    });
   });
 
   // ─── Brace glob wiring ──────────────────────────────────────────────────

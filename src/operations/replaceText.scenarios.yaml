@@ -1,0 +1,72 @@
+fixtures:
+  a-marker-file:
+    description: a tsconfig and one source file holding a literal MARKER at line 1, col 15
+    files:
+      tsconfig.json: |
+        {
+          "compilerOptions": { "strict": true },
+          "include": ["src/**/*.ts"]
+        }
+      src/lib.ts: |
+        const value = MARKER;
+
+scenarios:
+  - name: resolves a relative edit path against the workspace, not the daemon cwd
+    description: >
+      `edits[].file` is a path param nested inside an array. The runner resolves only the
+      params a method declares as paths, so leaving it undeclared would pass `src/lib.ts`
+      through unresolved; the operation then resolved it against the daemon's cwd, writing
+      whichever file happened to sit there and reporting success either way.
+    given: a-marker-file
+    when:
+      - replaceText:
+          edits:
+            - { file: src/lib.ts, line: 1, col: 15, oldText: MARKER, newText: "1" }
+    then:
+      response:
+        status: success
+        filesModified: [src/lib.ts]
+        replacementCount: 1
+        typeErrors: none
+      files:
+        changed:
+          src/lib.ts: |
+            const value = 1;
+        unchanged: [tsconfig.json]
+
+  - name: collapses two relative edits naming the same file into one write
+    given:
+      extends: a-marker-file
+      files:
+        src/lib.ts: |
+          const first = MARKER;
+          const second = MARKER_TWO;
+    when:
+      - replaceText:
+          edits:
+            - { file: src/lib.ts, line: 1, col: 15, oldText: MARKER, newText: "1" }
+            - { file: src/lib.ts, line: 2, col: 16, oldText: MARKER_TWO, newText: "2" }
+    then:
+      response:
+        status: success
+        filesModified: [src/lib.ts]
+        replacementCount: 2
+        typeErrors: none
+      files:
+        changed:
+          src/lib.ts: |
+            const first = 1;
+            const second = 2;
+        unchanged: [tsconfig.json]
+
+  - name: an empty edits array is a no-op
+    given: a-marker-file
+    when:
+      - replaceText: { edits: [] }
+    then:
+      response:
+        status: success
+        filesModified: []
+        replacementCount: 0
+      files:
+        unchanged: [tsconfig.json, src/lib.ts]

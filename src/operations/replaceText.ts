@@ -117,7 +117,7 @@ function applyPatternReplace(
 function applySurgicalEdits(scope: WorkspaceScope, edits: TextEdit[]): ReplaceTextResult {
   // Validate all inputs up front before touching any file
   for (const edit of edits) {
-    const abs = path.resolve(edit.file);
+    const abs = path.resolve(scope.root, edit.file);
     if (!scope.contains(abs)) {
       throw new EngineError(`file is outside the workspace: ${edit.file}`, "WORKSPACE_VIOLATION");
     }
@@ -132,7 +132,7 @@ function applySurgicalEdits(scope: WorkspaceScope, edits: TextEdit[]): ReplaceTe
   // Group edits by file
   const byFile = new Map<string, TextEdit[]>();
   for (const edit of edits) {
-    const abs = path.resolve(edit.file);
+    const abs = path.resolve(scope.root, edit.file);
     const group = byFile.get(abs);
     if (group) {
       group.push({ ...edit, file: abs });
