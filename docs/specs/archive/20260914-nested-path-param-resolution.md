@@ -136,7 +136,7 @@ Targeted runs per file — `src/utils/**` is in the default scope, the other thr
 | File | In scope | Killed | Survivors | Score |
 |---|---|---|---|---|
 | `src/utils/resolve-path-params.ts` | 48 | 45 | 3 | 93.8% |
-| `src/daemon/dispatcher.ts` | 122 | 115 | 7 | 94.3% |
+| `src/daemon/dispatcher.ts` | 123 | 116 | 7 | 94.3% |
 | `src/adapters/cli/operations.ts` | 77 | 25 | 15 surviving + 37 with no coverage | 32.5% |
 | `src/operations/replaceText.ts` | 103 | 101 | 2 | 98.1% |
 
