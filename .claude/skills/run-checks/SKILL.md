@@ -35,6 +35,10 @@ pnpm test tests/path/to/relevant.test.ts 2>&1 | tee /tmp/test.log
 
 Only run the full `pnpm check` once, after all code changes are complete and scoped tests pass.
 
+## A timeout in an unrelated file can be a false red
+
+A loaded machine can time out whole files that have nothing to do with the change — vitest has reported hour-long durations for tests that had just started. Re-run the file on its own and expect it to pass. While the machine is busy, scoped runs are the reliable instrument.
+
 ## What NOT to do
 
 - `pnpm test 2>&1 | grep "FAIL" | head -50` — runs the full suite, discards most output, then you need to re-run to see details

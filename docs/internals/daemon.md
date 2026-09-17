@@ -55,6 +55,12 @@ If `serve` connects while the daemon is still loading, incoming tool calls are r
 
 The daemon processes one request at a time using a promise-chain mutex in `daemon.ts`. Concurrent socket connections are queued rather than interleaved. This prevents concurrent mutations from corrupting the in-memory project graph.
 
+## Path params
+
+Each operation declares its path params in `OPERATIONS` (`src/daemon/dispatcher.ts`), mirrored for the CLI in `SUBCOMMANDS` (`src/adapters/cli/operations.ts`). A declaration names a top-level key (`file`) or one key per element of an array (`edits[].file`).
+
+The daemon validates every path a declaration names against the workspace boundary. Resolution happens before the request exists: `resolveRelativePaths` runs in the CLI before it sends, and again in the scenario runner. A client speaking the socket protocol directly sends absolute paths — a relative value reaches the boundary check unresolved, where it is compared against the daemon's own working directory rather than the request's workspace.
+
 ## Filesystem watcher
 
 Implemented in `src/daemon/watcher.ts` using chokidar.
