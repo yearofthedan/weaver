@@ -29,9 +29,8 @@ function parsePathParam(declaration: string): PathParamDeclaration {
  */
 function pathParamTargets(
   params: Record<string, unknown>,
-  declaration: string,
+  container: string | null,
 ): Record<string, unknown>[] {
-  const { container } = parsePathParam(declaration);
   if (container === null) return [params];
   const elements = params[container];
   if (!Array.isArray(elements)) return [];
@@ -55,8 +54,8 @@ export function resolveRelativePaths(
   workspace: string,
 ): void {
   for (const declaration of pathParams) {
-    const { key } = parsePathParam(declaration);
-    for (const target of pathParamTargets(params, declaration)) {
+    const { container, key } = parsePathParam(declaration);
+    for (const target of pathParamTargets(params, container)) {
       const val = target[key];
       if (typeof val === "string" && !path.isAbsolute(val)) {
         target[key] = path.resolve(workspace, val);
@@ -71,9 +70,9 @@ export function resolveRelativePaths(
  * the operation runs. Values that are not strings are omitted.
  */
 export function declaredPathValues(params: Record<string, unknown>, declaration: string): string[] {
-  const { key } = parsePathParam(declaration);
+  const { container, key } = parsePathParam(declaration);
   const values: string[] = [];
-  for (const target of pathParamTargets(params, declaration)) {
+  for (const target of pathParamTargets(params, container)) {
     const value = target[key];
     if (typeof value === "string") values.push(value);
   }
