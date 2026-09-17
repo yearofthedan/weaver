@@ -148,7 +148,7 @@ Engine discovery seeds from the first top-level row, and from that row alone. `g
 
 ### Decisions
 
-The declaration stays data: one string per path param in the dispatcher's `OPERATIONS` and the CLI's `SUBCOMMANDS`, parsed in `resolve-path-params.ts` and read by three consumers — the CLI and the scenario runner resolve through `resolveRelativePaths`, and the dispatcher validates through `declaredPathValues`. Engine discovery reads top-level rows only, which became a `filter(...).flatMap(...).at(0)` chain in place of the ternary those consumers started with.
+The declaration stays data: one string per path param in the dispatcher's `OPERATIONS` and the CLI's `SUBCOMMANDS`, parsed in `resolve-path-params.ts` and read by three consumers — the CLI and the scenario runner resolve through `resolveRelativePaths`, and the dispatcher validates through `declaredPathValues`. Engine discovery reads the first top-level row.
 
 ### Discoveries kept here
 
