@@ -406,12 +406,14 @@ export async function dispatchRequest(
       }
     }
 
-    // Engine discovery walks up from a real file, so only a top-level row can seed it.
-    const engineSeed = descriptor.pathParams
-      .filter(isTopLevelPathParam)
-      .flatMap((declaration) => declaredPathValues(req.params, declaration))
-      .at(0);
-    const registry = makeRegistry(engineSeed, workspace, explicitTsConfig);
+    // Engine discovery walks up from a real file, so only a top-level row seeds it: a nested row
+    // (`edits[].file`) names a key inside an array.
+    const engineSeed = descriptor.pathParams.find(isTopLevelPathParam);
+    const registry = makeRegistry(
+      engineSeed === undefined ? undefined : declaredPathValues(req.params, engineSeed)[0],
+      workspace,
+      explicitTsConfig,
+    );
 
     const result = (await descriptor.invoke(registry, parsed.data, workspace)) as Record<
       string,
