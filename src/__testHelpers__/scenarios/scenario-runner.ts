@@ -73,9 +73,9 @@ export async function executeScenario(
   let last!: DispatchResponse;
   for (const step of scenario.when) {
     const [method, rawParams] = Object.entries(step)[0];
-    // Copy before resolving: the helper mutates in place, and `rawParams` belongs to the
-    // parsed scenario file shared by every test in the suite.
-    const params = { ...rawParams };
+    // Deep copy before resolving: the helper rewrites the values it resolves, descending into
+    // arrays, and `rawParams` belongs to the parsed scenario file shared by the whole suite.
+    const params = structuredClone(rawParams);
     resolveRelativePaths(params, pathParamsFor(method), root);
     last = await dispatchRequest({ method, params }, root);
     // A stated response says what to expect, failure included; a sequence has no such claim.

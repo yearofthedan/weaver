@@ -11,12 +11,11 @@ fixtures:
         const value = MARKER;
 
 scenarios:
-  - name: resolves a relative edit path against the workspace, not the daemon cwd
+  - name: resolves a relative edit path against the workspace root
     description: >
-      `edits[].file` is a path param nested inside an array. The runner resolves only the
-      params a method declares as paths, so leaving it undeclared would pass `src/lib.ts`
-      through unresolved; the operation then resolved it against the daemon's cwd, writing
-      whichever file happened to sit there and reporting success either way.
+      `edits[].file` is a path param nested inside an array, so it is resolved against the
+      workspace root: `src/lib.ts` names `<root>/src/lib.ts`, whatever the process cwd is, and
+      the write lands on that file.
     given: a-marker-file
     when:
       - replaceText:
