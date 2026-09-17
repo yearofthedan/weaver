@@ -63,7 +63,7 @@ When retiring tests in favour of scenarios:
 2. Record the mutation score over the operation's call graph **before** deleting anything — it cannot be recovered afterwards.
 3. Re-run it after as a backstop, and account for every mutant that was killed before and survives now.
 
-Note that `src/ts-engine/**` and `src/operations/**` are commented out of `mutate` in `stryker.config.mjs`, and `src/**/__testHelpers__/**` is excluded outright. A green `pnpm check` measures none of this; the run has to be explicit (`--mutate <files> --force`, with `--incrementalFile` pointed somewhere scratch so the tracked cache is not overwritten by a partial run).
+Note that `src/ts-engine/**` and `src/operations/**` are commented out of `mutate` in `stryker.config.mjs`, and `src/**/__testHelpers__/**` is excluded outright. A green `pnpm check` measures none of this; the run has to be explicit (`--mutate <files> --force`). `reports/` is gitignored, so a partial run's incremental cache stays local.
 
 ## Gotchas
 
