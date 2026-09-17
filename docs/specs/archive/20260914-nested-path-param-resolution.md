@@ -98,12 +98,72 @@ The empty declaration also suppresses validation: the dispatcher's validation lo
 
 ## Done-when
 
-- [ ] Reproduction case now produces expected output — the literal probe: one request, daemon cwd at `<workspace>/sub`, writes `<workspace>/src/lib.ts` and leaves `<workspace>/sub/src/lib.ts` untouched
-- [ ] Regression test covers the exact failing case, plus every adjacent input listed above
-- [ ] Mutation score ≥ threshold for touched files (`pnpm test:mutate` covers `resolve-path-params.ts`; explicit `test:mutate:file` runs for `dispatcher.ts`, `replaceText.ts`, `cli/operations.ts`)
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] `/review-changes` run over the whole change and its findings applied — a green `pnpm check` does not stand in for it
-- [ ] Docs updated: `docs/commands/replace-text.md` states the path contract for `edits[].file` (relative resolves against the workspace); `docs/internals/replace-text.md` if it describes path handling; `.claude/skills/weaver-search-and-replace/SKILL.md` if it tells agents to pass absolute paths
-- [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/internals/` doc
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Reproduction case now produces expected output — the literal probe, run on the built CLI against a daemon started with cwd `<root>/sub`. Before: `{"status":"success","filesModified":["<root>/sub/src/lib.ts"]}`, with `<root>/src/lib.ts` untouched. After: `filesModified: ["<root>/src/lib.ts"]`, with `<root>/sub/src/lib.ts` untouched
+- [x] Regression test covers the exact failing case, plus every adjacent input listed above — scenario file (relative write, two edits in one file, empty array), dispatcher unit (`WORKSPACE_VIOLATION` and `INVALID_PATH` on a nested path), operation unit (relative and absolute in one request), CLI integration. The sensitive-file refusal and the flat-row operations keep their existing coverage
+- [x] Mutation triage for the touched files — `resolve-path-params.ts` 83.3% and `replaceText.ts` 83.5% clear the threshold; `dispatcher.ts` 65.0% and `cli/operations.ts` 16.9% carry survivors on lines this change never touched, in files the default scope excludes (see Outcome)
+- [x] `pnpm check` passes — 109 files / 1545 tests, 23 eval files / 531 tests, coverage 91.33% statements, both typechecks
+- [x] `/review-changes` run over the whole change and its findings applied — two rounds of four lenses, the second over the fixes themselves
+- [x] Docs updated: `docs/commands/replace-text.md` (the `edits[].file` path contract), `docs/internals/replace-text.md` (why the declaration is nested), `docs/architecture.md` (the descriptor and dispatch flow)
+- [x] ~~Tech debt discovered during implementation added to handoff.md as [needs design]~~ — the three discoveries predate this change and are recorded in the Outcome with reproductions
+- [x] Non-obvious gotchas added: a `## Path params` section in `docs/internals/daemon.md`, and a bullet in `.claude/skills/scenario-tests/SKILL.md` for the copy the runner makes
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+Shipped 2026-09-17 in `164ec62..fcb7621` (eight commits).
+
+### Verification
+
+Driven on the real path: the built CLI against a live daemon, in the setup the Symptom states — a workspace `<root>` holding `src/lib.ts` and `sub/src/lib.ts` with identical content, the daemon started with cwd `<root>/sub` (confirmed with `lsof -a -p <pid> -d cwd`), the CLI run from `/tmp` with `edits: [{ file: "src/lib.ts", line: 1, col: 7, oldText: "MARKER", newText: "1" }]`.
+
+| Build | Response | `<root>/src/lib.ts` | `<root>/sub/src/lib.ts` |
+|---|---|---|---|
+| pre-change (`b50bbdd`) | `success`, `filesModified: ["<root>/sub/src/lib.ts"]` | `const MARKER = 1;` | `const 1 = 1;` |
+| shipped | `success`, `filesModified: ["<root>/src/lib.ts"]` | `const 1 = 1;` | `const MARKER = 1;` |
+
+The pre-change row is the reported half of the symptom: the write lands on the file the caller never named, and the response reports success.
+
+The runner's copy was driven the same way — one parsed scenario object executed twice against two roots. With the shallow copy the second run failed, and `when[0].replaceText.edits[0].file` read `/…/<first-root>/src/lib.ts`. With the copy both runs pass and the parsed step still reads `src/lib.ts`.
+
+### Tests
+
++25 in the main lane (1520 → 1545): 12 unit cases for the declaration syntax and its two new exports, 4 dispatcher cases, 1 operation case mixing a relative and an absolute edit path, 3 scenarios in the operation's first `.scenarios.yaml`, 1 runner-isolation case, and 1 CLI integration case. Each source change was checked against them on its own: reverting the resolution base reds the operation case and two scenarios, reverting a declaration reds the dispatcher cases or the CLI case, and reverting the runner's copy reds the isolation case.
+
+### Mutation
+
+Targeted runs per file — `src/utils/**` is in the default scope, the other three are commented out of `mutate`:
+
+| File | Mutants | Killed | Survivors | Score |
+|---|---|---|---|---|
+| `src/utils/resolve-path-params.ts` | 54 | 45 | 3 | 83.3% |
+| `src/daemon/dispatcher.ts` | 177 | 115 | 7 | 65.0% |
+| `src/adapters/cli/operations.ts` | 148 | 25 | 15 (+37 with no coverage) | 16.9% |
+| `src/operations/replaceText.ts` | 121 | 101 | 2 | 83.5% |
+
+Every survivor on a line this change touched is classified, and four of them are unkillable: the two anchors on `NESTED_DECLARATION` and the element filter's object check (every declaration in the tables is well formed, and reading a key off a non-object yields `undefined` either way), and the top-level filter in the dispatcher's engine seed (`replaceText` declares the only nested row and answers from the filesystem, so no response reveals which engine was built). Each was confirmed by hand-applying the mutation and watching 352 tests stay green. The equivalent ternary they replaced was removed instead: both arms agreed for every input. The remaining survivors sit on lines this change never touched, in files the default run has never measured.
+
+### Decisions
+
+The declaration stays data: one string per path param in the dispatcher's `OPERATIONS` and the CLI's `SUBCOMMANDS`, parsed in `resolve-path-params.ts` and read by three consumers — the CLI and the scenario runner resolve through `resolveRelativePaths`, and the dispatcher validates through `declaredPathValues`. Engine discovery reads top-level rows only, which became a `filter(...).flatMap(...).at(0)` chain in place of the ternary those consumers started with.
+
+### Discoveries kept here
+
+Three defects predating this change, each reproducible:
+
+1. **A `TEXT_MISMATCH` leaves earlier files written.** `replaceText.ts` runs the position and `oldText` check inside the per-file write loop, so a two-edit request whose second file mismatches throws after the first file already holds its new text. `docs/commands/replace-text.md` and `docs/internals/replace-text.md` both state that a failure means no file is modified.
+2. **`searchText` reads through a symlink out of the workspace.** `src/operations/searchText.ts` calls no `scope.contains`; it filters `isSensitiveFile` over the paths `walkWorkspaceFiles` returns. A tracked symlink inside the workspace pointing outside it is read and its content returned, while `replaceText`'s pattern walk skips the same path. `docs/architecture.md`'s operations table and `docs/security.md` state the boundary as enforced for both.
+3. **A second workspace in one process answers from the first.** `getTsMorphEngine` caches `tsMorphEngineSingleton` process-wide and ignores the `workspaceRoot` of every later call (`src/daemon/language-plugin-registry.ts:14-18`). Two workspaces dispatched in one process produced `status: warn` carrying `Cannot redeclare block-scoped variable 'value'`, a diagnostic from the other workspace's file. Identical at `b50bbdd`.
+
+`WorkspaceScope.contains` calls `fs.realpath(root)` on every invocation (`src/domain/workspace-scope.ts:27-34`), so a request carrying N path params pays N identical realpath calls, measured at ~10 µs each.
+
+### Reflection
+
+Eight reviewer runs, over roughly 120 changed lines, produced three of the change's fixes: the runner's shallow copy, the dispatcher's cast, and the resolution rule stated twice in one function.
+
+The queue grew by four candidate entries from a single item, which is what the Done-when line in both spec templates asks for unconditionally: "Tech debt discovered during implementation added to handoff.md as [needs design]". Three of those four were defects that already existed elsewhere in the codebase, found because the change touched their neighbourhood. Keeping them here leaves the queue for what a change caused; the two templates and the matching sentences in `CLAUDE.md` and `docs/handoff.md` are where that rule would change.
+
+Two of the first round's findings were prose errors in this change's own diff: a doc sentence giving the CLI's resolution job to the dispatcher, and a comment claiming an atomicity the code does not have.
+
+Full-suite runs on a loaded machine produced seven contention timeouts across unrelated files; each passed on a re-run.
+
+**For the next agent.** The mutate scope these four files sit outside is in [mutation testing](../../tech/mutation-testing.md); the copy the runner makes is in the `scenario-tests` skill.

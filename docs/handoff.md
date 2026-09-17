@@ -119,6 +119,7 @@ src/
     replaceText.ts     ← replaceText(scope: WorkspaceScope, { pattern, replacement, glob } | { edits })
     deleteFile.ts      ← deleteFile(engine, file, scope: WorkspaceScope) — delegates to engine.deleteFile()
     types.ts           ← result types for all operations (RenameResult, MoveResult, FindReferencesResult, etc.)
+    replaceText.scenarios.{yaml,test.ts} ← scenario cases for surgical edit paths, run through the dispatcher
     *.test.ts          ← colocated unit tests
   ts-engine/
     types.ts              ← Engine + LanguagePlugin + EngineRegistry interfaces; SpanLocation, DefinitionLocation, FileTextEdit
@@ -180,8 +181,6 @@ Tiering asks one question: **what does this change make possible, or prevent?** 
 Something else is waiting on it, or a user is hitting the failure now.
 
 These came from using weaver on real work, where a gap costs a user something.
-
-- **A surgical `replaceText` resolves a relative `edits[].file` against the daemon's cwd** → [spec](specs/20260914-nested-path-param-resolution.md). The missing declaration means the write itself lands on a cwd-relative file and reports success. Sequences before the spec below, which needs surgical steps in a scenario.
 
 - **A Vue project reports an unchecked file as clean** → [spec](specs/20260914-vue-out-of-program-type-check.md). Both the post-write check and `get-type-errors --file` return `errorCount: 0` for a file the Volar program does not hold; the `.vue` path has the same guard.
 

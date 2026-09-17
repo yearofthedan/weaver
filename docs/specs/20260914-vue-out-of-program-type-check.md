@@ -4,7 +4,7 @@
 **date:** 2026-09-14
 **tracks:** handoff.md # the post-write check reports a written file outside the engine's program as clean
 
-**sequences after:** [nested path param resolution](20260914-nested-path-param-resolution.md) — the end-to-end cells below are surgical `replaceText` steps, which the scenario format cannot express until that ships.
+**sequences after:** [nested path param resolution](archive/20260914-nested-path-param-resolution.md) — the end-to-end cells below are surgical `replaceText` steps, which the scenario format expresses from that change on.
 
 ---
 
