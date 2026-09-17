@@ -28,6 +28,7 @@ import { replaceText } from "../operations/replaceText.js";
 import { searchText } from "../operations/searchText.js";
 import { setExport } from "../operations/setExport.js";
 import type { EngineRegistry } from "../ts-engine/types.js";
+import { declaredPathValues, isTopLevelPathParam } from "../utils/resolve-path-params.js";
 import { resetDiscoveryCaches } from "../utils/ts-project.js";
 import { makeRegistry, refreshWrittenFile } from "./language-plugin-registry.js";
 import { getTypeErrorsForFiles } from "./post-write-diagnostics.js";
@@ -250,7 +251,7 @@ const OPERATIONS: Record<string, OperationDescriptor> = {
   },
 
   replaceText: {
-    pathParams: [],
+    pathParams: ["edits[].file"],
     schema: ReplaceTextArgsSchema,
     async invoke(_registry, params, workspace) {
       const { pattern, replacement, glob, excludeGlob, edits } = params as {
@@ -358,29 +359,31 @@ export async function dispatchRequest(
       return { status: "error" as const, error: "VALIDATION_ERROR", message };
     }
 
-    for (const paramKey of descriptor.pathParams) {
-      const value = req.params[paramKey] as string | undefined;
-      // Every current caller of this operation supplies every pathParam it declares, except
-      // getTypeErrors's `file`/`tsconfig` — both optional, and mutually exclusive with each
-      // other, so either (or neither) can be absent from a given request.
-      if (value === undefined) continue;
-      const pathResult = validateFilePath(value);
-      if (!pathResult.ok) {
-        return {
-          status: "error" as const,
-          error: "INVALID_PATH",
-          message:
-            pathResult.reason === "CONTROL_CHARS"
-              ? `path contains control characters: ${paramKey}`
-              : `path contains URI fragment or query character: ${paramKey}`,
-        };
-      }
-      if (!new WorkspaceScope(workspace, defaultFs).contains(value)) {
-        return {
-          status: "error" as const,
-          error: "WORKSPACE_VIOLATION",
-          message: `${paramKey} is outside the workspace: ${value}`,
-        };
+    const scope = new WorkspaceScope(workspace, defaultFs);
+    for (const declaration of descriptor.pathParams) {
+      // A declaration names one path, or one per element of an array (`edits[].file`). Every
+      // current caller supplies every pathParam it declares, except getTypeErrors's
+      // `file`/`tsconfig` — both optional, and mutually exclusive with each other, so either
+      // (or neither) can be absent from a given request; a missing value yields no paths.
+      for (const value of declaredPathValues(req.params, declaration)) {
+        const pathResult = validateFilePath(value);
+        if (!pathResult.ok) {
+          return {
+            status: "error" as const,
+            error: "INVALID_PATH",
+            message:
+              pathResult.reason === "CONTROL_CHARS"
+                ? `path contains control characters: ${declaration}`
+                : `path contains URI fragment or query character: ${declaration}`,
+          };
+        }
+        if (!scope.contains(value)) {
+          return {
+            status: "error" as const,
+            error: "WORKSPACE_VIOLATION",
+            message: `${declaration} is outside the workspace: ${value}`,
+          };
+        }
       }
     }
 
@@ -403,10 +406,15 @@ export async function dispatchRequest(
       }
     }
 
-    const registry =
-      descriptor.pathParams.length > 0
-        ? makeRegistry(req.params[descriptor.pathParams[0]] as string, workspace, explicitTsConfig)
-        : makeRegistry(undefined, workspace, explicitTsConfig);
+    // Engine discovery walks up from a real file, so only a top-level row can seed it. A
+    // nested row (`edits[].file`) names a key inside an array, which is not a path on the
+    // request; reading it here would seed the engine with `undefined` under a path-shaped name.
+    const engineSeed = descriptor.pathParams.find(isTopLevelPathParam);
+    const registry = makeRegistry(
+      engineSeed === undefined ? undefined : (req.params[engineSeed] as string),
+      workspace,
+      explicitTsConfig,
+    );
 
     const result = (await descriptor.invoke(registry, parsed.data, workspace)) as Record<
       string,

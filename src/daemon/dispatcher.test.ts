@@ -86,6 +86,69 @@ describe("dispatchRequest param validation", () => {
     const result = await dispatchRequest({ method: "doSomethingFake", params: {} }, workspace);
     expect(result).toMatchObject({ status: "error", error: "UNKNOWN_METHOD" });
   });
+
+  it("rejects an edit path that escapes the workspace before the operation runs", async () => {
+    const result = (await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          edits: [{ file: "../outside.ts", line: 1, col: 1, oldText: "x", newText: "y" }],
+        },
+      },
+      workspace,
+    )) as Record<string, unknown>;
+
+    // The message names the declaration: this rejection comes from the dispatcher, before the
+    // operation's own guard on the resolved path runs.
+    expect(result).toMatchObject({ status: "error", error: "WORKSPACE_VIOLATION" });
+    expect(result.message).toContain("edits[].file");
+  });
+
+  it.each([
+    ["control character", "/tmp/test-workspace/a\u0000.ts"],
+    ["URI fragment", "/tmp/test-workspace/a.ts#frag"],
+  ])("rejects a nested edit path containing a %s as INVALID_PATH", async (_desc, file) => {
+    const result = (await dispatchRequest(
+      {
+        method: "replaceText",
+        params: { edits: [{ file, line: 1, col: 1, oldText: "x", newText: "y" }] },
+      },
+      workspace,
+    )) as Record<string, unknown>;
+
+    expect(result).toMatchObject({ status: "error", error: "INVALID_PATH" });
+    expect(result.message).toContain("edits[].file");
+  });
+
+  test("accepts a nested edit path inside the workspace past validation", async ({
+    seedInlineFixture,
+  }) => {
+    const dir = await seedInlineFixture({
+      "tsconfig.json": JSON.stringify({ include: ["src"] }),
+      "src/lib.ts": "const value = 1;\n",
+    });
+
+    const result = await dispatchRequest(
+      {
+        method: "replaceText",
+        params: {
+          edits: [
+            {
+              file: path.join(dir, "src/lib.ts"),
+              line: 1,
+              col: 15,
+              oldText: "1",
+              newText: "2",
+            },
+          ],
+          checkTypeErrors: false,
+        },
+      },
+      dir,
+    );
+
+    expect(result).toMatchObject({ status: "success" });
+  }, 15_000);
 });
 
 describe("dispatchRequest success format", () => {

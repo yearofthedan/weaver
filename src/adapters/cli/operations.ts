@@ -73,7 +73,11 @@ const SUBCOMMANDS: Record<
   },
   "search-text": { method: "searchText", pathParams: [], schema: SearchTextArgsSchema },
   "delete-file": { method: "deleteFile", pathParams: ["file"], schema: DeleteFileArgsSchema },
-  "replace-text": { method: "replaceText", pathParams: [], schema: ReplaceTextBaseSchema },
+  "replace-text": {
+    method: "replaceText",
+    pathParams: ["edits[].file"],
+    schema: ReplaceTextBaseSchema,
+  },
 };
 
 export function writeJsonError(error: string, message: string): void {

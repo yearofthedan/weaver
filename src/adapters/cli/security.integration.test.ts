@@ -2,7 +2,7 @@ import type { ChildProcess } from "node:child_process";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect } from "vitest";
-import { FIXTURES, fixtureTest as test } from "../../__testHelpers__/helpers.js";
+import { FIXTURES, readFile, fixtureTest as test } from "../../__testHelpers__/helpers.js";
 import {
   killDaemon,
   runCliCommand,
@@ -181,5 +181,34 @@ describe("CLI transport — workspace security", () => {
     const followUpResponse = JSON.parse(followUpStdout.trim()) as Record<string, unknown>;
     expect(followUpResponse.status).toBe("success");
     expect(followUpExit).toBe(0);
+  }, 60_000);
+
+  test("replace-text resolves a relative edit path against --workspace, not the caller's cwd", async ({
+    seedNamedFixture,
+  }) => {
+    const dir = await seedNamedFixture(FIXTURES.simpleTs.name);
+    const daemon = await spawnAndWaitForReady(["daemon", "--workspace", dir]);
+    procs.push(daemon);
+
+    const params = JSON.stringify({
+      edits: [
+        { file: "src/utils.ts", line: 1, col: 17, oldText: "greetUser", newText: "welcomeUser" },
+      ],
+      checkTypeErrors: false,
+    });
+
+    // Run the CLI from outside the workspace, so a cwd-relative reading of the path
+    // could not land inside the workspace by accident.
+    const { exitCode, stdout } = await runCliCommand(
+      ["replace-text", "--workspace", dir, params],
+      15_000,
+      { cwd: os.tmpdir() },
+    );
+
+    const response = JSON.parse(stdout.trim()) as Record<string, unknown>;
+    expect(exitCode).toBe(0);
+    expect(response.status).toBe("success");
+    expect(response.filesModified).toEqual([path.join(dir, "src/utils.ts")]);
+    expect(readFile(dir, "src/utils.ts")).toContain("welcomeUser");
   }, 60_000);
 });
