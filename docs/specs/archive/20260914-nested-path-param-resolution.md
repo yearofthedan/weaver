@@ -110,7 +110,7 @@ The empty declaration also suppresses validation: the dispatcher's validation lo
 
 ## Outcome
 
-Shipped 2026-09-17 in `164ec62..fcb7621` (eight commits).
+Shipped 2026-09-17 in `b50bbdd..fcb7621` (12 commits).
 
 ### Verification
 
@@ -133,14 +133,18 @@ The runner's copy was driven the same way — one parsed scenario object execute
 
 Targeted runs per file — `src/utils/**` is in the default scope, the other three are commented out of `mutate`:
 
-| File | Mutants | Killed | Survivors | Score |
+| File | In scope | Killed | Survivors | Score |
 |---|---|---|---|---|
-| `src/utils/resolve-path-params.ts` | 54 | 45 | 3 | 83.3% |
-| `src/daemon/dispatcher.ts` | 177 | 115 | 7 | 65.0% |
-| `src/adapters/cli/operations.ts` | 148 | 25 | 15 (+37 with no coverage) | 16.9% |
-| `src/operations/replaceText.ts` | 121 | 101 | 2 | 83.5% |
+| `src/utils/resolve-path-params.ts` | 48 | 45 | 3 | 93.8% |
+| `src/daemon/dispatcher.ts` | 122 | 115 | 7 | 94.3% |
+| `src/adapters/cli/operations.ts` | 77 | 25 | 15 surviving + 37 with no coverage | 32.5% |
+| `src/operations/replaceText.ts` | 103 | 101 | 2 | 98.1% |
 
-Every survivor on a line this change touched is classified, and four of them are unkillable: the two anchors on `NESTED_DECLARATION` and the element filter's object check (every declaration in the tables is well formed, and reading a key off a non-object yields `undefined` either way), and the top-level filter in the dispatcher's engine seed (`replaceText` declares the only nested row and answers from the filesystem, so no response reveals which engine was built). Each was confirmed by hand-applying the mutation and watching 352 tests stay green. The equivalent ternary they replaced was removed instead: both arms agreed for every input. The remaining survivors sit on lines this change never touched, in files the default run has never measured.
+Score is Stryker's: killed mutants over the mutants in scope. `cli/operations.ts` is the only touched file under the 75 break threshold.
+
+Every survivor on a line this change touched is classified, and four of them are unkillable: the two anchors on `NESTED_DECLARATION` and the element filter's object check (every declaration in the tables is well formed, and reading a key off a non-object yields `undefined` either way), and the ternary that seeds engine discovery, whose two arms evaluate to the same value for every input. Each was confirmed by hand-applying the mutation and watching 352 tests stay green. Pre-existing coverage gaps account for the rest: 6 in `dispatcher.ts`, 52 in `cli/operations.ts` (15 surviving, 37 with no coverage), and 2 in `replaceText.ts`.
+
+Engine discovery seeds from the first top-level row, and from that row alone. `getTypeErrors` declares `["file", "tsconfig"]` with `file` optional, so a request naming only `tsconfig` seeds discovery from the workspace root.
 
 ### Decisions
 
