@@ -33,7 +33,7 @@ scenarios:
             const value = 1;
         unchanged: [tsconfig.json]
 
-  - name: collapses two relative edits naming the same file into one write
+  - name: applies two edits to the same file
     given:
       extends: a-marker-file
       files:

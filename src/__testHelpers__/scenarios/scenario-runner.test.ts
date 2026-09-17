@@ -441,4 +441,50 @@ console.log(greetUser("World"));
     await expect(execution).rejects.toThrow("response:");
     await expect(execution).rejects.toThrow("warn");
   });
+
+  test("leaves the parsed scenario untouched when a nested path param resolves", async ({
+    dir,
+  }) => {
+    const file = scenarioFileOf(
+      scenarioOf({
+        name: "a surgical edit naming its file relatively",
+        when: [
+          {
+            replaceText: {
+              edits: [{ file: "src/utils.ts", line: 2, col: 11, oldText: "Hello", newText: "Hi" }],
+            },
+          },
+        ],
+        outcome: {
+          response: {
+            status: "success",
+            filesModified: ["src/utils.ts"],
+            replacementCount: 1,
+            typeErrors: "none",
+          },
+          files: effectsOf({
+            changed: {
+              "src/utils.ts": `export function greetUser(name: string): string {
+  return \`Hi, \${name}\`;
+}
+`,
+            },
+            unchanged: ["tsconfig.json", "src/main.ts"],
+          }),
+        },
+      }),
+    );
+
+    await executeScenario(file.scenarios[0], file, dir);
+
+    // Resolution rewrites the value it resolves, so the step must be copied before it runs: the
+    // parsed file is shared by the whole suite, and a second run would carry this run's root.
+    expect(file.scenarios[0].when).toEqual([
+      {
+        replaceText: {
+          edits: [{ file: "src/utils.ts", line: 2, col: 11, oldText: "Hello", newText: "Hi" }],
+        },
+      },
+    ]);
+  });
 });
