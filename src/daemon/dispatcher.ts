@@ -411,7 +411,7 @@ export async function dispatchRequest(
     // request; reading it here would seed the engine with `undefined` under a path-shaped name.
     const engineSeed = descriptor.pathParams.find(isTopLevelPathParam);
     const registry = makeRegistry(
-      engineSeed === undefined ? undefined : (req.params[engineSeed] as string),
+      engineSeed === undefined ? undefined : declaredPathValues(req.params, engineSeed)[0],
       workspace,
       explicitTsConfig,
     );
