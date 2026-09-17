@@ -251,7 +251,7 @@ In a monorepo each package resolves to its own tsconfig and gets the right engin
 
 ```
 CLI subcommand
-  → operations.ts: SUBCOMMANDS table → callDaemon(method, params)
+  → operations.ts: SUBCOMMANDS table → resolveRelativePaths → callDaemon(method, params)
   → daemon.ts: socket → dispatchRequest(method, params, workspace)
   → dispatcher.ts: OPERATIONS[method]
       1. validate params (schema.safeParse)
@@ -293,7 +293,7 @@ Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and on
 | `searchText` | Pure filesystem walk; no compiler needed; enforces its own boundary checks |
 | `replaceText` | Pattern mode (regex) or surgical mode (edits array); enforces its own boundary checks |
 
-`searchText` and `replaceText` answer from the filesystem alone, so compiler selection falls back to the workspace root. `searchText` applies its own boundary checks while walking; `replaceText` declares `edits[].file`, whose paths the dispatcher resolves and boundary-checks before the operation runs.
+`searchText` and `replaceText` answer from the filesystem alone, so compiler selection falls back to the workspace root. `searchText` walks from the workspace root and filters sensitive files; `replaceText` declares `edits[].file`, which the CLI resolves against `--workspace` before sending and the dispatcher boundary-checks before the operation runs.
 
 ---
 

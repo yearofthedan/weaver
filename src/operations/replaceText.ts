@@ -116,8 +116,7 @@ function applyPatternReplace(
 
 function applySurgicalEdits(scope: WorkspaceScope, edits: TextEdit[]): ReplaceTextResult {
   // Resolve each edit's path against the scope, validate it, and group by the resolved file.
-  // Nothing is written until the whole list has passed validation, so a bad edit leaves every
-  // file untouched.
+  // Every path and sensitive-file check for the whole list completes before the first write.
   const byFile = new Map<string, TextEdit[]>();
 
   for (const edit of edits) {
