@@ -245,7 +245,7 @@ In a monorepo each package resolves to its own tsconfig and gets the right engin
 
 `src/daemon/dispatcher.ts` uses an `OPERATIONS` descriptor table (operation dispatch only — language plugin registration and compiler resolution live in `src/daemon/language-plugin-registry.ts`). Each entry owns:
 
-- `pathParams` — which params are file paths (first entry is used for compiler selection and workspace validation)
+- `pathParams` — which params are file paths, written as a top-level key (`file`) or as one per element of an array (`edits[].file`). Every path a declaration names is validated against the workspace boundary; compiler selection reads the first top-level entry.
 - `schema` — Zod schema for input validation at the socket boundary
 - `invoke(registry, params, workspace)` — calls the operation function with the resolved compilers
 
@@ -256,7 +256,7 @@ CLI subcommand
   → dispatcher.ts: OPERATIONS[method]
       1. validate params (schema.safeParse)
       2. validate path params against workspace boundary (isWithinWorkspace)
-      3. makeRegistry(firstPathParam) → CompilerRegistry
+      3. makeRegistry(firstTopLevelPathParam) → CompilerRegistry
       4. descriptor.invoke(registry, params, workspace)
       5. return { ok: true, ...result }
 ```
@@ -293,7 +293,7 @@ Adding a new operation requires one entry in `OPERATIONS` (dispatcher.ts) and on
 | `searchText` | Pure filesystem walk; no compiler needed; enforces its own boundary checks |
 | `replaceText` | Pattern mode (regex) or surgical mode (edits array); enforces its own boundary checks |
 
-`searchText` and `replaceText` receive a registry but ignore it. The dispatcher still passes `pathParams: []` so workspace validation falls back to the workspace root.
+`searchText` and `replaceText` answer from the filesystem alone, so compiler selection falls back to the workspace root. `searchText` applies its own boundary checks while walking; `replaceText` declares `edits[].file`, whose paths the dispatcher resolves and boundary-checks before the operation runs.
 
 ---
 
