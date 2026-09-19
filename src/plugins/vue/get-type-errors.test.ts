@@ -507,6 +507,24 @@ describe("vueGetTypeErrorsForTsFile", () => {
     expect(getService).toHaveBeenCalledWith("/project/main.ts");
   });
 
+  it("leaves a path the program already holds out of the add", async () => {
+    const addScriptFile = vi.fn();
+    const service = makeBaseCachedService({
+      baseService: {
+        getProgram: () => ({ getSourceFile: () => ({}) }),
+        getSemanticDiagnostics: () => [],
+      } as unknown as ts.LanguageService,
+      addScriptFile,
+    });
+
+    const result = await vueGetTypeErrorsForTsFile("/project/main.ts", async () => service);
+
+    // An add is a root the language service has to rebuild around for a path it reached only
+    // through an import, so the check asks for one only when the program lacks the file.
+    expect(result.errorCount).toBe(0);
+    expect(addScriptFile).not.toHaveBeenCalled();
+  });
+
   it("returns diagnostics for a path the add brings into the program", async () => {
     const FILE = "/project/dist/gen.ts";
     const service = makeBaseCachedService(
