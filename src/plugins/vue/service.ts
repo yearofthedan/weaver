@@ -42,6 +42,13 @@ export interface CachedService {
    */
   seedFileNames: string[] | null;
   /**
+   * `scriptFileNames` as the service was built with it. `addScriptFile` widens the
+   * live list for the query that asked for it; the project-wide check reads this
+   * snapshot, so its answer depends only on the workspace and the tsconfig, and any
+   * sequence of requests in a session gets the same answer.
+   */
+  builtFileNames: ReadonlySet<string>;
+  /**
    * Re-read `filePath` from disk into the retained language service, so a later
    * query is answered from the text on disk rather than the snapshot taken when
    * the service was built. The service itself stays cached.
@@ -283,6 +290,7 @@ export async function buildVolarService(
 
   // Replace .vue entries with their virtual .vue.ts equivalents.
   const scriptFileNames = projectFiles.map(toVirtualVuePath);
+  const builtFileNames: ReadonlySet<string> = new Set(scriptFileNames);
   const seedFileNames = tsConfigPath === null ? null : seedFiles.map(toVirtualVuePath);
 
   const host = buildLanguageServiceHost({
@@ -302,6 +310,22 @@ export async function buildVolarService(
   const { proxy, initialize } = createProxyLanguageService(baseService);
   initialize(language);
 
+  const bumpVersion = (filePath: string) => {
+    versions.set(filePath, (versions.get(filePath) ?? 0) + 1);
+  };
+
+  /**
+   * The three steps a path needs before the service answers from `content`: the host's
+   * cached text, Volar's script registration (which is what makes it regenerate a
+   * `.vue` file's virtual TypeScript), and a new version so the TypeScript language
+   * service discards the source files it parsed from the previous text.
+   */
+  const storeContent = (filePath: string, content: string) => {
+    fileContents.set(filePath, content);
+    registerScript(language.scripts, filePath, content);
+    bumpVersion(filePath);
+  };
+
   return {
     languageService: proxy as unknown as VolarLanguageService,
     baseService,
@@ -309,6 +333,7 @@ export async function buildVolarService(
     language,
     vueVirtualToReal,
     scriptFileNames,
+    builtFileNames,
     seedFileNames,
     rereadFile: (filePath) => {
       const content = readFileFromDisk(filePath);
@@ -319,24 +344,19 @@ export async function buildVolarService(
         // importers until the registration goes.
         language.scripts.delete(filePath);
       } else {
-        // Bumping the version below makes the language service discard the source files it
-        // parsed from this same text.
         if (fileContents.get(filePath) === content) return;
-        fileContents.set(filePath, content);
-        registerScript(language.scripts, filePath, content);
+        storeContent(filePath, content);
       }
-      versions.set(filePath, (versions.get(filePath) ?? 0) + 1);
+      bumpVersion(filePath);
     },
     addScriptFile: (filePath) => {
       const virtualPath = toVirtualVuePath(filePath);
       if (scriptFileNames.includes(virtualPath)) return;
       const content = readFileFromDisk(filePath);
       if (content === undefined) return;
-      fileContents.set(filePath, content);
-      registerScript(language.scripts, filePath, content);
+      storeContent(filePath, content);
       if (virtualPath !== filePath) vueVirtualToReal.set(virtualPath, filePath);
       scriptFileNames.push(virtualPath);
-      versions.set(filePath, (versions.get(filePath) ?? 0) + 1);
     },
   };
 }

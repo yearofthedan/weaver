@@ -8,7 +8,7 @@ import {
 } from "../../ts-engine/get-type-errors.js";
 import { describeCheckedScope, typeCheckedFiles } from "../../ts-engine/type-check-scope.js";
 import { offsetToLineCol } from "../../utils/text-utils.js";
-import type { CachedService } from "./service.js";
+import { type CachedService, toVirtualVuePath } from "./service.js";
 
 // Returns null when there is no source map entry (Volar glue code with no mapping to .vue source).
 function translateVirtualOffset(
@@ -60,6 +60,9 @@ function translateDiagnostics(
 export function vueGetTypeErrorsFromService(service: CachedService): TypeDiagnostic[] {
   const diagnostics: TypeDiagnostic[] = [];
   for (const [virtualPath, realVuePath] of service.vueVirtualToReal) {
+    // The project-wide scope is the set the service was built with, so a path a
+    // single-file query added is filtered out here.
+    if (!service.builtFileNames.has(virtualPath)) continue;
     diagnostics.push(
       ...translateDiagnostics(
         service.baseService.getSemanticDiagnostics(virtualPath),
@@ -76,12 +79,11 @@ export async function vueGetTypeErrorsForFile(
   getService: (file: string) => Promise<CachedService>,
 ): Promise<GetTypeErrorsResult> {
   const service = await getService(file);
-  const virtualPath = `${file}.ts`;
+  const virtualPath = toVirtualVuePath(file);
 
   // An SFC the tsconfig's file set and the on-disk `.vue` scan both missed has no
   // virtual path mapped, and `getSemanticDiagnostics` throws for a virtual path the
-  // program does not hold. Adding it on demand is what maps it; the re-check keeps
-  // an SFC whose text cannot be read out of the query.
+  // program does not hold.
   if (!service.vueVirtualToReal.has(virtualPath)) {
     service.addScriptFile(file);
     if (!service.vueVirtualToReal.has(virtualPath)) {
@@ -110,12 +112,10 @@ export async function vueGetTypeErrorsForTsFile(
   getService: (file: string) => Promise<CachedService>,
 ): Promise<GetTypeErrorsResult> {
   const service = await getService(file);
-  // getSemanticDiagnostics throws for a path outside the compiled program, and a
-  // written path can be one: the walk that seeds `scriptFileNames` skips ignored and
-  // generated directories. The project-wide check skips those files the same way.
-  // Adding it on demand is what brings it into the program; the re-check is what
-  // keeps a path the program still has no text for out of the query below.
-  // Only a syntax-only service returns undefined here, and Volar never builds one.
+  // getSemanticDiagnostics throws for a path the program does not hold, and a written
+  // path can be one: the walk that seeds `scriptFileNames` skips ignored and generated
+  // directories. Only a syntax-only service returns undefined here, and Volar never
+  // builds one.
   const program = service.baseService.getProgram() as ts.Program;
   if (!program.getSourceFile(file)) {
     service.addScriptFile(file);
@@ -136,9 +136,8 @@ export async function vueGetTypeErrorsForTsFile(
  * can reach a file the workspace walk never added (e.g. a `node_modules`
  * dependency's own `.d.ts`, when `skipLibCheck` is off), and filtering a set that
  * never contained it would silently drop it. `.vue` entries surfaced by the
- * closure are skipped here: every `.vue` entry the service knows about already
- * came from the tsconfig program or the on-disk SFC scan, and is handled by
- * `vueGetTypeErrorsFromService` instead.
+ * closure are virtual (`Foo.vue.ts`); `vueGetTypeErrorsFromService` answers for the
+ * SFCs the service was built with, and this loop answers the rest.
  *
  * `tsConfigPath`/`workspaceRoot` are always the request's own values (`VolarEngine.getTypeErrors`
  * supplies both) — `tsConfigPath: null` is how the response reports "this workspace has no
@@ -154,7 +153,9 @@ export async function vueGetTypeErrorsForProject(
 
   // Only a syntax-only service returns undefined here, and Volar never builds one.
   const program = service.baseService.getProgram() as ts.Program;
-  const checked = typeCheckedFiles(service.seedFileNames, service.scriptFileNames, program);
+  // Scope comes from `builtFileNames`, so the answer depends only on the workspace
+  // and the tsconfig. `vueGetTypeErrorsFromService` filters the same way.
+  const checked = typeCheckedFiles(service.seedFileNames, service.builtFileNames, program);
 
   const errors: ts.Diagnostic[] = [];
   for (const fileName of checked) {
@@ -179,6 +180,6 @@ export async function vueGetTypeErrorsForProject(
     diagnostics,
     errorCount: totalCount,
     truncated,
-    ...describeCheckedScope(checked, service.scriptFileNames, tsConfigPath, workspaceRoot),
+    ...describeCheckedScope(checked, service.builtFileNames, tsConfigPath, workspaceRoot),
   };
 }

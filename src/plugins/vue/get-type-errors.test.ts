@@ -37,7 +37,7 @@ function makeTsFileDiagnostic(
  * pastes into every factory nor a later override can silently drift from.
  */
 function makeBaseCachedService(overrides: Partial<CachedService> = {}): CachedService {
-  return {
+  const service: Omit<CachedService, "builtFileNames"> = {
     baseService: {} as unknown as ts.LanguageService,
     languageService: {} as unknown as CachedService["languageService"],
     fileContents: new Map(),
@@ -51,6 +51,43 @@ function makeBaseCachedService(overrides: Partial<CachedService> = {}): CachedSe
     rereadFile: () => {},
     addScriptFile: () => {},
     ...overrides,
+  };
+  // The two lists start equal; a case that wants the post-add state pushes to
+  // `scriptFileNames` after construction.
+  return {
+    ...service,
+    builtFileNames: overrides.builtFileNames ?? new Set(service.scriptFileNames),
+  };
+}
+
+/**
+ * A base service whose program holds a path only once `addScriptFile` registered it,
+ * and whose `getSemanticDiagnostics` throws for a path it does not hold — the shape
+ * the real one has for a file outside the tsconfig's file set and the workspace walk.
+ * `readable: false` makes the add leave the program as it was, the state a path that
+ * cannot be read produces. `onAdd` lets a factory mirror the registration into state
+ * of its own (the `.vue` mapping).
+ */
+function makeProgramGrowingBase(
+  diagnostics: ts.Diagnostic[],
+  readable: boolean,
+  onAdd?: (virtualPath: string) => void,
+): Pick<CachedService, "baseService" | "addScriptFile"> {
+  const inProgram = new Set<string>();
+  return {
+    baseService: {
+      getProgram: () => ({ getSourceFile: (p: string) => (inProgram.has(p) ? {} : undefined) }),
+      getSemanticDiagnostics: (p: string) => {
+        if (!inProgram.has(p)) throw new Error(`Could not find source file: '${p}'.`);
+        return diagnostics;
+      },
+    } as unknown as ts.LanguageService,
+    addScriptFile: (filePath) => {
+      if (!readable) return;
+      const virtualPath = toVirtualVuePath(filePath);
+      inProgram.add(virtualPath);
+      onAdd?.(virtualPath);
+    },
   };
 }
 
@@ -270,6 +307,20 @@ describe("vueGetTypeErrorsFromService", () => {
       expect(vueGetTypeErrorsFromService(service)[0].message).toBe("outer message");
     });
   });
+
+  it("excludes an SFC a single-file query added, so the scope stays the built set", () => {
+    const service = makeServiceWithSourceMap(
+      "/project/Built.vue.ts",
+      "/project/Built.vue",
+      [makeDiagnostic(ts.DiagnosticCategory.Error, 2322, "vue error", 0)],
+      [[0, 0]],
+    );
+    // The state a single-file query on an out-of-program SFC leaves behind.
+    service.vueVirtualToReal.set("/project/dist/Added.vue.ts", "/project/dist/Added.vue");
+    service.scriptFileNames.push("/project/dist/Added.vue.ts");
+
+    expect(vueGetTypeErrorsFromService(service).map((d) => d.file)).toEqual(["/project/Built.vue"]);
+  });
 });
 
 describe("vueGetTypeErrorsForFile", () => {
@@ -322,23 +373,17 @@ describe("vueGetTypeErrorsForFile", () => {
     offsets: Array<[number, number]>,
     readable: boolean,
   ): CachedService {
-    const service = makeServiceWithSourceMap(virtualPath, realVuePath, diagnostics, offsets);
-    const inProgram = new Set<string>();
-    service.vueVirtualToReal = new Map();
-    service.baseService = {
-      getProgram: () => ({ getSourceFile: (p: string) => (inProgram.has(p) ? {} : undefined) }),
-      getSemanticDiagnostics: (p: string) => {
-        if (!inProgram.has(p)) throw new Error(`Could not find source file: '${p}'.`);
-        return diagnostics;
-      },
-    } as unknown as ts.LanguageService;
-    service.addScriptFile = (filePath) => {
-      if (!readable) return;
-      const added = toVirtualVuePath(filePath);
-      inProgram.add(added);
-      if (added !== filePath) service.vueVirtualToReal.set(added, filePath);
+    const vueVirtualToReal = new Map<string, string>();
+    return {
+      ...makeServiceWithSourceMap(virtualPath, realVuePath, diagnostics, offsets),
+      vueVirtualToReal,
+      // Overrides the built set makeServiceWithSourceMap registers: this case starts
+      // where a single-file query sees the SFC before it adds the SFC.
+      scriptFileNames: [],
+      ...makeProgramGrowingBase(diagnostics, readable, (added) => {
+        if (added !== realVuePath) vueVirtualToReal.set(added, realVuePath);
+      }),
     };
-    return service;
   }
 
   it("returns diagnostics for a .vue path the add brings into the program", async () => {
@@ -456,59 +501,22 @@ describe("vueGetTypeErrorsForTsFile", () => {
     expect(getService).toHaveBeenCalledWith("/project/main.ts");
   });
 
-  it("returns empty for a path the program does not hold, instead of throwing", async () => {
-    const FILE = "/project/dist/gen.ts";
-    const service = makeTsFileService([
-      makeTsFileDiagnostic(ts.DiagnosticCategory.Error, 2322, "unreachable", FILE, "", 0),
-    ]);
-    service.baseService = {
-      getSemanticDiagnostics: () => {
-        throw new Error(`Could not find source file: '${FILE}'.`);
-      },
-      getProgram: () => ({ getSourceFile: () => undefined }),
-    } as unknown as ts.LanguageService;
-
-    const result = await vueGetTypeErrorsForTsFile(FILE, async () => service);
-    expect(result).toEqual({ diagnostics: [], errorCount: 0, truncated: false });
-  });
-
-  /**
-   * A service whose program holds a path only after `addScriptFile` registered
-   * it — the shape the real one has for a path outside the tsconfig and the
-   * workspace walk — and whose `getSemanticDiagnostics` throws for a path the
-   * program does not hold. `readable: false` makes the add leave the program as
-   * it was, the state a path that cannot be read produces.
-   */
-  function makeAddableTsService(diagnostics: ts.Diagnostic[], readable: boolean): CachedService {
-    const inProgram = new Set<string>();
-    return makeBaseCachedService({
-      baseService: {
-        getProgram: () => ({ getSourceFile: (p: string) => (inProgram.has(p) ? {} : undefined) }),
-        getSemanticDiagnostics: (p: string) => {
-          if (!inProgram.has(p)) throw new Error(`Could not find source file: '${p}'.`);
-          return diagnostics;
-        },
-      } as unknown as ts.LanguageService,
-      addScriptFile: (filePath) => {
-        if (readable) inProgram.add(filePath);
-      },
-    });
-  }
-
   it("returns diagnostics for a path the add brings into the program", async () => {
     const FILE = "/project/dist/gen.ts";
-    const service = makeAddableTsService(
-      [
-        makeTsFileDiagnostic(
-          ts.DiagnosticCategory.Error,
-          2322,
-          "Type 'string' is not assignable to type 'number'.",
-          FILE,
-          "const count: number = 'x';\n",
-          0,
-        ),
-      ],
-      true,
+    const service = makeBaseCachedService(
+      makeProgramGrowingBase(
+        [
+          makeTsFileDiagnostic(
+            ts.DiagnosticCategory.Error,
+            2322,
+            "Type 'string' is not assignable to type 'number'.",
+            FILE,
+            "const count: number = 'x';\n",
+            0,
+          ),
+        ],
+        true,
+      ),
     );
 
     const result = await vueGetTypeErrorsForTsFile(FILE, async () => service);
@@ -530,9 +538,11 @@ describe("vueGetTypeErrorsForTsFile", () => {
 
   it("returns empty when the path is still outside the program after the add", async () => {
     const FILE = "/project/dist/missing.ts";
-    const service = makeAddableTsService(
-      [makeTsFileDiagnostic(ts.DiagnosticCategory.Error, 2322, "unreachable", FILE, "", 0)],
-      false,
+    const service = makeBaseCachedService(
+      makeProgramGrowingBase(
+        [makeTsFileDiagnostic(ts.DiagnosticCategory.Error, 2322, "unreachable", FILE, "", 0)],
+        false,
+      ),
     );
 
     const result = await vueGetTypeErrorsForTsFile(FILE, async () => service);
@@ -565,6 +575,7 @@ describe("vueGetTypeErrorsForProject", () => {
       vue.offsets,
       vue.realContent,
     );
+    const scriptFileNames = [...Object.keys(tsDiagnosticsByFile), vue.virtualPath];
     return {
       ...base,
       baseService: {
@@ -574,7 +585,8 @@ describe("vueGetTypeErrorsForProject", () => {
         // vite.config.js case in getTypeErrors.test.ts against a real service.
         getProgram: () => ({ getSourceFile: () => ({}) }),
       } as unknown as ts.LanguageService,
-      scriptFileNames: [...Object.keys(tsDiagnosticsByFile), vue.virtualPath],
+      scriptFileNames,
+      builtFileNames: new Set(scriptFileNames),
       // No tsconfig: the checked set is the whole scriptFileNames walk, which must
       // agree with the override above rather than the seed makeServiceWithSourceMap set.
       seedFileNames: null,
@@ -658,11 +670,32 @@ describe("vueGetTypeErrorsForProject", () => {
   });
 
   it("requests a project-wide service without fabricating a file path", async () => {
-    const service = makeMinimalService("/project/Unused.vue.ts", "/project/Unused.vue", []);
-    const getService = vi.fn().mockResolvedValue({ ...service, scriptFileNames: [] });
+    const getService = vi
+      .fn()
+      .mockResolvedValue(makeMinimalService("/project/Unused.vue.ts", "/project/Unused.vue", []));
 
     await vueGetTypeErrorsForProject(getService, null, "/project");
 
     expect(getService).toHaveBeenCalledWith(undefined);
+  });
+
+  it("leaves paths a single-file query added out of the checked and unchecked counts", async () => {
+    const service = makeProjectService(
+      { "/project/a.ts": [] },
+      {
+        virtualPath: "/project/Test.vue.ts",
+        realVuePath: "/project/Test.vue",
+        diagnostics: [],
+        offsets: [],
+      },
+    );
+    // The state single-file queries on out-of-program files leave behind.
+    service.vueVirtualToReal.set("/project/dist/Added.vue.ts", "/project/dist/Added.vue");
+    service.scriptFileNames.push("/project/dist/Added.vue.ts", "/project/dist/added.ts");
+
+    const result = await vueGetTypeErrorsForProject(async () => service, null, "/project");
+
+    expect(result.checked?.files).toBe(2);
+    expect(result.unchecked?.files).toBe(0);
   });
 });

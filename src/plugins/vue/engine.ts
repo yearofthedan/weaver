@@ -123,10 +123,9 @@ export class VolarEngine implements Engine {
 
   /**
    * Refreshes one path for the post-write check. A path the service holds nothing
-   * about is rebuilt when this program could hold it — the script list is fixed
-   * when the service is built, so a rebuild is the one route to a source file the
-   * service has never loaded, and to an edited tsconfig the options come from. A
-   * written `README.md` leaves the cached service in place.
+   * about is rebuilt when this program could hold it — a rebuild is what reaches a
+   * source file that entered the workspace since the service was built, and what
+   * picks up an edited tsconfig's options.
    */
   refreshFile(filePath: string): void {
     if (this.repairInPlace(filePath)) return;
