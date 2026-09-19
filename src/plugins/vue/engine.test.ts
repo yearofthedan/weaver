@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -961,6 +962,31 @@ describe("VolarEngine", () => {
       const result = await p.getTypeErrors(undefined, makeScope(dir));
 
       expect(result.diagnostics.some((d) => d.file === outsideFile)).toBe(false);
+    }, 30_000);
+  });
+
+  describe("getTypeErrors — a file the tsconfig and the walk both miss", () => {
+    test("reports a gitignored file's error instead of answering clean", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": JSON.stringify({
+          compilerOptions: { strict: true, moduleResolution: "bundler" },
+          include: ["src/**/*"],
+        }),
+        "src/App.vue": '<script setup lang="ts">\nconst a: number = 1;\n</script>\n',
+        "generated/gen.ts": 'export const n: number = "not a number";\n',
+        ".gitignore": "generated/\n",
+      });
+      const gitEnv = { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" };
+      execSync("git init", { cwd: dir, env: gitEnv, stdio: "pipe" });
+      const file = path.join(dir, "generated/gen.ts");
+      const p = new VolarEngine(new TsMorphEngine(), dir);
+
+      const result = await p.getTypeErrors(file, makeScope(dir));
+
+      expect(result.errorCount).toBe(1);
+      expect(result.diagnostics[0]).toMatchObject({ file, code: 2322 });
     }, 30_000);
   });
 
