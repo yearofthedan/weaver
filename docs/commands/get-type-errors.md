@@ -71,7 +71,7 @@ So a workspace with sibling configs — `tsconfig.json` for `src/`, `tsconfig.te
 | `checked` | Project-wide only. `{ files, tsconfig }` — how many of your own files were covered, and the absolute path of the tsconfig that answered (`null` when the workspace has none). |
 | `unchecked` | Project-wide only. `{ files, reason, otherConfigs }` — how many of your workspace's TS/JS files fell outside that scope, why, and up to 10 other `tsconfig*.json` files at the workspace root you could pass as `tsconfig`. |
 
-`checked.files` and `unchecked.files` count *your* files: both exclude `node_modules`. Diagnostics are not so limited — a dependency's own `.d.ts` errors are reported when `skipLibCheck` is off, because `tsc` reports them.
+`checked.files` and `unchecked.files` count *your* files: both exclude `node_modules`. Diagnostics follow that program's own file set, dependencies included — a dependency's own `.d.ts` errors are reported when `skipLibCheck` is off, and an SFC a dependency ships is reported when an included file imports it, because `tsc` reports both.
 
 **Read `unchecked.files` before trusting `errorCount: 0`.** A clean result means the checked scope is clean, not that the workspace is. When `unchecked.files` is non-zero, the files it counts were never examined.
 

@@ -30,10 +30,11 @@ tool call
       │     offsetToLineCol(realContent, offset) → 1-based line/col
       │     exclude diagnostics with no source map entry (Volar glue code)
       └─ project-wide:
-            typeCheckedFiles(seed, program) → the same closure the ts path uses,
+            typeCheckedFiles(seed, program) → the closure, which is the whole scope:
             iterated directly, skipping virtual .vue.ts entries
             and anything absent from the compiled program
-            + vueGetTypeErrorsFromService() for all .vue files in the Volar service
+            + vueGetTypeErrorsFromService(service, checked) for the .vue entries
+            that same closure holds
             merged under a single 100-error cap
 
   filter: DiagnosticCategory.Error only; take first 100; set truncated if more exist
@@ -143,16 +144,24 @@ re-checks its virtual-path mapping instead. Querying a path the program lacks wo
 `Could not find source file` and surface as `INTERNAL_ERROR`. Both engines therefore answer an
 out-of-program file the same way.
 
-**An on-demand add serves the query that asked for it.** `CachedService.addScriptFile` widens
-`scriptFileNames` and, for an SFC, `vueVirtualToReal` — the collections the host serves and the
-project-wide check reads. `CachedService.builtFileNames` holds the file set the service was built
-with: `unchecked` derives from that snapshot, and the project-wide `.vue` diagnostics are filtered
-to it. `checked` is `typeCheckedFiles`' closure, which runs over the compiled program — so it is
-narrowed to `builtFileNames` for the caller's own files before it reaches `describeCheckedScope`,
-since the add widens that program and a file counted as checked while its diagnostics are filtered
-out would answer `errorCount: 0`. An in-program file's import of an added SFC starts resolving once
-a query has added it, so a project-wide answer can differ between a session that checked that SFC
-first and one that did not; a project-wide check on a fresh service reports TS2307 for the import.
+**A project-wide check reports the closure, and registers what the compiler resolves to.**
+`typeCheckedFiles`' closure over the compiled program is the whole scope: `checked` is that set,
+`describeCheckedScope` counts it, and `vueGetTypeErrorsFromService` is handed the same set, so a
+file counted as checked is a file that was diagnosed. `CachedService.builtFileNames` — the file set
+the service was built with — is what `unchecked` derives from, so a file outside the closure but
+inside the built set still reads as unchecked.
+
+An included file's import of an SFC reaches that closure through registration: the host registers
+the SFC from inside the callback the compiler calls while resolving, so a fresh service resolves the
+import exactly as one a single-file query has added the file to by name. Registration is how an SFC
+under `dist/` or `node_modules` — which the on-disk `.vue` scan filters out — and one outside the
+tsconfig's own directory, beyond that scan's reach, join the program.
+
+The closure is not filtered by `isOwnWorkspaceFile`, so an SFC under `node_modules/` that an
+included file imports is diagnosed — what `tsGetTypeErrorsForProject` already does for a `.ts` file
+in the same position, and what `tsc` does for a non-declaration file in its program. Only the
+`checked.files` *count* excludes dependencies, so such an SFC is reported without being counted,
+exactly as on the ts-morph side.
 
 The drain runs at the end of the dispatch because `refreshFromFileSystemSync` replaces a node
 tree the in-flight operation still holds references into (see the constraint below). A file the
