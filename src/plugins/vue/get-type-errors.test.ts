@@ -7,7 +7,7 @@ import {
   vueGetTypeErrorsForTsFile,
   vueGetTypeErrorsFromService,
 } from "./get-type-errors.js";
-import type { CachedService } from "./service.js";
+import { type CachedService, toVirtualVuePath } from "./service.js";
 
 function makeDiagnostic(
   category: ts.DiagnosticCategory,
@@ -304,6 +304,77 @@ describe("vueGetTypeErrorsForFile", () => {
     expect(result.truncated).toBe(truncated);
     expect(result.diagnostics).toHaveLength(Math.min(errorCount, MAX_DIAGNOSTICS));
     expect(result.errorCount).toBe(errorCount);
+  });
+
+  /**
+   * A service whose virtual path is registered only once `addScriptFile`
+   * succeeded, and whose `getSemanticDiagnostics` throws for a virtual path the
+   * program does not hold — the shape the real service has for an SFC the
+   * tsconfig's file set and the on-disk `.vue` scan both missed. Source-map
+   * machinery comes from `makeServiceWithSourceMap`, so a diagnostic translates
+   * to a real SFC position. `readable: false` leaves the registration as it was,
+   * the state a path that cannot be read produces.
+   */
+  function makeAddableVueService(
+    virtualPath: string,
+    realVuePath: string,
+    diagnostics: ts.Diagnostic[],
+    offsets: Array<[number, number]>,
+    readable: boolean,
+  ): CachedService {
+    const service = makeServiceWithSourceMap(virtualPath, realVuePath, diagnostics, offsets);
+    const inProgram = new Set<string>();
+    service.vueVirtualToReal = new Map();
+    service.baseService = {
+      getProgram: () => ({ getSourceFile: (p: string) => (inProgram.has(p) ? {} : undefined) }),
+      getSemanticDiagnostics: (p: string) => {
+        if (!inProgram.has(p)) throw new Error(`Could not find source file: '${p}'.`);
+        return diagnostics;
+      },
+    } as unknown as ts.LanguageService;
+    service.addScriptFile = (filePath) => {
+      if (!readable) return;
+      const added = toVirtualVuePath(filePath);
+      inProgram.add(added);
+      if (added !== filePath) service.vueVirtualToReal.set(added, filePath);
+    };
+    return service;
+  }
+
+  it("returns diagnostics for a .vue path the add brings into the program", async () => {
+    const REAL_VUE = "/project/dist/Gen.vue";
+    const VIRTUAL_PATH = `${REAL_VUE}.ts`;
+    const service = makeAddableVueService(
+      VIRTUAL_PATH,
+      REAL_VUE,
+      [makeDiagnostic(ts.DiagnosticCategory.Error, 2322, "type error", 5)],
+      [[5, 0]],
+      true,
+    );
+
+    const result = await vueGetTypeErrorsForFile(REAL_VUE, async () => service);
+
+    expect(result).toEqual({
+      diagnostics: [{ file: REAL_VUE, line: 1, col: 1, code: 2322, message: "type error" }],
+      errorCount: 1,
+      truncated: false,
+    });
+  });
+
+  it("returns empty when the .vue path is still outside the program after the add", async () => {
+    const REAL_VUE = "/project/dist/Missing.vue";
+    const VIRTUAL_PATH = `${REAL_VUE}.ts`;
+    const service = makeAddableVueService(
+      VIRTUAL_PATH,
+      REAL_VUE,
+      [makeDiagnostic(ts.DiagnosticCategory.Error, 2322, "unreachable", 5)],
+      [[5, 0]],
+      false,
+    );
+
+    const result = await vueGetTypeErrorsForFile(REAL_VUE, async () => service);
+
+    expect(result).toEqual({ diagnostics: [], errorCount: 0, truncated: false });
   });
 });
 

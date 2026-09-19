@@ -78,8 +78,15 @@ export async function vueGetTypeErrorsForFile(
   const service = await getService(file);
   const virtualPath = `${file}.ts`;
 
+  // An SFC the tsconfig's file set and the on-disk `.vue` scan both missed has no
+  // virtual path mapped, and `getSemanticDiagnostics` throws for a virtual path the
+  // program does not hold. Adding it on demand is what maps it; the re-check keeps
+  // an SFC whose text cannot be read out of the query.
   if (!service.vueVirtualToReal.has(virtualPath)) {
-    return { diagnostics: [], errorCount: 0, truncated: false };
+    service.addScriptFile(file);
+    if (!service.vueVirtualToReal.has(virtualPath)) {
+      return { diagnostics: [], errorCount: 0, truncated: false };
+    }
   }
 
   const raw = service.baseService.getSemanticDiagnostics(virtualPath);
