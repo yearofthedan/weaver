@@ -146,12 +146,13 @@ out-of-program file the same way.
 **An on-demand add serves the query that asked for it.** `CachedService.addScriptFile` widens
 `scriptFileNames` and, for an SFC, `vueVirtualToReal` — the collections the host serves and the
 project-wide check reads. `CachedService.builtFileNames` holds the file set the service was built
-with, and the project-wide walk and its `checked`/`unchecked` counts derive from that snapshot:
-without it, a single-file check on an out-of-program file would be reported while the response
-simultaneously counts it in `unchecked`. The compiled program is shared with the add, so an
-in-program file's import of an added SFC starts resolving once a query has added it — a
-project-wide answer can therefore differ between a session that checked that SFC first and one
-that did not, and a project-wide check on a fresh service reports TS2307 for the import.
+with: `unchecked` derives from that snapshot, and the project-wide `.vue` diagnostics are filtered
+to it. `checked` is `typeCheckedFiles`' closure, which runs over the compiled program — so it is
+narrowed to `builtFileNames` for the caller's own files before it reaches `describeCheckedScope`,
+since the add widens that program and a file counted as checked while its diagnostics are filtered
+out would answer `errorCount: 0`. An in-program file's import of an added SFC starts resolving once
+a query has added it, so a project-wide answer can differ between a session that checked that SFC
+first and one that did not; a project-wide check on a fresh service reports TS2307 for the import.
 
 The drain runs at the end of the dispatch because `refreshFromFileSystemSync` replaces a node
 tree the in-flight operation still holds references into (see the constraint below). A file the

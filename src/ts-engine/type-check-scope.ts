@@ -94,8 +94,11 @@ export interface CheckedScope {
  * `typeCheckedFiles`'s doc comment) — a real npm install of TypeScript ships its lib files
  * from inside some `node_modules` directory, so this one check excludes both — but a caller
  * asking "how much of my code did you look at" isn't asking about either.
+ *
+ * Exported for `vueGetTypeErrorsForProject`, which narrows the closure it gets from
+ * `typeCheckedFiles` to the set its diagnostics come from.
  */
-function isOwnWorkspaceFile(filePath: string, workspaceRoot: string): boolean {
+export function isOwnWorkspaceFile(filePath: string, workspaceRoot: string): boolean {
   const relative = path.relative(path.resolve(workspaceRoot), path.resolve(filePath));
   // `path.relative` only returns an absolute path when the two inputs share no common
   // base (e.g. different drive letters on Windows) — unreachable on POSIX, where both
@@ -130,8 +133,10 @@ function findOtherConfigs(
  * type check's `checked`/`unchecked` response fields. `walkedFiles` is each engine's full
  * workspace file set (the diagnostic program's own source files on the ts-morph side,
  * `CachedService.builtFileNames` on the Volar side)
- * — `checkedFiles` minus `walkedFiles` is empty by construction, so subtracting the other way
- * is what finds the files a tsconfig-scoped check left out.
+ * — the caller's own files in `checkedFiles` are a subset of `walkedFiles`, so subtracting the
+ * other way is what finds the files a tsconfig-scoped check left out. That subset relation is the
+ * caller's to keep: `typeCheckedFiles` closes over the program, which can hold a file the walk
+ * never reached, and such a file counted here would report as checked.
  */
 export function describeCheckedScope(
   checkedFiles: ReadonlySet<string>,

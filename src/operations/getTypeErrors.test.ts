@@ -428,6 +428,32 @@ describe("getTypeErrors operation", () => {
           expect(result.errorCount).toBe(result.diagnostics.length);
         }
       });
+
+      test("counts the same files before and after a single-file check on an SFC the service never held", async ({
+        seedInlineFixture,
+      }) => {
+        const dir = await seedInlineFixture({
+          "tsconfig.json": JSON.stringify({
+            compilerOptions: { strict: true, moduleResolution: "bundler" },
+            include: ["src/**/*"],
+          }),
+          "src/App.vue": '<script setup lang="ts">\nconst a: number = 1;\n</script>\n',
+          "src/main.ts": 'import B from "../dist/Broken.vue";\nexport const b = B;\n',
+          "dist/Broken.vue":
+            '<script setup lang="ts">\nconst x: number = "not a number";\n</script>\n',
+        });
+        const engine = makeVolarEngine(dir);
+
+        const before = await getTypeErrors(engine, undefined, makeScope(dir));
+        await getTypeErrors(engine, `${dir}/dist/Broken.vue`, makeScope(dir));
+        const after = await getTypeErrors(engine, undefined, makeScope(dir));
+
+        // The single-file check adds the SFC to the compiled program, so the project-wide
+        // closure reaches it; counting it as checked would pair a claimed check with the
+        // diagnostics the built-set filter drops.
+        expect(after.checked).toEqual(before.checked);
+        expect(after.unchecked).toEqual(before.unchecked);
+      });
     });
 
     describe("project-wide mode in a Vue project — workspace holds a JS file the program excludes", () => {

@@ -6,7 +6,11 @@ import {
   extractDiagnosticMessage,
   semanticErrors,
 } from "../../ts-engine/get-type-errors.js";
-import { describeCheckedScope, typeCheckedFiles } from "../../ts-engine/type-check-scope.js";
+import {
+  describeCheckedScope,
+  isOwnWorkspaceFile,
+  typeCheckedFiles,
+} from "../../ts-engine/type-check-scope.js";
 import { offsetToLineCol } from "../../utils/text-utils.js";
 import { type CachedService, toVirtualVuePath } from "./service.js";
 
@@ -152,10 +156,17 @@ export async function vueGetTypeErrorsForProject(
 
   // Only a syntax-only service returns undefined here, and Volar never builds one.
   const program = service.baseService.getProgram() as ts.Program;
-  // Scope comes from `builtFileNames`: the walked set, and so `checked`/`unchecked`, is the
-  // one the service was built with. The compiled program is shared with the on-demand
-  // add, so an in-program file's import of an SFC a query added resolves here.
-  const checked = typeCheckedFiles(service.seedFileNames, service.builtFileNames, program);
+  // `unchecked` and the `.vue` diagnostics come from `builtFileNames`, the set the service
+  // was built with. The closure `typeCheckedFiles` returns runs over the compiled program,
+  // which the on-demand add widens, so it can reach an SFC a query added: counted as
+  // checked, that file would answer `errorCount: 0` while its diagnostics are dropped below.
+  const closure = typeCheckedFiles(service.seedFileNames, service.builtFileNames, program);
+  const checked = new Set(
+    [...closure].filter(
+      (fileName) =>
+        !isOwnWorkspaceFile(fileName, workspaceRoot) || service.builtFileNames.has(fileName),
+    ),
+  );
 
   const errors: ts.Diagnostic[] = [];
   for (const fileName of checked) {
