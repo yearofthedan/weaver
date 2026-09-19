@@ -223,6 +223,139 @@ fixtures:
         </script>
         <template><div>App</div></template>
 
+  a-vue-project-scoping-to-src:
+    description: >
+      A Vue tsconfig whose include reaches only src/, with an SFC under src/ making the workspace a
+      Vue project. A file under dist/ sits outside both seeds of the Volar program — the tsconfig's
+      own file set and the workspace walk, which skips dist/ — so nothing puts it in the program
+      until a check asks for it by name.
+    files:
+      tsconfig.json: |
+        {
+          "compilerOptions": {
+            "strict": true,
+            "target": "ESNext",
+            "module": "ESNext",
+            "moduleResolution": "bundler",
+            "jsx": "preserve",
+            "noEmit": true
+          },
+          "include": ["src/**/*"]
+        }
+      src/App.vue: |
+        <script setup lang="ts">
+        </script>
+
+        <template>
+          <div>App</div>
+        </template>
+
+  a-ts-only-project-scoping-to-src:
+    description: >
+      The same tsconfig with no .vue file anywhere in the workspace, so an identical input routes
+      to the ts-morph engine instead of Volar.
+    files:
+      tsconfig.json: |
+        {
+          "compilerOptions": {
+            "strict": true,
+            "target": "ESNext",
+            "module": "ESNext",
+            "moduleResolution": "bundler",
+            "jsx": "preserve",
+            "noEmit": true
+          },
+          "include": ["src/**/*"]
+        }
+
+  a-vue-project-with-an-out-of-program-ts-file:
+    description: a-vue-project-scoping-to-src plus a .ts file under dist/ whose declaration rejects its initializer
+    extends: a-vue-project-scoping-to-src
+    files:
+      dist/gen.ts: |
+        export const n: number = "not-a-number";
+
+  a-ts-only-project-with-an-out-of-program-ts-file:
+    description: the same dist/ file in the workspace with no .vue file
+    extends: a-ts-only-project-scoping-to-src
+    files:
+      dist/gen.ts: |
+        export const n: number = "not-a-number";
+
+  a-vue-project-with-an-out-of-program-sfc:
+    description: a-vue-project-scoping-to-src plus an SFC under dist/ whose script rejects its initializer
+    extends: a-vue-project-scoping-to-src
+    files:
+      dist/Broken.vue: |
+        <script setup lang="ts">
+        const x: number = "not a number";
+        </script>
+
+        <template>
+          <div>{{ x }}</div>
+        </template>
+
+  a-vue-project-with-an-in-program-sfc:
+    description: >
+      The same broken SFC as a-vue-project-with-an-out-of-program-sfc, placed under src/ so the
+      tsconfig's include puts it in the program before any check asks for it.
+    extends: a-vue-project-scoping-to-src
+    files:
+      src/Broken.vue: |
+        <script setup lang="ts">
+        const x: number = "not a number";
+        </script>
+
+        <template>
+          <div>{{ x }}</div>
+        </template>
+
+  a-vue-project-with-out-of-program-module-files:
+    description: >
+      a-vue-project-scoping-to-src plus one .mts and one .cts file under dist/, each rejecting its
+      initializer.
+    extends: a-vue-project-scoping-to-src
+    files:
+      dist/esm.mts: |
+        export const x: number = "not a number";
+      dist/cjs.cts: |
+        export const x: number = "not a number";
+
+  a-ts-only-project-with-out-of-program-module-files:
+    description: the same two dist/ module files in the workspace with no .vue file
+    extends: a-ts-only-project-scoping-to-src
+    files:
+      dist/esm.mts: |
+        export const x: number = "not a number";
+      dist/cjs.cts: |
+        export const x: number = "not a number";
+
+  a-vue-project-with-an-out-of-program-ts-file-importing-an-sfc:
+    description: >
+      a-vue-project-scoping-to-src plus a .ts file under dist/ that imports the SFC and has an
+      unrelated error of its own.
+    extends: a-vue-project-scoping-to-src
+    files:
+      dist/importsSfc.ts: |
+        import App from "../src/App.vue";
+
+        export const broken: number = "not a number";
+
+        console.log(App);
+
+  a-vue-project-with-an-in-program-ts-file-importing-an-sfc:
+    description: >
+      The same file as a-vue-project-with-an-out-of-program-ts-file-importing-an-sfc, placed under
+      src/ beside the SFC so both are already in the program.
+    extends: a-vue-project-scoping-to-src
+    files:
+      src/importsSfc.ts: |
+        import App from "./App.vue";
+
+        export const broken: number = "not a number";
+
+        console.log(App);
+
 scenarios:
   - name: a project-wide check reports nothing for an error outside the tsconfig's include
     given: a-scoped-ts-project
@@ -1074,5 +1207,216 @@ scenarios:
           - file: broken.ts
             line: 1
             col: 7
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+
+  - name: a single-file check reports an out-of-program .ts file's error instead of answering clean
+    description: >
+      dist/gen.ts is outside the tsconfig's include and inside dist/, which the workspace walk
+      skips, so it is in neither of the Volar program's seeds. A caller cannot tell the resulting
+      errorCount 0 apart from a file that was checked and found clean, so the check has to add the
+      file on demand and report the error the file actually has.
+    given: a-vue-project-with-an-out-of-program-ts-file
+    when:
+      - getTypeErrors: { file: dist/gen.ts }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: dist/gen.ts
+            line: 1
+            col: 14
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+
+  - name: a single-file check on the same out-of-program .ts file reports the same error in a TS-only workspace
+    description: >
+      The identical file and tsconfig with no .vue file anywhere, so the ts-morph engine answers
+      instead of Volar. Same diagnostic as the Vue case above: the ts-morph engine already adds
+      the file to its program on demand, so this pins that the Volar answer converges on the
+      ts-morph one rather than being behaviour only Vue projects have.
+    given: a-ts-only-project-with-an-out-of-program-ts-file
+    when:
+      - getTypeErrors: { file: dist/gen.ts }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: dist/gen.ts
+            line: 1
+            col: 14
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+
+  - name: a single-file check reports an out-of-program SFC's error at its position in the real .vue source
+    description: >
+      dist/Broken.vue is outside the tsconfig's include and inside dist/, which the .vue scan
+      filters out the same way, so the Volar service holds no virtual file for it. The check has
+      to add it on demand and report line 2, col 7 — the position in the real SFC — where the
+      virtual .ts Volar compiles the script into would put the same error at a different offset.
+    given: a-vue-project-with-an-out-of-program-sfc
+    when:
+      - getTypeErrors: { file: dist/Broken.vue }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: dist/Broken.vue
+            line: 2
+            col: 7
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+
+  - name: a single-file check on the same SFC reports the same diagnostics when the SFC is already in the program
+    description: >
+      The identical SFC content under src/, which the tsconfig includes, so the Volar service
+      already holds it — same line, same column, same code. This is the control for the cell above:
+      the out-of-program answer has to match the one the program already gave, which is what makes
+      the on-demand add transparent rather than a second, differently-positioned result. There is
+      no TS-only control for this cell to compare against, because a .vue path has no ts-morph
+      answer at all — with no .vue file in the workspace the ts-morph engine is selected and
+      reports the path as an internal error rather than a diagnostic.
+    given: a-vue-project-with-an-in-program-sfc
+    when:
+      - getTypeErrors: { file: src/Broken.vue }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: src/Broken.vue
+            line: 2
+            col: 7
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+
+  - name: a single-file check reports an out-of-program .mts file's error
+    description: >
+      dist/esm.mts is out of the program for the same two reasons as dist/gen.ts. The extension
+      matters on its own: it is outside the .ts set the add could have been narrowed to, so a check
+      that only recognised .ts would answer clean here.
+    given: a-vue-project-with-out-of-program-module-files
+    when:
+      - getTypeErrors: { file: dist/esm.mts }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: dist/esm.mts
+            line: 1
+            col: 14
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+
+  - name: a single-file check on the same out-of-program .mts file reports the same error in a TS-only workspace
+    description: >
+      The identical file and tsconfig with no .vue file anywhere, so the ts-morph engine answers.
+      Same diagnostic as the Vue case above, pinning that the widened extension set is honoured by
+      both engines rather than only by Volar.
+    given: a-ts-only-project-with-out-of-program-module-files
+    when:
+      - getTypeErrors: { file: dist/esm.mts }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: dist/esm.mts
+            line: 1
+            col: 14
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+
+  - name: a single-file check reports an out-of-program .cts file's error
+    description: >
+      dist/cjs.cts is the other extension the widened set exposed, and it is checked by a separate
+      scenario from the .mts file because one call answers for one file: a check that admitted one
+      of the two extensions and not the other would still pass a case that only exercised one.
+    given: a-vue-project-with-out-of-program-module-files
+    when:
+      - getTypeErrors: { file: dist/cjs.cts }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: dist/cjs.cts
+            line: 1
+            col: 14
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+
+  - name: a single-file check on the same out-of-program .cts file reports the same error in a TS-only workspace
+    description: >
+      The identical file and tsconfig with no .vue file anywhere, so the ts-morph engine answers.
+      Same diagnostic as the Vue case above, so the .cts extension converges between the engines
+      exactly as the .mts one does.
+    given: a-ts-only-project-with-out-of-program-module-files
+    when:
+      - getTypeErrors: { file: dist/cjs.cts }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: dist/cjs.cts
+            line: 1
+            col: 14
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+
+  - name: a single-file check reports only the real error for an out-of-program .ts file that imports an SFC
+    description: >
+      The cell that separates adding the file to the Volar program from routing it to ts-morph: the
+      ts-morph project has no .vue language support, so the same import would come back with a
+      fabricated TS2307 for the .vue specifier beside the real TS2322. errorCount 1 with only the
+      TS2322 is what says the file was checked by the engine that can resolve the SFC.
+    given: a-vue-project-with-an-out-of-program-ts-file-importing-an-sfc
+    when:
+      - getTypeErrors: { file: dist/importsSfc.ts }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: dist/importsSfc.ts
+            line: 3
+            col: 14
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+
+  - name: a single-file check on the same SFC-importing .ts file reports the same diagnostics when the file is already in the program
+    description: >
+      The identical file under src/, importing the SFC as a sibling, so both are in the program
+      before any check asks for them. Same single diagnostic as the out-of-program case above — no
+      TS2307, same position — which pins that adding the file on demand resolves the .vue specifier
+      the way the program's own module resolution does. There is no TS-only control for this cell to
+      compare against: with no .vue file the import has no target, so the ts-morph answer carries
+      the fabricated TS2307 this cell exists to rule out, not the same diagnostics.
+    given: a-vue-project-with-an-in-program-ts-file-importing-an-sfc
+    when:
+      - getTypeErrors: { file: src/importsSfc.ts }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: src/importsSfc.ts
+            line: 3
+            col: 14
             code: 2322
             message: "Type 'string' is not assignable to type 'number'."
