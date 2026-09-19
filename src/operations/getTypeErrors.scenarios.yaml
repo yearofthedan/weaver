@@ -282,6 +282,30 @@ fixtures:
       dist/gen.ts: |
         export const n: number = "not-a-number";
 
+  a-vue-project-checking-a-file-its-rootDir-excludes:
+    description: >
+      a-vue-project-scoping-to-src with rootDir/outDir naming a build layout the checked file sits
+      outside. ts-morph reports TS6059 among the compiler-option diagnostics for that shape; a
+      check that reads semantic diagnostics must carry the file's own error and no TS6059.
+    extends: a-vue-project-scoping-to-src
+    files:
+      tsconfig.json: |
+        {
+          "compilerOptions": {
+            "strict": true,
+            "target": "ESNext",
+            "module": "ESNext",
+            "moduleResolution": "bundler",
+            "jsx": "preserve",
+            "noEmit": true,
+            "rootDir": "src",
+            "outDir": "dist"
+          },
+          "include": ["src/**/*"]
+        }
+      dist/gen.ts: |
+        export const n: number = "not-a-number";
+
   a-vue-project-with-an-out-of-program-sfc:
     description: a-vue-project-scoping-to-src plus an SFC under dist/ whose script rejects its initializer
     extends: a-vue-project-scoping-to-src
@@ -1238,6 +1262,27 @@ scenarios:
       the file to its program on demand, so this pins that the Volar answer converges on the
       ts-morph one rather than being behaviour only Vue projects have.
     given: a-ts-only-project-with-an-out-of-program-ts-file
+    when:
+      - getTypeErrors: { file: dist/gen.ts }
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: dist/gen.ts
+            line: 1
+            col: 14
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+
+  - name: a single-file check reports the file's own error when the tsconfig's rootDir excludes it
+    description: >
+      rootDir names src and outDir names dist, so the checked file sits outside both the build
+      layout and the include. ts-morph answers this shape with TS6059 ("not under rootDir")
+      among its compiler-option diagnostics; the check reads semantic diagnostics, which carry
+      the file's own TS2322 and no TS6059.
+    given: a-vue-project-checking-a-file-its-rootDir-excludes
     when:
       - getTypeErrors: { file: dist/gen.ts }
     then:
