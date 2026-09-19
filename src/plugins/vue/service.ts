@@ -343,11 +343,11 @@ export async function buildVolarService(
         // host serves in preference to disk, so a deleted SFC keeps resolving for its
         // importers until the registration goes.
         language.scripts.delete(filePath);
-      } else {
-        if (fileContents.get(filePath) === content) return;
-        storeContent(filePath, content);
+        bumpVersion(filePath);
+        return;
       }
-      bumpVersion(filePath);
+      if (fileContents.get(filePath) === content) return;
+      storeContent(filePath, content);
     },
     addScriptFile: (filePath) => {
       const virtualPath = toVirtualVuePath(filePath);

@@ -309,17 +309,23 @@ describe("vueGetTypeErrorsFromService", () => {
   });
 
   it("excludes an SFC a single-file query added, so the scope stays the built set", () => {
+    const BUILT_VUE = "/project/Built.vue";
+    const ADDED_VUE = "/project/dist/Added.vue";
     const service = makeServiceWithSourceMap(
-      "/project/Built.vue.ts",
-      "/project/Built.vue",
+      `${BUILT_VUE}.ts`,
+      BUILT_VUE,
       [makeDiagnostic(ts.DiagnosticCategory.Error, 2322, "vue error", 0)],
       [[0, 0]],
     );
-    // The state a single-file query on an out-of-program SFC leaves behind.
-    service.vueVirtualToReal.set("/project/dist/Added.vue.ts", "/project/dist/Added.vue");
-    service.scriptFileNames.push("/project/dist/Added.vue.ts");
+    // The state a query-time add leaves behind: the SFC is in both collections with its
+    // content and script held, so only the built-set filter can keep it out of the answer.
+    const script = service.language.scripts.get(BUILT_VUE);
+    service.language.scripts.get = () => script;
+    service.fileContents.set(ADDED_VUE, "x");
+    service.vueVirtualToReal.set(`${ADDED_VUE}.ts`, ADDED_VUE);
+    service.scriptFileNames.push(`${ADDED_VUE}.ts`);
 
-    expect(vueGetTypeErrorsFromService(service).map((d) => d.file)).toEqual(["/project/Built.vue"]);
+    expect(vueGetTypeErrorsFromService(service).map((d) => d.file)).toEqual([BUILT_VUE]);
   });
 });
 

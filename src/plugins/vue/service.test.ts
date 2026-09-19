@@ -232,6 +232,24 @@ describe("buildVolarService", () => {
       expect(service.baseService.getProgram()?.getSourceFile(virtualPath)).toBeDefined();
     });
 
+    test("grows the served list, holding the built set at its construction-time contents", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": TSCONFIG,
+        "src/main.ts": "export const x = 1;\n",
+        "dist/Gen.vue": '<script setup lang="ts">\nconst count: number = 1;\n</script>\n',
+      });
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
+      const file = path.join(dir, "dist/Gen.vue");
+      const virtualPath = `${file}.ts`;
+
+      service.addScriptFile(file);
+
+      expect(service.scriptFileNames).toContain(virtualPath);
+      expect(service.builtFileNames.has(virtualPath)).toBe(false);
+    });
+
     test("leaves an already-added path alone on a second call", async ({ seedInlineFixture }) => {
       const dir = await seedInlineFixture({
         "tsconfig.json": TSCONFIG,
