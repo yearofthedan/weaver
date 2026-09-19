@@ -42,10 +42,11 @@ export interface CachedService {
    */
   seedFileNames: string[] | null;
   /**
-   * `scriptFileNames` as the service was built with it. `addScriptFile` widens the
-   * live list for the query that asked for it; the project-wide check reads this
-   * snapshot, so its answer depends only on the workspace and the tsconfig, and any
-   * sequence of requests in a session gets the same answer.
+   * `scriptFileNames` as the service was built with it. `addScriptFile` widens the live
+   * list for the query that asked for it; the project-wide check reads this snapshot for
+   * the files it walks and asks about, so `checked` and `unchecked` describe the file set
+   * the service was built with. The compiled program is shared with the add, so an
+   * in-program file's import of an added SFC resolves once a query has added it.
    */
   builtFileNames: ReadonlySet<string>;
   /**
@@ -311,6 +312,8 @@ export async function buildVolarService(
   initialize(language);
 
   const bumpVersion = (filePath: string) => {
+    // The language service compares a file's version for change, so the value's
+    // direction and size never reach an answer.
     versions.set(filePath, (versions.get(filePath) ?? 0) + 1);
   };
 
