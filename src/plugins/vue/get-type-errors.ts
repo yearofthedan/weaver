@@ -81,14 +81,13 @@ export async function vueGetTypeErrorsForFile(
   const service = await getService(file);
   const virtualPath = toVirtualVuePath(file);
 
-  // An SFC the tsconfig's file set and the on-disk `.vue` scan both missed has no
-  // virtual path mapped, and `getSemanticDiagnostics` throws for a virtual path the
-  // program does not hold.
+  // An SFC the tsconfig's file set and the on-disk `.vue` scan both missed has no virtual
+  // path mapped, and `getSemanticDiagnostics` throws for a virtual path the program does
+  // not hold. `addScriptFile` leaves an SFC it already holds alone, and a mapped path is
+  // always in `scriptFileNames`, so adding first keeps this to one predicate.
+  service.addScriptFile(file);
   if (!service.vueVirtualToReal.has(virtualPath)) {
-    service.addScriptFile(file);
-    if (!service.vueVirtualToReal.has(virtualPath)) {
-      return { diagnostics: [], errorCount: 0, truncated: false };
-    }
+    return { diagnostics: [], errorCount: 0, truncated: false };
   }
 
   const raw = service.baseService.getSemanticDiagnostics(virtualPath);
@@ -153,8 +152,9 @@ export async function vueGetTypeErrorsForProject(
 
   // Only a syntax-only service returns undefined here, and Volar never builds one.
   const program = service.baseService.getProgram() as ts.Program;
-  // Scope comes from `builtFileNames`, so the answer depends only on the workspace
-  // and the tsconfig. `vueGetTypeErrorsFromService` filters the same way.
+  // Scope comes from `builtFileNames`: the walked set, and so `checked`/`unchecked`, is the
+  // one the service was built with. The compiled program is shared with the on-demand
+  // add, so an in-program file's import of an SFC a query added resolves here.
   const checked = typeCheckedFiles(service.seedFileNames, service.builtFileNames, program);
 
   const errors: ts.Diagnostic[] = [];
