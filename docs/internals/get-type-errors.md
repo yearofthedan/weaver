@@ -137,17 +137,21 @@ engines report from — plus `.vue` in a Vue project, whose SFC diagnostics come
 source map. `.js`/`.jsx` are outside it because whether they are checkable depends on `allowJs`. A
 path the Volar program does not hold — a gitignored file, or one under `SKIP_DIRS` — is added to
 the service on demand before the query, the move `getDiagnosticServiceForFile` already made for
-ts-morph. The service re-checks the program after the add and answers empty for a path that is
-still absent, which is the state a path whose text cannot be read produces; querying anyway would
-throw `Could not find source file` and surface as `INTERNAL_ERROR`. Both engines therefore answer
-such a file the same way.
+ts-morph. The `.ts` path re-checks program membership after the add and answers empty for a path
+that is still absent, which is the state a path whose text cannot be read produces; the `.vue` path
+re-checks its virtual-path mapping instead. Querying a path the program lacks would throw
+`Could not find source file` and surface as `INTERNAL_ERROR`. Both engines therefore answer an
+out-of-program file the same way.
 
 **An on-demand add serves the query that asked for it.** `CachedService.addScriptFile` widens
 `scriptFileNames` and, for an SFC, `vueVirtualToReal` — the collections the host serves and the
 project-wide check reads. `CachedService.builtFileNames` holds the file set the service was built
-with, and the project-wide scope derives from that snapshot: without it, a single-file check on an
-out-of-program file would change the answer a later project-wide check gives in the same daemon
-session, reporting an error for a file the response simultaneously counts in `unchecked`.
+with, and the project-wide walk and its `checked`/`unchecked` counts derive from that snapshot:
+without it, a single-file check on an out-of-program file would be reported while the response
+simultaneously counts it in `unchecked`. The compiled program is shared with the add, so an
+in-program file's import of an added SFC starts resolving once a query has added it — a
+project-wide answer can therefore differ between a session that checked that SFC first and one
+that did not, and a project-wide check on a fresh service reports TS2307 for the import.
 
 The drain runs at the end of the dispatch because `refreshFromFileSystemSync` replaces a node
 tree the in-flight operation still holds references into (see the constraint below). A file the
