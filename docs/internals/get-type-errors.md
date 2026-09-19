@@ -19,10 +19,12 @@ tool call
   │
   └─ VolarEngine path (Vue projects) — every file kind answered by Volar
       ├─ single non-.vue file:
-      │     getService(file) → baseService.getSemanticDiagnostics(file)
+      │     getService(file) → add the file when the program lacks it
+      │     baseService.getSemanticDiagnostics(file)
       │     real positions, no source-map translation
       ├─ single .vue file:
       │     getService(file) → build/reuse Volar service
+      │     add the file when the virtual path is unmapped
       │     baseService.getSemanticDiagnostics(file + ".ts")  ← virtual path
       │     translate virtual offset → real .vue offset (source maps)
       │     offsetToLineCol(realContent, offset) → 1-based line/col
@@ -132,12 +134,20 @@ tsconfig needs, so the exclusion would have to come back.
 
 The check covers `.ts`, `.tsx`, `.mts` and `.cts` — one set, `TYPECHECK_EXTENSIONS`, that both
 engines report from — plus `.vue` in a Vue project, whose SFC diagnostics come back through the
-source map. `.js`/`.jsx` are outside it because whether they are checkable depends on `allowJs`. The
-Volar engine skips a path its program does not hold (a gitignored file, or one under `SKIP_DIRS`)
-rather than throwing, on the principle below; the ts-morph engine answers the same file, since
-`getDiagnosticServiceForFile` adds it to the program on demand. The two engines therefore disagree
-about that file, and the handoff entry on it carries the question of whether a Vue project should
-route it to ts-morph instead.
+source map. `.js`/`.jsx` are outside it because whether they are checkable depends on `allowJs`. A
+path the Volar program does not hold — a gitignored file, or one under `SKIP_DIRS` — is added to
+the service on demand before the query, the move `getDiagnosticServiceForFile` already made for
+ts-morph. The service re-checks the program after the add and answers empty for a path that is
+still absent, which is the state a path whose text cannot be read produces; querying anyway would
+throw `Could not find source file` and surface as `INTERNAL_ERROR`. Both engines therefore answer
+such a file the same way.
+
+**An on-demand add serves the query that asked for it.** `CachedService.addScriptFile` widens
+`scriptFileNames` and, for an SFC, `vueVirtualToReal` — the collections the host serves and the
+project-wide check reads. `CachedService.builtFileNames` holds the file set the service was built
+with, and the project-wide scope derives from that snapshot: without it, a single-file check on an
+out-of-program file would change the answer a later project-wide check gives in the same daemon
+session, reporting an error for a file the response simultaneously counts in `unchecked`.
 
 The drain runs at the end of the dispatch because `refreshFromFileSystemSync` replaces a node
 tree the in-flight operation still holds references into (see the constraint below). A file the
