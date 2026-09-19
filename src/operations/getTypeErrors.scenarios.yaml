@@ -380,6 +380,64 @@ fixtures:
 
         console.log(App);
 
+  a-vue-project-importing-an-out-of-program-sfc:
+    description: >
+      a-vue-project-with-an-out-of-program-sfc plus an included file that imports it — the SFC is
+      in neither of the Volar program's seeds, but a real build reaches it through the compiler's
+      own module resolution.
+    extends: a-vue-project-with-an-out-of-program-sfc
+    files:
+      src/main.ts: |
+        import B from "../dist/Broken.vue";
+
+        export const b = B;
+
+  a-vue-project-importing-a-missing-sfc:
+    description: >
+      The same shape with no SFC at the imported path — a missing `.vue` specifier has to keep
+      reporting what a missing import always reported.
+    extends: a-vue-project-scoping-to-src
+    files:
+      src/main.ts: |
+        import B from "../dist/Missing.vue";
+
+        export const b = B;
+
+  a-vue-project-importing-a-dependency-sfc:
+    description: >
+      a-vue-project-scoping-to-src plus an included file importing an SFC shipped by a dependency.
+      node_modules is outside the workspace walk and the `.vue` scan skips it, so the SFC is in
+      neither seed.
+    extends: a-vue-project-scoping-to-src
+    files:
+      node_modules/comp/Comp.vue: |
+        <script setup lang="ts">
+        const x: number = "not a number";
+        </script>
+
+        <template>
+          <div>{{ x }}</div>
+        </template>
+      src/main.ts: |
+        import Comp from "comp/Comp.vue";
+
+        export const c = Comp;
+
+  a-vue-project-with-an-ignored-sfc:
+    description: >
+      a-vue-project-scoping-to-src plus a broken SFC in tests/, which the tsconfig's include leaves
+      out but the on-disk `.vue` scan reaches — tests/ is ignored, not skipped.
+    extends: a-vue-project-scoping-to-src
+    files:
+      tests/Broken.vue: |
+        <script setup lang="ts">
+        const x: number = "not a number";
+        </script>
+
+        <template>
+          <div>{{ x }}</div>
+        </template>
+
 scenarios:
   - name: a project-wide check reports nothing for an error outside the tsconfig's include
     given: a-scoped-ts-project
@@ -1465,3 +1523,117 @@ scenarios:
             col: 14
             code: 2322
             message: "Type 'string' is not assignable to type 'number'."
+
+  - name: a project-wide check resolves an import of an SFC outside the seeds and reports that SFC
+    description: >
+      dist/Broken.vue is outside the tsconfig's include and inside dist/, which the `.vue` scan
+      skips, so the service holds no virtual file for it — and src/main.ts (inside include) imports
+      it, so a real build type-checks it. The import has to resolve, the SFC's own error has to be
+      reported at its position in the real .vue source, and checked.files has to count it: three
+      files in the closure, and a file counted as checked must be a file that was diagnosed.
+    given: a-vue-project-importing-an-out-of-program-sfc
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: dist/Broken.vue
+            line: 2
+            col: 7
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+        checked:
+          files: 3
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
+
+  - name: a project-wide check still reports TS2307 for an import of an SFC that does not exist
+    description: >
+      Guards the other side of the cell above: only a `.vue` file that exists on disk may register,
+      so a specifier naming one that does not stays the missing-module error it always was. This
+      case passes against the pre-change code too — it is here to catch a fix that resolves
+      specifiers by extension rather than by what the filesystem holds.
+    given: a-vue-project-importing-a-missing-sfc
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: src/main.ts
+            line: 1
+            col: 15
+            code: 2307
+            message: "Cannot find module '../dist/Missing.vue' or its corresponding type declarations."
+        checked:
+          files: 2
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
+
+  - name: a project-wide check reports a dependency's SFC error without counting the dependency
+    description: >
+      node_modules is outside the workspace walk and the `.vue` scan skips it, so the SFC resolves
+      only through registration. It is then diagnosed like any other file in the program — what tsc
+      does for a non-declaration file it holds — while checked.files counts only the caller's own
+      files, exactly as the ts-morph engine answers for a dependency's own .ts file in the same
+      position.
+    given: a-vue-project-importing-a-dependency-sfc
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: node_modules/comp/Comp.vue
+            line: 2
+            col: 7
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+        checked:
+          files: 2
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []
+
+  - name: a project-wide check reports an SFC in an ignored directory the .vue scan still reaches
+    description: >
+      tests/ is outside the tsconfig's include but is not a skipped directory, so the on-disk `.vue`
+      scan seeds the SFC — the report here does not depend on registration at all. This case passes
+      against the pre-change code too: it is the guard that keeps the scope a closure over the
+      seeds rather than over what an import happens to pull in.
+    given: a-vue-project-with-an-ignored-sfc
+    when:
+      - getTypeErrors: {}
+    then:
+      response:
+        status: success
+        errorCount: 1
+        truncated: false
+        diagnostics:
+          - file: tests/Broken.vue
+            line: 2
+            col: 7
+            code: 2322
+            message: "Type 'string' is not assignable to type 'number'."
+        checked:
+          files: 2
+          tsconfig: tsconfig.json
+        unchecked:
+          files: 0
+          reason: "outside tsconfig.json"
+          otherConfigs: []

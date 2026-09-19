@@ -1,5 +1,8 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { describe, expect } from "vitest";
 import { FIXTURES, fixtureTest as test } from "../__testHelpers__/helpers.js";
+import { dispatchRequest } from "../daemon/dispatcher.js";
 import { WorkspaceScope } from "../domain/workspace-scope.js";
 import { VolarEngine } from "../plugins/vue/engine.js";
 import { NodeFileSystem } from "../ports/node-filesystem.js";
@@ -429,7 +432,7 @@ describe("getTypeErrors operation", () => {
         }
       });
 
-      test("counts the same files before and after a single-file check on an SFC the service never held", async ({
+      test("answers identically before and after a single-file check on an SFC the service never held", async ({
         seedInlineFixture,
       }) => {
         const dir = await seedInlineFixture({
@@ -442,17 +445,73 @@ describe("getTypeErrors operation", () => {
           "dist/Broken.vue":
             '<script setup lang="ts">\nconst x: number = "not a number";\n</script>\n',
         });
-        const engine = makeVolarEngine(dir);
 
-        const before = await getTypeErrors(engine, undefined, makeScope(dir));
-        await getTypeErrors(engine, `${dir}/dist/Broken.vue`, makeScope(dir));
-        const after = await getTypeErrors(engine, undefined, makeScope(dir));
+        const before = await dispatchRequest({ method: "getTypeErrors", params: {} }, dir);
+        await dispatchRequest(
+          { method: "getTypeErrors", params: { file: `${dir}/dist/Broken.vue` } },
+          dir,
+        );
+        const after = await dispatchRequest({ method: "getTypeErrors", params: {} }, dir);
 
-        // The single-file check adds the SFC to the compiled program, so the project-wide
-        // closure reaches it; counting it as checked would pair a claimed check with the
-        // diagnostics the built-set filter drops.
-        expect(after.checked).toEqual(before.checked);
-        expect(after.unchecked).toEqual(before.unchecked);
+        // A single-file check adds the SFC to the compiled program, so an answer that then
+        // differs is the same check reporting whatever the session happened to query first.
+        expect(before).toMatchObject({
+          errorCount: 1,
+          diagnostics: [
+            {
+              file: `${dir}/dist/Broken.vue`,
+              line: 2,
+              col: 7,
+              code: 2322,
+              message: "Type 'string' is not assignable to type 'number'.",
+            },
+          ],
+        });
+        expect(after).toEqual(before);
+      });
+
+      test("resolves an import of an SFC outside the workspace root without counting it", async ({
+        seedInlineFixture,
+        dir,
+      }) => {
+        // The runner seeds one workspace root and compares the response as paths relative to
+        // it, so an input that lives outside that root has no scenario to carry it.
+        const outside = path.join(path.dirname(dir), "ns-outside-sfc");
+        fs.mkdirSync(outside, { recursive: true });
+        fs.writeFileSync(
+          path.join(outside, "Broken.vue"),
+          '<script setup lang="ts">\nconst x: number = "not a number";\n</script>\n',
+        );
+        try {
+          await seedInlineFixture({
+            "tsconfig.json": JSON.stringify({
+              compilerOptions: { strict: true, moduleResolution: "bundler" },
+              include: ["src/**/*"],
+            }),
+            "src/App.vue": '<script setup lang="ts">\nconst a: number = 1;\n</script>\n',
+            "src/main.ts":
+              'import B from "../../ns-outside-sfc/Broken.vue";\nexport const b = B;\n',
+          });
+
+          const result = await dispatchRequest({ method: "getTypeErrors", params: {} }, dir);
+
+          expect(result).toMatchObject({
+            errorCount: 1,
+            diagnostics: [
+              {
+                file: path.join(outside, "Broken.vue"),
+                line: 2,
+                col: 7,
+                code: 2322,
+                message: "Type 'string' is not assignable to type 'number'.",
+              },
+            ],
+            checked: { files: 2 },
+            unchecked: { files: 0 },
+          });
+        } finally {
+          fs.rmSync(outside, { recursive: true, force: true });
+        }
       });
     });
 
