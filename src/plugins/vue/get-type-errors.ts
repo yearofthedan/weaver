@@ -6,11 +6,7 @@ import {
   extractDiagnosticMessage,
   semanticErrors,
 } from "../../ts-engine/get-type-errors.js";
-import {
-  describeCheckedScope,
-  isOwnWorkspaceFile,
-  typeCheckedFiles,
-} from "../../ts-engine/type-check-scope.js";
+import { describeCheckedScope, typeCheckedFiles } from "../../ts-engine/type-check-scope.js";
 import { offsetToLineCol } from "../../utils/text-utils.js";
 import { type CachedService, toVirtualVuePath } from "./service.js";
 
@@ -61,12 +57,14 @@ function translateDiagnostics(
   return diagnostics;
 }
 
-export function vueGetTypeErrorsFromService(service: CachedService): TypeDiagnostic[] {
+/** SFC diagnostics for the `.vue` entries `checked` holds — the caller's project-wide scope. */
+export function vueGetTypeErrorsFromService(
+  service: CachedService,
+  checked: ReadonlySet<string>,
+): TypeDiagnostic[] {
   const diagnostics: TypeDiagnostic[] = [];
   for (const [virtualPath, realVuePath] of service.vueVirtualToReal) {
-    // The project-wide scope is the set the service was built with, so a path a
-    // single-file query added is filtered out here.
-    if (!service.builtFileNames.has(virtualPath)) continue;
+    if (!checked.has(virtualPath)) continue;
     diagnostics.push(
       ...translateDiagnostics(
         service.baseService.getSemanticDiagnostics(virtualPath),
@@ -139,8 +137,8 @@ export async function vueGetTypeErrorsForTsFile(
  * can reach a file the workspace walk never added (e.g. a `node_modules`
  * dependency's own `.d.ts`, when `skipLibCheck` is off), and filtering a set that
  * never contained it would silently drop it. `.vue` entries surfaced by the
- * closure are virtual (`Foo.vue.ts`); `vueGetTypeErrorsFromService` answers for the
- * SFCs the service was built with, and this loop answers the rest.
+ * closure are virtual (`Foo.vue.ts`) and answer through `vueGetTypeErrorsFromService`,
+ * which the same set scopes; this loop answers the rest.
  *
  * `tsConfigPath`/`workspaceRoot` are always the request's own values (`VolarEngine.getTypeErrors`
  * supplies both) — `tsConfigPath: null` is how the response reports "this workspace has no
@@ -156,17 +154,10 @@ export async function vueGetTypeErrorsForProject(
 
   // Only a syntax-only service returns undefined here, and Volar never builds one.
   const program = service.baseService.getProgram() as ts.Program;
-  // `unchecked` and the `.vue` diagnostics come from `builtFileNames`, the set the service
-  // was built with. The closure `typeCheckedFiles` returns runs over the compiled program,
-  // which the on-demand add widens, so it can reach an SFC a query added: counted as
-  // checked, that file would answer `errorCount: 0` while its diagnostics are dropped below.
-  const closure = typeCheckedFiles(service.seedFileNames, service.builtFileNames, program);
-  const checked = new Set(
-    [...closure].filter(
-      (fileName) =>
-        !isOwnWorkspaceFile(fileName, workspaceRoot) || service.builtFileNames.has(fileName),
-    ),
-  );
+  // The closure is the scope: `checked`, the counts and the `.vue` diagnostics all come from
+  // this one set, so a file counted as checked is a file that was diagnosed. `unchecked`
+  // derives from the service's built set — see `describeCheckedScope`.
+  const checked = typeCheckedFiles(service.seedFileNames, service.builtFileNames, program);
 
   const errors: ts.Diagnostic[] = [];
   for (const fileName of checked) {
@@ -181,7 +172,7 @@ export async function vueGetTypeErrorsForProject(
   }
 
   const tsResult = capDiagnostics(errors);
-  const vueDiagnostics = vueGetTypeErrorsFromService(service);
+  const vueDiagnostics = vueGetTypeErrorsFromService(service, checked);
 
   const allDiagnostics = [...tsResult.diagnostics, ...vueDiagnostics];
   const totalCount = tsResult.errorCount + vueDiagnostics.length;

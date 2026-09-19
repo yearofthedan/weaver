@@ -31,6 +31,11 @@ function makeTsFileDiagnostic(
   return { category, code, messageText, start, length: 1, file: sourceFile };
 }
 
+/** The scope a caller passes: the virtual paths its closure holds. */
+function scopeOf(...virtualPaths: string[]): ReadonlySet<string> {
+  return new Set(virtualPaths);
+}
+
 /**
  * Defaults every `CachedService` field to an inert, no-tsconfig shape so each
  * call site only states what makes it different — a field neither state
@@ -207,6 +212,7 @@ function makeGreedyService(
 
 describe("vueGetTypeErrorsFromService", () => {
   describe("diagnostic category filtering", () => {
+    const SCOPE = scopeOf("/project/App.vue.ts");
     it.each([
       ["Warning", ts.DiagnosticCategory.Warning, 1001],
       ["Suggestion", ts.DiagnosticCategory.Suggestion, 9999],
@@ -215,31 +221,32 @@ describe("vueGetTypeErrorsFromService", () => {
       const service = makeMinimalService("/project/App.vue.ts", "/project/App.vue", [
         makeDiagnostic(category, code, "non-error", 0),
       ]);
-      expect(vueGetTypeErrorsFromService(service)).toHaveLength(0);
+      expect(vueGetTypeErrorsFromService(service, SCOPE)).toHaveLength(0);
     });
 
     it("excludes diagnostic with no start position", () => {
       const service = makeMinimalService("/project/App.vue.ts", "/project/App.vue", [
         makeDiagnostic(ts.DiagnosticCategory.Error, 2322, "error with no position", undefined),
       ]);
-      expect(vueGetTypeErrorsFromService(service)).toHaveLength(0);
+      expect(vueGetTypeErrorsFromService(service, SCOPE)).toHaveLength(0);
     });
 
     it("returns empty when service has no diagnostics", () => {
       const service = makeMinimalService("/project/App.vue.ts", "/project/App.vue", []);
-      expect(vueGetTypeErrorsFromService(service)).toHaveLength(0);
+      expect(vueGetTypeErrorsFromService(service, SCOPE)).toHaveLength(0);
     });
   });
 
   describe("source map translation", () => {
     const REAL_VUE = "/project/App.vue";
     const VIRTUAL_PATH = `${REAL_VUE}.ts`;
+    const SCOPE = scopeOf(VIRTUAL_PATH);
 
     it("excludes Error diagnostic when translateVirtualOffset returns null (Volar glue code)", () => {
       const service = makeMinimalService(VIRTUAL_PATH, REAL_VUE, [
         makeDiagnostic(ts.DiagnosticCategory.Error, 2322, "type error", 0),
       ]);
-      expect(vueGetTypeErrorsFromService(service)).toHaveLength(0);
+      expect(vueGetTypeErrorsFromService(service, SCOPE)).toHaveLength(0);
     });
 
     it("includes Error diagnostic when source map entry exists", () => {
@@ -249,7 +256,7 @@ describe("vueGetTypeErrorsFromService", () => {
         [makeDiagnostic(ts.DiagnosticCategory.Error, 2322, "type error", 5)],
         [[5, 0]],
       );
-      expect(vueGetTypeErrorsFromService(service)).toEqual([
+      expect(vueGetTypeErrorsFromService(service, SCOPE)).toEqual([
         { file: REAL_VUE, line: 1, col: 1, code: 2322, message: "type error" },
       ]);
     });
@@ -267,7 +274,7 @@ describe("vueGetTypeErrorsFromService", () => {
           [10, 0],
         ],
       );
-      const result = vueGetTypeErrorsFromService(service);
+      const result = vueGetTypeErrorsFromService(service, SCOPE);
       expect(result).toHaveLength(1);
       expect(result[0].code).toBe(2322);
     });
@@ -278,7 +285,7 @@ describe("vueGetTypeErrorsFromService", () => {
       const service = makeGreedyService(VIRTUAL_PATH, REAL_VUE, [
         makeDiagnostic(ts.DiagnosticCategory.Error, 2322, "no position", undefined),
       ]);
-      expect(vueGetTypeErrorsFromService(service)).toHaveLength(0);
+      expect(vueGetTypeErrorsFromService(service, SCOPE)).toHaveLength(0);
     });
 
     it("excludes diagnostic when virtual offset has no source map entry (iterator done)", () => {
@@ -288,7 +295,7 @@ describe("vueGetTypeErrorsFromService", () => {
         [makeDiagnostic(ts.DiagnosticCategory.Error, 2322, "no mapping", 999)],
         [],
       );
-      expect(vueGetTypeErrorsFromService(service)).toHaveLength(0);
+      expect(vueGetTypeErrorsFromService(service, SCOPE)).toHaveLength(0);
     });
 
     it("uses top-level messageText for DiagnosticMessageChain", () => {
@@ -304,11 +311,11 @@ describe("vueGetTypeErrorsFromService", () => {
         [makeDiagnostic(ts.DiagnosticCategory.Error, 2322, chain, 5)],
         [[5, 0]],
       );
-      expect(vueGetTypeErrorsFromService(service)[0].message).toBe("outer message");
+      expect(vueGetTypeErrorsFromService(service, SCOPE)[0].message).toBe("outer message");
     });
   });
 
-  it("excludes an SFC a single-file query added, so the scope stays the built set", () => {
+  it("reports the SFCs the caller's scope holds and drops the ones it does not", () => {
     const BUILT_VUE = "/project/Built.vue";
     const ADDED_VUE = "/project/dist/Added.vue";
     const service = makeServiceWithSourceMap(
@@ -317,15 +324,23 @@ describe("vueGetTypeErrorsFromService", () => {
       [makeDiagnostic(ts.DiagnosticCategory.Error, 2322, "vue error", 0)],
       [[0, 0]],
     );
-    // The state a query-time add leaves behind: the SFC is in both collections with its
-    // content and script held, so only the built-set filter can keep it out of the answer.
+    // The state a query-time add leaves behind: both SFCs are mapped with their content and
+    // script held, so scope membership is the only thing that can tell them apart.
     const script = service.language.scripts.get(BUILT_VUE);
     service.language.scripts.get = () => script;
     service.fileContents.set(ADDED_VUE, "x");
     service.vueVirtualToReal.set(`${ADDED_VUE}.ts`, ADDED_VUE);
     service.scriptFileNames.push(`${ADDED_VUE}.ts`);
 
-    expect(vueGetTypeErrorsFromService(service).map((d) => d.file)).toEqual([BUILT_VUE]);
+    expect(
+      vueGetTypeErrorsFromService(service, scopeOf(`${BUILT_VUE}.ts`)).map((d) => d.file),
+    ).toEqual([BUILT_VUE]);
+
+    expect(
+      vueGetTypeErrorsFromService(service, scopeOf(`${BUILT_VUE}.ts`, `${ADDED_VUE}.ts`)).map(
+        (d) => d.file,
+      ),
+    ).toEqual([BUILT_VUE, ADDED_VUE]);
   });
 });
 
