@@ -63,6 +63,11 @@ the target behaviour, and **Done-when** defines verification.
 > depth, a collection with 0 or 1 elements instead of N. If the bug is in a
 > boundary condition, the adjacent inputs often reveal siblings. Mention them
 > here so the executor writes regression tests for them too.
+>
+> An entry here is a prediction, and the implementation may contradict it.
+> Measure it rather than building on it: a predicted consequence that turns out
+> to be one of several — or not the one that matters — otherwise reaches the code
+> as a stated invariant.
 
 ## Security
 

@@ -109,22 +109,85 @@ Give the Volar service the on-demand add the ts-morph engine already has — `ge
 ## Edges
 
 - **Per-file program rebuild costs one program per file.** The ts-morph side already carries a known N+1 of exactly this shape — see the `refreshFile` discards roots added via `addScriptFile` handoff entry: for a file the tsconfig does not cover, the add forces a fresh program per file. The post-write check loops over `filesModified`, so a write touching N out-of-program files pays it N times. Measure with N=5 before and after, and record the number in the Outcome.
-- **A later project-wide check counts the added file.** `addScriptFile` mutates the cached service's `scriptFileNames`, which is `describeCheckedScope`'s `walkedFiles`, so a project-wide check in the same daemon session counts the added file in `unchecked.files` (+1) — it is walked but outside the tsconfig's seed closure. Pin the change in a test so it is deliberate.
+- **A later project-wide check counts the added file.** Shipped as: it does not. `addScriptFile` widens the cached service's `scriptFileNames`, which `describeCheckedScope` reads, so the service keeps `builtFileNames` — the file set it was built with — and the project-wide walk, `checked` and `unchecked` derive from that snapshot. The compiled program is still shared with the add, so an in-program file's import of an added SFC resolves once a query has added it; that sequence-dependence, and the TS2307 a fresh service reports for such an import, are queued in `handoff.md`.
 - **`addScriptFile` touches one service of the several a workspace can have.** It is reached through `this.services.get(this.cacheKey(…))`, the same shape as `refreshWrittenFile` and `invalidateService`. A sibling service holds no out-of-program path either, so the multi-service gap stays where its own entry records it; the reach is recorded here so a future reader knows the new add touches the same one.
 - **Semantic diagnostics carry the real error only.** A tsconfig with `rootDir`/`outDir` that excludes the written file is the shape the *single-file `get-type-errors` judges a file against a tsconfig that excludes it* entry describes, where ts-morph produces TS6059. Measured on this fix: semantic diagnostics carry only the real TS2322; TS6059 appears in `getCompilerOptionsDiagnostics()`, which weaver never queries (`semanticErrors` uses `getSemanticDiagnostics` alone). Keep a cell on it so a change to the diagnostic source cannot import the defect silently.
 - **Mutation scope: `src/plugins/**` is commented out of `stryker.config.mjs`'s `mutate` array**, so neither touched file is measured by `pnpm test:mutate`. Both need explicit `pnpm test:mutate:file` runs. `service.ts` currently measures 69.58% — under the 75 break threshold — from 33 survivors and 12 uncovered mutants in the `readFile` cache, the `createLanguage` registration callback and `getScriptSnapshot`, none of which this change touches (its own handoff entry). Acceptance here is every mutant *introduced by this change* killed or classified; the file-level score stays below threshold until that entry is worked.
 
 ## Done-when
 
-- [ ] Reproduction case now produces expected output — the literal repro: surgical `replaceText` into `dist/gen.ts` in a Vue workspace reports `status: warn` with the TS2322, and the TS-only control still does
-- [ ] `get-type-errors --file` on the same path reports the error in both engines
-- [ ] Regression tests cover every adjacent input listed above, including the SFC-importing cell (no TS2307) and the unreadable-path cell (no throw)
-- [ ] N=5 out-of-program files in one write measured before and after, and the number recorded in the Outcome
-- [ ] Mutation acceptance: explicit `pnpm test:mutate:file` on `src/plugins/vue/service.ts` and `src/plugins/vue/get-type-errors.ts`, with every mutant introduced by this change killed or classified per `mutate-triage`
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] `/review-changes` run over the whole change and its findings applied — a green `pnpm check` does not stand in for it
-- [ ] `docs/internals/get-type-errors.md` records the on-demand add and why the re-check guard stays; `docs/commands/get-type-errors.md` if the user-visible contract for out-of-program files is stated there
-- [ ] The `status: warn` handoff chore removed, covered by the post-write scenario
-- [ ] Tech debt discovered during implementation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Reproduction case now produces expected output — the literal repro: surgical `replaceText` into `dist/gen.ts` in a Vue workspace reports `status: warn` with the TS2322, and the TS-only control still does
+- [x] `get-type-errors --file` on the same path reports the error in both engines
+- [x] Regression tests cover every adjacent input listed above, including the SFC-importing cell (no TS2307) and the unreadable-path cell (no throw)
+- [x] N=5 out-of-program files in one write measured before and after, and the number recorded in the Outcome
+- [x] Mutation acceptance: explicit `pnpm test:mutate:file` on `src/plugins/vue/service.ts` and `src/plugins/vue/get-type-errors.ts`, with every mutant introduced by this change killed or classified per `mutate-triage`
+- [x] `pnpm check` passes (lint + build + test)
+- [x] `/review-changes` run over the whole change and its findings applied
+- [x] `docs/internals/get-type-errors.md` records the on-demand add and why the re-check guard stays; `docs/commands/get-type-errors.md` if the user-visible contract for out-of-program files is stated there
+- [x] The `status: warn` handoff chore removed, covered by the post-write scenario
+- [x] Tech debt discovered during implementation added to handoff.md as [needs design]
+- [x] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+### Verification
+
+Driven on the real CLI (`dist/` rebuilt by the pre-commit hook) against a fresh workspace whose `tsconfig.json` has `include: ["src/**/*"]`, a `.vue` file under `src/`, and the checked files under `dist/`. Every input uses a sentinel name, so a pass cannot be a coincidental match against pre-existing state.
+
+```
+$ weaver replace-text '{"edits":[{"file":"dist/gen.ts","line":1,"col":26,
+                                 "oldText":"SENTINEL_GEN","newText":"\"x\""}]}'
+{"status":"warn","filesModified":["…/dist/gen.ts"],"replacementCount":1,
+ "typeErrors":[{"file":"…/dist/gen.ts","line":1,"col":14,"code":2322,
+                "message":"Type 'string' is not assignable to type 'number'."}],
+ "typeErrorCount":1,"typeErrorsTruncated":false}
+
+$ weaver get-type-errors '{"file":"dist/gen.ts"}'
+… "errorCount":1, TS2322 at 1:14          (was errorCount: 0)
+
+$ weaver get-type-errors '{"file":"dist/Gen.vue"}'
+… "errorCount":1, TS2304 at 2:19          (was 0; positions in the real SFC)
+
+$ weaver get-type-errors '{}'             # after both single-file queries
+… "errorCount":0,"checked":{"files":1},"unchecked":{"files":0}
+```
+
+Cells verified on the final artifact: `.ts`, `.vue`, `.mts` and `.cts` under `dist/`; a gitignored `.ts` outside `include` in a git workspace; an out-of-program `.ts` importing an SFC (the real TS2322 alone, no fabricated TS2307); the post-write check in a Vue workspace and its TS-only control (both `warn` / 1 / TS2322); and the project-wide answer after the single-file queries above, which stayed at the service's construction-time scope. A path the dispatcher cannot find returns `FILE_NOT_FOUND` before the engine is consulted, so the unreadable-path case has no CLI form — it is covered at the unit layer.
+
+### Tests
+
++23 in the five touched test files (115 → 138), of which 12 are scenario cases. The main lane went 1553 → 1568. Two cases were written to fail for the right reason and checked by removing the behaviour they name: the built-set filter (removing it reports the added SFC), and the `addScriptFile`/`builtFileNames` split on the real service (re-adding to the snapshot fails it).
+
+### Mutation
+
+`pnpm test:mutate:file src/plugins/vue/service.ts` — 70.32% (109 killed, 34 survived, 12 no-coverage). One survivor sits on a line this change introduced: `bumpVersion`'s `+1`, whose direction and size never reach an answer because the language service compares versions for change. Recorded as a comment at the line. The rest are the pre-existing set the `plugins/vue/service.ts` handoff entry records.
+
+`pnpm test:mutate:file src/plugins/vue/get-type-errors.ts` — 93.51% → 94.52% (72 killed, 4 survived, 0 no-coverage). The one changed-line survivor was the outer `vueVirtualToReal.has` guard, unkillable because its false arm only skips a call that returns immediately for a mapped path; removed as a refactor and the mutant is gone in the re-run. The four remaining survivors are pre-existing (`translateVirtualOffset`'s two guards and optional chain, and the project-wide program-membership guard).
+
+### The N=5 edge, measured
+
+Five out-of-program files in one `dist/` in a Vue workspace, checked one after another through the real service:
+
+| | `getProgram()` calls | distinct programs | total | errorCounts |
+|---|---|---|---|---|
+| before the fix | 5 | 1 | 195.9 ms | 0,0,0,0,0 |
+| after | 10 | 6 | 220.7 ms | 1,1,1,1,1 |
+
+One program rebuild per out-of-program file, plus the cold build the first pre-check triggers. The extra `getProgram()` call per file is served from the current program.
+
+### Decisions
+
+`builtFileNames` — a snapshot of the file set the service was built with — is the project-wide scope, instead of the live `scriptFileNames`. Without it a single-file check on an out-of-program SFC changed a later project-wide answer in the same session, reporting an error for a file the response counted in `unchecked`. Review then showed the snapshot does not cover the compiled program, which the add is shared with: an in-program file's import of an added SFC starts resolving once a query added it. The claims in the source and internals doc were corrected to state that.
+
+### Defects found and queued
+
+Three handoff entries, each with a measurement behind it:
+
+1. A project-wide Vue check reports a false TS2307 for an in-program file's import of an out-of-program SFC, and the answer changes once a single-file query adds it.
+2. A TS-only project asked about a `.vue` file returns `INTERNAL_ERROR` with a stack.
+3. `vueGetTypeErrorsForFile` tests its virtual-path mapping where the `.ts` path tests program membership; the two diverge for a deleted-then-reread SFC.
+
+### Reflection
+
+Each correction the review rounds produced was a test that passed without the code it claimed to cover. Removing the behaviour by hand and watching the test fail found every one of them, including two inside fixes from the previous round.

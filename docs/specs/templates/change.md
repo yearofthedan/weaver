@@ -217,6 +217,8 @@ Examples of what belongs here:
 - Compatibility constraints ("must work with both resolved and unresolved tsconfig paths")
 - Interactions with existing operations ("rename after moveFile must still work")
 
+An entry here is a prediction, and the implementation may contradict it. Measure it rather than building on it: a predicted consequence that turns out to be one of several — or not the one that matters — otherwise reaches the code as a stated invariant.
+
 ## Done-when
 
 - [ ] All ACs verified by tests
