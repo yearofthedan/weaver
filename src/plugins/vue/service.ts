@@ -96,6 +96,7 @@ function buildLanguageServiceHost(params: {
   tsConfigPath: string | null;
   readFile: (filePath: string) => string | undefined;
   versions: Map<string, number>;
+  registerResolvedSfc: (virtualPath: string) => string | undefined;
   ts: typeof import("typescript");
 }): import("typescript").LanguageServiceHost {
   const {
@@ -106,6 +107,7 @@ function buildLanguageServiceHost(params: {
     tsConfigPath,
     readFile,
     versions,
+    registerResolvedSfc,
     ts,
   } = params;
   const getVersion = (filePath: string) => String(versions.get(filePath) ?? 0);
@@ -118,7 +120,7 @@ function buildLanguageServiceHost(params: {
       return getVersion(realPath);
     },
     getScriptSnapshot: (filePath) => {
-      const realVuePath = vueVirtualToReal.get(filePath);
+      const realVuePath = registerResolvedSfc(filePath);
       if (realVuePath !== undefined) {
         const sourceScript = languageRef.current?.scripts.get(realVuePath);
         if (sourceScript?.generated) {
@@ -137,11 +139,11 @@ function buildLanguageServiceHost(params: {
     // Why identity canonicalisation: docs/tech/volar-v3.md.
     useCaseSensitiveFileNames: () => true,
     fileExists: (filePath) => {
-      if (vueVirtualToReal.has(filePath)) return true;
+      if (registerResolvedSfc(filePath) !== undefined) return true;
       return ts.sys.fileExists(filePath);
     },
     readFile: (filePath) => {
-      const realVuePath = vueVirtualToReal.get(filePath);
+      const realVuePath = registerResolvedSfc(filePath);
       if (realVuePath !== undefined) {
         const sourceScript = languageRef.current?.scripts.get(realVuePath);
         if (sourceScript?.generated) {
@@ -294,23 +296,6 @@ export async function buildVolarService(
   const builtFileNames: ReadonlySet<string> = new Set(scriptFileNames);
   const seedFileNames = tsConfigPath === null ? null : seedFiles.map(toVirtualVuePath);
 
-  const host = buildLanguageServiceHost({
-    compilerOptions,
-    scriptFileNames,
-    vueVirtualToReal,
-    languageRef,
-    tsConfigPath,
-    readFile,
-    versions,
-    ts,
-  });
-
-  decorateLanguageServiceHost(ts, language, host);
-
-  const baseService = ts.createLanguageService(host);
-  const { proxy, initialize } = createProxyLanguageService(baseService);
-  initialize(language);
-
   const bumpVersion = (filePath: string) => {
     // The language service compares a file's version for change, so the value's
     // direction and size never reach an answer.
@@ -328,6 +313,48 @@ export async function buildVolarService(
     registerScript(language.scripts, filePath, content);
     bumpVersion(filePath);
   };
+
+  /**
+   * Registers an SFC's virtual path on demand, at the moment the compiler resolves to it:
+   * reads the real `.vue` from disk, stores the content, registers its script and maps the
+   * virtual path, so the host answers for that path from here on. The host callbacks call it
+   * while the compiler is resolving, which is when an import first asks about an SFC's
+   * virtual name. Returns the real `.vue` path the service now holds, or undefined when the
+   * path is not an SFC's virtual name, a real file answers for that name, or the SFC cannot
+   * be read.
+   */
+  const registerResolvedSfc = (virtualPath: string): string | undefined => {
+    if (!virtualPath.endsWith(".vue.ts")) return undefined;
+    const held = vueVirtualToReal.get(virtualPath);
+    if (held !== undefined) return held;
+    // A real file at this name is what the compiler asked about, so the map leaves that name
+    // to disk.
+    if (ts.sys.fileExists(virtualPath)) return undefined;
+    const realPath = virtualPath.slice(0, -".ts".length);
+    const content = readFileFromDisk(realPath);
+    if (content === undefined) return undefined;
+    storeContent(realPath, content);
+    vueVirtualToReal.set(virtualPath, realPath);
+    return realPath;
+  };
+
+  const host = buildLanguageServiceHost({
+    compilerOptions,
+    scriptFileNames,
+    vueVirtualToReal,
+    languageRef,
+    tsConfigPath,
+    readFile,
+    versions,
+    registerResolvedSfc,
+    ts,
+  });
+
+  decorateLanguageServiceHost(ts, language, host);
+
+  const baseService = ts.createLanguageService(host);
+  const { proxy, initialize } = createProxyLanguageService(baseService);
+  initialize(language);
 
   return {
     languageService: proxy as unknown as VolarLanguageService,
@@ -355,10 +382,14 @@ export async function buildVolarService(
     addScriptFile: (filePath) => {
       const virtualPath = toVirtualVuePath(filePath);
       if (scriptFileNames.includes(virtualPath)) return;
-      const content = readFileFromDisk(filePath);
-      if (content === undefined) return;
-      storeContent(filePath, content);
-      if (virtualPath !== filePath) vueVirtualToReal.set(virtualPath, filePath);
+      // A `.vue` path registers through the same helper the host resolves with, so an SFC an
+      // add brings in and one an import brings in are held identically; every other path is
+      // content the service serves as-is.
+      if (registerResolvedSfc(virtualPath) === undefined) {
+        const content = readFileFromDisk(filePath);
+        if (content === undefined) return;
+        storeContent(filePath, content);
+      }
       scriptFileNames.push(virtualPath);
     },
   };

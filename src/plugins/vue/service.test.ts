@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import ts from "typescript";
 import { describe, expect } from "vitest";
 import { fixtureTest as test } from "../../__testHelpers__/helpers.js";
 import { buildVolarService } from "./service.js";
@@ -282,6 +283,57 @@ describe("buildVolarService", () => {
 
       expect(service.scriptFileNames).not.toContain(missing);
       expect(service.baseService.getProgram()).toBe(program);
+    });
+  });
+
+  describe("registration from resolution", () => {
+    const TSCONFIG = JSON.stringify({
+      compilerOptions: { strict: true, moduleResolution: "bundler", jsx: "preserve" },
+      include: ["src/**/*"],
+    });
+
+    test("registers an SFC the compiler resolves to without widening the served list", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": TSCONFIG,
+        "src/main.ts": 'import B from "../dist/Broken.vue";\nexport const b = B;\n',
+        "dist/Broken.vue":
+          '<script setup lang="ts">\nconst x: number = "not a number";\n</script>\n',
+      });
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
+      const virtualPath = `${path.join(dir, "dist/Broken.vue")}.ts`;
+
+      expect(service.baseService.getProgram()?.getSourceFile(virtualPath)).toBeDefined();
+      expect(service.scriptFileNames).not.toContain(virtualPath);
+      expect(service.builtFileNames.has(virtualPath)).toBe(false);
+      expect(
+        service.baseService
+          .getSemanticDiagnostics(path.join(dir, "src/main.ts"))
+          .filter((d) => d.category === ts.DiagnosticCategory.Error),
+      ).toEqual([]);
+    });
+
+    test("leaves a virtual name a real file occupies to that file", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": TSCONFIG,
+        "src/main.ts": 'import Foo from "../dist/Foo.vue";\nexport const foo = Foo;\n',
+        "dist/Foo.vue": '<script setup lang="ts">\nconst x: number = "not a number";\n</script>\n',
+        "dist/Foo.vue.ts": "const n: number = 1;\nn.toUpperCase();\n",
+      });
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
+      const realPath = path.join(dir, "dist/Foo.vue.ts");
+
+      // A real file at the virtual name keeps its own text, so its own error is the one that
+      // comes back.
+      expect(
+        service.baseService
+          .getSemanticDiagnostics(realPath)
+          .filter((d) => d.category === ts.DiagnosticCategory.Error)
+          .map((d) => d.code),
+      ).toEqual([2339]);
     });
   });
 });
