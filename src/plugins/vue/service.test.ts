@@ -192,4 +192,78 @@ describe("buildVolarService", () => {
       expect(service.baseService.getProgram()?.getSourceFile(file)).toBe(parsed);
     });
   });
+
+  describe("addScriptFile", () => {
+    const TSCONFIG = JSON.stringify({
+      compilerOptions: { strict: true, moduleResolution: "bundler" },
+      include: ["src/**/*.ts", "src/**/*.vue"],
+    });
+
+    test("brings a .ts path the tsconfig and the workspace walk both missed into the program", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": TSCONFIG,
+        "src/main.ts": "export const x = 1;\n",
+        "dist/gen.ts": "export const count: number = 1;\n",
+      });
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
+      const file = path.join(dir, "dist/gen.ts");
+      expect(service.baseService.getProgram()?.getSourceFile(file)).toBeUndefined();
+
+      service.addScriptFile(file);
+
+      expect(service.baseService.getProgram()?.getSourceFile(file)).toBeDefined();
+    });
+
+    test("brings a .vue path in under its virtual name", async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": TSCONFIG,
+        "src/main.ts": "export const x = 1;\n",
+        "dist/Gen.vue": '<script setup lang="ts">\nconst count: number = 1;\n</script>\n',
+      });
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
+      const file = path.join(dir, "dist/Gen.vue");
+      const virtualPath = `${file}.ts`;
+      expect(service.baseService.getProgram()?.getSourceFile(virtualPath)).toBeUndefined();
+
+      service.addScriptFile(file);
+
+      expect(service.baseService.getProgram()?.getSourceFile(virtualPath)).toBeDefined();
+    });
+
+    test("leaves an already-added path alone on a second call", async ({ seedInlineFixture }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": TSCONFIG,
+        "src/main.ts": "export const x = 1;\n",
+        "dist/gen.ts": "export const count: number = 1;\n",
+      });
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
+      const file = path.join(dir, "dist/gen.ts");
+      service.addScriptFile(file);
+      const program = service.baseService.getProgram();
+
+      service.addScriptFile(file);
+
+      expect(service.scriptFileNames.filter((name) => name === file)).toHaveLength(1);
+      expect(service.baseService.getProgram()).toBe(program);
+    });
+
+    test("leaves the program unchanged when the path cannot be read", async ({
+      seedInlineFixture,
+    }) => {
+      const dir = await seedInlineFixture({
+        "tsconfig.json": TSCONFIG,
+        "src/main.ts": "export const x = 1;\n",
+      });
+      const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
+      const missing = path.join(dir, "dist/missing.ts");
+      const program = service.baseService.getProgram();
+
+      service.addScriptFile(missing);
+
+      expect(service.scriptFileNames).not.toContain(missing);
+      expect(service.baseService.getProgram()).toBe(program);
+    });
+  });
 });

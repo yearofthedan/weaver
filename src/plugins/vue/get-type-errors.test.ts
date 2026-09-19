@@ -49,6 +49,7 @@ function makeBaseCachedService(overrides: Partial<CachedService> = {}): CachedSe
     scriptFileNames: [],
     seedFileNames: null,
     rereadFile: () => {},
+    addScriptFile: () => {},
     ...overrides,
   };
 }

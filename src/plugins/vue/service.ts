@@ -54,6 +54,15 @@ export interface CachedService {
    * that was there and a deleted SFC stops resolving for its importers.
    */
   rereadFile(filePath: string): void;
+  /**
+   * Adds `filePath` to the language service's file set so a later query answers
+   * for it, for a path the tsconfig's own file set and the workspace walk both
+   * missed. A `.vue` path joins under its virtual `.vue.ts` name with its script
+   * registered, so Volar generates that virtual TypeScript; any other path joins
+   * as itself. Content and version follow the same read path as `rereadFile`. A
+   * path already in the set, or one that cannot be read, is left alone.
+   */
+  addScriptFile(filePath: string): void;
 }
 
 function parseTsConfig(
@@ -316,6 +325,17 @@ export async function buildVolarService(
         fileContents.set(filePath, content);
         registerScript(language.scripts, filePath, content);
       }
+      versions.set(filePath, (versions.get(filePath) ?? 0) + 1);
+    },
+    addScriptFile: (filePath) => {
+      const virtualPath = toVirtualVuePath(filePath);
+      if (scriptFileNames.includes(virtualPath)) return;
+      const content = readFileFromDisk(filePath);
+      if (content === undefined) return;
+      fileContents.set(filePath, content);
+      registerScript(language.scripts, filePath, content);
+      if (virtualPath !== filePath) vueVirtualToReal.set(virtualPath, filePath);
+      scriptFileNames.push(virtualPath);
       versions.set(filePath, (versions.get(filePath) ?? 0) + 1);
     },
   };
