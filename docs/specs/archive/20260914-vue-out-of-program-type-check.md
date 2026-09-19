@@ -157,7 +157,7 @@ Cells verified on the final artifact: `.ts`, `.vue`, `.mts` and `.cts` under `di
 
 ### Tests
 
-+23 in the five touched test files (115 → 138), of which 12 are scenario cases. The main lane went 1553 → 1568. Two cases were written to fail for the right reason and checked by removing the behaviour they name: the built-set filter (removing it reports the added SFC), and the `addScriptFile`/`builtFileNames` split on the real service (re-adding to the snapshot fails it).
++23 in the five touched test files (115 → 138), of which 12 are scenario cases. The main lane went 1553 → 1568. Two cases were written to fail for the right reason and checked by removing the behaviour they name: the built-set filter (removing it reports the added SFC), and the `addScriptFile`/`builtFileNames` split on the real service (re-adding to the snapshot fails it). The two "still outside the program after the add" cases in `get-type-errors.test.ts` pass against the pre-change code, because that branch's observable output is identical either way — they pin that the re-check stays, not that the add works.
 
 ### Mutation
 

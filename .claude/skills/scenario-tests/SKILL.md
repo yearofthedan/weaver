@@ -38,7 +38,7 @@ scenarios:
         unchanged: [tsconfig.json]
 ```
 
-`given` accepts a fixture name or an inline body; `extends` chains one onto another, later layers overwriting earlier. A permutation scenario — where the tsconfig *is* the subject — should inline its whole project rather than reach for a named fixture.
+`given` accepts a fixture name or an inline body; `extends` chains one onto another, later layers overwriting earlier. A permutation scenario — where the tsconfig *is* the subject — should inline its whole project rather than reach for a named fixture. `extends` merges files and cannot remove one, so two bases that differ by a file's absence stay separate fixtures: a Vue project and a TS-only project differ by the `.vue` file that selects the engine, and no `extends` chain can take it away.
 
 `moved` takes a destination string when the file arrives byte-identical, or `{ to, content }` when the move rewrites the file's own imports on the way.
 
