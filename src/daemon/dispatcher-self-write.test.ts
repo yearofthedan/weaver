@@ -511,7 +511,7 @@ describe("a read dispatched after a write that skipped the type check", () => {
     });
   });
 
-  test("completes a write to a .mts file the project's file walk skips", async ({
+  test("reports a .mts write's type error when the project's file walk skips the file", async ({
     seedInlineFixture,
   }) => {
     const dir = await seedInlineFixture({
@@ -534,7 +534,12 @@ describe("a read dispatched after a write that skipped the type check", () => {
       dir,
     );
 
-    expect(written).toMatchObject({ status: "success", filesModified: [gen], typeErrorCount: 0 });
+    expect(written).toMatchObject({
+      status: "warn",
+      filesModified: [gen],
+      typeErrorCount: 1,
+      typeErrors: [expect.objectContaining({ file: gen, code: 2322 })],
+    });
     expect(fs.readFileSync(gen, "utf8")).toContain("return 42;");
   });
 

@@ -400,6 +400,74 @@ describe("vueGetTypeErrorsForTsFile", () => {
     const result = await vueGetTypeErrorsForTsFile(FILE, async () => service);
     expect(result).toEqual({ diagnostics: [], errorCount: 0, truncated: false });
   });
+
+  /**
+   * A service whose program holds a path only after `addScriptFile` registered
+   * it — the shape the real one has for a path outside the tsconfig and the
+   * workspace walk — and whose `getSemanticDiagnostics` throws for a path the
+   * program does not hold. `readable: false` makes the add leave the program as
+   * it was, the state a path that cannot be read produces.
+   */
+  function makeAddableTsService(diagnostics: ts.Diagnostic[], readable: boolean): CachedService {
+    const inProgram = new Set<string>();
+    return makeBaseCachedService({
+      baseService: {
+        getProgram: () => ({ getSourceFile: (p: string) => (inProgram.has(p) ? {} : undefined) }),
+        getSemanticDiagnostics: (p: string) => {
+          if (!inProgram.has(p)) throw new Error(`Could not find source file: '${p}'.`);
+          return diagnostics;
+        },
+      } as unknown as ts.LanguageService,
+      addScriptFile: (filePath) => {
+        if (readable) inProgram.add(filePath);
+      },
+    });
+  }
+
+  it("returns diagnostics for a path the add brings into the program", async () => {
+    const FILE = "/project/dist/gen.ts";
+    const service = makeAddableTsService(
+      [
+        makeTsFileDiagnostic(
+          ts.DiagnosticCategory.Error,
+          2322,
+          "Type 'string' is not assignable to type 'number'.",
+          FILE,
+          "const count: number = 'x';\n",
+          0,
+        ),
+      ],
+      true,
+    );
+
+    const result = await vueGetTypeErrorsForTsFile(FILE, async () => service);
+
+    expect(result).toEqual({
+      diagnostics: [
+        {
+          file: FILE,
+          line: 1,
+          col: 1,
+          code: 2322,
+          message: "Type 'string' is not assignable to type 'number'.",
+        },
+      ],
+      errorCount: 1,
+      truncated: false,
+    });
+  });
+
+  it("returns empty when the path is still outside the program after the add", async () => {
+    const FILE = "/project/dist/missing.ts";
+    const service = makeAddableTsService(
+      [makeTsFileDiagnostic(ts.DiagnosticCategory.Error, 2322, "unreachable", FILE, "", 0)],
+      false,
+    );
+
+    const result = await vueGetTypeErrorsForTsFile(FILE, async () => service);
+
+    expect(result).toEqual({ diagnostics: [], errorCount: 0, truncated: false });
+  });
 });
 
 describe("vueGetTypeErrorsForProject", () => {
