@@ -315,6 +315,18 @@ export async function buildVolarService(
   };
 
   /**
+   * Holds a file so the service answers for it: its content and script under the real path, and
+   * for an SFC the virtual name its generated TypeScript answers on. That mapping is the one
+   * predicate the host callbacks and the project-wide check read, so every path that holds an
+   * SFC goes through here.
+   */
+  const holdFile = (realPath: string, content: string) => {
+    storeContent(realPath, content);
+    const virtualPath = toVirtualVuePath(realPath);
+    if (virtualPath !== realPath) vueVirtualToReal.set(virtualPath, realPath);
+  };
+
+  /**
    * Registers an SFC's virtual path on demand, at the moment the compiler resolves to it:
    * reads the real `.vue` from disk, stores the content, registers its script and maps the
    * virtual path, so the host answers for that path from here on. The host callbacks call it
@@ -340,8 +352,7 @@ export async function buildVolarService(
     const realPath = stripExt(virtualPath);
     const text = content ?? readFileFromDisk(realPath);
     if (text === undefined) return undefined;
-    storeContent(realPath, text);
-    vueVirtualToReal.set(virtualPath, realPath);
+    holdFile(realPath, text);
     return realPath;
   };
 
@@ -394,10 +405,7 @@ export async function buildVolarService(
       // A `.vue` path registers through the same helper the host resolves with, so an SFC an add
       // brings in and one an import brings in are held identically. The fallback covers a virtual
       // name a real file occupies: the caller named the SFC, so the SFC answers for its own name.
-      if (registerResolvedSfc(virtualPath, content) === undefined) {
-        storeContent(filePath, content);
-        if (virtualPath !== filePath) vueVirtualToReal.set(virtualPath, filePath);
-      }
+      if (registerResolvedSfc(virtualPath, content) === undefined) holdFile(filePath, content);
       scriptFileNames.push(virtualPath);
     },
   };
