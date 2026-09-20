@@ -132,11 +132,15 @@ function findOtherConfigs(
  * Describes how much of the caller's own code `checkedFiles` covers, for a project-wide
  * type check's `checked`/`unchecked` response fields. `walkedFiles` is each engine's full
  * workspace file set (the diagnostic program's own source files on the ts-morph side,
- * `CachedService.builtFileNames` on the Volar side)
- * — the caller's own files in `checkedFiles` are a subset of `walkedFiles`, so subtracting the
- * other way is what finds the files a tsconfig-scoped check left out. That subset relation is the
- * caller's to keep: `typeCheckedFiles` closes over the program, which can hold a file the walk
- * never reached, and such a file counted here would report as checked.
+ * `CachedService.builtFileNames` on the Volar side), and `unchecked` is what it holds and
+ * `checkedFiles` does not — the files a tsconfig-scoped check left out.
+ *
+ * The two sets are counted independently, so `checkedFiles` may hold a file the walk never
+ * reached and `checked` counts it: `typeCheckedFiles` closes over the program, which reaches
+ * whatever an included file imports. The Volar engine's out-of-seed SFCs arrive that way
+ * (`docs/internals/get-type-errors.md`). What each caller owes is that every file it counts
+ * here is a file it diagnoses — a file reported as checked and never asked for diagnostics
+ * answers `errorCount: 0` for a reason the caller cannot see.
  */
 export function describeCheckedScope(
   checkedFiles: ReadonlySet<string>,
