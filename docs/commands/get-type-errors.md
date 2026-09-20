@@ -99,5 +99,6 @@ weaver get-type-errors '{"tsconfig":"tsconfig.eval.json"}'
 - Top-level message only (no chained context for deep generic mismatches).
 - Template errors in `.vue` files are reported alongside script-block errors (matches `vue-tsc` and IDEs).
 - `.js`/`.jsx` files are checked only when included via `tsconfig allowJs`.
+- A `.vue` file owns its virtual name in the compiler's program. With a real `Foo.vue.ts` beside `Foo.vue`, the SFC answers for that name — a project-wide check reports the SFC's errors, and a query naming `Foo.vue.ts` returns an empty result rather than the SFC's diagnostics.
 
 → Internals: [docs/internals/get-type-errors.md](../internals/get-type-errors.md)

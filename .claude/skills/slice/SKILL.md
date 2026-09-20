@@ -90,6 +90,7 @@ Steps 1-2 and 4-10 run in the main conversation (interactive spec and review wor
    - Actual test count added
    - Mutation score for touched files
    - Any architectural decisions or discoveries worth preserving
+   - Any step of this workflow skipped or substituted, and why. A skipped review round, a deviation from the dispatch default, a Done-when item met another way: the Outcome is where the next agent learns what this run actually did.
 
    **Do NOT proceed to step 9 until the Outcome section — including the Reflection — is written in the archived spec file.**
 

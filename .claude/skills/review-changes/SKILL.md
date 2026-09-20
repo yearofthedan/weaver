@@ -111,6 +111,8 @@ Two failure shapes are specific to fix passes and worth briefing a reviewer on e
 
 Stop when a pass returns nothing that changes code. Two rounds is normal; a third means the fixes are creating work rather than closing it, and the remainder belongs in a handoff entry.
 
+**A finding that claims this change introduced a behaviour is checked against the range's *base* commit, not the tip.** A reviewer compares against whatever it has checked out, so a mid-range commit makes a restored pre-existing behaviour look newly introduced — and the fix that follows aims at the wrong thing, or reverts the restoration. Ask for the base measurement, and take it yourself when the claim decides whether the change is a regression.
+
 ## Phase 4: Tear down the worktrees
 
 The `git checkout <head-sha>` in Phase 2 is what stops these auto-cleaning, so this step exists because that one does. Skipping it leaks a worktree and a branch per agent, every review, forever — one session that skipped it left 18 stale worktrees and 16 dead branches behind.

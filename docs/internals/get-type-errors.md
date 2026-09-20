@@ -163,6 +163,14 @@ in the same position, and what `tsc` does for a non-declaration file in its prog
 `checked.files` *count* excludes dependencies, so such an SFC is reported without being counted,
 exactly as on the ts-morph side.
 
+**A `.vue` file owns its virtual name, and a real file at that name is not checkable.** With
+`Foo.vue` and a real `Foo.vue.ts` side by side, the program serves the SFC's generated TypeScript
+under `Foo.vue.ts`, so a project-wide check reports the SFC's errors and a query naming
+`Foo.vue.ts` answers empty — the shape a path the service cannot answer for takes. That decision
+reads disk rather than the service's map, so the answer holds whichever query registered the SFC
+first. The collision is inherent to the naming scheme: one name, two candidates, and the `.vue` is
+the file a specifier names.
+
 The drain runs at the end of the dispatch because `refreshFromFileSystemSync` replaces a node
 tree the in-flight operation still holds references into (see the constraint below). A file the
 operation deleted reaches it too: `refreshFromFileSystemSync` returns `Deleted` and forgets the
