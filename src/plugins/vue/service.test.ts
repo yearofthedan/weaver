@@ -313,7 +313,7 @@ describe("buildVolarService", () => {
       expect(semanticErrors(service.baseService, path.join(dir, "src/main.ts"))).toEqual([]);
     });
 
-    test("leaves a virtual name a real file occupies to that file", async ({
+    test("answers for the SFC that owns a virtual name a real file also holds", async ({
       seedInlineFixture,
     }) => {
       const dir = await seedInlineFixture({
@@ -323,11 +323,16 @@ describe("buildVolarService", () => {
         "dist/Foo.vue.ts": "const n: number = 1;\nn.toUpperCase();\n",
       });
       const service = await buildVolarService(path.join(dir, "tsconfig.json"), undefined, dir);
-      const realPath = path.join(dir, "dist/Foo.vue.ts");
+      const virtualPath = `${path.join(dir, "dist/Foo.vue")}.ts`;
 
-      // A real file at the virtual name keeps its own text, so its own error is the one that
-      // comes back.
-      expect(semanticErrors(service.baseService, realPath).map((d) => d.code)).toEqual([2339]);
+      // The import is what asks the host about the virtual name, so the mapping appears when the
+      // program is built.
+      semanticErrors(service.baseService, path.join(dir, "src/main.ts"));
+
+      expect(service.vueVirtualToReal.get(virtualPath)).toBe(path.join(dir, "dist/Foo.vue"));
+      const codes = semanticErrors(service.baseService, virtualPath).map((d) => d.code);
+      expect(codes).toContain(2322);
+      expect(codes).not.toContain(2339);
     });
   });
 });

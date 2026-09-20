@@ -7,6 +7,7 @@ import {
   semanticErrors,
 } from "../../ts-engine/get-type-errors.js";
 import { describeCheckedScope, typeCheckedFiles } from "../../ts-engine/type-check-scope.js";
+import { stripExt } from "../../utils/extensions.js";
 import { offsetToLineCol } from "../../utils/text-utils.js";
 import { type CachedService, toVirtualVuePath } from "./service.js";
 
@@ -114,6 +115,13 @@ export async function vueGetTypeErrorsForTsFile(
   getService: (file: string) => Promise<CachedService>,
 ): Promise<GetTypeErrorsResult> {
   const service = await getService(file);
+  // A `.vue` on disk owns this path as its virtual name, and the program serves that SFC's
+  // generated TypeScript there — answering would report the SFC's diagnostics at positions past
+  // this file's end. The check reads disk rather than the service's map so the answer does not
+  // depend on which query registered the SFC first.
+  if (file.endsWith(".vue.ts") && ts.sys.fileExists(stripExt(file))) {
+    return { diagnostics: [], errorCount: 0, truncated: false };
+  }
   // getSemanticDiagnostics throws for a path the program does not hold, and a written
   // path can be one: the walk that seeds `scriptFileNames` skips ignored and generated
   // directories. Only a syntax-only service returns undefined here, and Volar never

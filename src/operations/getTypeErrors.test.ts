@@ -331,6 +331,32 @@ describe("getTypeErrors operation", () => {
         });
       });
 
+      test("does not answer for a real file whose name an SFC claims", async ({
+        seedInlineFixture,
+      }) => {
+        const dir = await seedInlineFixture({
+          "tsconfig.json": JSON.stringify({
+            compilerOptions: { strict: true, moduleResolution: "bundler" },
+            include: ["src/**/*"],
+          }),
+          "src/main.ts": "export const b = 1;\n",
+          "src/App.vue": '<script setup lang="ts">\nconst a: number = 1;\n</script>\n',
+          "dist/Foo.vue":
+            '<script setup lang="ts">\nconst x: number = "not a number";\n</script>\n',
+          "dist/Foo.vue.ts": "const n: number = 1;\nn.toUpperCase();\n",
+        });
+
+        // The program serves the SFC's generated TypeScript under this name, so answering would
+        // report its diagnostics at positions past this file's end.
+        const result = await getTypeErrors(
+          makeVolarEngine(dir),
+          `${dir}/dist/Foo.vue.ts`,
+          makeScope(dir),
+        );
+
+        expect(result).toMatchObject({ errorCount: 0, diagnostics: [] });
+      });
+
       test("returns diagnostics with the real .vue path (not the virtual .vue.ts path)", async ({
         seedNamedFixture,
       }) => {

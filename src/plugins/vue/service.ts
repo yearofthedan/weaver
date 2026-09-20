@@ -353,9 +353,9 @@ export async function buildVolarService(
       vueVirtualToReal.delete(virtualPath);
       return undefined;
     }
-    // Only a name the seeds never claimed reaches this point, and there a real file at the
-    // virtual name is what the compiler asked about, so that name stays with disk.
-    if (ts.sys.fileExists(virtualPath)) return undefined;
+    // A `.vue` file owns its virtual name. A real file at that name is a collision the scheme
+    // cannot serve both halves of, and the `.vue` is the file the specifier named, so the SFC
+    // answers for it — as it already does for every seeded SFC, mapped at build time.
     const realPath = stripExt(virtualPath);
     const text = readFileFromDisk(realPath);
     if (text === undefined) return undefined;
