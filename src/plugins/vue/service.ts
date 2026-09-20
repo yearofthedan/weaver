@@ -317,12 +317,15 @@ export async function buildVolarService(
   /**
    * Holds a file so the service answers for it: its content and script under the real path, and
    * for an SFC the virtual name its generated TypeScript answers on. That mapping is the one
-   * predicate the host callbacks and the project-wide check read, so every path that holds an
-   * SFC goes through here.
+   * predicate the host callbacks and the project-wide check read, and the two paths that hold a
+   * file after the service is built — an on-demand resolution and an explicit add — both come
+   * through here. The build's own seed loop writes the same mapping for the files it registers.
    */
   const holdFile = (realPath: string, content: string) => {
     storeContent(realPath, content);
     const virtualPath = toVirtualVuePath(realPath);
+    // Every reader of this map treats an entry as an SFC's virtual name, so the guard keeps the
+    // map to that meaning: a plain file's self-entry would read as one.
     if (virtualPath !== realPath) vueVirtualToReal.set(virtualPath, realPath);
   };
 
@@ -331,17 +334,22 @@ export async function buildVolarService(
    * reads the real `.vue` from disk, stores the content, registers its script and maps the
    * virtual path, so the host answers for that path from here on. The host callbacks call it
    * while the compiler is resolving, which is when an import first asks about an SFC's virtual
-   * name. `content` is text the caller has already read, so an explicit add reads once.
+   * name.
    *
    * Returns the real `.vue` path the service now holds, or undefined when the path is not an
    * SFC's virtual name, a real file answers for that name, or the SFC cannot be read.
    */
-  const registerResolvedSfc = (virtualPath: string, content?: string): string | undefined => {
+  const registerResolvedSfc = (virtualPath: string): string | undefined => {
+    // This function holds exactly one kind of path: a `.vue` file's virtual name. Every other
+    // path the host is asked about is content on disk, which `fileExists` and both read
+    // callbacks serve directly. Telling the gate's arms apart takes a plain `.ts` path whose
+    // stem is itself a readable file, a pairing this naming scheme does not produce.
     if (!virtualPath.endsWith(".vue.ts")) return undefined;
     const held = vueVirtualToReal.get(virtualPath);
     if (held !== undefined) {
       // `rereadFile` drops a deleted SFC's script registration and leaves this mapping, so the
-      // held path answers only while the service still holds that SFC's script.
+      // held path answers only while the service still holds that SFC's script. The language
+      // exists before any host callback runs, so `languageRef.current` is set here.
       if (languageRef.current?.scripts.get(held) !== undefined) return held;
       vueVirtualToReal.delete(virtualPath);
       return undefined;
@@ -350,7 +358,7 @@ export async function buildVolarService(
     // virtual name is what the compiler asked about, so that name stays with disk.
     if (ts.sys.fileExists(virtualPath)) return undefined;
     const realPath = stripExt(virtualPath);
-    const text = content ?? readFileFromDisk(realPath);
+    const text = readFileFromDisk(realPath);
     if (text === undefined) return undefined;
     holdFile(realPath, text);
     return realPath;
@@ -402,10 +410,10 @@ export async function buildVolarService(
       if (scriptFileNames.includes(virtualPath)) return;
       const content = readFileFromDisk(filePath);
       if (content === undefined) return;
-      // A `.vue` path registers through the same helper the host resolves with, so an SFC an add
-      // brings in and one an import brings in are held identically. The fallback covers a virtual
-      // name a real file occupies: the caller named the SFC, so the SFC answers for its own name.
-      if (registerResolvedSfc(virtualPath, content) === undefined) holdFile(filePath, content);
+      // A plain file is content the service serves as-is; an SFC is held under its virtual name
+      // so a query about it answers from the file the caller named, even when a real file
+      // occupies that name.
+      holdFile(filePath, content);
       scriptFileNames.push(virtualPath);
     },
   };
