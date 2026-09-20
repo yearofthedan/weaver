@@ -21,12 +21,13 @@ The key invariant we enforce: **weaver may only read and write files within the 
 
 ### 1. Input path validation (daemon layer)
 
-`src/security.ts` — `isWithinWorkspace(filePath, workspace)`
+`src/domain/security.ts` — `validateFilePath()` and the pure `isWithinWorkspace(filePath, workspace)`, called through `WorkspaceScope.contains`
 
 All file paths supplied by the agent (`file`, `oldPath`, `newPath`) are validated before the engine is called. Validation:
-- Resolves to absolute path via `path.resolve()`
-- Checks that `path.relative(workspace, abs)` does not start with `..`
-- For existing paths, re-checks using `fs.realpathSync()` to catch symlink escapes
+- Rejects control characters and URI fragments (`validateFilePath`)
+- Resolves to absolute path via `path.resolve()`, then checks that `path.relative(workspace, abs)` does not start with `..` (the pure check, used for a path that does not exist)
+- For an existing path, resolves both the path and the root through the `FileSystem` port and compares those real locations. A symlink inside the workspace that points out of it is rejected; a file named through a symlinked spelling of the root (`/tmp` for `/private/tmp`) is accepted.
+- Fails closed: a `realpath` that throws rejects the path
 
 Violations return `{ ok: false, error: "WORKSPACE_VIOLATION", message: "..." }` and the engine is never called.
 

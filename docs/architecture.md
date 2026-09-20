@@ -353,7 +353,7 @@ The watcher (`src/daemon/watcher.ts`) calls into the language plugin registry:
 `invalidateFile` and `invalidateAll` iterate all registered plugins. Each plugin's hook is wrapped in try/catch so a crash in one plugin (e.g. a Volar service bug) doesn't prevent other plugins from refreshing their state. The TS compiler is invalidated separately (before the plugin loop) since it's not a plugin.
 
 **`isWithinWorkspace` and `isSensitiveFile` are both in `src/domain/security.ts`.**
-`isWithinWorkspace` enforces the workspace boundary at two points: the dispatcher (input path validation) and each operation's output loop (write filtering). It resolves symlinks via `fs.realpathSync` for existing paths to prevent symlink escape. `isSensitiveFile` is called by `searchText` (silently skips) and `replaceText` surgical mode (throws `SENSITIVE_FILE` before touching any file).
+The boundary is enforced at two points: the dispatcher (input path validation, through `WorkspaceScope.contains`) and each operation's output loop (write filtering). `isWithinWorkspace` compares paths as given; `WorkspaceScope.contains` resolves an existing path and the root through the `FileSystem` port before calling it, which is what [security.md](security.md) describes as the control. `isSensitiveFile` is called by `searchText` (silently skips) and `replaceText` surgical mode (throws `SENSITIVE_FILE` before touching any file).
 
 **ts-morph internals — see [`docs/tech/ts-morph.md`](tech/ts-morph.md).**
 Bundled TypeScript instance, `getProjectForDirectory` vs `getProjectForFile`, and module-level cache gotchas are documented there.
