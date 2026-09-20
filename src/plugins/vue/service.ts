@@ -324,8 +324,8 @@ export async function buildVolarService(
   const holdFile = (realPath: string, content: string) => {
     storeContent(realPath, content);
     const virtualPath = toVirtualVuePath(realPath);
-    // Every reader of this map treats an entry as an SFC's virtual name, so the guard keeps the
-    // map to that meaning: a plain file's self-entry would read as one.
+    // The map holds SFC virtual names: every reader takes an entry for one, so a plain file's
+    // self-entry would read as an SFC's alias.
     if (virtualPath !== realPath) vueVirtualToReal.set(virtualPath, realPath);
   };
 
@@ -342,15 +342,14 @@ export async function buildVolarService(
   const registerResolvedSfc = (virtualPath: string): string | undefined => {
     // This function holds exactly one kind of path: a `.vue` file's virtual name. Every other
     // path the host is asked about is content on disk, which `fileExists` and both read
-    // callbacks serve directly. Telling the gate's arms apart takes a plain `.ts` path whose
-    // stem is itself a readable file, a pairing this naming scheme does not produce.
+    // callbacks serve directly. The arms differ only for a plain `.ts` path whose stem is itself
+    // a readable file, which this naming scheme does not pair.
     if (!virtualPath.endsWith(".vue.ts")) return undefined;
     const held = vueVirtualToReal.get(virtualPath);
     if (held !== undefined) {
       // `rereadFile` drops a deleted SFC's script registration and leaves this mapping, so the
-      // held path answers only while the service still holds that SFC's script. The language
-      // exists before any host callback runs, so `languageRef.current` is set here.
-      if (languageRef.current?.scripts.get(held) !== undefined) return held;
+      // held path answers only while the service still holds that SFC's script.
+      if (language.scripts.get(held) !== undefined) return held;
       vueVirtualToReal.delete(virtualPath);
       return undefined;
     }

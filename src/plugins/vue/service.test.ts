@@ -215,6 +215,9 @@ describe("buildVolarService", () => {
       service.addScriptFile(file);
 
       expect(service.baseService.getProgram()?.getSourceFile(file)).toBeDefined();
+      // The project-wide check enumerates this map for SFC diagnostics, so a plain file belongs
+      // in it under no key at all.
+      expect([...service.vueVirtualToReal.keys()]).not.toContain(file);
     });
 
     test("brings a .vue path in under its virtual name", async ({ seedInlineFixture }) => {

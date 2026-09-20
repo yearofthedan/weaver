@@ -525,8 +525,8 @@ describe("getTypeErrors operation", () => {
         );
         expect(deleted).toMatchObject({ status: "success" });
 
-        // The SFC's registration outlives its file, so a query on the stale virtual path
-        // throws; the importer is what the caller gets an answer about.
+        // The service drops a deleted SFC's script, so the stale mapping goes with it and the
+        // importer's unresolved import is what the caller gets an answer about.
         const after = await dispatchRequest({ method: "getTypeErrors", params: {} }, dir);
         expect(after).toMatchObject({
           status: "success",
