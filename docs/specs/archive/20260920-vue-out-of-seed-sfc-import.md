@@ -135,16 +135,65 @@ The SFC-import cell needs a real Volar service, a real filesystem and the real m
 
 ## Done-when
 
-- [ ] Reproduction case now produces expected output — the literal repro on the real CLI: a workspace with `include: ["src/**/*"]`, `src/main.ts` importing a `dist/` SFC with a sentinel type error, checked project-wide, reports the SFC's error at its real position
-- [ ] Lazy registration from inside the resolution callback confirmed working before implementation (the timing check in Fix 1)
-- [ ] Regression test covers the exact failing case, plus the adjacent inputs above
-- [ ] The ordering cell passes: the project-wide answer is identical before and after a single-file check on that SFC
-- [ ] A missing SFC still reports TS2307, and the seeded path still reports what it reported before
-- [ ] Cost measured before and after on a fixture with several out-of-seed SFCs, recorded in the Outcome
-- [ ] Mutation acceptance: explicit `pnpm test:mutate:file` on `src/plugins/vue/service.ts` and `src/plugins/vue/get-type-errors.ts` (both are outside the default `mutate` array), with every mutant introduced by this change killed or classified per `mutate-triage`
-- [ ] `pnpm check` passes (lint + build + test)
-- [ ] `/review-changes` run over the whole change and its findings applied
-- [ ] `docs/internals/get-type-errors.md` updated for the new scope rule; `docs/tech/volar-v3.md` records what makes a `.vue` import resolve; `docs/commands/get-type-errors.md` checked against the new behaviour
-- [ ] Tech debt discovered during investigation added to handoff.md as [needs design]
-- [ ] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc
-- [ ] Spec moved to docs/specs/archive/ with Outcome section appended
+- [x] Reproduction case now produces expected output — the literal repro on the real CLI: a workspace with `include: ["src/**/*"]`, `src/main.ts` importing a `dist/` SFC with a sentinel type error, checked project-wide, reports the SFC's error at its real position
+- [x] Lazy registration from inside the resolution callback confirmed working before implementation (the timing check in Fix 1)
+- [x] Regression test covers the exact failing case, plus the adjacent inputs above
+- [x] The ordering cell passes: the project-wide answer is identical before and after a single-file check on that SFC
+- [x] A missing SFC still reports TS2307, and the seeded path still reports what it reported before
+- [x] Cost measured before and after on a fixture with several out-of-seed SFCs, recorded in the Outcome
+- [x] Mutation acceptance: explicit `pnpm test:mutate:file` on `src/plugins/vue/service.ts` and `src/plugins/vue/get-type-errors.ts` (both are outside the default `mutate` array), with every mutant introduced by this change killed or classified per `mutate-triage`
+- [x] `pnpm check` passes (lint + build + test)
+- [x] `/review-changes` run over the whole change and its findings applied
+- [x] `docs/internals/get-type-errors.md` updated for the new scope rule; `docs/tech/volar-v3.md` records what makes a `.vue` import resolve; `docs/commands/get-type-errors.md` checked against the new behaviour
+- [x] Tech debt discovered during investigation added to handoff.md as [needs design]
+- [x] Non-obvious gotchas added to the relevant `docs/internals/` or `docs/tech/` doc
+- [x] Spec moved to docs/specs/archive/ with Outcome section appended
+
+## Outcome
+
+### Verification
+
+The repro on the real CLI, against a workspace whose `tsconfig.json` is `{"include": ["src/**/*"]}`, `src/main.ts` imports `../dist/Broken.vue`, and that SFC's script is `const broken: number = "SENTINEL_MAIN_IMPORT"`:
+
+```
+$ weaver get-type-errors '{}'      # project-wide, fresh daemon
+{"status":"success","diagnostics":[{"file":"…/dist/Broken.vue","line":2,"col":7,"code":2322,
+  "message":"Type 'string' is not assignable to type 'number'."}],"errorCount":1,
+ "checked":{"files":3,"tsconfig":"…/tsconfig.json"},"unchecked":{"files":0,…}}
+```
+
+That is the Expected block, and the importer reports TS2307 no longer. A single-file check on the SFC followed by the same project-wide call returned byte-identical JSON, so the ordering cell holds on the daemon path, not only in-process.
+
+Cells driven on the CLI: deleting the resolved SFC and checking project-wide returns `success` with the importer's TS2307, the deletion flow's own answer, with no throw from the stale virtual path; deleting a seeded SFC returns `success` with no errors; an import of an SFC that does not exist still reports TS2307; a seeded SFC still reports its own error.
+
+### Tests
+
++10 cases (main lane 1571 → 1581), of which 4 are scenario cases. Each new case was checked against the pre-change code: the SFC-import scenario, the dependency-SFC scenario, the ordering cell, the outside-root cell, the scope unit, the service registration case, both deletion cases and the occupied-name case go red without the behaviour they name. The missing-SFC, non-`SKIP_DIRS` and disk-file-wins cases pass against the pre-change code; each is recorded as a guard for behaviour the change had to preserve.
+
+The seeded-deletion case keeps `src/App.vue` in its fixture: with the deleted SFC as the workspace's only `.vue` file, the follow-up check leaves the Volar engine for the ts-morph one, so the stale mapping is outside what the case measures.
+
+### Mutation
+
+`pnpm test:mutate:file src/plugins/vue/get-type-errors.ts` — 95.9% (70 killed, 3 survived, 0 no-coverage). The three survivors are the pre-existing `translateVirtualOffset` guards already in the catalogue.
+
+`pnpm test:mutate:file src/plugins/vue/service.ts` — 71.9% (128 killed, 38 survived, 12 no-coverage, 22 ignored). The file's deficit is its own queued entry's business; this change's mutants are the four lines the registration work added. Three survive, and each now records the invariant it holds: the `.vue.ts` gate, the map guard in `holdFile`, and the held-path script check. The fourth — the add's fallback branch — was removed rather than recorded: opening it changes no test answer, measured by hand, so the add holds the file once instead of calling the helper and repeating its work.
+
+Cost (Edges): five out-of-seed SFCs in one `dist/`, project-wide check, median of five — cold 135.8/137.8 ms before and 143.9/148.1 ms after; warm 0.2 ms before and 0.3 ms after.
+
+### Decisions
+
+- Registration happens inside the resolution callback, rather than widening the `.vue` seed scan or rebuilding the service after a query-time add. The seed scan would make build output program roots; a rebuild would have nothing to repair once the fresh answer is correct. The timing check ran before any edit and passed — the isolation arms had mutated a fresh service before the query, so whether the same ingredients work mid-resolution was a real unknown, and the fallback in the spec was available if they did not.
+- `checked` is the program closure, as `tsGetTypeErrorsForProject` has it. The narrowing it replaces existed to keep `checked` a subset of the set the diagnostics come from; the new shape satisfies that from the other side, handing the same set to the `.ts` loop and to the SFC loop.
+- A dependency's SFC is reported without being counted, matching the ts-morph engine and `tsc`.
+- The occupied-virtual-name collision (`Foo.vue` beside a real `Foo.vue.ts`) is queued rather than fixed: measured at base, an explicit add shadows the real file there too, so restoring the add's claim returns pre-existing behaviour instead of introducing it.
+- The negative-probe memo an efficiency review proposed is queued: it needs an invalidation story covering a created SFC the post-write drain does not reach, and its benefit is under 1% of a real post-write rebuild.
+
+### Reflection
+
+The design question the entry carried — widen the SFC seed scan, or rebuild the service after a query-time add — had a third, cheaper answer: register from the resolution callback. Mutating one collection at a time is what found it, and it also falsified the entry's stated mechanism: `fileExists` answering from the virtual map is necessary and not sufficient, because `getScriptSnapshot` has nothing to serve until the script is registered.
+
+The one question those arms could not answer was whether the same registration works while the program is being built, since each arm mutated a fresh service before the query. That check ran before any edit and passed, so the fix could assume resolution-time registration, and the fallback it named — a pre-pass over the seed files' specifiers — was not needed.
+
+Two review rounds each produced a regression in the previous round's fix, and both were a mapping outliving the state it was computed under: an add leaving an SFC unmapped, and a deleted SFC's virtual path still resolving. What those cost is recorded in `docs/design-principles.md` and `docs/code-standards.md`.
+
+Three of the four mutants this change introduced survive, and each carries a comment at its line; the fourth lived in a branch whose arms agree, so deleting the branch was the fix. The file's remaining survivors belong to its own queued entry.

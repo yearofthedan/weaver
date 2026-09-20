@@ -69,3 +69,9 @@ changes.
 Prefer a deterministic staleness bug to an intermittent one. A freshness check on read
 (mtime, size) looks stricter and costs little, but it converts a missed eviction into something
 that reproduces occasionally, which is harder to find and harder to trust once fixed.
+
+A write that records *where something lives* — a virtual-name mapping, a resolution verdict, a
+"this file is not there" answer — is the same surface in both directions: a stale positive keeps a
+deleted file answering, and a stale negative keeps a created one unreachable. Price the invalidation
+before taking the write, and pay for a negative verdict especially carefully, because the events that
+should clear it are writes nobody in that path observes.

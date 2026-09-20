@@ -59,6 +59,8 @@ Dead code. Do not record it anywhere; remove it.
 
 If you cannot make the branch reachable and production genuinely needs it, reclassify as **noise**.
 
+**Check whether the branch's two arms do the same thing before reaching for Step 5.** A condition whose arms leave the same state mutates to a survivor no test can tell apart, and deleting the distinction is cheaper than recording it: measure by opening the branch and running the file's suite. A noise record is for a branch whose arms do differ — it names the behaviour, and why the harness has no way to construct it.
+
 ## Step 5 — Act on noise survivors
 
 A noise survivor needs a durable record of *why* it cannot be killed. Without one the next run re-triages it from scratch, and a real gap hiding among them stays invisible.
