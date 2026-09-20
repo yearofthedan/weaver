@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import ts from "typescript";
 import { describe, expect } from "vitest";
 import { fixtureTest as test } from "../../__testHelpers__/helpers.js";
+import { semanticErrors } from "../../ts-engine/get-type-errors.js";
 import { buildVolarService } from "./service.js";
 
 describe("buildVolarService", () => {
@@ -307,11 +307,7 @@ describe("buildVolarService", () => {
       expect(service.baseService.getProgram()?.getSourceFile(virtualPath)).toBeDefined();
       expect(service.scriptFileNames).not.toContain(virtualPath);
       expect(service.builtFileNames.has(virtualPath)).toBe(false);
-      expect(
-        service.baseService
-          .getSemanticDiagnostics(path.join(dir, "src/main.ts"))
-          .filter((d) => d.category === ts.DiagnosticCategory.Error),
-      ).toEqual([]);
+      expect(semanticErrors(service.baseService, path.join(dir, "src/main.ts"))).toEqual([]);
     });
 
     test("leaves a virtual name a real file occupies to that file", async ({
@@ -328,12 +324,7 @@ describe("buildVolarService", () => {
 
       // A real file at the virtual name keeps its own text, so its own error is the one that
       // comes back.
-      expect(
-        service.baseService
-          .getSemanticDiagnostics(realPath)
-          .filter((d) => d.category === ts.DiagnosticCategory.Error)
-          .map((d) => d.code),
-      ).toEqual([2339]);
+      expect(semanticErrors(service.baseService, realPath).map((d) => d.code)).toEqual([2339]);
     });
   });
 });

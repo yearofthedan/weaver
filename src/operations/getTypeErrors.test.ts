@@ -281,6 +281,43 @@ describe("getTypeErrors operation", () => {
     }
 
     describe("single .vue file with type errors", () => {
+      test("answers for an SFC whose virtual name a real file occupies", async ({
+        seedInlineFixture,
+      }) => {
+        // A real `Foo.vue.ts` beside `Foo.vue` makes the virtual name ambiguous. Naming the
+        // SFC asks about the SFC, so its own error is the answer.
+        const dir = await seedInlineFixture({
+          "tsconfig.json": JSON.stringify({
+            compilerOptions: { strict: true, moduleResolution: "bundler" },
+            include: ["src/**/*"],
+          }),
+          "src/main.ts": "export const b = 1;\n",
+          "src/App.vue": '<script setup lang="ts">\nconst a: number = 1;\n</script>\n',
+          "dist/Foo.vue":
+            '<script setup lang="ts">\nconst x: number = "not a number";\n</script>\n',
+          "dist/Foo.vue.ts": "const n: number = 1;\nn.toUpperCase();\n",
+        });
+
+        const result = await getTypeErrors(
+          makeVolarEngine(dir),
+          `${dir}/dist/Foo.vue`,
+          makeScope(dir),
+        );
+
+        expect(result).toMatchObject({
+          errorCount: 1,
+          diagnostics: [
+            {
+              file: `${dir}/dist/Foo.vue`,
+              line: 2,
+              col: 7,
+              code: 2322,
+              message: "Type 'string' is not assignable to type 'number'.",
+            },
+          ],
+        });
+      });
+
       test("returns diagnostics with the real .vue path (not the virtual .vue.ts path)", async ({
         seedNamedFixture,
       }) => {
@@ -468,6 +505,48 @@ describe("getTypeErrors operation", () => {
           ],
         });
         expect(after).toEqual(before);
+      });
+
+      test("answers a project-wide check after the SFC it resolved is deleted", async ({
+        seedInlineFixture,
+      }) => {
+        const dir = await seedInlineFixture({
+          "tsconfig.json": JSON.stringify({
+            compilerOptions: { strict: true, moduleResolution: "bundler" },
+            include: ["src/**/*"],
+          }),
+          "src/App.vue": '<script setup lang="ts">\nconst a: number = 1;\n</script>\n',
+          "src/main.ts": 'import B from "../dist/Broken.vue";\nexport const b = B;\n',
+          "dist/Broken.vue":
+            '<script setup lang="ts">\nconst x: number = "not a number";\n</script>\n',
+        });
+
+        const first = await dispatchRequest({ method: "getTypeErrors", params: {} }, dir);
+        expect(first).toMatchObject({ errorCount: 1, checked: { files: 3 } });
+
+        const deleted = await dispatchRequest(
+          { method: "deleteFile", params: { file: `${dir}/dist/Broken.vue` } },
+          dir,
+        );
+        expect(deleted).toMatchObject({ status: "success" });
+
+        // The SFC's registration outlives its file, so a query on the stale virtual path
+        // throws; the importer is what the caller gets an answer about.
+        const after = await dispatchRequest({ method: "getTypeErrors", params: {} }, dir);
+        expect(after).toMatchObject({
+          status: "success",
+          errorCount: 1,
+          diagnostics: [
+            {
+              file: `${dir}/src/main.ts`,
+              line: 1,
+              col: 15,
+              code: 2307,
+              message:
+                "Cannot find module '../dist/Broken.vue' or its corresponding type declarations.",
+            },
+          ],
+        });
       });
 
       test("resolves an import of an SFC outside the workspace root without counting it", async ({

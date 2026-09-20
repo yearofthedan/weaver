@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Language } from "@volar/language-core";
 import type ts from "typescript";
-import { TS_EXTENSIONS } from "../../utils/extensions.js";
+import { stripExt, TS_EXTENSIONS } from "../../utils/extensions.js";
 import { SKIP_DIRS, walkFiles } from "../../utils/file-walk.js";
 
 type VolarLanguageService = Pick<
@@ -318,22 +318,29 @@ export async function buildVolarService(
    * Registers an SFC's virtual path on demand, at the moment the compiler resolves to it:
    * reads the real `.vue` from disk, stores the content, registers its script and maps the
    * virtual path, so the host answers for that path from here on. The host callbacks call it
-   * while the compiler is resolving, which is when an import first asks about an SFC's
-   * virtual name. Returns the real `.vue` path the service now holds, or undefined when the
-   * path is not an SFC's virtual name, a real file answers for that name, or the SFC cannot
-   * be read.
+   * while the compiler is resolving, which is when an import first asks about an SFC's virtual
+   * name. `content` is text the caller has already read, so an explicit add reads once.
+   *
+   * Returns the real `.vue` path the service now holds, or undefined when the path is not an
+   * SFC's virtual name, a real file answers for that name, or the SFC cannot be read.
    */
-  const registerResolvedSfc = (virtualPath: string): string | undefined => {
+  const registerResolvedSfc = (virtualPath: string, content?: string): string | undefined => {
     if (!virtualPath.endsWith(".vue.ts")) return undefined;
     const held = vueVirtualToReal.get(virtualPath);
-    if (held !== undefined) return held;
-    // A real file at this name is what the compiler asked about, so the map leaves that name
-    // to disk.
+    if (held !== undefined) {
+      // `rereadFile` drops a deleted SFC's script registration and leaves this mapping, so the
+      // held path answers only while the service still holds that SFC's script.
+      if (languageRef.current?.scripts.get(held) !== undefined) return held;
+      vueVirtualToReal.delete(virtualPath);
+      return undefined;
+    }
+    // Only a name the seeds never claimed reaches this point, and there a real file at the
+    // virtual name is what the compiler asked about, so that name stays with disk.
     if (ts.sys.fileExists(virtualPath)) return undefined;
-    const realPath = virtualPath.slice(0, -".ts".length);
-    const content = readFileFromDisk(realPath);
-    if (content === undefined) return undefined;
-    storeContent(realPath, content);
+    const realPath = stripExt(virtualPath);
+    const text = content ?? readFileFromDisk(realPath);
+    if (text === undefined) return undefined;
+    storeContent(realPath, text);
     vueVirtualToReal.set(virtualPath, realPath);
     return realPath;
   };
@@ -382,13 +389,14 @@ export async function buildVolarService(
     addScriptFile: (filePath) => {
       const virtualPath = toVirtualVuePath(filePath);
       if (scriptFileNames.includes(virtualPath)) return;
-      // A `.vue` path registers through the same helper the host resolves with, so an SFC an
-      // add brings in and one an import brings in are held identically; every other path is
-      // content the service serves as-is.
-      if (registerResolvedSfc(virtualPath) === undefined) {
-        const content = readFileFromDisk(filePath);
-        if (content === undefined) return;
+      const content = readFileFromDisk(filePath);
+      if (content === undefined) return;
+      // A `.vue` path registers through the same helper the host resolves with, so an SFC an add
+      // brings in and one an import brings in are held identically. The fallback covers a virtual
+      // name a real file occupies: the caller named the SFC, so the SFC answers for its own name.
+      if (registerResolvedSfc(virtualPath, content) === undefined) {
         storeContent(filePath, content);
+        if (virtualPath !== filePath) vueVirtualToReal.set(virtualPath, filePath);
       }
       scriptFileNames.push(virtualPath);
     },

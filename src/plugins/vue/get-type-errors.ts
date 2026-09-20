@@ -84,9 +84,10 @@ export async function vueGetTypeErrorsForFile(
   const virtualPath = toVirtualVuePath(file);
 
   // An SFC the tsconfig's file set and the on-disk `.vue` scan both missed has no virtual
-  // path mapped, and `getSemanticDiagnostics` throws for a virtual path the program does
-  // not hold. `addScriptFile` leaves an SFC it already holds alone, and a mapped path is
-  // always in `scriptFileNames`, so adding first keeps this to one predicate.
+  // path mapped, and `getSemanticDiagnostics` throws for a virtual path the program does not
+  // hold. The add is what makes such an SFC a program root, which is what the query needs; a
+  // path it leaves alone was already a root when the service was built. Either way the map is
+  // the one predicate that says whether the service can answer for this file.
   service.addScriptFile(file);
   if (!service.vueVirtualToReal.has(virtualPath)) {
     return { diagnostics: [], errorCount: 0, truncated: false };
