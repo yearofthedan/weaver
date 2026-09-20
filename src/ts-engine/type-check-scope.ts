@@ -95,10 +95,10 @@ export interface CheckedScope {
  * from inside some `node_modules` directory, so this one check excludes both — but a caller
  * asking "how much of my code did you look at" isn't asking about either.
  *
- * Exported for `vueGetTypeErrorsForProject`, which narrows the closure it gets from
- * `typeCheckedFiles` to the set its diagnostics come from.
+ * Used by `describeCheckedScope` to decide which of a caller's files the `checked`/`unchecked`
+ * counts describe.
  */
-export function isOwnWorkspaceFile(filePath: string, workspaceRoot: string): boolean {
+function isOwnWorkspaceFile(filePath: string, workspaceRoot: string): boolean {
   const relative = path.relative(path.resolve(workspaceRoot), path.resolve(filePath));
   // `path.relative` only returns an absolute path when the two inputs share no common
   // base (e.g. different drive letters on Windows) — unreachable on POSIX, where both
