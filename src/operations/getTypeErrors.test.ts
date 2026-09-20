@@ -280,6 +280,19 @@ describe("getTypeErrors operation", () => {
       return new VolarEngine(new TsMorphEngine(dir), dir);
     }
 
+    const VUE_TSCONFIG = JSON.stringify({
+      compilerOptions: { strict: true, moduleResolution: "bundler" },
+      include: ["src/**/*"],
+    });
+
+    // An SFC under `dist/`, which the on-disk `.vue` scan skips, imported by an included file.
+    const distSfcProject = {
+      "tsconfig.json": VUE_TSCONFIG,
+      "src/App.vue": '<script setup lang="ts">\nconst a: number = 1;\n</script>\n',
+      "src/main.ts": 'import B from "../dist/Broken.vue";\nexport const b = B;\n',
+      "dist/Broken.vue": '<script setup lang="ts">\nconst x: number = "not a number";\n</script>\n',
+    };
+
     describe("single .vue file with type errors", () => {
       test("answers for an SFC whose virtual name a real file occupies", async ({
         seedInlineFixture,
@@ -472,16 +485,7 @@ describe("getTypeErrors operation", () => {
       test("answers identically before and after a single-file check on an SFC the service never held", async ({
         seedInlineFixture,
       }) => {
-        const dir = await seedInlineFixture({
-          "tsconfig.json": JSON.stringify({
-            compilerOptions: { strict: true, moduleResolution: "bundler" },
-            include: ["src/**/*"],
-          }),
-          "src/App.vue": '<script setup lang="ts">\nconst a: number = 1;\n</script>\n',
-          "src/main.ts": 'import B from "../dist/Broken.vue";\nexport const b = B;\n',
-          "dist/Broken.vue":
-            '<script setup lang="ts">\nconst x: number = "not a number";\n</script>\n',
-        });
+        const dir = await seedInlineFixture(distSfcProject);
 
         const before = await dispatchRequest({ method: "getTypeErrors", params: {} }, dir);
         await dispatchRequest(
@@ -510,16 +514,7 @@ describe("getTypeErrors operation", () => {
       test("answers a project-wide check after the SFC it resolved is deleted", async ({
         seedInlineFixture,
       }) => {
-        const dir = await seedInlineFixture({
-          "tsconfig.json": JSON.stringify({
-            compilerOptions: { strict: true, moduleResolution: "bundler" },
-            include: ["src/**/*"],
-          }),
-          "src/App.vue": '<script setup lang="ts">\nconst a: number = 1;\n</script>\n',
-          "src/main.ts": 'import B from "../dist/Broken.vue";\nexport const b = B;\n',
-          "dist/Broken.vue":
-            '<script setup lang="ts">\nconst x: number = "not a number";\n</script>\n',
-        });
+        const dir = await seedInlineFixture(distSfcProject);
 
         const first = await dispatchRequest({ method: "getTypeErrors", params: {} }, dir);
         expect(first).toMatchObject({ errorCount: 1, checked: { files: 3 } });
@@ -547,6 +542,32 @@ describe("getTypeErrors operation", () => {
             },
           ],
         });
+      });
+
+      test("answers a project-wide check after the seeded SFC it holds is deleted", async ({
+        seedInlineFixture,
+      }) => {
+        // A seeded SFC stays a root of the service's file set, so its virtual path is in the
+        // closure either way; the mapping is what has to go with the file. `src/App.vue` keeps
+        // the workspace a Vue project after the deletion, so the check stays on the Volar engine
+        // that holds the stale mapping.
+        const dir = await seedInlineFixture({
+          "tsconfig.json": VUE_TSCONFIG,
+          "src/App.vue": '<script setup lang="ts">\nconst a: number = 1;\n</script>\n',
+          "src/Broken.vue":
+            '<script setup lang="ts">\nconst x: number = "not a number";\n</script>\n',
+        });
+
+        const first = await dispatchRequest({ method: "getTypeErrors", params: {} }, dir);
+        expect(first).toMatchObject({ errorCount: 1, checked: { files: 2 } });
+
+        await dispatchRequest(
+          { method: "deleteFile", params: { file: `${dir}/src/Broken.vue` } },
+          dir,
+        );
+
+        const after = await dispatchRequest({ method: "getTypeErrors", params: {} }, dir);
+        expect(after).toMatchObject({ status: "success", errorCount: 0, diagnostics: [] });
       });
 
       test("resolves an import of an SFC outside the workspace root without counting it", async ({
