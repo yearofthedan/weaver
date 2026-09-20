@@ -87,6 +87,22 @@ describe("WorkspaceScope", () => {
         const scope = new WorkspaceScope(workspace, new NodeFileSystem());
         expect(scope.contains(file)).toBe(true);
       });
+
+      it("accepts a file inside the workspace named through a symlinked spelling of the root", () => {
+        const workspace = makeTmpDir();
+        const file = path.join(workspace, "src", "index.ts");
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, "");
+        const linkedRoot = makeTmpDir();
+        fs.rmdirSync(linkedRoot);
+        fs.symlinkSync(workspace, linkedRoot);
+        tmpDirs.push(linkedRoot);
+
+        const scope = new WorkspaceScope(workspace, new NodeFileSystem());
+
+        expect(path.resolve(linkedRoot, "src/index.ts")).not.toContain(path.resolve(workspace));
+        expect(scope.contains(path.join(linkedRoot, "src", "index.ts"))).toBe(true);
+      });
     });
   });
 
