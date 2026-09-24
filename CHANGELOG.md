@@ -1,5 +1,55 @@
 # Changelog
 
+## [0.1.13](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.12...weaver-v0.1.13) (2026-09-24)
+
+
+### Features
+
+* **agents:** add the Claude Code verifier definition ([4996914](https://github.com/yearofthedan/weaver/commit/499691406050828092ca540bf07a4538a08e106a))
+* **hooks:** run the commit-standards gate under both harnesses ([6a54d8e](https://github.com/yearofthedan/weaver/commit/6a54d8e01c179776d395ca17d86cf8c1a99ad0b2))
+* **vue-engine:** add a file to the Volar program on demand ([80fcf39](https://github.com/yearofthedan/weaver/commit/80fcf3945c67a90a4d9c31034b23616eb517fad6))
+* **vue-engine:** keep the drain from dropping a repaired dependency ([00db181](https://github.com/yearofthedan/weaver/commit/00db181242a4427d1d54b1f9c2fedec4ae933029))
+* **vue-engine:** repair a resolved dependency in place too ([40da362](https://github.com/yearofthedan/weaver/commit/40da362c9501009b49edca2fd2acdfa17b66b43a))
+* **vue-engine:** repair the cached Volar service in place on refreshFile ([30a76b1](https://github.com/yearofthedan/weaver/commit/30a76b1adae168c9cbda99f17e49ec0ff099ecbd))
+
+
+### Bug Fixes
+
+* **daemon:** keep a failing refresh from failing the dispatch ([8d39688](https://github.com/yearofthedan/weaver/commit/8d3968840ec16f4c62598c91745be4e15e3fcc5e))
+* **daemon:** refresh every written path before the post-write check ([fb37603](https://github.com/yearofthedan/weaver/commit/fb376038e654a362cbaf9982150ebbaa76a62e8a))
+* **deps:** hold vitest at v4 while the Stryker runner cannot filter v5 tests ([37449f9](https://github.com/yearofthedan/weaver/commit/37449f972ff592dffcd0fe0bd704ee19035a56e4))
+* **diagnostics:** report .mts and .cts writes in the post-write check ([29cf2c0](https://github.com/yearofthedan/weaver/commit/29cf2c0af8d3d9009c77ad7b740c341fb237f4c1))
+* **dispatcher:** seed engine discovery from the first top-level row only ([7de79c5](https://github.com/yearofthedan/weaver/commit/7de79c52fc3b9c71bc3e11f0815cbbd2fd0d5752))
+* **domain:** judge an existing path by its real location, not its spelling ([16ff660](https://github.com/yearofthedan/weaver/commit/16ff660d7d6f06ce5ccc56fb3e2081db5ab48956))
+* **hooks:** move the commit-standards gate to commit-msg ([eae7433](https://github.com/yearofthedan/weaver/commit/eae74337196ae7dfa35ce2a8a676da2e6657c037))
+* **hooks:** report every review finding instead of the first five ([7b0129e](https://github.com/yearofthedan/weaver/commit/7b0129e54d1acfce47a9f5e1b282467f09ec4460))
+* **hooks:** review the commit subject line without the body ([b9d73f7](https://github.com/yearofthedan/weaver/commit/b9d73f7ed8f233f0ab2905e7d6747a2908137a7b))
+* **replace-text:** declare the nested edit path param ([e98708e](https://github.com/yearofthedan/weaver/commit/e98708ed472283d6dadf35ad5bc8cbb07bc0a626))
+* **replace-text:** resolve surgical edit paths against the scope root ([c88bb0a](https://github.com/yearofthedan/weaver/commit/c88bb0af6fb3f4e47b071ab9a3008c56f29fb4f4))
+* **utils:** resolve path params declared inside an array ([e53732a](https://github.com/yearofthedan/weaver/commit/e53732a5e73e3d045b201eee52a6dd983f0b5549))
+* **vue-engine:** check a .ts file the Volar program did not hold ([af326b0](https://github.com/yearofthedan/weaver/commit/af326b0fd531b606fdad96d97e2102379736e5b3))
+* **vue-engine:** check a .vue file the Volar program did not hold ([9bf1ed7](https://github.com/yearofthedan/weaver/commit/9bf1ed7ed46b8f24e2e665813e5058e11adbacb5))
+* **vue-engine:** close the registration helper's contract holes ([50f7e97](https://github.com/yearofthedan/weaver/commit/50f7e97fa62aef8d358391653e3d6ea7a77c0faa))
+* **vue-engine:** hold the built set still and drop a double version bump ([3fca62f](https://github.com/yearofthedan/weaver/commit/3fca62fa68997a86a9c9fd80f2a890f1ad518754))
+* **vue-engine:** keep a query-time add out of the project-wide checked count ([d027dfa](https://github.com/yearofthedan/weaver/commit/d027dfa3f5d35a61af6d752ff9548776cf515f3f))
+* **vue-engine:** keep a query-time add out of the project-wide scope ([9ed578c](https://github.com/yearofthedan/weaver/commit/9ed578cc04828f4bc00460671c144964d0c0f93e))
+* **vue-engine:** let the .vue own its virtual name when a real file holds it ([c998db6](https://github.com/yearofthedan/weaver/commit/c998db6a7af7d65b8a0a043489617a5d41626182))
+* **vue-engine:** read the script registry the resolution helper already has ([628d805](https://github.com/yearofthedan/weaver/commit/628d8056e4741a3fc893c699bc7868f79474038b))
+* **vue-engine:** rebuild only for a path a Volar program can hold ([8bda6eb](https://github.com/yearofthedan/weaver/commit/8bda6eba4265ad196bce81c7db52d917c5e60ff0))
+* **vue-engine:** report the closure as a project-wide check's scope ([f03c189](https://github.com/yearofthedan/weaver/commit/f03c18932c2b4d421090d7b1fa35bc693f2eab6b))
+* **vue-engine:** resolve a .vue import outside the service's seeds ([097d8b9](https://github.com/yearofthedan/weaver/commit/097d8b9d3f391da1995302cae6a061526630195d))
+* **vue:** clear a deleted file's script registration ([721bb01](https://github.com/yearofthedan/weaver/commit/721bb01ba613d995f84450e513f12eed5f560fd3))
+* **vue:** let the engine decide which written paths it holds ([5390b1d](https://github.com/yearofthedan/weaver/commit/5390b1de0240e4a6ecd9456952eac249510bbfa2))
+* **vue:** refresh one file inside Volar's retained service ([cd7c990](https://github.com/yearofthedan/weaver/commit/cd7c990e3a876e6293899060399a63a7d0232aaa))
+* **vue:** repair one written file in Volar's cached service ([b7d8372](https://github.com/yearofthedan/weaver/commit/b7d83721bbc40e84e4f05d347307a5c4206f6e4c))
+* **vue:** serve .mts and .cts to the Volar service, and keep it out of non-source writes ([bce8ddc](https://github.com/yearofthedan/weaver/commit/bce8ddce278828b615d321a81e1f8d192c222b9e))
+* **vue:** skip a written path the Volar program does not hold ([0ef2911](https://github.com/yearofthedan/weaver/commit/0ef2911db24c6f33c79cb9bb534c50b7499fdc49))
+
+
+### Performance Improvements
+
+* **vue:** skip the reread when disk text matches the text held ([218c020](https://github.com/yearofthedan/weaver/commit/218c02052a1241c1c781ed46c6663c01f6e9b810))
+
 ## [0.1.12](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.11...weaver-v0.1.12) (2026-09-12)
 
 
