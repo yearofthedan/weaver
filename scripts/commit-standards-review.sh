@@ -17,7 +17,7 @@
 set -uo pipefail
 
 # A COMMIT_REVIEW_CMD already set in the environment picks the runner and model.
-COMMIT_REVIEW_CMD="${COMMIT_REVIEW_CMD:-omp -p --model deepseek/deepseek-v4.1-flash --no-tools --no-session}"
+COMMIT_REVIEW_CMD="${COMMIT_REVIEW_CMD:-omp -p --model anthropic/claude-sonnet-5-5 --no-tools --no-session}"
 
 MSG_FILE="${1:-}"
 REPO=$(git rev-parse --show-toplevel 2>/dev/null)
