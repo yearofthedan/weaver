@@ -1,7 +1,7 @@
 ---
 name: verifier
 description: Independent review of a delivered change against the spec it was built from. Answers two questions — did we build the right thing (does the change deliver the spec's intent and behaviour criteria), and did we build the thing right (is the code correct and well-shaped). Use before archiving a spec, or whenever the question is whether the work itself was the right work.
-model: anthropic/claude-opus-5:high
+model: anthropic/claude-opus-5-5:high
 advisor: true
 tools: read, grep, glob, bash
 ---
