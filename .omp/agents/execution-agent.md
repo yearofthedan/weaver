@@ -2,6 +2,7 @@
 name: execution-agent
 description: Implementation agent for writing code and tests against a spec. Use after a spec is ready — writes failing tests first, implements minimum code to pass, runs checks, and achieves mutation score targets. Faster and cheaper than Opus for mechanical code changes.
 model: anthropic/claude-sonnet-5
+advisor: true
 tools: read, glob, grep, write, edit, bash
 autoloadSkills:
   - implementation-context

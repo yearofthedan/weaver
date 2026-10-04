@@ -1,0 +1,4 @@
+# Project settings. This repository runs a session advisor; its brief is
+# WATCHDOG.md.
+advisor:
+  enabled: true
