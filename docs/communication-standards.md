@@ -15,6 +15,8 @@
 - editorialising lead-ins ("honestly…", "the honest read is…")
 - the phrases "earns its place" and "load-bearing"
 
+Four strings from that list are matched mechanically: the commit-msg hook rejects a subject line or an added markdown/comment line that uses one of the phrases listed in [communication-phrases.txt](communication-phrases.txt), ignoring fenced code, inline code, and quoted text. The rest need judgment, so a model reviews them instead of a matcher.
+
 When communicating with the user, protect their cognitive load. Prefer a table, a concise list, or bare fact over a paragraph that leads up to one.
 
 **Concise is not clipped.** Cutting filler means removing padding, not compressing into fragments. Write normal, clear prose with the fluff gone — brief complete sentences, not shorthand or note form. Overshooting into terseness costs the reader a round trip the same way padding does.

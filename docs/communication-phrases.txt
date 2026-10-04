@@ -1,0 +1,20 @@
+# The mechanically enforced subset of docs/communication-standards.md.
+#
+# One rule per line, tab-separated: <pattern><TAB><rule label>. Blank lines and
+# lines starting with # are ignored.
+#
+# Matching is case-insensitive, literal, and boundary-aware, so "dishonestly"
+# does not match "honestly". The commit-msg hook applies these to the commit
+# subject and to added markdown and comment lines, ignoring fenced code blocks,
+# inline code spans, and quoted text. That is what lets this file and the
+# standard name the phrases.
+#
+# Everything else in the standard — walk-up paragraphs, affirm-then-justify
+# openers, negative space, relevance and placement — needs judgment, so a model
+# reviews it instead of a matcher. Keep this list short and unambiguous: a rule
+# here rejects a commit, and a false positive costs a rewrite.
+
+earns its place	hard-banned phrase
+load-bearing	hard-banned phrase
+the interesting bit	dramatic framing
+the honest read	editorialising lead-in
