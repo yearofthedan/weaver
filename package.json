@@ -70,7 +70,7 @@
     "@vue/language-core": "3.3.11",
     "chokidar": "5.0.0",
     "commander": "15.0.0",
-    "safe-regex2": "5.1.1",
+    "safe-regex2": "5.1.2",
     "ts-morph": "28.0.0",
     "typescript": "6.0.3",
     "zod": "4.5.4"
