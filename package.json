@@ -68,7 +68,7 @@
   "dependencies": {
     "@volar/typescript": "2.4.28",
     "@vue/language-core": "3.3.11",
-    "chokidar": "5.0.0",
+    "chokidar": "6.0.0",
     "commander": "15.0.0",
     "safe-regex2": "5.1.1",
     "ts-morph": "28.0.0",
