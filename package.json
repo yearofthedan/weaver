@@ -66,7 +66,7 @@
     "session:start": "bash scripts/session-start.sh"
   },
   "dependencies": {
-    "@volar/typescript": "2.4.28",
+    "@volar/typescript": "2.4.30",
     "@vue/language-core": "3.3.11",
     "chokidar": "6.0.0",
     "commander": "15.0.0",
