@@ -931,7 +931,8 @@ scenarios:
       response:
         status: success
         typeErrors: none
-        filesModified: [src/App.vue, src/main.ts, tests/unit/counter.test.ts, src/utils/useCounter.ts]
+        filesModified:
+          [src/App.vue, src/main.ts, tests/unit/counter.test.ts, src/utils/useCounter.ts]
         filesSkipped: []
         oldPath: src/composables/useCounter.ts
         newPath: src/utils/useCounter.ts
