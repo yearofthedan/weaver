@@ -85,7 +85,7 @@
     "@types/node": "26.6.5",
     "@types/tmp": "0.2.6",
     "@vitest/coverage-v8": "4.1.12",
-    "@volar/language-core": "2.4.28",
+    "@volar/language-core": "2.4.30",
     "@yearofthedan/weaver": "link:.",
     "husky": "9.1.7",
     "tmp": "0.2.7",
