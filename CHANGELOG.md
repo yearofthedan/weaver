@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.14](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.13...weaver-v0.1.14) (2026-10-29)
+
+
+### Features
+
+* **agents:** run a work advisor over this repo's sessions ([a353352](https://github.com/yearofthedan/weaver/commit/a353352a3eccbc89f659671b697b5ab495f601be))
+
+
+### Bug Fixes
+
+* **hooks:** gate commit prose on phrases instead of a sampled review ([b67e30c](https://github.com/yearofthedan/weaver/commit/b67e30c5cdcb6d1bcf9ae38314f6e3a6b71f7426))
+
 ## [0.1.13](https://github.com/yearofthedan/weaver/compare/weaver-v0.1.12...weaver-v0.1.13) (2026-10-25)
 
 
