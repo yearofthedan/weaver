@@ -33,7 +33,7 @@ pnpm eval:gate -t <case-regex>         # the same, scoped to a case subset
 
 `pnpm eval:gate` is the command a skill-file change has to pass. It runs the lane once per roster model at that model's base trial count (Haiku 3, Gemini 10, Luna 10), keeps going after a model fails so you get all three results, prints a per-model pass/fail and cost summary, and exits non-zero if any model failed. A full run measured **$2.03** on 2026-08-08. The roster is `GATING_MODELS` in `eval/harness/config.ts`.
 
-Always pass `--disable-console-intercept` — without it vitest swallows the per-case rate and trail output on *passing* tests, so a green run prints nothing and a paid run is wasted. `pnpm eval:gate` passes it for you.
+Always pass `--disable-console-intercept` — without it vitest swallows the per-case rate and trail output on _passing_ tests, so a green run prints nothing and a paid run is wasted. `pnpm eval:gate` passes it for you.
 
 **A `-t` pattern that matches nothing runs zero trials and still exits 0.** The lane reports `N skipped` and passes green, indistinguishable from a clean run unless you read the skip count — so a mis-anchored filter silently measures nothing. Confirm the match first, for free:
 
@@ -41,17 +41,17 @@ Always pass `--disable-console-intercept` — without it vitest swallows the per
 pnpm exec vitest list --config eval/vitest.llm.config.ts -t "<pattern>"
 ```
 
-The pattern is matched against the *rendered* test name, where `it.each` wraps the case name in single quotes — `'command-rename' — model emits …`. Anchoring on the trailing separator therefore needs the quote: `-t "command-rename' —"`, not `-t "command-rename —"`.
+The pattern is matched against the _rendered_ test name, where `it.each` wraps the case name in single quotes — `'command-rename' — model emits …`. Anchoring on the trailing separator therefore needs the quote: `-t "command-rename' —"`, not `-t "command-rename —"`.
 
 ## Knobs
 
-| Variable | Effect |
-|---|---|
-| `WEAVER_EVAL_TRIALS` | Base trials per case (default 3; `eval:gate` supplies the roster's per-model count instead). Anything short of a clean sweep escalates to 6 on its own. Set here it wins over the roster, for a spot-check. |
-| `WEAVER_EVAL_MODEL` | Swap the model for a single-model run — e.g. `google/gemini-2.5-flash`. Set per model by `eval:gate`. |
-| `WEAVER_EVAL_TEMPERATURE` | **Diagnostic.** Unset (the default) omits the field entirely, so the model samples at its own default. Set `0` to replay one deterministic path. |
-| `WEAVER_EVAL_CLEAN=1` | **Diagnostic.** Drops clutter and momentum, separating "the body broke" from "it loses under pressure". |
+| Variable                     | Effect                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `WEAVER_EVAL_TRIALS`         | Base trials per case (default 3; `eval:gate` supplies the roster's per-model count instead). Anything short of a clean sweep escalates to 6 on its own. Set here it wins over the roster, for a spot-check.                                                                                                                                                                                                                          |
+| `WEAVER_EVAL_MODEL`          | Swap the model for a single-model run — e.g. `google/gemini-2.5-flash`. Set per model by `eval:gate`.                                                                                                                                                                                                                                                                                                                                |
+| `WEAVER_EVAL_TEMPERATURE`    | **Diagnostic.** Unset (the default) omits the field entirely, so the model samples at its own default. Set `0` to replay one deterministic path.                                                                                                                                                                                                                                                                                     |
+| `WEAVER_EVAL_CLEAN=1`        | **Diagnostic.** Drops clutter and momentum, separating "the body broke" from "it loses under pressure".                                                                                                                                                                                                                                                                                                                              |
 | `WEAVER_EVAL_HOST_CLUTTER=1` | **Diagnostic.** Swaps the clutter's invented tool-use policy for one derived from a real host (Claude Code), including its preference for dedicated tools over shell commands. Measures the lane's pressure against real deployment inertia — see the [2026-08-12 spike](../docs/eval-baselines.md#2026-08-12--spike-does-real-host-prompt-inertia-beat-the-lanes-invented-clutter). Not gating; recorded rates are all generic-arm. |
-| `WEAVER_EVAL_DEBUG=1` | Dump the full turn-by-turn exchange. |
+| `WEAVER_EVAL_DEBUG=1`        | Dump the full turn-by-turn exchange.                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 Neither diagnostic changes gating semantics. Runs cost real money — scope the case set and trial count to the question, and see [Reading a red](../docs/eval-design.md#reading-a-red) for the order to work through a failure.
