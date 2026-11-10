@@ -1,6 +1,6 @@
 {
   "name": "@yearofthedan/weaver",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "packageManager": "pnpm@12.15.0",
   "repository": {
     "type": "git",
